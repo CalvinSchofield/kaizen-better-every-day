@@ -63,26 +63,30 @@ const Home = () => {
     );
   }
 
-  // Helper to check phase status - exact sequential matching
+  // Helper to check phase status - case-insensitive matching
   const phase = repData.ramp_to_blitz_phase || "Not started";
+  const phaseLower = phase.toLowerCase();
   
-  // Determine step completions based on exact Ramp to Blitz Phase value
+  // Log for debugging
+  console.log("Current phase:", phase);
+  
+  // Determine step completions based on Ramp to Blitz Phase value (case-insensitive)
   const onboardingComplete = 
-    phase === "Onboarding ✅" || 
-    phase === "Trainings ✅" || 
-    phase === "Slack ✅" || 
-    phase.startsWith("Phase");
+    phaseLower === "onboarding ✅" || 
+    phaseLower === "trainings ✅" || 
+    phaseLower === "slack ✅" || 
+    phaseLower.startsWith("phase");
   
   const trainingsComplete = 
-    phase === "Trainings ✅" || 
-    phase === "Slack ✅" || 
-    phase.startsWith("Phase");
+    phaseLower === "trainings ✅" || 
+    phaseLower === "slack ✅" || 
+    phaseLower.startsWith("phase");
   
   const slackComplete = 
-    phase === "Slack ✅" || 
-    phase.startsWith("Phase");
+    phaseLower === "slack ✅" || 
+    phaseLower.startsWith("phase");
   
-  const allRampPhasesComplete = phase === "Phase 4 ✅";
+  const allRampPhasesComplete = phaseLower === "phase 4 ✅";
 
   const steps: JourneyStep[] = [
     {
