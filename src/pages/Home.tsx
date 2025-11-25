@@ -108,8 +108,8 @@ const Home = () => {
       inProgress: onboardingComplete && !trainingsComplete
     },
     actions: [{
-      label: "Open Vivint Trainings",
-      href: "#"
+      label: "Open Training Portal",
+      href: "https://dthvivinttraining.conveyour.com/ui/portal"
     }]
   }, {
     id: "slack",
@@ -210,8 +210,8 @@ const Home = () => {
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-1">{getStatusIcon(step.status)}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <CardTitle className="text-lg leading-tight">{step.title}</CardTitle>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <CardTitle className="text-lg leading-tight flex-1 min-w-0">{step.title}</CardTitle>
                       {getStatusBadge(step.status)}
                     </div>
                     {isExpanded && <CardDescription className="text-sm leading-relaxed">
