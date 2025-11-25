@@ -1,7 +1,10 @@
-import { CheckCircle2, Circle, Lock } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useRepData } from "@/hooks/useRepData";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface StepStatus {
   completed: boolean;
@@ -17,18 +20,58 @@ interface JourneyStep {
   actions: Array<{
     label: string;
     href?: string;
-    variant?: "default" | "outline" | "secondary";
+    variant?: "default" | "outline" | "secondary" | "success" | "warning" | "locked";
+    onClick?: () => void;
   }>;
 }
 
 const Home = () => {
-  // Mock data - will be replaced with Notion integration
+  const { repData, loading } = useRepData();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!repData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Setup Required</CardTitle>
+            <CardDescription>
+              Your account needs to be set up by your team leader. Please contact them to get started.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleLogout} variant="outline" className="w-full">
+              Log Out
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const steps: JourneyStep[] = [
     {
       id: "onboarding",
       title: "Complete Your Onboarding",
       description: "Get fully onboarded in the system so you can get paid and start training.",
-      status: { completed: false, locked: false, inProgress: true },
+      status: {
+        completed: repData.onboarding_complete,
+        locked: false,
+        inProgress: !repData.onboarding_complete,
+      },
       actions: [
         { label: "Start Onboarding", href: "#", variant: "default" },
         { label: "Request I-9 Help", href: "#", variant: "outline" },
@@ -38,19 +81,42 @@ const Home = () => {
       id: "trainings",
       title: "Complete Required Vivint Trainings",
       description: "Finish the mandatory Vivint modules and quizzes so you're cleared to sell.",
-      status: { completed: false, locked: true, inProgress: false },
-      actions: [
-        { label: "Open Vivint Trainings", href: "#" },
-      ],
+      status: {
+        completed: repData.trainings_complete,
+        locked: !repData.onboarding_complete,
+        inProgress: repData.onboarding_complete && !repData.trainings_complete,
+      },
+      actions: [{ label: "Open Vivint Trainings", href: "#" }],
     },
     {
       id: "slack",
       title: "Join the Team Slack & Introduce Yourself",
       description: "Join the group and post a quick intro so the team knows who you are.",
-      status: { completed: false, locked: true, inProgress: false },
+      status: {
+        completed: repData.slack_joined,
+        locked: !repData.trainings_complete,
+        inProgress: repData.trainings_complete && !repData.slack_joined,
+      },
       actions: [
         { label: "Join Slack", href: "#" },
         { label: "Intro Example", href: "#", variant: "outline" },
+      ],
+    },
+    {
+      id: "ramp",
+      title: "Prepare for Blitz – Ramp to Blitz",
+      description: "Work through Phases 1–4 with your leaders so you're ready to crush your first blitz.",
+      status: {
+        completed: repData.ramp_phase_4_complete,
+        locked: !repData.slack_joined,
+        inProgress: repData.slack_joined && !repData.ramp_phase_4_complete,
+      },
+      actions: [
+        {
+          label: repData.ramp_phase_1_complete ? "Phase 1: Complete ✓" : "Start Phase 1",
+          href: "#",
+          variant: repData.ramp_phase_1_complete ? "success" : "default",
+        },
       ],
     },
   ];
@@ -83,8 +149,21 @@ const Home = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-8">
         <div className="max-w-lg mx-auto">
-          <h1 className="text-2xl font-bold mb-2">Your Journey</h1>
-          <p className="text-primary-foreground/90 text-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-2xl font-bold">Your Journey</h1>
+              <p className="text-primary-foreground/90 text-sm">Welcome back, {repData.name}!</p>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              Log Out
+            </Button>
+          </div>
+          <p className="text-primary-foreground/80 text-sm">
             Follow these steps to go from rookie to closer
           </p>
         </div>
@@ -92,9 +171,9 @@ const Home = () => {
 
       {/* Journey Steps */}
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4 pb-6">
-        {steps.map((step, index) => {
+        {steps.map((step) => {
           const isExpanded = step.status.inProgress && !step.status.completed;
-          
+
           return (
             <Card
               key={step.id}
@@ -110,14 +189,10 @@ const Home = () => {
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1">
-                    {getStatusIcon(step.status)}
-                  </div>
+                  <div className="flex-shrink-0 mt-1">{getStatusIcon(step.status)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <CardTitle className="text-lg leading-tight">
-                        {step.title}
-                      </CardTitle>
+                      <CardTitle className="text-lg leading-tight">{step.title}</CardTitle>
                       {getStatusBadge(step.status)}
                     </div>
                     {isExpanded && (
@@ -138,9 +213,10 @@ const Home = () => {
                       className="w-full"
                       size="lg"
                       disabled={step.status.locked}
-                      asChild={!!action.href}
+                      onClick={action.onClick}
+                      asChild={!!action.href && !action.onClick}
                     >
-                      {action.href ? (
+                      {action.href && !action.onClick ? (
                         <a href={action.href} target="_blank" rel="noopener noreferrer">
                           {action.label}
                         </a>
