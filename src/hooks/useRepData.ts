@@ -49,7 +49,49 @@ export const useRepData = () => {
 
         if (error) throw error;
 
-        setRepData(data);
+        // If no rep data exists, automatically sync from Notion
+        if (!data) {
+          console.log("No rep data found, attempting auto-sync from Notion...");
+          toast({
+            title: "Syncing from Notion",
+            description: "Loading your data from Notion...",
+          });
+
+          const { error: syncError } = await supabase.functions.invoke(
+            "sync-notion-reps"
+          );
+
+          if (syncError) {
+            console.error("Auto-sync error:", syncError);
+            toast({
+              title: "Sync failed",
+              description: "Could not sync your data from Notion. Please contact your team leader.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+
+          // Fetch the newly synced data
+          const { data: syncedData, error: refetchError } = await supabase
+            .from("reps")
+            .select("*")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (refetchError) throw refetchError;
+
+          setRepData(syncedData);
+          
+          if (syncedData) {
+            toast({
+              title: "Sync successful",
+              description: "Your data has been loaded from Notion.",
+            });
+          }
+        } else {
+          setRepData(data);
+        }
       } catch (error: any) {
         console.error("Error fetching rep data:", error);
         toast({
