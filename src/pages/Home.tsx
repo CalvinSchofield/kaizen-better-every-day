@@ -50,10 +50,11 @@ const Home = () => {
           <CardHeader>
             <CardTitle>Setup Required</CardTitle>
             <CardDescription>
-              Your account needs to be set up by your team leader. Please contact them to get started.
+              Your account needs to be set up by your team leader. Click "Sync from Notion" to load your data.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <AdminSyncButton />
             <Button onClick={handleLogout} variant="outline" className="w-full">
               Log Out
             </Button>

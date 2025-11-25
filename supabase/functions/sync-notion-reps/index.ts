@@ -136,14 +136,24 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get Ramp to Blitz phase from select property
-        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "not started";
+        // Get Journey Step from select property (tracks steps 1-3)
+        const journeyStep = getSelect(props["Journey Step"]) || "";
+        const journeyLower = journeyStep.toLowerCase();
+        
+        // Map journey steps to completions
+        const onboardingComplete = journeyLower.includes("onboarding") || journeyLower.includes("trainings") || journeyLower.includes("slack") || journeyLower.includes("ramp");
+        const trainingsComplete = journeyLower.includes("trainings") || journeyLower.includes("slack") || journeyLower.includes("ramp");
+        const slackJoined = journeyLower.includes("slack") || journeyLower.includes("ramp");
+
+        // Get Ramp to Blitz phase from select property (step 4)
+        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "";
+        const rampLower = rampPhase.toLowerCase();
         
         // Map phase to boolean completions
-        const rampPhase1Complete = ["phase 1 ✅", "phase 2 ✅", "phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
-        const rampPhase2Complete = ["phase 2 ✅", "phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
-        const rampPhase3Complete = ["phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
-        const rampPhase4Complete = rampPhase.toLowerCase().includes("phase 4 ✅");
+        const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        const rampPhase2Complete = rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        const rampPhase3Complete = rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        const rampPhase4Complete = rampLower.includes("phase 4");
 
         const repData = {
           user_id: user.id,
@@ -155,12 +165,12 @@ Deno.serve(async (req) => {
           team_leader: getRichText(props["Team Leader"]) || getSelect(props["Team Leader"]),
           stage: getSelect(props.Stage),
           
-          // Journey progress - default to false if no properties exist
-          onboarding_complete: getCheckbox(props["Onboarding Complete"]),
-          trainings_complete: getCheckbox(props["Trainings Complete"]),
-          slack_joined: getCheckbox(props["Slack Joined"]),
+          // Journey progress - from Journey Step property
+          onboarding_complete: onboardingComplete,
+          trainings_complete: trainingsComplete,
+          slack_joined: slackJoined,
           
-          // Ramp to Blitz phases - map from select property
+          // Ramp to Blitz phases - from Ramp To Blitz Phase property
           ramp_phase_1_complete: rampPhase1Complete,
           ramp_phase_2_complete: rampPhase2Complete,
           ramp_phase_3_complete: rampPhase3Complete,
