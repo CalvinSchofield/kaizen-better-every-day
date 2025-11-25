@@ -12,6 +12,7 @@ export interface RepData {
   recruiter: string | null;
   team_leader: string | null;
   stage: string | null;
+  ramp_to_blitz_phase: string | null;
   onboarding_complete: boolean;
   trainings_complete: boolean;
   slack_joined: boolean;

@@ -64,15 +64,24 @@ const Home = () => {
     );
   }
 
+  // Helper to check phase status
+  const phase = repData.ramp_to_blitz_phase?.toLowerCase() || "not started";
+  
+  // Determine step completions based on Ramp to Blitz Phase
+  const onboardingComplete = phase.includes("onboarding ✅") || phase.includes("slack") || phase.includes("trainings") || phase.includes("phase");
+  const trainingsComplete = phase.includes("trainings ✅") || phase.includes("slack") || phase.includes("phase");
+  const slackComplete = phase.includes("slack ✅") || phase.includes("phase");
+  const allRampPhasesComplete = phase.includes("phase 4 ✅");
+
   const steps: JourneyStep[] = [
     {
       id: "onboarding",
       title: "Complete Your Onboarding",
       description: "Get fully onboarded in the system so you can get paid and start training.",
       status: {
-        completed: repData.onboarding_complete,
+        completed: onboardingComplete,
         locked: false,
-        inProgress: !repData.onboarding_complete,
+        inProgress: phase === "not started" || (!onboardingComplete),
       },
       actions: [
         { label: "Start Onboarding", href: "#", variant: "default" },
@@ -84,9 +93,9 @@ const Home = () => {
       title: "Complete Required Vivint Trainings",
       description: "Finish the mandatory Vivint modules and quizzes so you're cleared to sell.",
       status: {
-        completed: repData.trainings_complete,
-        locked: !repData.onboarding_complete,
-        inProgress: repData.onboarding_complete && !repData.trainings_complete,
+        completed: trainingsComplete,
+        locked: !onboardingComplete,
+        inProgress: onboardingComplete && !trainingsComplete,
       },
       actions: [{ label: "Open Vivint Trainings", href: "#" }],
     },
@@ -95,9 +104,9 @@ const Home = () => {
       title: "Join the Team Slack & Introduce Yourself",
       description: "Join the group and post a quick intro so the team knows who you are.",
       status: {
-        completed: repData.slack_joined,
-        locked: !repData.trainings_complete,
-        inProgress: repData.trainings_complete && !repData.slack_joined,
+        completed: slackComplete,
+        locked: !trainingsComplete,
+        inProgress: trainingsComplete && !slackComplete,
       },
       actions: [
         { label: "Join Slack", href: "#" },
@@ -109,15 +118,15 @@ const Home = () => {
       title: "Prepare for Blitz – Ramp to Blitz",
       description: "Work through Phases 1–4 with your leaders so you're ready to crush your first blitz.",
       status: {
-        completed: repData.ramp_phase_4_complete,
-        locked: !repData.slack_joined,
-        inProgress: repData.slack_joined && !repData.ramp_phase_4_complete,
+        completed: allRampPhasesComplete,
+        locked: !slackComplete,
+        inProgress: slackComplete && !allRampPhasesComplete,
       },
       actions: [
         {
-          label: repData.ramp_phase_1_complete ? "Phase 1: Complete ✓" : "Start Phase 1",
+          label: phase.includes("phase") ? `Current: ${repData.ramp_to_blitz_phase}` : "Start Phase 1",
           href: "#",
-          variant: repData.ramp_phase_1_complete ? "success" : "default",
+          variant: phase.includes("phase") ? "default" : "default",
         },
       ],
     },
