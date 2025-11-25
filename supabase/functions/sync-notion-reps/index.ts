@@ -146,7 +146,10 @@ Deno.serve(async (req) => {
         const slackJoined = journeyLower.includes("slack") || journeyLower.includes("ramp");
 
         // Get Ramp to Blitz phase from select property (stores raw value)
-        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "Not started";
+        console.log("Notion properties available:", Object.keys(props));
+        console.log("Looking for 'Ramp To Blitz Phase' property...");
+        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "Not started";
+        console.log("Found ramp phase value:", rampPhase);
         const rampLower = rampPhase.toLowerCase();
         
         // Map phase to boolean completions for backward compatibility
