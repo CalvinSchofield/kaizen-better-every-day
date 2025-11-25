@@ -76,18 +76,26 @@ const Home = () => {
   console.log("Current phase:", phase);
 
   // Determine step completions based on Ramp to Blitz Phase value (case-insensitive)
-  const onboardingComplete = phaseLower === "onboarding ✅" || phaseLower === "trainings ✅" || phaseLower === "slack ✅" || phaseLower.startsWith("phase");
-  const trainingsComplete = phaseLower === "trainings ✅" || phaseLower === "slack ✅" || phaseLower.startsWith("phase");
-  const slackComplete = phaseLower === "slack ✅" || phaseLower.startsWith("phase");
-  const allRampPhasesComplete = phaseLower === "phase 4 ✅";
+  // Check if phase contains keywords for more flexible matching
+  const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
+  const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
+  const slackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
+  const isInRampPhases = phaseLower.includes("phase") && phaseLower.includes("✅");
+  
+  // If any ramp phase is complete, all previous steps are complete
+  if (isInRampPhases) {
+    // All steps before ramp phases are complete
+  }
+  
+  const allRampPhasesComplete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
   const steps: JourneyStep[] = [{
     id: "onboarding",
     title: "Complete Your Onboarding",
     description: "Get fully onboarded in the system so you can get paid and start training.",
     status: {
-      completed: onboardingComplete,
+      completed: onboardingComplete || trainingsComplete || slackComplete || isInRampPhases,
       locked: false,
-      inProgress: phase === "not started" || !onboardingComplete
+      inProgress: phaseLower === "not started" && !onboardingComplete
     },
     actions: [{
       label: "Finish Onboarding",
@@ -103,9 +111,9 @@ const Home = () => {
     title: "Complete Required Vivint Trainings",
     description: "Finish the mandatory Vivint modules and quizzes so you're cleared to sell.",
     status: {
-      completed: trainingsComplete,
-      locked: !onboardingComplete,
-      inProgress: onboardingComplete && !trainingsComplete
+      completed: trainingsComplete || slackComplete || isInRampPhases,
+      locked: !(onboardingComplete || trainingsComplete || slackComplete || isInRampPhases),
+      inProgress: onboardingComplete && !trainingsComplete && !slackComplete && !isInRampPhases
     },
     actions: [{
       label: "Open Training Portal",
@@ -116,9 +124,9 @@ const Home = () => {
     title: "Join the Team Slack & Introduce Yourself",
     description: "Join the group and post a quick intro so the team knows who you are.",
     status: {
-      completed: slackComplete,
-      locked: !trainingsComplete,
-      inProgress: trainingsComplete && !slackComplete
+      completed: slackComplete || isInRampPhases,
+      locked: !(trainingsComplete || slackComplete || isInRampPhases),
+      inProgress: trainingsComplete && !slackComplete && !isInRampPhases
     },
     actions: [{
       label: "Join Slack",
@@ -134,7 +142,7 @@ const Home = () => {
     description: "Work through Phases 1–4 with your leaders so you're ready to crush your first blitz.",
     status: {
       completed: allRampPhasesComplete,
-      locked: !slackComplete,
+      locked: !(slackComplete || isInRampPhases),
       inProgress: slackComplete && !allRampPhasesComplete
     },
     actions: [{
