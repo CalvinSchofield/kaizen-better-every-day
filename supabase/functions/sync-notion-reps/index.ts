@@ -136,6 +136,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Get Ramp to Blitz phase from select property
+        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "not started";
+        
+        // Map phase to boolean completions
+        const rampPhase1Complete = ["phase 1 ✅", "phase 2 ✅", "phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
+        const rampPhase2Complete = ["phase 2 ✅", "phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
+        const rampPhase3Complete = ["phase 3 ✅", "phase 4 ✅"].some(p => rampPhase.toLowerCase().includes(p.toLowerCase()));
+        const rampPhase4Complete = rampPhase.toLowerCase().includes("phase 4 ✅");
+
         const repData = {
           user_id: user.id,
           notion_page_id: page.id,
@@ -146,21 +155,21 @@ Deno.serve(async (req) => {
           team_leader: getRichText(props["Team Leader"]) || getSelect(props["Team Leader"]),
           stage: getSelect(props.Stage),
           
-          // Journey progress
+          // Journey progress - default to false if no properties exist
           onboarding_complete: getCheckbox(props["Onboarding Complete"]),
           trainings_complete: getCheckbox(props["Trainings Complete"]),
           slack_joined: getCheckbox(props["Slack Joined"]),
           
-          // Ramp to Blitz phases
-          ramp_phase_1_complete: getCheckbox(props["Ramp Phase 1 Complete"]),
-          ramp_phase_2_complete: getCheckbox(props["Ramp Phase 2 Complete"]),
-          ramp_phase_3_complete: getCheckbox(props["Ramp Phase 3 Complete"]),
-          ramp_phase_4_complete: getCheckbox(props["Ramp Phase 4 Complete"]),
+          // Ramp to Blitz phases - map from select property
+          ramp_phase_1_complete: rampPhase1Complete,
+          ramp_phase_2_complete: rampPhase2Complete,
+          ramp_phase_3_complete: rampPhase3Complete,
+          ramp_phase_4_complete: rampPhase4Complete,
           
           // Post-blitz
           blitz_ready: getCheckbox(props["Blitz Ready"]),
           path_to_pro_started: getCheckbox(props["Path to Pro Started"]),
-          path_to_pro_progress: 0, // Can be enhanced to read from Notion
+          path_to_pro_progress: 0,
         };
 
         // Upsert rep data
