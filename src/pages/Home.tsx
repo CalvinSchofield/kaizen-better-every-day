@@ -35,6 +35,17 @@ const Home = () => {
     navigate("/auth");
   };
 
+  const handleManualSync = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-notion-reps');
+      if (error) throw error;
+      console.log("Sync result:", data);
+      window.location.reload(); // Refresh to show updated data
+    } catch (error) {
+      console.error("Sync error:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -99,8 +110,8 @@ const Home = () => {
         inProgress: phase === "not started" || (!onboardingComplete),
       },
       actions: [
-        { label: "Start Onboarding", href: "#", variant: "default" },
-        { label: "Request I-9 Help", href: "#", variant: "outline" },
+        { label: "Start Onboarding", href: "https://onboardingtool.vivint.com/", variant: "default" },
+        { label: "Request I-9 Help", href: "https://forms.gle/rCssbYULxJ673nfP8", variant: "outline" },
       ],
     },
     {
@@ -189,6 +200,14 @@ const Home = () => {
               Log Out
             </Button>
           </div>
+          <Button
+            onClick={handleManualSync}
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+          >
+            Sync from Notion
+          </Button>
           <p className="text-primary-foreground/80 text-sm">
             Follow these steps to go from rookie to closer
           </p>
