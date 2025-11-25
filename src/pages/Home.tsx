@@ -90,7 +90,7 @@ const Home = () => {
       inProgress: phase === "not started" || !onboardingComplete
     },
     actions: [{
-      label: "Start Onboarding",
+      label: "Finish Onboarding",
       href: "https://onboardingtool.vivint.com/",
       variant: "default"
     }, {
@@ -223,7 +223,7 @@ const Home = () => {
 
               {isExpanded && <CardContent className="pt-0 space-y-2">
                   {step.actions.map((action, actionIndex) => <Button key={actionIndex} variant={action.variant || "default"} className="w-full" size="lg" disabled={step.status.locked} onClick={action.onClick} asChild={!!action.href && !action.onClick}>
-                      {action.href && !action.onClick ? <a href={action.href} target="_blank" rel="noopener noreferrer">Request I-9 Help{action.label}
+                      {action.href && !action.onClick ? <a href={action.href} target="_blank" rel="noopener noreferrer">{action.label}
                         </a> : <span>{action.label}</span>}
                     </Button>)}
                 </CardContent>}

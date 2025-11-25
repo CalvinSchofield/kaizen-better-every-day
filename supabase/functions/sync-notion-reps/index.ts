@@ -136,21 +136,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get Journey Step from select property (tracks steps 1-3)
-        const journeyStep = getSelect(props["Journey Step"]) || "";
-        const journeyLower = journeyStep.toLowerCase();
-        
-        // Map journey steps to completions
-        const onboardingComplete = journeyLower.includes("onboarding") || journeyLower.includes("trainings") || journeyLower.includes("slack") || journeyLower.includes("ramp");
-        const trainingsComplete = journeyLower.includes("trainings") || journeyLower.includes("slack") || journeyLower.includes("ramp");
-        const slackJoined = journeyLower.includes("slack") || journeyLower.includes("ramp");
-
-        // Get Ramp to Blitz phase from select property (stores raw value)
+        // Get Ramp to Blitz Phase - SINGLE SOURCE OF TRUTH for ALL journey progression
         console.log("Notion properties available:", Object.keys(props));
-        console.log("Looking for 'Ramp To Blitz Phase' property...");
-        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "Not started";
+        console.log("Looking for 'Ramp to Blitz Phase' property...");
+        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "not started";
         console.log("Found ramp phase value:", rampPhase);
         const rampLower = rampPhase.toLowerCase();
+        
+        // Derive all step completions from the single Ramp to Blitz Phase property
+        const onboardingComplete = rampLower.includes("onboarding") || rampLower.includes("trainings") || rampLower.includes("slack") || rampLower.includes("phase");
+        const trainingsComplete = rampLower.includes("trainings") || rampLower.includes("slack") || rampLower.includes("phase");
+        const slackJoined = rampLower.includes("slack") || rampLower.includes("phase");
         
         // Map phase to boolean completions for backward compatibility
         const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
