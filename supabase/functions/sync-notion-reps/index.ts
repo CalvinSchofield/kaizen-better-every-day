@@ -139,6 +139,13 @@ Deno.serve(async (req) => {
         // Get Ramp to Blitz Phase - SINGLE SOURCE OF TRUTH for ALL journey progression
         console.log("Notion properties available:", Object.keys(props));
         console.log("Looking for 'Ramp to Blitz Phase' property...");
+        
+        // Debug: Log the actual property object
+        const rampProp = props["Ramp to Blitz Phase"];
+        console.log("Raw property object:", JSON.stringify(rampProp, null, 2));
+        console.log("Property type:", rampProp?.type);
+        console.log("Property select:", rampProp?.select);
+        
         const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "not started";
         console.log("Found ramp phase value:", rampPhase);
         const rampLower = rampPhase.toLowerCase();
