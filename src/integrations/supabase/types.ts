@@ -51,6 +51,7 @@ export type Database = {
           ramp_phase_2_complete: boolean | null
           ramp_phase_3_complete: boolean | null
           ramp_phase_4_complete: boolean | null
+          ramp_to_blitz_phase: string | null
           recruiter: string | null
           slack_joined: boolean | null
           stage: string | null
@@ -74,6 +75,7 @@ export type Database = {
           ramp_phase_2_complete?: boolean | null
           ramp_phase_3_complete?: boolean | null
           ramp_phase_4_complete?: boolean | null
+          ramp_to_blitz_phase?: string | null
           recruiter?: string | null
           slack_joined?: boolean | null
           stage?: string | null
@@ -97,6 +99,7 @@ export type Database = {
           ramp_phase_2_complete?: boolean | null
           ramp_phase_3_complete?: boolean | null
           ramp_phase_4_complete?: boolean | null
+          ramp_to_blitz_phase?: string | null
           recruiter?: string | null
           slack_joined?: boolean | null
           stage?: string | null

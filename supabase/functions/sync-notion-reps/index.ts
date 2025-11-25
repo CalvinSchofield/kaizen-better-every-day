@@ -145,11 +145,11 @@ Deno.serve(async (req) => {
         const trainingsComplete = journeyLower.includes("trainings") || journeyLower.includes("slack") || journeyLower.includes("ramp");
         const slackJoined = journeyLower.includes("slack") || journeyLower.includes("ramp");
 
-        // Get Ramp to Blitz phase from select property (step 4)
-        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "";
+        // Get Ramp to Blitz phase from select property (stores raw value)
+        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || "Not started";
         const rampLower = rampPhase.toLowerCase();
         
-        // Map phase to boolean completions
+        // Map phase to boolean completions for backward compatibility
         const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
         const rampPhase2Complete = rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
         const rampPhase3Complete = rampLower.includes("phase 3") || rampLower.includes("phase 4");
@@ -170,7 +170,10 @@ Deno.serve(async (req) => {
           trainings_complete: trainingsComplete,
           slack_joined: slackJoined,
           
-          // Ramp to Blitz phases - from Ramp To Blitz Phase property
+          // Ramp to Blitz Phase - raw value from Notion
+          ramp_to_blitz_phase: rampPhase,
+          
+          // Ramp to Blitz phases - from Ramp To Blitz Phase property (backward compatibility)
           ramp_phase_1_complete: rampPhase1Complete,
           ramp_phase_2_complete: rampPhase2Complete,
           ramp_phase_3_complete: rampPhase3Complete,
