@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import AdminSyncButton from "@/components/AdminSyncButton";
+
 
 interface StepStatus {
   completed: boolean;
@@ -54,7 +54,6 @@ const Home = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <AdminSyncButton />
             <Button onClick={handleLogout} variant="outline" className="w-full">
               Log Out
             </Button>
@@ -64,14 +63,26 @@ const Home = () => {
     );
   }
 
-  // Helper to check phase status
-  const phase = repData.ramp_to_blitz_phase?.toLowerCase() || "not started";
+  // Helper to check phase status - exact sequential matching
+  const phase = repData.ramp_to_blitz_phase || "Not started";
   
-  // Determine step completions based on Ramp to Blitz Phase
-  const onboardingComplete = phase.includes("onboarding ✅") || phase.includes("slack") || phase.includes("trainings") || phase.includes("phase");
-  const trainingsComplete = phase.includes("trainings ✅") || phase.includes("slack") || phase.includes("phase");
-  const slackComplete = phase.includes("slack ✅") || phase.includes("phase");
-  const allRampPhasesComplete = phase.includes("phase 4 ✅");
+  // Determine step completions based on exact Ramp to Blitz Phase value
+  const onboardingComplete = 
+    phase === "Onboarding ✅" || 
+    phase === "Trainings ✅" || 
+    phase === "Slack ✅" || 
+    phase.startsWith("Phase");
+  
+  const trainingsComplete = 
+    phase === "Trainings ✅" || 
+    phase === "Slack ✅" || 
+    phase.startsWith("Phase");
+  
+  const slackComplete = 
+    phase === "Slack ✅" || 
+    phase.startsWith("Phase");
+  
+  const allRampPhasesComplete = phase === "Phase 4 ✅";
 
   const steps: JourneyStep[] = [
     {
@@ -165,17 +176,14 @@ const Home = () => {
               <h1 className="text-2xl font-bold">Your Journey</h1>
               <p className="text-primary-foreground/90 text-sm">Welcome back, {repData.name}!</p>
             </div>
-            <div className="flex items-center gap-2">
-              <AdminSyncButton />
-              <Button
-                onClick={handleLogout}
-                variant="ghost"
-                size="sm"
-                className="text-primary-foreground hover:bg-primary-foreground/10"
-              >
-                Log Out
-              </Button>
-            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              Log Out
+            </Button>
           </div>
           <p className="text-primary-foreground/80 text-sm">
             Follow these steps to go from rookie to closer
