@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      reps: {
+        Row: {
+          blitz_ready: boolean | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          notion_page_id: string | null
+          onboarding_complete: boolean | null
+          path_to_pro_progress: number | null
+          path_to_pro_started: boolean | null
+          phone: string | null
+          ramp_phase_1_complete: boolean | null
+          ramp_phase_2_complete: boolean | null
+          ramp_phase_3_complete: boolean | null
+          ramp_phase_4_complete: boolean | null
+          recruiter: string | null
+          slack_joined: boolean | null
+          stage: string | null
+          team_leader: string | null
+          trainings_complete: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          blitz_ready?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notion_page_id?: string | null
+          onboarding_complete?: boolean | null
+          path_to_pro_progress?: number | null
+          path_to_pro_started?: boolean | null
+          phone?: string | null
+          ramp_phase_1_complete?: boolean | null
+          ramp_phase_2_complete?: boolean | null
+          ramp_phase_3_complete?: boolean | null
+          ramp_phase_4_complete?: boolean | null
+          recruiter?: string | null
+          slack_joined?: boolean | null
+          stage?: string | null
+          team_leader?: string | null
+          trainings_complete?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          blitz_ready?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notion_page_id?: string | null
+          onboarding_complete?: boolean | null
+          path_to_pro_progress?: number | null
+          path_to_pro_started?: boolean | null
+          phone?: string | null
+          ramp_phase_1_complete?: boolean | null
+          ramp_phase_2_complete?: boolean | null
+          ramp_phase_3_complete?: boolean | null
+          ramp_phase_4_complete?: boolean | null
+          recruiter?: string | null
+          slack_joined?: boolean | null
+          stage?: string | null
+          team_leader?: string | null
+          trainings_complete?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
