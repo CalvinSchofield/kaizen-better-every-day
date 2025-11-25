@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import AdminSyncButton from "@/components/AdminSyncButton";
 
 interface StepStatus {
   completed: boolean;
@@ -154,14 +155,17 @@ const Home = () => {
               <h1 className="text-2xl font-bold">Your Journey</h1>
               <p className="text-primary-foreground/90 text-sm">Welcome back, {repData.name}!</p>
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              Log Out
-            </Button>
+            <div className="flex items-center gap-2">
+              <AdminSyncButton />
+              <Button
+                onClick={handleLogout}
+                variant="ghost"
+                size="sm"
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                Log Out
+              </Button>
+            </div>
           </div>
           <p className="text-primary-foreground/80 text-sm">
             Follow these steps to go from rookie to closer
