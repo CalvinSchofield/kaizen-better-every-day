@@ -105,6 +105,13 @@ Deno.serve(async (req) => {
           return null;
         };
 
+        const getStatus = (prop: NotionProperty) => {
+          if (prop?.type === "status" && prop.status) {
+            return prop.status.name;
+          }
+          return null;
+        };
+
         const getCheckbox = (prop: NotionProperty) => {
           if (prop?.type === "checkbox") {
             return prop.checkbox || false;
@@ -146,7 +153,7 @@ Deno.serve(async (req) => {
         console.log("Property type:", rampProp?.type);
         console.log("Property select:", rampProp?.select);
         
-        const rampPhase = getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "not started";
+        const rampPhase = getStatus(props["Ramp to Blitz Phase"]) || getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "not started";
         console.log("Found ramp phase value:", rampPhase);
         const rampLower = rampPhase.toLowerCase();
         
