@@ -183,6 +183,21 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
+      {/* Debug Panel */}
+      <div className="max-w-lg mx-auto px-4 py-4">
+        <Card className="bg-muted">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Debug Info</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs space-y-1">
+            <div><strong>Phase from DB:</strong> "{repData.ramp_to_blitz_phase}"</div>
+            <div><strong>Onboarding Complete:</strong> {onboardingComplete ? '✓ Yes' : '✗ No'}</div>
+            <div><strong>Notion Page ID:</strong> {repData.notion_page_id || 'Not synced'}</div>
+            <div className="text-warning mt-2">If the phase is wrong, check your Notion "Ramp to Blitz Phase" select property</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-8">
         <div className="max-w-lg mx-auto">
