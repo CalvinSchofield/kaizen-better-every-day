@@ -42,8 +42,10 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          last_nudge_time: string | null
           name: string
           notion_page_id: string | null
+          nudge_leader: boolean | null
           onboarding_complete: boolean | null
           path_to_pro_progress: number | null
           path_to_pro_started: boolean | null
@@ -68,8 +70,10 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          last_nudge_time?: string | null
           name: string
           notion_page_id?: string | null
+          nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null
@@ -94,8 +98,10 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          last_nudge_time?: string | null
           name?: string
           notion_page_id?: string | null
+          nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null

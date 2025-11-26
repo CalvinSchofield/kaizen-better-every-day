@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,15 @@ const Home = () => {
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isNudging, setIsNudging] = useState(false);
+  
+  // Check if nudge button should be disabled (1 hour cooldown)
+  const canNudge = () => {
+    if (!repData?.last_nudge_time) return true;
+    const lastNudge = new Date(repData.last_nudge_time);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    return lastNudge < oneHourAgo;
+  };
 
   // Get completed tasks from database
   const completedTasksArray = (repData?.completed_tasks as string[]) || [];
@@ -248,6 +257,40 @@ const Home = () => {
       });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleNudge = async () => {
+    if (!repData?.id || !canNudge()) return;
+    
+    setIsNudging(true);
+    try {
+      const newNudgeValue = !repData.nudge_leader;
+      const { error } = await supabase
+        .from('reps')
+        .update({ 
+          nudge_leader: newNudgeValue,
+          last_nudge_time: new Date().toISOString()
+        })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "✓ Leaders notified",
+        description: "Your leaders have been notified that you've completed all tasks!",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error nudging leaders:', error);
+      toast({
+        title: "Nudge failed",
+        description: "Could not notify leaders. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsNudging(false);
     }
   };
   if (loading) {
@@ -704,13 +747,25 @@ const Home = () => {
                         
                         {/* Show encouragement when all tasks are completed */}
                         {phase.tasks.every(task => completedTasks.has(task.id)) && !phaseStatus.completed && (
-                          <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                            <p className="text-sm font-medium text-foreground">
-                              🎉 Great work! You've completed all tasks for Phase {phase.id}.
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Text your leaders to let them know you're done with Phase {phase.id} so they can verify and unlock the next phase!
-                            </p>
+                          <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg space-y-3">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">
+                                🎉 Great work! You've completed all tasks for Phase {phase.id}.
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Text your leaders to let them know you're done with Phase {phase.id} so they can verify and unlock the next phase!
+                              </p>
+                            </div>
+                            <Button
+                              onClick={handleNudge}
+                              disabled={!canNudge() || isNudging}
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                            >
+                              <Bell className="w-4 h-4 mr-2" />
+                              {isNudging ? "Notifying..." : !canNudge() ? "Nudged (wait 1hr)" : "Nudge"}
+                            </Button>
                           </div>
                         )}
                       </AccordionContent>
