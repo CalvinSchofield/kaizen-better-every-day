@@ -66,7 +66,7 @@ const FLOW_STEPS: FlowStep[] = [
     icon: FileCheck,
     links: [
       { label: "Welcome Page", url: "https://calvinschofield.notion.site/welcome?source=copy_link", type: "notion" },
-      { label: "Kaizen Preseason Hub", url: "https://kaizen-better-every-day.lovable.app/auth", type: "notion", subtext: "This is the onboarding and pre-blitz app for your rookies to help them do their best this summer. Share the link with them and help them add it as an app on their phone." }
+      { label: "Kaizen Preseason Hub", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "This is the onboarding and pre-blitz app for your rookies to help them do their best this summer. Share the link with them and help them add it as an app on their phone." }
     ]
   },
   {
@@ -196,43 +196,24 @@ export const RecruitingFlowCarousel = () => {
                       <div className="space-y-2">
                         {step.links.map((link, idx) => (
                           <div key={idx} className="space-y-1">
-                            <div className="flex gap-2">
-                              {link.type === 'video' ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 justify-start"
-                                  asChild
-                                >
-                                  <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
-                                    <Play className="h-4 w-4 mr-2" />
-                                    {link.label}
-                                    <ExternalLinkIcon className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
-                                  </ExternalLink>
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex-1 justify-start"
-                                    onClick={() => copyToClipboard(link.url, link.label)}
-                                  >
-                                    <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
-                                    <span className="truncate">{link.label}</span>
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    asChild
-                                  >
-                                    <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
-                                      <ExternalLinkIcon className="h-4 w-4" />
-                                    </ExternalLink>
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-between"
+                              asChild
+                            >
+                              <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
+                                <span className="flex items-center gap-2">
+                                  {link.type === 'video' ? (
+                                    <Play className="h-4 w-4 flex-shrink-0" />
+                                  ) : (
+                                    <Copy className="h-4 w-4 flex-shrink-0" />
+                                  )}
+                                  <span className="truncate">{link.label}</span>
+                                </span>
+                                <ExternalLinkIcon className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                              </ExternalLink>
+                            </Button>
                             {link.subtext && (
                               <p className="text-xs text-muted-foreground italic ml-1">
                                 {link.subtext}

@@ -25,8 +25,8 @@ export const ExternalLink = ({
   iconClassName
 }: ExternalLinkProps) => {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Check if it's the Sales Tracking PWA app
-    if (href.includes('kaizen-better-every-day.lovable.app')) {
+    // Check if it's a Kaizen PWA app
+    if (href.includes('kaizen-better-every-day.lovable.app') || href.includes('kaizen-preseason-hub.lovable.app')) {
       e.preventDefault();
       // Open in same window to stay in PWA context
       window.location.href = href;
