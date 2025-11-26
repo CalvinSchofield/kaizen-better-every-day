@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LogOut, ExternalLink, Copy, Download, Target, Users, BookOpen, Link as LinkIcon, DollarSign } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { RefreshCw, LogOut, ExternalLink, Copy, Download, Target, Users, BookOpen, Link as LinkIcon, DollarSign, Edit2, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -57,10 +60,20 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [isEditingStats, setIsEditingStats] = useState(false);
+  
+  // Local state for editable stats
+  const [personalFP, setPersonalFP] = useState(12);
+  const [personalFPGoal, setPersonalFPGoal] = useState(50);
+  const [repsWithSale, setRepsWithSale] = useState(3);
+  const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(5);
 
-  const firstName = repData.name.split(" ")[0];
+  const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   const userEmail = repData.email?.toLowerCase();
   const dashboardUrl = userEmail ? DASHBOARD_MAP[userEmail] : null;
+  
+  const personalFPProgress = (personalFP / personalFPGoal) * 100;
+  const repsProgress = (repsWithSale / repsWithSaleGoal) * 100;
 
   const handleLogout = () => {
     setLogoutDialogOpen(true);
@@ -84,27 +97,127 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-4xl pb-32">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-foreground">
-            👋 Welcome back, {firstName}
-          </h1>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onSync}
-              disabled={isSyncing}
-            >
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
+    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
+      {/* Header with colored background */}
+      <div className="bg-primary text-primary-foreground p-6 pb-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-2xl font-bold">Your Dashboard</h1>
+              <p className="text-primary-foreground/90 text-sm">
+                Welcome back, {firstName}!
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onSync}
+                disabled={isSyncing}
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleLogout}
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
+        {/* Status Dashboard Card */}
+        <Card className="mb-6 shadow-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <CardTitle>Your Progress</CardTitle>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingStats(!isEditingStats)}
+              >
+                <Edit2 className="h-4 w-4 mr-1.5" />
+                {isEditingStats ? "Done" : "Edit"}
+              </Button>
+            </div>
+            <CardDescription>Track your key recruiting metrics</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Personal FP+ */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">Personal FP+</Label>
+                {isEditingStats ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={personalFP}
+                      onChange={(e) => setPersonalFP(Number(e.target.value))}
+                      className="w-16 h-8 text-center"
+                    />
+                    <span className="text-muted-foreground">/</span>
+                    <Input
+                      type="number"
+                      value={personalFPGoal}
+                      onChange={(e) => setPersonalFPGoal(Number(e.target.value))}
+                      className="w-16 h-8 text-center"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-lg font-bold">
+                    {personalFP} / {personalFPGoal}
+                  </span>
+                )}
+              </div>
+              <Progress value={personalFPProgress} className="h-3" />
+              <p className="text-sm text-muted-foreground">
+                {Math.round(personalFPProgress)}% towards your personal sales goal
+              </p>
+            </div>
+
+            {/* Reps with a Sale */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">Reps with a Sale</Label>
+                {isEditingStats ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={repsWithSale}
+                      onChange={(e) => setRepsWithSale(Number(e.target.value))}
+                      className="w-16 h-8 text-center"
+                    />
+                    <span className="text-muted-foreground">/</span>
+                    <Input
+                      type="number"
+                      value={repsWithSaleGoal}
+                      onChange={(e) => setRepsWithSaleGoal(Number(e.target.value))}
+                      className="w-16 h-8 text-center"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-lg font-bold">
+                    {repsWithSale} / {repsWithSaleGoal}
+                  </span>
+                )}
+              </div>
+              <Progress value={repsProgress} className="h-3" />
+              <p className="text-sm text-muted-foreground">
+                {Math.round(repsProgress)}% towards your recruiting goal
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Personal Dashboard Card (conditional) */}
         {dashboardUrl && (
@@ -127,30 +240,6 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </Card>
         )}
 
-        {/* 5-5-5 Goal Card */}
-        <Card className="mb-6 border-accent/20 bg-gradient-to-br from-accent/5 to-transparent">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              5-5-5 Recruiting Goal
-            </CardTitle>
-            <CardDescription>
-              Your preseason recruiting targets
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="text-3xl font-bold text-primary">5</div>
-                <div className="text-sm text-muted-foreground">contacts per day</div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="text-3xl font-bold text-primary">5</div>
-                <div className="text-sm text-muted-foreground">reps with 5FP+ before summer starts</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Recruiting Flow Visual */}
         <Card className="mb-6">
@@ -274,6 +363,21 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
               <span>The Vault</span>
               <ExternalLink className="h-4 w-4" />
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* 5-5-5 Callout at Bottom */}
+        <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20">
+                <Target className="h-5 w-5 text-primary" />
+                <span className="font-bold text-lg">5-5-5</span>
+              </div>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Not sure where to start? Make <span className="font-bold text-primary text-base">5</span> cold contacts every day, try and get <span className="font-bold text-primary text-base">5</span> reps with <span className="font-bold text-primary text-base">5</span> FP+ or more before summer.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
