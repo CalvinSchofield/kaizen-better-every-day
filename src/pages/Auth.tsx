@@ -176,16 +176,30 @@ const Auth = () => {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline font-medium"
-              disabled={isLoading}
-            >
-              {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Log in"}
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-primary hover:underline font-medium"
+                disabled={isLoading}
+              >
+                {isLogin
+                  ? "Don't have an account? Sign up"
+                  : "Already have an account? Log in"}
+              </button>
+              {isLogin && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/forgot-password")}
+                    className="text-sm text-muted-foreground hover:text-primary hover:underline"
+                    disabled={isLoading}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
