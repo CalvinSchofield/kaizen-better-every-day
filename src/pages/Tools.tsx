@@ -107,10 +107,13 @@ const Tools = () => {
               <CardContent className="space-y-3">
                 {section.links.map((link) => {
                   const LinkIcon = link.icon;
+                  const isExternalApp = link.title === "Sales Tracking";
                   return (
                     <a
                       key={link.title}
                       href={link.href}
+                      target={isExternalApp ? "_blank" : undefined}
+                      rel={isExternalApp ? "noopener noreferrer" : undefined}
                       className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
