@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import ICAL from "ical.js";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CalendarEvent {
   title: string;
@@ -19,17 +20,20 @@ export const useCalendarEvents = (calendarUrl: string) => {
         setLoading(true);
         setError(null);
 
-        // Convert webcal to https
-        const httpsUrl = calendarUrl.replace("webcal://", "https://");
-        
-        // Fetch the iCal data
-        const response = await fetch(httpsUrl);
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch calendar");
+        // Fetch via edge function to bypass CORS
+        const { data, error: functionError } = await supabase.functions.invoke('fetch-calendar', {
+          body: { calendarUrl }
+        });
+
+        if (functionError) {
+          throw new Error(functionError.message);
         }
 
-        const icalData = await response.text();
+        if (!data || !data.data) {
+          throw new Error("No calendar data received");
+        }
+
+        const icalData = data.data;
         
         // Parse iCal data
         const jcalData = ICAL.parse(icalData);
