@@ -153,6 +153,179 @@ const Home = () => {
     progressPercentage
   });
 
+  // Define the 4 Ramp to Blitz phases (must be before useEffect that uses it)
+  const rampPhases: RampPhase[] = [{
+    id: 1,
+    title: "Phase 1: Set Goals",
+    tasks: [{
+      id: "phase1-blitz-video",
+      label: "Watch: What is a blitz and how do you get paid?",
+      href: "https://calvinschofield.notion.site/What-the-blitz-is-and-how-you-get-paid-c74c25ffd00747e4a345c08160d727e6",
+      duration: "5 mins"
+    }, {
+      id: "phase1-goals-call",
+      label: "Text leaders to schedule a Goals & Gameplan call",
+      href: "https://www.notion.so/Goals-Gameplan-290070fe3bc280daa182cc832ef1a35d",
+      duration: "30 mins"
+    }, {
+      id: "phase1-calendar",
+      label: "Add the Vivint calendar to your phone and make plans to attend your first blitz",
+      onClick: () => setCalendarModalOpen(true)
+    }]
+  }, {
+    id: 2,
+    title: "Phase 2: Start Trainings",
+    tasks: [{
+      id: "phase2-product-basics",
+      label: "Learn Product basics - How to sound like you've been selling for years",
+      href: "https://www.notion.so/Product-How-to-sound-like-you-ve-been-selling-for-years-in-one-night-2d7f4a89e80d4d4686c40da84f6540b7",
+      duration: "30 mins"
+    }, {
+      id: "phase2-product-quiz",
+      label: "Take the Product Quiz",
+      href: "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform?usp=dialog",
+      duration: "5 mins"
+    }, {
+      id: "phase2-upgrades",
+      label: "Study Upgrades 101",
+      href: "https://www.notion.so/Upgrades-101-f027467a0a5e405a853abdc26e92401e",
+      duration: "30 mins"
+    }, {
+      id: "phase2-takeover",
+      label: "Study the Takeover Door Approach",
+      href: "https://www.notion.so/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489",
+      duration: "30 mins"
+    }, {
+      id: "phase2-pitch-video",
+      label: "Send video giving the two pitches to your leaders",
+      href: "https://www.notion.so/Pitch-Feedback-Instructions-03901d3e606b4aa29fbc5f5b20de8a8e",
+      duration: "5 mins"
+    }]
+  }, {
+    id: 3,
+    title: "Phase 3: Practice",
+    tasks: [{
+      id: "phase3-ipad-setup",
+      label: "Get your iPad ready - Tools to Sell guide",
+      href: "https://www.notion.so/Tools-to-Sell-iPad-setup-guide-112cda9d37034831bed0dafbc12364f1",
+      duration: "30 mins"
+    }, {
+      id: "phase3-why-blitz",
+      label: "Write down: Why am I going on the blitz? And send it to your leaders",
+      duration: "5 mins",
+      onClick: () => window.open("sms:", "_self")
+    }, {
+      id: "phase3-pitch-practice",
+      label: "1-on-1 pitch practice with a vet - text your leaders to set up",
+      duration: "20 mins",
+      onClick: () => window.open("sms:", "_self")
+    }]
+  }, {
+    id: 4,
+    title: "Phase 4: Saddle Up!",
+    tasks: [{
+      id: "phase4-packing-list",
+      label: "Review the Packing List - Blitz Trips",
+      href: "https://www.notion.so/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4"
+    }, {
+      id: "phase4-dominate-video",
+      label: "Watch: How to Dominate Your First Blitz",
+      href: "https://www.notion.so/How-to-Dominate-Your-First-Blitz-23f9a08a052548e8b838f80837c9e35d",
+      duration: "5 mins"
+    }, {
+      id: "phase4-equipment",
+      label: "Text leadership for iPad, badge, and knocking jerseys",
+      onClick: () => window.open("sms:", "_self")
+    }, {
+      id: "phase4-playbook",
+      label: "Share with leaders: When It Gets Tough - Your Playbook",
+      href: "https://www.notion.so/When-It-Gets-Tough-Your-Playbook-d6d63908789b4b7587b861bd5b382f71",
+      duration: "10 mins"
+    }]
+  }];
+
+  // Determine phase status
+  const getPhaseStatus = (phaseId: number) => {
+    if (phaseId === 1) {
+      return {
+        completed: phase1Complete,
+        locked: !slackComplete,
+        inProgress: slackComplete && !phase1Complete
+      };
+    } else if (phaseId === 2) {
+      return {
+        completed: phase2Complete,
+        locked: !phase1Complete,
+        inProgress: phase1Complete && !phase2Complete
+      };
+    } else if (phaseId === 3) {
+      return {
+        completed: phase3Complete,
+        locked: !phase2Complete,
+        inProgress: phase2Complete && !phase3Complete
+      };
+    } else if (phaseId === 4) {
+      return {
+        completed: phase4Complete,
+        locked: !phase3Complete,
+        inProgress: phase3Complete && !phase4Complete
+      };
+    }
+    return {
+      completed: false,
+      locked: true,
+      inProgress: false
+    };
+  };
+
+  // Handler for task clicks - toggle check and open link only when checking
+  const handleTaskClick = async (taskId: string, href?: string, onClick?: () => void) => {
+    const newCompleted = new Set(completedTasks);
+    const isCurrentlyCompleted = completedTasks.has(taskId);
+    
+    if (isCurrentlyCompleted) {
+      // Uncheck - remove from set, don't open link
+      newCompleted.delete(taskId);
+    } else {
+      // Check - add to set and execute action
+      newCompleted.add(taskId);
+
+      // Execute action only when checking off
+      if (onClick) {
+        onClick();
+      } else if (href) {
+        openLink(href);
+      }
+    }
+    
+    await setCompletedTasks(newCompleted);
+  };
+
+  // Smart link opener - tries to open in native apps when possible
+  const openLink = (url: string) => {
+    // Check if it's a Notion link and try to open in Notion app
+    if (url.includes('notion.so') || url.includes('notion.site')) {
+      // Extract page ID from URL and construct notion:// deep link
+      const notionMatch = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
+      if (notionMatch) {
+        const pageId = notionMatch[1].replace(/-/g, '');
+        const notionAppUrl = `notion://${pageId}`;
+        
+        // Try to open in Notion app, fallback to browser
+        window.location.href = notionAppUrl;
+        
+        // Fallback to web after short delay if app doesn't open
+        setTimeout(() => {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }, 500);
+        return;
+      }
+    }
+    
+    // Open other links in new tab
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   // Auto-complete tasks when phase is marked complete in Notion
   useEffect(() => {
     if (!repData?.id) return;
@@ -477,178 +650,6 @@ const Home = () => {
     }]
   }];
 
-  // Define the 4 Ramp to Blitz phases
-  const rampPhases: RampPhase[] = [{
-    id: 1,
-    title: "Phase 1: Set Goals",
-    tasks: [{
-      id: "phase1-blitz-video",
-      label: "Watch: What is a blitz and how do you get paid?",
-      href: "https://calvinschofield.notion.site/What-the-blitz-is-and-how-you-get-paid-c74c25ffd00747e4a345c08160d727e6",
-      duration: "5 mins"
-    }, {
-      id: "phase1-goals-call",
-      label: "Text leaders to schedule a Goals & Gameplan call",
-      href: "https://www.notion.so/Goals-Gameplan-290070fe3bc280daa182cc832ef1a35d",
-      duration: "30 mins"
-    }, {
-      id: "phase1-calendar",
-      label: "Add the Vivint calendar to your phone and make plans to attend your first blitz",
-      onClick: () => setCalendarModalOpen(true)
-    }]
-  }, {
-    id: 2,
-    title: "Phase 2: Start Trainings",
-    tasks: [{
-      id: "phase2-product-basics",
-      label: "Learn Product basics - How to sound like you've been selling for years",
-      href: "https://www.notion.so/Product-How-to-sound-like-you-ve-been-selling-for-years-in-one-night-2d7f4a89e80d4d4686c40da84f6540b7",
-      duration: "30 mins"
-    }, {
-      id: "phase2-product-quiz",
-      label: "Take the Product Quiz",
-      href: "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform?usp=dialog",
-      duration: "5 mins"
-    }, {
-      id: "phase2-upgrades",
-      label: "Study Upgrades 101",
-      href: "https://www.notion.so/Upgrades-101-f027467a0a5e405a853abdc26e92401e",
-      duration: "30 mins"
-    }, {
-      id: "phase2-takeover",
-      label: "Study the Takeover Door Approach",
-      href: "https://www.notion.so/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489",
-      duration: "30 mins"
-    }, {
-      id: "phase2-pitch-video",
-      label: "Send video giving the two pitches to your leaders",
-      href: "https://www.notion.so/Pitch-Feedback-Instructions-03901d3e606b4aa29fbc5f5b20de8a8e",
-      duration: "5 mins"
-    }]
-  }, {
-    id: 3,
-    title: "Phase 3: Practice",
-    tasks: [{
-      id: "phase3-ipad-setup",
-      label: "Get your iPad ready - Tools to Sell guide",
-      href: "https://www.notion.so/Tools-to-Sell-iPad-setup-guide-112cda9d37034831bed0dafbc12364f1",
-      duration: "30 mins"
-    }, {
-      id: "phase3-why-blitz",
-      label: "Write down: Why am I going on the blitz? And send it to your leaders",
-      duration: "5 mins",
-      onClick: () => window.open("sms:", "_self")
-    }, {
-      id: "phase3-pitch-practice",
-      label: "1-on-1 pitch practice with a vet - text your leaders to set up",
-      duration: "20 mins",
-      onClick: () => window.open("sms:", "_self")
-    }]
-  }, {
-    id: 4,
-    title: "Phase 4: Saddle Up!",
-    tasks: [{
-      id: "phase4-packing-list",
-      label: "Review the Packing List - Blitz Trips",
-      href: "https://www.notion.so/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4"
-    }, {
-      id: "phase4-dominate-video",
-      label: "Watch: How to Dominate Your First Blitz",
-      href: "https://www.notion.so/How-to-Dominate-Your-First-Blitz-23f9a08a052548e8b838f80837c9e35d",
-      duration: "5 mins"
-    }, {
-      id: "phase4-equipment",
-      label: "Text leadership for iPad, badge, and knocking jerseys",
-      onClick: () => window.open("sms:", "_self")
-    }, {
-      id: "phase4-playbook",
-      label: "Share with leaders: When It Gets Tough - Your Playbook",
-      href: "https://www.notion.so/When-It-Gets-Tough-Your-Playbook-d6d63908789b4b7587b861bd5b382f71",
-      duration: "10 mins"
-    }]
-  }];
-
-  // Handler for task clicks - toggle check and open link only when checking
-  const handleTaskClick = async (taskId: string, href?: string, onClick?: () => void) => {
-    const newCompleted = new Set(completedTasks);
-    const isCurrentlyCompleted = completedTasks.has(taskId);
-    
-    if (isCurrentlyCompleted) {
-      // Uncheck - remove from set, don't open link
-      newCompleted.delete(taskId);
-    } else {
-      // Check - add to set and execute action
-      newCompleted.add(taskId);
-
-      // Execute action only when checking off
-      if (onClick) {
-        onClick();
-      } else if (href) {
-        openLink(href);
-      }
-    }
-    
-    await setCompletedTasks(newCompleted);
-  };
-
-  // Smart link opener - tries to open in native apps when possible
-  const openLink = (url: string) => {
-    // Check if it's a Notion link and try to open in Notion app
-    if (url.includes('notion.so') || url.includes('notion.site')) {
-      // Extract page ID from URL and construct notion:// deep link
-      const notionMatch = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
-      if (notionMatch) {
-        const pageId = notionMatch[1].replace(/-/g, '');
-        const notionAppUrl = `notion://${pageId}`;
-        
-        // Try to open in Notion app, fallback to browser
-        window.location.href = notionAppUrl;
-        
-        // Fallback to web after short delay if app doesn't open
-        setTimeout(() => {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }, 500);
-        return;
-      }
-    }
-    
-    // Open other links in new tab
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  // Determine phase status
-  const getPhaseStatus = (phaseId: number) => {
-    if (phaseId === 1) {
-      return {
-        completed: phase1Complete,
-        locked: !slackComplete,
-        inProgress: slackComplete && !phase1Complete
-      };
-    } else if (phaseId === 2) {
-      return {
-        completed: phase2Complete,
-        locked: !phase1Complete,
-        inProgress: phase1Complete && !phase2Complete
-      };
-    } else if (phaseId === 3) {
-      return {
-        completed: phase3Complete,
-        locked: !phase2Complete,
-        inProgress: phase2Complete && !phase3Complete
-      };
-    } else if (phaseId === 4) {
-      return {
-        completed: phase4Complete,
-        locked: !phase3Complete,
-        inProgress: phase3Complete && !phase4Complete
-      };
-    }
-    return {
-      completed: false,
-      locked: true,
-      inProgress: false
-    };
-  };
   const getStatusBadge = (status: StepStatus) => {
     if (status.completed) {
       return <Badge className="bg-success text-success-foreground">✓ Completed</Badge>;
