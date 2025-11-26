@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
+import TeamCalendarModal from "@/components/TeamCalendarModal";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -50,6 +51,7 @@ const Home = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -282,6 +284,10 @@ const Home = () => {
       label: "Text leaders to schedule a Goals & Gameplan call",
       href: "https://www.notion.so/Goals-Gameplan-290070fe3bc280daa182cc832ef1a35d",
       duration: "30 mins"
+    }, {
+      id: "phase1-calendar",
+      label: "Add the Vivint calendar to your phone and make plans to attend your first blitz",
+      onClick: () => setCalendarModalOpen(true)
     }]
   }, {
     id: 2,
@@ -637,6 +643,9 @@ const Home = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Team Calendar Modal */}
+      <TeamCalendarModal open={calendarModalOpen} onOpenChange={setCalendarModalOpen} />
     </div>;
 };
 export default Home;
