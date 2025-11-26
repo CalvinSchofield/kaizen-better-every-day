@@ -12,6 +12,7 @@ import Training from "./pages/Training";
 import Tools from "./pages/Tools";
 import Assistant from "./pages/Assistant";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => {
           <InstallPrompt />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route
               path="/"
               element={
