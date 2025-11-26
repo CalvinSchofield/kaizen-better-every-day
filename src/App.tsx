@@ -30,8 +30,8 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <InstallPrompt />
         <BrowserRouter>
+          <InstallPrompt />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route
