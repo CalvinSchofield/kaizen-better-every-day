@@ -4,12 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -131,14 +136,50 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 <TrendingUp className="h-5 w-5 text-primary" />
                 <CardTitle>Your Progress</CardTitle>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditingStats(!isEditingStats)}
-              >
-                <Edit2 className="h-4 w-4 mr-1.5" />
-                {isEditingStats ? "Done" : "Edit"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <HelpCircle className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-sm">Need help?</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Get with your leaders to set preseason goals that push you but are attainable.
+                      </p>
+                      <Button 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => {
+                          const phone = repData.team_leader_phone;
+                          if (phone) {
+                            window.location.href = `sms:${phone}`;
+                          } else {
+                            toast({
+                              title: "No phone number",
+                              description: "Team leader phone number not available",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Message Leader
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingStats(!isEditingStats)}
+                >
+                  <Edit2 className="h-4 w-4 mr-1.5" />
+                  {isEditingStats ? "Done" : "Edit"}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -251,6 +292,28 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </CardHeader>
           <CardContent className="px-0">
             <RecruitingFlowCarousel />
+          </CardContent>
+        </Card>
+
+        {/* Recruiting Calculator */}
+        <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Recruiting Calculator
+            </CardTitle>
+            <CardDescription>
+              A recruiting calculator to help you get a honest look at what recruiting/training work is required to hit your group goals, based off averages company wide 2025
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => openLink("https://vivintevolution.com/2026-season-calculator/")} 
+              className="w-full"
+            >
+              Open Calculator
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </Button>
           </CardContent>
         </Card>
 
