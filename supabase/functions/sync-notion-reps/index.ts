@@ -291,6 +291,9 @@ Deno.serve(async (req) => {
           blitz_ready: getCheckbox(props["Blitz Ready"]),
           path_to_pro_started: getCheckbox(props["Path to Pro Started"]),
           path_to_pro_progress: 0,
+          
+          // Nudge leader
+          nudge_leader: getCheckbox(props["Nudge leader"]),
         };
 
         // Upsert rep data
