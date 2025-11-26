@@ -360,7 +360,7 @@ const Home = () => {
                 Looks like the email we have for you is different than the one you used to sign in. We'll correct it, just let us know and we'll fix it ASAP.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <div className="flex gap-3">
                 <Button 
                   onClick={() => window.open("sms:", "_self")}
@@ -377,6 +377,24 @@ const Home = () => {
                   {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Nudge Leaders"}
                 </Button>
               </div>
+              <Button
+                onClick={handleSync}
+                variant="outline"
+                className="w-full"
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -654,7 +672,7 @@ const Home = () => {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="text-2xl font-bold">​Getting started  </h1>
-              <p className="text-primary-foreground/90 text-sm">Welcome back, {repData.name}!</p>
+              <p className="text-primary-foreground/90 text-sm">👋 Welcome back, {repData.name.split(' ')[0]}!</p>
             </div>
             <div className="flex gap-2">
               <Button 
