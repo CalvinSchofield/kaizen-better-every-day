@@ -70,7 +70,7 @@ const Home = () => {
   const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
   const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
   const slackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
-  const isInRampPhases = phaseLower.includes("phase") && phaseLower.includes("✅");
+  const isInRampPhases = (phaseLower.includes("phase") && phaseLower.includes("✅")) || phaseLower === "slack ✅";
   
   // If any ramp phase is complete, all previous steps are complete
   if (isInRampPhases) {
@@ -128,17 +128,21 @@ const Home = () => {
     }]
   }, {
     id: "ramp",
-    title: "Prepare for Blitz – Ramp to Blitz",
-    description: "Work through Phases 1–4 with your leaders so you're ready to crush your first blitz.",
+    title: "Set Goals",
+    description: "Watch the blitz overview video and schedule a Goals & Gameplan call with your leaders.",
     status: {
       completed: allRampPhasesComplete,
-      locked: !(slackComplete || isInRampPhases),
+      locked: !slackComplete,
       inProgress: slackComplete && !allRampPhasesComplete
     },
     actions: [{
-      label: phase.includes("phase") ? `Current: ${repData.ramp_to_blitz_phase}` : "Start Phase 1",
-      href: "#",
-      variant: phase.includes("phase") ? "default" : "default"
+      label: "Watch: What is a Blitz",
+      href: "https://calvinschofield.notion.site/What-the-blitz-is-and-how-you-get-paid-c74c25ffd00747e4a345c08160d727e6",
+      variant: "default"
+    }, {
+      label: "Text Leaders to Schedule Call",
+      variant: "outline",
+      onClick: () => window.open("sms:", "_self")
     }]
   }];
   const getStatusBadge = (status: StepStatus) => {
