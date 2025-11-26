@@ -17,9 +17,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
@@ -67,72 +68,21 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Get user ID synchronously from auth session for localStorage key
-  const getUserId = (): string | null => {
-    try {
-      const session = supabase.auth.getSession();
-      // Session is stored in localStorage, so this is synchronous
-      const localSession = localStorage.getItem('sb-wjxlzcuqpoamrwumszau-auth-token');
-      if (localSession) {
-        const parsed = JSON.parse(localSession);
-        return parsed?.user?.id || null;
-      }
-      return null;
-    } catch (error) {
-      console.error('[getUserId] Error getting user ID:', error);
-      return null;
-    }
-  };
-
-  // Track completed tasks in localStorage - initialize directly from storage
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
-    // Get user ID synchronously
-    const userId = getUserId();
-    console.log('[INIT] User ID:', userId);
-    
-    if (!userId) {
-      console.log('[INIT] No user ID found, starting with empty set');
-      return new Set();
-    }
-    
-    const storageKey = `ramp-progress-${userId}`;
-    const saved = localStorage.getItem(storageKey);
-    console.log('[INIT] Loading task progress from key:', storageKey);
-    console.log('[INIT] Raw localStorage value:', saved);
-    
-    if (saved) {
-      try {
-        const taskArray: string[] = JSON.parse(saved);
-        console.log('[INIT] Loaded tasks from storage:', taskArray);
-        return new Set<string>(taskArray);
-      } catch (error) {
-        console.error('[INIT] Error parsing saved progress:', error);
-        return new Set();
-      }
-    }
-    console.log('[INIT] No saved progress found');
-    return new Set();
-  });
-
-  // Reload when user changes (different repData.id)
-  useEffect(() => {
-    if (!repData?.id) return;
-    
-    const storageKey = `ramp-progress-${repData.id}`;
-    const saved = localStorage.getItem(storageKey);
-    console.log('[RELOAD] Loading task progress for user:', repData.id);
-    console.log('[RELOAD] Raw localStorage value:', saved);
-    
-    if (saved) {
-      try {
-        const taskArray: string[] = JSON.parse(saved);
-        console.log('[RELOAD] Loaded tasks from storage:', taskArray);
-        setCompletedTasks(new Set<string>(taskArray));
-      } catch (error) {
-        console.error('[RELOAD] Error parsing saved progress:', error);
-      }
-    }
+  // Get storage key based on user ID
+  const storageKey = useMemo(() => {
+    return repData?.id ? `ramp-progress-${repData.id}` : 'ramp-progress-temp';
   }, [repData?.id]);
+
+  // Use localStorage hook for task tracking
+  const [completedTasksArray, setCompletedTasksArray] = useLocalStorage<string[]>(storageKey, []);
+  
+  // Convert array to Set for easier manipulation
+  const completedTasks = useMemo(() => new Set(completedTasksArray), [completedTasksArray]);
+  
+  // Helper to update completed tasks
+  const setCompletedTasks = (newSet: Set<string>) => {
+    setCompletedTasksArray([...newSet]);
+  };
 
   // Calculate progress values - sequential logic (later steps imply earlier ones are done)
   const phase = repData?.ramp_to_blitz_phase || "Not started";
@@ -210,31 +160,6 @@ const Home = () => {
       setCompletedTasks(newCompleted);
     }
   }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id]);
-
-  // Update localStorage whenever completedTasks changes - use user ID directly
-  useEffect(() => {
-    const userId = getUserId();
-    if (!userId) {
-      console.log('[SAVE] No user ID, skipping save');
-      return;
-    }
-    
-    const storageKey = `ramp-progress-${userId}`;
-    const taskArray = [...completedTasks];
-    console.log('[SAVE] Saving task progress to key:', storageKey);
-    console.log('[SAVE] Tasks:', taskArray);
-    
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(taskArray));
-      console.log('[SAVE] Successfully saved to localStorage');
-      
-      // Verify it was saved
-      const verification = localStorage.getItem(storageKey);
-      console.log('[SAVE] Verification read:', verification);
-    } catch (error) {
-      console.error('[SAVE] Error saving progress:', error);
-    }
-  }, [completedTasks]);
 
   // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
