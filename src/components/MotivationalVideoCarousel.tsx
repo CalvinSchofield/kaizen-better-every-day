@@ -12,61 +12,55 @@ interface Video {
 const videos: Video[] = [
   {
     url: "https://vimeo.com/651337313",
-    title: "Sales Motivation",
+    title: "As Advertised",
     thumbnail: "",
     platform: "vimeo"
   },
   {
     url: "https://vimeo.com/777489575",
-    title: "Door to Door Success",
+    title: "As Big As You Can Think It",
     thumbnail: "",
     platform: "vimeo"
   },
   {
     url: "https://vimeo.com/742321231",
-    title: "Mindset Training",
+    title: "The Precious Things",
+    thumbnail: "",
+    platform: "vimeo"
+  },
+  {
+    url: "https://vimeo.com/805597083",
+    title: "From the Ground Up",
     thumbnail: "",
     platform: "vimeo"
   },
   {
     url: "https://vimeo.com/683868546",
-    title: "Sales Tips",
+    title: "Tried & True",
     thumbnail: "",
     platform: "vimeo"
   },
   {
+    url: "https://youtu.be/2jIia7aXins?si=ENG5VQRUlQlx17op",
+    title: "Scott Galloway: \"Follow your passion is crap\"",
+    thumbnail: "",
+    platform: "youtube"
+  },
+  {
     url: "https://www.instagram.com/case.studies.podcast/reel/DA99WUTPxnh/",
-    title: "Sales Case Study",
+    title: "Casey Baugh: \"Door to door is personal development\"",
     thumbnail: "",
     platform: "instagram"
   },
   {
-    url: "https://www.instagram.com/reel/DA7TVj5Nl3m/",
-    title: "Motivation Reel",
+    url: "https://www.instagram.com/reel/DC2FOTxRO8R/?igsh=MW93b253c2ViY2d2aQ==",
+    title: "Flight school made possible by Vivint",
     thumbnail: "",
     platform: "instagram"
   },
   {
-    url: "https://www.instagram.com/reel/CuzzGTXvvaj/",
-    title: "Sales Strategy",
-    thumbnail: "",
-    platform: "instagram"
-  },
-  {
-    url: "https://www.instagram.com/reel/DBjhO7Gije3/",
-    title: "Door Knocking Tips",
-    thumbnail: "",
-    platform: "instagram"
-  },
-  {
-    url: "https://www.instagram.com/reel/DC2FOTxRO8R/",
-    title: "Success Stories",
-    thumbnail: "",
-    platform: "instagram"
-  },
-  {
-    url: "https://youtu.be/nmwe8RmXXcY",
-    title: "Sales Training",
+    url: "https://youtube.com/shorts/gTd9VKc1XPE?si=c4sYH1Vmow27jCS_",
+    title: "Matthew McConaughey: \"Give it your all\"",
     thumbnail: "",
     platform: "youtube"
   }
