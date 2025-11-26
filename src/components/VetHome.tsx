@@ -357,7 +357,7 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
         </Card>
 
         {/* Logo at bottom */}
-        <div className="mt-8 mb-6">
+        <div className="mt-4 mb-4">
           <KaizenLogo />
         </div>
 
