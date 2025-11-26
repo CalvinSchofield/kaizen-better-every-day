@@ -295,6 +295,78 @@ const Home = () => {
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>;
   }
+
+  // Check if user has no rep data (email doesn't match Notion)
+  if (!repData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
+        <div className="bg-primary text-primary-foreground p-6 pb-8">
+          <div className="max-w-lg mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-2xl font-bold">Welcome to Kaizen</h1>
+              <Button 
+                onClick={() => setLogoutDialogOpen(true)} 
+                variant="ghost" 
+                size="sm" 
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                aria-label="Log out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-lg mx-auto px-4 -mt-4 pb-6">
+          <Card className="border-warning/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>⚠️</span>
+                Account Setup Needed
+              </CardTitle>
+              <CardDescription>
+                We couldn't find your profile in our system. This usually means your email doesn't match the one you used during onboarding.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm space-y-2">
+                <p className="font-medium">To get set up:</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>Make sure you're using the same email from your onboarding</li>
+                  <li>If you used a different email, log out and sign in with the correct one</li>
+                  <li>If the issue persists, notify your leaders below</li>
+                </ol>
+              </div>
+              <Button 
+                onClick={() => window.open("sms:", "_self")}
+                className="w-full"
+                size="lg"
+              >
+                <span className="mr-2">💬</span>
+                Text Leaders for Help
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Logout Confirmation Dialog */}
+        <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You'll need to sign back in to access your journey progress and training.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmLogout}>Log Out</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
   
   // Helper to check phase status - case-insensitive matching
   const isInRampPhases = phase1Complete || phase2Complete || phase3Complete || phase4Complete || slackComplete;

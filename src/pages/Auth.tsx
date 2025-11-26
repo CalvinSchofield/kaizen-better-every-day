@@ -103,6 +103,11 @@ const Auth = () => {
               ? "Log in to continue your sales journey"
               : "Create your account to get started"}
           </CardDescription>
+          {isLogin && (
+            <p className="text-xs text-muted-foreground mt-2 px-2 py-1.5 bg-muted/50 rounded-md">
+              💡 Use the same email you provided when you started the onboarding process
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
