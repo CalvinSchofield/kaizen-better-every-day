@@ -24,6 +24,7 @@ export interface RepData {
   blitz_ready: boolean;
   path_to_pro_started: boolean;
   path_to_pro_progress: number;
+  completed_tasks: unknown; // JSONB array of completed task IDs
 }
 
 export const useRepData = () => {

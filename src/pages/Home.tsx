@@ -17,7 +17,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
@@ -68,29 +67,36 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Get storage key based on user ID
-  const storageKey = useMemo(() => {
-    const key = repData?.id ? `ramp-progress-${repData.id}` : 'ramp-progress-temp';
-    console.log('[Home] Storage key computed:', key, 'repData.id:', repData?.id);
-    return key;
-  }, [repData?.id]);
-
-  // Use localStorage hook for task tracking
-  const [completedTasksArray, setCompletedTasksArray] = useLocalStorage<string[]>(storageKey, []);
-  console.log('[Home] Component rendered. completedTasksArray:', completedTasksArray);
+  // Get completed tasks from database
+  const completedTasksArray = (repData?.completed_tasks as string[]) || [];
+  const completedTasks = useMemo(() => new Set(completedTasksArray), [completedTasksArray]);
   
-  // Convert array to Set for easier manipulation
-  const completedTasks = useMemo(() => {
-    const set = new Set(completedTasksArray);
-    console.log('[Home] completedTasks Set created:', [...set]);
-    return set;
-  }, [completedTasksArray]);
-  
-  // Helper to update completed tasks
-  const setCompletedTasks = (newSet: Set<string>) => {
-    const array = [...newSet];
-    console.log('[Home] setCompletedTasks called with:', array);
-    setCompletedTasksArray(array);
+  // Helper to update completed tasks in database
+  const setCompletedTasks = async (newSet: Set<string>) => {
+    if (!repData?.id) return;
+    
+    const taskArray = [...newSet];
+    console.log('[Home] Updating completed tasks in database:', taskArray);
+    
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({ completed_tasks: taskArray })
+        .eq('id', repData.id);
+      
+      if (error) {
+        console.error('[Home] Error updating completed tasks:', error);
+        toast({
+          title: "Error saving progress",
+          description: "Could not save your task progress. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        console.log('[Home] Successfully saved completed tasks to database');
+      }
+    } catch (error) {
+      console.error('[Home] Exception updating completed tasks:', error);
+    }
   };
 
   // Calculate progress values - sequential logic (later steps imply earlier ones are done)
@@ -168,7 +174,7 @@ const Home = () => {
     if (hasChanges) {
       setCompletedTasks(newCompleted);
     }
-  }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id]);
+  }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id, completedTasks]);
 
   // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
@@ -395,9 +401,10 @@ const Home = () => {
   }];
 
   // Handler for task clicks - toggle check and open link only when checking
-  const handleTaskClick = (taskId: string, href?: string, onClick?: () => void) => {
+  const handleTaskClick = async (taskId: string, href?: string, onClick?: () => void) => {
     const newCompleted = new Set(completedTasks);
     const isCurrentlyCompleted = completedTasks.has(taskId);
+    
     if (isCurrentlyCompleted) {
       // Uncheck - remove from set, don't open link
       newCompleted.delete(taskId);
@@ -412,7 +419,8 @@ const Home = () => {
         openLink(href);
       }
     }
-    setCompletedTasks(newCompleted);
+    
+    await setCompletedTasks(newCompleted);
   };
 
   // Smart link opener - tries to open in native apps when possible

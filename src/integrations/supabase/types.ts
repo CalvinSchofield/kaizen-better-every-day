@@ -38,6 +38,7 @@ export type Database = {
       reps: {
         Row: {
           blitz_ready: boolean | null
+          completed_tasks: Json | null
           created_at: string | null
           email: string | null
           id: string
@@ -63,6 +64,7 @@ export type Database = {
         }
         Insert: {
           blitz_ready?: boolean | null
+          completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -88,6 +90,7 @@ export type Database = {
         }
         Update: {
           blitz_ready?: boolean | null
+          completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null
           id?: string
