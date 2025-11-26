@@ -150,7 +150,6 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 {isEditingStats ? "Done" : "Edit"}
               </Button>
             </div>
-            <CardDescription>Track your key recruiting metrics</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Personal FP+ */}
@@ -160,16 +159,22 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 {isEditingStats ? (
                   <div className="flex items-center gap-2">
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
                       value={personalFP}
-                      onChange={(e) => setPersonalFP(Number(e.target.value))}
+                      onChange={(e) => setPersonalFP(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                     <span className="text-muted-foreground">/</span>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
                       value={personalFPGoal}
-                      onChange={(e) => setPersonalFPGoal(Number(e.target.value))}
+                      onChange={(e) => setPersonalFPGoal(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                   </div>
@@ -192,16 +197,22 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 {isEditingStats ? (
                   <div className="flex items-center gap-2">
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
                       value={repsWithSale}
-                      onChange={(e) => setRepsWithSale(Number(e.target.value))}
+                      onChange={(e) => setRepsWithSale(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                     <span className="text-muted-foreground">/</span>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
                       value={repsWithSaleGoal}
-                      onChange={(e) => setRepsWithSaleGoal(Number(e.target.value))}
+                      onChange={(e) => setRepsWithSaleGoal(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                   </div>
