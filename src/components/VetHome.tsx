@@ -254,18 +254,18 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </CardContent>
         </Card>
 
-        {/* Pay Scales & Resources */}
+        {/* Pay Scales */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Pay Scales & Resources
+              Payscales
             </CardTitle>
             <CardDescription>
-              Download pay scales and access additional resources
+              Download pay scales and sales rules
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PAY_SCALES.map((doc) => (
                 <Button
@@ -279,14 +279,6 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 </Button>
               ))}
             </div>
-            <Button
-              variant="outline"
-              className="w-full justify-between mt-4"
-              onClick={() => openLink("https://calvinschofield.notion.site/the-vault?pvs=4")}
-            >
-              <span>The Vault</span>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
           </CardContent>
         </Card>
 

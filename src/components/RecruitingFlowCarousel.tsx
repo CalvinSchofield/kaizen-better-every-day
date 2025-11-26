@@ -20,6 +20,7 @@ interface FlowLink {
   label: string;
   url: string;
   type: 'video' | 'notion';
+  subtext?: string;
 }
 
 interface FlowStep {
@@ -28,6 +29,8 @@ interface FlowStep {
   icon: React.ComponentType<{ className?: string }>;
   links: FlowLink[];
   description?: string;
+  comingSoon?: boolean;
+  guideText?: string;
 }
 
 const FLOW_STEPS: FlowStep[] = [
@@ -46,7 +49,7 @@ const FLOW_STEPS: FlowStep[] = [
     icon: UserPlus,
     links: [
       { label: "SmartHomePros", url: "https://www.smarthomepros.com/?inviteId=fdb85236-b069-46ec-9db6-797d24dfbe10#culture", type: "notion" },
-      { label: "Recruiting Content Flow", url: "https://calvinschofield.notion.site/recruiting-content-flow?source=copy_link", type: "notion" }
+      { label: "Recruiting Content Flow", url: "https://calvinschofield.notion.site/recruiting-content-flow?source=copy_link", type: "notion", subtext: "Send videos from time to time from here to continually recruit them/stay top of mind." }
     ]
   },
   {
@@ -54,7 +57,7 @@ const FLOW_STEPS: FlowStep[] = [
     title: "Group Chat w/ Leader",
     icon: MessageSquare,
     links: [],
-    description: "Add them to the group chat and introduce them to the team"
+    description: "Add them to a group chat with your leader and introduce them. Do most of your Vivint communication there to all be on the same page."
   },
   {
     step: 4,
@@ -85,9 +88,9 @@ const FLOW_STEPS: FlowStep[] = [
     step: 7,
     title: "Path to Pro",
     icon: GraduationCap,
-    links: [
-      { label: "Path to Pro", url: "https://calvinschofield.notion.site/path-to-pro?source=copy_link", type: "notion" }
-    ]
+    links: [],
+    comingSoon: true,
+    guideText: "For now, focus on training your people. One well trained rookie is worth more than multiple poorly trained rookies. I recommend role plays and one-on-one trainings."
   }
 ];
 
@@ -149,20 +152,25 @@ export const RecruitingFlowCarousel = () => {
             const Icon = step.icon;
             return (
               <CarouselItem key={step.step} className="pl-2 md:pl-4 basis-[85%] md:basis-[80%]">
-                <Card className="h-full border-2 hover:border-primary/50 transition-colors">
+                <Card className={`h-full border-2 transition-colors ${step.comingSoon ? 'opacity-60 cursor-not-allowed border-muted' : 'hover:border-primary/50'}`}>
                   <CardContent className="p-6 space-y-4">
                     {/* Step Badge */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-                          <Icon className="h-6 w-6 text-primary" />
+                        <div className={`flex items-center justify-center w-12 h-12 rounded-full ${step.comingSoon ? 'bg-muted' : 'bg-primary/10'}`}>
+                          <Icon className={`h-6 w-6 ${step.comingSoon ? 'text-muted-foreground' : 'text-primary'}`} />
                         </div>
                         <div>
                           <div className="text-xs text-muted-foreground font-medium">Step {step.step}</div>
-                          <h3 className="font-bold text-lg">{step.title}</h3>
+                          <h3 className={`font-bold text-lg ${step.comingSoon ? 'text-muted-foreground' : ''}`}>{step.title}</h3>
+                          {step.comingSoon && (
+                            <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded">
+                              Coming soon
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${step.comingSoon ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}`}>
                         {step.step}
                       </div>
                     </div>
@@ -174,40 +182,54 @@ export const RecruitingFlowCarousel = () => {
                       </p>
                     )}
 
+                    {/* Guide text for coming soon */}
+                    {step.guideText && (
+                      <p className="text-sm text-muted-foreground">
+                        {step.guideText}
+                      </p>
+                    )}
+
                     {/* Links */}
                     {step.links.length > 0 && (
                       <div className="space-y-2">
                         {step.links.map((link, idx) => (
-                          <div key={idx} className="flex gap-2">
-                            {link.type === 'video' ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 justify-start"
-                                onClick={() => openLink(link.url)}
-                              >
-                                <Play className="h-4 w-4 mr-2" />
-                                {link.label}
-                              </Button>
-                            ) : (
-                              <>
+                          <div key={idx} className="space-y-1">
+                            <div className="flex gap-2">
+                              {link.type === 'video' ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   className="flex-1 justify-start"
-                                  onClick={() => copyToClipboard(link.url, link.label)}
-                                >
-                                  <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
-                                  <span className="truncate">{link.label}</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
                                   onClick={() => openLink(link.url)}
                                 >
-                                  <ExternalLink className="h-4 w-4" />
+                                  <Play className="h-4 w-4 mr-2" />
+                                  {link.label}
                                 </Button>
-                              </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 justify-start"
+                                    onClick={() => copyToClipboard(link.url, link.label)}
+                                  >
+                                    <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
+                                    <span className="truncate">{link.label}</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openLink(link.url)}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                            {link.subtext && (
+                              <p className="text-xs text-muted-foreground italic ml-1">
+                                {link.subtext}
+                              </p>
                             )}
                           </div>
                         ))}
