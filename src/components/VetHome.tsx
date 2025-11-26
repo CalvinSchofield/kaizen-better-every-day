@@ -149,25 +149,39 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                       <p className="text-sm text-muted-foreground">
                         Get with your leaders to set preseason goals that push you but are attainable.
                       </p>
-                      <Button 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => {
-                          const phone = repData.team_leader_phone;
-                          if (phone) {
-                            window.location.href = `sms:${phone}`;
-                          } else {
-                            toast({
-                              title: "No phone number",
-                              description: "Team leader phone number not available",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Message Leader
-                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        This online preseason calculator also is super helpful in determining what recruiting work needs to be done in order to hit goals on the year.
+                      </p>
+                      <div className="space-y-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => openLink("https://vivintevolution.com/2026-season-calculator/")}
+                        >
+                          <Calculator className="h-4 w-4 mr-2" />
+                          Recruiting Calculator
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => {
+                            const phone = repData.team_leader_phone;
+                            if (phone) {
+                              window.location.href = `sms:${phone}`;
+                            } else {
+                              toast({
+                                title: "No phone number",
+                                description: "Team leader phone number not available",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Message Leader
+                        </Button>
+                      </div>
                     </div>
                   </PopoverContent>
                 </Popover>
