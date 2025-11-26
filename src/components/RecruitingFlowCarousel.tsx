@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -92,6 +93,20 @@ const FLOW_STEPS: FlowStep[] = [
 
 export const RecruitingFlowCarousel = () => {
   const { toast } = useToast();
+  const [api, setApi] = React.useState<any>();
+  const [current, setCurrent] = React.useState(0);
+  const [count, setCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!api) return;
+
+    setCount(api.scrollSnapList().length);
+    setCurrent(api.selectedScrollSnap());
+
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
 
   const copyToClipboard = (url: string, label: string) => {
     navigator.clipboard.writeText(url);
@@ -106,19 +121,34 @@ export const RecruitingFlowCarousel = () => {
   };
 
   return (
-    <div className="relative px-8">
-      <Carousel
-        opts={{
-          align: "start",
-          loop: false,
-        }}
-        className="w-full"
-      >
-        <CarouselContent className="-ml-4">
+    <div className="relative">
+      {/* Scroll hint */}
+      <div className="text-center mb-3">
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+          <span className="animate-pulse">←</span> Swipe to see all steps <span className="animate-pulse">→</span>
+        </p>
+      </div>
+      
+      <div className="relative px-8">
+        {/* Left gradient fade */}
+        <div className="absolute left-0 top-0 bottom-12 w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+        
+        {/* Right gradient fade */}
+        <div className="absolute right-0 top-0 bottom-12 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+        
+        <Carousel
+          setApi={setApi}
+          opts={{
+            align: "start",
+            loop: false,
+          }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-2 md:-ml-4">
           {FLOW_STEPS.map((step) => {
             const Icon = step.icon;
             return (
-              <CarouselItem key={step.step} className="pl-4 md:basis-4/5 basis-full">
+              <CarouselItem key={step.step} className="pl-2 md:pl-4 basis-[85%] md:basis-[80%]">
                 <Card className="h-full border-2 hover:border-primary/50 transition-colors">
                   <CardContent className="p-6 space-y-4">
                     {/* Step Badge */}
@@ -199,6 +229,23 @@ export const RecruitingFlowCarousel = () => {
         <CarouselPrevious className="hidden md:flex" />
         <CarouselNext className="hidden md:flex" />
       </Carousel>
+      </div>
+
+      {/* Scroll indicator dots */}
+      <div className="flex justify-center gap-2 mt-4">
+        {Array.from({ length: count }).map((_, index) => (
+          <button
+            key={index}
+            className={`h-2 rounded-full transition-all ${
+              index === current
+                ? "w-8 bg-primary"
+                : "w-2 bg-muted-foreground/30"
+            }`}
+            onClick={() => api?.scrollTo(index)}
+            aria-label={`Go to step ${index + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 };
