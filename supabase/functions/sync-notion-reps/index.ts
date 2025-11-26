@@ -272,6 +272,7 @@ Deno.serve(async (req) => {
           team_leader: teamLeaderName,
           team_leader_phone: teamLeaderPhone,
           stage: getSelect(props.Stage),
+          year: getSelect(props.Year), // "Rookie", "Sophomore", or "Vet"
           
           // Journey progress - from Journey Step property
           onboarding_complete: onboardingComplete,

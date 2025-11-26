@@ -63,6 +63,7 @@ export type Database = {
           trainings_complete: boolean | null
           updated_at: string | null
           user_id: string
+          year: string | null
         }
         Insert: {
           blitz_ready?: boolean | null
@@ -91,6 +92,7 @@ export type Database = {
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id: string
+          year?: string | null
         }
         Update: {
           blitz_ready?: boolean | null
@@ -119,6 +121,7 @@ export type Database = {
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id?: string
+          year?: string | null
         }
         Relationships: []
       }
