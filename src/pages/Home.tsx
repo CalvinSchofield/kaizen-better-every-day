@@ -294,7 +294,7 @@ const Home = () => {
     }, {
       id: "phase2-product-quiz",
       label: "Take the Product Quiz",
-      href: "https://www.notion.so/Product-Quiz-1624b6a3caba47669c20eeef13d2934f",
+      href: "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform?usp=dialog",
       duration: "5 mins"
     }, {
       id: "phase2-upgrades",
