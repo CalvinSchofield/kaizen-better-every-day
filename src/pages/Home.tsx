@@ -67,33 +67,49 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Track completed tasks in localStorage
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
-  const [tasksLoaded, setTasksLoaded] = useState(false);
-
-  // Load saved progress when repData becomes available
-  useEffect(() => {
-    if (repData?.id && !tasksLoaded) {
-      const storageKey = `ramp-progress-${repData.id}`;
-      const saved = localStorage.getItem(storageKey);
-      console.log('Loading task progress for user:', repData.id);
-      console.log('Raw localStorage value:', saved);
-      
-      if (saved) {
-        try {
-          const taskArray: string[] = JSON.parse(saved);
-          const taskSet = new Set<string>(taskArray);
-          console.log('Loaded tasks from storage:', taskArray);
-          setCompletedTasks(taskSet);
-        } catch (error) {
-          console.error('Error parsing saved progress:', error);
-        }
-      } else {
-        console.log('No saved progress found');
+  // Track completed tasks in localStorage - initialize directly from storage
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
+    // This runs only once during initial component mount
+    if (!repData?.id) return new Set();
+    
+    const storageKey = `ramp-progress-${repData.id}`;
+    const saved = localStorage.getItem(storageKey);
+    console.log('[INIT] Loading task progress for user:', repData.id);
+    console.log('[INIT] Raw localStorage value:', saved);
+    
+    if (saved) {
+      try {
+        const taskArray: string[] = JSON.parse(saved);
+        console.log('[INIT] Loaded tasks from storage:', taskArray);
+        return new Set<string>(taskArray);
+      } catch (error) {
+        console.error('[INIT] Error parsing saved progress:', error);
+        return new Set();
       }
-      setTasksLoaded(true);
     }
-  }, [repData?.id, tasksLoaded]);
+    console.log('[INIT] No saved progress found, starting fresh');
+    return new Set();
+  });
+
+  // Reload when user changes (different repData.id)
+  useEffect(() => {
+    if (!repData?.id) return;
+    
+    const storageKey = `ramp-progress-${repData.id}`;
+    const saved = localStorage.getItem(storageKey);
+    console.log('[RELOAD] Loading task progress for user:', repData.id);
+    console.log('[RELOAD] Raw localStorage value:', saved);
+    
+    if (saved) {
+      try {
+        const taskArray: string[] = JSON.parse(saved);
+        console.log('[RELOAD] Loaded tasks from storage:', taskArray);
+        setCompletedTasks(new Set<string>(taskArray));
+      } catch (error) {
+        console.error('[RELOAD] Error parsing saved progress:', error);
+      }
+    }
+  }, [repData?.id]);
 
   // Calculate progress values - sequential logic (later steps imply earlier ones are done)
   const phase = repData?.ramp_to_blitz_phase || "Not started";
@@ -172,21 +188,25 @@ const Home = () => {
     }
   }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id]);
 
-  // Update localStorage when completedTasks changes
+  // Update localStorage whenever completedTasks changes
   useEffect(() => {
-    if (repData?.id && tasksLoaded) {
-      const storageKey = `ramp-progress-${repData.id}`;
-      const taskArray = [...completedTasks];
-      console.log('Saving task progress:', taskArray);
+    if (!repData?.id) return;
+    
+    const storageKey = `ramp-progress-${repData.id}`;
+    const taskArray = [...completedTasks];
+    console.log('[SAVE] Saving task progress:', taskArray);
+    
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(taskArray));
+      console.log('[SAVE] Successfully saved to localStorage');
       
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(taskArray));
-        console.log('Successfully saved to localStorage');
-      } catch (error) {
-        console.error('Error saving progress:', error);
-      }
+      // Verify it was saved
+      const verification = localStorage.getItem(storageKey);
+      console.log('[SAVE] Verification read:', verification);
+    } catch (error) {
+      console.error('[SAVE] Error saving progress:', error);
     }
-  }, [completedTasks, repData?.id, tasksLoaded]);
+  }, [completedTasks, repData?.id]);
 
   // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
