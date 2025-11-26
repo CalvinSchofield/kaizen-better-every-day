@@ -253,8 +253,18 @@ const Home = () => {
   };
 
   const handleSetupNudge = async () => {
+    setIsNudging(true);
     try {
-      const { error } = await supabase.functions.invoke('send-setup-nudge-email');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error('No user email found');
+
+      const { error } = await supabase.functions.invoke('send-setup-nudge-email', {
+        body: {
+          userEmail: user.email,
+          notionEmail: repData?.email || null,
+          repName: repData?.name || null,
+        }
+      });
       
       if (error) throw error;
 
@@ -265,10 +275,12 @@ const Home = () => {
     } catch (error: any) {
       console.error('Setup nudge error:', error);
       toast({
-        title: "Failed to notify leaders",
-        description: error.message || "Please try again or contact support directly",
+        title: "Error",
+        description: "Could not notify leaders. Please try texting them directly.",
         variant: "destructive",
       });
+    } finally {
+      setIsNudging(false);
     }
   };
 
@@ -345,32 +357,24 @@ const Home = () => {
                 Account Setup Needed
               </CardTitle>
               <CardDescription>
-                We couldn't find your profile in our system. This usually means your email doesn't match the one you used during onboarding.
+                Looks like the email we have for you is different than the one you used to sign in. We'll correct it, just let us know and we'll fix it ASAP.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm space-y-2">
-                <p className="font-medium">To get set up:</p>
-                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                  <li>Make sure you're using the same email from your onboarding</li>
-                  <li>If you used a different email, log out and sign in with the correct one</li>
-                  <li>If the issue persists, notify your leaders below</li>
-                </ol>
-              </div>
+            <CardContent>
               <div className="flex gap-3">
                 <Button 
                   onClick={() => window.open("sms:", "_self")}
                   className="flex-1"
                   variant="outline"
                 >
-                  <span className="mr-2">💬</span>
                   Text Leaders
                 </Button>
                 <Button
                   onClick={handleSetupNudge}
                   className="flex-1"
+                  disabled={isNudging}
                 >
-                  Nudge Leaders
+                  {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Nudge Leaders"}
                 </Button>
               </div>
             </CardContent>
