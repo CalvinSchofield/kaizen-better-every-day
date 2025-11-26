@@ -50,8 +50,19 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[update-notion-nudge] Updating Notion page ${repData.notion_page_id}`);
+    console.log(`[update-notion-nudge] Setting "Nudge leader" checkbox to: ${nudgeValue}`);
 
     // Update the Notion page property
+    const notionBody = {
+      properties: {
+        "Nudge leader": {
+          checkbox: nudgeValue,
+        },
+      },
+    };
+    
+    console.log("[update-notion-nudge] Request body:", JSON.stringify(notionBody, null, 2));
+
     const notionResponse = await fetch(
       `https://api.notion.com/v1/pages/${repData.notion_page_id}`,
       {
@@ -61,23 +72,20 @@ Deno.serve(async (req) => {
           "Notion-Version": "2022-06-28",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          properties: {
-            "Nudge leader": {
-              checkbox: nudgeValue,
-            },
-          },
-        }),
+        body: JSON.stringify(notionBody),
       }
     );
 
+    console.log(`[update-notion-nudge] Notion API response status: ${notionResponse.status}`);
+
     if (!notionResponse.ok) {
       const errorText = await notionResponse.text();
-      console.error("[update-notion-nudge] Notion API error:", errorText);
-      throw new Error(`Notion API error: ${notionResponse.status}`);
+      console.error("[update-notion-nudge] Notion API error response:", errorText);
+      throw new Error(`Notion API error: ${notionResponse.status} - ${errorText}`);
     }
 
     const result = await notionResponse.json();
+    console.log("[update-notion-nudge] Notion API success response:", JSON.stringify(result.properties?.["Nudge leader"], null, 2));
     console.log(`[update-notion-nudge] Successfully updated Notion for ${repData.name}`);
 
     // Also update Supabase
