@@ -172,9 +172,14 @@ Deno.serve(async (req) => {
         let teamLeaderName = '';
         let teamLeaderPhone = '';
         
+        console.log(`Processing team leader for ${name}...`);
+        console.log('Teams property:', JSON.stringify(props.Teams, null, 2));
+        
         if (props.Teams?.relation && props.Teams.relation.length > 0) {
           try {
             const teamId = props.Teams.relation[0].id;
+            console.log(`Fetching team with ID: ${teamId}`);
+            
             const teamResponse = await fetch(`https://api.notion.com/v1/pages/${teamId}`, {
               headers: {
                 'Authorization': `Bearer ${notionApiKey}`,
@@ -185,10 +190,17 @@ Deno.serve(async (req) => {
             
             if (teamResponse.ok) {
               const teamData = await teamResponse.json();
-              const groupLeadProperty = teamData.properties['Group lead'];
+              console.log('Team data properties:', Object.keys(teamData.properties));
+              console.log('Team name:', getTitle(teamData.properties.Name));
+              
+              // Try both "Group lead" and "Group Lead" (case sensitive)
+              const groupLeadProperty = teamData.properties['Group lead'] || teamData.properties['Group Lead'];
+              console.log('Group lead property:', JSON.stringify(groupLeadProperty, null, 2));
               
               if (groupLeadProperty?.relation && groupLeadProperty.relation.length > 0) {
                 const leaderId = groupLeadProperty.relation[0].id;
+                console.log(`Fetching leader with ID: ${leaderId}`);
+                
                 const leaderResponse = await fetch(`https://api.notion.com/v1/pages/${leaderId}`, {
                   headers: {
                     'Authorization': `Bearer ${notionApiKey}`,
@@ -199,13 +211,21 @@ Deno.serve(async (req) => {
                 
                 if (leaderResponse.ok) {
                   const leaderData = await leaderResponse.json();
+                  console.log('Leader data properties:', Object.keys(leaderData.properties));
+                  
                   const leaderFullName = getTitle(leaderData.properties.Name);
+                  const leaderPhone = getPhone(leaderData.properties.Phone) || getRichText(leaderData.properties.Phone);
+                  
+                  console.log(`Leader full name: ${leaderFullName}`);
+                  console.log(`Leader phone from Notion: ${leaderPhone}`);
                   
                   // Extract first name only (remove emojis and extra text)
                   const firstName = leaderFullName
                     .replace(/[^\w\s]/g, '') // Remove emojis and special chars
                     .trim()
                     .split(' ')[0];
+                  
+                  console.log(`Extracted first name: ${firstName}`);
                   
                   // Map leader names to phone numbers
                   const leaderPhoneMap: Record<string, string> = {
@@ -222,13 +242,24 @@ Deno.serve(async (req) => {
                   
                   // For Levi, always use Calvin's name
                   teamLeaderName = firstName === 'Levi' ? 'Calvin' : firstName;
-                  teamLeaderPhone = leaderPhoneMap[firstName] || '';
+                  teamLeaderPhone = leaderPhoneMap[firstName] || leaderPhone || '';
+                  
+                  console.log(`Final team leader name: ${teamLeaderName}`);
+                  console.log(`Final team leader phone: ${teamLeaderPhone}`);
+                } else {
+                  console.error(`Failed to fetch leader: ${leaderResponse.status}`);
                 }
+              } else {
+                console.log('No Group lead relation found');
               }
+            } else {
+              console.error(`Failed to fetch team: ${teamResponse.status}`);
             }
           } catch (error) {
             console.error('Error fetching team leader info:', error);
           }
+        } else {
+          console.log('No Teams relation found');
         }
 
         const repData = {
