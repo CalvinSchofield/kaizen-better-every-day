@@ -30,81 +30,90 @@ export const useRepData = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchRepData = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  const fetchRepData = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("reps")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // If no rep data exists, automatically sync from Notion
+      if (!data) {
+        console.log("No rep data found, attempting auto-sync from Notion...");
+        toast({
+          title: "Syncing from Notion",
+          description: "Loading your data from Notion...",
+        });
+
+        const { error: syncError } = await supabase.functions.invoke(
+          "sync-notion-reps"
+        );
+
+        if (syncError) {
+          console.error("Auto-sync error:", syncError);
+          toast({
+            title: "Sync failed",
+            description: "Could not sync your data from Notion. Please contact your team leader.",
+            variant: "destructive",
+          });
           setLoading(false);
           return;
         }
 
-        const { data, error } = await supabase
+        // Fetch the newly synced data
+        const { data: syncedData, error: refetchError } = await supabase
           .from("reps")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (error) throw error;
+        if (refetchError) throw refetchError;
 
-        // If no rep data exists, automatically sync from Notion
-        if (!data) {
-          console.log("No rep data found, attempting auto-sync from Notion...");
+        setRepData(syncedData);
+        
+        if (syncedData) {
           toast({
-            title: "Syncing from Notion",
-            description: "Loading your data from Notion...",
+            title: "Sync successful",
+            description: "Your data has been loaded from Notion.",
           });
-
-          const { error: syncError } = await supabase.functions.invoke(
-            "sync-notion-reps"
-          );
-
-          if (syncError) {
-            console.error("Auto-sync error:", syncError);
-            toast({
-              title: "Sync failed",
-              description: "Could not sync your data from Notion. Please contact your team leader.",
-              variant: "destructive",
-            });
-            setLoading(false);
-            return;
-          }
-
-          // Fetch the newly synced data
-          const { data: syncedData, error: refetchError } = await supabase
-            .from("reps")
-            .select("*")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (refetchError) throw refetchError;
-
-          setRepData(syncedData);
-          
-          if (syncedData) {
-            toast({
-              title: "Sync successful",
-              description: "Your data has been loaded from Notion.",
-            });
-          }
-        } else {
-          setRepData(data);
         }
-      } catch (error: any) {
-        console.error("Error fetching rep data:", error);
-        toast({
-          title: "Error loading data",
-          description: "Could not load your journey data. Please try refreshing the page.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+      } else {
+        setRepData(data);
       }
-    };
+    } catch (error: any) {
+      console.error("Error fetching rep data:", error);
+      toast({
+        title: "Error loading data",
+        description: "Could not load your journey data. Please try refreshing the page.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const refetch = async () => {
+    // Trigger Notion sync
+    await supabase.functions.invoke("sync-notion-reps");
+    // Wait a moment for sync to complete
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Refetch the data
+    await fetchRepData();
+  };
+
+  useEffect(() => {
     fetchRepData();
 
     // Set up automatic periodic sync from Notion every 5 minutes
@@ -141,5 +150,5 @@ export const useRepData = () => {
     };
   }, [toast]);
 
-  return { repData, loading };
+  return { repData, loading, refetch };
 };

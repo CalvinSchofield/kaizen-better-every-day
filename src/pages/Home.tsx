@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import confetti from "canvas-confetti";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -43,13 +44,15 @@ interface RampPhase {
 const Home = () => {
   const {
     repData,
-    loading
+    loading,
+    refetch
   } = useRepData();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Track completed tasks in localStorage
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
@@ -61,6 +64,10 @@ const Home = () => {
   // Calculate progress values
   const phase = repData?.ramp_to_blitz_phase || "Not started";
   const phaseLower = phase.toLowerCase();
+  
+  // Log for debugging progress
+  console.log("Current phase from Notion:", phase);
+  console.log("Phase lowercase:", phaseLower);
   
   const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
   const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
@@ -82,6 +89,20 @@ const Home = () => {
   ].filter(Boolean).length;
   const progressPercentage = (completedSteps / totalSteps) * 100;
 
+  // Log progress calculation
+  console.log("Progress:", {
+    onboardingComplete,
+    trainingsComplete,
+    slackComplete,
+    phase1Complete,
+    phase2Complete,
+    phase3Complete,
+    phase4Complete,
+    completedSteps,
+    totalSteps,
+    progressPercentage
+  });
+
   // Update localStorage when completedTasks changes
   useEffect(() => {
     if (repData?.id) {
@@ -93,6 +114,14 @@ const Home = () => {
   useEffect(() => {
     if (completedSteps > previousProgress && previousProgress > 0) {
       setAnimateProgress(true);
+      
+      // Trigger confetti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FF6B35', '#F7931E', '#FDC830', '#4CAF50']
+      });
       
       const stepNames = [
         "Onboarding",
@@ -118,6 +147,27 @@ const Home = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await refetch();
+      toast({
+        title: "✓ Synced",
+        description: "Your progress has been updated from Notion.",
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Sync failed",
+        description: "Could not sync your data. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
@@ -350,9 +400,20 @@ const Home = () => {
               <h1 className="text-2xl font-bold">​Getting started  </h1>
               <p className="text-primary-foreground/90 text-sm">Welcome back, {repData.name}!</p>
             </div>
-            <Button onClick={handleLogout} variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
-              Log Out
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleSync} 
+                variant="ghost" 
+                size="sm" 
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                disabled={isSyncing}
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button onClick={handleLogout} variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
+                Log Out
+              </Button>
+            </div>
           </div>
           <p className="text-primary-foreground/80 text-sm mt-2">
             ​Follow this to help you make your first $10k at Vivint                                     
