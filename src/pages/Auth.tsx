@@ -103,11 +103,6 @@ const Auth = () => {
               ? "Log in to continue your sales journey"
               : "Create your account to get started"}
           </CardDescription>
-          {isLogin && (
-            <p className="text-xs text-muted-foreground mt-2 px-2 py-1.5 bg-muted/50 rounded-md">
-              💡 Use the same email you provided when you started the onboarding process
-            </p>
-          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
@@ -136,6 +131,11 @@ const Auth = () => {
                 required
                 disabled={isLoading}
               />
+              {isLogin && (
+                <p className="text-xs text-muted-foreground">
+                  Use the same email from your onboarding process
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
