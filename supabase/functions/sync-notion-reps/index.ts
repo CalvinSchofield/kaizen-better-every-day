@@ -168,6 +168,69 @@ Deno.serve(async (req) => {
         const rampPhase3Complete = rampLower.includes("phase 3") || rampLower.includes("phase 4");
         const rampPhase4Complete = rampLower.includes("phase 4");
 
+        // Fetch team leader info from Teams relation
+        let teamLeaderName = '';
+        let teamLeaderPhone = '';
+        
+        if (props.Teams?.relation && props.Teams.relation.length > 0) {
+          try {
+            const teamId = props.Teams.relation[0].id;
+            const teamResponse = await fetch(`https://api.notion.com/v1/pages/${teamId}`, {
+              headers: {
+                'Authorization': `Bearer ${notionApiKey}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (teamResponse.ok) {
+              const teamData = await teamResponse.json();
+              const groupLeadProperty = teamData.properties['Group lead'];
+              
+              if (groupLeadProperty?.relation && groupLeadProperty.relation.length > 0) {
+                const leaderId = groupLeadProperty.relation[0].id;
+                const leaderResponse = await fetch(`https://api.notion.com/v1/pages/${leaderId}`, {
+                  headers: {
+                    'Authorization': `Bearer ${notionApiKey}`,
+                    'Notion-Version': '2022-06-28',
+                    'Content-Type': 'application/json',
+                  },
+                });
+                
+                if (leaderResponse.ok) {
+                  const leaderData = await leaderResponse.json();
+                  const leaderFullName = getTitle(leaderData.properties.Name);
+                  
+                  // Extract first name only (remove emojis and extra text)
+                  const firstName = leaderFullName
+                    .replace(/[^\w\s]/g, '') // Remove emojis and special chars
+                    .trim()
+                    .split(' ')[0];
+                  
+                  // Map leader names to phone numbers
+                  const leaderPhoneMap: Record<string, string> = {
+                    'Calvin': '469-715-7056',
+                    'Christian': '209-519-3176',
+                    'Javier': '831-673-9285',
+                    'Adam': '972-369-6386',
+                    'Ammon': '714-510-1154',
+                    'Levi': '469-715-7056', // Forward to Calvin
+                    'Ansel': '925-788-0112',
+                    'Quinn': '206-422-4462',
+                    'Misael': '484-664-0518',
+                  };
+                  
+                  // For Levi, always use Calvin's name
+                  teamLeaderName = firstName === 'Levi' ? 'Calvin' : firstName;
+                  teamLeaderPhone = leaderPhoneMap[firstName] || '';
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching team leader info:', error);
+          }
+        }
+
         const repData = {
           user_id: user.id,
           notion_page_id: page.id,
@@ -175,7 +238,8 @@ Deno.serve(async (req) => {
           phone,
           email,
           recruiter: getRichText(props.Recruiter) || getSelect(props.Recruiter),
-          team_leader: getRichText(props["Team Leader"]) || getSelect(props["Team Leader"]),
+          team_leader: teamLeaderName,
+          team_leader_phone: teamLeaderPhone,
           stage: getSelect(props.Stage),
           
           // Journey progress - from Journey Step property

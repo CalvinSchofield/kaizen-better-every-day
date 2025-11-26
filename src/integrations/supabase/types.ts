@@ -56,6 +56,7 @@ export type Database = {
           slack_joined: boolean | null
           stage: string | null
           team_leader: string | null
+          team_leader_phone: string | null
           trainings_complete: boolean | null
           updated_at: string | null
           user_id: string
@@ -80,6 +81,7 @@ export type Database = {
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
+          team_leader_phone?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id: string
@@ -104,6 +106,7 @@ export type Database = {
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
+          team_leader_phone?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id?: string

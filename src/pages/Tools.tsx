@@ -3,6 +3,7 @@ import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Cale
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
+import { useRepData } from "@/hooks/useRepData";
 
 interface ToolSection {
   title: string;
@@ -18,6 +19,7 @@ interface ToolSection {
 
 const Tools = () => {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const { repData } = useRepData();
 
   const sections: ToolSection[] = [
     {
@@ -169,9 +171,24 @@ const Tools = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full" size="lg">
-              <Phone className="w-4 h-4 mr-2" />
-              Contact Leader
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              size="lg"
+              asChild={!!(repData?.team_leader_phone)}
+              disabled={!repData?.team_leader_phone}
+            >
+              {repData?.team_leader_phone ? (
+                <a href={`tel:${repData.team_leader_phone}`}>
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contact {repData.team_leader}
+                </a>
+              ) : (
+                <>
+                  <Phone className="w-4 h-4 mr-2" />
+                  Contact Leader
+                </>
+              )}
             </Button>
             <Button variant="default" className="w-full" size="lg" asChild>
               <a href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt" target="_blank" rel="noopener noreferrer">
