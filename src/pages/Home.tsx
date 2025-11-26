@@ -70,18 +70,27 @@ const Home = () => {
 
   // Get storage key based on user ID
   const storageKey = useMemo(() => {
-    return repData?.id ? `ramp-progress-${repData.id}` : 'ramp-progress-temp';
+    const key = repData?.id ? `ramp-progress-${repData.id}` : 'ramp-progress-temp';
+    console.log('[Home] Storage key computed:', key, 'repData.id:', repData?.id);
+    return key;
   }, [repData?.id]);
 
   // Use localStorage hook for task tracking
   const [completedTasksArray, setCompletedTasksArray] = useLocalStorage<string[]>(storageKey, []);
+  console.log('[Home] Component rendered. completedTasksArray:', completedTasksArray);
   
   // Convert array to Set for easier manipulation
-  const completedTasks = useMemo(() => new Set(completedTasksArray), [completedTasksArray]);
+  const completedTasks = useMemo(() => {
+    const set = new Set(completedTasksArray);
+    console.log('[Home] completedTasks Set created:', [...set]);
+    return set;
+  }, [completedTasksArray]);
   
   // Helper to update completed tasks
   const setCompletedTasks = (newSet: Set<string>) => {
-    setCompletedTasksArray([...newSet]);
+    const array = [...newSet];
+    console.log('[Home] setCompletedTasks called with:', array);
+    setCompletedTasksArray(array);
   };
 
   // Calculate progress values - sequential logic (later steps imply earlier ones are done)
