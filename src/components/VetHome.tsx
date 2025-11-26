@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Copy, Download, Target, Users, BookOpen, Link as LinkIcon, DollarSign, Edit2, TrendingUp } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
+import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,17 +37,6 @@ const DASHBOARD_MAP: Record<string, string> = {
   "misael.sanchez@vivint.com": "https://www.notion.so/calvinschofield/Misael-s-Dashboard-287070fe3bc28028a14de6a224b4346c?source=copy_link",
   "ansel.severson@vivint.com": "https://www.notion.so/calvinschofield/Ansel-s-Dashboard-28b070fe3bc280ed9700f80a1d3410a2?source=copy_link",
 };
-
-// Quick share links
-const QUICK_LINKS = [
-  { label: "SmartHomePros", url: "https://www.smarthomepros.com/?inviteId=fdb85236-b069-46ec-9db6-797d24dfbe10#culture" },
-  { label: "Recruiting Content", url: "https://calvinschofield.notion.site/recruiting-content-flow?source=copy_link" },
-  { label: "Welcome", url: "https://calvinschofield.notion.site/welcome?source=copy_link" },
-  { label: "Ramp to Blitz", url: "https://calvinschofield.notion.site/ramp-to-blitz-program?source=copy_link" },
-  { label: "Goals & Gameplan", url: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link" },
-  { label: "Preseason Trips", url: "https://calvinschofield.notion.site/preseason-trips?v=a85a815c7d1a42fd84d87b9b632582bc&source=copy_link" },
-  { label: "Path to Pro", url: "https://calvinschofield.notion.site/path-to-pro?source=copy_link" },
-];
 
 // Pay scale documents
 const PAY_SCALES = [
@@ -251,93 +241,16 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </Card>
         )}
 
-
-        {/* Recruiting Flow Visual */}
+        {/* Recruiting Flow Carousel */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Recruiting Flow
-            </CardTitle>
+            <CardTitle>Recruiting Flow</CardTitle>
             <CardDescription>
               Your step-by-step recruiting process
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <img
-                src="/images/recruiting-flow.jpeg"
-                alt="Recruiting Flow"
-                className="w-full h-auto rounded-lg"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recruiting Hub */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Recruiting Hub
-            </CardTitle>
-            <CardDescription>
-              Resources and content for recruiting
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              variant="outline"
-              className="w-full justify-between"
-              onClick={() => openLink("https://calvinschofield.notion.site/recruiting-content-flow?source=copy_link")}
-            >
-              <span>Recruiting Content Flow</span>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-between"
-              disabled
-            >
-              <span>Cold Contact Video</span>
-              <span className="text-xs text-muted-foreground">Coming Soon</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-between"
-              disabled
-            >
-              <span>Recruiting 101</span>
-              <span className="text-xs text-muted-foreground">Coming Soon</span>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Quick Share Links */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <LinkIcon className="h-5 w-5" />
-              Quick Share Links
-            </CardTitle>
-            <CardDescription>
-              Copy and share these links with your reps
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {QUICK_LINKS.map((link) => (
-                <Button
-                  key={link.label}
-                  variant="outline"
-                  className="justify-between"
-                  onClick={() => copyToClipboard(link.url, link.label)}
-                >
-                  <span className="truncate">{link.label}</span>
-                  <Copy className="h-4 w-4 ml-2 flex-shrink-0" />
-                </Button>
-              ))}
-            </div>
+          <CardContent className="px-0">
+            <RecruitingFlowCarousel />
           </CardContent>
         </Card>
 
