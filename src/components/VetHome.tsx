@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,18 +60,56 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   
-  // Local state for editable stats
-  const [personalFP, setPersonalFP] = useState(12);
-  const [personalFPGoal, setPersonalFPGoal] = useState(50);
-  const [repsWithSale, setRepsWithSale] = useState(3);
-  const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(5);
+  // Local state for editable stats - initialize from repData
+  const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
+  const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 0);
+  const [repsWithSale, setRepsWithSale] = useState(repData.reps_with_sale ?? 0);
+  const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(repData.reps_with_sale_goal ?? 0);
+
+  // Sync local state with repData changes
+  useEffect(() => {
+    setPersonalFP(repData.personal_fp ?? 0);
+    setPersonalFPGoal(repData.personal_fp_goal ?? 0);
+    setRepsWithSale(repData.reps_with_sale ?? 0);
+    setRepsWithSaleGoal(repData.reps_with_sale_goal ?? 0);
+  }, [repData]);
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   const userEmail = repData.email?.toLowerCase();
   const dashboardUrl = userEmail ? DASHBOARD_MAP[userEmail] : null;
   
-  const personalFPProgress = (personalFP / personalFPGoal) * 100;
-  const repsProgress = (repsWithSale / repsWithSaleGoal) * 100;
+  const personalFPProgress = personalFPGoal > 0 ? (personalFP / personalFPGoal) * 100 : 0;
+  const repsProgress = repsWithSaleGoal > 0 ? (repsWithSale / repsWithSaleGoal) * 100 : 0;
+  const goalsNotSet = personalFPGoal === 0 || repsWithSaleGoal === 0;
+
+  const saveGoals = async () => {
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({
+          personal_fp: personalFP,
+          personal_fp_goal: personalFPGoal,
+          reps_with_sale: repsWithSale,
+          reps_with_sale_goal: repsWithSaleGoal,
+        })
+        .eq('id', repData.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Goals saved",
+        description: "Your progress has been updated successfully",
+      });
+      setIsEditingStats(false);
+    } catch (error) {
+      console.error("Error saving goals:", error);
+      toast({
+        title: "Save failed",
+        description: "Could not save your goals. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogout = () => {
     setLogoutDialogOpen(true);
@@ -214,18 +252,35 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                     </div>
                   </SheetContent>
                 </Sheet>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditingStats(!isEditingStats)}
-                >
-                  <Edit2 className="h-4 w-4 mr-1.5" />
-                  {isEditingStats ? "Done" : "Edit"}
-                </Button>
+                {isEditingStats ? (
+                  <Button
+                    size="sm"
+                    onClick={saveGoals}
+                  >
+                    Save Goals
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditingStats(true)}
+                  >
+                    <Edit2 className="h-4 w-4 mr-1.5" />
+                    Edit
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {goalsNotSet && !isEditingStats && (
+              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                <p className="text-sm text-center font-medium">
+                  👆 Tap <strong>Edit</strong> to set your preseason goals
+                </p>
+              </div>
+            )}
+            
             {/* Personal FP+ */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
