@@ -672,7 +672,9 @@ const Home = () => {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="text-2xl font-bold">​Getting started  </h1>
-              <p className="text-primary-foreground/90 text-sm">👋 Welcome back, {repData.name.split(' ')[0]}!</p>
+              <p className="text-primary-foreground/90 text-sm">
+                👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!
+              </p>
             </div>
             <div className="flex gap-2">
               <Button 
