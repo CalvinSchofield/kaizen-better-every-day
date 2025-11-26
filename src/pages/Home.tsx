@@ -520,7 +520,7 @@ const Home = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <CardTitle className="text-lg leading-tight flex-1 min-w-0">Prepare for Blitz</CardTitle>
+                  <CardTitle className="text-lg leading-tight flex-1 min-w-0">Ramp to Blitz</CardTitle>
                   {allRampPhasesComplete ? <Badge className="bg-success text-success-foreground">✓ Completed</Badge> : !slackComplete ? <Badge className="bg-locked text-locked-foreground">🔒 Locked</Badge> : <Badge className="bg-warning text-warning-foreground">In Progress</Badge>}
                 </div>
                 {slackComplete && !allRampPhasesComplete && <CardDescription className="text-sm leading-relaxed">
@@ -588,6 +588,18 @@ const Home = () => {
                             </div>
                           );
                         })}
+                        
+                        {/* Show encouragement when all tasks are completed */}
+                        {phase.tasks.every(task => completedTasks.has(task.id)) && !phaseStatus.completed && (
+                          <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                            <p className="text-sm font-medium text-foreground">
+                              🎉 Great work! You've completed all tasks for Phase {phase.id}.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Text your leaders to let them know you're done with Phase {phase.id} so they can verify and unlock the next phase!
+                            </p>
+                          </div>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
                   );
