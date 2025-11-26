@@ -24,7 +24,6 @@ import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { VetHome } from "@/components/VetHome";
-import KaizenLogo from "@/components/KaizenLogo";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -907,11 +906,6 @@ const Home = () => {
               <p className="text-sm text-muted-foreground">All phases completed! You're ready for the blitz!</p>
             </CardContent>}
         </Card>
-      </div>
-
-      {/* Logo at bottom */}
-      <div className="mt-4 mb-4">
-        <KaizenLogo />
       </div>
 
       {/* Intro Example Dialog */}
