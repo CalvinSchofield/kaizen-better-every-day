@@ -64,7 +64,8 @@ const FLOW_STEPS: FlowStep[] = [
     title: "Sign Them",
     icon: FileCheck,
     links: [
-      { label: "Welcome Page", url: "https://calvinschofield.notion.site/welcome?source=copy_link", type: "notion" }
+      { label: "Welcome Page", url: "https://calvinschofield.notion.site/welcome?source=copy_link", type: "notion" },
+      { label: "Kaizen Preseason Hub", url: "https://kaizen-better-every-day.lovable.app/auth", type: "notion" }
     ]
   },
   {
