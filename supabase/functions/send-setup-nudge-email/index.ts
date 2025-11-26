@@ -13,23 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unable to get user');
-    }
-
-    const userEmail = user.email;
+    const { userEmail, notionEmail, repName } = await req.json();
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
     if (!resendApiKey) {
@@ -45,12 +29,11 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'Kaizen <onboarding@resend.dev>',
         to: ['calvinjschofield@gmail.com'],
-        subject: `Account setup needed - ${userEmail}`,
+        subject: `${repName || 'A rep'} nudged you to set up the home page`,
         html: `
-          <h2>Account Setup Needed</h2>
-          <p>A user signed in but their account needs setup.</p>
-          <p><strong>Email they used to sign in:</strong> ${userEmail}</p>
-          <p>Please check the Notion database to find their record and ensure the email matches.</p>
+          <h2>${repName || 'A rep'} nudged you to set up the home page</h2>
+          <p><strong>Email in Notion:</strong> ${notionEmail || 'Not found'}</p>
+          <p><strong>Email they put in:</strong> ${userEmail}</p>
         `,
       }),
     });
