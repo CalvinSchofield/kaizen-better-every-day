@@ -17,7 +17,7 @@ const Layout = ({ children }: LayoutProps) => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-24">
+    <div className="min-h-screen bg-background flex flex-col pb-20">
       <main className="flex-1 overflow-auto">
         {children}
       </main>
