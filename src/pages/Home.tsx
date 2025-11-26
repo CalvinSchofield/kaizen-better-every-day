@@ -23,6 +23,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
+import { VetHome } from "@/components/VetHome";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -416,6 +417,11 @@ const Home = () => {
         </AlertDialog>
       </div>
     );
+  }
+  
+  // Check if user is a Vet or Sophomore - show VetHome instead
+  if (repData.year === "Vet" || repData.year === "Sophomore") {
+    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} />;
   }
   
   // Helper to check phase status - case-insensitive matching

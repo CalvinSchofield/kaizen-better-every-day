@@ -27,6 +27,7 @@ export interface RepData {
   completed_tasks: unknown; // JSONB array of completed task IDs
   nudge_leader: boolean | null;
   last_nudge_time: string | null;
+  year: string | null; // "Rookie", "Sophomore", or "Vet"
 }
 
 export const useRepData = () => {
