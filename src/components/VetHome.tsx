@@ -148,7 +148,7 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                   </SheetTrigger>
                   <SheetContent side="bottom" className="rounded-t-3xl">
                     <SheetHeader>
-                      <SheetTitle>Need help?</SheetTitle>
+                      <SheetTitle>Need help setting goals?</SheetTitle>
                       <SheetDescription>
                         Get with your leaders to set preseason goals that push you but are attainable.
                       </SheetDescription>
@@ -309,28 +309,6 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </CardHeader>
           <CardContent className="px-0">
             <RecruitingFlowCarousel />
-          </CardContent>
-        </Card>
-
-        {/* Recruiting Calculator */}
-        <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
-              Recruiting Calculator
-            </CardTitle>
-            <CardDescription>
-              A recruiting calculator to help you get a honest look at what recruiting/training work is required to hit your group goals, based off averages company wide 2025
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={() => openLink("https://vivintevolution.com/2026-season-calculator/")} 
-              className="w-full"
-            >
-              Open Calculator
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
           </CardContent>
         </Card>
 
