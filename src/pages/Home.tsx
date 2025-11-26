@@ -61,7 +61,7 @@ const Home = () => {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  // Calculate progress values
+  // Calculate progress values - sequential logic (later steps imply earlier ones are done)
   const phase = repData?.ramp_to_blitz_phase || "Not started";
   const phaseLower = phase.toLowerCase();
   
@@ -69,13 +69,23 @@ const Home = () => {
   console.log("Current phase from Notion:", phase);
   console.log("Phase lowercase:", phaseLower);
   
-  const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
-  const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
-  const slackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
-  const phase1Complete = phaseLower.includes("phase 1") && phaseLower.includes("✅");
-  const phase2Complete = phaseLower.includes("phase 2") && phaseLower.includes("✅");
-  const phase3Complete = phaseLower.includes("phase 3") && phaseLower.includes("✅");
-  const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
+  // Check which phase is marked complete in Notion
+  const notionOnboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
+  const notionTrainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
+  const notionSlackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
+  const notionPhase1Complete = phaseLower.includes("phase 1") && phaseLower.includes("✅");
+  const notionPhase2Complete = phaseLower.includes("phase 2") && phaseLower.includes("✅");
+  const notionPhase3Complete = phaseLower.includes("phase 3") && phaseLower.includes("✅");
+  const notionPhase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
+  
+  // Sequential logic: if a later step is complete, all previous steps must be complete
+  const phase4Complete = notionPhase4Complete;
+  const phase3Complete = notionPhase3Complete || phase4Complete;
+  const phase2Complete = notionPhase2Complete || phase3Complete;
+  const phase1Complete = notionPhase1Complete || phase2Complete;
+  const slackComplete = notionSlackComplete || phase1Complete;
+  const trainingsComplete = notionTrainingsComplete || slackComplete;
+  const onboardingComplete = notionOnboardingComplete || trainingsComplete;
   
   const totalSteps = 7;
   const completedSteps = [
