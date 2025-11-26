@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw, Bell } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -760,7 +760,7 @@ const Home = () => {
                               size="sm"
                               className="w-full"
                             >
-                              <Bell className="w-4 h-4 mr-2" />
+                              <span className="mr-2">🫵</span>
                               {isNudging ? "Nudging..." : "Nudge"}
                             </Button>
                           </div>
