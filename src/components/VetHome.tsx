@@ -11,10 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -137,34 +140,34 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 <CardTitle>Your Progress</CardTitle>
               </div>
               <div className="flex items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
+                <Sheet>
+                  <SheetTrigger asChild>
                     <Button variant="ghost" size="sm">
                       <HelpCircle className="h-4 w-4" />
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="space-y-3">
-                      <h4 className="font-semibold text-sm">Need help?</h4>
-                      <p className="text-sm text-muted-foreground">
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="rounded-t-3xl">
+                    <SheetHeader>
+                      <SheetTitle>Need help?</SheetTitle>
+                      <SheetDescription>
                         Get with your leaders to set preseason goals that push you but are attainable.
-                      </p>
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-4">
                       <p className="text-sm text-muted-foreground">
                         This online preseason calculator also is super helpful in determining what recruiting work needs to be done in order to hit goals on the year.
                       </p>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Button 
-                          size="sm" 
                           variant="outline"
-                          className="w-full"
+                          className="w-full h-12 text-base"
                           onClick={() => openLink("https://vivintevolution.com/2026-season-calculator/")}
                         >
-                          <Calculator className="h-4 w-4 mr-2" />
+                          <Calculator className="h-5 w-5 mr-2" />
                           Recruiting Calculator
                         </Button>
                         <Button 
-                          size="sm" 
-                          className="w-full"
+                          className="w-full h-12 text-base"
                           onClick={() => {
                             const phone = repData.team_leader_phone;
                             if (phone) {
@@ -178,13 +181,13 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                             }
                           }}
                         >
-                          <MessageSquare className="h-4 w-4 mr-2" />
+                          <MessageSquare className="h-5 w-5 mr-2" />
                           Message Leader
                         </Button>
                       </div>
                     </div>
-                  </PopoverContent>
-                </Popover>
+                  </SheetContent>
+                </Sheet>
                 <Button
                   variant="ghost"
                   size="sm"
