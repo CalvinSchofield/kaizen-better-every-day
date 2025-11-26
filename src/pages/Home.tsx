@@ -572,9 +572,6 @@ const Home = () => {
               </Button>
             </div>
           </div>
-          <p className="text-primary-foreground/80 text-sm mt-2">
-            ​Follow this to help you make your first $10k at Vivint                                     
-          </p>
           
           {/* Progress Bar */}
           <div className="mt-4">
