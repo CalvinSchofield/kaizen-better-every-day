@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -560,15 +560,17 @@ const Home = () => {
                 className="text-primary-foreground hover:bg-primary-foreground/10"
                 disabled={isSyncing}
               >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                Refresh
               </Button>
               <Button 
                 onClick={() => setLogoutDialogOpen(true)} 
                 variant="ghost" 
                 size="sm" 
                 className="text-primary-foreground hover:bg-primary-foreground/10"
+                aria-label="Log out"
               >
-                Log Out
+                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           </div>
