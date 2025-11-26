@@ -65,7 +65,7 @@ const FLOW_STEPS: FlowStep[] = [
     icon: FileCheck,
     links: [
       { label: "Welcome Page", url: "https://calvinschofield.notion.site/welcome?source=copy_link", type: "notion" },
-      { label: "Kaizen Preseason Hub", url: "https://kaizen-better-every-day.lovable.app/auth", type: "notion" }
+      { label: "Kaizen Preseason Hub", url: "https://kaizen-better-every-day.lovable.app/auth", type: "notion", subtext: "This is the onboarding and pre-blitz app for your rookies to help them do their best this summer. Share the link with them and help them add it as an app on their phone." }
     ]
   },
   {
