@@ -164,6 +164,11 @@ const Home = () => {
     if (completedSteps > previousProgress && previousProgress > 0) {
       setAnimateProgress(true);
       
+      // Trigger haptic feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate([100, 50, 100]); // Double vibration pattern
+      }
+      
       // Trigger confetti only when progressing forward
       confetti({
         particleCount: 100,
