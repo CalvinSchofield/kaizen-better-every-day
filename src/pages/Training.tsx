@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { BookOpen, FileText, Users, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Target, Lock, BookMarked, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useRepData } from "@/hooks/useRepData";
+import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarousel";
 
 interface TrainingCategory {
   title: string;
@@ -25,11 +27,25 @@ interface Book {
 const Training = () => {
   const { repData, loading } = useRepData();
   const phase4Complete = repData?.ramp_phase_4_complete || false;
+  const [animateRecommended, setAnimateRecommended] = useState(false);
+  const [previousStage, setPreviousStage] = useState<string | null>(null);
 
   // Determine journey stage for dynamic recommendations
   const getJourneyStage = () => {
     if (!repData) return "early";
     const phase = repData.ramp_to_blitz_phase || "not started";
+    const phaseLower = phase.toLowerCase();
+    
+    // Check if basic steps are complete
+    const onboardingComplete = phaseLower.includes("onboarding") || phaseLower.includes("training") || phaseLower.includes("slack") || phaseLower.includes("phase");
+    const trainingsComplete = phaseLower.includes("training") || phaseLower.includes("slack") || phaseLower.includes("phase");
+    const slackComplete = phaseLower.includes("slack") || phaseLower.includes("phase");
+    
+    // If they haven't completed the basics, show motivation videos
+    if (!onboardingComplete || !trainingsComplete || !slackComplete) {
+      return "motivation";
+    }
+    
     if (phase === "phase 4 ✅" || phase4Complete) return "blitz-ready";
     if (phase === "phase 3 ✅" || phase === "phase 2 ✅") return "ramp-mid";
     if (phase === "phase 1 ✅" || phase === "trainings ✅") return "ramp-early";
@@ -37,6 +53,15 @@ const Training = () => {
   };
 
   const journeyStage = getJourneyStage();
+
+  // Trigger animation when journey stage changes
+  useEffect(() => {
+    if (previousStage !== null && previousStage !== journeyStage) {
+      setAnimateRecommended(true);
+      setTimeout(() => setAnimateRecommended(false), 800);
+    }
+    setPreviousStage(journeyStage);
+  }, [journeyStage, previousStage]);
 
   const books: Book[] = [
     {
@@ -245,34 +270,50 @@ const Training = () => {
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Just-in-Time Training */}
-        <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10">
+        {/* Just-in-Time Training / Motivational Content */}
+        <Card 
+          className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-500 ${
+            animateRecommended ? 'animate-scale-in' : ''
+          }`}
+        >
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Recommended for You</CardTitle>
+              <Zap className={`w-5 h-5 text-primary ${animateRecommended ? 'animate-pulse' : ''}`} />
+              <CardTitle className="text-lg">
+                {journeyStage === "motivation" ? "Stay Motivated" : "Recommended for You"}
+              </CardTitle>
             </div>
             <CardDescription>
-              Based on your current step in the journey
+              {journeyStage === "motivation" 
+                ? "Watch these while you complete your onboarding steps"
+                : "Based on your current step in the journey"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {recommendedContent.map((item) => (
-              <a
-                key={item.title}
-                href={item.href}
-                target={item.href.startsWith("http") ? "_blank" : undefined}
-                rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-colors group"
-              >
-                <span className="font-medium group-hover:text-primary transition-colors">{item.title}</span>
-                {item.href.startsWith("http") ? (
-                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                )}
-              </a>
-            ))}
+            {journeyStage === "motivation" ? (
+              <MotivationalVideoCarousel />
+            ) : (
+              <div className="space-y-2 animate-fade-in">
+                {recommendedContent.map((item, idx) => (
+                  <a
+                    key={item.title}
+                    href={item.href}
+                    target={item.href.startsWith("http") ? "_blank" : undefined}
+                    rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-colors group animate-scale-in"
+                    style={{ animationDelay: `${idx * 100}ms` }}
+                  >
+                    <span className="font-medium group-hover:text-primary transition-colors">{item.title}</span>
+                    {item.href.startsWith("http") ? (
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
