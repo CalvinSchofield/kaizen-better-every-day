@@ -269,14 +269,22 @@ const Home = () => {
     }
   ];
 
-  // Handler for task clicks - auto-check and open link
+  // Handler for task clicks - toggle check and open link
   const handleTaskClick = (taskId: string, href?: string, onClick?: () => void) => {
-    // Mark as complete
     const newCompleted = new Set(completedTasks);
-    newCompleted.add(taskId);
+    const isCurrentlyCompleted = completedTasks.has(taskId);
+    
+    if (isCurrentlyCompleted) {
+      // Uncheck - remove from set
+      newCompleted.delete(taskId);
+    } else {
+      // Check - add to set
+      newCompleted.add(taskId);
+    }
+    
     setCompletedTasks(newCompleted);
     
-    // Execute action
+    // Always execute the action (open link/onClick) to allow re-access
     if (onClick) {
       onClick();
     } else if (href) {
@@ -426,8 +434,8 @@ const Home = () => {
                       {phase.tasks.map(task => {
                     const isCompleted = completedTasks.has(task.id);
                     return <div key={task.id} className="flex items-start gap-3 py-2 group">
-                            <Checkbox checked={isCompleted} onCheckedChange={() => !isCompleted && handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked} className="mt-0.5 flex-shrink-0" />
-                            <button onClick={() => !isCompleted && handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked || isCompleted} className="flex-1 text-left text-sm group-hover:text-primary transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                            <Checkbox checked={isCompleted} onCheckedChange={() => handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked} className="mt-0.5 flex-shrink-0" />
+                            <button onClick={() => handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked} className="flex-1 text-left text-sm group-hover:text-primary transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={isCompleted ? "line-through text-muted-foreground" : ""}>{task.label}</span>
                                 {task.duration && <span className="text-xs text-muted-foreground">({task.duration})</span>}
