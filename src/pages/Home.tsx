@@ -3,6 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -52,6 +62,7 @@ const Home = () => {
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -189,6 +200,11 @@ const Home = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
+  };
+
+  const confirmLogout = () => {
+    setLogoutDialogOpen(false);
+    handleLogout();
   };
 
   const handleSync = async () => {
@@ -456,7 +472,12 @@ const Home = () => {
               >
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </Button>
-              <Button onClick={handleLogout} variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
+              <Button 
+                onClick={() => setLogoutDialogOpen(true)} 
+                variant="ghost" 
+                size="sm" 
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+              >
                 Log Out
               </Button>
             </div>
@@ -643,6 +664,22 @@ const Home = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You'll need to sign back in to access your journey progress and training.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLogout}>Log Out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Team Calendar Modal */}
       <TeamCalendarModal open={calendarModalOpen} onOpenChange={setCalendarModalOpen} />

@@ -181,12 +181,12 @@ const Tools = () => {
               {repData?.team_leader_phone ? (
                 <a href={`tel:${repData.team_leader_phone}`}>
                   <Phone className="w-4 h-4 mr-2" />
-                  Contact {repData.team_leader}
+                  Call {repData.team_leader}
                 </a>
               ) : (
                 <>
                   <Phone className="w-4 h-4 mr-2" />
-                  Contact Leader
+                  Call Leader
                 </>
               )}
             </Button>
