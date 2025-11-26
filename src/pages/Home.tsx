@@ -67,14 +67,37 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Get user ID synchronously from auth session for localStorage key
+  const getUserId = (): string | null => {
+    try {
+      const session = supabase.auth.getSession();
+      // Session is stored in localStorage, so this is synchronous
+      const localSession = localStorage.getItem('sb-wjxlzcuqpoamrwumszau-auth-token');
+      if (localSession) {
+        const parsed = JSON.parse(localSession);
+        return parsed?.user?.id || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('[getUserId] Error getting user ID:', error);
+      return null;
+    }
+  };
+
   // Track completed tasks in localStorage - initialize directly from storage
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
-    // This runs only once during initial component mount
-    if (!repData?.id) return new Set();
+    // Get user ID synchronously
+    const userId = getUserId();
+    console.log('[INIT] User ID:', userId);
     
-    const storageKey = `ramp-progress-${repData.id}`;
+    if (!userId) {
+      console.log('[INIT] No user ID found, starting with empty set');
+      return new Set();
+    }
+    
+    const storageKey = `ramp-progress-${userId}`;
     const saved = localStorage.getItem(storageKey);
-    console.log('[INIT] Loading task progress for user:', repData.id);
+    console.log('[INIT] Loading task progress from key:', storageKey);
     console.log('[INIT] Raw localStorage value:', saved);
     
     if (saved) {
@@ -87,7 +110,7 @@ const Home = () => {
         return new Set();
       }
     }
-    console.log('[INIT] No saved progress found, starting fresh');
+    console.log('[INIT] No saved progress found');
     return new Set();
   });
 
@@ -188,13 +211,18 @@ const Home = () => {
     }
   }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id]);
 
-  // Update localStorage whenever completedTasks changes
+  // Update localStorage whenever completedTasks changes - use user ID directly
   useEffect(() => {
-    if (!repData?.id) return;
+    const userId = getUserId();
+    if (!userId) {
+      console.log('[SAVE] No user ID, skipping save');
+      return;
+    }
     
-    const storageKey = `ramp-progress-${repData.id}`;
+    const storageKey = `ramp-progress-${userId}`;
     const taskArray = [...completedTasks];
-    console.log('[SAVE] Saving task progress:', taskArray);
+    console.log('[SAVE] Saving task progress to key:', storageKey);
+    console.log('[SAVE] Tasks:', taskArray);
     
     try {
       localStorage.setItem(storageKey, JSON.stringify(taskArray));
@@ -206,7 +234,7 @@ const Home = () => {
     } catch (error) {
       console.error('[SAVE] Error saving progress:', error);
     }
-  }, [completedTasks, repData?.id]);
+  }, [completedTasks]);
 
   // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
