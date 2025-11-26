@@ -314,6 +314,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Cleanup: Remove rep records where the user's email doesn't match any Notion email
+    console.log("Starting cleanup of orphaned rep records...");
+    const notionEmails = new Set(
+      notionData.results
+        .map((page: NotionPage) => {
+          const props = page.properties;
+          const getEmail = (prop: NotionProperty) => {
+            if (prop?.type === "email") return prop.email;
+            return null;
+          };
+          const getRichText = (prop: NotionProperty) => {
+            if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
+              return prop.rich_text[0].plain_text;
+            }
+            return null;
+          };
+          return getEmail(props.Email) || getRichText(props.Email);
+        })
+        .filter(Boolean)
+    );
+
+    // Get all existing rep records
+    const { data: allReps, error: fetchError } = await supabase
+      .from("reps")
+      .select("id, user_id, email, name");
+
+    if (fetchError) {
+      console.error("Error fetching reps for cleanup:", fetchError);
+    } else if (allReps) {
+      const { data: authUsers } = await supabase.auth.admin.listUsers();
+      
+      for (const rep of allReps) {
+        // Find the Supabase user for this rep
+        const user = authUsers?.users.find(u => u.id === rep.user_id);
+        
+        if (!user) {
+          console.log(`Deleting rep ${rep.name} - user no longer exists`);
+          await supabase.from("reps").delete().eq("id", rep.id);
+          continue;
+        }
+        
+        // Check if the user's email matches any Notion email
+        if (!notionEmails.has(user.email)) {
+          console.log(`Deleting rep ${rep.name} - email ${user.email} not found in Notion`);
+          await supabase.from("reps").delete().eq("id", rep.id);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
