@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -317,6 +318,20 @@ const Home = () => {
     }
     return <Circle className="w-6 h-6 text-muted-foreground" />;
   };
+
+  // Calculate overall progress
+  const totalSteps = 7; // 3 main steps + 4 ramp phases
+  const completedSteps = [
+    onboardingComplete,
+    trainingsComplete,
+    slackComplete,
+    phase1Complete,
+    phase2Complete,
+    phase3Complete,
+    phase4Complete
+  ].filter(Boolean).length;
+  const progressPercentage = (completedSteps / totalSteps) * 100;
+
   return <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-8">
@@ -333,6 +348,15 @@ const Home = () => {
           <p className="text-primary-foreground/80 text-sm mt-2">
             ​Follow this to help you make your first $10k at Vivint                                     
           </p>
+          
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-primary-foreground/70 font-medium">Overall Progress</span>
+              <span className="text-xs text-primary-foreground/90 font-semibold">{completedSteps}/{totalSteps}</span>
+            </div>
+            <Progress value={progressPercentage} className="h-2 bg-primary-foreground/20" />
+          </div>
         </div>
       </div>
 
