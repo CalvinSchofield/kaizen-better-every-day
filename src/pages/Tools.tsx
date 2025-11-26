@@ -21,6 +21,39 @@ const Tools = () => {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const { repData } = useRepData();
 
+  // Smart link handler - opens Notion links in app, PWA links in same window
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    // Check if it's the Sales Tracking PWA app
+    if (href.includes('kaizen-better-every-day.lovable.app')) {
+      e.preventDefault();
+      // Open in same window to stay in PWA context
+      window.location.href = href;
+      return;
+    }
+
+    // Check if it's a Notion link and try to open in Notion app
+    if (href.includes('notion.so') || href.includes('notion.site')) {
+      e.preventDefault();
+      // Extract page ID from URL and construct notion:// deep link
+      const notionMatch = href.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
+      if (notionMatch) {
+        const pageId = notionMatch[1].replace(/-/g, '');
+        const notionAppUrl = `notion://${pageId}`;
+        
+        // Try to open in Notion app
+        window.location.href = notionAppUrl;
+        
+        // Fallback to web after short delay if app doesn't open
+        setTimeout(() => {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }, 500);
+        return;
+      }
+    }
+    
+    // For other links, allow default behavior (open in new tab)
+  };
+
   const sections: ToolSection[] = [
     {
       title: "Sales Resources",
@@ -141,6 +174,9 @@ const Tools = () => {
                     <a
                       key={link.title}
                       href={link.href}
+                      onClick={(e) => handleLinkClick(e, link.href)}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group"
                     >
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">

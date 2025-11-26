@@ -68,11 +68,17 @@ const Home = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Track completed tasks in localStorage
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
-    if (!repData?.id) return new Set();
-    const saved = localStorage.getItem(`ramp-progress-${repData.id}`);
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+
+  // Load saved progress when repData becomes available
+  useEffect(() => {
+    if (repData?.id) {
+      const saved = localStorage.getItem(`ramp-progress-${repData.id}`);
+      if (saved) {
+        setCompletedTasks(new Set(JSON.parse(saved)));
+      }
+    }
+  }, [repData?.id]);
 
   // Calculate progress values - sequential logic (later steps imply earlier ones are done)
   const phase = repData?.ramp_to_blitz_phase || "Not started";
@@ -397,10 +403,35 @@ const Home = () => {
       if (onClick) {
         onClick();
       } else if (href) {
-        window.open(href, '_blank');
+        openLink(href);
       }
     }
     setCompletedTasks(newCompleted);
+  };
+
+  // Smart link opener - tries to open in native apps when possible
+  const openLink = (url: string) => {
+    // Check if it's a Notion link and try to open in Notion app
+    if (url.includes('notion.so') || url.includes('notion.site')) {
+      // Extract page ID from URL and construct notion:// deep link
+      const notionMatch = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
+      if (notionMatch) {
+        const pageId = notionMatch[1].replace(/-/g, '');
+        const notionAppUrl = `notion://${pageId}`;
+        
+        // Try to open in Notion app, fallback to browser
+        window.location.href = notionAppUrl;
+        
+        // Fallback to web after short delay if app doesn't open
+        setTimeout(() => {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }, 500);
+        return;
+      }
+    }
+    
+    // Open other links in new tab
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Determine phase status
@@ -531,10 +562,34 @@ const Home = () => {
               </CardHeader>
 
               {isExpanded && <CardContent className="pt-0 space-y-2">
-                  {step.actions.map((action, actionIndex) => <Button key={actionIndex} variant={action.variant || "default"} className="w-full" size="lg" disabled={step.status.locked} onClick={action.onClick} asChild={!!action.href && !action.onClick}>
-                      {action.href && !action.onClick ? <a href={action.href} target="_blank" rel="noopener noreferrer">{action.label}
-                        </a> : <span>{action.label}</span>}
-                    </Button>)}
+                  {step.actions.map((action, actionIndex) => {
+                    if (action.href && !action.onClick) {
+                      return (
+                        <Button 
+                          key={actionIndex} 
+                          variant={action.variant || "default"} 
+                          className="w-full" 
+                          size="lg" 
+                          disabled={step.status.locked}
+                          onClick={() => openLink(action.href!)}
+                        >
+                          {action.label}
+                        </Button>
+                      );
+                    }
+                    return (
+                      <Button 
+                        key={actionIndex} 
+                        variant={action.variant || "default"} 
+                        className="w-full" 
+                        size="lg" 
+                        disabled={step.status.locked} 
+                        onClick={action.onClick}
+                      >
+                        {action.label}
+                      </Button>
+                    );
+                  })}
                 </CardContent>}
 
               {step.status.completed && !isExpanded && <CardContent className="pt-0">
