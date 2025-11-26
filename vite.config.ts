@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.png", "icon-192.png", "icon-512.png", "apple-touch-icon.png"],
       manifest: {
-        name: "Kaizen - Better Every Day",
+        name: "Kaizen Preseason Hub",
         short_name: "Kaizen",
         description: "Your complete onboarding and training hub for Vivint sales success",
         theme_color: "#f68b1f",

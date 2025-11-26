@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
+import KaizenLogo from "@/components/KaizenLogo";
 import {
   Sheet,
   SheetContent,
@@ -354,6 +355,11 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Logo at bottom */}
+        <div className="mt-12 mb-8">
+          <KaizenLogo />
+        </div>
 
         {/* Logout Confirmation Dialog */}
         <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
