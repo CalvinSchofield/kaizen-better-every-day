@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
+import KaizenLogo from "@/components/KaizenLogo";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -92,8 +93,8 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl font-bold text-primary">K</span>
+          <div className="mb-4">
+            <KaizenLogo />
           </div>
           <CardTitle className="text-2xl font-bold">
             {isLogin ? "Welcome Back" : "Join Kaizen"}
