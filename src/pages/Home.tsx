@@ -110,12 +110,13 @@ const Home = () => {
     }
   }, [completedTasks, repData?.id]);
 
-  // Track progress changes and trigger celebrations
+  // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
+    // Only celebrate when moving forward AND not on initial load
     if (completedSteps > previousProgress && previousProgress > 0) {
       setAnimateProgress(true);
       
-      // Trigger confetti
+      // Trigger confetti only when progressing forward
       confetti({
         particleCount: 100,
         spread: 70,
@@ -141,7 +142,11 @@ const Home = () => {
 
       setTimeout(() => setAnimateProgress(false), 1000);
     }
-    setPreviousProgress(completedSteps);
+    
+    // Always update previous progress to track changes in both directions
+    if (previousProgress !== completedSteps) {
+      setPreviousProgress(completedSteps);
+    }
   }, [completedSteps, previousProgress, toast]);
 
   const handleLogout = async () => {
