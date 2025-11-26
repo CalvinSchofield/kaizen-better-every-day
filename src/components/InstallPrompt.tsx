@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Download } from "lucide-react";
+import { X, Download, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,12 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation } from "react-router-dom";
 
 const InstallPrompt = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [gifExpanded, setGifExpanded] = useState(false);
   const isMobile = useIsMobile();
   const location = useLocation();
 
@@ -83,7 +86,7 @@ const InstallPrompt = () => {
 
       {/* Install Instructions Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[85vh]">
           <DialogHeader>
             <DialogTitle>Install Kaizen</DialogTitle>
             <DialogDescription>
@@ -91,45 +94,67 @@ const InstallPrompt = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="rounded-lg overflow-hidden border border-border bg-muted">
-              <img 
-                src="/install-guide.gif" 
-                alt="Installation guide"
-                className="w-full"
-              />
-            </div>
-            
-            <div className="space-y-3 text-sm">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                  1
+          <ScrollArea className="max-h-[calc(85vh-8rem)]">
+            <div className="space-y-4 pr-4">
+              <div className="space-y-3 text-sm">
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    1
+                  </div>
+                  <p>Tap the <strong>Share</strong> button at the bottom of Safari</p>
                 </div>
-                <p>Tap the <strong>Share</strong> button at the bottom of Safari</p>
-              </div>
-              
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                  2
+                
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    2
+                  </div>
+                  <p>Scroll down and tap <strong>Add to Home Screen</strong></p>
                 </div>
-                <p>Scroll down and tap <strong>Add to Home Screen</strong></p>
-              </div>
-              
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                  3
+                
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    3
+                  </div>
+                  <p>Tap <strong>Add</strong> in the top right corner</p>
                 </div>
-                <p>Tap <strong>Add</strong> in the top right corner</p>
               </div>
-            </div>
 
-            <Button 
-              onClick={handleCloseDialog}
-              className="w-full"
-            >
-              Got it!
-            </Button>
-          </div>
+              <Collapsible open={gifExpanded} onOpenChange={setGifExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    {gifExpanded ? (
+                      <>
+                        <ChevronUp className="h-4 w-4 mr-2" />
+                        Hide Visual Guide
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        Show Visual Guide
+                      </>
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <div className="rounded-lg overflow-hidden border border-border bg-muted">
+                    <img 
+                      src="/install-guide.gif" 
+                      alt="Installation guide"
+                      className="w-full"
+                      loading="lazy"
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Button 
+                onClick={handleCloseDialog}
+                className="w-full"
+              >
+                Got it!
+              </Button>
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </>
