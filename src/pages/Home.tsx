@@ -269,27 +269,27 @@ const Home = () => {
     }
   ];
 
-  // Handler for task clicks - toggle check and open link
+  // Handler for task clicks - toggle check and open link only when checking
   const handleTaskClick = (taskId: string, href?: string, onClick?: () => void) => {
     const newCompleted = new Set(completedTasks);
     const isCurrentlyCompleted = completedTasks.has(taskId);
     
     if (isCurrentlyCompleted) {
-      // Uncheck - remove from set
+      // Uncheck - remove from set, don't open link
       newCompleted.delete(taskId);
     } else {
-      // Check - add to set
+      // Check - add to set and execute action
       newCompleted.add(taskId);
+      
+      // Execute action only when checking off
+      if (onClick) {
+        onClick();
+      } else if (href) {
+        window.open(href, '_blank');
+      }
     }
     
     setCompletedTasks(newCompleted);
-    
-    // Always execute the action (open link/onClick) to allow re-access
-    if (onClick) {
-      onClick();
-    } else if (href) {
-      window.open(href, '_blank');
-    }
   };
 
   // Determine phase status
