@@ -152,6 +152,7 @@ const Tools = () => {
                 {section.links.map((link) => {
                   const LinkIcon = link.icon;
                   const isCalendar = link.title === "Team Calendar";
+                  const isComingSoon = link.comingSoon;
                   
                   if (isCalendar) {
                     return (
@@ -164,19 +165,38 @@ const Tools = () => {
                           <LinkIcon className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                              {link.title}
-                            </h3>
-                            {link.comingSoon && (
-                              <Badge variant="outline" className="text-xs">Coming soon</Badge>
-                            )}
-                          </div>
+                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                            {link.title}
+                          </h3>
                           <p className="text-xs text-muted-foreground leading-relaxed">
                             {link.description}
                           </p>
                         </div>
                       </button>
+                    );
+                  }
+                  
+                  if (isComingSoon) {
+                    return (
+                      <div
+                        key={link.title}
+                        className="flex items-start gap-3 p-4 rounded-lg border border-border opacity-50 cursor-not-allowed"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                          <LinkIcon className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-sm">
+                              {link.title}
+                            </h3>
+                            <Badge variant="outline" className="text-xs">Coming soon</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {link.description}
+                          </p>
+                        </div>
+                      </div>
                     );
                   }
                   
@@ -193,14 +213,9 @@ const Tools = () => {
                         <LinkIcon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                            {link.title}
-                          </h3>
-                          {link.comingSoon && (
-                            <Badge variant="outline" className="text-xs">Coming soon</Badge>
-                          )}
-                        </div>
+                        <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                          {link.title}
+                        </h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {link.description}
                         </p>

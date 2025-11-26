@@ -325,7 +325,7 @@ const Training = () => {
             <Card 
               key={category.title} 
               id={category.title.toLowerCase().replace(/\s+/g, '-')}
-              className={isLocked ? "opacity-60" : ""}
+              className={isLocked || category.title === "Path to Pro" ? "opacity-50" : ""}
             >
               <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
@@ -350,38 +350,42 @@ const Training = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {category.items.map((item) => (
-                  <a
-                    key={item.title}
-                    href={isLocked ? "#" : item.href}
-                    target={!isLocked && item.href.startsWith("http") ? "_blank" : undefined}
-                    rel={!isLocked && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                    onClick={isLocked ? (e) => e.preventDefault() : undefined}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
-                      isLocked 
-                        ? "cursor-not-allowed" 
-                        : "hover:bg-accent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`font-medium transition-colors ${
-                        isLocked ? "text-muted-foreground" : "group-hover:text-primary"
-                      }`}>
-                        {item.title}
-                      </span>
-                      {item.isNew && !isLocked && (
-                        <Badge variant="outline" className="text-xs">
-                          New
-                        </Badge>
+                {category.items.map((item) => {
+                  const isDisabled = isLocked || category.title === "Path to Pro";
+                  
+                  return (
+                    <a
+                      key={item.title}
+                      href={isDisabled ? "#" : item.href}
+                      target={!isDisabled && item.href.startsWith("http") ? "_blank" : undefined}
+                      rel={!isDisabled && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                      onClick={isDisabled ? (e) => e.preventDefault() : undefined}
+                      className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
+                        isDisabled 
+                          ? "cursor-not-allowed" 
+                          : "hover:bg-accent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium transition-colors ${
+                          isDisabled ? "text-muted-foreground" : "group-hover:text-primary"
+                        }`}>
+                          {item.title}
+                        </span>
+                        {item.isNew && !isDisabled && (
+                          <Badge variant="outline" className="text-xs">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+                      {item.href.startsWith("http") && !isDisabled ? (
+                        <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-muted-foreground" />
                       )}
-                    </div>
-                    {item.href.startsWith("http") && !isLocked ? (
-                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </a>
-                ))}
+                    </a>
+                  );
+                })}
               </CardContent>
             </Card>
           );
