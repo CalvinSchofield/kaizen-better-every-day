@@ -67,14 +67,6 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
-  
-  // Check if nudge button should be disabled (1 hour cooldown)
-  const canNudge = () => {
-    if (!repData?.last_nudge_time) return true;
-    const lastNudge = new Date(repData.last_nudge_time);
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    return lastNudge < oneHourAgo;
-  };
 
   // Get completed tasks from database
   const completedTasksArray = (repData?.completed_tasks as string[]) || [];
@@ -261,31 +253,36 @@ const Home = () => {
   };
 
   const handleNudge = async () => {
-    if (!repData?.id || !canNudge()) return;
+    if (!repData?.id) return;
     
     setIsNudging(true);
     try {
       const newNudgeValue = !repData.nudge_leader;
-      const { error } = await supabase
-        .from('reps')
-        .update({ 
-          nudge_leader: newNudgeValue,
-          last_nudge_time: new Date().toISOString()
-        })
-        .eq('id', repData.id);
       
-      if (error) throw error;
+      console.log('[Nudge] Calling edge function to update Notion:', { newValue: newNudgeValue });
+      
+      // Call edge function to update Notion
+      const { data, error } = await supabase.functions.invoke('update-notion-nudge', {
+        body: { nudgeValue: newNudgeValue }
+      });
+      
+      if (error) {
+        console.error('[Nudge] Edge function error:', error);
+        throw error;
+      }
+      
+      console.log('[Nudge] Edge function response:', data);
       
       toast({
-        title: "✓ Leaders notified",
-        description: "Your leaders have been notified that you've completed all tasks!",
+        title: "✓ Leaders notified!",
+        description: "Your leaders have been notified in Notion that you've completed all tasks.",
         duration: 3000,
       });
     } catch (error) {
-      console.error('Error nudging leaders:', error);
+      console.error('[Nudge] Exception:', error);
       toast({
         title: "Nudge failed",
-        description: "Could not notify leaders. Please try again.",
+        description: "Could not update Notion. Check console for details.",
         variant: "destructive",
         duration: 3000,
       });
@@ -758,13 +755,13 @@ const Home = () => {
                             </div>
                             <Button
                               onClick={handleNudge}
-                              disabled={!canNudge() || isNudging}
+                              disabled={isNudging}
                               variant="outline"
                               size="sm"
                               className="w-full"
                             >
                               <Bell className="w-4 h-4 mr-2" />
-                              {isNudging ? "Notifying..." : !canNudge() ? "Nudged (wait 1hr)" : "Nudge"}
+                              {isNudging ? "Nudging..." : "Nudge"}
                             </Button>
                           </div>
                         )}
