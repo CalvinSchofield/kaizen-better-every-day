@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 
 const Assistant = () => {
-  // This will be replaced with your custom GPT link
-  const customGPTUrl = "#";
+  // VivintGPT - AI Sales Coach
+  const customGPTUrl = "https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt";
 
   const capabilities = [
     "Onboarding questions and guidance",
