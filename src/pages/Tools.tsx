@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import TeamCalendarModal from "@/components/TeamCalendarModal";
 
 interface ToolSection {
   title: string;
@@ -15,6 +17,8 @@ interface ToolSection {
 }
 
 const Tools = () => {
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+
   const sections: ToolSection[] = [
     {
       title: "Sales Resources",
@@ -107,6 +111,30 @@ const Tools = () => {
               <CardContent className="space-y-3">
                 {section.links.map((link) => {
                   const LinkIcon = link.icon;
+                  const isCalendar = link.title === "Team Calendar";
+                  
+                  if (isCalendar) {
+                    return (
+                      <button
+                        key={link.title}
+                        onClick={() => setCalendarModalOpen(true)}
+                        className="w-full flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group text-left"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                          <LinkIcon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                            {link.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {link.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  }
+                  
                   return (
                     <a
                       key={link.title}
@@ -154,6 +182,8 @@ const Tools = () => {
           </CardContent>
         </Card>
       </div>
+
+      <TeamCalendarModal open={calendarModalOpen} onOpenChange={setCalendarModalOpen} />
     </div>
   );
 };
