@@ -67,15 +67,30 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Track completed tasks in localStorage
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  // Track completed tasks in localStorage - initialize from storage immediately
+  const getInitialCompletedTasks = (): Set<string> => {
+    if (typeof window === 'undefined' || !repData?.id) return new Set();
+    try {
+      const saved = localStorage.getItem(`ramp-progress-${repData.id}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (error) {
+      console.error('Error loading saved progress:', error);
+      return new Set();
+    }
+  };
 
-  // Load saved progress when repData becomes available
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(getInitialCompletedTasks);
+
+  // Reload progress when repData.id changes
   useEffect(() => {
     if (repData?.id) {
       const saved = localStorage.getItem(`ramp-progress-${repData.id}`);
       if (saved) {
-        setCompletedTasks(new Set(JSON.parse(saved)));
+        try {
+          setCompletedTasks(new Set(JSON.parse(saved)));
+        } catch (error) {
+          console.error('Error loading saved progress:', error);
+        }
       }
     }
   }, [repData?.id]);
@@ -159,8 +174,13 @@ const Home = () => {
 
   // Update localStorage when completedTasks changes
   useEffect(() => {
-    if (repData?.id) {
-      localStorage.setItem(`ramp-progress-${repData.id}`, JSON.stringify([...completedTasks]));
+    if (repData?.id && completedTasks.size > 0) {
+      try {
+        localStorage.setItem(`ramp-progress-${repData.id}`, JSON.stringify([...completedTasks]));
+        console.log('Saved progress to localStorage:', [...completedTasks]);
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
     }
   }, [completedTasks, repData?.id]);
 
@@ -618,7 +638,19 @@ const Home = () => {
           </CardHeader>
 
           {slackComplete && !allRampPhasesComplete && <CardContent className="pt-0 space-y-3">
-              <Accordion type="single" collapsible className="space-y-3">
+              <Accordion 
+                type="single" 
+                collapsible 
+                className="space-y-3"
+                defaultValue={
+                  phase4Complete ? undefined :
+                  phase3Complete ? "phase-4" :
+                  phase2Complete ? "phase-3" :
+                  phase1Complete ? "phase-2" :
+                  slackComplete ? "phase-1" :
+                  undefined
+                }
+              >
                 {rampPhases.map(phase => {
                   const phaseStatus = getPhaseStatus(phase.id);
                   
