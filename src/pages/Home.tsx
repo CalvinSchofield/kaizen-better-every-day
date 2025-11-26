@@ -2,9 +2,11 @@ import { CheckCircle2, Circle, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -28,6 +30,7 @@ const Home = () => {
     loading
   } = useRepData();
   const navigate = useNavigate();
+  const [showIntroDialog, setShowIntroDialog] = useState(false);
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
@@ -130,11 +133,11 @@ const Home = () => {
     },
     actions: [{
       label: "Join Slack",
-      href: "#"
+      href: "https://join.slack.com/t/vivint-chy4678/shared_invite/zt-3g30ikq9e-RugmfMRBUCu4qx5S0GUgZw"
     }, {
       label: "Intro Example",
-      href: "#",
-      variant: "outline"
+      variant: "outline",
+      onClick: () => setShowIntroDialog(true)
     }]
   }, {
     id: "ramp",
@@ -242,6 +245,31 @@ const Home = () => {
             </Card>;
       })}
       </div>
+
+      {/* Intro Example Dialog */}
+      <Dialog open={showIntroDialog} onOpenChange={setShowIntroDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Team Introduction Example</DialogTitle>
+            <DialogDescription>
+              Here's what to share when you introduce yourself to the team:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold mb-1">Share 1-2 things about yourself:</h4>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>What do you like to do in your free time?</li>
+                <li>Where are you from?</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-1">Tell us why you're excited:</h4>
+              <p className="text-muted-foreground">Share why you're excited to work at Vivint and what you're looking forward to!</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>;
 };
 export default Home;
