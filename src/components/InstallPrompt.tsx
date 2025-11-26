@@ -64,7 +64,7 @@ const InstallPrompt = () => {
   return (
     <>
       {/* Install Banner */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground shadow-lg">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-lg border-b-2 border-orange-400">
         <div className="flex items-center justify-between p-3 max-w-lg mx-auto">
           <div className="flex items-center gap-3 flex-1">
             <Download className="w-5 h-5 flex-shrink-0" />
@@ -74,16 +74,15 @@ const InstallPrompt = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
               size="sm"
               onClick={handleOpenDialog}
-              className="text-xs"
+              className="text-xs bg-white text-orange-600 hover:bg-white/90 font-semibold"
             >
               Install
             </Button>
             <button
               onClick={handleDismissBanner}
-              className="p-1 hover:bg-primary-foreground/20 rounded transition-colors"
+              className="p-1 hover:bg-white/20 rounded transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
