@@ -24,25 +24,9 @@ const InstallPrompt = () => {
       return; // Don't show anything if already installed
     }
 
-    // Get visit count from localStorage
-    const visitCount = parseInt(localStorage.getItem('kaizen-visit-count') || '0');
-    const hasSeenPrompt = localStorage.getItem('kaizen-install-prompt-dismissed') === 'true';
-    
-    // Increment visit count
-    localStorage.setItem('kaizen-visit-count', String(visitCount + 1));
-
     // Show banner on mobile browsers (not PWA)
     if (isMobile) {
       setShowBanner(true);
-    }
-
-    // Auto-show dialog for first 5 visits if not dismissed
-    if (visitCount < 5 && !hasSeenPrompt && isMobile) {
-      // Small delay to avoid overwhelming the user immediately
-      const timer = setTimeout(() => {
-        setShowDialog(true);
-      }, 2000);
-      return () => clearTimeout(timer);
     }
   }, [isMobile]);
 
@@ -52,7 +36,6 @@ const InstallPrompt = () => {
 
   const handleCloseDialog = () => {
     setShowDialog(false);
-    localStorage.setItem('kaizen-install-prompt-dismissed', 'true');
   };
 
   const handleOpenDialog = () => {
