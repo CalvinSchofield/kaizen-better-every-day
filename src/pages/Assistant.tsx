@@ -1,6 +1,7 @@
-import { MessageSquare, ExternalLink, Sparkles } from "lucide-react";
+import { MessageSquare, Sparkles, ExternalLink as ExternalLinkIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExternalLink } from "@/components/ExternalLink";
 
 const Assistant = () => {
   // VivintGPT - AI Sales Coach
@@ -46,17 +47,17 @@ const Assistant = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
+            <Button 
               variant="default"
               size="lg"
               className="w-full"
               asChild
             >
-              <a href={customGPTUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink href={customGPTUrl} showIcon={false} className="no-underline hover:no-underline">
                 <MessageSquare className="w-5 h-5 mr-2" />
                 Start Chatting
-                <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
+                <ExternalLinkIcon className="w-4 h-4 ml-2" />
+              </ExternalLink>
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Opens in a new window
