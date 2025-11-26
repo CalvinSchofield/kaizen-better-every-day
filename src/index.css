@@ -174,3 +174,10 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Smooth progress bar animations */
+  .progress-bar-indicator {
+    transition: transform 700ms cubic-bezier(0.65, 0, 0.35, 1);
+  }
+}
