@@ -107,7 +107,17 @@ export const useRepData = () => {
 
     fetchRepData();
 
-    // Set up realtime subscription
+    // Set up automatic periodic sync from Notion every 5 minutes
+    const syncInterval = setInterval(async () => {
+      console.log("Auto-syncing from Notion...");
+      try {
+        await supabase.functions.invoke("sync-notion-reps");
+      } catch (error) {
+        console.error("Auto-sync error:", error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Set up realtime subscription to instantly reflect database changes
     const channel = supabase
       .channel("reps-changes")
       .on(
@@ -126,6 +136,7 @@ export const useRepData = () => {
       .subscribe();
 
     return () => {
+      clearInterval(syncInterval);
       supabase.removeChannel(channel);
     };
   }, [toast]);

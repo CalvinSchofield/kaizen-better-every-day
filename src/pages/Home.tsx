@@ -35,19 +35,6 @@ const Home = () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
-  const handleManualSync = async () => {
-    try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('sync-notion-reps');
-      if (error) throw error;
-      console.log("Sync result:", data);
-      window.location.reload(); // Refresh to show updated data
-    } catch (error) {
-      console.error("Sync error:", error);
-    }
-  };
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -176,21 +163,6 @@ const Home = () => {
     return <Circle className="w-6 h-6 text-muted-foreground" />;
   };
   return <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
-      {/* Debug Panel */}
-      <div className="max-w-lg mx-auto px-4 py-4">
-        <Card className="bg-muted">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Debug Info</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs space-y-1">
-            <div><strong>Phase from DB:</strong> "{repData.ramp_to_blitz_phase}"</div>
-            <div><strong>Onboarding Complete:</strong> {onboardingComplete ? '✓ Yes' : '✗ No'}</div>
-            <div><strong>Notion Page ID:</strong> {repData.notion_page_id || 'Not synced'}</div>
-            <div className="text-warning mt-2">If the phase is wrong, check your Notion "Ramp to Blitz Phase" select property</div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-8">
         <div className="max-w-lg mx-auto">
@@ -203,10 +175,7 @@ const Home = () => {
               Log Out
             </Button>
           </div>
-          <Button onClick={handleManualSync} variant="secondary" size="sm" className="mt-2">
-            Sync from Notion
-          </Button>
-          <p className="text-primary-foreground/80 text-sm">
+          <p className="text-primary-foreground/80 text-sm mt-2">
             Follow these steps to go from rookie to closer
           </p>
         </div>
