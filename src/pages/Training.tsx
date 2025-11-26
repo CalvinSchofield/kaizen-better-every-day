@@ -331,12 +331,16 @@ const Training = () => {
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg">{category.title}</CardTitle>
-                  {isLocked && (
+                  {isLocked ? (
                     <Badge variant="outline" className="ml-auto">
                       <Lock className="w-3 h-3 mr-1" />
                       Locked
                     </Badge>
-                  )}
+                  ) : category.title === "Path to Pro" ? (
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      Coming soon
+                    </Badge>
+                  ) : null}
                 </div>
                 <CardDescription>
                   {isLocked 

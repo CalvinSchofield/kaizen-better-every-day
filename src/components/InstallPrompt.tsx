@@ -9,13 +9,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "react-router-dom";
 
 const InstallPrompt = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const isMobile = useIsMobile();
+  const location = useLocation();
 
   useEffect(() => {
+    // Don't show on auth page
+    if (location.pathname === "/auth") {
+      setShowBanner(false);
+      return;
+    }
+
     // Check if running as PWA
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
                   (window.navigator as any).standalone === true;
@@ -28,7 +36,7 @@ const InstallPrompt = () => {
     if (isMobile) {
       setShowBanner(true);
     }
-  }, [isMobile]);
+  }, [isMobile, location.pathname]);
 
   const handleDismissBanner = () => {
     setShowBanner(false);
