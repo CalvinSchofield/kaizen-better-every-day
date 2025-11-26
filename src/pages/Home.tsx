@@ -58,12 +58,63 @@ const Home = () => {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
+  // Calculate progress values
+  const phase = repData?.ramp_to_blitz_phase || "Not started";
+  const phaseLower = phase.toLowerCase();
+  
+  const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
+  const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
+  const slackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
+  const phase1Complete = phaseLower.includes("phase 1") && phaseLower.includes("✅");
+  const phase2Complete = phaseLower.includes("phase 2") && phaseLower.includes("✅");
+  const phase3Complete = phaseLower.includes("phase 3") && phaseLower.includes("✅");
+  const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
+  
+  const totalSteps = 7;
+  const completedSteps = [
+    onboardingComplete,
+    trainingsComplete,
+    slackComplete,
+    phase1Complete,
+    phase2Complete,
+    phase3Complete,
+    phase4Complete
+  ].filter(Boolean).length;
+  const progressPercentage = (completedSteps / totalSteps) * 100;
+
   // Update localStorage when completedTasks changes
   useEffect(() => {
     if (repData?.id) {
       localStorage.setItem(`ramp-progress-${repData.id}`, JSON.stringify([...completedTasks]));
     }
   }, [completedTasks, repData?.id]);
+
+  // Track progress changes and trigger celebrations
+  useEffect(() => {
+    if (completedSteps > previousProgress && previousProgress > 0) {
+      setAnimateProgress(true);
+      
+      const stepNames = [
+        "Onboarding",
+        "Trainings",
+        "Slack Introduction",
+        "Phase 1: Set Goals",
+        "Phase 2: Start Trainings",
+        "Phase 3: Practice",
+        "Phase 4: Saddle Up!"
+      ];
+      
+      toast({
+        title: "🎉 Step Complete!",
+        description: `Great job completing ${stepNames[completedSteps - 1]}! Keep going!`,
+        duration: 4000,
+      });
+
+      setTimeout(() => setAnimateProgress(false), 1000);
+    }
+    setPreviousProgress(completedSteps);
+  }, [completedSteps, previousProgress, toast]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
@@ -73,41 +124,8 @@ const Home = () => {
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>;
   }
-  if (!repData) {
-    return <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle>Setup Required</CardTitle>
-            <CardDescription>
-              Your account needs to be set up by your team leader. Click "Sync from Notion" to load your data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button onClick={handleLogout} variant="outline" className="w-full">
-              Log Out
-            </Button>
-          </CardContent>
-        </Card>
-      </div>;
-  }
-
+  
   // Helper to check phase status - case-insensitive matching
-  const phase = repData.ramp_to_blitz_phase || "Not started";
-  const phaseLower = phase.toLowerCase();
-
-  // Log for debugging
-  console.log("Current phase:", phase);
-
-  // Determine step completions based on Ramp to Blitz Phase value (case-insensitive)
-  const onboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
-  const trainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
-  const slackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
-
-  // Individual ramp phase completions
-  const phase1Complete = phaseLower.includes("phase 1") && phaseLower.includes("✅");
-  const phase2Complete = phaseLower.includes("phase 2") && phaseLower.includes("✅");
-  const phase3Complete = phaseLower.includes("phase 3") && phaseLower.includes("✅");
-  const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
   const isInRampPhases = phase1Complete || phase2Complete || phase3Complete || phase4Complete || slackComplete;
   const allRampPhasesComplete = phase4Complete;
   const steps: JourneyStep[] = [{
@@ -322,47 +340,6 @@ const Home = () => {
     }
     return <Circle className="w-6 h-6 text-muted-foreground" />;
   };
-
-  // Calculate overall progress
-  const totalSteps = 7; // 3 main steps + 4 ramp phases
-  const completedSteps = [
-    onboardingComplete,
-    trainingsComplete,
-    slackComplete,
-    phase1Complete,
-    phase2Complete,
-    phase3Complete,
-    phase4Complete
-  ].filter(Boolean).length;
-  const progressPercentage = (completedSteps / totalSteps) * 100;
-
-  // Track progress changes and trigger celebrations
-  useEffect(() => {
-    if (completedSteps > previousProgress && previousProgress > 0) {
-      setAnimateProgress(true);
-      
-      // Show celebration toast
-      const stepNames = [
-        "Onboarding",
-        "Trainings",
-        "Slack Introduction",
-        "Phase 1: Set Goals",
-        "Phase 2: Start Trainings",
-        "Phase 3: Practice",
-        "Phase 4: Saddle Up!"
-      ];
-      
-      toast({
-        title: "🎉 Step Complete!",
-        description: `Great job completing ${stepNames[completedSteps - 1]}! Keep going!`,
-        duration: 4000,
-      });
-
-      // Remove animation after it plays
-      setTimeout(() => setAnimateProgress(false), 1000);
-    }
-    setPreviousProgress(completedSteps);
-  }, [completedSteps, previousProgress, toast]);
 
   return <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header */}
