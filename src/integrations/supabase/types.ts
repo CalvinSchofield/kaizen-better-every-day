@@ -49,6 +49,8 @@ export type Database = {
           onboarding_complete: boolean | null
           path_to_pro_progress: number | null
           path_to_pro_started: boolean | null
+          personal_fp: number | null
+          personal_fp_goal: number | null
           phone: string | null
           ramp_phase_1_complete: boolean | null
           ramp_phase_2_complete: boolean | null
@@ -56,6 +58,8 @@ export type Database = {
           ramp_phase_4_complete: boolean | null
           ramp_to_blitz_phase: string | null
           recruiter: string | null
+          reps_with_sale: number | null
+          reps_with_sale_goal: number | null
           slack_joined: boolean | null
           stage: string | null
           team_leader: string | null
@@ -78,6 +82,8 @@ export type Database = {
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null
+          personal_fp?: number | null
+          personal_fp_goal?: number | null
           phone?: string | null
           ramp_phase_1_complete?: boolean | null
           ramp_phase_2_complete?: boolean | null
@@ -85,6 +91,8 @@ export type Database = {
           ramp_phase_4_complete?: boolean | null
           ramp_to_blitz_phase?: string | null
           recruiter?: string | null
+          reps_with_sale?: number | null
+          reps_with_sale_goal?: number | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
@@ -107,6 +115,8 @@ export type Database = {
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null
+          personal_fp?: number | null
+          personal_fp_goal?: number | null
           phone?: string | null
           ramp_phase_1_complete?: boolean | null
           ramp_phase_2_complete?: boolean | null
@@ -114,6 +124,8 @@ export type Database = {
           ramp_phase_4_complete?: boolean | null
           ramp_to_blitz_phase?: string | null
           recruiter?: string | null
+          reps_with_sale?: number | null
+          reps_with_sale_goal?: number | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null

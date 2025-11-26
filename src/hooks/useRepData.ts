@@ -28,6 +28,10 @@ export interface RepData {
   nudge_leader: boolean | null;
   last_nudge_time: string | null;
   year: string | null; // "Rookie", "Sophomore", or "Vet"
+  personal_fp: number | null;
+  personal_fp_goal: number | null;
+  reps_with_sale: number | null;
+  reps_with_sale_goal: number | null;
 }
 
 export const useRepData = () => {
