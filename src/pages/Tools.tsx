@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { useRepData } from "@/hooks/useRepData";
@@ -14,6 +15,7 @@ interface ToolSection {
     description: string;
     href: string;
     icon: any;
+    comingSoon?: boolean;
   }>;
 }
 
@@ -90,12 +92,14 @@ const Tools = () => {
           description: "Team story, culture, and expectations",
           href: "#",
           icon: Users,
+          comingSoon: true,
         },
         {
           title: "Leadership Directory",
           description: "Contact your leaders",
           href: "#",
           icon: Phone,
+          comingSoon: true,
         },
         {
           title: "Team Calendar",
@@ -108,6 +112,7 @@ const Tools = () => {
           description: "Common questions answered",
           href: "#",
           icon: HelpCircle,
+          comingSoon: true,
         },
       ],
     },
@@ -159,9 +164,14 @@ const Tools = () => {
                           <LinkIcon className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
-                            {link.title}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                              {link.title}
+                            </h3>
+                            {link.comingSoon && (
+                              <Badge variant="outline" className="text-xs">Coming soon</Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground leading-relaxed">
                             {link.description}
                           </p>
@@ -183,9 +193,14 @@ const Tools = () => {
                         <LinkIcon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
-                          {link.title}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                            {link.title}
+                          </h3>
+                          {link.comingSoon && (
+                            <Badge variant="outline" className="text-xs">Coming soon</Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {link.description}
                         </p>
