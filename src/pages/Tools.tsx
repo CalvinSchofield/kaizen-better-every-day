@@ -24,7 +24,7 @@ const Tools = () => {
         {
           title: "The Vault",
           description: "On-the-doors resource app",
-          href: "#",
+          href: "https://calvinschofield.notion.site/the-vault?pvs=4",
           icon: FileText,
         },
         {
@@ -36,7 +36,7 @@ const Tools = () => {
         {
           title: "Sales Tracking",
           description: "Track your progress & stats",
-          href: "#",
+          href: "https://kaizen-better-every-day.lovable.app/auth",
           icon: BarChart3,
         },
       ],
