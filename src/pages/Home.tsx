@@ -252,6 +252,26 @@ const Home = () => {
     }
   };
 
+  const handleSetupNudge = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('send-setup-nudge-email');
+      
+      if (error) throw error;
+
+      toast({
+        title: "Leaders Notified!",
+        description: "Your leadership team has been notified to help set up your account.",
+      });
+    } catch (error: any) {
+      console.error('Setup nudge error:', error);
+      toast({
+        title: "Failed to notify leaders",
+        description: error.message || "Please try again or contact support directly",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleNudge = async () => {
     if (!repData?.id) return;
     
@@ -337,14 +357,22 @@ const Home = () => {
                   <li>If the issue persists, notify your leaders below</li>
                 </ol>
               </div>
-              <Button 
-                onClick={() => window.open("sms:", "_self")}
-                className="w-full"
-                size="lg"
-              >
-                <span className="mr-2">💬</span>
-                Text Leaders for Help
-              </Button>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => window.open("sms:", "_self")}
+                  className="flex-1"
+                  variant="outline"
+                >
+                  <span className="mr-2">💬</span>
+                  Text Leaders
+                </Button>
+                <Button
+                  onClick={handleSetupNudge}
+                  className="flex-1"
+                >
+                  Nudge Leaders
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
