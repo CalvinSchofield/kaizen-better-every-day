@@ -105,7 +105,7 @@ export default {
 				'sans-serif'
 			],
 			cursive: [
-				'Allura',
+				'Arizonia',
 				'cursive'
 			],
 			mono: [
