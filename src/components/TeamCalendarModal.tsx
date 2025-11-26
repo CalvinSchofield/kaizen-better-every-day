@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Calendar, ExternalLink, X } from "lucide-react";
+import { Calendar, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TeamCalendarModalProps {
   open: boolean;
@@ -17,30 +18,8 @@ interface TeamCalendarModalProps {
 
 const TeamCalendarModal = ({ open, onOpenChange }: TeamCalendarModalProps) => {
   const calendarUrl = "webcal://p143-caldav.icloud.com/published/2/ODM4MTQxNjQ5ODgzODE0MRrnO9QwHvwHspg2nEVoCsv5FLdG2RTizQGaaVJnHbZfV6TPTtdNYJ2MVW7qvW7RYu4PfYLf5BI9YcU9DIKXHes";
-
-  // Placeholder upcoming events - in production, you'd fetch these from the iCal feed
-  const upcomingEvents = [
-    {
-      title: "Team Training: Objection Handling",
-      date: "Monday, Dec 2",
-      time: "7:00 PM - 8:30 PM",
-    },
-    {
-      title: "Blitz Trip - Phoenix, AZ",
-      date: "Friday, Dec 6 - Sunday, Dec 8",
-      time: "All Day",
-    },
-    {
-      title: "Weekly Sales Meeting",
-      date: "Monday, Dec 9",
-      time: "6:00 PM - 7:00 PM",
-    },
-    {
-      title: "Product Knowledge Training",
-      date: "Wednesday, Dec 11",
-      time: "7:00 PM - 8:00 PM",
-    },
-  ];
+  
+  const { events, loading, error } = useCalendarEvents(calendarUrl);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,20 +52,42 @@ const TeamCalendarModal = ({ open, onOpenChange }: TeamCalendarModalProps) => {
             <h3 className="font-semibold text-sm text-muted-foreground">
               Upcoming Events
             </h3>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {upcomingEvents.map((event, index) => (
-                <Card key={index} className="p-3 border-border">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm mb-1">{event.title}</h4>
-                      <p className="text-xs text-muted-foreground">{event.date}</p>
-                      <p className="text-xs text-muted-foreground">{event.time}</p>
+            
+            {loading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            )}
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {!loading && !error && events.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No upcoming events scheduled
+              </p>
+            )}
+            
+            {!loading && !error && events.length > 0 && (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {events.map((event, index) => (
+                  <Card key={index} className="p-3 border-border">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm mb-1">{event.title}</h4>
+                        <p className="text-xs text-muted-foreground">{event.date}</p>
+                        <p className="text-xs text-muted-foreground">{event.time}</p>
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
