@@ -94,6 +94,32 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const downloadFile = async (filePath: string, fileName: string) => {
+    try {
+      const response = await fetch(filePath);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download started",
+        description: `${fileName} is downloading`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Unable to download file",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header with colored background */}
@@ -330,7 +356,7 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                   key={doc.label}
                   variant="outline"
                   className="justify-between"
-                  onClick={() => window.open(doc.file, "_blank")}
+                  onClick={() => downloadFile(doc.file, doc.label + '.pdf')}
                 >
                   <span className="truncate">{doc.label}</span>
                   <Download className="h-4 w-4 ml-2 flex-shrink-0" />
