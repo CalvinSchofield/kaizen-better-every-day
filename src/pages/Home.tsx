@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
@@ -112,6 +112,31 @@ const Home = () => {
     totalSteps,
     progressPercentage
   });
+
+  // Auto-complete tasks when phase is marked complete in Notion
+  useEffect(() => {
+    if (!repData?.id) return;
+    
+    const newCompleted = new Set(completedTasks);
+    let hasChanges = false;
+    
+    // Auto-complete all tasks in completed phases
+    rampPhases.forEach((phase) => {
+      const phaseStatus = getPhaseStatus(phase.id);
+      if (phaseStatus.completed) {
+        phase.tasks.forEach((task) => {
+          if (!newCompleted.has(task.id)) {
+            newCompleted.add(task.id);
+            hasChanges = true;
+          }
+        });
+      }
+    });
+    
+    if (hasChanges) {
+      setCompletedTasks(newCompleted);
+    }
+  }, [phase1Complete, phase2Complete, phase3Complete, phase4Complete, repData?.id]);
 
   // Update localStorage when completedTasks changes
   useEffect(() => {
@@ -506,38 +531,68 @@ const Home = () => {
           </CardHeader>
 
           {slackComplete && !allRampPhasesComplete && <CardContent className="pt-0 space-y-3">
-              {rampPhases.map(phase => {
-            const phaseStatus = getPhaseStatus(phase.id);
-            const isPhaseExpanded = phaseStatus.inProgress || phaseStatus.completed;
-            return <Collapsible key={phase.id} defaultOpen={phaseStatus.inProgress} className={`border rounded-lg ${phaseStatus.locked ? "opacity-60 bg-muted/30" : phaseStatus.completed ? "bg-success/5 border-success/30" : "bg-card"}`}>
-                    <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-accent/50 transition-colors rounded-lg" disabled={phaseStatus.locked}>
-                      <div className="flex items-center gap-3 flex-1">
-                        {phaseStatus.completed ? <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" /> : phaseStatus.locked ? <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" /> : <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
-                        <div className="flex items-center gap-2 flex-wrap flex-1">
-                          <span className="font-semibold text-sm">{phase.title}</span>
-                          {phaseStatus.completed && <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">✓ Complete</Badge>}
-                          {phaseStatus.locked && <Badge variant="outline" className="text-xs">🔒 Locked</Badge>}
+              <Accordion type="single" collapsible className="space-y-3">
+                {rampPhases.map(phase => {
+                  const phaseStatus = getPhaseStatus(phase.id);
+                  
+                  // Locked phases cannot be expanded
+                  if (phaseStatus.locked) {
+                    return (
+                      <div key={phase.id} className="border rounded-lg opacity-60 bg-muted/30">
+                        <div className="flex items-center justify-between w-full p-4 rounded-lg cursor-not-allowed">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            <div className="flex items-center gap-2 flex-wrap flex-1">
+                              <span className="font-semibold text-sm">{phase.title}</span>
+                              <Badge variant="outline" className="text-xs">🔒 Locked</Badge>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform ui-state-open:rotate-180" />
-                    </CollapsibleTrigger>
+                    );
+                  }
+                  
+                  return (
+                    <AccordionItem key={phase.id} value={`phase-${phase.id}`} className={`border rounded-lg ${phaseStatus.completed ? "bg-success/5 border-success/30" : "bg-card"}`}>
+                      <AccordionTrigger className="flex items-center justify-between w-full p-4 hover:bg-accent/50 transition-colors rounded-lg [&[data-state=open]>svg]:rotate-180">
+                        <div className="flex items-center gap-3 flex-1">
+                          {phaseStatus.completed ? <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" /> : <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
+                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                            <span className="font-semibold text-sm">{phase.title}</span>
+                            {phaseStatus.completed && <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">✓ Complete</Badge>}
+                          </div>
+                        </div>
+                      </AccordionTrigger>
 
-                    <CollapsibleContent className="px-4 pb-4 space-y-2">
-                      {phase.tasks.map(task => {
-                  const isCompleted = completedTasks.has(task.id);
-                  return <div key={task.id} className="flex items-start gap-3 py-2 group">
-                            <Checkbox checked={isCompleted} onCheckedChange={() => handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked} className="mt-0.5 flex-shrink-0" />
-                            <button onClick={() => handleTaskClick(task.id, task.href, task.onClick)} disabled={phaseStatus.locked} className="flex-1 text-left text-sm group-hover:text-primary transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={isCompleted ? "line-through text-muted-foreground" : ""}>{task.label}</span>
-                                {task.duration && <span className="text-xs text-muted-foreground">({task.duration})</span>}
-                              </div>
-                            </button>
-                          </div>;
+                      <AccordionContent className="px-4 pb-4 space-y-2">
+                        {phase.tasks.map(task => {
+                          const isCompleted = completedTasks.has(task.id);
+                          return (
+                            <div key={task.id} className="flex items-start gap-3 py-2 group">
+                              <Checkbox 
+                                checked={isCompleted} 
+                                onCheckedChange={() => handleTaskClick(task.id, task.href, task.onClick)} 
+                                className="mt-0.5 flex-shrink-0" 
+                              />
+                              <button 
+                                onClick={() => handleTaskClick(task.id, task.href, task.onClick)} 
+                                className="flex-1 text-left text-sm group-hover:text-primary transition-colors"
+                              >
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={isCompleted ? "line-through text-muted-foreground" : ""}>
+                                    {task.label}
+                                  </span>
+                                  {task.duration && <span className="text-xs text-muted-foreground">({task.duration})</span>}
+                                </div>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
                 })}
-                    </CollapsibleContent>
-                  </Collapsible>;
-          })}
+              </Accordion>
             </CardContent>}
 
           {allRampPhasesComplete && <CardContent className="pt-0">
