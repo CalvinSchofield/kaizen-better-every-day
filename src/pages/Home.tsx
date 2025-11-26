@@ -444,6 +444,11 @@ const Home = () => {
               value={progressPercentage} 
               className={`h-2 bg-primary-foreground/20 transition-all duration-700 ease-out ${animateProgress ? 'animate-pulse' : ''}`}
             />
+            <style>{`
+              [data-state="complete"] .progress-indicator {
+                background: hsl(var(--primary-foreground)) !important;
+              }
+            `}</style>
           </div>
         </div>
       </div>
