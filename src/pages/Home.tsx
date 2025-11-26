@@ -10,6 +10,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -45,7 +46,10 @@ const Home = () => {
     loading
   } = useRepData();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
+  const [previousProgress, setPreviousProgress] = useState<number>(0);
+  const [animateProgress, setAnimateProgress] = useState(false);
 
   // Track completed tasks in localStorage
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(() => {
@@ -332,6 +336,34 @@ const Home = () => {
   ].filter(Boolean).length;
   const progressPercentage = (completedSteps / totalSteps) * 100;
 
+  // Track progress changes and trigger celebrations
+  useEffect(() => {
+    if (completedSteps > previousProgress && previousProgress > 0) {
+      setAnimateProgress(true);
+      
+      // Show celebration toast
+      const stepNames = [
+        "Onboarding",
+        "Trainings",
+        "Slack Introduction",
+        "Phase 1: Set Goals",
+        "Phase 2: Start Trainings",
+        "Phase 3: Practice",
+        "Phase 4: Saddle Up!"
+      ];
+      
+      toast({
+        title: "🎉 Step Complete!",
+        description: `Great job completing ${stepNames[completedSteps - 1]}! Keep going!`,
+        duration: 4000,
+      });
+
+      // Remove animation after it plays
+      setTimeout(() => setAnimateProgress(false), 1000);
+    }
+    setPreviousProgress(completedSteps);
+  }, [completedSteps, previousProgress, toast]);
+
   return <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-8">
@@ -355,7 +387,10 @@ const Home = () => {
               <span className="text-xs text-primary-foreground/70 font-medium">Overall Progress</span>
               <span className="text-xs text-primary-foreground/90 font-semibold">{completedSteps}/{totalSteps}</span>
             </div>
-            <Progress value={progressPercentage} className="h-2 bg-primary-foreground/20" />
+            <Progress 
+              value={progressPercentage} 
+              className={`h-2 bg-primary-foreground/20 transition-all duration-700 ease-out ${animateProgress ? 'animate-pulse' : ''}`}
+            />
           </div>
         </div>
       </div>
