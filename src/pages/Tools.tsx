@@ -174,7 +174,7 @@ const Tools = () => {
               Contact Leader
             </Button>
             <Button variant="default" className="w-full" size="lg" asChild>
-              <a href="/assistant">
+              <a href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt" target="_blank" rel="noopener noreferrer">
                 <HelpCircle className="w-4 h-4 mr-2" />
                 Ask AI Assistant
               </a>
