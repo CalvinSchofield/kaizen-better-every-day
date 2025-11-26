@@ -30,7 +30,7 @@ const Tools = () => {
         {
           title: "Payscales",
           description: "Commission structure & earnings",
-          href: "#",
+          href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
           icon: DollarSign,
         },
         {
