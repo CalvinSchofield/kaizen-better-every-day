@@ -11,10 +11,11 @@ import {
   GraduationCap,
   Play,
   Copy,
-  ExternalLink
+  ExternalLink as ExternalLinkIcon
 } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useToast } from "@/hooks/use-toast";
+import { ExternalLink } from "@/components/ExternalLink";
 
 interface FlowLink {
   label: string;
@@ -201,10 +202,13 @@ export const RecruitingFlowCarousel = () => {
                                   variant="outline"
                                   size="sm"
                                   className="flex-1 justify-start"
-                                  onClick={() => openLink(link.url)}
+                                  asChild
                                 >
-                                  <Play className="h-4 w-4 mr-2" />
-                                  {link.label}
+                                  <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
+                                    <Play className="h-4 w-4 mr-2" />
+                                    {link.label}
+                                    <ExternalLinkIcon className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
+                                  </ExternalLink>
                                 </Button>
                               ) : (
                                 <>
@@ -220,9 +224,11 @@ export const RecruitingFlowCarousel = () => {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => openLink(link.url)}
+                                    asChild
                                   >
-                                    <ExternalLink className="h-4 w-4" />
+                                    <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
+                                      <ExternalLinkIcon className="h-4 w-4" />
+                                    </ExternalLink>
                                   </Button>
                                 </>
                               )}

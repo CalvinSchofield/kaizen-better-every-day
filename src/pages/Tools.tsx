@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { useRepData } from "@/hooks/useRepData";
+import { ExternalLink as ExternalLinkComponent } from "@/components/ExternalLink";
 
 interface ToolSection {
   title: string;
@@ -201,26 +202,25 @@ const Tools = () => {
                   }
                   
                   return (
-                    <a
+                    <ExternalLinkComponent
                       key={link.title}
                       href={link.href}
-                      onClick={(e) => handleLinkClick(e, link.href)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group"
+                      showIcon={false}
+                      className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
                     >
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
                         <LinkIcon className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                        <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors flex items-center gap-1.5">
                           {link.title}
+                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                         </h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           {link.description}
                         </p>
                       </div>
-                    </a>
+                    </ExternalLinkComponent>
                   );
                 })}
               </CardContent>
@@ -257,10 +257,11 @@ const Tools = () => {
               )}
             </Button>
             <Button variant="default" className="w-full" size="lg" asChild>
-              <a href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt" target="_blank" rel="noopener noreferrer">
+              <ExternalLinkComponent href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt" showIcon={false} className="no-underline hover:no-underline">
                 <HelpCircle className="w-4 h-4 mr-2" />
                 Ask AI Assistant
-              </a>
+                <ExternalLink className="w-3.5 h-3.5 ml-auto" />
+              </ExternalLinkComponent>
             </Button>
           </CardContent>
         </Card>
