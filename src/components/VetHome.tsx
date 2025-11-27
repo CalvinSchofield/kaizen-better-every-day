@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import {
   Sheet,
   SheetContent,
@@ -73,6 +74,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -80,8 +82,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   }, []);
 
   // Fetch team members for team leads
-  useEffect(() => {
-    const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
       if (!repData?.notion_page_id) return;
 
       setTeamLoading(true);
@@ -113,10 +114,11 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       } finally {
         setTeamLoading(false);
       }
-    };
-
-    fetchTeamMembers();
   }, [repData?.notion_page_id, toast]);
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, [fetchTeamMembers, refreshTrigger]);
   
   // Local state for editable stats - initialize from repData
   const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
@@ -190,6 +192,17 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleRefresh = async () => {
+    onSync();
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const { containerRef, shouldShowIndicator, indicatorOpacity, indicatorRotation } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    isRefreshing: isSyncing,
+    threshold: 80,
+  });
+
   const downloadFile = async (filePath: string, fileName: string) => {
     try {
       const response = await fetch(filePath);
@@ -217,7 +230,24 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
+    <div ref={containerRef} className="min-h-screen bg-gradient-to-b from-background to-secondary/30 overflow-y-auto">
+      {/* Pull to Refresh Indicator */}
+      {shouldShowIndicator && (
+        <div 
+          className="fixed top-0 left-0 right-0 flex justify-center pt-4 z-50 transition-opacity duration-200"
+          style={{ opacity: indicatorOpacity }}
+        >
+          <div className="bg-background/95 backdrop-blur-sm rounded-full p-3 shadow-lg border border-border">
+            <RefreshCw 
+              className="w-5 h-5 text-primary"
+              style={{ 
+                transform: `rotate(${indicatorRotation}deg)`,
+                transition: isSyncing ? 'none' : 'transform 0.2s ease-out'
+              }}
+            />
+          </div>
+        </div>
+      )}
       {/* Header with colored background */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-4xl mx-auto">
@@ -243,7 +273,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onSync}
+                onClick={handleRefresh}
                 disabled={isSyncing}
                 className={`rounded-full transition-all duration-300 border ${
                   syncSuccess 
