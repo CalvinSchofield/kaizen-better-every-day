@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Collapsible,
   CollapsibleContent,
@@ -23,6 +24,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface VetBlitzCardProps {
   repData: any;
@@ -61,6 +76,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedRookie, setSelectedRookie] = useState<TeamMember | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
@@ -282,6 +300,52 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     window.location.href = mailtoLink;
   };
 
+  const openStatusDialog = (member: TeamMember, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedRookie(member);
+    setSelectedStatus(member.onboardingStatus || "Started");
+    setStatusDialogOpen(true);
+  };
+
+  const updateRookieStatus = async () => {
+    if (!selectedRookie || !selectedStatus) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        body: {
+          rookieNotionPageId: selectedRookie.notionPageId,
+          onboardingStatus: selectedStatus,
+        },
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setTeamMembers(prev =>
+        prev.map(m =>
+          m.notionPageId === selectedRookie.notionPageId
+            ? { ...m, onboardingStatus: selectedStatus }
+            : m
+        )
+      );
+
+      toast({
+        title: "Status updated",
+        description: `${selectedRookie.name}'s status has been updated to ${selectedStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating rookie status:', error);
+      toast({
+        title: "Update failed",
+        description: "Could not update rookie status",
+        variant: "destructive",
+      });
+    } finally {
+      setStatusDialogOpen(false);
+      setSelectedRookie(null);
+    }
+  };
+
   const getCommittedMembers = (blitzId: string) => {
     return sortTeamMembers(
       teamMembers.filter(member => member.committedBlitzes.includes(blitzId))
@@ -467,11 +531,13 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             >
               <div 
                 ref={(el) => blitzRefs.current[blitz.id] = el}
-                className="border rounded-lg p-4 space-y-3 cursor-pointer active:scale-[0.99] transition-transform"
-                onClick={() => toggleBlitzExpansion(blitz.id)}
+                className="border rounded-lg overflow-hidden"
               >
                 {/* Collapsed state header */}
-                <div className="flex items-start justify-between gap-3">
+                <div 
+                  className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-accent/5 transition-colors"
+                  onClick={() => toggleBlitzExpansion(blitz.id)}
+                >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-lg">{blitz.name}</h3>
@@ -513,7 +579,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                 </div>
 
                 {/* Expandable details */}
-                <CollapsibleContent className="space-y-4 pt-2" onClick={(e) => e.stopPropagation()}>
+                <CollapsibleContent>
+                  <ScrollArea className="max-h-[60vh]">
+                    <div className="space-y-4 p-4 pt-2">
                   {/* Your commitment toggle */}
                   <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                     <span className="font-medium">Your Status</span>
@@ -534,13 +602,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         const showIpadWarning = isWithinSevenDays(blitz.date) && !member.ipadAssigned;
                         const readinessStatus = member.year === "Rookie" ? getReadinessStatus(member) : null;
                         const isUrgentIpad = member.year === "Rookie" && showIpadWarning;
+                        const isRookieNotReady = member.year === "Rookie" && readinessStatus !== "Blitz Ready ✓";
                         
                         return (
                           <div
                             key={member.notionPageId}
                             className={`flex items-center justify-between p-2.5 border rounded-lg ${isUrgentIpad ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'bg-card'}`}
                           >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <button
+                              onClick={isRookieNotReady ? (e) => openStatusDialog(member, e) : undefined}
+                              className={`flex items-center gap-2 flex-1 min-w-0 text-left ${isRookieNotReady ? 'cursor-pointer hover:opacity-80' : ''}`}
+                              disabled={!isRookieNotReady}
+                            >
                               <div className="flex flex-col min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`font-medium truncate text-sm ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
@@ -548,7 +621,10 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                   </span>
                                   {showIpadWarning && (
                                     <button
-                                      onClick={() => sendIpadRequestEmail(member)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        sendIpadRequestEmail(member);
+                                      }}
                                       className="flex-shrink-0 group"
                                       title="Click to email sales assets"
                                     >
@@ -565,7 +641,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                   </span>
                                 )}
                               </div>
-                            </div>
+                            </button>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -628,6 +704,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                       </CollapsibleContent>
                     </div>
                   </Collapsible>
+                    </div>
+                  </ScrollArea>
                 </CollapsibleContent>
               </div>
             </Collapsible>
@@ -651,6 +729,42 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update {selectedRookie?.name}'s Status</DialogTitle>
+            <DialogDescription>
+              Select their current onboarding progress stage
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Started">Started</SelectItem>
+                <SelectItem value="Onboarding">Onboarding</SelectItem>
+                <SelectItem value="Required Trainings">Required Trainings</SelectItem>
+                <SelectItem value="Group Chat">Group Chat</SelectItem>
+                <SelectItem value="Phase 1">Phase 1</SelectItem>
+                <SelectItem value="Phase 2">Phase 2</SelectItem>
+                <SelectItem value="Phase 3">Phase 3</SelectItem>
+                <SelectItem value="Phase 4">Phase 4</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={updateRookieStatus}>
+              Update Status
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
