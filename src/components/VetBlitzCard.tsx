@@ -349,6 +349,8 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     if (!member.onboardingStatus) return "Not Started";
     const step = member.onboardingStatus.toLowerCase();
     
+    // Check if blitz ready (Phase 4 complete AND iPad assigned)
+    if (step.includes("phase 4") && member.ipadAssigned) return "Blitz Ready ✓";
     if (step.includes("phase 4")) return "Phase 4 ✓";
     if (step.includes("phase 3")) return "Phase 3";
     if (step.includes("phase 2")) return "Phase 2";
@@ -492,11 +494,12 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                       {committedMembers.map((member) => {
                         const showIpadWarning = isWithinSevenDays(blitz.date) && !member.ipadAssigned;
                         const readinessStatus = member.year === "Rookie" ? getReadinessStatus(member) : null;
+                        const isUrgentIpad = member.year === "Rookie" && showIpadWarning;
                         
                         return (
                           <div
                             key={member.notionPageId}
-                            className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                            className={`flex items-center justify-between p-3 border rounded-lg ${isUrgentIpad ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'bg-card'}`}
                           >
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               {member.year === "Rookie" && (
@@ -515,8 +518,8 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                                 )}
                               </div>
                               {showIpadWarning && (
-                                <Badge variant="destructive" className="text-xs flex-shrink-0">
-                                  No iPad
+                                <Badge variant="destructive" className="text-xs flex-shrink-0 animate-pulse">
+                                  ⚠️ No iPad
                                 </Badge>
                               )}
                             </div>
@@ -525,6 +528,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
                                   onClick={() => sendIpadRequestEmail(member)}
                                 >
                                   <Mail className="h-3 w-3 mr-1" />
@@ -546,20 +550,24 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                   )}
 
                   {/* Invite list for uncommitted members */}
-                  {uncommittedMembers.length > 0 && (
-                    <Collapsible
-                      open={expandedInviteLists.has(blitz.id)}
-                      onOpenChange={() => toggleInviteList(blitz.id)}
-                    >
-                      <div className="space-y-2">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="outline" className="w-full">
-                            {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
-                            {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} ({uncommittedMembers.length})
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-2 pt-2">
-                          {uncommittedMembers.map((member) => {
+                  <Collapsible
+                    open={expandedInviteLists.has(blitz.id)}
+                    onOpenChange={() => toggleInviteList(blitz.id)}
+                  >
+                    <div className="space-y-2">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                          {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} ({uncommittedMembers.length})
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-2">
+                        {uncommittedMembers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No team members with priority stages (Sold, Shadow, Signed, Evaluating) available to invite
+                          </p>
+                        ) : (
+                          uncommittedMembers.map((member) => {
                             const isContactedForThisBlitz = (contactedMembers[blitz.id] || []).includes(member.notionPageId);
                             return (
                               <div
@@ -588,11 +596,11 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                                 </Button>
                               </div>
                             );
-                          })}
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  )}
+                          })
+                        )}
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
                 </CollapsibleContent>
               </div>
             </Collapsible>
