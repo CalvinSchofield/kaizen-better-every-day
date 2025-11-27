@@ -127,14 +127,34 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
     // Check for callout block with "Our selling points"
     if (block.type === 'callout') {
       const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
-      console.log(`Callout text found: "${calloutText}"`);
       
-      // If this is the selling points callout, fetch and extract numbered list items from children
-      if (calloutText.toLowerCase().includes('our selling points')) {
-        console.log('Found "Our selling points" callout, fetching children blocks...');
-        // Fetch the children blocks of this callout
-        const children = await fetchNotionBlocks(block.id, notionToken);
-        console.log(`Found ${children.length} children blocks in callout`);
+      // Check if children were already fetched
+      const existingChildren = block.callout?.children || [];
+      
+      // Look for "Our selling points" in callout text OR in child heading/paragraph blocks
+      let isSellingPointsCallout = calloutText.toLowerCase().includes('our selling points');
+      
+      // If not in callout text, check first few children for heading or paragraph with the text
+      if (!isSellingPointsCallout && existingChildren.length > 0) {
+        for (let i = 0; i < Math.min(3, existingChildren.length); i++) {
+          const child = existingChildren[i];
+          if (child.type === 'heading_2' || child.type === 'heading_3' || child.type === 'paragraph') {
+            const childText = child[child.type]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+            if (childText.toLowerCase().includes('our selling points')) {
+              isSellingPointsCallout = true;
+              console.log(`Found "Our selling points" in ${child.type} inside callout`);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (isSellingPointsCallout) {
+        console.log('Found "Our selling points" callout, extracting list items...');
+        
+        // Use existing children if available, otherwise fetch
+        const children = existingChildren.length > 0 ? existingChildren : await fetchNotionBlocks(block.id, notionToken);
+        console.log(`Processing ${children.length} children blocks in callout`);
         
         for (const child of children) {
           console.log(`Child block type: ${child.type}`);
