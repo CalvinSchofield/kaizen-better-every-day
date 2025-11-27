@@ -71,11 +71,24 @@ const Home = () => {
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number }>>([]);
+  const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
+
+  // Get weather icon based on WMO weather code
+  const getWeatherIcon = (code: number) => {
+    if (code === 0) return "☀️"; // Clear sky
+    if (code <= 3) return "⛅"; // Partly cloudy
+    if (code <= 48) return "🌫️"; // Fog
+    if (code <= 57) return "🌦️"; // Drizzle
+    if (code <= 67) return "🌧️"; // Rain
+    if (code <= 77) return "❄️"; // Snow
+    if (code <= 82) return "🌧️"; // Rain showers
+    if (code <= 86) return "🌨️"; // Snow showers
+    return "⛈️"; // Thunderstorm
+  };
 
   // Get completed tasks from database
   const completedTasksArray = (repData?.completed_tasks as string[]) || [];
@@ -843,13 +856,17 @@ const Home = () => {
                       {weather.map((day) => (
                         <div
                           key={day.date}
-                          className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
+                          className="flex flex-col items-center min-w-[64px] px-2 py-2 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
                         >
                           <span className="text-xs text-primary-foreground/70 font-medium">
                             {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
                           </span>
-                          <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
-                          <span className="text-xs text-primary-foreground/60">{day.low}°</span>
+                          <span className="text-2xl my-0.5">{getWeatherIcon(day.weatherCode)}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-base font-bold text-primary-foreground">{day.high}°</span>
+                            <span className="text-xs text-primary-foreground/50">/</span>
+                            <span className="text-xs text-primary-foreground/60">{day.low}°</span>
+                          </div>
                         </div>
                       ))}
                     </div>
