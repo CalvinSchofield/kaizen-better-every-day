@@ -122,7 +122,10 @@ export const BlitzCountdown = ({
   return (
     <>
       {/* Compact Blitz Text Line */}
-      <div className="flex items-center justify-between py-2">
+      <div 
+        className={`flex items-center justify-between py-2 ${!hasBlitz ? 'cursor-pointer hover:opacity-70 transition-opacity' : ''}`}
+        onClick={!hasBlitz ? () => setShowCalendar(true) : undefined}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-lg">{getEmoji()}</span>
           <div className="flex-1 min-w-0">
@@ -144,7 +147,10 @@ export const BlitzCountdown = ({
           )}
           {!hasBlitz && (
             <button
-              onClick={() => setShowCalendar(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCalendar(true);
+              }}
               className="text-xs text-primary hover:text-primary/80 transition-colors underline font-medium"
             >
               Pick Blitz
