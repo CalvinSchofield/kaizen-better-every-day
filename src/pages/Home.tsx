@@ -807,10 +807,9 @@ const Home = () => {
             
             // Urgent message if blitz is within 7 days and onboarding incomplete
             if (hasUpcomingBlitz && diffDays <= 7) {
-              const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
               return (
-                <p className="text-red-500 dark:text-red-400 text-base font-bold mb-3">
-                  {firstName}, the onboarding process and all of Ramp to Blitz need to be done before you can attend the blitz. It shouldn't take you long and will help you get paid. Let's knock it out 👊
+                <p className="text-orange-600 dark:text-orange-400 text-base font-bold mb-3">
+                  Reminder — to go on the blitz you have to finish all these steps. It shouldn't take long and will get you paid 👊
                 </p>
               );
             }
