@@ -681,13 +681,13 @@ const Home = () => {
 
   return <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground p-6 pb-8">
+      <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex-1 min-w-0 pr-4">
               {!onboardingComplete || !trainingsComplete ? (
                 <>
-                  <h1 className="text-2xl font-bold">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!</h1>
+                  <h1 className="text-3xl font-bold tracking-tight">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}</h1>
                   <p className="text-primary-foreground/90 text-base font-medium mt-2">
                     The basics to make your first $10k at Vivint
                   </p>
@@ -697,62 +697,79 @@ const Home = () => {
                   {(() => {
                     const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
                     const today = new Date();
+                    const hour = today.getHours();
+                    
+                    // Determine time of day greeting
+                    let greeting = "Good evening";
+                    if (hour < 12) {
+                      greeting = "Good morning";
+                    } else if (hour < 18) {
+                      greeting = "Good afternoon";
+                    }
+                    
                     today.setHours(0, 0, 0, 0);
                     const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
                     const hasValidBlitz = tripDate && tripDate >= today;
                     const blitzIsPast = tripDate && tripDate < today;
                     
+                    // Determine call to action
+                    let ctaText = "";
+                    let ctaIcon = "";
+                    
                     if (!repData.blitz_trip_name || blitzIsPast) {
-                      return (
-                        <>
-                          <h1 className="text-xl font-bold">
-                            {blitzIsPast ? `🗣️ Let's keep the momentum rolling and get you on another blitz, ${firstName}` : `‼️ ${firstName}, let's get you committed to a blitz`}
-                          </h1>
-                          <button
-                            onClick={() => setCalendarModalOpen(true)}
-                            className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-base font-medium border border-primary-foreground/30"
-                          >
-                            Check out the calendar to find one that you can be a part of
-                          </button>
-                        </>
-                      );
+                      ctaText = blitzIsPast 
+                        ? "Find your next blitz and keep the momentum going"
+                        : "Pick a blitz trip and commit to making your first sale";
+                      ctaIcon = "📅";
                     } else {
-                      const diffTime = tripDate.getTime() - today.getTime();
+                      const diffTime = tripDate!.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                      return (
-                        <>
-                          <h1 className="text-xl font-bold">
-                            📆 {firstName}, {diffDays} {diffDays === 1 ? 'day' : 'days'} out
-                          </h1>
-                          <button
-                            onClick={() => setCalendarModalOpen(true)}
-                            className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-base font-medium border border-primary-foreground/30"
-                          >
-                            You get out what you put in — good prep leads to a solid blitz
-                          </button>
-                        </>
-                      );
+                      
+                      if (diffDays <= 7) {
+                        ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${repData.blitz_trip_location || 'your blitz'} — prep makes perfect`;
+                        ctaIcon = "⚡";
+                      } else {
+                        ctaText = `${repData.blitz_trip_location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training`;
+                        ctaIcon = "🎯";
+                      }
                     }
+                    
+                    return (
+                      <div className="space-y-3">
+                        <h1 className="text-3xl font-bold tracking-tight">
+                          {greeting}, {firstName}
+                        </h1>
+                        <button
+                          onClick={() => setCalendarModalOpen(true)}
+                          className="group flex items-start gap-3 text-left hover:opacity-80 transition-opacity"
+                        >
+                          <span className="text-2xl flex-shrink-0 mt-0.5">{ctaIcon}</span>
+                          <p className="text-primary-foreground/90 text-base font-medium leading-snug">
+                            {ctaText}
+                          </p>
+                        </button>
+                      </div>
+                    );
                   })()}
                 </>
               )}
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 flex-shrink-0 self-start">
               <Button 
                 onClick={handleSync} 
                 variant="ghost" 
                 size="sm" 
                 className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
                 disabled={isSyncing}
+                aria-label="Refresh data"
               >
-                <RefreshCw className={`w-4 h-4 mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                Refresh
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </Button>
               <Button 
                 onClick={() => setLogoutDialogOpen(true)}
                 variant="ghost" 
                 size="sm" 
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
                 aria-label="Log out"
               >
                 <LogOut className="w-4 h-4" />
@@ -761,10 +778,10 @@ const Home = () => {
           </div>
           
           {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-primary-foreground/70 font-medium">Overall Progress</span>
-              <span className="text-xs text-primary-foreground/90 font-semibold">{completedSteps}/{totalSteps}</span>
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-primary-foreground/70 font-medium">Overall Progress</span>
+              <span className="text-sm text-primary-foreground font-semibold">{completedSteps}/{totalSteps}</span>
             </div>
             <Progress 
               value={progressPercentage} 
