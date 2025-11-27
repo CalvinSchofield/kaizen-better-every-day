@@ -131,31 +131,42 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
       
       console.log(`Callout found - Text: "${calloutText}", Icon: "${calloutIcon}", Has children: ${block.has_children}`);
       
-      // Look for "Our selling points" in callout text (with or without emoji)
-      const isSellingPointsCallout = calloutText.toLowerCase().includes('our selling points') || 
-                                      calloutText.toLowerCase().includes('selling points');
-      
-      if (isSellingPointsCallout) {
-        console.log('✅ Found "Our selling points" callout!');
-        
+      // Check if this is a 📌 callout (common for "Our selling points")
+      if (calloutIcon === '📌' && block.has_children) {
         // Fetch children blocks of this callout
         const children = await fetchNotionBlocks(block.id, notionToken);
-        console.log(`Found ${children.length} children blocks in selling points callout`);
+        console.log(`Found ${children.length} children blocks in 📌 callout`);
         
+        // Check if first child is a heading/paragraph with "selling points"
+        let isSellingPointsCallout = false;
         for (const child of children) {
-          if (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item') {
-            const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
-            const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
-            if (text) {
-              // Remove markdown formatting like **bold** and leading numbers/bullets, then trim
-              const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
-              console.log('✅ Extracted selling point:', cleanText);
-              ourSellingPoints.push(cleanText);
+          if (child.type === 'heading_2' || child.type === 'heading_3' || child.type === 'paragraph') {
+            const childText = child[child.type]?.rich_text?.map((rt: any) => rt.plain_text).join('').toLowerCase() || '';
+            if (childText.includes('selling points')) {
+              isSellingPointsCallout = true;
+              console.log('✅ Found "Our selling points" in child block!');
+              break;
             }
           }
         }
         
-        console.log(`Total selling points extracted: ${ourSellingPoints.length}`);
+        // If this is the selling points callout, extract list items
+        if (isSellingPointsCallout) {
+          for (const child of children) {
+            if (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item') {
+              const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
+              const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+              if (text) {
+                // Remove markdown formatting like **bold** and leading numbers/bullets, then trim
+                const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
+                console.log('✅ Extracted selling point:', cleanText);
+                ourSellingPoints.push(cleanText);
+              }
+            }
+          }
+          
+          console.log(`Total selling points extracted: ${ourSellingPoints.length}`);
+        }
       }
     }
 
