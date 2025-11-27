@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, Cloud } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface WeatherForecast {
   date: string;
@@ -32,6 +38,7 @@ export const BlitzCountdown = ({
   const [weatherLocation, setWeatherLocation] = useState<string>("");
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showWeatherDialog, setShowWeatherDialog] = useState(false);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -90,14 +97,15 @@ export const BlitzCountdown = ({
     }
   }, [tripDate, tripLocation, tripEndDate]);
 
-  const getGradientClass = () => {
-    if (daysUntil === null || daysUntil < 0) return "from-muted/50 to-muted";
-    if (daysUntil === 0) return "from-green-500/20 to-emerald-600/20";
-    if (daysUntil <= 3) return "from-red-500/20 to-orange-600/20";
-    if (daysUntil <= 7) return "from-orange-500/20 to-amber-600/20";
-    if (daysUntil <= 14) return "from-amber-500/20 to-yellow-600/20";
-    if (daysUntil <= 30) return "from-yellow-500/20 to-orange-500/20";
-    return "from-blue-500/20 to-cyan-600/20";
+  const getCompactMessage = () => {
+    if (daysUntil === null || daysUntil < 0 || !tripName) {
+      return "No blitz scheduled yet";
+    }
+    
+    if (daysUntil === 0) return `${tripName} starts today!`;
+    if (daysUntil === 1) return `${tripName} tomorrow`;
+    if (daysUntil <= 7) return `${tripName} in ${daysUntil} days`;
+    return `${tripName} - ${daysUntil} days`;
   };
 
   const getEmoji = () => {
@@ -168,99 +176,96 @@ export const BlitzCountdown = ({
     };
   };
 
-  const isPulse = daysUntil !== null && daysUntil >= 0 && daysUntil <= 7;
-  const message = getMessage();
-  const showWeather = weather.length > 0 && daysUntil !== null && daysUntil > 0 && daysUntil <= 14;
+  const shouldShowWeather = weather.length > 0 && daysUntil !== null && daysUntil > 0 && daysUntil <= 14;
+  const hasBlitz = tripName && tripDate && daysUntil !== null && daysUntil >= 0;
 
   return (
     <>
-      <Card
-        className={`bg-gradient-to-br ${getGradientClass()} border-border/50 ${
-          isPulse ? "animate-pulse" : ""
-        }`}
-      >
-        <div className="p-6 space-y-4">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
-              {message.primary}
-            </h2>
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              {tripLocation && (
-                <>
-                  <MapPin className="h-4 w-4" />
-                  {message.subtext}
-                </>
-              )}
-              {!tripLocation && message.subtext}
-            </p>
+      {/* Compact Blitz Line */}
+      <div className="flex items-center justify-between py-3 px-4 bg-card/50 rounded-lg border border-border">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{getCompactMessage()}</p>
+            {hasBlitz && tripLocation && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {tripLocation}
+              </p>
+            )}
           </div>
-
-          {daysUntil !== null && daysUntil >= 0 && (
-            <div className="flex justify-center">
-              <div className="text-center">
-                <div className="text-6xl font-bold text-primary">
-                  {daysUntil}
-                </div>
-                <div className="text-sm text-muted-foreground uppercase tracking-wide">
-                  {daysUntil === 1 ? "Day" : "Days"}
-                </div>
-              </div>
-            </div>
+        </div>
+        
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {shouldShowWeather && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowWeatherDialog(true)}
+              className="h-8 px-2"
+            >
+              <Cloud className="h-4 w-4" />
+            </Button>
           )}
-
-          {showWeather && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span>Weather for {weatherLocation}</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {weather.map((day) => (
-                  <div
-                    key={day.date}
-                    className="flex-shrink-0 bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/50 min-w-[100px] text-center"
-                  >
-                    <div className="text-xs font-medium text-muted-foreground">
-                      {day.dayName}
-                    </div>
-                    <div className="text-xs text-muted-foreground/70">
-                      {new Date(day.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                    <div className="mt-2 space-y-1">
-                      <div className="text-lg font-bold text-foreground">
-                        {day.high}°
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {day.low}°
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {!hasBlitz && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCalendar(true)}
+              className="h-8"
+            >
+              Pick Blitz
+            </Button>
           )}
+        </div>
+      </div>
 
+      {/* Weather Dialog */}
+      <Dialog open={showWeatherDialog} onOpenChange={setShowWeatherDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Weather Forecast</DialogTitle>
+            <DialogDescription>
+              {weatherLocation} - {tripName}
+            </DialogDescription>
+          </DialogHeader>
+          
           {loadingWeather && (
-            <div className="text-center text-sm text-muted-foreground">
+            <div className="text-center text-sm text-muted-foreground py-4">
               Loading weather...
             </div>
           )}
-
-          {(!tripDate || daysUntil === null || daysUntil < 0) && (
-            <div className="flex justify-center">
-              <Button
-                onClick={() => setShowCalendar(true)}
-                className="gap-2"
-              >
-                <Calendar className="h-4 w-4" />
-                Open Calendar
-              </Button>
+          
+          {!loadingWeather && weather.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {weather.map((day) => (
+                <div
+                  key={day.date}
+                  className="bg-card rounded-lg p-4 border border-border text-center"
+                >
+                  <div className="text-xs font-medium text-muted-foreground mb-1">
+                    {day.dayName}
+                  </div>
+                  <div className="text-xs text-muted-foreground/70 mb-2">
+                    {new Date(day.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-2xl font-bold text-foreground">
+                      {day.high}°
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Low {day.low}°
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
       <TeamCalendarModal
         open={showCalendar}
