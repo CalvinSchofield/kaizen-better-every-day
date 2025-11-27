@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
         let blitzTripDate: string | null = null;
         let blitzTripEndDate: string | null = null;
         let blitzTripLocation: string | null = null;
-        const committedBlitzes: Array<{name: string, date: string, endDate: string | null, location: string | null}> = [];
+        const committedBlitzes: Array<{id: string, name: string, date: string, endDate: string | null, location: string | null}> = [];
 
         console.log(`Processing blitz trips for ${name}...`);
         console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
@@ -312,14 +312,15 @@ Deno.serve(async (req) => {
                   const tripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
                   console.log(`Trip location: ${tripLocation}`);
                   
-                  // Store full blitz details
+                  // Store full blitz details INCLUDING the ID for comparison
                   committedBlitzes.push({
+                    id: tripId,
                     name: tripName,
                     date: tripDate || '',
                     endDate: tripEndDate,
                     location: tripLocation,
                   });
-                  console.log(`Added committed blitz: ${tripName}`);
+                  console.log(`Added committed blitz: ${tripName} (ID: ${tripId})`);
                   
                   // For the first trip, also set the legacy fields for backward compatibility
                   if (!blitzTripName) {
