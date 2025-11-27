@@ -61,6 +61,11 @@ const Home = () => {
     loading,
     refetch
   } = useRepData();
+  
+  // Auto-refresh on component mount (when PWA reopens)
+  useEffect(() => {
+    refetch();
+  }, []);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
@@ -679,25 +684,75 @@ const Home = () => {
       <div className="bg-primary text-primary-foreground p-6 pb-8">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-2xl font-bold">​Getting started  </h1>
-              <p className="text-primary-foreground/90 text-sm">
-                👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!
-              </p>
+            <div className="flex-1 min-w-0">
+              {!onboardingComplete || !trainingsComplete ? (
+                <>
+                  <h1 className="text-2xl font-bold">Getting started</h1>
+                  <p className="text-primary-foreground/90 text-sm">
+                    👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!
+                  </p>
+                  <p className="text-primary-foreground/80 text-xs mt-1">
+                    The basics to make your first $10k at Vivint
+                  </p>
+                </>
+              ) : (
+                <>
+                  {(() => {
+                    const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+                    const hasValidBlitz = tripDate && tripDate >= today;
+                    const blitzIsPast = tripDate && tripDate < today;
+                    
+                    if (!repData.blitz_trip_name || blitzIsPast) {
+                      return (
+                        <>
+                          <h1 className="text-2xl font-bold">
+                            {blitzIsPast ? `🗣️ Let's keep the momentum rolling and get you on another blitz, ${firstName}` : `‼️ ${firstName}, let's get you committed to a blitz`}
+                          </h1>
+                          <button
+                            onClick={() => setCalendarModalOpen(true)}
+                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-sm font-medium border border-primary-foreground/30"
+                          >
+                            Check out the calendar to find one that you can be a part of
+                          </button>
+                        </>
+                      );
+                    } else {
+                      const diffTime = tripDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return (
+                        <>
+                          <h1 className="text-2xl font-bold">
+                            📆 {firstName}, {diffDays} {diffDays === 1 ? 'day' : 'days'} out
+                          </h1>
+                          <button
+                            onClick={() => setCalendarModalOpen(true)}
+                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-sm font-medium border border-primary-foreground/30"
+                          >
+                            You get out what you put in — good prep leads to a solid blitz
+                          </button>
+                        </>
+                      );
+                    }
+                  })()}
+                </>
+              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button 
                 onClick={handleSync} 
-                variant="ghost" 
+                variant="outline" 
                 size="sm" 
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="rounded-full border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/50"
                 disabled={isSyncing}
               >
                 <RefreshCw className={`w-4 h-4 mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Button 
-                onClick={() => setLogoutDialogOpen(true)} 
+                onClick={() => setLogoutDialogOpen(true)}
                 variant="ghost" 
                 size="sm" 
                 className="text-primary-foreground hover:bg-primary-foreground/10"

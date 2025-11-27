@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
+import { VetBlitzCommitments } from "@/components/VetBlitzCommitments";
 import {
   Sheet,
   SheetContent,
@@ -60,6 +61,11 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   const { toast } = useToast();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
+  
+  // Auto-refresh on component mount (when PWA reopens)
+  useEffect(() => {
+    onSync();
+  }, []);
   
   // Local state for editable stats - initialize from repData
   const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
@@ -173,11 +179,11 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
             </div>
             <div className="flex gap-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={onSync}
                 disabled={isSyncing}
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="rounded-full border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/50"
               >
                 <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
                 Refresh
@@ -196,16 +202,7 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
-        {/* Blitz Countdown */}
-        <div className="mb-6">
-          <BlitzCountdown
-            tripName={repData.blitz_trip_name ?? null}
-            tripDate={repData.blitz_trip_date ?? null}
-            tripEndDate={repData.blitz_trip_end_date ?? null}
-            tripLocation={repData.blitz_trip_location ?? null}
-            isVet={true}
-          />
-        </div>
+        {/* Blitz Countdown - Removed from top */}
 
         {/* Status Dashboard Card */}
         <Card className="mb-6 shadow-lg">
@@ -432,6 +429,9 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Blitz Commitments */}
+        <VetBlitzCommitments repData={repData} />
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
