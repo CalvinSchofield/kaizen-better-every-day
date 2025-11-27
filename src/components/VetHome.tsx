@@ -334,9 +334,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </span>
                 )}
               </div>
-              <Progress value={personalFPProgress} className="h-3" />
+              <Progress value={personalFPProgress} className="h-3 [&>div]:bg-accent" />
               <p className="text-sm text-muted-foreground">
-                {Math.round(personalFPProgress)}% towards your personal sales goal
+                {Math.round(personalFPProgress)}% towards your personal preseason sales goal
               </p>
             </div>
 
@@ -372,7 +372,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </span>
                 )}
               </div>
-              <Progress value={repsProgress} className="h-3" />
+              <Progress value={repsProgress} className="h-3 [&>div]:bg-accent" />
               <p className="text-sm text-muted-foreground">
                 {Math.round(repsProgress)}% towards your recruiting goal
               </p>
@@ -417,34 +417,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Blitz Commitments */}
         <VetBlitzCommitments repData={repData} />
 
-        {/* Pay Scales */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Payscales
-            </CardTitle>
-            <CardDescription>
-              Download pay scales and sales rules
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PAY_SCALES.map((doc) => (
-                <Button
-                  key={doc.label}
-                  variant="outline"
-                  className="justify-between"
-                  onClick={() => downloadFile(doc.file, doc.label + '.pdf')}
-                >
-                  <span className="truncate">{doc.label}</span>
-                  <Download className="h-4 w-4 ml-2 flex-shrink-0" />
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
           <CardContent className="pt-6">
@@ -454,7 +426,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                 <span className="font-bold text-lg">5-5-5</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Not sure where to start? Make <span className="font-bold text-primary text-base">5</span> cold contacts every day, try and get <span className="font-bold text-primary text-base">5</span> reps with <span className="font-bold text-primary text-base">5</span> FP+ or more before summer.
+                Not sure where to start? Make <span className="font-bold text-primary text-base">5</span> cold contacts every day, try and get <span className="font-bold text-primary text-base">5</span> reps with <span className="font-bold text-primary text-base">5</span> FP+ each before summer.
               </p>
             </div>
           </CardContent>
