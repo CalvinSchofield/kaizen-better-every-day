@@ -11,6 +11,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
 import Tools from "./pages/Tools";
+import Competitors from "./pages/Competitors";
 import Assistant from "./pages/Assistant";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -65,6 +66,14 @@ const App = () => {
                   <Layout>
                     <Tools />
                   </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/competitors"
+              element={
+                <ProtectedRoute>
+                  <Competitors />
                 </ProtectedRoute>
               }
             />
