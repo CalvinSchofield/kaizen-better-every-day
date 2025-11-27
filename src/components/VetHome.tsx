@@ -56,7 +56,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [helpSheetOpen, setHelpSheetOpen] = useState(false);
-  const { allBlitzes } = useBlitzes();
+  const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -419,10 +419,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         </Card>
 
         {/* Blitz Commitments */}
-        <VetBlitzCommitments repData={repData} />
+        {!blitzesLoading && <VetBlitzCommitments repData={repData} />}
 
         {/* Team Blitz Status */}
-        <VetTeamBlitzCard repData={repData} allBlitzes={allBlitzes} />
+        {!blitzesLoading && <VetTeamBlitzCard repData={repData} allBlitzes={allBlitzes} />}
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">

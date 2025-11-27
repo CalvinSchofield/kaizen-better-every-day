@@ -217,8 +217,22 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
 
   // Calculate team member indicator for each blitz
   const getTeamMemberCount = (blitzId: string) => {
-    return teamMembers.filter((member: any) => 
+    // Filter out the leader themselves
+    const filteredMembers = teamMembers.filter((member: any) => 
+      member.notionPageId !== repData.notion_page_id
+    );
+    return filteredMembers.filter((member: any) => 
       member.committedBlitzes.includes(blitzId)
+    ).length;
+  };
+
+  const getRookieCount = (blitzId: string) => {
+    // Filter out the leader and count only rookies
+    const filteredMembers = teamMembers.filter((member: any) => 
+      member.notionPageId !== repData.notion_page_id
+    );
+    return filteredMembers.filter((member: any) => 
+      member.committedBlitzes.includes(blitzId) && member.year === "Rookie"
     ).length;
   };
 
@@ -230,7 +244,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
           Upcoming Blitzes
         </CardTitle>
         <CardDescription>
-          Commit to the blitzes you're planning to attend
+          Commit to the blitzes you're planning to attend. 👥 = team members going, 🔥 = rookies going
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -253,7 +267,9 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
           {allBlitzes.map((blitz) => {
             const isCommitted = committedBlitzIds.includes(blitz.id);
             const teamCount = getTeamMemberCount(blitz.id);
+            const rookieCount = getRookieCount(blitz.id);
             const showTeamIndicator = !isCommitted && teamCount > 0;
+            const hasRookies = rookieCount > 0;
             
             return (
               <div
@@ -285,9 +301,20 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
                       </p>
                     )}
                     {showTeamIndicator && (
-                      <p className="text-xs text-accent mt-1 font-medium">
-                        👥 {teamCount} of your team going
-                      </p>
+                      <div className="mt-2 space-y-1">
+                        {hasRookies ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500/10 border border-orange-500/20">
+                            <span className="text-2xl">🔥</span>
+                            <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                              {rookieCount} rookie{rookieCount !== 1 ? 's' : ''} going — they need you there!
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            👥 {teamCount} of your team going
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

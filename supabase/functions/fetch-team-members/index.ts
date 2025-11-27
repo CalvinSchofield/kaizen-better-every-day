@@ -128,6 +128,11 @@ Deno.serve(async (req) => {
       return prop.relation?.map((r: any) => r.id) || [];
     };
 
+    const getSelect = (prop: any) => {
+      if (!prop || prop.type !== "select") return null;
+      return prop.select?.name || null;
+    };
+
     // Process each team member
     const teamMembers = await Promise.all(
       repsData.results.map(async (page: any) => {
@@ -139,6 +144,7 @@ Deno.serve(async (req) => {
         const onboardingStatus = getStatus(props["Onboarding Step Completed"]);
         const ipadAssigned = getCheckbox(props["iPad Assigned"]);
         const preseasonTrips = getRelation(props["Preseason trips"]);
+        const year = getSelect(props["Year"]);
 
         // Determine blitz readiness based on onboarding status
         const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
@@ -153,6 +159,7 @@ Deno.serve(async (req) => {
           blitzReady,
           ipadAssigned,
           committedBlitzes: preseasonTrips,
+          year,
         };
       })
     );

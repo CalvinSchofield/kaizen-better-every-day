@@ -25,6 +25,7 @@ interface TeamMember {
   blitzReady: boolean;
   ipadAssigned: boolean;
   committedBlitzes: string[];
+  year: string;
 }
 
 interface VetTeamBlitzCardProps {
@@ -76,10 +77,16 @@ export const VetTeamBlitzCard = ({ repData, allBlitzes }: VetTeamBlitzCardProps)
   };
 
   const selectedBlitz = allBlitzes.find(b => b.id === selectedBlitzId);
-  const committedMembers = teamMembers.filter(member =>
+  
+  // Filter out the leader themselves from the team members list
+  const filteredTeamMembers = teamMembers.filter(member => 
+    member.notionPageId !== repData.notion_page_id
+  );
+  
+  const committedMembers = filteredTeamMembers.filter(member =>
     member.committedBlitzes.includes(selectedBlitzId)
   );
-  const uncommittedMembers = teamMembers.filter(member =>
+  const uncommittedMembers = filteredTeamMembers.filter(member =>
     !member.committedBlitzes.includes(selectedBlitzId)
   );
 
@@ -215,15 +222,19 @@ export const VetTeamBlitzCard = ({ repData, allBlitzes }: VetTeamBlitzCardProps)
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{member.name}</span>
-                    {member.blitzReady ? (
-                      <Badge variant="default" className="bg-green-500">
-                        <Check className="h-3 w-3 mr-1" />
-                        Ready
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-400">
-                        {member.onboardingStatus || "In Progress"}
-                      </Badge>
+                    {member.year === "Rookie" && (
+                      <>
+                        {member.blitzReady ? (
+                          <Badge variant="default" className="bg-green-500">
+                            <Check className="h-3 w-3 mr-1" />
+                            Ready
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-400">
+                            {member.onboardingStatus || "In Progress"}
+                          </Badge>
+                        )}
+                      </>
                     )}
                   </div>
                   <Button
