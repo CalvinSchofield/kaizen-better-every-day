@@ -161,7 +161,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
 
   const sendIpadRequestEmail = (rookie: TeamMember) => {
     const subject = `iPad Request for ${rookie.name}`;
-    const body = `Hi,\n\nI'd like to request an iPad for ${rookie.name}.\n\nContact:\nEmail: ${rookie.email || 'N/A'}\nPhone: ${rookie.phone || 'N/A'}\n\nThanks!`;
+    const body = `Team,\n\nI'd like to request an iPad for ${rookie.name}.\n\nBadge ID:\nAddress to ship to:\n\nThanks!`;
     const mailtoLink = `mailto:salesassets@vivint.com?cc=Calvin.Schofield@vivint.com&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
   };
