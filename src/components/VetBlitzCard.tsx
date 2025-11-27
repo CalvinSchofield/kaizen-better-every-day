@@ -396,6 +396,87 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     );
   }
 
+  // Check if this vet has any team members
+  const hasTeamMembers = teamMembers.length > 0;
+
+  // Simplified view for vets without team members
+  if (!hasTeamMembers) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Your Blitz Commitments
+          </CardTitle>
+          <CardDescription>
+            Manage which blitzes you're attending
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {allBlitzes.map((blitz) => {
+            const isCommitted = committedBlitzIds.includes(blitz.id);
+            const startDate = new Date(blitz.date);
+            const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+            const dateStr =
+              startDate.toDateString() === endDate.toDateString()
+                ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+            return (
+              <div
+                key={blitz.id}
+                className="border rounded-lg p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-lg">{blitz.name}</h3>
+                      {isCommitted && (
+                        <Badge className="bg-green-500 text-white border-green-600">
+                          <Check className="h-3 w-3 mr-1" />
+                          Committed
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                      <Calendar className="h-4 w-4" />
+                      <span>{dateStr}</span>
+                      {blitz.location && <span>• {blitz.location}</span>}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isCommitted ? "destructive" : "default"}
+                    onClick={() => handleBlitzCommit(blitz.id, blitz.name)}
+                  >
+                    {isCommitted ? "Uncommit" : "Commit"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+        <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Uncommit
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Card>
+    );
+  }
+
+  // Full team management view for vets with team members
   return (
     <Card className="mb-6">
       <CardHeader>
