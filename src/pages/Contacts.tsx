@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Phone, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Phone, Download, ChevronDown, ChevronUp, MessageSquare, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,6 @@ interface Contact {
   tips?: string[];
   notes?: string;
   vcfUrl?: string;
-  hasTextTemplate?: boolean;
 }
 
 const Contacts = () => {
@@ -31,13 +30,12 @@ const Contacts = () => {
       phone: "(801) 377-9111",
       textPhone: "(801) 377-9111",
       category: "Important Vivint Contacts",
-      hasTextTemplate: true,
       tips: [
         "Text first for non-urgent matters. For urgent cases, call and use extension 1,1,1",
         "Call AC if pre-install surveys fail on Street Genie - have account number ready",
         "They can provide key account info: equipment status, payment status, write-off history",
-        "Use text number for scheduling jobs with 4-hour window (corporate) or 2-hour (summer techs)",
       ],
+      notes: "For scheduling jobs with 4-hour window (corporate) or 2-hour (summer techs), use the button below to send a pre-filled text.",
     },
     {
       id: "sos",
@@ -210,43 +208,29 @@ const Contacts = () => {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <div className="space-y-2">
+                        <div className="flex gap-2">
                           <Button
                             variant="outline"
-                            className="w-full"
+                            className="flex-1"
                             asChild
                             onClick={(e) => e.stopPropagation()}
                           >
                             <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
                               <Phone className="w-4 h-4 mr-2" />
-                              Call: {contact.phone}
+                              {contact.phone}
                             </a>
                           </Button>
                           
-                          {contact.textPhone && !contact.hasTextTemplate && (
+                          {contact.textPhone && (
                             <Button
                               variant="outline"
-                              className="w-full"
+                              className="flex-1"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}`}>
-                                <Phone className="w-4 h-4 mr-2" />
-                                Text: {contact.textPhone}
-                              </a>
-                            </Button>
-                          )}
-
-                          {contact.hasTextTemplate && contact.textPhone && (
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              asChild
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate/time: ___%0D%0AINV: ___%0D%0AA%23: ___%0D%0ACustomer Name: ___`}>
-                                <Phone className="w-4 h-4 mr-2" />
-                                Text for Scheduling
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                {contact.textPhone}
                               </a>
                             </Button>
                           )}
@@ -254,13 +238,13 @@ const Contacts = () => {
                           {contact.email && (
                             <Button
                               variant="outline"
-                              className="w-full"
+                              className="flex-1"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`mailto:${contact.email}`}>
-                                <Phone className="w-4 h-4 mr-2" />
-                                Email: {contact.email}
+                                <Mail className="w-4 h-4 mr-2" />
+                                {contact.email}
                               </a>
                             </Button>
                           )}
@@ -284,7 +268,21 @@ const Contacts = () => {
                             {contact.notes && (
                               <div>
                                 <h4 className="text-sm font-semibold mb-2">Notes</h4>
-                                <p className="text-sm text-muted-foreground">{contact.notes}</p>
+                                <p className="text-sm text-muted-foreground mb-2">{contact.notes}</p>
+                                {contact.id === "ac" && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    asChild
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate/time: ___%0D%0AINV: ___%0D%0AA%23: ___%0D%0ACustomer Name: ___`}>
+                                      <MessageSquare className="w-4 h-4 mr-2" />
+                                      Send Scheduling Text
+                                    </a>
+                                  </Button>
+                                )}
                               </div>
                             )}
                           </div>
