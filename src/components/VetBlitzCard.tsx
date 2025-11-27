@@ -491,44 +491,40 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                         return (
                           <div
                             key={member.notionPageId}
-                            className={`flex items-center justify-between p-3 border rounded-lg ${isUrgentIpad ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'bg-card'}`}
+                            className={`flex items-center justify-between p-2.5 border rounded-lg ${isUrgentIpad ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'bg-card'}`}
                           >
                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                              {member.year === "Rookie" && (
-                                <Badge className="bg-orange-500 text-white border-orange-600 flex-shrink-0 text-xs">
-                                  🔥
-                                </Badge>
-                              )}
-                              <div className="flex flex-col min-w-0">
-                                <span className={`font-medium truncate ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
-                                  {member.name}
-                                </span>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-medium truncate text-sm ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                    {member.name}
+                                  </span>
+                                  {showIpadWarning && (
+                                    <button
+                                      onClick={() => sendIpadRequestEmail(member)}
+                                      className="flex-shrink-0"
+                                    >
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse cursor-pointer hover:bg-destructive/90">
+                                        ⚠️ No iPad
+                                      </Badge>
+                                    </button>
+                                  )}
+                                </div>
                                 {member.year === "Rookie" && readinessStatus && (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-[11px] text-muted-foreground">
                                     {readinessStatus}
                                   </span>
                                 )}
                               </div>
-                              {showIpadWarning && (
-                                <button
-                                  onClick={() => sendIpadRequestEmail(member)}
-                                  className="flex-shrink-0"
-                                >
-                                  <Badge variant="destructive" className="text-xs animate-pulse cursor-pointer hover:bg-destructive/90">
-                                    ⚠️ No iPad
-                                  </Badge>
-                                </button>
-                              )}
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => toggleMemberCommitment(member, blitz.id, true)}
-                              >
-                                Uncommit
-                              </Button>
-                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => toggleMemberCommitment(member, blitz.id, true)}
+                            >
+                              ✕
+                            </Button>
                           </div>
                         );
                       })}
@@ -558,24 +554,20 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                             return (
                               <div
                                 key={member.notionPageId}
-                                className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                                className="flex items-center justify-between p-2.5 border rounded-lg bg-card"
                               >
                                 <button
                                   onClick={() => toggleContactedStatus(member.notionPageId, blitz.id)}
-                                  className="flex items-center gap-2 flex-1 text-left"
+                                  className="flex items-center gap-2 flex-1 text-left min-w-0"
                                 >
-                                  {member.year === "Rookie" && (
-                                    <Badge className="bg-orange-500 text-white border-orange-600 flex-shrink-0 text-xs">
-                                      🔥
-                                    </Badge>
-                                  )}
-                                  <span className={`font-medium ${isContactedForThisBlitz ? 'line-through opacity-50' : ''} ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                  <span className={`font-medium text-sm truncate ${isContactedForThisBlitz ? 'line-through opacity-50' : ''} ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
                                     {member.name}
                                   </span>
                                 </button>
                                 <Button
                                   size="sm"
                                   variant="default"
+                                  className="h-7 px-3 text-xs"
                                   onClick={() => toggleMemberCommitment(member, blitz.id, false)}
                                 >
                                   Commit
