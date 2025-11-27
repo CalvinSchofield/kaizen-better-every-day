@@ -25,12 +25,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -766,41 +766,41 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update {selectedRookie?.name}'s Status</DialogTitle>
-            <DialogDescription>
-              Select their current onboarding progress stage
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
+      <Sheet open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Update {selectedRookie?.name}'s Status</SheetTitle>
+            <SheetDescription>
+              Select the last stage they've completed
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 py-6">
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
+              <SelectTrigger className="text-base">
+                <SelectValue placeholder="Select completed stage" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Started">Started</SelectItem>
-                <SelectItem value="Onboarding">Onboarding</SelectItem>
-                <SelectItem value="Required Trainings">Required Trainings</SelectItem>
-                <SelectItem value="Group Chat">Group Chat</SelectItem>
-                <SelectItem value="Phase 1">Phase 1</SelectItem>
-                <SelectItem value="Phase 2">Phase 2</SelectItem>
-                <SelectItem value="Phase 3">Phase 3</SelectItem>
-                <SelectItem value="Phase 4">Phase 4</SelectItem>
+                <SelectItem value="Started">✓ Started</SelectItem>
+                <SelectItem value="Onboarding">✓ Onboarding</SelectItem>
+                <SelectItem value="Required Trainings">✓ Required Trainings</SelectItem>
+                <SelectItem value="Group Chat">✓ Group Chat</SelectItem>
+                <SelectItem value="Phase 1">✓ Phase 1</SelectItem>
+                <SelectItem value="Phase 2">✓ Phase 2</SelectItem>
+                <SelectItem value="Phase 3">✓ Phase 3</SelectItem>
+                <SelectItem value="Phase 4">✓ Phase 4</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)} className="flex-1">
               Cancel
             </Button>
-            <Button onClick={updateRookieStatus}>
+            <Button onClick={updateRookieStatus} className="flex-1">
               Update Status
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
