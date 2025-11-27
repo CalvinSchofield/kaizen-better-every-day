@@ -1139,13 +1139,10 @@ const Home = () => {
           <div className="relative">
             <div className="overflow-x-auto pb-3 scrollbar-hide">
               <div className="flex gap-3 px-1">
-                {weather
-                  .filter((day) => {
-                    const dayOfWeek = new Date(day.date).getDay();
-                    return dayOfWeek !== 0; // Exclude Sundays
-                  })
-                  .map((day) => {
-                    const date = new Date(day.date);
+                {weather.map((day) => {
+                    // Parse date in UTC to avoid timezone issues
+                    const [year, month, dayNum] = day.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, dayNum);
                     const hasRain = isRainy(day.weatherCode);
                     
                     return (
