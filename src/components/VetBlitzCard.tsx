@@ -79,6 +79,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedRookie, setSelectedRookie] = useState<TeamMember | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
   const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
@@ -223,7 +225,16 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     }
   };
 
-  const toggleMemberCommitment = async (member: TeamMember, blitzId: string, isCommitted: boolean) => {
+  const promptMemberCommitment = (member: TeamMember, blitzId: string, isCommitted: boolean) => {
+    setMemberToCommit({ member, blitzId, isCommitted });
+    setCommitDialogOpen(true);
+  };
+
+  const confirmMemberCommitment = async () => {
+    if (!memberToCommit) return;
+
+    const { member, blitzId, isCommitted } = memberToCommit;
+
     try {
       const newCommittedBlitzes = isCommitted
         ? member.committedBlitzes.filter(id => id !== blitzId)
@@ -258,6 +269,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         description: "Could not update team member commitment",
         variant: "destructive",
       });
+    } finally {
+      setCommitDialogOpen(false);
+      setMemberToCommit(null);
     }
   };
 
@@ -580,8 +594,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
                 {/* Expandable details */}
                 <CollapsibleContent>
-                  <ScrollArea className="max-h-[60vh]">
-                    <div className="space-y-4 p-4 pt-2">
+                  <div className="space-y-4 p-4 pt-2">
                   {/* Your commitment toggle */}
                   <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                     <span className="font-medium">Your Status</span>
@@ -646,7 +659,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                               size="sm"
                               variant="ghost"
                               className="h-7 px-2 text-xs"
-                              onClick={() => toggleMemberCommitment(member, blitz.id, true)}
+                              onClick={() => promptMemberCommitment(member, blitz.id, true)}
                             >
                               ✕
                             </Button>
@@ -689,14 +702,16 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                     {member.name}
                                   </span>
                                 </button>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  className="h-7 px-3 text-xs"
-                                  onClick={() => toggleMemberCommitment(member, blitz.id, false)}
-                                >
-                                  Commit
-                                </Button>
+                                {!isContactedForThisBlitz && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="h-7 px-3 text-xs"
+                                    onClick={() => promptMemberCommitment(member, blitz.id, false)}
+                                  >
+                                    Commit
+                                  </Button>
+                                )}
                               </div>
                             );
                           })
@@ -705,7 +720,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                     </div>
                   </Collapsible>
                     </div>
-                  </ScrollArea>
                 </CollapsibleContent>
               </div>
             </Collapsible>
@@ -725,6 +739,28 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Uncommit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {memberToCommit?.isCommitted ? 'Uncommit Team Member?' : 'Commit Team Member?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {memberToCommit?.isCommitted 
+                ? `Remove ${memberToCommit.member.name} from this blitz?`
+                : `Add ${memberToCommit?.member.name} to this blitz?`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMemberCommitment}>
+              {memberToCommit?.isCommitted ? 'Uncommit' : 'Commit'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
