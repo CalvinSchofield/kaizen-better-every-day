@@ -68,64 +68,38 @@ const Home = () => {
     refetch();
   }, []);
   
-  // Fetch next upcoming blitz from committed blitzes
+  // Fetch next upcoming blitz from committed blitzes stored in Notion
   useEffect(() => {
-    const fetchNextBlitz = async () => {
-      if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes) || repData.committed_blitzes.length === 0) {
-        setNextBlitz(null);
-        return;
-      }
+    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes) || repData.committed_blitzes.length === 0) {
+      setNextBlitz(null);
+      return;
+    }
 
-      try {
-        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Filter to only blitzes that are in the future (check end date if available)
+    const upcomingBlitzes = repData.committed_blitzes
+      .filter((blitz: any) => {
+        if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
         
-        if (error) {
-          console.error('Error fetching blitzes:', error);
-          return;
-        }
+        // Use end date if available, otherwise use start date
+        const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+        blitzEndDate.setHours(0, 0, 0, 0);
+        return blitzEndDate >= today;
+      })
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        const allBlitzes = data?.blitzes || [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        // Type guard for committed blitzes
-        const committedBlitzNames = Array.isArray(repData.committed_blitzes) 
-          ? repData.committed_blitzes.filter((item): item is string => typeof item === 'string')
-          : [];
-
-        // Filter for committed blitzes that are upcoming
-        const upcomingCommittedBlitzes = allBlitzes
-          .filter((blitz: any) => {
-            // Check if this blitz is in the committed list
-            const isCommitted = committedBlitzNames.includes(blitz.name);
-            
-            // Check if the blitz is upcoming (use end date if available, otherwise start date)
-            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-            blitzEndDate.setHours(0, 0, 0, 0);
-            const isUpcoming = blitzEndDate >= today;
-            
-            return isCommitted && isUpcoming;
-          })
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        if (upcomingCommittedBlitzes.length > 0) {
-          const next = upcomingCommittedBlitzes[0];
-          setNextBlitz({
-            name: next.name,
-            date: next.date,
-            endDate: next.endDate,
-            location: next.location,
-          });
-        } else {
-          setNextBlitz(null);
-        }
-      } catch (error) {
-        console.error('Error in fetchNextBlitz:', error);
-      }
-    };
-
-    if (repData) {
-      fetchNextBlitz();
+    if (upcomingBlitzes.length > 0) {
+      const next = upcomingBlitzes[0];
+      setNextBlitz({
+        name: next.name,
+        date: next.date,
+        endDate: next.endDate,
+        location: next.location,
+      });
+    } else {
+      setNextBlitz(null);
     }
   }, [repData]);
   const navigate = useNavigate();
@@ -898,6 +872,32 @@ const Home = () => {
             const mstHour = mstTime.getHours();
             const mstDay = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
             const isMondayNightLights = mstDay === 1 && mstHour >= 4 && mstHour < 20.5; // 4 AM to 8:30 PM
+            
+            // Check if we're currently during a blitz week
+            const isBlitzWeek = nextBlitz && (() => {
+              const startDate = new Date(nextBlitz.date);
+              startDate.setHours(0, 0, 0, 0);
+              const endDate = nextBlitz.endDate ? new Date(nextBlitz.endDate) : new Date(nextBlitz.date);
+              endDate.setHours(23, 59, 59, 999);
+              const checkDate = new Date();
+              checkDate.setHours(0, 0, 0, 0);
+              return checkDate >= startDate && checkDate <= endDate;
+            })();
+            
+            // Show blitz week message if during blitz
+            if (isBlitzWeek) {
+              return (
+                <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">⚡</span>
+                    <h3 className="text-primary-foreground font-bold text-lg">You're on the Blitz!</h3>
+                  </div>
+                  <p className="text-primary-foreground/90 text-sm leading-relaxed">
+                    Good luck! The goal is forward progress. Selling is a by product of you focusing on the inputs.
+                  </p>
+                </div>
+              );
+            }
             
             if (isMondayNightLights) {
               return (

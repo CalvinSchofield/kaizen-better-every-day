@@ -274,14 +274,14 @@ Deno.serve(async (req) => {
         let blitzTripDate: string | null = null;
         let blitzTripEndDate: string | null = null;
         let blitzTripLocation: string | null = null;
-        const committedBlitzes: string[] = [];
+        const committedBlitzes: Array<{name: string, date: string, endDate: string | null, location: string | null}> = [];
 
         console.log(`Processing blitz trips for ${name}...`);
         console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
 
         if (props["Preseason trips"]?.relation && props["Preseason trips"].relation.length > 0) {
           try {
-            // Fetch ALL committed blitzes
+            // Fetch ALL committed blitzes with full details
             for (const tripRelation of props["Preseason trips"].relation) {
               const tripId = tripRelation.id;
               console.log(`Fetching trip with ID: ${tripId}`);
@@ -299,22 +299,34 @@ Deno.serve(async (req) => {
                 const tripName = getTitle(tripData.properties.Name);
                 
                 if (tripName) {
-                  committedBlitzes.push(tripName);
+                  const dateProperty = tripData.properties.Date;
+                  let tripDate = null;
+                  let tripEndDate = null;
+                  
+                  if (dateProperty?.type === 'date' && dateProperty.date) {
+                    tripDate = dateProperty.date.start;
+                    tripEndDate = dateProperty.date.end;
+                    console.log(`Trip dates: ${tripDate} to ${tripEndDate}`);
+                  }
+
+                  const tripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
+                  console.log(`Trip location: ${tripLocation}`);
+                  
+                  // Store full blitz details
+                  committedBlitzes.push({
+                    name: tripName,
+                    date: tripDate || '',
+                    endDate: tripEndDate,
+                    location: tripLocation,
+                  });
                   console.log(`Added committed blitz: ${tripName}`);
                   
                   // For the first trip, also set the legacy fields for backward compatibility
                   if (!blitzTripName) {
                     blitzTripName = tripName;
-                    
-                    const dateProperty = tripData.properties.Date;
-                    if (dateProperty?.type === 'date' && dateProperty.date) {
-                      blitzTripDate = dateProperty.date.start;
-                      blitzTripEndDate = dateProperty.date.end;
-                      console.log(`Trip dates: ${blitzTripDate} to ${blitzTripEndDate}`);
-                    }
-
-                    blitzTripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
-                    console.log(`Trip location: ${blitzTripLocation}`);
+                    blitzTripDate = tripDate;
+                    blitzTripEndDate = tripEndDate;
+                    blitzTripLocation = tripLocation;
                   }
                 }
               } else {
