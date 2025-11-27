@@ -334,7 +334,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </span>
                 )}
               </div>
-              <Progress value={personalFPProgress} className="h-3 [&>div]:bg-accent" />
+              <Progress value={personalFPProgress} className="h-3" />
               <p className="text-sm text-muted-foreground">
                 {Math.round(personalFPProgress)}% towards your personal preseason sales goal
               </p>
@@ -372,7 +372,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </span>
                 )}
               </div>
-              <Progress value={repsProgress} className="h-3 [&>div]:bg-accent" />
+              <Progress value={repsProgress} className="h-3" />
               <p className="text-sm text-muted-foreground">
                 {Math.round(repsProgress)}% towards your recruiting goal
               </p>
