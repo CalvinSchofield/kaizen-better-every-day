@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     if (teamsData.results.length === 0) {
       return new Response(
-        JSON.stringify({ teamMembers: [] }),
+        JSON.stringify({ teamMembers: [], isTeamLead: false }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     console.log(`Processed ${teamMembers.length} team members`);
 
     return new Response(
-      JSON.stringify({ teamMembers }),
+      JSON.stringify({ teamMembers, isTeamLead: true }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
