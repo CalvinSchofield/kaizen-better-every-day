@@ -1004,7 +1004,11 @@ const Home = () => {
       </AlertDialog>
 
       {/* Team Calendar Modal */}
-      <TeamCalendarModal open={calendarModalOpen} onOpenChange={setCalendarModalOpen} />
+      <TeamCalendarModal 
+        open={calendarModalOpen} 
+        onOpenChange={setCalendarModalOpen} 
+        teamLeaderPhone={repData?.team_leader_phone || undefined}
+      />
     </div>;
 };
 export default Home;
