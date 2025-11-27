@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -620,11 +620,17 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         return (
                           <div
                             key={member.notionPageId}
-                            className={`flex items-center justify-between p-2.5 border rounded-lg ${isUrgentIpad ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : 'bg-card'}`}
+                            className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
+                              isUrgentIpad 
+                                ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' 
+                                : isRookieNotReady 
+                                  ? 'border-accent bg-accent/10 hover:bg-accent/20 cursor-pointer' 
+                                  : 'bg-card'
+                            }`}
                           >
                             <button
                               onClick={isRookieNotReady ? (e) => openStatusDialog(member, e) : undefined}
-                              className={`flex items-center gap-2 flex-1 min-w-0 text-left ${isRookieNotReady ? 'cursor-pointer hover:opacity-80' : ''}`}
+                              className={`flex items-center gap-2 flex-1 min-w-0 text-left ${isRookieNotReady ? 'cursor-pointer' : ''}`}
                               disabled={!isRookieNotReady}
                             >
                               <div className="flex flex-col min-w-0 flex-1">
@@ -654,6 +660,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                   </span>
                                 )}
                               </div>
+                              {isRookieNotReady && (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              )}
                             </button>
                             <Button
                               size="sm"
