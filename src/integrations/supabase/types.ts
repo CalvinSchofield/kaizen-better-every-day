@@ -38,6 +38,10 @@ export type Database = {
       reps: {
         Row: {
           blitz_ready: boolean | null
+          blitz_trip_date: string | null
+          blitz_trip_end_date: string | null
+          blitz_trip_location: string | null
+          blitz_trip_name: string | null
           completed_tasks: Json | null
           created_at: string | null
           email: string | null
@@ -71,6 +75,10 @@ export type Database = {
         }
         Insert: {
           blitz_ready?: boolean | null
+          blitz_trip_date?: string | null
+          blitz_trip_end_date?: string | null
+          blitz_trip_location?: string | null
+          blitz_trip_name?: string | null
           completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null
@@ -104,6 +112,10 @@ export type Database = {
         }
         Update: {
           blitz_ready?: boolean | null
+          blitz_trip_date?: string | null
+          blitz_trip_end_date?: string | null
+          blitz_trip_location?: string | null
+          blitz_trip_name?: string | null
           completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null

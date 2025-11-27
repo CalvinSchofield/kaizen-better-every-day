@@ -98,12 +98,19 @@ Deno.serve(async (req) => {
           return null;
         };
 
-        const getSelect = (prop: NotionProperty) => {
-          if (prop?.type === "select" && prop.select) {
-            return prop.select.name;
-          }
-          return null;
-        };
+    const getSelect = (prop: NotionProperty) => {
+      if (prop?.type === "select" && prop.select) {
+        return prop.select.name;
+      }
+      return null;
+    };
+
+    const getDate = (prop: NotionProperty) => {
+      if (prop?.type === "date" && prop.date) {
+        return { start: prop.date.start, end: prop.date.end };
+      }
+      return { start: null, end: null };
+    };
 
         const getStatus = (prop: NotionProperty) => {
           if (prop?.type === "status" && prop.status) {
@@ -262,6 +269,57 @@ Deno.serve(async (req) => {
           console.log('No Teams relation found');
         }
 
+        // Fetch blitz trip details from Preseason trips relation
+        let blitzTripName: string | null = null;
+        let blitzTripDate: string | null = null;
+        let blitzTripEndDate: string | null = null;
+        let blitzTripLocation: string | null = null;
+
+        console.log(`Processing blitz trip for ${name}...`);
+        console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
+
+        if (props["Preseason trips"]?.relation && props["Preseason trips"].relation.length > 0) {
+          try {
+            const tripId = props["Preseason trips"].relation[0].id;
+            console.log(`Fetching trip with ID: ${tripId}`);
+
+            const tripResponse = await fetch(`https://api.notion.com/v1/pages/${tripId}`, {
+              headers: {
+                'Authorization': `Bearer ${notionApiKey}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (tripResponse.ok) {
+              const tripData = await tripResponse.json();
+              console.log('Trip data properties:', Object.keys(tripData.properties));
+
+              // Get trip name from Title
+              blitzTripName = getTitle(tripData.properties.Name);
+              console.log(`Trip name: ${blitzTripName}`);
+
+              // Get dates from Date property
+              const dateProperty = tripData.properties.Date;
+              if (dateProperty?.type === 'date' && dateProperty.date) {
+                blitzTripDate = dateProperty.date.start;
+                blitzTripEndDate = dateProperty.date.end;
+                console.log(`Trip dates: ${blitzTripDate} to ${blitzTripEndDate}`);
+              }
+
+              // Get location from Location property
+              blitzTripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
+              console.log(`Trip location: ${blitzTripLocation}`);
+            } else {
+              console.error(`Failed to fetch trip: ${tripResponse.status}`);
+            }
+          } catch (error) {
+            console.error('Error fetching blitz trip info:', error);
+          }
+        } else {
+          console.log('No Preseason trips relation found');
+        }
+
         const repData = {
           user_id: user.id,
           notion_page_id: page.id,
@@ -273,6 +331,12 @@ Deno.serve(async (req) => {
           team_leader_phone: teamLeaderPhone,
           stage: getSelect(props.Stage),
           year: getSelect(props.Year), // "Rookie", "Sophomore", or "Vet"
+          
+          // Blitz trip details
+          blitz_trip_name: blitzTripName,
+          blitz_trip_date: blitzTripDate,
+          blitz_trip_end_date: blitzTripEndDate,
+          blitz_trip_location: blitzTripLocation,
           
           // Journey progress - from Journey Step property
           onboarding_complete: onboardingComplete,

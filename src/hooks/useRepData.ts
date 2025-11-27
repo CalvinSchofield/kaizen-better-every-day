@@ -32,6 +32,10 @@ export interface RepData {
   personal_fp_goal: number | null;
   reps_with_sale: number | null;
   reps_with_sale_goal: number | null;
+  blitz_trip_name: string | null;
+  blitz_trip_date: string | null;
+  blitz_trip_end_date: string | null;
+  blitz_trip_location: string | null;
 }
 
 export const useRepData = () => {
