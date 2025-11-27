@@ -449,7 +449,7 @@ const Home = () => {
         });
 
         if (!error && data?.forecasts) {
-          setWeather(data.forecasts.slice(0, 5)); // Only show first 5 days
+          setWeather(data.forecasts); // Show all working days
         }
       } catch (error) {
         console.error("Error fetching weather:", error);
@@ -1107,44 +1107,35 @@ const Home = () => {
             <SheetTitle>
               {repData.blitz_trip_location} Weather Forecast
             </SheetTitle>
-            <SheetDescription>
-              Weather for working days (Mon-Sat) during your blitz
-            </SheetDescription>
           </SheetHeader>
           
-          <div className="mt-6 space-y-3">
-            {weather
-              .filter((day) => {
-                const dayOfWeek = new Date(day.date).getDay();
-                return dayOfWeek !== 0; // Exclude Sunday (0)
-              })
-              .map((day) => {
-                const date = new Date(day.date);
-                return (
-                  <div
-                    key={day.date}
-                    className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-center min-w-[60px]">
-                        <div className="text-sm text-muted-foreground font-medium">
-                          {date.toLocaleDateString("en-US", { weekday: "short" })}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </div>
+          <div className="mt-6 overflow-x-auto -mx-6 px-6">
+            <div className="flex gap-3 pb-2">
+              {weather
+                .filter((day) => {
+                  const dayOfWeek = new Date(day.date).getDay();
+                  return dayOfWeek !== 0; // Exclude Sunday (0)
+                })
+                .map((day) => {
+                  const date = new Date(day.date);
+                  return (
+                    <div
+                      key={day.date}
+                      className="flex-shrink-0 w-32 p-3 rounded-lg bg-secondary/50 border border-border text-center"
+                    >
+                      <div className="text-sm text-muted-foreground font-medium mb-1">
+                        {date.toLocaleDateString("en-US", { weekday: "short" })}
                       </div>
-                      <span className="text-4xl">{getWeatherIcon(day.weatherCode)}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">{day.high}°</div>
-                        <div className="text-sm text-muted-foreground">{day.low}°</div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </div>
+                      <div className="text-3xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
+                      <div className="text-lg font-bold">{day.high}°</div>
+                      <div className="text-xs text-muted-foreground">{day.low}°</div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
           </div>
 
           {(() => {
