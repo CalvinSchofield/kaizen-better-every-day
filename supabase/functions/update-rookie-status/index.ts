@@ -16,15 +16,36 @@ Deno.serve(async (req) => {
       throw new Error("NOTION_API_KEY not configured");
     }
 
-    const { rookieNotionPageId, onboardingStatus } = await req.json();
+    const { rookieNotionPageId, onboardingStatus, ipadAssigned } = await req.json();
 
-    if (!rookieNotionPageId || !onboardingStatus) {
-      throw new Error("rookieNotionPageId and onboardingStatus are required");
+    if (!rookieNotionPageId) {
+      throw new Error("rookieNotionPageId is required");
     }
 
-    console.log(`Updating rookie ${rookieNotionPageId} to status: ${onboardingStatus}`);
+    if (!onboardingStatus && ipadAssigned === undefined) {
+      throw new Error("At least one of onboardingStatus or ipadAssigned must be provided");
+    }
 
-    // Update the rookie's Notion page with the new onboarding status
+    console.log(`Updating rookie ${rookieNotionPageId}`, { onboardingStatus, ipadAssigned });
+
+    // Build the properties object dynamically
+    const properties: any = {};
+    
+    if (onboardingStatus) {
+      properties["Onboarding Step Completed"] = {
+        status: {
+          name: onboardingStatus
+        }
+      };
+    }
+
+    if (ipadAssigned !== undefined) {
+      properties["iPad Assigned"] = {
+        checkbox: ipadAssigned
+      };
+    }
+
+    // Update the rookie's Notion page
     const notionResponse = await fetch(
       `https://api.notion.com/v1/pages/${rookieNotionPageId}`,
       {
@@ -34,15 +55,7 @@ Deno.serve(async (req) => {
           "Notion-Version": "2022-06-28",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          properties: {
-            "Onboarding Step Completed": {
-              status: {
-                name: onboardingStatus
-              }
-            }
-          }
-        }),
+        body: JSON.stringify({ properties }),
       }
     );
 
