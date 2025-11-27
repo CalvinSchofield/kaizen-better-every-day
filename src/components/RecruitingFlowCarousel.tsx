@@ -20,6 +20,7 @@ interface FlowLink {
   url: string;
   type: 'video' | 'notion';
   subtext?: string;
+  comingSoon?: boolean;
 }
 
 interface FlowStep {
@@ -38,8 +39,8 @@ const FLOW_STEPS: FlowStep[] = [
     title: "Find People",
     icon: Search,
     links: [
-      { label: "Cold Contact Recruiting", url: "https://www.youtube.com/watch?v=example1", type: "video" },
-      { label: "What Makes Vivint Special", url: "https://www.youtube.com/watch?v=example2", type: "video" }
+      { label: "Cold Contact Recruiting", url: "https://www.youtube.com/watch?v=example1", type: "video", comingSoon: true },
+      { label: "What Makes Vivint Special", url: "https://www.youtube.com/watch?v=example2", type: "video", comingSoon: true }
     ]
   },
   {
@@ -184,8 +185,10 @@ export const RecruitingFlowCarousel = () => {
                       <div className="space-y-2">
                         {step.links.map((link, idx) => {
                           const isRecruitingFlow = link.label === "Recruiting Content Flow";
+                          const isExternal = link.type === 'video' || isRecruitingFlow;
                           const handleClick = () => {
-                            if (isRecruitingFlow) {
+                            if (link.comingSoon) return;
+                            if (isExternal) {
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             } else {
                               copyToClipboard(link.url, link.label);
@@ -197,15 +200,19 @@ export const RecruitingFlowCarousel = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full justify-start"
+                                className={`w-full justify-start ${link.comingSoon ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 onClick={handleClick}
+                                disabled={link.comingSoon}
                               >
-                                {isRecruitingFlow ? (
+                                {isExternal ? (
                                   <ExternalLink className="h-4 w-4 mr-2 flex-shrink-0" />
                                 ) : (
                                   <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
                                 )}
                                 <span className="truncate">{link.label}</span>
+                                {link.comingSoon && (
+                                  <span className="ml-auto text-xs">(Coming soon)</span>
+                                )}
                               </Button>
                               {link.subtext && (
                                 <p className="text-xs text-muted-foreground italic ml-1">
