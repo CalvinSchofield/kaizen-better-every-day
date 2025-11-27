@@ -197,19 +197,29 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
     try {
       const updates: any = {};
       
-      // Update onboarding status if needed
+      // Build the update request body
+      const updateBody: any = {
+        rookieNotionPageId: selectedAlert.rookie.notionPageId,
+      };
+
       if (selectedAlert.needsOnboarding) {
-        const { error: statusError } = await supabase.functions.invoke('update-rookie-status', {
-          body: {
-            rookieNotionPageId: selectedAlert.rookie.notionPageId,
-            onboardingStatus: selectedStatus,
-          },
-        });
-        if (statusError) throw statusError;
+        updateBody.onboardingStatus = selectedStatus;
         updates.onboardingStatus = selectedStatus;
       }
 
-      // Update iPad status if needed
+      if (selectedAlert.needsIpad) {
+        updateBody.ipadAssigned = ipadAssigned;
+        updates.ipadAssigned = ipadAssigned;
+      }
+
+      // Update Notion via edge function
+      const { error: notionError } = await supabase.functions.invoke('update-rookie-status', {
+        body: updateBody,
+      });
+      
+      if (notionError) throw notionError;
+
+      // Also update local Supabase database for iPad status
       if (selectedAlert.needsIpad) {
         const { data: repData, error: fetchError } = await supabase
           .from('reps')
@@ -226,7 +236,6 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
             .eq('id', repData.id);
 
           if (ipadError) throw ipadError;
-          updates.ipadAssigned = ipadAssigned;
         }
       }
 
