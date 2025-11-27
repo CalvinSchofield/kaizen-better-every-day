@@ -7,6 +7,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface VetBlitzCommitmentsProps {
   repData: any;
@@ -25,6 +35,11 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uncommitDialog, setUncommitDialog] = useState<{ open: boolean; blitzId: string; blitzName: string }>({
+    open: false,
+    blitzId: "",
+    blitzName: "",
+  });
 
   // Load all blitzes from Preseason Trips database and filter for future dates
   useEffect(() => {
@@ -56,7 +71,9 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
           
           // Set committed blitzes from repData
           if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
-            const committedIds = repData.committed_blitzes.map((b: any) => b.id);
+            const committedIds = repData.committed_blitzes
+              .map((b: any) => b.id)
+              .filter((id: string) => id != null && id !== ""); // Filter out null/undefined/empty IDs
             setCommittedBlitzIds(committedIds);
             console.log('[VetBlitzCommitments] Rep is committed to:', committedIds);
           } else {
@@ -78,23 +95,30 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
     fetchAllBlitzes();
   }, [repData, toast]);
 
-  const toggleCommitment = async (blitzId: string, blitzName: string) => {
+  const handleBlitzClick = (blitzId: string, blitzName: string) => {
     const isCommitted = committedBlitzIds.includes(blitzId);
-    const newCommitmentIds = isCommitted
-      ? committedBlitzIds.filter(id => id !== blitzId)
-      : [...committedBlitzIds, blitzId];
+    
+    if (isCommitted) {
+      // Show confirmation dialog for uncommitting
+      setUncommitDialog({ open: true, blitzId, blitzName });
+    } else {
+      // Commit directly
+      commitToBlitz(blitzId, blitzName);
+    }
+  };
+
+  const commitToBlitz = async (blitzId: string, blitzName: string) => {
+    const newCommitmentIds = [...committedBlitzIds, blitzId];
 
     // Optimistically update UI
     setCommittedBlitzIds(newCommitmentIds);
 
     // Show confetti animation when committing
-    if (!isCommitted) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
 
     // Update Notion via edge function
     try {
@@ -105,22 +129,62 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
           repNotionPageId: repData.notion_page_id,
-          blitzPageIds: newCommitmentIds
+          blitzPageIds: newCommitmentIds.filter((id) => id != null && id !== "") // Filter out nulls before sending
         }
       });
 
       if (error) throw error;
 
       toast({
-        title: isCommitted ? "Commitment removed" : "Committed!",
-        description: isCommitted 
-          ? `You've removed your commitment to ${blitzName}`
-          : `You've committed to ${blitzName}!`,
+        title: "Committed!",
+        description: `You've committed to ${blitzName}!`,
       });
     } catch (error) {
       console.error("Error updating commitment:", error);
       // Revert optimistic update
-      setCommittedBlitzIds(isCommitted ? [...committedBlitzIds, blitzId] : committedBlitzIds.filter(id => id !== blitzId));
+      setCommittedBlitzIds(committedBlitzIds.filter(id => id !== blitzId));
+      
+      toast({
+        title: "Error",
+        description: "Could not update your commitment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUncommit = async () => {
+    const { blitzId, blitzName } = uncommitDialog;
+    const newCommitmentIds = committedBlitzIds.filter(id => id !== blitzId);
+
+    // Close dialog
+    setUncommitDialog({ open: false, blitzId: "", blitzName: "" });
+
+    // Optimistically update UI
+    setCommittedBlitzIds(newCommitmentIds);
+
+    // Update Notion via edge function
+    try {
+      if (!repData.notion_page_id) {
+        throw new Error("Rep Notion page ID not found");
+      }
+
+      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+        body: {
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds: newCommitmentIds.filter((id) => id != null && id !== "") // Filter out nulls before sending
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Commitment removed",
+        description: `You've removed your commitment to ${blitzName}`,
+      });
+    } catch (error) {
+      console.error("Error updating commitment:", error);
+      // Revert optimistic update
+      setCommittedBlitzIds([...committedBlitzIds, blitzId]);
       
       toast({
         title: "Error",
@@ -163,7 +227,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
             return (
               <div
                 key={blitz.id}
-                onClick={() => toggleCommitment(blitz.id, blitz.name)}
+                onClick={() => handleBlitzClick(blitz.id, blitz.name)}
                 className={`p-4 rounded-lg border transition-all cursor-pointer ${
                   isCommitted 
                     ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
@@ -197,6 +261,21 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
         </div>
       )}
       </CardContent>
+
+      <AlertDialog open={uncommitDialog.open} onOpenChange={(open) => setUncommitDialog({ ...uncommitDialog, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove commitment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove your commitment to {uncommitDialog.blitzName}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUncommit}>Yes, remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
