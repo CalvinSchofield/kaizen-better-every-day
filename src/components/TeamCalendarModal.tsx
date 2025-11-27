@@ -16,17 +16,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface TeamCalendarModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  teamLeaderPhone?: string;
 }
 
-const TeamCalendarModal = ({ open, onOpenChange }: TeamCalendarModalProps) => {
+const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendarModalProps) => {
   const calendarUrl = "webcal://p143-caldav.icloud.com/published/2/ODM4MTQxNjQ5ODgzODE0MRrnO9QwHvwHspg2nEVoCsv5FLdG2RTizQGaaVJnHbZfV6TPTtdNYJ2MVW7qvW7RYu4PfYLf5BI9YcU9DIKXHes";
   
   const { events, loading, error } = useCalendarEvents(calendarUrl);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const handleTextLeader = (eventTitle: string) => {
-    const message = encodeURIComponent(`Tell me more about ${eventTitle}`);
-    window.location.href = `sms:4697157056&body=${message}`;
+    const message = encodeURIComponent(`I want to RSVP for ${eventTitle}. Can you tell me more about it?`);
+    const phone = teamLeaderPhone || '4697157056'; // Fallback to Calvin's number
+    window.location.href = `sms:${phone}&body=${message}`;
   };
 
   return (

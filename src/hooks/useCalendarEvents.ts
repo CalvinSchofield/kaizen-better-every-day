@@ -61,10 +61,12 @@ export const useCalendarEvents = (calendarUrl: string) => {
             };
           })
           .filter((event) => {
+            // Exclude "pre blitz rookie call" events
+            const isPreBlitzCall = event.title.toLowerCase().includes("pre blitz rookie call");
             // Only future events with "blitz" in the title
             const isBlitz = event.title.toLowerCase().includes("blitz");
             const isFuture = event.startDate >= new Date();
-            return isBlitz && isFuture;
+            return isBlitz && !isPreBlitzCall && isFuture;
           })
           .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
           .slice(0, 10); // Get next 10 blitz events
