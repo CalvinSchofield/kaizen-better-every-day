@@ -786,7 +786,7 @@ const Home = () => {
                         </h1>
                         <button
                           onClick={() => setCalendarModalOpen(true)}
-                          className="group flex items-center gap-3 text-left w-full px-4 py-3 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+                          className="group flex items-center gap-3 text-left w-full -mx-6 px-6 py-3 rounded-none bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
                         >
                           <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                           <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
