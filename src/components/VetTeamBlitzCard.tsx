@@ -83,11 +83,26 @@ export const VetTeamBlitzCard = ({ repData, allBlitzes }: VetTeamBlitzCardProps)
     member.notionPageId !== repData.notion_page_id
   );
   
-  const committedMembers = filteredTeamMembers.filter(member =>
-    member.committedBlitzes.includes(selectedBlitzId)
+  // Sort by year (Rookie first) then alphabetically
+  const sortTeamMembers = (members: TeamMember[]) => {
+    return [...members].sort((a, b) => {
+      // Rookies first
+      if (a.year === "Rookie" && b.year !== "Rookie") return -1;
+      if (a.year !== "Rookie" && b.year === "Rookie") return 1;
+      // Then alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  };
+  
+  const committedMembers = sortTeamMembers(
+    filteredTeamMembers.filter(member =>
+      member.committedBlitzes.includes(selectedBlitzId)
+    )
   );
-  const uncommittedMembers = filteredTeamMembers.filter(member =>
-    !member.committedBlitzes.includes(selectedBlitzId)
+  const uncommittedMembers = sortTeamMembers(
+    filteredTeamMembers.filter(member =>
+      !member.committedBlitzes.includes(selectedBlitzId)
+    )
   );
 
   const toggleMemberCommitment = async (member: TeamMember, isCommitted: boolean) => {
@@ -221,7 +236,14 @@ export const VetTeamBlitzCard = ({ repData, allBlitzes }: VetTeamBlitzCardProps)
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{member.name}</span>
+                    {member.year === "Rookie" && (
+                      <Badge className="bg-orange-500 text-white border-orange-600">
+                        🔥 Rookie
+                      </Badge>
+                    )}
+                    <span className={`font-medium ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                      {member.name}
+                    </span>
                     {member.year === "Rookie" && (
                       <>
                         {member.blitzReady ? (
