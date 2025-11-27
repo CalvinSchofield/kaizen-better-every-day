@@ -222,13 +222,12 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${pages.length} competitors in Notion`);
 
-    const competitorsToUpsert: CompetitorData[] = [];
-
-    for (const page of pages) {
+    // Process all competitors in parallel for better performance
+    const competitorPromises = pages.map(async (page) => {
       const name = getTitle(page.properties, 'Name');
       if (!name) {
         console.log(`Skipping page ${page.id} - no name found`);
-        continue;
+        return null;
       }
 
       console.log(`Processing competitor: ${name}`);
@@ -242,36 +241,38 @@ Deno.serve(async (req) => {
       const blocks = await fetchNotionBlocks(page.id, notionApiKey);
       const { ourSellingPoints, objections } = extractTextFromBlocks(blocks);
 
-      // Fetch "Used by" monitoring companies
+      // Fetch "Used by" monitoring companies in parallel
       const usedByIds = getRelationIds(page.properties, 'Used by');
-      const monitoringCompanies: string[] = [];
-      for (const id of usedByIds) {
+      const monitoringCompanyPromises = usedByIds.map(async (id) => {
         const companyPage = await fetchNotionPage(id, notionApiKey);
         if (companyPage) {
           const companyName = getTitle(companyPage.properties, 'Name');
-          if (companyName) monitoringCompanies.push(companyName);
+          return companyName || null;
         }
-      }
+        return null;
+      });
+      const monitoringCompanies = (await Promise.all(monitoringCompanyPromises)).filter(Boolean) as string[];
 
-      // Fetch alternate versions
+      // Fetch alternate versions in parallel
       const alternateVersionIds = getRelationIds(page.properties, 'Other versions');
-      const alternateVersions: any[] = [];
-      for (const id of alternateVersionIds) {
+      const alternateVersionPromises = alternateVersionIds.map(async (id) => {
         const versionPage = await fetchNotionPage(id, notionApiKey);
         if (versionPage) {
           const versionName = getTitle(versionPage.properties, 'Name');
           const versionImage = getFiles(versionPage.properties, 'Image');
           if (versionName) {
-            alternateVersions.push({
+            return {
               name: versionName,
               image_url: versionImage,
               notion_page_id: id,
-            });
+            };
           }
         }
-      }
+        return null;
+      });
+      const alternateVersions = (await Promise.all(alternateVersionPromises)).filter(Boolean) as any[];
 
-      const competitorData: CompetitorData = {
+      return {
         notion_page_id: page.id,
         name,
         category,
@@ -281,27 +282,26 @@ Deno.serve(async (req) => {
         our_selling_points: ourSellingPoints,
         their_selling_points: theirSellingPoints,
         objections,
-      };
+      } as CompetitorData;
+    });
 
-      competitorsToUpsert.push(competitorData);
-    }
+    const competitorsToUpsert = (await Promise.all(competitorPromises)).filter(Boolean) as CompetitorData[];
 
-    // Upsert competitors to Supabase
+    // Upsert all competitors in a single batch operation
     console.log(`Upserting ${competitorsToUpsert.length} competitors to Supabase...`);
 
-    for (const competitor of competitorsToUpsert) {
-      const { error } = await supabase
-        .from('competitors')
-        .upsert(competitor, {
-          onConflict: 'notion_page_id',
-        });
+    const { error: batchError } = await supabase
+      .from('competitors')
+      .upsert(competitorsToUpsert, {
+        onConflict: 'notion_page_id',
+      });
 
-      if (error) {
-        console.error(`Failed to upsert competitor ${competitor.name}:`, error);
-      } else {
-        console.log(`Successfully synced competitor: ${competitor.name}`);
-      }
+    if (batchError) {
+      console.error('Batch upsert error:', batchError);
+      throw new Error(`Failed to upsert competitors: ${batchError.message}`);
     }
+
+    console.log(`Successfully synced ${competitorsToUpsert.length} competitors`);
 
     return new Response(
       JSON.stringify({
