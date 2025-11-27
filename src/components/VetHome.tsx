@@ -12,8 +12,7 @@ import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { useBlitzes } from "@/hooks/useBlitzes";
-import { VetBlitzCommitments } from "@/components/VetBlitzCommitments";
-import { VetTeamBlitzCard } from "@/components/VetTeamBlitzCard";
+import { VetBlitzCard } from "@/components/VetBlitzCard";
 import {
   Sheet,
   SheetContent,
@@ -418,11 +417,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </CardContent>
         </Card>
 
-        {/* Blitz Commitments */}
-        {!blitzesLoading && <VetBlitzCommitments repData={repData} />}
-
-        {/* Team Blitz Status */}
-        {!blitzesLoading && <VetTeamBlitzCard repData={repData} allBlitzes={allBlitzes} />}
+        {/* Unified Blitz Management */}
+        {!blitzesLoading && <VetBlitzCard repData={repData} allBlitzes={allBlitzes} />}
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
