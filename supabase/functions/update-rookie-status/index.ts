@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           properties: {
             "Onboarding Step Completed": {
-              select: {
+              status: {
                 name: onboardingStatus
               }
             }

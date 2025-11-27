@@ -661,7 +661,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                 )}
                               </div>
                               {isRookieNotReady && (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground">
+                                  Update
+                                </Badge>
                               )}
                             </button>
                             <Button
