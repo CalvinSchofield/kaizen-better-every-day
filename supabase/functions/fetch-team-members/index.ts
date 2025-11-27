@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
         const ipadAssigned = getCheckbox(props["iPad Assigned"]);
         const preseasonTrips = getRelation(props["Preseason trips"]);
         const year = getSelect(props["Year"]);
+        const stage = getStatus(props["Stage"]);
 
         // Determine blitz readiness based on onboarding status
         const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
@@ -160,6 +161,7 @@ Deno.serve(async (req) => {
           ipadAssigned,
           committedBlitzes: preseasonTrips,
           year,
+          stage,
         };
       })
     );

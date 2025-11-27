@@ -47,7 +47,7 @@ interface TeamMember {
   ipadAssigned: boolean;
   year: string | null;
   stage: string | null;
-  onboardingStep: string | null;
+  onboardingStatus: string | null;
 }
 
 export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
@@ -315,11 +315,26 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     
     return teamMembers
       .filter(member => !member.committedBlitzes.includes(blitzId))
-      .filter(member => member.stage && stageOrder.includes(member.stage))
       .sort((a, b) => {
-        const aIndex = stageOrder.indexOf(a.stage || "");
-        const bIndex = stageOrder.indexOf(b.stage || "");
-        return aIndex - bIndex;
+        const aStage = a.stage || "";
+        const bStage = b.stage || "";
+        const aIndex = stageOrder.indexOf(aStage);
+        const bIndex = stageOrder.indexOf(bStage);
+        
+        // If both have priority stages, sort by order
+        if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex;
+        }
+        // Priority stages come first
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        
+        // Then sort rookies before others
+        if (a.year === "Rookie" && b.year !== "Rookie") return -1;
+        if (a.year !== "Rookie" && b.year === "Rookie") return 1;
+        
+        // Finally alphabetically
+        return a.name.localeCompare(b.name);
       });
   };
 
@@ -344,14 +359,15 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   };
 
   const getReadinessStatus = (member: TeamMember) => {
-    if (!member.onboardingStep) return "Unknown";
-    const step = member.onboardingStep.toLowerCase();
+    if (!member.onboardingStatus) return "Not Started";
+    const step = member.onboardingStatus.toLowerCase();
     
     if (step.includes("phase 4")) return "Phase 4 ✓";
     if (step.includes("phase 3")) return "Phase 3";
     if (step.includes("phase 2")) return "Phase 2";
     if (step.includes("phase 1")) return "Phase 1";
-    if (step.includes("training") || step.includes("onboarding")) return "Training";
+    if (step.includes("training") || step.includes("required")) return "Training";
+    if (step.includes("onboarding")) return "Onboarding";
     return "Started";
   };
 
