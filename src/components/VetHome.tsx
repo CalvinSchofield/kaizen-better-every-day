@@ -199,10 +199,10 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
         {/* Blitz Countdown */}
         <div className="mb-6">
           <BlitzCountdown
-            tripName={repData.blitz_trip_name}
-            tripDate={repData.blitz_trip_date}
-            tripEndDate={repData.blitz_trip_end_date}
-            tripLocation={repData.blitz_trip_location}
+            tripName={repData.blitz_trip_name ?? null}
+            tripDate={repData.blitz_trip_date ?? null}
+            tripEndDate={repData.blitz_trip_end_date ?? null}
+            tripLocation={repData.blitz_trip_location ?? null}
             isVet={true}
           />
         </div>
