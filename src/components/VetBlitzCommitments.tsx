@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Check } from "lucide-react";
+import { Calendar, Check, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +34,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [uncommitDialog, setUncommitDialog] = useState<{ open: boolean; blitzId: string; blitzName: string }>({
     open: false,
     blitzId: "",
@@ -93,6 +94,27 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
 
     fetchAllBlitzes();
   }, [repData, toast]);
+
+  // Fetch team members for indicator
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      if (!repData?.notion_page_id) return;
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-team-members', {
+          body: { leaderNotionPageId: repData.notion_page_id }
+        });
+
+        if (error) throw error;
+
+        setTeamMembers(data?.teamMembers || []);
+      } catch (error) {
+        console.error('[VetBlitzCommitments] Error fetching team members:', error);
+      }
+    };
+
+    fetchTeamMembers();
+  }, [repData]);
 
   const handleBlitzClick = (blitzId: string, blitzName: string) => {
     const isCommitted = committedBlitzIds.includes(blitzId);
@@ -193,6 +215,13 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
     }
   };
 
+  // Calculate team member indicator for each blitz
+  const getTeamMemberCount = (blitzId: string) => {
+    return teamMembers.filter((member: any) => 
+      member.committedBlitzes.includes(blitzId)
+    ).length;
+  };
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -223,6 +252,9 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
         <div className="space-y-3">
           {allBlitzes.map((blitz) => {
             const isCommitted = committedBlitzIds.includes(blitz.id);
+            const teamCount = getTeamMemberCount(blitz.id);
+            const showTeamIndicator = !isCommitted && teamCount > 0;
+            
             return (
               <div
                 key={blitz.id}
@@ -250,6 +282,11 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
                     {blitz.location && (
                       <p className="text-xs text-muted-foreground mt-1">
                         📍 {blitz.location}
+                      </p>
+                    )}
+                    {showTeamIndicator && (
+                      <p className="text-xs text-accent mt-1 font-medium">
+                        👥 {teamCount} of your team going
                       </p>
                     )}
                   </div>
