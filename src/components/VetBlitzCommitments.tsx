@@ -22,47 +22,70 @@ interface BlitzEvent {
 
 export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
   const { toast } = useToast();
-  const [committedBlitzes, setCommittedBlitzes] = useState<string[]>([]);
+  const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load blitzes directly from repData.committed_blitzes (synced from Notion)
+  // Load all blitzes from Preseason Trips database and filter for future dates
   useEffect(() => {
-    setLoading(true);
-    
-    if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
-      // Filter to future blitzes only
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const fetchAllBlitzes = async () => {
+      setLoading(true);
       
-      const futureBlitzes = repData.committed_blitzes
-        .filter((blitz: any) => {
-          if (!blitz || !blitz.date) return false;
-          const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-          blitzEndDate.setHours(0, 0, 0, 0);
-          return blitzEndDate >= today;
-        })
-        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
-      setAllBlitzes(futureBlitzes);
-      // Pre-populate all as committed since they're in the rep's Notion relation
-      setCommittedBlitzes(futureBlitzes.map((b: any) => b.name));
-      console.log('[VetBlitzCommitments] Loaded blitzes from repData:', futureBlitzes);
-    } else {
-      setAllBlitzes([]);
-      setCommittedBlitzes([]);
-    }
-    
-    setLoading(false);
-  }, [repData]);
+      try {
+        // Fetch all blitzes from Notion Preseason Trips database
+        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
+        
+        if (error) throw error;
+        
+        if (data?.blitzes) {
+          // Filter to future blitzes only
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const futureBlitzes = data.blitzes
+            .filter((blitz: any) => {
+              if (!blitz || !blitz.date) return false;
+              const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+              blitzEndDate.setHours(0, 0, 0, 0);
+              return blitzEndDate >= today;
+            })
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+          setAllBlitzes(futureBlitzes);
+          console.log('[VetBlitzCommitments] Loaded all future blitzes:', futureBlitzes);
+          
+          // Set committed blitzes from repData
+          if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
+            const committedIds = repData.committed_blitzes.map((b: any) => b.id);
+            setCommittedBlitzIds(committedIds);
+            console.log('[VetBlitzCommitments] Rep is committed to:', committedIds);
+          } else {
+            setCommittedBlitzIds([]);
+          }
+        }
+      } catch (error) {
+        console.error('[VetBlitzCommitments] Error fetching blitzes:', error);
+        toast({
+          title: "Error loading blitzes",
+          description: "Could not load upcoming blitzes. Please refresh.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const toggleCommitment = async (blitzName: string) => {
-    const isCommitted = committedBlitzes.includes(blitzName);
-    const newCommitmentNames = isCommitted
-      ? committedBlitzes.filter(b => b !== blitzName)
-      : [...committedBlitzes, blitzName];
+    fetchAllBlitzes();
+  }, [repData, toast]);
 
-    setCommittedBlitzes(newCommitmentNames);
+  const toggleCommitment = async (blitzId: string, blitzName: string) => {
+    const isCommitted = committedBlitzIds.includes(blitzId);
+    const newCommitmentIds = isCommitted
+      ? committedBlitzIds.filter(id => id !== blitzId)
+      : [...committedBlitzIds, blitzId];
+
+    // Optimistically update UI
+    setCommittedBlitzIds(newCommitmentIds);
 
     // Show confetti animation when committing
     if (!isCommitted) {
@@ -73,14 +96,38 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       });
     }
 
-    // Note: Commitment updates should be handled via Notion automation
-    // The committed_blitzes field is synced FROM Notion, not TO Notion
-    toast({
-      title: isCommitted ? "Commitment removed" : "Committed!",
-      description: isCommitted 
-        ? `You've removed your commitment to ${blitzName}`
-        : `You've committed to ${blitzName}. This will sync to Notion on next refresh.`,
-    });
+    // Update Notion via edge function
+    try {
+      if (!repData.notion_page_id) {
+        throw new Error("Rep Notion page ID not found");
+      }
+
+      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+        body: {
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds: newCommitmentIds
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: isCommitted ? "Commitment removed" : "Committed!",
+        description: isCommitted 
+          ? `You've removed your commitment to ${blitzName}`
+          : `You've committed to ${blitzName}!`,
+      });
+    } catch (error) {
+      console.error("Error updating commitment:", error);
+      // Revert optimistic update
+      setCommittedBlitzIds(isCommitted ? [...committedBlitzIds, blitzId] : committedBlitzIds.filter(id => id !== blitzId));
+      
+      toast({
+        title: "Error",
+        description: "Could not update your commitment. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -112,11 +159,11 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       {!loading && allBlitzes.length > 0 && (
         <div className="space-y-3">
           {allBlitzes.map((blitz) => {
-            const isCommitted = committedBlitzes.includes(blitz.name);
+            const isCommitted = committedBlitzIds.includes(blitz.id);
             return (
               <div
                 key={blitz.id}
-                onClick={() => toggleCommitment(blitz.name)}
+                onClick={() => toggleCommitment(blitz.id, blitz.name)}
                 className={`p-4 rounded-lg border transition-all cursor-pointer ${
                   isCommitted 
                     ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
