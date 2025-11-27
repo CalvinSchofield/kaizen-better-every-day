@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCompetitors, Competitor } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
+import DebugNotionButton from "@/components/DebugNotionButton";
 
 export default function Competitors() {
   const navigate = useNavigate();
@@ -30,12 +31,13 @@ export default function Competitors() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold">Competitor Cheat Sheet</h1>
               <p className="text-sm text-muted-foreground">
                 Quick reference for competitor products
               </p>
             </div>
+            <DebugNotionButton />
           </div>
 
           {/* Search Bar */}
