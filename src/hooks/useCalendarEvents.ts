@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import ICAL from "ical.js";
 import { supabase } from "@/integrations/supabase/client";
 
-interface CalendarEvent {
+export interface CalendarEvent {
   title: string;
   date: string;
   time: string;
   startDate: Date;
+  endDate?: Date;
+  location?: string;
 }
 
 export const useCalendarEvents = (calendarUrl: string) => {
@@ -40,22 +42,32 @@ export const useCalendarEvents = (calendarUrl: string) => {
         const comp = new ICAL.Component(jcalData);
         const vevents = comp.getAllSubcomponents("vevent");
 
-        // Process events
+        // Process events - filter for blitz events only
         const parsedEvents: CalendarEvent[] = vevents
           .map((vevent) => {
             const event = new ICAL.Event(vevent);
             const startDate = event.startDate.toJSDate();
+            const endDate = event.endDate?.toJSDate();
+            const locationValue = vevent.getFirstPropertyValue("location");
+            const location = typeof locationValue === 'string' ? locationValue : undefined;
             
             return {
               title: event.summary,
               startDate: startDate,
-              date: formatDate(startDate, event.endDate?.toJSDate()),
-              time: formatTime(startDate, event.endDate?.toJSDate(), event.startDate.isDate),
+              endDate: endDate,
+              location: location,
+              date: formatDate(startDate, endDate),
+              time: formatTime(startDate, endDate, event.startDate.isDate),
             };
           })
-          .filter((event) => event.startDate >= new Date()) // Only future events
+          .filter((event) => {
+            // Only future events with "blitz" in the title
+            const isBlitz = event.title.toLowerCase().includes("blitz");
+            const isFuture = event.startDate >= new Date();
+            return isBlitz && isFuture;
+          })
           .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
-          .slice(0, 10); // Get next 10 events
+          .slice(0, 10); // Get next 10 blitz events
 
         setEvents(parsedEvents);
       } catch (err) {
