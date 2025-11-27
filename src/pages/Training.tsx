@@ -29,6 +29,9 @@ const Training = () => {
   const phase4Complete = repData?.ramp_phase_4_complete || false;
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
+  
+  // Check if user is a vet or sophomore
+  const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
 
   // Determine journey stage for dynamic recommendations
   const getJourneyStage = () => {
@@ -270,63 +273,65 @@ const Training = () => {
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Just-in-Time Training / Motivational Content */}
-        <Card 
-          className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
-            animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'
-          }`}
-        >
-          <CardHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className={`w-5 h-5 text-primary transition-all duration-500 ${animateRecommended ? 'scale-110' : 'scale-100'}`} />
-              <CardTitle className="text-lg transition-all duration-500 ease-out">
+        {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
+        {!isVetOrSophomore && (
+          <Card 
+            className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
+              animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'
+            }`}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className={`w-5 h-5 text-primary transition-all duration-500 ${animateRecommended ? 'scale-110' : 'scale-100'}`} />
+                <CardTitle className="text-lg transition-all duration-500 ease-out">
+                  <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+                    {journeyStage === "motivation" ? "Stay Motivated" : "Recommended for You"}
+                  </span>
+                </CardTitle>
+              </div>
+              <CardDescription className="transition-all duration-500 ease-out">
                 <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                  {journeyStage === "motivation" ? "Stay Motivated" : "Recommended for You"}
+                  {journeyStage === "motivation" 
+                    ? "Watch these while you complete your onboarding steps"
+                    : "Based on your current step in the journey"
+                  }
                 </span>
-              </CardTitle>
-            </div>
-            <CardDescription className="transition-all duration-500 ease-out">
-              <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                {journeyStage === "motivation" 
-                  ? "Watch these while you complete your onboarding steps"
-                  : "Based on your current step in the journey"
-                }
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="transition-all duration-500 ease-out">
-              {journeyStage === "motivation" ? (
-                <div className={`transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-                  <MotivationalVideoCarousel />
-                </div>
-              ) : (
-                <div className={`space-y-2 transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-                  {recommendedContent.map((item, idx) => (
-                    <a
-                      key={item.title}
-                      href={item.href}
-                      target={item.href.startsWith("http") ? "_blank" : undefined}
-                      rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                      className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-all duration-300 group"
-                      style={{ 
-                        transitionDelay: animateRecommended ? '0ms' : `${idx * 80}ms`,
-                        transform: animateRecommended ? 'translateX(-10px)' : 'translateX(0)'
-                      }}
-                    >
-                      <span className="font-medium group-hover:text-primary transition-colors duration-200">{item.title}</span>
-                      {item.href.startsWith("http") ? (
-                        <ExternalLink className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
-                      ) : (
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="transition-all duration-500 ease-out">
+                {journeyStage === "motivation" ? (
+                  <div className={`transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                    <MotivationalVideoCarousel />
+                  </div>
+                ) : (
+                  <div className={`space-y-2 transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                    {recommendedContent.map((item, idx) => (
+                      <a
+                        key={item.title}
+                        href={item.href}
+                        target={item.href.startsWith("http") ? "_blank" : undefined}
+                        rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                        className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-all duration-300 group"
+                        style={{ 
+                          transitionDelay: animateRecommended ? '0ms' : `${idx * 80}ms`,
+                          transform: animateRecommended ? 'translateX(-10px)' : 'translateX(0)'
+                        }}
+                      >
+                        <span className="font-medium group-hover:text-primary transition-colors duration-200">{item.title}</span>
+                        {item.href.startsWith("http") ? (
+                          <ExternalLink className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Training Categories */}
         {categories.map((category) => {
