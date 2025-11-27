@@ -138,7 +138,7 @@ const InstallPrompt = () => {
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3">
-                  <div className="rounded-lg overflow-hidden border border-border bg-muted max-h-[400px] overflow-y-auto">
+                  <div className="rounded-lg overflow-hidden border border-border bg-muted">
                     <img 
                       src="/install-guide.gif" 
                       alt="Installation guide"
