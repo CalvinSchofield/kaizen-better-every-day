@@ -939,7 +939,7 @@ const Home = () => {
                 ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
                 ctaIcon = "⚡";
               } else {
-                ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training, especially role plays with leaders`;
+                ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training! Focus on role plays with leaders`;
                 ctaIcon = "🎯";
               }
             }
