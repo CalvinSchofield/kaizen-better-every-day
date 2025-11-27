@@ -11,6 +11,8 @@ interface WeatherForecast {
   dayName: string;
   high: number;
   low: number;
+  weatherCode: number;
+  precipitation: number;
 }
 
 serve(async (req) => {
@@ -32,14 +34,31 @@ serve(async (req) => {
     }
 
     // Step 1: Geocode the location using Open-Meteo Geocoding API
-    const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-      location
-    )}&count=1&language=en&format=json`;
+    // Try multiple location formats to improve success rate
+    const locationVariants = [
+      location, // Original format (e.g., "Bakersfield, CA")
+      location.split(',')[0].trim(), // Just city name (e.g., "Bakersfield")
+      location.replace(', ', ' '), // Without comma (e.g., "Bakersfield CA")
+    ];
+    
+    let geocodeData: any = null;
+    
+    for (const variant of locationVariants) {
+      const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+        variant
+      )}&count=1&language=en&format=json`;
 
-    const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
+      const geocodeResponse = await fetch(geocodeUrl);
+      const data = await geocodeResponse.json();
+      
+      if (data.results && data.results.length > 0) {
+        geocodeData = data;
+        console.log(`Successfully geocoded with variant: ${variant}`);
+        break;
+      }
+    }
 
-    if (!geocodeData.results || geocodeData.results.length === 0) {
+    if (!geocodeData || !geocodeData.results || geocodeData.results.length === 0) {
       return new Response(
         JSON.stringify({ error: "Location not found" }),
         {
@@ -51,8 +70,8 @@ serve(async (req) => {
 
     const { latitude, longitude, name } = geocodeData.results[0];
 
-    // Step 2: Fetch weather forecast using Open-Meteo Weather API
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
+    // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
 
     const weatherResponse = await fetch(weatherUrl);
     const weatherData = await weatherResponse.json();
@@ -72,6 +91,8 @@ serve(async (req) => {
     const dates = weatherData.daily.time;
     const maxTemps = weatherData.daily.temperature_2m_max;
     const minTemps = weatherData.daily.temperature_2m_min;
+    const weatherCodes = weatherData.daily.weather_code;
+    const precipitation = weatherData.daily.precipitation_sum;
 
     for (let i = 0; i < dates.length; i++) {
       const date = new Date(dates[i]);
@@ -95,6 +116,8 @@ serve(async (req) => {
         dayName: dayNames[dayOfWeek],
         high: Math.round(maxTemps[i]),
         low: Math.round(minTemps[i]),
+        weatherCode: weatherCodes[i],
+        precipitation: precipitation[i],
       });
     }
 
