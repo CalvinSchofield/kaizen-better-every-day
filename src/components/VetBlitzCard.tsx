@@ -634,10 +634,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                               disabled={!isRookieNotReady}
                             >
                               <div className="flex flex-col min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className={`font-medium truncate text-sm ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
                                     {member.name}
                                   </span>
+                                  {isRookieNotReady && (
+                                    <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground flex-shrink-0">
+                                      Update
+                                    </Badge>
+                                  )}
                                   {showIpadWarning && (
                                     <button
                                       onClick={(e) => {
@@ -660,11 +665,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                   </span>
                                 )}
                               </div>
-                              {isRookieNotReady && (
-                                <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground">
-                                  Update
-                                </Badge>
-                              )}
                             </button>
                             <Button
                               size="sm"
@@ -794,7 +794,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                 <SelectItem value="Started">✓ Started</SelectItem>
                 <SelectItem value="Onboarding ✅">✓ Onboarding</SelectItem>
                 <SelectItem value="Trainings ✅">✓ Required Trainings</SelectItem>
-                <SelectItem value="Slack ✅">✓ Slack/Group Chat</SelectItem>
+                <SelectItem value="Slack ✅">✓ Slack</SelectItem>
                 <SelectItem value="Phase 1 ✅">✓ Phase 1</SelectItem>
                 <SelectItem value="Phase 2 ✅">✓ Phase 2</SelectItem>
                 <SelectItem value="Phase 3 ✅">✓ Phase 3</SelectItem>
