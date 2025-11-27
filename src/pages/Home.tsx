@@ -960,23 +960,29 @@ const Home = () => {
               }
             };
             
+            // If not clickable (blitz is far away), show plain text
+            if (!isClickable) {
+              return (
+                <div className="flex items-center gap-3 mb-3 px-2">
+                  <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                  <p className="text-primary-foreground/70 text-base font-medium leading-snug flex-1">
+                    {ctaText}
+                  </p>
+                </div>
+              );
+            }
+            
+            // Otherwise show clickable button
             return (
               <button
                 onClick={handleCtaClick}
-                disabled={!isClickable}
-                className={`flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3 ${
-                  isClickable 
-                    ? 'group hover:bg-primary-foreground/15 cursor-pointer' 
-                    : 'cursor-default'
-                }`}
+                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
               >
                 <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                 <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                   {ctaText}
                 </p>
-                {isClickable && (
-                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                )}
+                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
               </button>
             );
           })()}
