@@ -60,6 +60,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
+  const [isTeamLead, setIsTeamLead] = useState(false);
   const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
@@ -94,12 +95,16 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
 
         if (error) throw error;
 
-        if (data?.teamMembers) {
-          // Filter out the vet themselves from their team list
-          const filteredMembers = data.teamMembers.filter(
-            (member: TeamMember) => member.notionPageId !== repData.notion_page_id
-          );
-          setTeamMembers(filteredMembers);
+        if (data) {
+          setIsTeamLead(data.isTeamLead || false);
+          
+          if (data.teamMembers) {
+            // Filter out the vet themselves from their team list
+            const filteredMembers = data.teamMembers.filter(
+              (member: TeamMember) => member.notionPageId !== repData.notion_page_id
+            );
+            setTeamMembers(filteredMembers);
+          }
         }
       } catch (error) {
         console.error('Error fetching team members:', error);
@@ -396,11 +401,8 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     );
   }
 
-  // Check if this vet has any team members
-  const hasTeamMembers = teamMembers.length > 0;
-
-  // Simplified view for vets without team members
-  if (!hasTeamMembers) {
+  // Simplified view for vets who are not team leads
+  if (!isTeamLead) {
     return (
       <Card className="mb-6">
         <CardHeader>
