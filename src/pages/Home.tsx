@@ -725,23 +725,16 @@ const Home = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-4">
               {!onboardingComplete || !trainingsComplete ? (
-                <>
-                  <h1 className="text-3xl font-bold tracking-tight">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}</h1>
-                  <p className="text-primary-foreground/90 text-base font-medium mt-2">
-                    The basics to make your first $10k at Vivint
-                  </p>
-                </>
+                <h1 className="text-3xl font-bold tracking-tight">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}</h1>
               ) : (
                 <>
                   {(() => {
                     const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
-                    const today = new Date();
-                    const hour = today.getHours();
+                    const hour = new Date().getHours();
                     
-                    // Determine time of day greeting
                     let greeting = "Good evening";
                     if (hour < 12) {
                       greeting = "Good morning";
@@ -749,70 +742,10 @@ const Home = () => {
                       greeting = "Good afternoon";
                     }
                     
-                    today.setHours(0, 0, 0, 0);
-                    const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
-                    const hasValidBlitz = tripDate && tripDate >= today;
-                    const blitzIsPast = tripDate && tripDate < today;
-                    
-                    // Determine call to action
-                    let ctaText = "";
-                    let ctaIcon = "";
-                    
-                    if (!repData.blitz_trip_name || blitzIsPast) {
-                      ctaText = blitzIsPast 
-                        ? "Find your next blitz and keep the momentum going"
-                        : "Pick a blitz trip and commit to making your first sale";
-                      ctaIcon = "📅";
-                    } else {
-                      const diffTime = tripDate!.getTime() - today.getTime();
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                      
-                      if (diffDays <= 7) {
-                        ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${repData.blitz_trip_location || 'your blitz'} — prep makes perfect`;
-                        ctaIcon = "⚡";
-                      } else {
-                        ctaText = `${repData.blitz_trip_location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training`;
-                        ctaIcon = "🎯";
-                      }
-                    }
-                    
-                    const showWeather = weather.length > 0 && hasValidBlitz;
-                    const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                    
                     return (
-                      <div className="space-y-3">
-                        <h1 className="text-3xl font-bold tracking-tight">
-                          {greeting}, {firstName}
-                        </h1>
-                        <button
-                          onClick={() => setCalendarModalOpen(true)}
-                          className="group flex items-center gap-3 text-left w-full pl-6 pr-6 -mr-6 py-3 rounded-none bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
-                        >
-                          <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                          <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                            {ctaText}
-                          </p>
-                          <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                        </button>
-                        
-                        {/* Weather forecast - only show for sub-7 day blitzes */}
-                        {showWeather && weatherDiffDays <= 7 && (
-                          <div className="flex gap-2 pt-1 overflow-x-auto">
-                            {weather.map((day) => (
-                              <div
-                                key={day.date}
-                                className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
-                              >
-                                <span className="text-xs text-primary-foreground/70 font-medium">
-                                  {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
-                                </span>
-                                <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
-                                <span className="text-xs text-primary-foreground/60">{day.low}°</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <h1 className="text-3xl font-bold tracking-tight">
+                        {greeting}, {firstName}
+                      </h1>
                     );
                   })()}
                 </>
@@ -840,6 +773,78 @@ const Home = () => {
               </Button>
             </div>
           </div>
+
+          {/* Subtitle for pre-onboarding */}
+          {(!onboardingComplete || !trainingsComplete) && (
+            <p className="text-primary-foreground/90 text-base font-medium mb-3">
+              The basics to make your first $10k at Vivint
+            </p>
+          )}
+
+          {/* CTA Button - full width */}
+          {(onboardingComplete && trainingsComplete) && (() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+            const hasValidBlitz = tripDate && tripDate >= today;
+            const blitzIsPast = tripDate && tripDate < today;
+            
+            let ctaText = "";
+            let ctaIcon = "";
+            
+            if (!repData.blitz_trip_name || blitzIsPast) {
+              ctaText = blitzIsPast 
+                ? "Find your next blitz and keep the momentum going"
+                : "Pick a blitz trip and commit to making your first sale";
+              ctaIcon = "📅";
+            } else {
+              const diffTime = tripDate!.getTime() - today.getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              
+              if (diffDays <= 7) {
+                ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${repData.blitz_trip_location || 'your blitz'} — prep makes perfect`;
+                ctaIcon = "⚡";
+              } else {
+                ctaText = `${repData.blitz_trip_location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training`;
+                ctaIcon = "🎯";
+              }
+            }
+            
+            const showWeather = weather.length > 0 && hasValidBlitz;
+            const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            
+            return (
+              <div className="space-y-3 mb-3">
+                <button
+                  onClick={() => setCalendarModalOpen(true)}
+                  className="group flex items-center gap-3 text-left w-full px-6 -mx-6 py-3 rounded-none bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+                >
+                  <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                  <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                    {ctaText}
+                  </p>
+                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                </button>
+                
+                {showWeather && weatherDiffDays <= 7 && (
+                  <div className="flex gap-2 pt-1 overflow-x-auto px-6 -mx-6">
+                    {weather.map((day) => (
+                      <div
+                        key={day.date}
+                        className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
+                      >
+                        <span className="text-xs text-primary-foreground/70 font-medium">
+                          {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
+                        </span>
+                        <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
+                        <span className="text-xs text-primary-foreground/60">{day.low}°</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           
           {/* Progress Bar */}
           <div className="mt-6">
