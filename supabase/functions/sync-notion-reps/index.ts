@@ -353,7 +353,11 @@ Deno.serve(async (req) => {
           recruiter: getRichText(props.Recruiter) || getSelect(props.Recruiter),
           team_leader: teamLeaderName,
           team_leader_phone: teamLeaderPhone,
-          stage: getStatus(props.Stage) || getSelect(props.Stage),
+          stage: (() => {
+            const stageValue = getSelect(props.Stage);
+            console.log(`Stage for ${name}:`, JSON.stringify(props.Stage, null, 2), '-> Result:', stageValue);
+            return stageValue;
+          })(),
           year: getSelect(props.Year), // "Rookie", "Sophomore", or "Vet"
           
           // Blitz trip details
