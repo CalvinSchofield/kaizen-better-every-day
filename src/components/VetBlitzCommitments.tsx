@@ -69,13 +69,13 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
           setAllBlitzes(futureBlitzes);
           console.log('[VetBlitzCommitments] Loaded all future blitzes:', futureBlitzes);
           
-          // Set committed blitzes from repData
+          // Extract committed blitz IDs from repData
           if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
             const committedIds = repData.committed_blitzes
               .map((b: any) => b.id)
               .filter((id: string) => id != null && id !== ""); // Filter out null/undefined/empty IDs
             setCommittedBlitzIds(committedIds);
-            console.log('[VetBlitzCommitments] Rep is committed to:', committedIds);
+            console.log('[VetBlitzCommitments] Rep is committed to these IDs:', committedIds);
           } else {
             setCommittedBlitzIds([]);
           }

@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     console.log(`New blitz commitments:`, blitzPageIds);
 
     // Update the rep's Notion page with the new blitz commitments
-    // The "Preseason Trips" property is a relation to the Preseason Trips database
+    // The "Preseason trips" property is a relation to the Preseason Trips database
     const notionResponse = await fetch(
       `https://api.notion.com/v1/pages/${repNotionPageId}`,
       {
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           properties: {
-            "Preseason Trips": {
+            "Preseason trips": {
               relation: blitzPageIds.map(id => ({ id }))
             }
           }
