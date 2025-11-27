@@ -70,15 +70,8 @@ export const usePullToRefresh = ({
     };
   }, [pullDistance, threshold, onRefresh, isRefreshing]);
 
-  const shouldShowIndicator = isPulling || isRefreshing;
-  const indicatorOpacity = Math.min(pullDistance / threshold, 1);
-  const indicatorRotation = (pullDistance / threshold) * 360;
-
   return {
     containerRef,
-    shouldShowIndicator,
-    indicatorOpacity,
-    indicatorRotation,
     pullDistance,
   };
 };
