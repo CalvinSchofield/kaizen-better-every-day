@@ -111,6 +111,7 @@ const Home = () => {
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
   const [nextBlitz, setNextBlitz] = useState<{ name: string; date: string; endDate: string | null; location: string } | null>(null);
 
@@ -513,13 +514,14 @@ const Home = () => {
 
   const handleSync = async () => {
     setIsSyncing(true);
+    setSyncSuccess(false);
     try {
       await refetch();
-      toast({
-        title: "✓ Synced",
-        description: "Your progress has been updated from Notion.",
-        duration: 2000,
-      });
+      // Show success animation instead of toast
+      setSyncSuccess(true);
+      setTimeout(() => {
+        setSyncSuccess(false);
+      }, 2500);
     } catch (error) {
       toast({
         title: "Sync failed",
@@ -660,10 +662,19 @@ const Home = () => {
               <Button
                 onClick={handleSync}
                 variant="outline"
-                className="w-full"
+                className={`w-full transition-all duration-300 ${
+                  syncSuccess 
+                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
+                    : ''
+                }`}
                 disabled={isSyncing}
               >
-                {isSyncing ? (
+                {syncSuccess ? (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4 animate-scale-in" />
+                    Synced!
+                  </>
+                ) : isSyncing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Checking...
@@ -712,7 +723,7 @@ const Home = () => {
   
   // Check if user is a Vet or Sophomore - show VetHome instead
   if (repData.year === "Vet" || repData.year === "Sophomore") {
-    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} />;
+    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
   }
   
   // Helper to check phase status - case-insensitive matching
@@ -825,11 +836,19 @@ const Home = () => {
                 onClick={handleSync} 
                 variant="ghost" 
                 size="sm" 
-                className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
+                className={`rounded-full transition-all duration-300 border ${
+                  syncSuccess 
+                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
+                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
+                }`}
                 disabled={isSyncing}
                 aria-label="Refresh data"
               >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {syncSuccess ? (
+                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
+                ) : (
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                )}
               </Button>
               <Button 
                 onClick={() => setLogoutSheetOpen(true)}
