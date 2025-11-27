@@ -86,16 +86,18 @@ const InstallPrompt = () => {
 
       {/* Install Instructions Sheet */}
       <Sheet open={showSheet} onOpenChange={setShowSheet}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Install Kaizen</SheetTitle>
-            <SheetDescription>
-              Follow these steps to install Kaizen on your home screen
-            </SheetDescription>
-          </SheetHeader>
+        <SheetContent side="bottom" className="max-h-[85vh] flex flex-col p-0">
+          <div className="p-6 pb-4">
+            <SheetHeader>
+              <SheetTitle>Install Kaizen</SheetTitle>
+              <SheetDescription>
+                Follow these steps to install Kaizen on your home screen
+              </SheetDescription>
+            </SheetHeader>
+          </div>
           
-          <ScrollArea className="max-h-[calc(85vh-8rem)]">
-            <div className="space-y-4 pr-4 mt-4">
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            <div className="space-y-4">
               <div className="space-y-3 text-sm">
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
@@ -136,7 +138,7 @@ const InstallPrompt = () => {
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3">
-                  <div className="rounded-lg overflow-hidden border border-border bg-muted">
+                  <div className="rounded-lg overflow-hidden border border-border bg-muted max-h-[400px] overflow-y-auto">
                     <img 
                       src="/install-guide.gif" 
                       alt="Installation guide"
@@ -154,7 +156,7 @@ const InstallPrompt = () => {
                 Got it!
               </Button>
             </div>
-          </ScrollArea>
+          </div>
         </SheetContent>
       </Sheet>
     </>
