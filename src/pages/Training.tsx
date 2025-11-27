@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
-import { BookOpen, FileText, Users, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Target, Lock, BookMarked, ExternalLink } from "lucide-react";
+import { BookOpen, FileText, Users, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Target, Lock, BookMarked, ExternalLink, Download, DollarSign } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useRepData } from "@/hooks/useRepData";
 import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarousel";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface TrainingCategory {
   title: string;
@@ -26,6 +28,7 @@ interface Book {
 
 const Training = () => {
   const { repData, loading } = useRepData();
+  const { toast } = useToast();
   const phase4Complete = repData?.ramp_phase_4_complete || false;
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
@@ -254,6 +257,40 @@ const Training = () => {
 
   const recommendedContent = getRecommendedContent();
 
+  // Pay scale documents
+  const PAY_SCALES = [
+    { label: "Leader Pay Scale", file: "/documents/2025_Leader_Payscale.pdf" },
+    { label: "Recruiter Pay Scale", file: "/documents/2025_Recruiter_Pay_Scale.pdf" },
+    { label: "Sales Rep Pay Scale", file: "/documents/2025_Sales_Rep_Payscale.pdf" },
+    { label: "Sales Rules", file: "/documents/2025_Sales_Rules.pdf" },
+  ];
+
+  const downloadFile = async (filePath: string, fileName: string) => {
+    try {
+      const response = await fetch(filePath);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download started",
+        description: `${fileName} is downloading`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Unable to download file",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -273,6 +310,34 @@ const Training = () => {
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Pay Scales - Always at top */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Payscales
+            </CardTitle>
+            <CardDescription>
+              Download pay scales and sales rules
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PAY_SCALES.map((doc) => (
+                <Button
+                  key={doc.label}
+                  variant="outline"
+                  className="justify-between"
+                  onClick={() => downloadFile(doc.file, doc.label + '.pdf')}
+                >
+                  <span className="truncate">{doc.label}</span>
+                  <Download className="h-4 w-4 ml-2 flex-shrink-0" />
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
         {!loading && !isVetOrSophomore && (
           <Card 

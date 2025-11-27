@@ -8,15 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 interface VetBlitzCommitmentsProps {
   repData: any;
@@ -262,20 +261,32 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       )}
       </CardContent>
 
-      <AlertDialog open={uncommitDialog.open} onOpenChange={(open) => setUncommitDialog({ ...uncommitDialog, open })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove commitment?</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Sheet open={uncommitDialog.open} onOpenChange={(open) => setUncommitDialog({ ...uncommitDialog, open })}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Remove commitment?</SheetTitle>
+            <SheetDescription>
               Are you sure you want to remove your commitment to {uncommitDialog.blitzName}?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUncommit}>Yes, remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </SheetDescription>
+          </SheetHeader>
+          <SheetFooter className="flex flex-row gap-2 mt-6">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setUncommitDialog({ ...uncommitDialog, open: false })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleUncommit}
+            >
+              Yes, remove
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
