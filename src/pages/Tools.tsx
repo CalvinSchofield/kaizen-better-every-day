@@ -71,6 +71,7 @@ const Tools = () => {
           description: "Quick reference for competitor products",
           href: "/tools/competitors",
           icon: Shield,
+          comingSoon: true,
         },
         {
           title: "The Vault",
@@ -105,11 +106,10 @@ const Tools = () => {
           comingSoon: true,
         },
         {
-          title: "Leadership Directory",
-          description: "Contact your leaders",
-          href: "#",
+          title: "Useful Contacts",
+          description: "Contact info and tips for key resources",
+          href: "/tools/contacts",
           icon: Phone,
-          comingSoon: true,
         },
         {
           title: "Team Calendar",

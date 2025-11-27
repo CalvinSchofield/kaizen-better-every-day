@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import Training from "./pages/Training";
 import Tools from "./pages/Tools";
 import Competitors from "./pages/Competitors";
+import Contacts from "./pages/Contacts";
 import Assistant from "./pages/Assistant";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -74,6 +75,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Competitors />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/contacts"
+              element={
+                <ProtectedRoute>
+                  <Contacts />
                 </ProtectedRoute>
               }
             />
