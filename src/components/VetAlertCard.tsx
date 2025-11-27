@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Mail, AlertCircle, Moon, MessageSquare } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TeamMember {
   notionPageId: string;
@@ -41,10 +47,15 @@ interface RookieAlert {
 }
 
 export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => {
+  const { toast } = useToast();
   const [showCard, setShowCard] = useState(false);
   const [isMondayNightLights, setIsMondayNightLights] = useState(false);
   const [rookiesNeedingAttention, setRookiesNeedingAttention] = useState<RookieAlert[]>([]);
   const [alertSectionOpen, setAlertSectionOpen] = useState(true);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<RookieAlert | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [ipadAssigned, setIpadAssigned] = useState(false);
 
   useEffect(() => {
     console.log('[VetAlertCard] useEffect triggered', {
@@ -172,10 +183,98 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
     return blitz.location.split(',')[0].trim();
   };
 
+  const openUpdateDialog = (alert: RookieAlert) => {
+    setSelectedAlert(alert);
+    setSelectedStatus(alert.rookie.onboardingStatus || "Started");
+    setIpadAssigned(alert.rookie.ipadAssigned || false);
+    setUpdateDialogOpen(true);
+  };
+
+  const updateRookieInfo = async () => {
+    if (!selectedAlert) return;
+
+    try {
+      const updates: any = {};
+      
+      // Update onboarding status if needed
+      if (selectedAlert.needsOnboarding) {
+        const { error: statusError } = await supabase.functions.invoke('update-rookie-status', {
+          body: {
+            rookieNotionPageId: selectedAlert.rookie.notionPageId,
+            onboardingStatus: selectedStatus,
+          },
+        });
+        if (statusError) throw statusError;
+        updates.onboardingStatus = selectedStatus;
+      }
+
+      // Update iPad status if needed
+      if (selectedAlert.needsIpad) {
+        const { data: repData, error: fetchError } = await supabase
+          .from('reps')
+          .select('id')
+          .eq('notion_page_id', selectedAlert.rookie.notionPageId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const { error: ipadError } = await supabase
+          .from('reps')
+          .update({ ipad_assigned: ipadAssigned })
+          .eq('id', repData.id);
+
+        if (ipadError) throw ipadError;
+        updates.ipadAssigned = ipadAssigned;
+      }
+
+      // Remove alert from list if both issues resolved
+      const statusResolved = !selectedAlert.needsOnboarding || selectedStatus.includes("Phase 4");
+      const ipadResolved = !selectedAlert.needsIpad || ipadAssigned;
+      
+      if (statusResolved && ipadResolved) {
+        setRookiesNeedingAttention(prev => 
+          prev.filter(a => 
+            !(a.rookie.notionPageId === selectedAlert.rookie.notionPageId && 
+              a.blitz.id === selectedAlert.blitz.id)
+          )
+        );
+      } else {
+        // Update alert in place
+        setRookiesNeedingAttention(prev => 
+          prev.map(a => 
+            a.rookie.notionPageId === selectedAlert.rookie.notionPageId && a.blitz.id === selectedAlert.blitz.id
+              ? { 
+                  ...a, 
+                  rookie: { ...a.rookie, ...updates },
+                  needsOnboarding: !statusResolved,
+                  needsIpad: !ipadResolved
+                }
+              : a
+          )
+        );
+      }
+
+      toast({
+        title: "Updated successfully",
+        description: `${selectedAlert.rookie.name}'s information has been updated`,
+      });
+
+      setUpdateDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error updating rookie:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!showCard) return null;
 
   return (
-    <Card className="mb-6 border-orange-500/40 bg-gradient-to-br from-orange-500/10 to-transparent animate-fade-in animate-scale-in">
+    <>
+    <Card className="mb-6 border-orange-500/40 bg-gradient-to-br from-orange-500/10 to-transparent animate-in fade-in slide-in-from-top-2 duration-500">
       <CardContent className="pt-6 space-y-4">
         {/* Monday Night Lights */}
         {isMondayNightLights && (
@@ -202,22 +301,22 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
           <Collapsible open={alertSectionOpen} onOpenChange={setAlertSectionOpen}>
             <div className="space-y-3">
               <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center justify-between group">
+                <button className="w-full flex items-center justify-between group hover:opacity-80 transition-all duration-300">
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 animate-pulse" />
+                    <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 animate-[pulse_2s_ease-in-out_infinite]" />
                     <h3 className="font-semibold text-lg">Ramp to Blitz Not Complete</h3>
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-xs animate-in zoom-in-50 duration-300">
                       {rookiesNeedingAttention.length}
                     </Badge>
                   </div>
                   {alertSectionOpen ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    <ChevronUp className="h-4 w-4 text-muted-foreground transition-transform duration-300" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-300" />
                   )}
                 </button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2">
+              <CollapsibleContent className="space-y-2 animate-in slide-in-from-top-2 duration-500">
                 <p className="text-sm text-muted-foreground">
                   These rookies need to complete their prep before their upcoming blitz:
                 </p>
@@ -228,51 +327,38 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
                     if (alert.needsOnboarding) issues.push("Finish Ramp to Blitz");
                     
                     return (
-                      <div
+                      <button
                         key={idx}
-                        className="flex items-center justify-between p-3 bg-card border border-orange-500/30 rounded-lg"
+                        onClick={() => openUpdateDialog(alert)}
+                        className="w-full flex items-center justify-between p-3 bg-card border border-orange-500/30 rounded-lg hover:bg-accent/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-pointer group"
                       >
-                        <div className="flex-1">
-                          <p className="font-medium text-orange-600 dark:text-orange-400">
-                            {alert.rookie.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-orange-600 dark:text-orange-400">
+                              {alert.rookie.name}
+                            </p>
+                            <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground flex-shrink-0 animate-in zoom-in-50 duration-200">
+                              Update
+                            </Badge>
+                            {alert.needsIpad && (
+                              <Badge variant="outline" className="text-xs bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800 text-red-700 dark:text-red-400">
+                                Needs iPad
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
                             {getSimplifiedLocation(alert.blitz)} in {alert.daysUntil} {alert.daysUntil === 1 ? 'day' : 'days'}
                           </p>
                           <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                             Needs: {issues.join(", ")}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {alert.needsIpad && (
-                            <button
-                              onClick={() => sendIpadRequestEmail(alert.rookie)}
-                              className="p-2 hover:bg-orange-500/10 rounded transition-colors"
-                              title="Request iPad"
-                            >
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                            </button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const phone = alert.rookie.phone;
-                              if (phone) {
-                                window.location.href = `sms:${phone}`;
-                              }
-                            }}
-                            title="Message rookie"
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
                 <p className="text-xs text-muted-foreground italic">
-                  Tap mail icon to request iPad, message icon to reach out about progress
+                  Tap a rookie's card to update their iPad status and/or ramp progress
                 </p>
               </CollapsibleContent>
             </div>
@@ -280,5 +366,78 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
         )}
       </CardContent>
     </Card>
+
+    {/* Update Dialog */}
+    <Sheet open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        {selectedAlert && (
+          <>
+            <SheetHeader>
+              <SheetTitle>Update {selectedAlert.rookie.name}</SheetTitle>
+              <SheetDescription>
+                Update their preparation status for the {getSimplifiedLocation(selectedAlert.blitz)} blitz
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-4 py-6">
+              {selectedAlert.needsOnboarding && (
+                <div className="space-y-2">
+                  <Label>Onboarding Stage</Label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="text-base">
+                      <SelectValue placeholder="Select completed stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Started">✓ Started</SelectItem>
+                      <SelectItem value="Onboarding ✅">✓ Onboarding</SelectItem>
+                      <SelectItem value="Trainings ✅">✓ Required Trainings</SelectItem>
+                      <SelectItem value="Slack ✅">✓ Slack</SelectItem>
+                      <SelectItem value="Phase 1 ✅">✓ Phase 1</SelectItem>
+                      <SelectItem value="Phase 2 ✅">✓ Phase 2</SelectItem>
+                      <SelectItem value="Phase 3 ✅">✓ Phase 3</SelectItem>
+                      <SelectItem value="Phase 4 ✅">✓ Phase 4 (Blitz Ready)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {selectedAlert.needsIpad && (
+                <div className="space-y-2">
+                  <Label>iPad Assignment</Label>
+                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                    <Checkbox 
+                      id="ipad-checkbox"
+                      checked={ipadAssigned}
+                      onCheckedChange={(checked) => setIpadAssigned(checked as boolean)}
+                    />
+                    <label htmlFor="ipad-checkbox" className="text-sm cursor-pointer flex-1">
+                      iPad has been assigned
+                    </label>
+                  </div>
+                  {!ipadAssigned && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => sendIpadRequestEmail(selectedAlert.rookie)}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Request iPad via Email
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setUpdateDialogOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={updateRookieInfo} className="flex-1">
+                Update
+              </Button>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };
