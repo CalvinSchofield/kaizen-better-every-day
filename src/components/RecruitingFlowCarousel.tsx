@@ -9,7 +9,8 @@ import {
   Rocket, 
   Trophy, 
   GraduationCap,
-  Copy
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useToast } from "@/hooks/use-toast";
@@ -181,24 +182,39 @@ export const RecruitingFlowCarousel = () => {
                     {/* Links */}
                     {step.links.length > 0 && (
                       <div className="space-y-2">
-                        {step.links.map((link, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full justify-start"
-                              onClick={() => copyToClipboard(link.url, link.label)}
-                            >
-                              <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
-                              <span className="truncate">{link.label}</span>
-                            </Button>
-                            {link.subtext && (
-                              <p className="text-xs text-muted-foreground italic ml-1">
-                                {link.subtext}
-                              </p>
-                            )}
-                          </div>
-                        ))}
+                        {step.links.map((link, idx) => {
+                          const isRecruitingFlow = link.label === "Recruiting Content Flow";
+                          const handleClick = () => {
+                            if (isRecruitingFlow) {
+                              window.open(link.url, '_blank', 'noopener,noreferrer');
+                            } else {
+                              copyToClipboard(link.url, link.label);
+                            }
+                          };
+                          
+                          return (
+                            <div key={idx} className="space-y-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={handleClick}
+                              >
+                                {isRecruitingFlow ? (
+                                  <ExternalLink className="h-4 w-4 mr-2 flex-shrink-0" />
+                                ) : (
+                                  <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
+                                )}
+                                <span className="truncate">{link.label}</span>
+                              </Button>
+                              {link.subtext && (
+                                <p className="text-xs text-muted-foreground italic ml-1">
+                                  {link.subtext}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
