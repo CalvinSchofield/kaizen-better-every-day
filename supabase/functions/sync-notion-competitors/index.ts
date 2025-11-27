@@ -127,48 +127,35 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
     // Check for callout block with "Our selling points"
     if (block.type === 'callout') {
       const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+      const calloutIcon = block.callout?.icon?.emoji || '';
       
-      // Check if children were already fetched
-      const existingChildren = block.callout?.children || [];
+      console.log(`Callout found - Text: "${calloutText}", Icon: "${calloutIcon}", Has children: ${block.has_children}`);
       
-      // Look for "Our selling points" in callout text OR in child heading/paragraph blocks
-      let isSellingPointsCallout = calloutText.toLowerCase().includes('our selling points');
-      
-      // If not in callout text, check first few children for heading or paragraph with the text
-      if (!isSellingPointsCallout && existingChildren.length > 0) {
-        for (let i = 0; i < Math.min(3, existingChildren.length); i++) {
-          const child = existingChildren[i];
-          if (child.type === 'heading_2' || child.type === 'heading_3' || child.type === 'paragraph') {
-            const childText = child[child.type]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
-            if (childText.toLowerCase().includes('our selling points')) {
-              isSellingPointsCallout = true;
-              console.log(`Found "Our selling points" in ${child.type} inside callout`);
-              break;
-            }
-          }
-        }
-      }
+      // Look for "Our selling points" in callout text (with or without emoji)
+      const isSellingPointsCallout = calloutText.toLowerCase().includes('our selling points') || 
+                                      calloutText.toLowerCase().includes('selling points');
       
       if (isSellingPointsCallout) {
-        console.log('Found "Our selling points" callout, extracting list items...');
+        console.log('✅ Found "Our selling points" callout!');
         
-        // Use existing children if available, otherwise fetch
-        const children = existingChildren.length > 0 ? existingChildren : await fetchNotionBlocks(block.id, notionToken);
-        console.log(`Processing ${children.length} children blocks in callout`);
+        // Fetch children blocks of this callout
+        const children = await fetchNotionBlocks(block.id, notionToken);
+        console.log(`Found ${children.length} children blocks in selling points callout`);
         
         for (const child of children) {
-          console.log(`Child block type: ${child.type}`);
           if (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item') {
             const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
             const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
             if (text) {
-              // Remove markdown formatting like **bold** and trim
-              const cleanText = text.replace(/\*\*/g, '').trim();
-              console.log('Extracted selling point:', cleanText);
+              // Remove markdown formatting like **bold** and leading numbers/bullets, then trim
+              const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
+              console.log('✅ Extracted selling point:', cleanText);
               ourSellingPoints.push(cleanText);
             }
           }
         }
+        
+        console.log(`Total selling points extracted: ${ourSellingPoints.length}`);
       }
     }
 
