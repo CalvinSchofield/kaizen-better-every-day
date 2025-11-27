@@ -814,10 +814,10 @@ const Home = () => {
             const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
             return (
-              <div className="space-y-3 mb-3">
+              <div className="space-y-3 mb-3 -mx-6">
                 <button
                   onClick={() => setCalendarModalOpen(true)}
-                  className="group flex items-center gap-3 text-left w-full px-6 -mx-6 py-3 rounded-none bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+                  className="group flex items-center gap-3 text-left w-full px-6 py-3 bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
                 >
                   <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                   <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
@@ -827,7 +827,7 @@ const Home = () => {
                 </button>
                 
                 {showWeather && weatherDiffDays <= 7 && (
-                  <div className="flex gap-2 pt-1 overflow-x-auto px-6 -mx-6">
+                  <div className="flex gap-2 pt-1 overflow-x-auto px-6">
                     {weather.map((day) => (
                       <div
                         key={day.date}
