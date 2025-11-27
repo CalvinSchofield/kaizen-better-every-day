@@ -26,52 +26,43 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load initial commitments from repData
+  // Load blitzes directly from repData.committed_blitzes (synced from Notion)
   useEffect(() => {
-    if (repData?.committed_blitzes) {
-      const commitments = Array.isArray(repData.committed_blitzes) 
-        ? repData.committed_blitzes 
-        : [];
-      setCommittedBlitzes(commitments);
-      console.log('[VetBlitzCommitments] Loaded initial commitments:', commitments);
+    setLoading(true);
+    
+    if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
+      // Filter to future blitzes only
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const futureBlitzes = repData.committed_blitzes
+        .filter((blitz: any) => {
+          if (!blitz || !blitz.date) return false;
+          const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+          blitzEndDate.setHours(0, 0, 0, 0);
+          return blitzEndDate >= today;
+        })
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      setAllBlitzes(futureBlitzes);
+      // Pre-populate all as committed since they're in the rep's Notion relation
+      setCommittedBlitzes(futureBlitzes.map((b: any) => b.name));
+      console.log('[VetBlitzCommitments] Loaded blitzes from repData:', futureBlitzes);
+    } else {
+      setAllBlitzes([]);
+      setCommittedBlitzes([]);
     }
+    
+    setLoading(false);
   }, [repData]);
-
-  // Fetch all blitzes from Preseason Trips database via edge function
-  useEffect(() => {
-    const fetchBlitzes = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
-        
-        if (error) throw error;
-        
-        if (data?.blitzes) {
-          setAllBlitzes(data.blitzes);
-          console.log('[VetBlitzCommitments] Loaded blitzes:', data.blitzes);
-        }
-      } catch (error) {
-        console.error('[VetBlitzCommitments] Error fetching blitzes:', error);
-        toast({
-          title: "Error loading blitzes",
-          description: "Could not load upcoming blitzes. Please refresh.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBlitzes();
-  }, [toast]);
 
   const toggleCommitment = async (blitzName: string) => {
     const isCommitted = committedBlitzes.includes(blitzName);
-    const newCommitments = isCommitted
+    const newCommitmentNames = isCommitted
       ? committedBlitzes.filter(b => b !== blitzName)
       : [...committedBlitzes, blitzName];
 
-    setCommittedBlitzes(newCommitments);
+    setCommittedBlitzes(newCommitmentNames);
 
     // Show confetti animation when committing
     if (!isCommitted) {
@@ -82,33 +73,14 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       });
     }
 
-    // Save to database
-    try {
-      const { error: updateError } = await supabase
-        .from('reps')
-        .update({ 
-          committed_blitzes: newCommitments
-        })
-        .eq('id', repData.id);
-
-      if (updateError) throw updateError;
-
-      toast({
-        title: isCommitted ? "Commitment removed" : "Committed!",
-        description: isCommitted 
-          ? `You've removed your commitment to ${blitzName}`
-          : `You've committed to ${blitzName}`,
-      });
-    } catch (error) {
-      console.error("Error updating commitment:", error);
-      toast({
-        title: "Error",
-        description: "Could not update your commitment. Please try again.",
-        variant: "destructive",
-      });
-      // Revert on error
-      setCommittedBlitzes(isCommitted ? [...committedBlitzes, blitzName] : committedBlitzes.filter(b => b !== blitzName));
-    }
+    // Note: Commitment updates should be handled via Notion automation
+    // The committed_blitzes field is synced FROM Notion, not TO Notion
+    toast({
+      title: isCommitted ? "Commitment removed" : "Committed!",
+      description: isCommitted 
+        ? `You've removed your commitment to ${blitzName}`
+        : `You've committed to ${blitzName}. This will sync to Notion on next refresh.`,
+    });
   };
 
   return (
