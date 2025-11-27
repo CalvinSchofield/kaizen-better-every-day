@@ -53,7 +53,7 @@ interface TeamMember {
 export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
-  const [expandedBlitzes, setExpandedBlitzes] = useState<Set<string>>(new Set());
+  const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [contactedMembers, setContactedMembers] = useState<{ [blitzId: string]: string[] }>({});
@@ -125,15 +125,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   };
 
   const toggleBlitzExpansion = (blitzId: string) => {
-    setExpandedBlitzes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(blitzId)) {
-        newSet.delete(blitzId);
-      } else {
-        newSet.add(blitzId);
-      }
-      return newSet;
-    });
+    setExpandedBlitz(prev => prev === blitzId ? null : blitzId);
   };
 
   const toggleInviteList = (blitzId: string) => {
@@ -407,7 +399,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
       <CardContent className="space-y-3">
         {allBlitzes.map((blitz) => {
           const isCommitted = committedBlitzIds.includes(blitz.id);
-          const isExpanded = expandedBlitzes.has(blitz.id);
+          const isExpanded = expandedBlitz === blitz.id;
           const committedMembers = getCommittedMembers(blitz.id);
           const uncommittedMembers = getUncommittedMembers(blitz.id);
           const rookieCount = getRookieCount(blitz.id);
