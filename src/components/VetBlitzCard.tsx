@@ -27,6 +27,8 @@ import {
 interface VetBlitzCardProps {
   repData: any;
   allBlitzes: any[];
+  teamMembers: TeamMember[];
+  isTeamLead: boolean;
 }
 
 interface BlitzEvent {
@@ -50,17 +52,15 @@ interface TeamMember {
   onboardingStatus: string | null;
 }
 
-export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
+export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(propTeamMembers);
   const [contactedMembers, setContactedMembers] = useState<{ [blitzId: string]: string[] }>({});
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
-  const [isTeamLead, setIsTeamLead] = useState(false);
   const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
@@ -75,51 +75,17 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     }
   }, [repData]);
 
+  // Sync team members from props
+  useEffect(() => {
+    setTeamMembers(propTeamMembers);
+  }, [propTeamMembers]);
+
   // Load contacted members from repData
   useEffect(() => {
     if (repData?.contacted_for_blitz) {
       setContactedMembers(repData.contacted_for_blitz);
     }
   }, [repData?.contacted_for_blitz]);
-
-  // Fetch team members
-  useEffect(() => {
-    const fetchTeamMembers = async () => {
-      if (!repData?.notion_page_id) return;
-
-      setLoading(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('fetch-team-members', {
-          body: { leaderNotionPageId: repData.notion_page_id },
-        });
-
-        if (error) throw error;
-
-        if (data) {
-          setIsTeamLead(data.isTeamLead || false);
-          
-          if (data.teamMembers) {
-            // Filter out the vet themselves from their team list
-            const filteredMembers = data.teamMembers.filter(
-              (member: TeamMember) => member.notionPageId !== repData.notion_page_id
-            );
-            setTeamMembers(filteredMembers);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching team members:', error);
-        toast({
-          title: "Error loading team",
-          description: "Could not load team members. Please refresh.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTeamMembers();
-  }, [repData?.notion_page_id, toast]);
 
   // Sort team members by year (rookies first) then alphabetically
   const sortTeamMembers = (members: TeamMember[]) => {
@@ -368,20 +334,6 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     return "Started";
   };
 
-  if (loading) {
-    return (
-      <Card className="mb-6">
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (allBlitzes.length === 0) {
     return (
@@ -402,7 +354,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   }
 
   // Simplified view for vets who are not team leads
-  if (!isTeamLead) {
+  if (!propIsTeamLead) {
     return (
       <Card className="mb-6">
         <CardHeader>

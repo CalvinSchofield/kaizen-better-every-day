@@ -13,6 +13,7 @@ import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
+import { VetAlertCard } from "@/components/VetAlertCard";
 import {
   Sheet,
   SheetContent,
@@ -49,6 +50,19 @@ const PAY_SCALES = [
   { label: "Sales Rules", file: "/documents/2025_Sales_Rules.pdf" },
 ];
 
+interface TeamMember {
+  notionPageId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  blitzReady: boolean;
+  committedBlitzes: string[];
+  ipadAssigned: boolean;
+  year: string | null;
+  stage: string | null;
+  onboardingStatus: string | null;
+}
+
 export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -56,11 +70,53 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [helpSheetOpen, setHelpSheetOpen] = useState(false);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isTeamLead, setIsTeamLead] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(true);
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
     onSync();
   }, []);
+
+  // Fetch team members for team leads
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      if (!repData?.notion_page_id) return;
+
+      setTeamLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-team-members', {
+          body: { leaderNotionPageId: repData.notion_page_id },
+        });
+
+        if (error) throw error;
+
+        if (data) {
+          setIsTeamLead(data.isTeamLead || false);
+          
+          if (data.teamMembers) {
+            // Filter out the vet themselves from their team list
+            const filteredMembers = data.teamMembers.filter(
+              (member: TeamMember) => member.notionPageId !== repData.notion_page_id
+            );
+            setTeamMembers(filteredMembers);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching team members:', error);
+        toast({
+          title: "Error loading team",
+          description: "Could not load team members. Please refresh.",
+          variant: "destructive",
+        });
+      } finally {
+        setTeamLoading(false);
+      }
+    };
+
+    fetchTeamMembers();
+  }, [repData?.notion_page_id, toast]);
   
   // Local state for editable stats - initialize from repData
   const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
@@ -218,6 +274,14 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
         {/* Blitz Countdown - Removed from top */}
+
+        {/* Dynamic Alert Card for Team Leads */}
+        {isTeamLead && !teamLoading && (
+          <VetAlertCard 
+            teamMembers={teamMembers}
+            allBlitzes={allBlitzes}
+          />
+        )}
 
         {/* Status Dashboard Card */}
         <Card className="mb-6 shadow-lg">
@@ -418,7 +482,14 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         </Card>
 
         {/* Unified Blitz Management */}
-        {!blitzesLoading && <VetBlitzCard repData={repData} allBlitzes={allBlitzes} />}
+        {!blitzesLoading && !teamLoading && (
+          <VetBlitzCard 
+            repData={repData} 
+            allBlitzes={allBlitzes}
+            teamMembers={teamMembers}
+            isTeamLead={isTeamLead}
+          />
+        )}
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
