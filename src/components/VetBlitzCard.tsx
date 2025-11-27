@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
+  const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
   useEffect(() => {
@@ -125,7 +126,21 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   };
 
   const toggleBlitzExpansion = (blitzId: string) => {
-    setExpandedBlitz(prev => prev === blitzId ? null : blitzId);
+    setExpandedBlitz(prev => {
+      const newExpandedId = prev === blitzId ? null : blitzId;
+      
+      // Auto-scroll to the expanded blitz card after a brief delay
+      if (newExpandedId) {
+        setTimeout(() => {
+          const element = blitzRefs.current[newExpandedId];
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
+      
+      return newExpandedId;
+    });
   };
 
   const toggleInviteList = (blitzId: string) => {
@@ -416,6 +431,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
               onOpenChange={() => toggleBlitzExpansion(blitz.id)}
             >
               <div 
+                ref={(el) => blitzRefs.current[blitz.id] = el}
                 className="border rounded-lg p-4 space-y-3 cursor-pointer active:scale-[0.99] transition-transform"
                 onClick={() => toggleBlitzExpansion(blitz.id)}
               >
@@ -552,13 +568,13 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                             return (
                               <div
                                 key={member.notionPageId}
-                                className="flex items-center justify-between p-2.5 border rounded-lg bg-card"
+                                className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${isContactedForThisBlitz ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
                               >
                                 <button
                                   onClick={() => toggleContactedStatus(member.notionPageId, blitz.id)}
                                   className="flex items-center gap-2 flex-1 text-left min-w-0"
                                 >
-                                  <span className={`font-medium text-sm truncate ${isContactedForThisBlitz ? 'line-through opacity-50' : ''} ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                  <span className={`font-medium text-sm truncate transition-all ${isContactedForThisBlitz ? 'line-through text-muted-foreground' : ''} ${!isContactedForThisBlitz && member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
                                     {member.name}
                                   </span>
                                 </button>
