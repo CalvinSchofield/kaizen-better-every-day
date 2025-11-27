@@ -9,7 +9,7 @@ interface Contact {
   id: string;
   name: string;
   role: string;
-  phone: string;
+  phone?: string;
   textPhone?: string;
   email?: string;
   category: string;
@@ -24,58 +24,92 @@ const Contacts = () => {
 
   const contacts: Contact[] = [
     {
-      id: "ac",
-      name: "Account Creations",
-      role: "Vivint Support",
-      phone: "(801) 377-9111",
-      textPhone: "(801) 377-9111",
+      id: "1stop",
+      name: "1Stop / Sales Assets",
+      role: "General Support & Equipment",
+      phone: "(888) 324-5771",
+      textPhone: "(801) 509-9080",
+      email: "1stop@vivint.com",
       category: "Important Vivint Contacts",
       tips: [
-        "Text first for non-urgent matters. For urgent cases, call and use extension 1,1,1",
-        "Call AC if pre-install surveys fail on Street Genie - have account number ready",
-        "They can provide key account info: equipment status, payment status, write-off history",
+        "Use for rep promised credits, password reset, rep office changes, onboarding questions",
+        "Also handles account funding status, commissions questions, iPads/knocking polos/badge ID",
+        "For iPads/jerseys/hats, can also email salesassets@vivint.com",
       ],
-      notes: "For scheduling jobs with 4-hour window (corporate) or 2-hour (summer techs), use the button below to send a pre-filled text.",
+      notes: "Hours: Mon-Sat 7 AM-6 PM (MST), Sunday Closed. Phone: Option 1, 3, 1",
+    },
+    {
+      id: "ac",
+      name: "Account Creations",
+      role: "Account Setup & Scheduling",
+      phone: "(888) 324-5771",
+      textPhone: "(435) 466-7224",
+      email: "acadvocates@vivint.com",
+      category: "Important Vivint Contacts",
+      tips: [
+        "Front line: Pre-install surveys, scheduling technicians, upgrade support",
+        "Genie Bar: Finance app troubleshooting, customer pre-qualification, package questions",
+        "Advocates: Post Activation Upgrades, Extending ROR, Post Activation Account Fixes, Solar Arbitration",
+      ],
+      notes: "Hours vary by department. Phone extension: 1,1, AC IVR. For scheduling jobs, use button below.",
     },
     {
       id: "sos",
       name: "SOS",
-      role: "Customer Problems",
-      phone: "(801) 377-9750",
+      role: "Escalated Customer Issues",
+      phone: "(800) 236-6808",
+      textPhone: "(801) 823-4406",
+      email: "sos@vivint.com",
       category: "Important Vivint Contacts",
       tips: [
-        "Use for customer problems only",
-        "Your job isn't customer service - assess, try to upgrade, then hand off",
-        "Say 'I'll have the company reach out to solve this!' then text SOS briefly",
+        "Use for escalated customers with non-troubleshooting issues (charged upfront when shouldn't have been, billing escalations, other concerns)",
+        "Also handles ordering and scheduling upgrades/add-ons, processing downgrades, scheduling work orders",
+        "Extend ROR period, Schedule Incomplete Installs",
       ],
+      notes: "Hours: Mon-Fri 7am-6pm (MST). Phone available M-F: 9 AM-5 PM. Saturday 8:30am-5pm (Text or Email Only). Sunday Closed",
+    },
+    {
+      id: "qrf",
+      name: "QRF",
+      role: "Equipment Troubleshooting",
+      email: "qrfinbox@vivint.com",
+      category: "Important Vivint Contacts",
+      tips: [
+        "Use for equipment troubleshooting only",
+      ],
+      notes: "Hours: Mon-Fri 7am-6pm (MST), Saturday 8:30am-5pm (Text or Email Only), Sunday Closed",
     },
     {
       id: "buyouts",
       name: "Buyouts",
       role: "Contract Buyouts",
       phone: "(801) 377-9060",
+      textPhone: "(435) 222-2010",
+      email: "buyout@vivint.com",
       category: "Important Vivint Contacts",
       tips: [
+        "Adjust buyout amounts, buyout questions, elite fulfillment questions",
         "Reps can approve buyouts through Street Genie up to $1,500",
         "First $1,000 covered by Vivint, rep pays 100% over $1,000",
         "Buyouts over $2,000 often result in contract cancellation",
-        "PI4 Front Door and Outdoor Protect not eligible (need 2 cams)",
-        "Try to keep service at $44.99+ to avoid extra deductions",
-        "Below $39.99 triggers upfront deduction",
       ],
+      notes: "Hours: Mon-Fri 7 AM-6 PM (MST), Saturday 9 AM-5 PM (MST)",
     },
     {
-      id: "1stop",
-      name: "1Stop",
-      role: "Vivint Support",
-      phone: "(801) 377-9001",
+      id: "customer-care",
+      name: "Customer Care",
+      role: "General Customer Support",
+      phone: "(800) 678-2635",
       category: "Important Vivint Contacts",
+      tips: [
+        "General customer service line for basic inquiries",
+      ],
     },
     {
       id: "loyalty",
       name: "Customer Loyalty",
-      role: "Customer Support",
-      phone: "(800) 216-5232",
+      role: "Customer Retention",
+      phone: "(877) 275-0177",
       category: "Important Vivint Contacts",
       tips: [
         "Give this number to customers past their ROR period",
@@ -83,42 +117,49 @@ const Contacts = () => {
       ],
     },
     {
-      id: "assets",
-      name: "Sales Assets",
-      role: "Equipment & Materials",
-      phone: "(385) 355-3095",
-      email: "salesassets@vivint.com",
-      category: "Important Vivint Contacts",
-      tips: [
-        "Email or call for iPads, jerseys, hats, etc.",
-        "Contact if you drop and break your iPad",
-      ],
-    },
-    {
       id: "licensing",
       name: "State Licensing",
       role: "Licensing Support",
-      phone: "(385) 355-3001",
+      phone: "(888) 324-5771",
+      email: "employeelicensing@vivint.com",
       category: "Important Vivint Contacts",
+      tips: [
+        "Applications, fees, renewals, fingerprints",
+      ],
+      notes: "Hours: Mon-Fri 9 am-5 pm (MST), Sat-Sun Closed. Phone extension: 1,3,2",
     },
     {
       id: "housing",
       name: "Housing",
       role: "Housing Support",
-      phone: "(801) 765-8398",
-      category: "Important Vivint Contacts",
-    },
-    {
-      id: "paybyphone",
-      name: "Pay by Phone",
-      role: "Payment Support",
-      phone: "(800) 216-5232",
+      phone: "(888) 324-5771",
+      email: "housing@vivint.com",
       category: "Important Vivint Contacts",
       tips: [
-        "Customer must call from their phone to add payment method before install",
-        "Have account/service # ready",
-        "Call with them if possible",
-        "Robot answers first. After 3 attempts between 8am-6pm, reach live agent",
+        "Summer housing, rent & utility deductions",
+      ],
+      notes: "Hours: Mon-Fri 9 am-5 pm (MST), Sat-Sun Closed. Phone extension: 1,3,4",
+    },
+    {
+      id: "arbitration",
+      name: "Arbitration",
+      role: "Arbitration Requests",
+      email: "accountarbitration@vivint.com",
+      category: "Important Vivint Contacts",
+      tips: [
+        "Arbitration questions, requests",
+      ],
+      notes: "Hours: Monday-Friday 9 AM-5 PM (MST)",
+    },
+    {
+      id: "compliance",
+      name: "Compliance",
+      role: "Compliance Questions",
+      email: "joshua.powell@vivint.com",
+      textPhone: "(385) 250-4896",
+      category: "Important Vivint Contacts",
+      tips: [
+        "Compliance questions (Josh Powell)",
       ],
     },
   ];
@@ -209,17 +250,19 @@ const Contacts = () => {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            className="flex-1"
-                            asChild
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
-                              <Phone className="w-4 h-4 mr-2" />
-                              {contact.phone}
-                            </a>
-                          </Button>
+                          {contact.phone && (
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              asChild
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
+                                <Phone className="w-4 h-4 mr-2" />
+                                {contact.phone}
+                              </a>
+                            </Button>
+                          )}
                           
                           {contact.textPhone && (
                             <Button
