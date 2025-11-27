@@ -50,7 +50,10 @@ export const BlitzCountdown = ({
           }
         );
 
-        if (error) throw error;
+        if (error) {
+          console.error("Weather fetch error:", error);
+          return;
+        }
 
         if (data) {
           setWeather(data.forecasts || []);
@@ -63,7 +66,12 @@ export const BlitzCountdown = ({
       }
     };
 
-    if (tripDate) {
+    if (!tripDate) {
+      setDaysUntil(null);
+      return;
+    }
+
+    try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const blitzDate = new Date(tripDate);
@@ -76,6 +84,9 @@ export const BlitzCountdown = ({
       if (diffDays > 0 && diffDays <= 14 && tripLocation && tripEndDate) {
         fetchWeather();
       }
+    } catch (error) {
+      console.error("Error calculating days until blitz:", error);
+      setDaysUntil(null);
     }
   }, [tripDate, tripLocation, tripEndDate]);
 
