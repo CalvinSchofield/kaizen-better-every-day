@@ -301,6 +301,15 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           <VetAlertCard 
             teamMembers={teamMembers}
             allBlitzes={allBlitzes}
+            onTeamMemberUpdate={(notionPageId, updates) => {
+              setTeamMembers(prev => 
+                prev.map(m => 
+                  m.notionPageId === notionPageId 
+                    ? { ...m, ...updates }
+                    : m
+                )
+              );
+            }}
           />
         )}
 
@@ -509,6 +518,15 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             allBlitzes={allBlitzes}
             teamMembers={teamMembers}
             isTeamLead={isTeamLead}
+            onTeamMemberUpdate={(notionPageId, updates) => {
+              setTeamMembers(prev => 
+                prev.map(m => 
+                  m.notionPageId === notionPageId 
+                    ? { ...m, ...updates }
+                    : m
+                )
+              );
+            }}
           />
         )}
 

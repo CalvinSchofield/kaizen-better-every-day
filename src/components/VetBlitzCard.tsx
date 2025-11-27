@@ -44,6 +44,7 @@ interface VetBlitzCardProps {
   allBlitzes: any[];
   teamMembers: TeamMember[];
   isTeamLead: boolean;
+  onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
 }
 
 interface BlitzEvent {
@@ -67,7 +68,7 @@ interface TeamMember {
   onboardingStatus: string | null;
 }
 
-export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead }: VetBlitzCardProps) => {
+export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
@@ -334,14 +335,21 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
       if (error) throw error;
 
+      const updates = { onboardingStatus: selectedStatus };
+
       // Update local state
       setTeamMembers(prev =>
         prev.map(m =>
           m.notionPageId === selectedRookie.notionPageId
-            ? { ...m, onboardingStatus: selectedStatus }
+            ? { ...m, ...updates }
             : m
         )
       );
+
+      // Notify parent of changes
+      if (onTeamMemberUpdate) {
+        onTeamMemberUpdate(selectedRookie.notionPageId, updates);
+      }
 
       toast({
         title: "Status updated",

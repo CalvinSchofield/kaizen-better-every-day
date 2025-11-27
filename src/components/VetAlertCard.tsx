@@ -36,6 +36,7 @@ interface BlitzEvent {
 interface VetAlertCardProps {
   teamMembers: TeamMember[];
   allBlitzes: BlitzEvent[];
+  onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
 }
 
 interface RookieAlert {
@@ -46,7 +47,7 @@ interface RookieAlert {
   needsOnboarding: boolean;
 }
 
-export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => {
+export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: VetAlertCardProps) => {
   const { toast } = useToast();
   const [showCard, setShowCard] = useState(false);
   const [isMondayNightLights, setIsMondayNightLights] = useState(false);
@@ -225,6 +226,11 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
 
         if (ipadError) throw ipadError;
         updates.ipadAssigned = ipadAssigned;
+      }
+
+      // Notify parent of changes
+      if (onTeamMemberUpdate) {
+        onTeamMemberUpdate(selectedAlert.rookie.notionPageId, updates);
       }
 
       // Remove alert from list if both issues resolved
