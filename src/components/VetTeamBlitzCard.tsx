@@ -185,7 +185,7 @@ export const VetTeamBlitzCard = ({ repData, allBlitzes }: VetTeamBlitzCardProps)
   }
 
   return (
-    <Card>
+    <Card className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
