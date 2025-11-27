@@ -223,16 +223,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
                 </p>
                 <div className="space-y-2">
                   {rookiesNeedingAttention.map((alert, idx) => {
-                    const status = alert.rookie.onboardingStatus || "Not Started";
-                    const simpleStatus = status.toLowerCase().includes("phase") 
-                      ? status.replace("Onboarding Step Completed: ", "")
-                      : status.toLowerCase().includes("training") 
-                      ? "Training"
-                      : "Not Started";
-                    
                     const issues: string[] = [];
                     if (alert.needsIpad) issues.push("iPad");
-                    if (alert.needsOnboarding) issues.push(simpleStatus);
+                    if (alert.needsOnboarding) issues.push("Finish Ramp to Blitz");
                     
                     return (
                       <div
