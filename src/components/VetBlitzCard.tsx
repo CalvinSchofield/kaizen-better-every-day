@@ -518,23 +518,17 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                                 )}
                               </div>
                               {showIpadWarning && (
-                                <Badge variant="destructive" className="text-xs flex-shrink-0 animate-pulse">
-                                  ⚠️ No iPad
-                                </Badge>
+                                <button
+                                  onClick={() => sendIpadRequestEmail(member)}
+                                  className="flex-shrink-0"
+                                >
+                                  <Badge variant="destructive" className="text-xs animate-pulse cursor-pointer hover:bg-destructive/90">
+                                    ⚠️ No iPad
+                                  </Badge>
+                                </button>
                               )}
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              {showIpadWarning && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-                                  onClick={() => sendIpadRequestEmail(member)}
-                                >
-                                  <Mail className="h-3 w-3 mr-1" />
-                                  iPad
-                                </Button>
-                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"
