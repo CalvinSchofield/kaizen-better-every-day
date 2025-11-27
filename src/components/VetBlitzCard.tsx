@@ -502,10 +502,12 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                                   {showIpadWarning && (
                                     <button
                                       onClick={() => sendIpadRequestEmail(member)}
-                                      className="flex-shrink-0"
+                                      className="flex-shrink-0 group"
+                                      title="Click to email sales assets"
                                     >
-                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse cursor-pointer hover:bg-destructive/90">
-                                        ⚠️ No iPad
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 animate-pulse cursor-pointer hover:bg-destructive/80 transition-all group-hover:scale-105 flex items-center gap-1">
+                                        <Mail className="h-2.5 w-2.5" />
+                                        No iPad
                                       </Badge>
                                     </button>
                                   )}
