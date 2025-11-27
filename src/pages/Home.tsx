@@ -92,6 +92,11 @@ const Home = () => {
     return "⛈️"; // Thunderstorm
   };
 
+  // Check if weather code indicates rain
+  const isRainy = (code: number) => {
+    return code >= 51 && code <= 82; // Drizzle, rain, and rain showers
+  };
+
   // Get completed tasks from database
   const completedTasksArray = (repData?.completed_tasks as string[]) || [];
   const completedTasks = useMemo(() => new Set(completedTasksArray), [completedTasksArray]);
@@ -449,6 +454,8 @@ const Home = () => {
         });
 
         if (!error && data?.forecasts) {
+          console.log('[Weather] Received forecasts:', data.forecasts);
+          console.log('[Weather] Start date:', repData.blitz_trip_date, 'End date:', repData.blitz_trip_end_date);
           setWeather(data.forecasts); // Show all working days
         }
       } catch (error) {
@@ -790,11 +797,31 @@ const Home = () => {
           </div>
 
           {/* Subtitle for pre-onboarding */}
-          {(!onboardingComplete || !trainingsComplete) && (
-            <p className="text-primary-foreground/90 text-base font-medium mb-3">
-              The basics to make your first $10k at Vivint
-            </p>
-          )}
+          {(!onboardingComplete || !trainingsComplete) && (() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+            const hasUpcomingBlitz = tripDate && tripDate >= today;
+            const diffTime = hasUpcomingBlitz ? tripDate!.getTime() - today.getTime() : 0;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Urgent message if blitz is within 7 days and onboarding incomplete
+            if (hasUpcomingBlitz && diffDays <= 7) {
+              const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
+              return (
+                <p className="text-red-500 dark:text-red-400 text-base font-bold mb-3">
+                  {firstName}, the onboarding process and all of Ramp to Blitz need to be done before you can attend the blitz. It shouldn't take you long and will help you get paid. Let's knock it out 👊
+                </p>
+              );
+            }
+            
+            // Normal message
+            return (
+              <p className="text-primary-foreground/90 text-base font-medium mb-3">
+                The basics to make your first $10k at Vivint
+              </p>
+            );
+          })()}
 
           {/* CTA Button - full width */}
           {(onboardingComplete && trainingsComplete) && (() => {
@@ -1109,34 +1136,56 @@ const Home = () => {
             </SheetTitle>
           </SheetHeader>
           
-          <div className="mt-6 overflow-x-auto -mx-6 px-6">
-            <div className="flex gap-3 pb-2">
-              {weather
-                .filter((day) => {
-                  const dayOfWeek = new Date(day.date).getDay();
-                  return dayOfWeek !== 0; // Exclude Sunday (0)
-                })
-                .map((day) => {
+          <div className="mt-6 relative">
+            {/* Scroll indicator */}
+            {weather.length > 3 && (
+              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 flex items-center justify-end pr-2">
+                <ChevronRight className="w-5 h-5 text-muted-foreground animate-pulse" />
+              </div>
+            )}
+            
+            <div className="overflow-x-auto -mx-6 px-6 pb-2">
+              <div className="flex gap-2.5">
+                {weather.map((day) => {
                   const date = new Date(day.date);
+                  const hasRain = isRainy(day.weatherCode);
+                  
                   return (
                     <div
                       key={day.date}
-                      className="flex-shrink-0 w-32 p-3 rounded-lg bg-secondary/50 border border-border text-center"
+                      className={`flex-shrink-0 w-24 p-2.5 rounded-lg bg-secondary/50 border text-center ${
+                        hasRain ? 'border-blue-400/40' : 'border-border'
+                      }`}
                     >
-                      <div className="text-sm text-muted-foreground font-medium mb-1">
+                      <div className="text-xs text-muted-foreground font-medium mb-0.5">
                         {date.toLocaleDateString("en-US", { weekday: "short" })}
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">
+                      <div className="text-[10px] text-muted-foreground mb-1.5">
                         {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </div>
-                      <div className="text-3xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
-                      <div className="text-lg font-bold">{day.high}°</div>
-                      <div className="text-xs text-muted-foreground">{day.low}°</div>
+                      <div className="text-2xl mb-1.5">{getWeatherIcon(day.weatherCode)}</div>
+                      <div className="text-base font-bold">{day.high}°</div>
+                      <div className="text-[10px] text-muted-foreground">{day.low}°</div>
                     </div>
                   );
                 })}
+              </div>
             </div>
           </div>
+
+          {/* Cold/Rain Warning */}
+          {(() => {
+            const hasColdDay = weather.some(day => day.high < 65);
+            const hasRainDay = weather.some(day => isRainy(day.weatherCode));
+            
+            return (hasColdDay || hasRainDay) && (
+              <div className="mt-4 px-6">
+                <p className="text-sm text-muted-foreground italic text-center">
+                  Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
+                </p>
+              </div>
+            );
+          })()}
 
           {(() => {
             const today = new Date();
