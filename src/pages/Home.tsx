@@ -503,8 +503,22 @@ const Home = () => {
   }, [nextBlitz]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        toast({
+          title: "Logout failed",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Always navigate to auth page, even if signOut had an error
+      navigate("/auth", { replace: true });
+    }
   };
 
   const confirmLogout = () => {
