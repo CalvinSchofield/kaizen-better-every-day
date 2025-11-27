@@ -95,54 +95,45 @@ const TeamCalendarModal = ({ open, onOpenChange }: TeamCalendarModalProps) => {
                 {events.map((event, index) => (
                   <Card 
                     key={index} 
-                    className="p-3 border-border hover:border-primary/50 transition-colors cursor-pointer"
+                    className={`border-border transition-all duration-200 cursor-pointer ${
+                      selectedEvent === event ? 'border-primary/50 bg-primary/5' : 'hover:border-primary/30'
+                    }`}
                     style={{ animationDelay: `${index * 50}ms` }}
-                    onClick={() => setSelectedEvent(event)}
+                    onClick={() => setSelectedEvent(selectedEvent === event ? null : event)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm mb-1">{event.title}</h4>
-                        <p className="text-xs text-muted-foreground">{event.date}</p>
-                        {event.location && (
-                          <p className="text-xs text-muted-foreground">{event.location}</p>
-                        )}
+                    <div className="p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm mb-1">{event.title}</h4>
+                          <p className="text-xs text-muted-foreground">{event.date}</p>
+                          {event.location && (
+                            <p className="text-xs text-muted-foreground">{event.location}</p>
+                          )}
+                        </div>
                       </div>
+                      
+                      {selectedEvent === event && (
+                        <div className="mt-3 pt-3 border-t border-border animate-fade-in">
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTextLeader(event.title);
+                            }}
+                            className="w-full"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Text Leader
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Event Detail Expansion */}
-          {selectedEvent && (
-            <Card className="p-4 border-primary/50 bg-primary/5 animate-fade-in">
-              <h4 className="font-semibold mb-2">{selectedEvent.title}</h4>
-              <p className="text-sm text-muted-foreground mb-1">{selectedEvent.date}</p>
-              {selectedEvent.location && (
-                <p className="text-sm text-muted-foreground mb-3">{selectedEvent.location}</p>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => handleTextLeader(selectedEvent.title)}
-                  className="flex-1"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Text Leader
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedEvent(null)}
-                  className="flex-1"
-                >
-                  Close
-                </Button>
-              </div>
-            </Card>
-          )}
         </div>
       </DialogContent>
     </Dialog>
