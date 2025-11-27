@@ -74,7 +74,7 @@ async function fetchNotionPage(pageId: string, notionApiKey: string): Promise<an
 }
 
 async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<any[]> {
-  const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+  const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
     headers: {
       'Authorization': `Bearer ${notionApiKey}`,
       'Notion-Version': '2022-06-28',
@@ -87,53 +87,91 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
   }
 
   const data = await response.json();
-  return data.results || [];
+  const blocks = data.results || [];
+  
+  // Fetch children for blocks that have them (like callouts with nested content)
+  for (const block of blocks) {
+    if (block.has_children && (block.type === 'callout' || block.type === 'bulleted_list_item')) {
+      const childResponse = await fetch(`https://api.notion.com/v1/blocks/${block.id}/children?page_size=100`, {
+        headers: {
+          'Authorization': `Bearer ${notionApiKey}`,
+          'Notion-Version': '2022-06-28',
+        },
+      });
+      
+      if (childResponse.ok) {
+        const childData = await childResponse.json();
+        if (block.type === 'callout') {
+          block.callout.children = childData.results || [];
+        } else if (block.type === 'bulleted_list_item') {
+          block.bulleted_list_item.children = childData.results || [];
+        }
+      }
+    }
+  }
+  
+  return blocks;
 }
 
 function extractTextFromBlocks(blocks: any[]): { ourSellingPoints: string[], objections: any[] } {
   const ourSellingPoints: string[] = [];
   const objections: any[] = [];
-  let inSellingPoints = false;
   let inObjections = false;
   let currentObjection = '';
 
   for (const block of blocks) {
-    // Check for heading_2 to identify sections
-    if (block.type === 'heading_2') {
-      const headingText = block.heading_2?.rich_text?.[0]?.plain_text || '';
-      if (headingText.includes('Our selling points')) {
-        inSellingPoints = true;
-        inObjections = false;
-      } else if (headingText.includes('Potential objections')) {
-        inSellingPoints = false;
+    // Check for callout block with "Our selling points"
+    if (block.type === 'callout') {
+      const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+      
+      // If this is the selling points callout, extract numbered list items from children
+      if (calloutText.includes('Our selling points')) {
+        // Get child blocks (the numbered list items inside the callout)
+        const children = block.callout?.children || [];
+        for (const child of children) {
+          if (child.type === 'numbered_list_item') {
+            const text = child.numbered_list_item?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+            if (text) {
+              // Remove markdown formatting like **bold** and trim
+              const cleanText = text.replace(/\*\*/g, '').trim();
+              ourSellingPoints.push(cleanText);
+            }
+          }
+        }
+      }
+    }
+
+    // Check for heading_1 to identify objections section
+    if (block.type === 'heading_1') {
+      const headingText = block.heading_1?.rich_text?.[0]?.plain_text || '';
+      if (headingText.includes('Potential objections')) {
         inObjections = true;
       } else {
-        inSellingPoints = false;
         inObjections = false;
       }
     }
 
-    // Extract bullet points for selling points
-    if (inSellingPoints && block.type === 'bulleted_list_item') {
-      const text = block.bulleted_list_item?.rich_text?.[0]?.plain_text || '';
-      if (text) ourSellingPoints.push(text);
-    }
-
     // Extract objections and handles
     if (inObjections) {
-      if (block.type === 'paragraph') {
-        const text = block.paragraph?.rich_text?.[0]?.plain_text || '';
-        if (text && !currentObjection) {
+      if (block.type === 'bulleted_list_item') {
+        const text = block.bulleted_list_item?.rich_text?.[0]?.plain_text || '';
+        if (text && text.trim() !== '' && !currentObjection) {
           currentObjection = text;
         }
-      } else if (block.type === 'quote') {
-        const handle = block.quote?.rich_text?.[0]?.plain_text || '';
-        if (handle && currentObjection) {
-          objections.push({
-            objection: currentObjection,
-            handle: handle,
-          });
-          currentObjection = '';
+        
+        // Check for child quote blocks
+        const children = block.bulleted_list_item?.children || [];
+        for (const child of children) {
+          if (child.type === 'quote') {
+            const handle = child.quote?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+            if (handle && currentObjection) {
+              objections.push({
+                objection: currentObjection,
+                handle: handle.replace(/[""]/g, '"'), // Normalize quotes
+              });
+              currentObjection = '';
+            }
+          }
         }
       }
     }
