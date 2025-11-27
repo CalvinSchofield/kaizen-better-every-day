@@ -569,6 +569,12 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                           Committed
                         </Badge>
                       )}
+                      {hasRookiesButNotCommitted && (
+                        <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-800 text-orange-700 dark:text-orange-400">
+                          <Flame className="h-3 w-3 mr-1" />
+                          Needs Commitment
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
                       <Calendar className="h-4 w-4" />
@@ -578,8 +584,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                     {/* Team indicators */}
                     <div className="flex items-center gap-3 text-sm">
                       {rookieCount > 0 && (
-                        <div className={`flex items-center gap-1.5 ${hasRookiesButNotCommitted ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-muted-foreground'}`}>
-                          <Flame className={`h-4 w-4 ${hasRookiesButNotCommitted ? 'animate-pulse' : ''}`} />
+                        <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 font-semibold">
+                          <Flame className="h-4 w-4" />
                           <span>{rookieCount} {rookieCount === 1 ? 'rookie' : 'rookies'} going</span>
                         </div>
                       )}
