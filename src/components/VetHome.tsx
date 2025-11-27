@@ -414,6 +414,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </CardContent>
         </Card>
 
+        {/* Blitz Commitments */}
+        <VetBlitzCommitments repData={repData} />
+
         {/* Pay Scales */}
         <Card className="mb-6">
           <CardHeader>
@@ -441,9 +444,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </div>
           </CardContent>
         </Card>
-
-        {/* Blitz Commitments */}
-        <VetBlitzCommitments repData={repData} />
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
