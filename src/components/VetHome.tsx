@@ -179,11 +179,11 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
             </div>
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={onSync}
                 disabled={isSyncing}
-                className="rounded-full border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/50"
+                className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
               >
                 <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
                 Refresh
