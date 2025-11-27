@@ -208,10 +208,10 @@ const Contacts = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-8">
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {categories.map((category) => (
           <div key={category}>
-            <h2 className="text-lg font-semibold mb-3">{category}</h2>
+            <h2 className="text-base font-semibold mb-3 text-foreground">{category}</h2>
             <div className="space-y-3">
               {contacts
                 .filter((c) => c.category === category)
@@ -225,11 +225,11 @@ const Contacts = () => {
                       className={`transition-all ${hasDetails ? "cursor-pointer" : ""}`}
                       onClick={() => hasDetails && toggleExpand(contact.id)}
                     >
-                      <CardHeader className="pb-3">
+                      <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <CardTitle className="text-base">{contact.name}</CardTitle>
-                            <CardDescription className="text-sm">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm font-semibold truncate">{contact.name}</CardTitle>
+                            <CardDescription className="text-xs truncate">
                               {contact.role}
                             </CardDescription>
                           </div>
@@ -237,28 +237,29 @@ const Contacts = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="rounded-full flex-shrink-0"
+                              className="rounded-full flex-shrink-0 h-7 w-7"
                             >
                               {isExpanded ? (
-                                <ChevronUp className="w-4 h-4" />
+                                <ChevronUp className="w-3.5 h-3.5" />
                               ) : (
-                                <ChevronDown className="w-4 h-4" />
+                                <ChevronDown className="w-3.5 h-3.5" />
                               )}
                             </Button>
                           )}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex gap-2">
+                      <CardContent className="space-y-3 pt-0">
+                        <div className="flex gap-2 flex-wrap">
                           {contact.phone && (
                             <Button
                               variant="outline"
-                              className="flex-1"
+                              size="sm"
+                              className="flex-1 min-w-[100px] text-xs"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
-                                <Phone className="w-4 h-4 mr-2" />
+                                <Phone className="w-3 h-3 mr-1" />
                                 {contact.phone}
                               </a>
                             </Button>
@@ -267,12 +268,13 @@ const Contacts = () => {
                           {contact.textPhone && (
                             <Button
                               variant="outline"
-                              className="flex-1"
+                              size="sm"
+                              className="flex-1 min-w-[100px] text-xs"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}`}>
-                                <MessageSquare className="w-4 h-4 mr-2" />
+                                <MessageSquare className="w-3 h-3 mr-1" />
                                 {contact.textPhone}
                               </a>
                             </Button>
@@ -281,27 +283,28 @@ const Contacts = () => {
                           {contact.email && (
                             <Button
                               variant="outline"
-                              className="flex-1"
+                              size="sm"
+                              className="flex-1 min-w-[100px] text-xs"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`mailto:${contact.email}`}>
-                                <Mail className="w-4 h-4 mr-2" />
-                                {contact.email}
+                                <Mail className="w-3 h-3 mr-1" />
+                                <span className="truncate">{contact.email}</span>
                               </a>
                             </Button>
                           )}
                         </div>
 
                         {isExpanded && hasDetails && (
-                          <div className="pt-3 border-t border-border space-y-3">
+                          <div className="pt-2 border-t border-border space-y-3">
                             {contact.tips && (
                               <div>
-                                <h4 className="text-sm font-semibold mb-2">Tips & Info</h4>
-                                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                                <h4 className="text-xs font-semibold mb-1.5">Tips & Info</h4>
+                                <ul className="space-y-1 text-xs text-muted-foreground">
                                   {contact.tips.map((tip, idx) => (
-                                    <li key={idx} className="flex gap-2">
-                                      <span className="text-primary mt-0.5">•</span>
+                                    <li key={idx} className="flex gap-1.5">
+                                      <span className="text-primary mt-0.5 flex-shrink-0">•</span>
                                       <span>{tip}</span>
                                     </li>
                                   ))}
@@ -310,18 +313,18 @@ const Contacts = () => {
                             )}
                             {contact.notes && (
                               <div>
-                                <h4 className="text-sm font-semibold mb-2">Notes</h4>
-                                <p className="text-sm text-muted-foreground mb-2">{contact.notes}</p>
+                                <h4 className="text-xs font-semibold mb-1.5">Notes</h4>
+                                <p className="text-xs text-muted-foreground mb-2">{contact.notes}</p>
                                 {contact.id === "ac" && (
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full"
+                                    className="w-full text-xs"
                                     asChild
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate/time: ___%0D%0AINV: ___%0D%0AA%23: ___%0D%0ACustomer Name: ___`}>
-                                      <MessageSquare className="w-4 h-4 mr-2" />
+                                      <MessageSquare className="w-3 h-3 mr-1" />
                                       Send Scheduling Text
                                     </a>
                                   </Button>
