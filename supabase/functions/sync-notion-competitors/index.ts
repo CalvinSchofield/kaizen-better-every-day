@@ -138,8 +138,9 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
         
         for (const child of children) {
           console.log(`Child block type: ${child.type}`);
-          if (child.type === 'numbered_list_item') {
-            const text = child.numbered_list_item?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+          if (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item') {
+            const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
+            const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
             if (text) {
               // Remove markdown formatting like **bold** and trim
               const cleanText = text.replace(/\*\*/g, '').trim();
