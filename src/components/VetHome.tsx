@@ -19,17 +19,8 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetFooter,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface VetHomeProps {
   repData: RepData;
@@ -59,7 +50,7 @@ const PAY_SCALES = [
 export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -119,7 +110,7 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   };
 
   const handleLogout = () => {
-    setLogoutDialogOpen(true);
+    setLogoutSheetOpen(true);
   };
 
   const confirmLogout = async () => {
@@ -460,21 +451,33 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
           </CardContent>
         </Card>
 
-        {/* Logout Confirmation Dialog */}
-        <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
-              <AlertDialogDescription>
+        {/* Logout Confirmation Sheet */}
+        <Sheet open={logoutSheetOpen} onOpenChange={setLogoutSheetOpen}>
+          <SheetContent side="bottom">
+            <SheetHeader>
+              <SheetTitle>Confirm Logout</SheetTitle>
+              <SheetDescription>
                 Are you sure you want to log out?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmLogout}>Logout</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </SheetDescription>
+            </SheetHeader>
+            <SheetFooter className="flex flex-row gap-2 mt-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setLogoutSheetOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={confirmLogout}
+              >
+                Logout
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

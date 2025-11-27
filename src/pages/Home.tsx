@@ -2,8 +2,7 @@ import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, Refresh
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,7 +105,7 @@ const Home = () => {
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
-  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
@@ -508,7 +507,7 @@ const Home = () => {
   };
 
   const confirmLogout = () => {
-    setLogoutDialogOpen(false);
+    setLogoutSheetOpen(false);
     handleLogout();
   };
 
@@ -618,7 +617,7 @@ const Home = () => {
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-2xl font-bold">Welcome to Kaizen</h1>
               <Button 
-                onClick={() => setLogoutDialogOpen(true)} 
+                onClick={() => setLogoutSheetOpen(true)} 
                 variant="ghost" 
                 size="sm" 
                 className="text-primary-foreground hover:bg-primary-foreground/10"
@@ -680,21 +679,33 @@ const Home = () => {
           </Card>
         </div>
 
-        {/* Logout Confirmation Dialog */}
-        <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
-              <AlertDialogDescription>
+        {/* Logout Confirmation Sheet */}
+        <Sheet open={logoutSheetOpen} onOpenChange={setLogoutSheetOpen}>
+          <SheetContent side="bottom">
+            <SheetHeader>
+              <SheetTitle>Are you sure you want to log out?</SheetTitle>
+              <SheetDescription>
                 You'll need to sign back in to access your journey progress and training.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmLogout}>Log Out</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </SheetDescription>
+            </SheetHeader>
+            <SheetFooter className="flex flex-row gap-2 mt-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setLogoutSheetOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={confirmLogout}
+              >
+                Log Out
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
     );
   }
@@ -821,7 +832,7 @@ const Home = () => {
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </Button>
               <Button 
-                onClick={() => setLogoutDialogOpen(true)}
+                onClick={() => setLogoutSheetOpen(true)}
                 variant="ghost" 
                 size="sm" 
                 className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
@@ -1189,16 +1200,16 @@ const Home = () => {
         </Card>
       </div>
 
-      {/* Intro Example Dialog */}
-      <Dialog open={showIntroDialog} onOpenChange={setShowIntroDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Team Introduction Example</DialogTitle>
-            <DialogDescription>
+      {/* Intro Example Sheet */}
+      <Sheet open={showIntroDialog} onOpenChange={setShowIntroDialog}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Team Introduction Example</SheetTitle>
+            <SheetDescription>
               Here's what to share when you introduce yourself to the team:
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 text-sm mt-4">
             <div>
               <h4 className="font-semibold mb-1">Share 1-2 things about yourself:</h4>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
@@ -1211,24 +1222,8 @@ const Home = () => {
               <p className="text-muted-foreground">Share why you're excited to work at Vivint and what you're looking forward to!</p>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Logout Confirmation Dialog */}
-      <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You'll need to sign back in to access your journey progress and training.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmLogout}>Log Out</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Team Calendar Modal */}
       <TeamCalendarModal 
