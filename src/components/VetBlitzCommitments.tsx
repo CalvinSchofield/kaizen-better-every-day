@@ -1,38 +1,93 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Check } from "lucide-react";
-import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import confetti from "canvas-confetti";
 
 interface VetBlitzCommitmentsProps {
   repData: any;
 }
 
+interface BlitzEvent {
+  id: string;
+  name: string;
+  date: string;
+  endDate: string | null;
+  location: string | null;
+}
+
 export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
-  const calendarUrl = "webcal://p143-caldav.icloud.com/published/2/ODM4MTQxNjQ5ODgzODE0MRrnO9QwHvwHspg2nEVoCsv5FLdG2RTizQGaaVJnHbZfV6TPTtdNYJ2MVW7qvW7RYu4PfYLf5BI9YcU9DIKXHes";
-  const { events, loading, error } = useCalendarEvents(calendarUrl);
   const { toast } = useToast();
   const [committedBlitzes, setCommittedBlitzes] = useState<string[]>([]);
+  const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggleCommitment = async (eventTitle: string) => {
-    const isCommitted = committedBlitzes.includes(eventTitle);
+  // Load initial commitments from repData
+  useEffect(() => {
+    if (repData?.committed_blitzes) {
+      const commitments = Array.isArray(repData.committed_blitzes) 
+        ? repData.committed_blitzes 
+        : [];
+      setCommittedBlitzes(commitments);
+      console.log('[VetBlitzCommitments] Loaded initial commitments:', commitments);
+    }
+  }, [repData]);
+
+  // Fetch all blitzes from Preseason Trips database via edge function
+  useEffect(() => {
+    const fetchBlitzes = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
+        
+        if (error) throw error;
+        
+        if (data?.blitzes) {
+          setAllBlitzes(data.blitzes);
+          console.log('[VetBlitzCommitments] Loaded blitzes:', data.blitzes);
+        }
+      } catch (error) {
+        console.error('[VetBlitzCommitments] Error fetching blitzes:', error);
+        toast({
+          title: "Error loading blitzes",
+          description: "Could not load upcoming blitzes. Please refresh.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlitzes();
+  }, [toast]);
+
+  const toggleCommitment = async (blitzName: string) => {
+    const isCommitted = committedBlitzes.includes(blitzName);
     const newCommitments = isCommitted
-      ? committedBlitzes.filter(b => b !== eventTitle)
-      : [...committedBlitzes, eventTitle];
+      ? committedBlitzes.filter(b => b !== blitzName)
+      : [...committedBlitzes, blitzName];
 
     setCommittedBlitzes(newCommitments);
+
+    // Show confetti animation when committing
+    if (!isCommitted) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }
 
     // Save to database
     try {
       const { error: updateError } = await supabase
         .from('reps')
         .update({ 
-          blitz_trip_name: newCommitments.length > 0 ? newCommitments[0] : null 
+          committed_blitzes: newCommitments
         })
         .eq('id', repData.id);
 
@@ -41,8 +96,8 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
       toast({
         title: isCommitted ? "Commitment removed" : "Committed!",
         description: isCommitted 
-          ? `You've removed your commitment to ${eventTitle}`
-          : `You've committed to ${eventTitle}`,
+          ? `You've removed your commitment to ${blitzName}`
+          : `You've committed to ${blitzName}`,
       });
     } catch (error) {
       console.error("Error updating commitment:", error);
@@ -52,7 +107,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
         variant: "destructive",
       });
       // Revert on error
-      setCommittedBlitzes(isCommitted ? [...committedBlitzes, eventTitle] : committedBlitzes.filter(b => b !== eventTitle));
+      setCommittedBlitzes(isCommitted ? [...committedBlitzes, blitzName] : committedBlitzes.filter(b => b !== blitzName));
     }
   };
 
@@ -68,72 +123,60 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {loading && (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-20 w-full" />
-            ))}
-          </div>
-        )}
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      )}
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {!loading && allBlitzes.length === 0 && (
+        <Alert>
+          <AlertDescription>No upcoming blitzes scheduled</AlertDescription>
+        </Alert>
+      )}
 
-        {!loading && !error && events.length === 0 && (
-          <Alert>
-            <AlertDescription>No upcoming blitzes scheduled</AlertDescription>
-          </Alert>
-        )}
-
-        {!loading && !error && events.length > 0 && (
-          <div className="space-y-3">
-            {events.map((event) => {
-              const isCommitted = committedBlitzes.includes(event.title);
-              return (
-                <div
-                  key={event.title}
-                  className={`p-4 rounded-lg border transition-all ${
-                    isCommitted 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-sm truncate">{event.title}</h4>
-                        {isCommitted && (
-                          <Badge variant="default" className="text-xs">
-                            <Check className="h-3 w-3 mr-1" />
-                            Committed
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {event.date}
-                      </p>
-                      {event.location && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📍 {event.location}
-                        </p>
+      {!loading && allBlitzes.length > 0 && (
+        <div className="space-y-3">
+          {allBlitzes.map((blitz) => {
+            const isCommitted = committedBlitzes.includes(blitz.name);
+            return (
+              <div
+                key={blitz.id}
+                onClick={() => toggleCommitment(blitz.name)}
+                className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                  isCommitted 
+                    ? 'border-primary bg-primary/10 ring-2 ring-primary/20' 
+                    : 'border-border bg-card hover:border-primary/50 hover:bg-primary/5'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm truncate">{blitz.name}</h4>
+                      {isCommitted && (
+                        <Badge variant="default" className="text-xs">
+                          <Check className="h-3 w-3 mr-1" />
+                          Committed
+                        </Badge>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant={isCommitted ? "outline" : "default"}
-                      onClick={() => toggleCommitment(event.title)}
-                    >
-                      {isCommitted ? "Remove" : "Commit"}
-                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {blitz.date}{blitz.endDate && ` - ${blitz.endDate}`}
+                    </p>
+                    {blitz.location && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        📍 {blitz.location}
+                      </p>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       </CardContent>
     </Card>
   );

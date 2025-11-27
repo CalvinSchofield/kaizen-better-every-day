@@ -36,6 +36,7 @@ export interface RepData {
   blitz_trip_date: string | null;
   blitz_trip_end_date: string | null;
   blitz_trip_location: string | null;
+  committed_blitzes: unknown; // JSONB array of committed blitz names
 }
 
 export const useRepData = () => {
