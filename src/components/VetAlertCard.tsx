@@ -47,6 +47,11 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
   const [onboardingSectionOpen, setOnboardingSectionOpen] = useState(true);
 
   useEffect(() => {
+    console.log('[VetAlertCard] useEffect triggered', {
+      teamMembersCount: teamMembers.length,
+      allBlitzesCount: allBlitzes.length
+    });
+
     // Check Monday Night Lights (Monday 4 AM - 8:30 PM MST)
     const checkMondayNightLights = () => {
       const now = new Date();
@@ -66,46 +71,88 @@ export const VetAlertCard = ({ teamMembers, allBlitzes }: VetAlertCardProps) => 
     // Check for rookies needing attention
     const checkRookieAlerts = () => {
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
       const ipadAlerts: RookieAlert[] = [];
       const onboardingAlerts: RookieAlert[] = [];
 
       const rookies = teamMembers.filter(m => m.year === "Rookie");
+      console.log('[VetAlertCard] Checking rookies:', rookies.length);
 
       rookies.forEach(rookie => {
+        console.log('[VetAlertCard] Checking rookie:', {
+          name: rookie.name,
+          committedBlitzes: rookie.committedBlitzes,
+          ipadAssigned: rookie.ipadAssigned,
+          onboardingStatus: rookie.onboardingStatus
+        });
+
         rookie.committedBlitzes.forEach(blitzId => {
           const blitz = allBlitzes.find(b => b.id === blitzId);
-          if (!blitz) return;
+          if (!blitz) {
+            console.log('[VetAlertCard] Blitz not found:', blitzId);
+            return;
+          }
 
           const blitzDate = new Date(blitz.date);
+          blitzDate.setHours(0, 0, 0, 0);
           const diffTime = blitzDate.getTime() - today.getTime();
           const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+          console.log('[VetAlertCard] Blitz check:', {
+            rookieName: rookie.name,
+            blitzName: blitz.name,
+            blitzDate: blitz.date,
+            daysUntil,
+            ipadAssigned: rookie.ipadAssigned,
+            onboardingStatus: rookie.onboardingStatus
+          });
+
           // Only check for blitzes within 7 days and in the future
           if (daysUntil <= 7 && daysUntil >= 0) {
+            console.log('[VetAlertCard] Blitz within 7 days!', {
+              rookieName: rookie.name,
+              daysUntil
+            });
+
             // Check iPad status
             if (!rookie.ipadAssigned) {
+              console.log('[VetAlertCard] iPad alert added for:', rookie.name);
               ipadAlerts.push({ rookie, blitz, daysUntil });
             }
 
             // Check onboarding status (not Phase 4 complete)
             const status = rookie.onboardingStatus?.toLowerCase() || "";
             if (!status.includes("phase 4")) {
+              console.log('[VetAlertCard] Onboarding alert added for:', rookie.name);
               onboardingAlerts.push({ rookie, blitz, daysUntil });
             }
           }
         });
       });
 
+      console.log('[VetAlertCard] Alerts found:', {
+        ipadAlerts: ipadAlerts.length,
+        onboardingAlerts: onboardingAlerts.length
+      });
+
       setRookiesNeedingIpad(ipadAlerts);
       setRookiesNeedingOnboarding(onboardingAlerts);
+      
+      return { ipadAlerts, onboardingAlerts };
     };
 
     const isMNL = checkMondayNightLights();
     setIsMondayNightLights(isMNL);
-    checkRookieAlerts();
+    const alerts = checkRookieAlerts();
 
     // Show card if any condition is met
-    setShowCard(isMNL || rookiesNeedingIpad.length > 0 || rookiesNeedingOnboarding.length > 0);
+    const shouldShow = isMNL || alerts.ipadAlerts.length > 0 || alerts.onboardingAlerts.length > 0;
+    console.log('[VetAlertCard] Should show card:', shouldShow, {
+      isMNL,
+      ipadAlertsCount: alerts.ipadAlerts.length,
+      onboardingAlertsCount: alerts.onboardingAlerts.length
+    });
+    setShowCard(shouldShow);
   }, [teamMembers, allBlitzes]);
 
   const sendIpadRequestEmail = (rookie: TeamMember) => {
