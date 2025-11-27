@@ -119,10 +119,15 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
   let inObjections = false;
   let currentObjection = '';
 
+  console.log(`Processing ${blocks.length} blocks for selling points and objections...`);
+
   for (const block of blocks) {
+    console.log(`Block type: ${block.type}`);
+    
     // Check for callout block with "Our selling points"
     if (block.type === 'callout') {
       const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+      console.log(`Callout text found: "${calloutText}"`);
       
       // If this is the selling points callout, fetch and extract numbered list items from children
       if (calloutText.toLowerCase().includes('our selling points')) {
@@ -132,6 +137,7 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
         console.log(`Found ${children.length} children blocks in callout`);
         
         for (const child of children) {
+          console.log(`Child block type: ${child.type}`);
           if (child.type === 'numbered_list_item') {
             const text = child.numbered_list_item?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
             if (text) {
