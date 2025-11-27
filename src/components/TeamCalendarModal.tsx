@@ -25,8 +25,9 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
   const { events, loading, error } = useCalendarEvents(calendarUrl);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const handleTextLeader = (eventTitle: string) => {
-    const message = encodeURIComponent(`I want to RSVP for ${eventTitle}. Can you tell me more about it?`);
+  const handleTextLeader = (event: CalendarEvent) => {
+    const location = event.location || event.title;
+    const message = encodeURIComponent(`Tell me more about the ${location} on ${event.date}, I'm thinking about going on that one.`);
     const phone = teamLeaderPhone || '4697157056'; // Fallback to Calvin's number
     window.location.href = `sms:${phone}&body=${message}`;
   };
@@ -121,7 +122,7 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleTextLeader(event.title);
+                              handleTextLeader(event);
                             }}
                             className="w-full"
                           >
