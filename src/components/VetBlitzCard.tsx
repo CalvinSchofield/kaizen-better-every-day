@@ -792,13 +792,13 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Started">✓ Started</SelectItem>
-                <SelectItem value="Onboarding">✓ Onboarding</SelectItem>
-                <SelectItem value="Required Trainings">✓ Required Trainings</SelectItem>
-                <SelectItem value="Group Chat">✓ Group Chat</SelectItem>
-                <SelectItem value="Phase 1">✓ Phase 1</SelectItem>
-                <SelectItem value="Phase 2">✓ Phase 2</SelectItem>
-                <SelectItem value="Phase 3">✓ Phase 3</SelectItem>
-                <SelectItem value="Phase 4">✓ Phase 4</SelectItem>
+                <SelectItem value="Onboarding ✅">✓ Onboarding</SelectItem>
+                <SelectItem value="Trainings ✅">✓ Required Trainings</SelectItem>
+                <SelectItem value="Slack ✅">✓ Slack/Group Chat</SelectItem>
+                <SelectItem value="Phase 1 ✅">✓ Phase 1</SelectItem>
+                <SelectItem value="Phase 2 ✅">✓ Phase 2</SelectItem>
+                <SelectItem value="Phase 3 ✅">✓ Phase 3</SelectItem>
+                <SelectItem value="Phase 4 ✅">✓ Phase 4 (Blitz Ready)</SelectItem>
               </SelectContent>
             </Select>
           </div>
