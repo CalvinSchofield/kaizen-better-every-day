@@ -13,6 +13,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface VetBlitzCardProps {
   repData: any;
@@ -36,6 +46,8 @@ interface TeamMember {
   committedBlitzes: string[];
   ipadAssigned: boolean;
   year: string | null;
+  stage: string | null;
+  onboardingStep: string | null;
 }
 
 export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
@@ -45,6 +57,9 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [contactedMembers, setContactedMembers] = useState<{ [blitzId: string]: string[] }>({});
+  const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
+  const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
+  const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
 
   // Load committed blitzes from repData
   useEffect(() => {
@@ -121,20 +136,33 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     });
   };
 
+  const toggleInviteList = (blitzId: string) => {
+    setExpandedInviteLists(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(blitzId)) {
+        newSet.delete(blitzId);
+      } else {
+        newSet.add(blitzId);
+      }
+      return newSet;
+    });
+  };
+
   const handleBlitzCommit = async (blitzId: string, blitzName: string) => {
     const isCurrentlyCommitted = committedBlitzIds.includes(blitzId);
 
-    // Optimistic update
-    setCommittedBlitzIds(prev =>
-      isCurrentlyCommitted
-        ? prev.filter(id => id !== blitzId)
-        : [...prev, blitzId]
-    );
+    if (isCurrentlyCommitted) {
+      // Show confirmation dialog for uncommit
+      setBlitzToUncommit({ id: blitzId, name: blitzName });
+      setUncommitDialogOpen(true);
+      return;
+    }
+
+    // Optimistic update for commit
+    setCommittedBlitzIds(prev => [...prev, blitzId]);
 
     try {
-      const newCommittedIds = isCurrentlyCommitted
-        ? committedBlitzIds.filter(id => id !== blitzId)
-        : [...committedBlitzIds, blitzId];
+      const newCommittedIds = [...committedBlitzIds, blitzId];
 
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
@@ -145,31 +173,57 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
 
       if (error) throw error;
 
-      if (!isCurrentlyCommitted) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-        toast({
-          title: "Committed! 🎉",
-          description: `You're now committed to ${blitzName}`,
-        });
-      } else {
-        toast({
-          title: "Uncommitted",
-          description: `Removed from ${blitzName}`,
-        });
-      }
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+      toast({
+        title: "Committed! 🎉",
+        description: `You're now committed to ${blitzName}`,
+      });
     } catch (error) {
       console.error('Error updating commitment:', error);
-      // Revert optimistic update
       setCommittedBlitzIds(committedBlitzIds);
       toast({
         title: "Update failed",
         description: "Could not update your commitment. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const confirmUncommit = async () => {
+    if (!blitzToUncommit) return;
+
+    const newCommittedIds = committedBlitzIds.filter(id => id !== blitzToUncommit.id);
+    setCommittedBlitzIds(newCommittedIds);
+
+    try {
+      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+        body: {
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds: newCommittedIds,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Uncommitted",
+        description: `Removed from ${blitzToUncommit.name}`,
+      });
+    } catch (error) {
+      console.error('Error updating commitment:', error);
+      setCommittedBlitzIds(committedBlitzIds);
+      toast({
+        title: "Update failed",
+        description: "Could not update your commitment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUncommitDialogOpen(false);
+      setBlitzToUncommit(null);
     }
   };
 
@@ -257,9 +311,16 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   };
 
   const getUncommittedMembers = (blitzId: string) => {
-    return sortTeamMembers(
-      teamMembers.filter(member => !member.committedBlitzes.includes(blitzId))
-    );
+    const stageOrder = ["Sold (5+) 💰", "Sold 💲", "Shadow ✅", "Signed", "Evaluating"];
+    
+    return teamMembers
+      .filter(member => !member.committedBlitzes.includes(blitzId))
+      .filter(member => member.stage && stageOrder.includes(member.stage))
+      .sort((a, b) => {
+        const aIndex = stageOrder.indexOf(a.stage || "");
+        const bIndex = stageOrder.indexOf(b.stage || "");
+        return aIndex - bIndex;
+      });
   };
 
   const getRookieCount = (blitzId: string) => {
@@ -272,6 +333,26 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     return teamMembers.filter(
       member => member.committedBlitzes.includes(blitzId) && member.year !== "Rookie"
     ).length;
+  };
+
+  const isWithinSevenDays = (blitzDate: string) => {
+    const today = new Date();
+    const blitz = new Date(blitzDate);
+    const diffTime = blitz.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 7 && diffDays >= 0;
+  };
+
+  const getReadinessStatus = (member: TeamMember) => {
+    if (!member.onboardingStep) return "Unknown";
+    const step = member.onboardingStep.toLowerCase();
+    
+    if (step.includes("phase 4")) return "Phase 4 ✓";
+    if (step.includes("phase 3")) return "Phase 3";
+    if (step.includes("phase 2")) return "Phase 2";
+    if (step.includes("phase 1")) return "Phase 1";
+    if (step.includes("training") || step.includes("onboarding")) return "Training";
+    return "Started";
   };
 
   if (loading) {
@@ -341,7 +422,10 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
               open={isExpanded}
               onOpenChange={() => toggleBlitzExpansion(blitz.id)}
             >
-              <div className="border rounded-lg p-4 space-y-3">
+              <div 
+                className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-secondary/50 transition-colors"
+                onClick={() => toggleBlitzExpansion(blitz.id)}
+              >
                 {/* Collapsed state header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 space-y-2">
@@ -375,15 +459,17 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                       )}
                     </div>
                   </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                  </CollapsibleTrigger>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
                 </div>
 
                 {/* Expandable details */}
-                <CollapsibleContent className="space-y-4 pt-2">
+                <CollapsibleContent className="space-y-4 pt-2" onClick={(e) => e.stopPropagation()}>
                   {/* Your commitment toggle */}
                   <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                     <span className="font-medium">Your Status</span>
@@ -400,101 +486,109 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                   {committedMembers.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Team Members Attending</h4>
-                      {committedMembers.map((member) => (
-                        <div
-                          key={member.notionPageId}
-                          className="flex items-center justify-between p-3 border rounded-lg bg-card"
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {member.year === "Rookie" && (
-                              <Badge className="bg-orange-500 text-white border-orange-600 flex-shrink-0">
-                                🔥 Rookie
-                              </Badge>
-                            )}
-                            <span className={`font-medium truncate ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
-                              {member.name}
-                            </span>
-                            {member.year === "Rookie" && (
-                              <>
-                                {member.blitzReady ? (
-                                  <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                ) : (
-                                  <span className="text-xs text-yellow-600 dark:text-yellow-400 flex-shrink-0">
-                                    ⚠️ Not ready
+                      {committedMembers.map((member) => {
+                        const showIpadWarning = isWithinSevenDays(blitz.date) && !member.ipadAssigned;
+                        const readinessStatus = member.year === "Rookie" ? getReadinessStatus(member) : null;
+                        
+                        return (
+                          <div
+                            key={member.notionPageId}
+                            className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {member.year === "Rookie" && (
+                                <Badge className="bg-orange-500 text-white border-orange-600 flex-shrink-0 text-xs">
+                                  🔥
+                                </Badge>
+                              )}
+                              <div className="flex flex-col min-w-0">
+                                <span className={`font-medium truncate ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                  {member.name}
+                                </span>
+                                {member.year === "Rookie" && readinessStatus && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {readinessStatus}
                                   </span>
                                 )}
-                              </>
-                            )}
-                            {!member.ipadAssigned && (
-                              <Badge variant="destructive" className="text-xs flex-shrink-0">
-                                No iPad
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {!member.ipadAssigned && (
+                              </div>
+                              {showIpadWarning && (
+                                <Badge variant="destructive" className="text-xs flex-shrink-0">
+                                  No iPad
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {showIpadWarning && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => sendIpadRequestEmail(member)}
+                                >
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  iPad
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => sendIpadRequestEmail(member)}
+                                variant="ghost"
+                                onClick={() => toggleMemberCommitment(member, blitz.id, true)}
                               >
-                                <Mail className="h-3 w-3 mr-1" />
-                                Request iPad
+                                Uncommit
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => toggleMemberCommitment(member, blitz.id, true)}
-                            >
-                              Uncommit
-                            </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
                   {/* Invite list for uncommitted members */}
                   {uncommittedMembers.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">
-                        {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
-                      </h4>
+                    <Collapsible
+                      open={expandedInviteLists.has(blitz.id)}
+                      onOpenChange={() => toggleInviteList(blitz.id)}
+                    >
                       <div className="space-y-2">
-                        {uncommittedMembers.map((member) => {
-                          const isContactedForThisBlitz = (contactedMembers[blitz.id] || []).includes(member.notionPageId);
-                          return (
-                            <button
-                              key={member.notionPageId}
-                              onClick={() => toggleContactedStatus(member.notionPageId, blitz.id)}
-                              className={`w-full flex items-center justify-between p-3 border rounded-lg transition-colors ${
-                                isContactedForThisBlitz
-                                  ? 'bg-green-50 dark:bg-green-950 border-green-500'
-                                  : 'bg-card hover:bg-secondary/50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {member.year === "Rookie" && (
-                                  <Badge className="bg-orange-500 text-white border-orange-600">
-                                    🔥 Rookie
-                                  </Badge>
-                                )}
-                                <span className={`font-medium ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
-                                  {member.name}
-                                </span>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                            {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} ({uncommittedMembers.length})
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 pt-2">
+                          {uncommittedMembers.map((member) => {
+                            const isContactedForThisBlitz = (contactedMembers[blitz.id] || []).includes(member.notionPageId);
+                            return (
+                              <div
+                                key={member.notionPageId}
+                                className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                              >
+                                <button
+                                  onClick={() => toggleContactedStatus(member.notionPageId, blitz.id)}
+                                  className="flex items-center gap-2 flex-1 text-left"
+                                >
+                                  {member.year === "Rookie" && (
+                                    <Badge className="bg-orange-500 text-white border-orange-600 flex-shrink-0 text-xs">
+                                      🔥
+                                    </Badge>
+                                  )}
+                                  <span className={`font-medium ${isContactedForThisBlitz ? 'line-through opacity-50' : ''} ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                    {member.name}
+                                  </span>
+                                </button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => toggleMemberCommitment(member, blitz.id, false)}
+                                >
+                                  Commit
+                                </Button>
                               </div>
-                              {isContactedForThisBlitz && (
-                                <Badge className="bg-green-500 text-white">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Contacted
-                                </Badge>
-                              )}
-                            </button>
-                          );
-                        })}
+                            );
+                          })}
+                        </CollapsibleContent>
                       </div>
-                    </div>
+                    </Collapsible>
                   )}
                 </CollapsibleContent>
               </div>
@@ -502,6 +596,23 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
           );
         })}
       </CardContent>
+
+      <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Uncommit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
