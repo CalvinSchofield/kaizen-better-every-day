@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Calendar, ExternalLink, AlertCircle, MessageSquare } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,19 +34,19 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />
             Team Calendar
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             View upcoming blitz trips and commit to your next one
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-4">
           {/* Add to iPhone Button */}
           <Button
             className="w-full"
@@ -139,8 +139,8 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 

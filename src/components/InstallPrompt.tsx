@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { X, Download, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,7 +15,7 @@ import { useLocation } from "react-router-dom";
 
 const InstallPrompt = () => {
   const [showBanner, setShowBanner] = useState(false);
-  const [showDialog, setShowDialog] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
   const [gifExpanded, setGifExpanded] = useState(false);
   const isMobile = useIsMobile();
   const location = useLocation();
@@ -45,12 +45,12 @@ const InstallPrompt = () => {
     setShowBanner(false);
   };
 
-  const handleCloseDialog = () => {
-    setShowDialog(false);
+  const handleCloseSheet = () => {
+    setShowSheet(false);
   };
 
-  const handleOpenDialog = () => {
-    setShowDialog(true);
+  const handleOpenSheet = () => {
+    setShowSheet(true);
   };
 
   if (!showBanner) return null;
@@ -69,7 +69,7 @@ const InstallPrompt = () => {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              onClick={handleOpenDialog}
+              onClick={handleOpenSheet}
               className="text-xs bg-white text-orange-600 hover:bg-white/90 font-semibold"
             >
               Install
@@ -84,18 +84,18 @@ const InstallPrompt = () => {
         </div>
       </div>
 
-      {/* Install Instructions Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-sm max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle>Install Kaizen</DialogTitle>
-            <DialogDescription>
+      {/* Install Instructions Sheet */}
+      <Sheet open={showSheet} onOpenChange={setShowSheet}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Install Kaizen</SheetTitle>
+            <SheetDescription>
               Follow these steps to install Kaizen on your home screen
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           
           <ScrollArea className="max-h-[calc(85vh-8rem)]">
-            <div className="space-y-4 pr-4">
+            <div className="space-y-4 pr-4 mt-4">
               <div className="space-y-3 text-sm">
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
@@ -148,15 +148,15 @@ const InstallPrompt = () => {
               </Collapsible>
 
               <Button 
-                onClick={handleCloseDialog}
+                onClick={handleCloseSheet}
                 className="w-full"
               >
                 Got it!
               </Button>
             </div>
           </ScrollArea>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 };

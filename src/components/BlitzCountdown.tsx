@@ -4,12 +4,12 @@ import { Calendar, MapPin, Cloud, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface WeatherForecast {
   date: string;
@@ -38,7 +38,7 @@ export const BlitzCountdown = ({
   const [weatherLocation, setWeatherLocation] = useState<string>("");
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showWeatherDialog, setShowWeatherDialog] = useState(false);
+  const [showWeatherSheet, setShowWeatherSheet] = useState(false);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -148,7 +148,7 @@ export const BlitzCountdown = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowWeatherDialog(true);
+                setShowWeatherSheet(true);
               }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
             >
@@ -158,15 +158,15 @@ export const BlitzCountdown = ({
         </div>
       </div>
 
-      {/* Weather Dialog */}
-      <Dialog open={showWeatherDialog} onOpenChange={setShowWeatherDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Weather Forecast</DialogTitle>
-            <DialogDescription>
+      {/* Weather Sheet */}
+      <Sheet open={showWeatherSheet} onOpenChange={setShowWeatherSheet}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Weather Forecast</SheetTitle>
+            <SheetDescription>
               {weatherLocation} - {tripName}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           
           {loadingWeather && (
             <div className="text-center text-sm text-muted-foreground py-4">
@@ -175,7 +175,7 @@ export const BlitzCountdown = ({
           )}
           
           {!loadingWeather && weather.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mt-4">
               {weather.map((day) => (
                 <div
                   key={day.date}
@@ -202,8 +202,8 @@ export const BlitzCountdown = ({
               ))}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <TeamCalendarModal
         open={showCalendar}
