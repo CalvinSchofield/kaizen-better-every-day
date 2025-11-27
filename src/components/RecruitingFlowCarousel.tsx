@@ -128,12 +128,6 @@ export const RecruitingFlowCarousel = () => {
       </div>
       
       <div className="relative px-8">
-        {/* Left gradient fade */}
-        <div className="absolute left-0 top-0 bottom-12 w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-        
-        {/* Right gradient fade */}
-        <div className="absolute right-0 top-0 bottom-12 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
-        
         <Carousel
           setApi={setApi}
           opts={{
