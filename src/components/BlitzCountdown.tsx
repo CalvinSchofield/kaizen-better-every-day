@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Cloud } from "lucide-react";
+import { Calendar, MapPin, Cloud, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import {
@@ -123,37 +123,36 @@ export const BlitzCountdown = ({
     <>
       {/* Compact Blitz Text Line */}
       <div 
-        className={`flex items-center justify-between py-2 ${!hasBlitz ? 'cursor-pointer hover:opacity-70 transition-opacity' : ''}`}
+        className={`flex items-center justify-between py-2 ${
+          !hasBlitz 
+            ? 'cursor-pointer hover:opacity-80 transition-all group' 
+            : ''
+        }`}
         onClick={!hasBlitz ? () => setShowCalendar(true) : undefined}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-lg">{getEmoji()}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p className={`text-sm font-medium truncate ${!hasBlitz ? 'text-primary underline decoration-dashed' : ''}`}>
               {getCompactMessage()}
               {hasBlitz && tripLocation && ` • ${tripLocation}`}
             </p>
           </div>
+          {!hasBlitz && (
+            <ChevronRight className="h-4 w-4 text-primary flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          )}
         </div>
         
         <div className="flex items-center gap-2 flex-shrink-0">
           {shouldShowWeather && (
             <button
-              onClick={() => setShowWeatherDialog(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowWeatherDialog(true);
+              }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
             >
               Weather
-            </button>
-          )}
-          {!hasBlitz && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCalendar(true);
-              }}
-              className="text-xs text-primary hover:text-primary/80 transition-colors underline font-medium"
-            >
-              Pick Blitz
             </button>
           )}
         </div>
