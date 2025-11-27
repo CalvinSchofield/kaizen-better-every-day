@@ -67,6 +67,67 @@ const Home = () => {
   useEffect(() => {
     refetch();
   }, []);
+  
+  // Fetch next upcoming blitz from committed blitzes
+  useEffect(() => {
+    const fetchNextBlitz = async () => {
+      if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes) || repData.committed_blitzes.length === 0) {
+        setNextBlitz(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
+        
+        if (error) {
+          console.error('Error fetching blitzes:', error);
+          return;
+        }
+
+        const allBlitzes = data?.blitzes || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Type guard for committed blitzes
+        const committedBlitzNames = Array.isArray(repData.committed_blitzes) 
+          ? repData.committed_blitzes.filter((item): item is string => typeof item === 'string')
+          : [];
+
+        // Filter for committed blitzes that are upcoming
+        const upcomingCommittedBlitzes = allBlitzes
+          .filter((blitz: any) => {
+            // Check if this blitz is in the committed list
+            const isCommitted = committedBlitzNames.includes(blitz.name);
+            
+            // Check if the blitz is upcoming (use end date if available, otherwise start date)
+            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+            blitzEndDate.setHours(0, 0, 0, 0);
+            const isUpcoming = blitzEndDate >= today;
+            
+            return isCommitted && isUpcoming;
+          })
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        if (upcomingCommittedBlitzes.length > 0) {
+          const next = upcomingCommittedBlitzes[0];
+          setNextBlitz({
+            name: next.name,
+            date: next.date,
+            endDate: next.endDate,
+            location: next.location,
+          });
+        } else {
+          setNextBlitz(null);
+        }
+      } catch (error) {
+        console.error('Error in fetchNextBlitz:', error);
+      }
+    };
+
+    if (repData) {
+      fetchNextBlitz();
+    }
+  }, [repData]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showIntroDialog, setShowIntroDialog] = useState(false);
@@ -78,6 +139,7 @@ const Home = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
+  const [nextBlitz, setNextBlitz] = useState<{ name: string; date: string; endDate: string | null; location: string } | null>(null);
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -426,14 +488,14 @@ const Home = () => {
   // Fetch weather for upcoming blitzes (within 7 days)
   useEffect(() => {
     const fetchWeather = async () => {
-      if (!repData?.blitz_trip_location || !repData?.blitz_trip_date || !repData?.blitz_trip_end_date) {
+      if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
         setWeather([]);
         return;
       }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const tripDate = new Date(repData.blitz_trip_date);
+      const tripDate = new Date(nextBlitz.date);
       tripDate.setHours(0, 0, 0, 0);
       const diffTime = tripDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -447,15 +509,15 @@ const Home = () => {
       try {
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
           body: {
-            location: repData.blitz_trip_location,
-            startDate: repData.blitz_trip_date,
-            endDate: repData.blitz_trip_end_date,
+            location: nextBlitz.location,
+            startDate: nextBlitz.date,
+            endDate: nextBlitz.endDate,
           },
         });
 
         if (!error && data?.forecasts) {
           console.log('[Weather] Received forecasts:', data.forecasts);
-          console.log('[Weather] Start date:', repData.blitz_trip_date, 'End date:', repData.blitz_trip_end_date);
+          console.log('[Weather] Start date:', nextBlitz.date, 'End date:', nextBlitz.endDate);
           setWeather(data.forecasts); // Show all working days
         }
       } catch (error) {
@@ -464,7 +526,7 @@ const Home = () => {
     };
 
     fetchWeather();
-  }, [repData?.blitz_trip_date, repData?.blitz_trip_location, repData?.blitz_trip_end_date]);
+  }, [nextBlitz]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -801,21 +863,14 @@ const Home = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // Find next upcoming blitz (not past ones)
-            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
-            const endDate = repData.blitz_trip_end_date ? new Date(repData.blitz_trip_end_date) : null;
-            
-            // Check if blitz is past (using end date if available, otherwise start date)
-            const blitzEndDate = endDate || tripDate;
-            const blitzIsPast = blitzEndDate && blitzEndDate < today;
-            const hasUpcomingBlitz = tripDate && tripDate >= today && !blitzIsPast;
-            
-            const diffTime = hasUpcomingBlitz ? tripDate!.getTime() - today.getTime() : 0;
+            // Check if next blitz is upcoming and within 7 days
+            const hasUpcomingBlitz = nextBlitz !== null;
+            const diffTime = hasUpcomingBlitz ? new Date(nextBlitz.date).getTime() - today.getTime() : 0;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             // Urgent message if blitz is within 7 days and onboarding incomplete
             if (hasUpcomingBlitz && diffDays <= 7) {
-              const blitzLocation = repData.blitz_trip_location?.split(',')[0] || 'your';
+              const blitzLocation = nextBlitz.location?.split(',')[0] || 'your';
               return (
                 <p className="text-orange-600 dark:text-orange-400 text-base font-bold mb-3">
                   Reminder — to go on the {blitzLocation} blitz you have to finish all these steps first.
@@ -867,40 +922,33 @@ const Home = () => {
             }
             
             // Find next upcoming blitz (not past ones)
-            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
-            const endDate = repData.blitz_trip_end_date ? new Date(repData.blitz_trip_end_date) : null;
-            
-            // Check if blitz is past (using end date if available, otherwise start date)
-            const blitzEndDate = endDate || tripDate;
-            const blitzIsPast = blitzEndDate && blitzEndDate < today;
-            const hasValidBlitz = tripDate && tripDate >= today;
+            const hasValidBlitz = nextBlitz !== null;
             
             let ctaText = "";
             let ctaIcon = "";
             
-            if (!repData.blitz_trip_name || blitzIsPast) {
-              ctaText = blitzIsPast 
-                ? "Find your next blitz and keep the momentum going"
-                : "Pick a blitz trip and commit to making your first sale";
+            if (!hasValidBlitz) {
+              ctaText = "Pick a blitz trip and commit to making your first sale";
               ctaIcon = "📅";
             } else {
-              const diffTime = tripDate!.getTime() - today.getTime();
+              const tripDate = new Date(nextBlitz.date);
+              const diffTime = tripDate.getTime() - today.getTime();
               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               
               if (diffDays <= 7) {
-                ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${repData.blitz_trip_location || 'your blitz'} — prep makes perfect`;
+                ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
                 ctaIcon = "⚡";
               } else {
-                ctaText = `${repData.blitz_trip_location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training`;
+                ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training`;
                 ctaIcon = "🎯";
               }
             }
             
             const showWeather = weather.length > 0 && hasValidBlitz;
-            const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+            const weatherDiffDays = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
             const handleCtaClick = () => {
-              if (!repData.blitz_trip_name || blitzIsPast) {
+              if (!hasValidBlitz) {
                 setCalendarModalOpen(true);
               } else {
                 setWeatherSheetOpen(true);
@@ -1176,7 +1224,7 @@ const Home = () => {
         <SheetContent side="bottom" className="max-h-[70vh]">
           <SheetHeader className="pb-4">
             <SheetTitle className="text-center">
-              {repData.blitz_trip_location} Weather
+              {nextBlitz?.location || 'Blitz'} Weather
             </SheetTitle>
           </SheetHeader>
           
@@ -1238,7 +1286,7 @@ const Home = () => {
           {(() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+            const tripDate = nextBlitz ? new Date(nextBlitz.date) : null;
             const diffTime = tripDate ? tripDate.getTime() - today.getTime() : 0;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
