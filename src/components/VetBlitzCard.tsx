@@ -303,18 +303,9 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
   };
 
   const getUncommittedMembers = (blitzId: string) => {
-    const stageOrder = ["Sold (5+) 💰", "Sold 💲", "Shadow ✅", "Signed", "Evaluating"];
-    
-    return teamMembers
-      .filter(member => !member.committedBlitzes.includes(blitzId))
-      .filter(member => member.stage && stageOrder.includes(member.stage))
-      .sort((a, b) => {
-        const aStage = a.stage || "";
-        const bStage = b.stage || "";
-        const aIndex = stageOrder.indexOf(aStage);
-        const bIndex = stageOrder.indexOf(bStage);
-        return aIndex - bIndex;
-      });
+    return sortTeamMembers(
+      teamMembers.filter(member => !member.committedBlitzes.includes(blitzId))
+    );
   };
 
   const getRookieCount = (blitzId: string) => {
@@ -548,7 +539,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
                       <CollapsibleContent className="space-y-2 pt-2">
                         {uncommittedMembers.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
-                            No team members with priority stages (Sold, Shadow, Signed, Evaluating) available to invite
+                            All team members are already committed to this blitz
                           </p>
                         ) : (
                           uncommittedMembers.map((member) => {
