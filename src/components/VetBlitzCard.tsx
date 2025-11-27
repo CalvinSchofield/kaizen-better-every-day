@@ -315,26 +315,13 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
     
     return teamMembers
       .filter(member => !member.committedBlitzes.includes(blitzId))
+      .filter(member => member.stage && stageOrder.includes(member.stage))
       .sort((a, b) => {
         const aStage = a.stage || "";
         const bStage = b.stage || "";
         const aIndex = stageOrder.indexOf(aStage);
         const bIndex = stageOrder.indexOf(bStage);
-        
-        // If both have priority stages, sort by order
-        if (aIndex !== -1 && bIndex !== -1) {
-          return aIndex - bIndex;
-        }
-        // Priority stages come first
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-        
-        // Then sort rookies before others
-        if (a.year === "Rookie" && b.year !== "Rookie") return -1;
-        if (a.year !== "Rookie" && b.year === "Rookie") return 1;
-        
-        // Finally alphabetically
-        return a.name.localeCompare(b.name);
+        return aIndex - bIndex;
       });
   };
 
@@ -439,7 +426,7 @@ export const VetBlitzCard = ({ repData, allBlitzes }: VetBlitzCardProps) => {
               onOpenChange={() => toggleBlitzExpansion(blitz.id)}
             >
               <div 
-                className="border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-secondary/50 transition-colors"
+                className="border rounded-lg p-4 space-y-3 cursor-pointer active:scale-[0.99] transition-transform"
                 onClick={() => toggleBlitzExpansion(blitz.id)}
               >
                 {/* Collapsed state header */}
