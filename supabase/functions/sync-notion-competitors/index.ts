@@ -113,7 +113,7 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
   return blocks;
 }
 
-function extractTextFromBlocks(blocks: any[]): { ourSellingPoints: string[], objections: any[] } {
+async function extractTextFromBlocks(blocks: any[], notionToken: string): Promise<{ ourSellingPoints: string[], objections: any[] }> {
   const ourSellingPoints: string[] = [];
   const objections: any[] = [];
   let inObjections = false;
@@ -124,16 +124,20 @@ function extractTextFromBlocks(blocks: any[]): { ourSellingPoints: string[], obj
     if (block.type === 'callout') {
       const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
       
-      // If this is the selling points callout, extract numbered list items from children
-      if (calloutText.includes('Our selling points')) {
-        // Get child blocks (the numbered list items inside the callout)
-        const children = block.callout?.children || [];
+      // If this is the selling points callout, fetch and extract numbered list items from children
+      if (calloutText.toLowerCase().includes('our selling points')) {
+        console.log('Found "Our selling points" callout, fetching children blocks...');
+        // Fetch the children blocks of this callout
+        const children = await fetchNotionBlocks(block.id, notionToken);
+        console.log(`Found ${children.length} children blocks in callout`);
+        
         for (const child of children) {
           if (child.type === 'numbered_list_item') {
             const text = child.numbered_list_item?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
             if (text) {
               // Remove markdown formatting like **bold** and trim
               const cleanText = text.replace(/\*\*/g, '').trim();
+              console.log('Extracted selling point:', cleanText);
               ourSellingPoints.push(cleanText);
             }
           }
@@ -239,7 +243,7 @@ Deno.serve(async (req) => {
 
       // Fetch page blocks to get our selling points and objections
       const blocks = await fetchNotionBlocks(page.id, notionApiKey);
-      const { ourSellingPoints, objections } = extractTextFromBlocks(blocks);
+      const { ourSellingPoints, objections } = await extractTextFromBlocks(blocks, notionApiKey);
 
       // Fetch "Used by" monitoring companies in parallel
       const usedByIds = getRelationIds(page.properties, 'Used by');
