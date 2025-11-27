@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, RefreshCw, LogOut } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -786,12 +786,13 @@ const Home = () => {
                         </h1>
                         <button
                           onClick={() => setCalendarModalOpen(true)}
-                          className="group flex items-start gap-3 text-left transition-all hover:translate-x-1"
+                          className="group flex items-center gap-3 text-left w-full px-4 py-3 rounded-xl bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
                         >
-                          <span className="text-2xl flex-shrink-0 mt-0.5 transition-transform group-hover:scale-110">{ctaIcon}</span>
-                          <p className="text-primary-foreground/90 text-base font-medium leading-snug underline decoration-primary-foreground/40 decoration-2 underline-offset-4 group-hover:decoration-primary-foreground transition-colors">
+                          <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                          <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                             {ctaText}
                           </p>
+                          <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                         </button>
                         
                         {/* Weather forecast - only show for sub-7 day blitzes */}
