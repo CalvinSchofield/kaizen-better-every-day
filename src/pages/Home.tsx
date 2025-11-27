@@ -71,6 +71,7 @@ const Home = () => {
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number }>>([]);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -401,6 +402,47 @@ const Home = () => {
       setPreviousProgress(completedSteps);
     }
   }, [completedSteps, previousProgress, toast]);
+
+  // Fetch weather for upcoming blitzes (within 7 days)
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!repData?.blitz_trip_location || !repData?.blitz_trip_date || !repData?.blitz_trip_end_date) {
+        setWeather([]);
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tripDate = new Date(repData.blitz_trip_date);
+      tripDate.setHours(0, 0, 0, 0);
+      const diffTime = tripDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Only fetch weather if blitz is within 7 days and in the future
+      if (diffDays <= 0 || diffDays > 7) {
+        setWeather([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
+          body: {
+            location: repData.blitz_trip_location,
+            startDate: repData.blitz_trip_date,
+            endDate: repData.blitz_trip_end_date,
+          },
+        });
+
+        if (!error && data?.forecasts) {
+          setWeather(data.forecasts.slice(0, 5)); // Only show first 5 days
+        }
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+      }
+    };
+
+    fetchWeather();
+  }, [repData?.blitz_trip_date, repData?.blitz_trip_location, repData?.blitz_trip_end_date]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -734,6 +776,9 @@ const Home = () => {
                       }
                     }
                     
+                    const showWeather = weather.length > 0 && hasValidBlitz;
+                    const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                    
                     return (
                       <div className="space-y-3">
                         <h1 className="text-3xl font-bold tracking-tight">
@@ -748,6 +793,24 @@ const Home = () => {
                             {ctaText}
                           </p>
                         </button>
+                        
+                        {/* Weather forecast - only show for sub-7 day blitzes */}
+                        {showWeather && weatherDiffDays <= 7 && (
+                          <div className="flex gap-2 pt-1 overflow-x-auto">
+                            {weather.map((day) => (
+                              <div
+                                key={day.date}
+                                className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
+                              >
+                                <span className="text-xs text-primary-foreground/70 font-medium">
+                                  {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
+                                </span>
+                                <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
+                                <span className="text-xs text-primary-foreground/60">{day.low}°</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
