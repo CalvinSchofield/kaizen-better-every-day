@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield } from "lucide-react";
+import CompetitorSyncButton from "@/components/CompetitorSyncButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,11 @@ const Tools = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Admin Sync */}
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <CompetitorSyncButton />
+      </div>
+      
       {/* Header */}
       <div className="bg-card border-b border-border p-6">
         <div className="max-w-lg mx-auto">
