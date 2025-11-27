@@ -947,7 +947,12 @@ const Home = () => {
             const showWeather = weather.length > 0 && hasValidBlitz;
             const weatherDiffDays = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
+            // Only clickable if no blitz OR blitz is within 7 days
+            const isClickable = !hasValidBlitz || weatherDiffDays <= 7;
+            
             const handleCtaClick = () => {
+              if (!isClickable) return; // Prevent click when not within 7 days
+              
               if (!hasValidBlitz) {
                 setCalendarModalOpen(true);
               } else {
@@ -958,13 +963,20 @@ const Home = () => {
             return (
               <button
                 onClick={handleCtaClick}
-                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+                disabled={!isClickable}
+                className={`flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3 ${
+                  isClickable 
+                    ? 'group hover:bg-primary-foreground/15 cursor-pointer' 
+                    : 'cursor-default'
+                }`}
               >
                 <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                 <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                   {ctaText}
                 </p>
-                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                {isClickable && (
+                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                )}
               </button>
             );
           })()}
