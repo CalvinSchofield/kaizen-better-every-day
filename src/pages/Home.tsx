@@ -687,11 +687,8 @@ const Home = () => {
             <div className="flex-1 min-w-0">
               {!onboardingComplete || !trainingsComplete ? (
                 <>
-                  <h1 className="text-2xl font-bold">Getting started</h1>
-                  <p className="text-primary-foreground/90 text-sm">
-                    👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!
-                  </p>
-                  <p className="text-primary-foreground/80 text-xs mt-1">
+                  <h1 className="text-2xl font-bold">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}!</h1>
+                  <p className="text-primary-foreground/90 text-base font-medium mt-2">
                     The basics to make your first $10k at Vivint
                   </p>
                 </>
@@ -708,12 +705,12 @@ const Home = () => {
                     if (!repData.blitz_trip_name || blitzIsPast) {
                       return (
                         <>
-                          <h1 className="text-2xl font-bold">
+                          <h1 className="text-xl font-bold">
                             {blitzIsPast ? `🗣️ Let's keep the momentum rolling and get you on another blitz, ${firstName}` : `‼️ ${firstName}, let's get you committed to a blitz`}
                           </h1>
                           <button
                             onClick={() => setCalendarModalOpen(true)}
-                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-sm font-medium border border-primary-foreground/30"
+                            className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-base font-medium border border-primary-foreground/30"
                           >
                             Check out the calendar to find one that you can be a part of
                           </button>
@@ -724,12 +721,12 @@ const Home = () => {
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                       return (
                         <>
-                          <h1 className="text-2xl font-bold">
+                          <h1 className="text-xl font-bold">
                             📆 {firstName}, {diffDays} {diffDays === 1 ? 'day' : 'days'} out
                           </h1>
                           <button
                             onClick={() => setCalendarModalOpen(true)}
-                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-sm font-medium border border-primary-foreground/30"
+                            className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-foreground/20 hover:bg-primary-foreground/30 transition-all text-primary-foreground text-base font-medium border border-primary-foreground/30"
                           >
                             You get out what you put in — good prep leads to a solid blitz
                           </button>
@@ -743,9 +740,9 @@ const Home = () => {
             <div className="flex gap-2 flex-shrink-0">
               <Button 
                 onClick={handleSync} 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
-                className="rounded-full border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/50"
+                className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
                 disabled={isSyncing}
               >
                 <RefreshCw className={`w-4 h-4 mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -761,17 +758,6 @@ const Home = () => {
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>
-          </div>
-          
-          {/* Blitz Countdown */}
-          <div className="mt-4">
-            <BlitzCountdown
-              tripName={repData.blitz_trip_name ?? null}
-              tripDate={repData.blitz_trip_date ?? null}
-              tripEndDate={repData.blitz_trip_end_date ?? null}
-              tripLocation={repData.blitz_trip_location ?? null}
-              isVet={false}
-            />
           </div>
           
           {/* Progress Bar */}
