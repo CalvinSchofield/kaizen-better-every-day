@@ -786,10 +786,10 @@ const Home = () => {
                         </h1>
                         <button
                           onClick={() => setCalendarModalOpen(true)}
-                          className="group flex items-start gap-3 text-left hover:opacity-80 transition-opacity"
+                          className="group flex items-start gap-3 text-left transition-all hover:translate-x-1"
                         >
-                          <span className="text-2xl flex-shrink-0 mt-0.5">{ctaIcon}</span>
-                          <p className="text-primary-foreground/90 text-base font-medium leading-snug">
+                          <span className="text-2xl flex-shrink-0 mt-0.5 transition-transform group-hover:scale-110">{ctaIcon}</span>
+                          <p className="text-primary-foreground/90 text-base font-medium leading-snug underline decoration-primary-foreground/40 decoration-2 underline-offset-4 group-hover:decoration-primary-foreground transition-colors">
                             {ctaText}
                           </p>
                         </button>
