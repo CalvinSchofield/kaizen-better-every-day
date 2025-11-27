@@ -1,0 +1,291 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface NotionPage {
+  id: string;
+  properties: Record<string, any>;
+  url: string;
+}
+
+interface CompetitorData {
+  notion_page_id: string;
+  name: string;
+  category: string | null;
+  main_image_url: string | null;
+  alternate_versions: any[];
+  monitoring_companies: string[];
+  our_selling_points: string[];
+  their_selling_points: string[];
+  objections: any[];
+}
+
+// Helper functions to safely extract Notion properties
+function getTitle(properties: Record<string, any>, key: string): string {
+  const prop = properties[key];
+  if (!prop || prop.type !== 'title') return '';
+  return prop.title?.[0]?.plain_text || '';
+}
+
+function getRichText(properties: Record<string, any>, key: string): string {
+  const prop = properties[key];
+  if (!prop || prop.type !== 'rich_text') return '';
+  return prop.rich_text?.[0]?.plain_text || '';
+}
+
+function getMultiSelect(properties: Record<string, any>, key: string): string | null {
+  const prop = properties[key];
+  if (!prop || prop.type !== 'multi_select') return null;
+  // Return the first category for simplicity
+  return prop.multi_select?.[0]?.name || null;
+}
+
+function getFiles(properties: Record<string, any>, key: string): string | null {
+  const prop = properties[key];
+  if (!prop || prop.type !== 'files') return null;
+  const file = prop.files?.[0];
+  if (!file) return null;
+  return file.type === 'external' ? file.external?.url : file.file?.url;
+}
+
+function getRelationIds(properties: Record<string, any>, key: string): string[] {
+  const prop = properties[key];
+  if (!prop || prop.type !== 'relation') return [];
+  return prop.relation?.map((r: any) => r.id) || [];
+}
+
+async function fetchNotionPage(pageId: string, notionApiKey: string): Promise<any> {
+  const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    headers: {
+      'Authorization': `Bearer ${notionApiKey}`,
+      'Notion-Version': '2022-06-28',
+    },
+  });
+
+  if (!response.ok) {
+    console.error(`Failed to fetch page ${pageId}:`, await response.text());
+    return null;
+  }
+
+  return await response.json();
+}
+
+async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<any[]> {
+  const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+    headers: {
+      'Authorization': `Bearer ${notionApiKey}`,
+      'Notion-Version': '2022-06-28',
+    },
+  });
+
+  if (!response.ok) {
+    console.error(`Failed to fetch blocks for ${pageId}:`, await response.text());
+    return [];
+  }
+
+  const data = await response.json();
+  return data.results || [];
+}
+
+function extractTextFromBlocks(blocks: any[]): { ourSellingPoints: string[], objections: any[] } {
+  const ourSellingPoints: string[] = [];
+  const objections: any[] = [];
+  let inSellingPoints = false;
+  let inObjections = false;
+  let currentObjection = '';
+
+  for (const block of blocks) {
+    // Check for heading_2 to identify sections
+    if (block.type === 'heading_2') {
+      const headingText = block.heading_2?.rich_text?.[0]?.plain_text || '';
+      if (headingText.includes('Our selling points')) {
+        inSellingPoints = true;
+        inObjections = false;
+      } else if (headingText.includes('Potential objections')) {
+        inSellingPoints = false;
+        inObjections = true;
+      } else {
+        inSellingPoints = false;
+        inObjections = false;
+      }
+    }
+
+    // Extract bullet points for selling points
+    if (inSellingPoints && block.type === 'bulleted_list_item') {
+      const text = block.bulleted_list_item?.rich_text?.[0]?.plain_text || '';
+      if (text) ourSellingPoints.push(text);
+    }
+
+    // Extract objections and handles
+    if (inObjections) {
+      if (block.type === 'paragraph') {
+        const text = block.paragraph?.rich_text?.[0]?.plain_text || '';
+        if (text && !currentObjection) {
+          currentObjection = text;
+        }
+      } else if (block.type === 'quote') {
+        const handle = block.quote?.rich_text?.[0]?.plain_text || '';
+        if (handle && currentObjection) {
+          objections.push({
+            objection: currentObjection,
+            handle: handle,
+          });
+          currentObjection = '';
+        }
+      }
+    }
+  }
+
+  return { ourSellingPoints, objections };
+}
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const notionApiKey = Deno.env.get('NOTION_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!notionApiKey || !supabaseUrl || !supabaseServiceRoleKey) {
+      throw new Error('Missing required environment variables');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    // Database ID from the Notion URL
+    const databaseId = '1af070fe3bc2809e9a4cc6ea3fb777b6';
+
+    console.log('Fetching competitors from Notion database...');
+
+    // Query the Notion database
+    const notionResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${notionApiKey}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!notionResponse.ok) {
+      throw new Error(`Failed to query Notion database: ${await notionResponse.text()}`);
+    }
+
+    const notionData = await notionResponse.json();
+    const pages: NotionPage[] = notionData.results || [];
+
+    console.log(`Found ${pages.length} competitors in Notion`);
+
+    const competitorsToUpsert: CompetitorData[] = [];
+
+    for (const page of pages) {
+      const name = getTitle(page.properties, 'Name');
+      if (!name) {
+        console.log(`Skipping page ${page.id} - no name found`);
+        continue;
+      }
+
+      console.log(`Processing competitor: ${name}`);
+
+      const category = getMultiSelect(page.properties, 'Type');
+      const mainImageUrl = getFiles(page.properties, 'Image');
+      const theirSellingPointsText = getRichText(page.properties, 'Why customers buy it');
+      const theirSellingPoints = theirSellingPointsText ? theirSellingPointsText.split('\n').filter(Boolean) : [];
+
+      // Fetch page blocks to get our selling points and objections
+      const blocks = await fetchNotionBlocks(page.id, notionApiKey);
+      const { ourSellingPoints, objections } = extractTextFromBlocks(blocks);
+
+      // Fetch "Used by" monitoring companies
+      const usedByIds = getRelationIds(page.properties, 'Used by');
+      const monitoringCompanies: string[] = [];
+      for (const id of usedByIds) {
+        const companyPage = await fetchNotionPage(id, notionApiKey);
+        if (companyPage) {
+          const companyName = getTitle(companyPage.properties, 'Name');
+          if (companyName) monitoringCompanies.push(companyName);
+        }
+      }
+
+      // Fetch alternate versions
+      const alternateVersionIds = getRelationIds(page.properties, 'Other versions');
+      const alternateVersions: any[] = [];
+      for (const id of alternateVersionIds) {
+        const versionPage = await fetchNotionPage(id, notionApiKey);
+        if (versionPage) {
+          const versionName = getTitle(versionPage.properties, 'Name');
+          const versionImage = getFiles(versionPage.properties, 'Image');
+          if (versionName) {
+            alternateVersions.push({
+              name: versionName,
+              image_url: versionImage,
+              notion_page_id: id,
+            });
+          }
+        }
+      }
+
+      const competitorData: CompetitorData = {
+        notion_page_id: page.id,
+        name,
+        category,
+        main_image_url: mainImageUrl,
+        alternate_versions: alternateVersions,
+        monitoring_companies: monitoringCompanies,
+        our_selling_points: ourSellingPoints,
+        their_selling_points: theirSellingPoints,
+        objections,
+      };
+
+      competitorsToUpsert.push(competitorData);
+    }
+
+    // Upsert competitors to Supabase
+    console.log(`Upserting ${competitorsToUpsert.length} competitors to Supabase...`);
+
+    for (const competitor of competitorsToUpsert) {
+      const { error } = await supabase
+        .from('competitors')
+        .upsert(competitor, {
+          onConflict: 'notion_page_id',
+        });
+
+      if (error) {
+        console.error(`Failed to upsert competitor ${competitor.name}:`, error);
+      } else {
+        console.log(`Successfully synced competitor: ${competitor.name}`);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        syncedCount: competitorsToUpsert.length,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error) {
+    console.error('Error syncing competitors:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: errorMessage,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});

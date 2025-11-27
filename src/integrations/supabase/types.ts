@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      competitors: {
+        Row: {
+          alternate_versions: Json | null
+          category: string | null
+          created_at: string
+          id: string
+          main_image_url: string | null
+          monitoring_companies: string[] | null
+          name: string
+          notion_page_id: string
+          objections: Json | null
+          our_selling_points: string[] | null
+          their_selling_points: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          alternate_versions?: Json | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          main_image_url?: string | null
+          monitoring_companies?: string[] | null
+          name: string
+          notion_page_id: string
+          objections?: Json | null
+          our_selling_points?: string[] | null
+          their_selling_points?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          alternate_versions?: Json | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          main_image_url?: string | null
+          monitoring_companies?: string[] | null
+          name?: string
+          notion_page_id?: string
+          objections?: Json | null
+          our_selling_points?: string[] | null
+          their_selling_points?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null

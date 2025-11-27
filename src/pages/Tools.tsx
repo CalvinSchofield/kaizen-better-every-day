@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { useRepData } from "@/hooks/useRepData";
 import { ExternalLink as ExternalLinkComponent } from "@/components/ExternalLink";
+import { useNavigate } from "react-router-dom";
 
 interface ToolSection {
   title: string;
@@ -23,6 +24,7 @@ interface ToolSection {
 const Tools = () => {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const { repData } = useRepData();
+  const navigate = useNavigate();
 
   // Smart link handler - opens Notion links in app, PWA links in same window
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -63,6 +65,12 @@ const Tools = () => {
       description: "Daily tools to help you sell",
       icon: Wrench,
       links: [
+        {
+          title: "Competitor Cheat Sheet",
+          description: "Quick reference for competitor products",
+          href: "/tools/competitors",
+          icon: Shield,
+        },
         {
           title: "The Vault",
           description: "On-the-doors resource app",
@@ -154,6 +162,7 @@ const Tools = () => {
                   const LinkIcon = link.icon;
                   const isCalendar = link.title === "Team Calendar";
                   const isComingSoon = link.comingSoon;
+                  const isInternalRoute = link.href.startsWith('/');
                   
                   if (isCalendar) {
                     return (
@@ -198,6 +207,28 @@ const Tools = () => {
                           </p>
                         </div>
                       </div>
+                    );
+                  }
+
+                  if (isInternalRoute) {
+                    return (
+                      <button
+                        key={link.title}
+                        onClick={() => navigate(link.href)}
+                        className="w-full flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group text-left"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                          <LinkIcon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors">
+                            {link.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {link.description}
+                          </p>
+                        </div>
+                      </button>
                     );
                   }
                   
