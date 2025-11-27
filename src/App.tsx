@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import InstallPrompt from "./components/InstallPrompt";
+import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
 import Tools from "./pages/Tools";
@@ -32,6 +33,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <InstallPrompt />
           <Routes>
             <Route path="/auth" element={<Auth />} />
