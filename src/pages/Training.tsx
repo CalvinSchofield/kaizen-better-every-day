@@ -274,7 +274,7 @@ const Training = () => {
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
-        {!isVetOrSophomore && (
+        {!loading && !isVetOrSophomore && (
           <Card 
             className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
               animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'
