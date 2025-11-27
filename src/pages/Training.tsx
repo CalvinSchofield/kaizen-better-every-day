@@ -313,11 +313,11 @@ const Training = () => {
         {/* Pay Scales - Always at top */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-base">
+              <DollarSign className="h-5 w-5 text-accent" />
               Payscales
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm">
               Download pay scales and sales rules
             </CardDescription>
           </CardHeader>
