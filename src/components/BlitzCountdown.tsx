@@ -100,7 +100,7 @@ export const BlitzCountdown = ({
   };
 
   const getMessage = () => {
-    if (daysUntil === null || daysUntil < 0) {
+    if (daysUntil === null || daysUntil < 0 || !tripName) {
       return {
         primary: isVet
           ? "Time to lock in your blitz!"
@@ -116,7 +116,7 @@ export const BlitzCountdown = ({
         primary: `${tripName} starts TODAY!`,
         subtext: isVet
           ? "Time to get you and your recruits on the doors!"
-          : `Get ready to hit the doors in ${tripLocation}!`,
+          : `Get ready to hit the doors${tripLocation ? ` in ${tripLocation}` : ''}!`,
       };
     }
 
@@ -126,8 +126,8 @@ export const BlitzCountdown = ({
           ? `${tripName} is in ${daysUntil} day${daysUntil === 1 ? "" : "s"}!`
           : `${daysUntil} day${daysUntil === 1 ? "" : "s"} until ${tripName}!`,
         subtext: isVet
-          ? `Make sure you AND your recruits are ready for ${tripLocation}!`
-          : `Final preparations for ${tripLocation}!`,
+          ? `Make sure you AND your recruits are ready${tripLocation ? ` for ${tripLocation}` : ''}!`
+          : `Final preparations${tripLocation ? ` for ${tripLocation}` : ''}!`,
       };
     }
 
@@ -135,21 +135,25 @@ export const BlitzCountdown = ({
       return {
         primary: `Almost time! ${daysUntil} days until ${tripName}!`,
         subtext: isVet
-          ? `Get you and your team ready for ${tripLocation}!`
-          : `Get ready to hit the doors in ${tripLocation}!`,
+          ? `Get you and your team ready${tripLocation ? ` for ${tripLocation}` : ''}!`
+          : `Get ready to hit the doors${tripLocation ? ` in ${tripLocation}` : ''}!`,
       };
     }
 
     if (isVet) {
       return {
         primary: `${daysUntil} days to get you AND your recruits ready!`,
-        subtext: `${tripName} in ${tripLocation} is coming up fast!`,
+        subtext: tripLocation 
+          ? `${tripName} in ${tripLocation} is coming up fast!`
+          : `${tripName} is coming up fast!`,
       };
     }
 
     return {
       primary: `${getEmoji()} ${daysUntil} days until ${tripName}!`,
-      subtext: `Get ready to hit the doors in ${tripLocation}!`,
+      subtext: tripLocation 
+        ? `Get ready to hit the doors in ${tripLocation}!`
+        : 'Get ready to hit the doors!',
     };
   };
 
