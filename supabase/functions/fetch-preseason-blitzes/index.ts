@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     }
 
     // Preseason Trips database ID
-    const databaseId = "2a2070fe-3bc2-80e5-bae8-d1e3c66cf2a5";
+    const databaseId = "9baec1f4-4c39-4ce9-8aa6-85ce1f62ed6b";
 
     console.log("Fetching blitzes from Preseason Trips database:", databaseId);
 
