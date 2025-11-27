@@ -549,7 +549,7 @@ const Home = () => {
     }
   };
 
-  const { containerRef, shouldShowIndicator, indicatorOpacity, indicatorRotation } = usePullToRefresh({
+  const { containerRef, pullDistance } = usePullToRefresh({
     onRefresh: handleSync,
     isRefreshing: isSyncing,
     threshold: 80,
@@ -823,23 +823,14 @@ const Home = () => {
   };
 
   return <div ref={containerRef} className="min-h-screen bg-gradient-to-b from-background to-secondary/30 overflow-y-auto">
-      {/* Pull to Refresh Indicator */}
-      {shouldShowIndicator && (
-        <div 
-          className="fixed top-0 left-0 right-0 flex justify-center pt-4 z-50 transition-opacity duration-200"
-          style={{ opacity: indicatorOpacity }}
-        >
-          <div className="bg-background/95 backdrop-blur-sm rounded-full p-3 shadow-lg border border-border">
-            <RefreshCw 
-              className="w-5 h-5 text-primary"
-              style={{ 
-                transform: `rotate(${indicatorRotation}deg)`,
-                transition: isSyncing ? 'none' : 'transform 0.2s ease-out'
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Pull to refresh hint */}
+      <div 
+        className="fixed top-0 left-0 right-0 flex justify-center pt-2 z-50 transition-opacity duration-200 pointer-events-none"
+        style={{ opacity: pullDistance > 0 ? Math.min(pullDistance / 80, 0.6) : 0 }}
+      >
+        <p className="text-xs text-muted-foreground">Pull down to refresh</p>
+      </div>
+      
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
