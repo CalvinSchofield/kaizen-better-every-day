@@ -24,6 +24,8 @@ import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { VetHome } from "@/components/VetHome";
+import { BlitzCountdown } from "@/components/BlitzCountdown";
+
 interface StepStatus {
   completed: boolean;
   locked: boolean;
@@ -704,6 +706,17 @@ const Home = () => {
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+          
+          {/* Blitz Countdown */}
+          <div className="mt-4">
+            <BlitzCountdown
+              tripName={repData.blitz_trip_name}
+              tripDate={repData.blitz_trip_date}
+              tripEndDate={repData.blitz_trip_end_date}
+              tripLocation={repData.blitz_trip_location}
+              isVet={false}
+            />
           </div>
           
           {/* Progress Bar */}

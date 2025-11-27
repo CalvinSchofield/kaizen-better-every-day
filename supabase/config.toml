@@ -2,3 +2,6 @@ project_id = "wjxlzcuqpoamrwumszau"
 
 [functions.sync-notion-reps]
 verify_jwt = false
+
+[functions.get-blitz-weather]
+verify_jwt = false

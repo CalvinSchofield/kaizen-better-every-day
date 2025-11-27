@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
+import { BlitzCountdown } from "@/components/BlitzCountdown";
 import {
   Sheet,
   SheetContent,
@@ -195,6 +196,17 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
+        {/* Blitz Countdown */}
+        <div className="mb-6">
+          <BlitzCountdown
+            tripName={repData.blitz_trip_name}
+            tripDate={repData.blitz_trip_date}
+            tripEndDate={repData.blitz_trip_end_date}
+            tripLocation={repData.blitz_trip_location}
+            isVet={true}
+          />
+        </div>
+
         {/* Status Dashboard Card */}
         <Card className="mb-6 shadow-lg">
           <CardHeader>
