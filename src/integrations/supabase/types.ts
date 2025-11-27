@@ -44,9 +44,11 @@ export type Database = {
           blitz_trip_name: string | null
           committed_blitzes: Json | null
           completed_tasks: Json | null
+          contacted_for_blitz: Json | null
           created_at: string | null
           email: string | null
           id: string
+          ipad_assigned: boolean | null
           last_nudge_time: string | null
           name: string
           notion_page_id: string | null
@@ -82,9 +84,11 @@ export type Database = {
           blitz_trip_name?: string | null
           committed_blitzes?: Json | null
           completed_tasks?: Json | null
+          contacted_for_blitz?: Json | null
           created_at?: string | null
           email?: string | null
           id?: string
+          ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           name: string
           notion_page_id?: string | null
@@ -120,9 +124,11 @@ export type Database = {
           blitz_trip_name?: string | null
           committed_blitzes?: Json | null
           completed_tasks?: Json | null
+          contacted_for_blitz?: Json | null
           created_at?: string | null
           email?: string | null
           id?: string
+          ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           name?: string
           notion_page_id?: string | null

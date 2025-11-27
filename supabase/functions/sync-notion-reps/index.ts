@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
         const name = getTitle(props.Name) || getRichText(props.Name) || "Unknown";
         const email = getEmail(props.Email) || getRichText(props.Email);
         const phone = getPhone(props.Phone) || getRichText(props.Phone);
+        const ipadAssigned = getCheckbox(props["iPad Assigned"]);
 
         if (!email) {
           console.log(`Skipping page ${page.id} - no email found`);
@@ -380,6 +381,9 @@ Deno.serve(async (req) => {
           blitz_ready: getCheckbox(props["Blitz Ready"]),
           path_to_pro_started: getCheckbox(props["Path to Pro Started"]),
           path_to_pro_progress: 0,
+          
+          // iPad assignment
+          ipad_assigned: ipadAssigned,
           
           // Nudge leader
           nudge_leader: getCheckbox(props["Nudge leader"]),
