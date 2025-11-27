@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     // Step 1: Find teams where this leader is the Group Lead
     // Query the Teams database
     const teamsResponse = await fetch(
-      `https://api.notion.com/v1/databases/287070fe3bc28015936ee06ddb8a8e1c/query`,
+      `https://api.notion.com/v1/databases/287070fe3bc280e1ab5fec17d5582878/query`,
       {
         method: "POST",
         headers: {
