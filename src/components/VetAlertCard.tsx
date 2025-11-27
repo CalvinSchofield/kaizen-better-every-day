@@ -215,17 +215,19 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
           .from('reps')
           .select('id')
           .eq('notion_page_id', selectedAlert.rookie.notionPageId)
-          .single();
+          .maybeSingle();
 
         if (fetchError) throw fetchError;
 
-        const { error: ipadError } = await supabase
-          .from('reps')
-          .update({ ipad_assigned: ipadAssigned })
-          .eq('id', repData.id);
+        if (repData) {
+          const { error: ipadError } = await supabase
+            .from('reps')
+            .update({ ipad_assigned: ipadAssigned })
+            .eq('id', repData.id);
 
-        if (ipadError) throw ipadError;
-        updates.ipadAssigned = ipadAssigned;
+          if (ipadError) throw ipadError;
+          updates.ipadAssigned = ipadAssigned;
+        }
       }
 
       // Notify parent of changes
