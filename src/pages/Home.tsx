@@ -1129,48 +1129,54 @@ const Home = () => {
 
       {/* Weather Details Sheet */}
       <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>
-              {repData.blitz_trip_location} Weather Forecast
+        <SheetContent side="bottom" className="max-h-[70vh]">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-center">
+              {repData.blitz_trip_location} Weather
             </SheetTitle>
           </SheetHeader>
           
-          <div className="mt-6 relative">
-            {/* Scroll indicator */}
-            {weather.length > 3 && (
-              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 flex items-center justify-end pr-2">
-                <ChevronRight className="w-5 h-5 text-muted-foreground animate-pulse" />
-              </div>
-            )}
-            
-            <div className="overflow-x-auto -mx-6 px-6 pb-2">
-              <div className="flex gap-2.5">
-                {weather.map((day) => {
-                  const date = new Date(day.date);
-                  const hasRain = isRainy(day.weatherCode);
-                  
-                  return (
-                    <div
-                      key={day.date}
-                      className={`flex-shrink-0 w-24 p-2.5 rounded-lg bg-secondary/50 border text-center ${
-                        hasRain ? 'border-blue-400/40' : 'border-border'
-                      }`}
-                    >
-                      <div className="text-xs text-muted-foreground font-medium mb-0.5">
-                        {date.toLocaleDateString("en-US", { weekday: "short" })}
+          <div className="relative">
+            <div className="overflow-x-auto pb-3 scrollbar-hide">
+              <div className="flex gap-3 px-1">
+                {weather
+                  .filter((day) => {
+                    const dayOfWeek = new Date(day.date).getDay();
+                    return dayOfWeek !== 0; // Exclude Sundays
+                  })
+                  .map((day) => {
+                    const date = new Date(day.date);
+                    const hasRain = isRainy(day.weatherCode);
+                    
+                    return (
+                      <div
+                        key={day.date}
+                        className={`flex-shrink-0 w-20 p-3 rounded-xl bg-secondary/30 border transition-colors text-center ${
+                          hasRain ? 'border-blue-400/50 bg-blue-50/5' : 'border-border/50'
+                        }`}
+                      >
+                        <div className="text-xs text-muted-foreground font-semibold mb-1">
+                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 mb-2">
+                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </div>
+                        <div className="text-3xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
+                        <div className="text-base font-bold">{day.high}°</div>
+                        <div className="text-[10px] text-muted-foreground/70">{day.low}°</div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground mb-1.5">
-                        {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </div>
-                      <div className="text-2xl mb-1.5">{getWeatherIcon(day.weatherCode)}</div>
-                      <div className="text-base font-bold">{day.high}°</div>
-                      <div className="text-[10px] text-muted-foreground">{day.low}°</div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
+            
+            {/* Subtle scroll gradient indicators */}
+            {weather.length > 4 && (
+              <>
+                <div className="absolute left-0 top-0 bottom-3 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-3 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+              </>
+            )}
           </div>
 
           {/* Cold/Rain Warning */}
@@ -1179,14 +1185,15 @@ const Home = () => {
             const hasRainDay = weather.some(day => isRainy(day.weatherCode));
             
             return (hasColdDay || hasRainDay) && (
-              <div className="mt-4 px-6">
-                <p className="text-sm text-muted-foreground italic text-center">
+              <div className="mt-3 mb-4">
+                <p className="text-xs text-muted-foreground italic text-center leading-relaxed">
                   Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
                 </p>
               </div>
             );
           })()}
 
+          {/* Packing List Button */}
           {(() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1195,7 +1202,7 @@ const Home = () => {
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             return diffDays <= 4 && (
-              <div className="mt-6 pt-6 border-t">
+              <div className="mt-4 pt-4 border-t">
                 <Button
                   onClick={() => {
                     openLink("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4");
@@ -1211,6 +1218,16 @@ const Home = () => {
           })()}
         </SheetContent>
       </Sheet>
+      
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>;
 };
 export default Home;
