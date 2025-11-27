@@ -9,13 +9,10 @@ import {
   Rocket, 
   Trophy, 
   GraduationCap,
-  Play,
-  Copy,
-  ExternalLink as ExternalLinkIcon
+  Copy
 } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useToast } from "@/hooks/use-toast";
-import { ExternalLink } from "@/components/ExternalLink";
 
 interface FlowLink {
   label: string;
@@ -65,7 +62,7 @@ const FLOW_STEPS: FlowStep[] = [
     title: "Sign Them",
     icon: FileCheck,
     links: [
-      { label: "Welcome Page", url: "https://calvinschofield.notion.site/welcome?source=copy_link", type: "notion" },
+      { label: "Welcome Page", url: "https://calvinschofield.notion.site/Welcome-f1ba376d8a1644e29aa8c57566620675", type: "notion" },
       { label: "Kaizen Preseason Hub", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "This is the onboarding and pre-blitz app for your rookies to help them do their best this summer. Share the link with them and help them add it as an app on their phone." }
     ]
   },
@@ -74,8 +71,8 @@ const FLOW_STEPS: FlowStep[] = [
     title: "Start Ramp to Blitz",
     icon: Rocket,
     links: [
-      { label: "Ramp to Blitz Program", url: "https://calvinschofield.notion.site/ramp-to-blitz-program?source=copy_link", type: "notion" },
-      { label: "Goals & Gameplan", url: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link", type: "notion" }
+      { label: "Goals & Gameplan", url: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link", type: "notion" },
+      { label: "Kaizen Preseason Hub", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "The Preseason Hub has ramp to blitz step by step on it. Help your recruits get the app downloaded to their phone and logged in! Then just make sure you update your notion as they progress." }
     ]
   },
   {
@@ -121,10 +118,6 @@ export const RecruitingFlowCarousel = () => {
     });
   };
 
-  const openLink = (url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
   return (
     <div className="relative">
       {/* Scroll hint */}
@@ -154,7 +147,7 @@ export const RecruitingFlowCarousel = () => {
             const Icon = step.icon;
             return (
               <CarouselItem key={step.step} className="pl-2 md:pl-4 basis-[85%] md:basis-[80%]">
-                <Card className={`h-full border-2 transition-colors ${step.comingSoon ? 'opacity-60 cursor-not-allowed border-muted' : 'hover:border-primary/50'}`}>
+                <Card className={`h-full border-2 ${step.comingSoon ? 'opacity-60 border-muted' : ''}`}>
                   <CardContent className="p-6 space-y-4">
                     {/* Step Badge */}
                     <div className="flex items-start justify-between">
@@ -199,20 +192,11 @@ export const RecruitingFlowCarousel = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full justify-between"
-                              asChild
+                              className="w-full justify-start"
+                              onClick={() => copyToClipboard(link.url, link.label)}
                             >
-                              <ExternalLink href={link.url} showIcon={false} className="no-underline hover:no-underline">
-                                <span className="flex items-center gap-2">
-                                  {link.type === 'video' ? (
-                                    <Play className="h-4 w-4 flex-shrink-0" />
-                                  ) : (
-                                    <Copy className="h-4 w-4 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate">{link.label}</span>
-                                </span>
-                                <ExternalLinkIcon className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                              </ExternalLink>
+                              <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
+                              <span className="truncate">{link.label}</span>
                             </Button>
                             {link.subtext && (
                               <p className="text-xs text-muted-foreground italic ml-1">
