@@ -168,33 +168,45 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       {/* Header with colored background */}
-      <div className="bg-primary text-primary-foreground p-6 pb-8">
+      <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-2xl font-bold">Your Dashboard</h1>
-              <p className="text-primary-foreground/90 text-sm">
-                Welcome back, {firstName}!
-              </p>
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1 min-w-0 pr-4">
+              {(() => {
+                const hour = new Date().getHours();
+                let greeting = "Good evening";
+                if (hour < 12) {
+                  greeting = "Good morning";
+                } else if (hour < 18) {
+                  greeting = "Good afternoon";
+                }
+                
+                return (
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    {greeting}, {firstName}
+                  </h1>
+                );
+              })()}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0 self-start">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onSync}
                 disabled={isSyncing}
                 className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
+                aria-label="Refresh data"
               >
-                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                Refresh
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLogout}
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
+                aria-label="Log out"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           </div>
