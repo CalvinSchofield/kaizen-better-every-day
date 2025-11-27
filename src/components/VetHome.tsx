@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,7 @@ interface VetHomeProps {
   repData: RepData;
   onSync: () => void;
   isSyncing: boolean;
+  syncSuccess: boolean;
 }
 
 // Dashboard mappings based on leader email
@@ -47,7 +48,7 @@ const PAY_SCALES = [
   { label: "Sales Rules", file: "/documents/2025_Sales_Rules.pdf" },
 ];
 
-export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
+export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
@@ -185,10 +186,18 @@ export const VetHome = ({ repData, onSync, isSyncing }: VetHomeProps) => {
                 size="sm"
                 onClick={onSync}
                 disabled={isSyncing}
-                className="rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border border-primary-foreground/20"
+                className={`rounded-full transition-all duration-300 border ${
+                  syncSuccess 
+                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
+                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
+                }`}
                 aria-label="Refresh data"
               >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+                {syncSuccess ? (
+                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
+                ) : (
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+                )}
               </Button>
               <Button 
                 variant="ghost" 
