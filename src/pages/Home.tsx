@@ -807,9 +807,10 @@ const Home = () => {
             
             // Urgent message if blitz is within 7 days and onboarding incomplete
             if (hasUpcomingBlitz && diffDays <= 7) {
+              const blitzLocation = repData.blitz_trip_location?.split(',')[0] || 'your';
               return (
                 <p className="text-orange-600 dark:text-orange-400 text-base font-bold mb-3">
-                  Reminder — to go on the blitz you have to finish all these steps. It shouldn't take long and will get you paid
+                  Reminder — to go on the {blitzLocation} blitz you have to finish all these steps first.
                 </p>
               );
             }
