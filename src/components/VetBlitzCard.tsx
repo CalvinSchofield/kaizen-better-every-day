@@ -685,7 +685,22 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                       <CollapsibleTrigger asChild>
                         <Button variant="outline" className="w-full">
                           {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
-                          {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} ({uncommittedMembers.length})
+                          {(() => {
+                            const uninvitedCount = uncommittedMembers.filter(
+                              member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId)
+                            ).length;
+                            
+                            if (uninvitedCount === 0 && uncommittedMembers.length > 0) {
+                              return (
+                                <>
+                                  {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
+                                  <Check className="h-4 w-4 ml-2 text-green-500" />
+                                </>
+                              );
+                            }
+                            
+                            return `${committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} (${uninvitedCount})`;
+                          })()}
                         </Button>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-2">
