@@ -800,8 +800,16 @@ const Home = () => {
           {(!onboardingComplete || !trainingsComplete) && (() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            
+            // Find next upcoming blitz (not past ones)
             const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
-            const hasUpcomingBlitz = tripDate && tripDate >= today;
+            const endDate = repData.blitz_trip_end_date ? new Date(repData.blitz_trip_end_date) : null;
+            
+            // Check if blitz is past (using end date if available, otherwise start date)
+            const blitzEndDate = endDate || tripDate;
+            const blitzIsPast = blitzEndDate && blitzEndDate < today;
+            const hasUpcomingBlitz = tripDate && tripDate >= today && !blitzIsPast;
+            
             const diffTime = hasUpcomingBlitz ? tripDate!.getTime() - today.getTime() : 0;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
@@ -827,9 +835,45 @@ const Home = () => {
           {(onboardingComplete && trainingsComplete) && (() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            
+            // Check if it's Monday between 4 AM - 8:30 PM MST
+            const now = new Date();
+            const mstOffset = -7 * 60; // MST is UTC-7
+            const mstTime = new Date(now.getTime() + (now.getTimezoneOffset() + mstOffset) * 60000);
+            const mstHour = mstTime.getHours();
+            const mstDay = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const isMondayNightLights = mstDay === 1 && mstHour >= 4 && mstHour < 20.5; // 4 AM to 8:30 PM
+            
+            if (isMondayNightLights) {
+              return (
+                <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">🌙</span>
+                    <h3 className="text-primary-foreground font-bold text-lg">Monday Night Lights — Tonight!</h3>
+                  </div>
+                  <p className="text-primary-foreground/90 text-sm leading-relaxed mb-3">
+                    Join us for training, Q&A, and team connection. Attend online or in person in Lehi if you can make it!
+                  </p>
+                  <Button 
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open('https://calvinschofield.notion.site/Monday-Night-Lights-15c1f9c4ddcd80e192a2fb0f4d533b55', '_blank')}
+                  >
+                    View Details
+                  </Button>
+                </div>
+              );
+            }
+            
+            // Find next upcoming blitz (not past ones)
             const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+            const endDate = repData.blitz_trip_end_date ? new Date(repData.blitz_trip_end_date) : null;
+            
+            // Check if blitz is past (using end date if available, otherwise start date)
+            const blitzEndDate = endDate || tripDate;
+            const blitzIsPast = blitzEndDate && blitzEndDate < today;
             const hasValidBlitz = tripDate && tripDate >= today;
-            const blitzIsPast = tripDate && tripDate < today;
             
             let ctaText = "";
             let ctaIcon = "";
