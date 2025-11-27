@@ -34,6 +34,35 @@ export const BlitzCountdown = ({
   const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
+    const fetchWeather = async () => {
+      if (!tripLocation || !tripDate || !tripEndDate) return;
+
+      setLoadingWeather(true);
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "get-blitz-weather",
+          {
+            body: {
+              location: tripLocation,
+              startDate: tripDate,
+              endDate: tripEndDate,
+            },
+          }
+        );
+
+        if (error) throw error;
+
+        if (data) {
+          setWeather(data.forecasts || []);
+          setWeatherLocation(data.location || "");
+        }
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
     if (tripDate) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -49,35 +78,6 @@ export const BlitzCountdown = ({
       }
     }
   }, [tripDate, tripLocation, tripEndDate]);
-
-  const fetchWeather = async () => {
-    if (!tripLocation || !tripDate || !tripEndDate) return;
-
-    setLoadingWeather(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "get-blitz-weather",
-        {
-          body: {
-            location: tripLocation,
-            startDate: tripDate,
-            endDate: tripEndDate,
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      if (data) {
-        setWeather(data.forecasts || []);
-        setWeatherLocation(data.location || "");
-      }
-    } catch (error) {
-      console.error("Error fetching weather:", error);
-    } finally {
-      setLoadingWeather(false);
-    }
-  };
 
   const getGradientClass = () => {
     if (daysUntil === null || daysUntil < 0) return "from-muted/50 to-muted";
