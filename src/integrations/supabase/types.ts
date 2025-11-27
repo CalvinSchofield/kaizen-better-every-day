@@ -42,6 +42,7 @@ export type Database = {
           blitz_trip_end_date: string | null
           blitz_trip_location: string | null
           blitz_trip_name: string | null
+          committed_blitzes: Json | null
           completed_tasks: Json | null
           created_at: string | null
           email: string | null
@@ -79,6 +80,7 @@ export type Database = {
           blitz_trip_end_date?: string | null
           blitz_trip_location?: string | null
           blitz_trip_name?: string | null
+          committed_blitzes?: Json | null
           completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null
@@ -116,6 +118,7 @@ export type Database = {
           blitz_trip_end_date?: string | null
           blitz_trip_location?: string | null
           blitz_trip_name?: string | null
+          committed_blitzes?: Json | null
           completed_tasks?: Json | null
           created_at?: string | null
           email?: string | null

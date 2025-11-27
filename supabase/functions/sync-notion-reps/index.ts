@@ -150,17 +150,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get Ramp to Blitz Phase - SINGLE SOURCE OF TRUTH for ALL journey progression
+        // Get Onboarding Step Completed - SINGLE SOURCE OF TRUTH for ALL journey progression
         console.log("Notion properties available:", Object.keys(props));
-        console.log("Looking for 'Ramp to Blitz Phase' property...");
+        console.log("Looking for 'Onboarding Step Completed' property...");
         
         // Debug: Log the actual property object
-        const rampProp = props["Ramp to Blitz Phase"];
+        const rampProp = props["Onboarding Step Completed"];
         console.log("Raw property object:", JSON.stringify(rampProp, null, 2));
         console.log("Property type:", rampProp?.type);
         console.log("Property select:", rampProp?.select);
         
-        const rampPhase = getStatus(props["Ramp to Blitz Phase"]) || getSelect(props["Ramp To Blitz Phase"]) || getSelect(props["Ramp to Blitz Phase"]) || "not started";
+        const rampPhase = getStatus(props["Onboarding Step Completed"]) || getSelect(props["Onboarding Step Completed"]) || "not started";
         console.log("Found ramp phase value:", rampPhase);
         const rampLower = rampPhase.toLowerCase();
         
@@ -274,45 +274,55 @@ Deno.serve(async (req) => {
         let blitzTripDate: string | null = null;
         let blitzTripEndDate: string | null = null;
         let blitzTripLocation: string | null = null;
+        const committedBlitzes: string[] = [];
 
-        console.log(`Processing blitz trip for ${name}...`);
+        console.log(`Processing blitz trips for ${name}...`);
         console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
 
         if (props["Preseason trips"]?.relation && props["Preseason trips"].relation.length > 0) {
           try {
-            const tripId = props["Preseason trips"].relation[0].id;
-            console.log(`Fetching trip with ID: ${tripId}`);
+            // Fetch ALL committed blitzes
+            for (const tripRelation of props["Preseason trips"].relation) {
+              const tripId = tripRelation.id;
+              console.log(`Fetching trip with ID: ${tripId}`);
 
-            const tripResponse = await fetch(`https://api.notion.com/v1/pages/${tripId}`, {
-              headers: {
-                'Authorization': `Bearer ${notionApiKey}`,
-                'Notion-Version': '2022-06-28',
-                'Content-Type': 'application/json',
-              },
-            });
+              const tripResponse = await fetch(`https://api.notion.com/v1/pages/${tripId}`, {
+                headers: {
+                  'Authorization': `Bearer ${notionApiKey}`,
+                  'Notion-Version': '2022-06-28',
+                  'Content-Type': 'application/json',
+                },
+              });
 
-            if (tripResponse.ok) {
-              const tripData = await tripResponse.json();
-              console.log('Trip data properties:', Object.keys(tripData.properties));
+              if (tripResponse.ok) {
+                const tripData = await tripResponse.json();
+                const tripName = getTitle(tripData.properties.Name);
+                
+                if (tripName) {
+                  committedBlitzes.push(tripName);
+                  console.log(`Added committed blitz: ${tripName}`);
+                  
+                  // For the first trip, also set the legacy fields for backward compatibility
+                  if (!blitzTripName) {
+                    blitzTripName = tripName;
+                    
+                    const dateProperty = tripData.properties.Date;
+                    if (dateProperty?.type === 'date' && dateProperty.date) {
+                      blitzTripDate = dateProperty.date.start;
+                      blitzTripEndDate = dateProperty.date.end;
+                      console.log(`Trip dates: ${blitzTripDate} to ${blitzTripEndDate}`);
+                    }
 
-              // Get trip name from Title
-              blitzTripName = getTitle(tripData.properties.Name);
-              console.log(`Trip name: ${blitzTripName}`);
-
-              // Get dates from Date property
-              const dateProperty = tripData.properties.Date;
-              if (dateProperty?.type === 'date' && dateProperty.date) {
-                blitzTripDate = dateProperty.date.start;
-                blitzTripEndDate = dateProperty.date.end;
-                console.log(`Trip dates: ${blitzTripDate} to ${blitzTripEndDate}`);
+                    blitzTripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
+                    console.log(`Trip location: ${blitzTripLocation}`);
+                  }
+                }
+              } else {
+                console.error(`Failed to fetch trip: ${tripResponse.status}`);
               }
-
-              // Get location from Location property
-              blitzTripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
-              console.log(`Trip location: ${blitzTripLocation}`);
-            } else {
-              console.error(`Failed to fetch trip: ${tripResponse.status}`);
             }
+            
+            console.log(`Total committed blitzes: ${committedBlitzes.length}`, committedBlitzes);
           } catch (error) {
             console.error('Error fetching blitz trip info:', error);
           }
@@ -337,6 +347,7 @@ Deno.serve(async (req) => {
           blitz_trip_date: blitzTripDate,
           blitz_trip_end_date: blitzTripEndDate,
           blitz_trip_location: blitzTripLocation,
+          committed_blitzes: committedBlitzes,
           
           // Journey progress - from Journey Step property
           onboarding_complete: onboardingComplete,
