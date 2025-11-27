@@ -813,33 +813,57 @@ const Home = () => {
             const showWeather = weather.length > 0 && hasValidBlitz;
             const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
+            const handleCtaClick = () => {
+              // If blitz is assigned and coming up, show weather (don't open calendar)
+              // If no blitz or blitz is past, open calendar to pick one
+              if (!repData.blitz_trip_name || blitzIsPast) {
+                setCalendarModalOpen(true);
+              }
+              // Otherwise, do nothing (weather is already shown below)
+            };
+            
             return (
               <div className="space-y-3 mb-3">
                 <button
-                  onClick={() => setCalendarModalOpen(true)}
+                  onClick={handleCtaClick}
                   className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
                 >
                   <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                   <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                     {ctaText}
                   </p>
-                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                  {(!repData.blitz_trip_name || blitzIsPast) && (
+                    <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                  )}
                 </button>
                 
                 {showWeather && weatherDiffDays <= 7 && (
-                  <div className="flex gap-2 pt-1 overflow-x-auto px-1">
-                    {weather.map((day) => (
-                      <div
-                        key={day.date}
-                        className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
+                  <div className="space-y-2">
+                    <div className="flex gap-2 pt-1 overflow-x-auto px-1">
+                      {weather.map((day) => (
+                        <div
+                          key={day.date}
+                          className="flex flex-col items-center min-w-[56px] px-2 py-1.5 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
+                        >
+                          <span className="text-xs text-primary-foreground/70 font-medium">
+                            {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
+                          </span>
+                          <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
+                          <span className="text-xs text-primary-foreground/60">{day.low}°</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {weatherDiffDays <= 2 && (
+                      <Button
+                        onClick={() => openLink("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4")}
+                        variant="outline"
+                        size="sm"
+                        className="w-full bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
                       >
-                        <span className="text-xs text-primary-foreground/70 font-medium">
-                          {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
-                        </span>
-                        <span className="text-lg font-bold text-primary-foreground">{day.high}°</span>
-                        <span className="text-xs text-primary-foreground/60">{day.low}°</span>
-                      </div>
-                    ))}
+                        View Packing List
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
