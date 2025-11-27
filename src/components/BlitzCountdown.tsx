@@ -108,114 +108,47 @@ export const BlitzCountdown = ({
     return `${tripName} - ${daysUntil} days`;
   };
 
-  const getEmoji = () => {
-    if (daysUntil === null || daysUntil < 0) return "📅";
-    if (daysUntil === 0) return "🎯";
-    if (daysUntil <= 3) return "🚀";
-    if (daysUntil <= 7) return "⚡";
-    if (daysUntil <= 14) return "🔥";
-    if (daysUntil <= 30) return "⏰";
-    return "🗓️";
-  };
-
-  const getMessage = () => {
-    if (daysUntil === null || daysUntil < 0 || !tripName) {
-      return {
-        primary: isVet
-          ? "Time to lock in your blitz!"
-          : "Ready to commit?",
-        subtext: isVet
-          ? "Pick a trip and start getting your recruits ready"
-          : "Check the team calendar and pick your first blitz!",
-      };
-    }
-
-    if (daysUntil === 0) {
-      return {
-        primary: `${tripName} starts TODAY!`,
-        subtext: isVet
-          ? "Time to get you and your recruits on the doors!"
-          : `Get ready to hit the doors${tripLocation ? ` in ${tripLocation}` : ''}!`,
-      };
-    }
-
-    if (daysUntil <= 3) {
-      return {
-        primary: isVet
-          ? `${tripName} is in ${daysUntil} day${daysUntil === 1 ? "" : "s"}!`
-          : `${daysUntil} day${daysUntil === 1 ? "" : "s"} until ${tripName}!`,
-        subtext: isVet
-          ? `Make sure you AND your recruits are ready${tripLocation ? ` for ${tripLocation}` : ''}!`
-          : `Final preparations${tripLocation ? ` for ${tripLocation}` : ''}!`,
-      };
-    }
-
-    if (daysUntil <= 7) {
-      return {
-        primary: `Almost time! ${daysUntil} days until ${tripName}!`,
-        subtext: isVet
-          ? `Get you and your team ready${tripLocation ? ` for ${tripLocation}` : ''}!`
-          : `Get ready to hit the doors${tripLocation ? ` in ${tripLocation}` : ''}!`,
-      };
-    }
-
-    if (isVet) {
-      return {
-        primary: `${daysUntil} days to get you AND your recruits ready!`,
-        subtext: tripLocation 
-          ? `${tripName} in ${tripLocation} is coming up fast!`
-          : `${tripName} is coming up fast!`,
-      };
-    }
-
-    return {
-      primary: `${getEmoji()} ${daysUntil} days until ${tripName}!`,
-      subtext: tripLocation 
-        ? `Get ready to hit the doors in ${tripLocation}!`
-        : 'Get ready to hit the doors!',
-    };
-  };
-
   const shouldShowWeather = weather.length > 0 && daysUntil !== null && daysUntil > 0 && daysUntil <= 14;
   const hasBlitz = tripName && tripDate && daysUntil !== null && daysUntil >= 0;
 
+  const getEmoji = () => {
+    if (!hasBlitz) return "📅";
+    if (daysUntil === 0) return "🎯";
+    if (daysUntil && daysUntil <= 3) return "🚀";
+    if (daysUntil && daysUntil <= 7) return "⚡";
+    return "📍";
+  };
+
   return (
     <>
-      {/* Compact Blitz Line */}
-      <div className="flex items-center justify-between py-3 px-4 bg-card/50 rounded-lg border border-border">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      {/* Compact Blitz Text Line */}
+      <div className="flex items-center justify-between py-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-lg">{getEmoji()}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{getCompactMessage()}</p>
-            {hasBlitz && tripLocation && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {tripLocation}
-              </p>
-            )}
+            <p className="text-sm font-medium truncate">
+              {getCompactMessage()}
+              {hasBlitz && tripLocation && ` • ${tripLocation}`}
+            </p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 flex-shrink-0">
           {shouldShowWeather && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => setShowWeatherDialog(true)}
-              className="h-8 px-2"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
             >
-              <Cloud className="h-4 w-4" />
-            </Button>
+              Weather
+            </button>
           )}
           {!hasBlitz && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => setShowCalendar(true)}
-              className="h-8"
+              className="text-xs text-primary hover:text-primary/80 transition-colors underline font-medium"
             >
               Pick Blitz
-            </Button>
+            </button>
           )}
         </div>
       </div>
