@@ -10,10 +10,13 @@ interface Contact {
   name: string;
   role: string;
   phone: string;
+  textPhone?: string;
+  email?: string;
   category: string;
   tips?: string[];
   notes?: string;
   vcfUrl?: string;
+  hasTextTemplate?: boolean;
 }
 
 const Contacts = () => {
@@ -21,100 +24,20 @@ const Contacts = () => {
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
   const contacts: Contact[] = [
-    // San Francisco 2025 Office
-    {
-      id: "calvin",
-      name: "Calvin Schofield",
-      role: "Area Director",
-      phone: "(469) 715-7056",
-      category: "San Francisco 2025 Office",
-    },
-    {
-      id: "quinn",
-      name: "Quinn Gleed",
-      role: "Manager",
-      phone: "(206) 422-4462",
-      category: "San Francisco 2025 Office",
-    },
-    {
-      id: "misael",
-      name: "Misael Sanchez",
-      role: "Manager",
-      phone: "(484) 664-0518",
-      category: "San Francisco 2025 Office",
-    },
-    {
-      id: "stephen",
-      name: "Stephen Kastner",
-      role: "Team Lead",
-      phone: "(707) 337-0408",
-      category: "San Francisco 2025 Office",
-    },
-    {
-      id: "adam",
-      name: "Adam Schofield",
-      role: "Team Lead",
-      phone: "(972) 369-6386",
-      category: "San Francisco 2025 Office",
-    },
-    {
-      id: "cristian",
-      name: "Cristian Rosas",
-      role: "OM",
-      phone: "(559) 699-7874",
-      category: "San Francisco 2025 Office",
-      notes: "INV Office: INV Cristian Rosas",
-    },
-    {
-      id: "kelton",
-      name: "Kelton Higgins",
-      role: "Solar Specialist",
-      phone: "Contact Calvin",
-      category: "San Francisco 2025 Office",
-    },
-    // Triumph Leadership
-    {
-      id: "gunnar",
-      name: "Gunnar Bramwell",
-      role: "Regional Manager",
-      phone: "(801) 616-6301",
-      category: "Triumph Leadership",
-    },
-    {
-      id: "josh",
-      name: "Josh Gruwell",
-      role: "Sr. Regional Manager",
-      phone: "(801) 850-2596",
-      category: "Triumph Leadership",
-    },
-    {
-      id: "aaron",
-      name: "Aaron Doria",
-      role: "Partner",
-      phone: "(619) 410-2391",
-      category: "Triumph Leadership",
-    },
-    {
-      id: "puck",
-      name: "Puck Heriford",
-      role: "Partner",
-      phone: "(801) 318-2919",
-      category: "Triumph Leadership",
-    },
-    // Important Vivint Contacts
     {
       id: "ac",
       name: "Account Creations",
       role: "Vivint Support",
       phone: "(801) 377-9111",
+      textPhone: "(801) 377-9111",
       category: "Important Vivint Contacts",
+      hasTextTemplate: true,
       tips: [
         "Text first for non-urgent matters. For urgent cases, call and use extension 1,1,1",
         "Call AC if pre-install surveys fail on Street Genie - have account number ready",
         "They can provide key account info: equipment status, payment status, write-off history",
         "Use text number for scheduling jobs with 4-hour window (corporate) or 2-hour (summer techs)",
       ],
-      notes: "Template: 'Can you help me schedule this job? Date/time: ___ INV: ___ A#: ___ Customer Name: ___'",
     },
     {
       id: "sos",
@@ -166,12 +89,12 @@ const Contacts = () => {
       name: "Sales Assets",
       role: "Equipment & Materials",
       phone: "(385) 355-3095",
+      email: "salesassets@vivint.com",
       category: "Important Vivint Contacts",
       tips: [
         "Email or call for iPads, jerseys, hats, etc.",
         "Contact if you drop and break your iPad",
       ],
-      notes: "Email: salesassets@vivint.com",
     },
     {
       id: "licensing",
@@ -287,17 +210,61 @@ const Contacts = () => {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          asChild
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
-                            <Phone className="w-4 h-4 mr-2" />
-                            {contact.phone}
-                          </a>
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            asChild
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
+                              <Phone className="w-4 h-4 mr-2" />
+                              Call: {contact.phone}
+                            </a>
+                          </Button>
+                          
+                          {contact.textPhone && !contact.hasTextTemplate && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              asChild
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}`}>
+                                <Phone className="w-4 h-4 mr-2" />
+                                Text: {contact.textPhone}
+                              </a>
+                            </Button>
+                          )}
+
+                          {contact.hasTextTemplate && contact.textPhone && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              asChild
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate/time: ___%0D%0AINV: ___%0D%0AA%23: ___%0D%0ACustomer Name: ___`}>
+                                <Phone className="w-4 h-4 mr-2" />
+                                Text for Scheduling
+                              </a>
+                            </Button>
+                          )}
+
+                          {contact.email && (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              asChild
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <a href={`mailto:${contact.email}`}>
+                                <Phone className="w-4 h-4 mr-2" />
+                                Email: {contact.email}
+                              </a>
+                            </Button>
+                          )}
+                        </div>
 
                         {isExpanded && hasDetails && (
                           <div className="pt-3 border-t border-border space-y-3">
