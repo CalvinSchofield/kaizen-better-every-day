@@ -26,8 +26,9 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   const handleTextLeader = (event: CalendarEvent) => {
-    const location = event.location || event.title;
-    const message = encodeURIComponent(`Tell me more about the ${location} on ${event.date}, I'm thinking about going on that one.`);
+    // Extract just the city/location name (first line if multiline)
+    const locationName = (event.location || event.title).split('\n')[0].trim();
+    const message = encodeURIComponent(`Tell me more about the ${locationName} Blitz, I'm thinking about going on that one`);
     const phone = teamLeaderPhone || '4697157056'; // Fallback to Calvin's number
     window.location.href = `sms:${phone}&body=${message}`;
   };
