@@ -160,7 +160,7 @@ export const RecruitingFlowCarousel = () => {
                           )}
                         </div>
                       </div>
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${step.comingSoon ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}`}>
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold border-2 ${step.comingSoon ? 'border-muted text-muted-foreground' : 'border-primary text-primary'}`}>
                         {step.step}
                       </div>
                     </div>
