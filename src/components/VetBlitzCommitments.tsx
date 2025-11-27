@@ -244,7 +244,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
           Upcoming Blitzes
         </CardTitle>
         <CardDescription>
-          Commit to the blitzes you're planning to attend. 👥 = team members going, 🔥 = rookies going
+          Commit to the blitzes you're planning to attend
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -311,7 +311,7 @@ export const VetBlitzCommitments = ({ repData }: VetBlitzCommitmentsProps) => {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            👥 {teamCount} of your team going
+                            👥 {teamCount} team {teamCount === 1 ? 'member' : 'members'} going
                           </p>
                         )}
                       </div>
