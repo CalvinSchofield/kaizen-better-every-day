@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +72,7 @@ const Home = () => {
   const [showIntroDialog, setShowIntroDialog] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
@@ -827,63 +829,24 @@ const Home = () => {
             const weatherDiffDays = tripDate ? Math.ceil((tripDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
             const handleCtaClick = () => {
-              // If blitz is assigned and coming up, show weather (don't open calendar)
-              // If no blitz or blitz is past, open calendar to pick one
               if (!repData.blitz_trip_name || blitzIsPast) {
                 setCalendarModalOpen(true);
+              } else {
+                setWeatherSheetOpen(true);
               }
-              // Otherwise, do nothing (weather is already shown below)
             };
             
             return (
-              <div className="space-y-3 mb-3">
-                <button
-                  onClick={handleCtaClick}
-                  className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
-                >
-                  <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                  <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                    {ctaText}
-                  </p>
-                  {(!repData.blitz_trip_name || blitzIsPast) && (
-                    <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-                  )}
-                </button>
-                
-                {showWeather && weatherDiffDays <= 7 && (
-                  <div className="space-y-2">
-                    <div className="flex gap-2 pt-1 overflow-x-auto px-1">
-                      {weather.map((day) => (
-                        <div
-                          key={day.date}
-                          className="flex flex-col items-center min-w-[64px] px-2 py-2 rounded-lg bg-primary-foreground/10 backdrop-blur-sm"
-                        >
-                          <span className="text-xs text-primary-foreground/70 font-medium">
-                            {new Date(day.date).toLocaleDateString("en-US", { weekday: "short" })}
-                          </span>
-                          <span className="text-2xl my-0.5">{getWeatherIcon(day.weatherCode)}</span>
-                          <div className="flex items-center gap-1">
-                            <span className="text-base font-bold text-primary-foreground">{day.high}°</span>
-                            <span className="text-xs text-primary-foreground/50">/</span>
-                            <span className="text-xs text-primary-foreground/60">{day.low}°</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {weatherDiffDays <= 2 && (
-                      <Button
-                        onClick={() => openLink("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4")}
-                        variant="outline"
-                        size="sm"
-                        className="w-full bg-primary-foreground/5 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
-                      >
-                        View Packing List
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={handleCtaClick}
+                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+              >
+                <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                  {ctaText}
+                </p>
+                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </button>
             );
           })()}
           
@@ -1136,6 +1099,78 @@ const Home = () => {
         onOpenChange={setCalendarModalOpen} 
         teamLeaderPhone={repData?.team_leader_phone || undefined}
       />
+
+      {/* Weather Details Sheet */}
+      <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
+        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              {repData.blitz_trip_location} Weather Forecast
+            </SheetTitle>
+            <SheetDescription>
+              Weather for working days (Mon-Sat) during your blitz
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-3">
+            {weather
+              .filter((day) => {
+                const dayOfWeek = new Date(day.date).getDay();
+                return dayOfWeek !== 0; // Exclude Sunday (0)
+              })
+              .map((day) => {
+                const date = new Date(day.date);
+                return (
+                  <div
+                    key={day.date}
+                    className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 border border-border"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-center min-w-[60px]">
+                        <div className="text-sm text-muted-foreground font-medium">
+                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </div>
+                      </div>
+                      <span className="text-4xl">{getWeatherIcon(day.weatherCode)}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-2xl font-bold">{day.high}°</div>
+                        <div className="text-sm text-muted-foreground">{day.low}°</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          {(() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = repData.blitz_trip_date ? new Date(repData.blitz_trip_date) : null;
+            const diffTime = tripDate ? tripDate.getTime() - today.getTime() : 0;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays <= 4 && (
+              <div className="mt-6 pt-6 border-t">
+                <Button
+                  onClick={() => {
+                    openLink("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4");
+                    setWeatherSheetOpen(false);
+                  }}
+                  className="w-full"
+                  size="lg"
+                >
+                  View Packing List
+                </Button>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>;
 };
 export default Home;
