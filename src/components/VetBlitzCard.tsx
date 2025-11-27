@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
-  const blitzRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Load committed blitzes from repData
   useEffect(() => {
@@ -118,21 +117,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
 
   const toggleBlitzExpansion = (blitzId: string) => {
-    setExpandedBlitz(prev => {
-      const newExpandedId = prev === blitzId ? null : blitzId;
-      
-      // Auto-scroll to the expanded blitz card after a brief delay
-      if (newExpandedId) {
-        setTimeout(() => {
-          const element = blitzRefs.current[newExpandedId];
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 100);
-      }
-      
-      return newExpandedId;
-    });
+    setExpandedBlitz(prev => prev === blitzId ? null : blitzId);
   };
 
   const toggleInviteList = (blitzId: string) => {
@@ -551,10 +536,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               open={isExpanded}
               onOpenChange={() => toggleBlitzExpansion(blitz.id)}
             >
-              <div 
-                ref={(el) => blitzRefs.current[blitz.id] = el}
-                className="border rounded-lg overflow-hidden"
-              >
+              <div className="border rounded-lg overflow-hidden">
                 {/* Collapsed state header */}
                 <div 
                   className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-accent/5 transition-colors"
