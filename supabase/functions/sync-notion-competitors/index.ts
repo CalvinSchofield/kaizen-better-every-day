@@ -89,9 +89,9 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
   const data = await response.json();
   const blocks = data.results || [];
   
-  // Fetch children for blocks that have them (like callouts with nested content)
+  // Fetch children for blocks that have them (callouts, synced blocks, list items)
   for (const block of blocks) {
-    if (block.has_children && (block.type === 'callout' || block.type === 'bulleted_list_item')) {
+    if (block.has_children && (block.type === 'callout' || block.type === 'bulleted_list_item' || block.type === 'synced_block')) {
       const childResponse = await fetch(`https://api.notion.com/v1/blocks/${block.id}/children?page_size=100`, {
         headers: {
           'Authorization': `Bearer ${notionApiKey}`,
@@ -105,6 +105,8 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
           block.callout.children = childData.results || [];
         } else if (block.type === 'bulleted_list_item') {
           block.bulleted_list_item.children = childData.results || [];
+        } else if (block.type === 'synced_block') {
+          block.synced_block.children = childData.results || [];
         }
       }
     }
@@ -121,53 +123,67 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
 
   console.log(`Processing ${blocks.length} blocks for selling points and objections...`);
 
+  // Helper function to process children blocks recursively
+  async function processChildrenForSellingPoints(children: any[]): Promise<string[]> {
+    const points: string[] = [];
+    let foundHeading = false;
+    
+    for (const child of children) {
+      console.log(`  Child block type: ${child.type}`);
+      
+      // Look for H1 heading with "selling points"
+      if (child.type === 'heading_1') {
+        const headingText = child.heading_1?.rich_text?.map((rt: any) => rt.plain_text).join('').toLowerCase() || '';
+        console.log(`  Found H1: "${headingText}"`);
+        if (headingText.includes('selling points')) {
+          foundHeading = true;
+          console.log('  ✅ Found "selling points" heading!');
+        }
+      }
+      
+      // Skip dividers
+      if (child.type === 'divider') {
+        console.log('  Skipping divider');
+        continue;
+      }
+      
+      // Extract list items after finding the heading
+      if (foundHeading && (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item')) {
+        const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
+        const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+        if (text) {
+          const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
+          console.log('  ✅ Extracted selling point:', cleanText);
+          points.push(cleanText);
+        }
+      }
+    }
+    
+    return points;
+  }
+
   for (const block of blocks) {
     console.log(`Block type: ${block.type}`);
     
-    // Check for callout block with "Our selling points"
-    if (block.type === 'callout') {
-      const calloutText = block.callout?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
+    // Check for synced block
+    if (block.type === 'synced_block' && block.has_children) {
+      console.log('Found synced_block, fetching children...');
+      const syncedChildren = block.synced_block?.children || await fetchNotionBlocks(block.id, notionToken);
+      const syncedPoints = await processChildrenForSellingPoints(syncedChildren);
+      ourSellingPoints.push(...syncedPoints);
+    }
+    
+    // Check for callout block
+    if (block.type === 'callout' && block.has_children) {
       const calloutIcon = block.callout?.icon?.emoji || '';
+      console.log(`Callout found - Icon: "${calloutIcon}", Has children: ${block.has_children}`);
       
-      console.log(`Callout found - Text: "${calloutText}", Icon: "${calloutIcon}", Has children: ${block.has_children}`);
+      // Fetch children blocks of this callout
+      const children = block.callout?.children || await fetchNotionBlocks(block.id, notionToken);
+      console.log(`Found ${children.length} children blocks in callout`);
       
-      // Check if this is a 📌 callout (common for "Our selling points")
-      if (calloutIcon === '📌' && block.has_children) {
-        // Fetch children blocks of this callout
-        const children = await fetchNotionBlocks(block.id, notionToken);
-        console.log(`Found ${children.length} children blocks in 📌 callout`);
-        
-        // Check if first child is a heading/paragraph with "selling points"
-        let isSellingPointsCallout = false;
-        for (const child of children) {
-          if (child.type === 'heading_2' || child.type === 'heading_3' || child.type === 'paragraph') {
-            const childText = child[child.type]?.rich_text?.map((rt: any) => rt.plain_text).join('').toLowerCase() || '';
-            if (childText.includes('selling points')) {
-              isSellingPointsCallout = true;
-              console.log('✅ Found "Our selling points" in child block!');
-              break;
-            }
-          }
-        }
-        
-        // If this is the selling points callout, extract list items
-        if (isSellingPointsCallout) {
-          for (const child of children) {
-            if (child.type === 'bulleted_list_item' || child.type === 'numbered_list_item') {
-              const itemType = child.type === 'bulleted_list_item' ? 'bulleted_list_item' : 'numbered_list_item';
-              const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
-              if (text) {
-                // Remove markdown formatting like **bold** and leading numbers/bullets, then trim
-                const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
-                console.log('✅ Extracted selling point:', cleanText);
-                ourSellingPoints.push(cleanText);
-              }
-            }
-          }
-          
-          console.log(`Total selling points extracted: ${ourSellingPoints.length}`);
-        }
-      }
+      const calloutPoints = await processChildrenForSellingPoints(children);
+      ourSellingPoints.push(...calloutPoints);
     }
 
     // Check for heading_1 to identify objections section
