@@ -189,6 +189,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 0);
   const [repsWithSale, setRepsWithSale] = useState(repData.reps_with_sale ?? 0);
   const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(repData.reps_with_sale_goal ?? 0);
+  
+  // Temporary string states for editing
+  const [personalFPInput, setPersonalFPInput] = useState(String(repData.personal_fp ?? 0));
+  const [personalFPGoalInput, setPersonalFPGoalInput] = useState(String(repData.personal_fp_goal ?? 0));
 
   // Sync local state with repData changes
   useEffect(() => {
@@ -196,6 +200,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     setPersonalFPGoal(repData.personal_fp_goal ?? 0);
     setRepsWithSale(repData.reps_with_sale ?? 0);
     setRepsWithSaleGoal(repData.reps_with_sale_goal ?? 0);
+    setPersonalFPInput(String(repData.personal_fp ?? 0));
+    setPersonalFPGoalInput(String(repData.personal_fp_goal ?? 0));
   }, [repData]);
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
@@ -597,20 +603,25 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       type="text"
                       inputMode="decimal"
                       enterKeyHint="done"
-                      value={personalFP}
+                      value={personalFPInput}
                       onChange={(e) => {
                         const val = e.target.value;
                         // Allow typing decimal point and numbers
                         if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFP(val === '' ? 0 : parseFloat(val) || 0);
+                          setPersonalFPInput(val);
                         }
                       }}
                       onBlur={(e) => {
-                        // Round to 1 decimal place on blur
+                        // Round to 1 decimal place and update actual value
                         const val = parseFloat(e.target.value) || 0;
-                        setPersonalFP(Math.round(val * 10) / 10);
+                        const rounded = Math.round(val * 10) / 10;
+                        setPersonalFP(rounded);
+                        setPersonalFPInput(String(rounded));
                       }}
-                      onFocus={(e) => e.target.select()}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setPersonalFPInput(String(personalFP));
+                      }}
                       className="w-16 h-8 text-center"
                     />
                     <span className="text-muted-foreground">/</span>
@@ -618,20 +629,25 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       type="text"
                       inputMode="decimal"
                       enterKeyHint="done"
-                      value={personalFPGoal}
+                      value={personalFPGoalInput}
                       onChange={(e) => {
                         const val = e.target.value;
                         // Allow typing decimal point and numbers
                         if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFPGoal(val === '' ? 0 : parseFloat(val) || 0);
+                          setPersonalFPGoalInput(val);
                         }
                       }}
                       onBlur={(e) => {
-                        // Round to 1 decimal place on blur
+                        // Round to 1 decimal place and update actual value
                         const val = parseFloat(e.target.value) || 0;
-                        setPersonalFPGoal(Math.round(val * 10) / 10);
+                        const rounded = Math.round(val * 10) / 10;
+                        setPersonalFPGoal(rounded);
+                        setPersonalFPGoalInput(String(rounded));
                       }}
-                      onFocus={(e) => e.target.select()}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setPersonalFPGoalInput(String(personalFPGoal));
+                      }}
                       className="w-16 h-8 text-center"
                     />
                   </div>

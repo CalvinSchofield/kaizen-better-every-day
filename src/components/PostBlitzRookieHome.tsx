@@ -47,11 +47,13 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   // Local state for editable FP+ stat - initialize from repData
   const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
+  const [personalFPInput, setPersonalFPInput] = useState(String(repData.personal_fp ?? 0));
   const personalFPGoal = 5; // Fixed goal for rookies
 
   // Sync local state with repData changes
   useEffect(() => {
     setPersonalFP(repData.personal_fp ?? 0);
+    setPersonalFPInput(String(repData.personal_fp ?? 0));
   }, [repData.personal_fp]);
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
@@ -388,20 +390,25 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       type="text"
                       inputMode="decimal"
                       enterKeyHint="done"
-                      value={personalFP}
+                      value={personalFPInput}
                       onChange={(e) => {
                         const val = e.target.value;
                         // Allow typing decimal point and numbers
                         if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFP(val === '' ? 0 : parseFloat(val) || 0);
+                          setPersonalFPInput(val);
                         }
                       }}
                       onBlur={(e) => {
-                        // Round to 1 decimal place on blur
+                        // Round to 1 decimal place and update actual value
                         const val = parseFloat(e.target.value) || 0;
-                        setPersonalFP(Math.round(val * 10) / 10);
+                        const rounded = Math.round(val * 10) / 10;
+                        setPersonalFP(rounded);
+                        setPersonalFPInput(String(rounded));
                       }}
-                      onFocus={(e) => e.target.select()}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setPersonalFPInput(String(personalFP));
+                      }}
                       className="w-16 h-8 text-center"
                     />
                     <span className="text-muted-foreground">/</span>
