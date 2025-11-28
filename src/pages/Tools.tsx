@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown } from "lucide-react";
 import CompetitorSyncButton from "@/components/CompetitorSyncButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import curatorNav from "@/assets/curator-navigation.jpeg";
 
 interface ToolSection {
@@ -34,6 +39,7 @@ interface ToolSection {
 
 const Tools = () => {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [socialsOpen, setSocialsOpen] = useState(false);
   const { repData } = useRepData();
   const navigate = useNavigate();
 
@@ -201,30 +207,6 @@ const Tools = () => {
           <p className="text-muted-foreground text-sm">
             Quick access to everything you need
           </p>
-        </div>
-      </div>
-
-      {/* Stay Connected - Horizontal Scroll */}
-      <div className="bg-card border-b border-border py-4">
-        <div className="max-w-lg mx-auto px-4">
-          <p className="text-sm text-muted-foreground mb-3">Stay connected</p>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {socialLinks.map((social) => (
-              <ExternalLinkComponent
-                key={social.name}
-                href={social.url}
-                showIcon={false}
-                className="flex-shrink-0 flex flex-col items-center gap-2 p-3 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all no-underline hover:no-underline group"
-              >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center flex-shrink-0">
-                  <Instagram className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-xs text-center text-muted-foreground group-hover:text-primary transition-colors whitespace-nowrap">
-                  @{social.handle}
-                </div>
-              </ExternalLinkComponent>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -403,27 +385,64 @@ const Tools = () => {
           );
         })}
 
-        {/* SmartHomePros Latest Post */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <Instagram className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Latest from SmartHomePros</CardTitle>
-            </div>
-            <CardDescription>Stay up to date with the team</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="w-full overflow-hidden rounded-lg border border-border">
-              <iframe
-                src="https://www.instagram.com/thesmarthomepros/embed"
-                className="w-full h-[500px] border-0"
-                scrolling="no"
-                allowTransparency={true}
-                title="SmartHomePros Instagram"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Stay Connected - Expandable */}
+        <Collapsible open={socialsOpen} onOpenChange={setSocialsOpen}>
+          <Card>
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Instagram className="w-5 h-5 text-primary" />
+                      <CardTitle className="text-lg">Stay Connected</CardTitle>
+                    </div>
+                    <CardDescription className="text-left">Follow to stay in the loop</CardDescription>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${socialsOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-6">
+                {/* Horizontal Scroll Instagram Accounts */}
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {socialLinks.map((social) => (
+                    <ExternalLinkComponent
+                      key={social.name}
+                      href={social.url}
+                      showIcon={false}
+                      className="flex-shrink-0 flex flex-col items-center gap-2 p-4 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all no-underline hover:no-underline group w-32"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center flex-shrink-0">
+                        <Instagram className="w-8 h-8 text-white" />
+                      </div>
+                      <div className="text-xs font-semibold text-center group-hover:text-primary transition-colors">
+                        {social.name}
+                      </div>
+                      <div className="text-xs text-center text-muted-foreground whitespace-nowrap">
+                        @{social.handle}
+                      </div>
+                    </ExternalLinkComponent>
+                  ))}
+                </div>
+
+                {/* SmartHomePros Embed */}
+                <div>
+                  <p className="text-sm font-semibold mb-3">Latest from SmartHomePros</p>
+                  <div className="w-full overflow-hidden rounded-lg border border-border">
+                    <iframe
+                      src="https://www.instagram.com/thesmarthomepros/embed"
+                      className="w-full h-[500px] border-0"
+                      scrolling="no"
+                      allowTransparency={true}
+                      title="SmartHomePros Instagram"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Quick Actions */}
         <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
