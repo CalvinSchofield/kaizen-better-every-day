@@ -153,7 +153,7 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('daily_entries')
         .upsert({
           user_id: user.id,
@@ -167,12 +167,17 @@ export const useDailyEntry = (date?: string) => {
           fp_plus: 0,
           prmr: 0,
           is_finalized: false,
-        });
+        }, {
+          onConflict: 'user_id,entry_date'
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(['daily-entry', entryDate], data);
       toast.success('Counters reset!');
     },
   });

@@ -4,10 +4,12 @@ import { RotateCcw } from "lucide-react";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
+import { ResetConfirmSheet } from "@/components/ResetConfirmSheet";
 
 const Track = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
+  const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString('en-US', { 
@@ -20,42 +22,37 @@ const Track = () => {
   };
 
   const handleReset = () => {
-    if (confirm('Reset all counters to 0?')) {
-      resetEntry();
-    }
+    resetEntry();
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden touch-none relative">
+    <div className="h-screen bg-background flex flex-col overflow-hidden touch-none">
       {/* Header */}
-      <div className="bg-background px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-1">
+      <div className="bg-background px-6 py-4 flex-shrink-0 border-b border-border/40">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Today's Progress</h1>
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleReset}
+            onClick={() => setIsResetSheetOpen(true)}
             disabled={isResetting}
             className="h-10 w-10"
           >
             <RotateCcw className="h-5 w-5" />
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Tap to add, swipe down to subtract
-        </p>
       </div>
 
-      {/* Counter Grid - Fills available space */}
-      <div className="flex-1 px-4 overflow-y-auto pb-40">
+      {/* Counter Grid - Fills available space dynamically */}
+      <div className="flex-1 px-4 py-4 min-h-0">
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
         />
       </div>
 
-      {/* Save Button - Fixed at bottom with safe spacing */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-[calc(4rem+env(safe-area-inset-bottom))] px-4">
+      {/* Save Button - Fixed above bottom nav */}
+      <div className="flex-shrink-0 px-4 pb-24 pt-4 bg-background border-t border-border/40">
         <Button
           onClick={() => setIsSaveSheetOpen(true)}
           className="w-full py-6 text-lg font-semibold shadow-lg"
@@ -72,6 +69,14 @@ const Track = () => {
         entry={entry}
         onSave={finalizeEntry}
         isSaving={isFinalizing}
+      />
+
+      {/* Reset Confirm Sheet */}
+      <ResetConfirmSheet
+        open={isResetSheetOpen}
+        onOpenChange={setIsResetSheetOpen}
+        onConfirm={handleReset}
+        isResetting={isResetting}
       />
     </div>
   );
