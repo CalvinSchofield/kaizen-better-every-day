@@ -782,6 +782,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   )
                 );
               }}
+              onCommitmentChange={handleRefresh}
             />
           </div>
         )}
