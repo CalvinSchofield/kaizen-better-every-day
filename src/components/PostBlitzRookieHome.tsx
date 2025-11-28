@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -310,18 +310,26 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                         isVet={false}
                       />
                     ) : (
-                      <>
+                      <div className="mt-2">
                         {hasPastBlitzes && (
-                          <p className="text-sm text-primary-foreground/80">
-                            🔥 Keep the momentum rolling — commit to another blitz below
-                          </p>
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20">
+                            <div className="text-2xl flex-shrink-0">📆</div>
+                            <div className="flex-1 text-sm font-medium text-primary-foreground/90">
+                              Keep the momentum rolling — commit to another blitz below
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-primary-foreground/60 flex-shrink-0" />
+                          </div>
                         )}
                         {!hasPastBlitzes && (
-                          <p className="text-sm text-primary-foreground/80">
-                            📅 Pick a blitz trip and commit to making your next sale
-                          </p>
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20">
+                            <div className="text-2xl flex-shrink-0">📆</div>
+                            <div className="flex-1 text-sm font-medium text-primary-foreground/90">
+                              Pick a blitz trip and commit to making your first sale
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-primary-foreground/60 flex-shrink-0" />
+                          </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </>
                 );
