@@ -6,7 +6,7 @@ import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const Calendar = () => {
-  const { repData } = useRepData();
+  const { repData, loading: loadingRepData } = useRepData();
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -69,6 +69,11 @@ const Calendar = () => {
   const personalSummerEnd = seasonConfig?.personal_summer_end 
     ? new Date(seasonConfig.personal_summer_end) 
     : undefined;
+
+  // Show loading state while fetching rep data
+  if (loadingRepData) {
+    return null;
+  }
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
