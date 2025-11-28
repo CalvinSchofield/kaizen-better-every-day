@@ -137,9 +137,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="doors-knocked"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={doorsKnocked}
                   onChange={(e) => setDoorsKnocked(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-1.5">
@@ -147,9 +152,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="decision-makers"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={decisionMakers}
                   onChange={(e) => setDecisionMakers(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-1.5">
@@ -157,9 +167,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="pitches"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={pitches}
                   onChange={(e) => setPitches(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-1.5">
@@ -167,9 +182,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="transitions"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={transitions}
                   onChange={(e) => setTransitions(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-1.5">
@@ -177,9 +197,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="presentations"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={presentations}
                   onChange={(e) => setPresentations(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
               <div className="space-y-1.5">
@@ -187,9 +212,14 @@ export const SaveEntrySheet = ({
                 <Input
                   id="closes"
                   type="number"
-                  placeholder="0"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  placeholder=""
                   value={closes}
                   onChange={(e) => setCloses(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
             </div>
@@ -214,10 +244,13 @@ export const SaveEntrySheet = ({
                 <Input
                   id="fp-plus"
                   type="number"
+                  inputMode="decimal"
+                  min="0"
                   step="0.1"
-                  placeholder="0.0"
+                  placeholder=""
                   value={fpPlus}
                   onChange={(e) => setFpPlus(e.target.value)}
+                  enterKeyHint="next"
                 />
               </div>
 
@@ -230,11 +263,14 @@ export const SaveEntrySheet = ({
                   <Input
                     id="prmr"
                     type="number"
+                    inputMode="decimal"
+                    min="0"
                     step="0.01"
-                    placeholder="0.00"
+                    placeholder=""
                     value={prmr}
                     onChange={(e) => setPrmr(e.target.value)}
                     className="pl-7"
+                    enterKeyHint="done"
                   />
                 </div>
               </div>
