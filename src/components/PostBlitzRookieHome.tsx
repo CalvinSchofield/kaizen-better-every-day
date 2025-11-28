@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +38,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -334,16 +335,20 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             </div>
           </div>
 
-          {/* CTA Card - Non-clickable */}
+          {/* CTA Card - Clickable */}
           {!nextBlitz ? (
-            <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mt-4">
+            <button
+              onClick={() => setCalendarModalOpen(true)}
+              className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mt-4"
+            >
               <span className="text-2xl flex-shrink-0">📆</span>
               <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                 {hasPastBlitzes 
                   ? "Pick a blitz trip and commit to making your next sale"
                   : "Pick a blitz trip and commit to making your first sale"}
               </p>
-            </div>
+              <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+            </button>
           ) : (
             <div className="mt-4">
               <BlitzCountdown
@@ -611,6 +616,12 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Team Calendar Modal */}
+      <TeamCalendarModal 
+        open={calendarModalOpen}
+        onOpenChange={setCalendarModalOpen}
+      />
     </div>
   );
 };
