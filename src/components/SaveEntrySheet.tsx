@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
 
 interface SaveEntrySheetProps {
@@ -36,10 +36,11 @@ export const SaveEntrySheet = ({
 
   useEffect(() => {
     if (open) {
-      setFpPlus(entry.fp_plus?.toString() || "");
-      setPrmr(entry.prmr?.toString() || "");
+      // Always start with empty inputs
+      setFpPlus("");
+      setPrmr("");
       
-      // Check if saving after midnight
+      // Check if entry_date is before today to show date picker
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const entryDate = entry.entry_date ? new Date(entry.entry_date) : today;
@@ -75,7 +76,7 @@ export const SaveEntrySheet = ({
         </SheetHeader>
 
         <div className="space-y-4 mt-6">
-          {/* Date Picker (only shown if saving after midnight) */}
+          {/* Date Picker (only shown if entry_date is before today) */}
           {showDatePicker && (
             <div className="space-y-2">
               <Label>Entry Date</Label>
@@ -104,12 +105,22 @@ export const SaveEntrySheet = ({
 
           {/* FP+ Input */}
           <div className="space-y-2">
-            <Label htmlFor="fp-plus">FP+ (First-time Prospecting Events)</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="fp-plus">FP+</Label>
+              <a
+                href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt?q=What%20does%20FP%2B%20stand%20for%20and%20how%20do%20I%20calculate%20my%20FP%2B%20on%20the%20day%3F"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </a>
+            </div>
             <Input
               id="fp-plus"
               type="number"
               step="0.1"
-              placeholder="0.0"
+              placeholder="Enter FP+"
               value={fpPlus}
               onChange={(e) => setFpPlus(e.target.value)}
             />
@@ -117,7 +128,7 @@ export const SaveEntrySheet = ({
 
           {/* PRMR Input */}
           <div className="space-y-2">
-            <Label htmlFor="prmr">PRMR (Projected Monthly Recurring Revenue)</Label>
+            <Label htmlFor="prmr">PRMR</Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 $
@@ -126,7 +137,7 @@ export const SaveEntrySheet = ({
                 id="prmr"
                 type="number"
                 step="0.01"
-                placeholder="0.00"
+                placeholder="Enter PRMR"
                 value={prmr}
                 onChange={(e) => setPrmr(e.target.value)}
                 className="pl-7"
