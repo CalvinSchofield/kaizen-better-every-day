@@ -15,16 +15,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -481,22 +471,32 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             );
           })}
         </CardContent>
-        <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
-              <AlertDialogDescription>
+        <Sheet open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
+          <SheetContent side="bottom" className="rounded-t-3xl">
+            <SheetHeader>
+              <SheetTitle>Uncommit from Blitz?</SheetTitle>
+              <SheetDescription>
                 Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Uncommit
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-6 space-y-3">
+              <Button 
+                className="w-full h-12 text-base"
+                variant="destructive"
+                onClick={confirmUncommit}
+              >
+                Yes, Uncommit
+              </Button>
+              <Button 
+                className="w-full h-12 text-base"
+                variant="outline"
+                onClick={() => setUncommitDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </Card>
     );
   }
@@ -749,44 +749,64 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         })}
       </CardContent>
 
-      <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Sheet open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Uncommit from Blitz?</SheetTitle>
+            <SheetDescription>
               Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Uncommit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-3">
+            <Button 
+              className="w-full h-12 text-base"
+              variant="destructive"
+              onClick={confirmUncommit}
+            >
+              Yes, Uncommit
+            </Button>
+            <Button 
+              className="w-full h-12 text-base"
+              variant="outline"
+              onClick={() => setUncommitDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-      <AlertDialog open={commitDialogOpen} onOpenChange={setCommitDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+      <Sheet open={commitDialogOpen} onOpenChange={setCommitDialogOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>
               {memberToCommit?.isCommitted ? 'Uncommit Team Member?' : 'Commit Team Member?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {memberToCommit?.isCommitted 
                 ? `Remove ${memberToCommit.member.name} from this blitz?`
                 : `Add ${memberToCommit?.member.name} to this blitz?`
               }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmMemberCommitment}>
-              {memberToCommit?.isCommitted ? 'Uncommit' : 'Commit'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-3">
+            <Button 
+              className="w-full h-12 text-base"
+              variant={memberToCommit?.isCommitted ? "destructive" : "default"}
+              onClick={confirmMemberCommitment}
+            >
+              {memberToCommit?.isCommitted ? 'Yes, Uncommit' : 'Yes, Commit'}
+            </Button>
+            <Button 
+              className="w-full h-12 text-base"
+              variant="outline"
+              onClick={() => setCommitDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">

@@ -22,16 +22,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface PostBlitzRookieHomeProps {
   repData: RepData;
@@ -46,7 +36,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
-  const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
+  const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
@@ -160,9 +150,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const isCurrentlyCommitted = currentCommitments.some((b: any) => b.id === blitzId);
     
     if (isCurrentlyCommitted) {
-      // Show confirmation dialog for uncommit
+      // Show confirmation sheet for uncommit
       setBlitzToUncommit({ id: blitzId, name: blitzName });
-      setUncommitDialogOpen(true);
+      setUncommitSheetOpen(true);
       return;
     }
 
@@ -250,7 +240,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         variant: "destructive",
       });
     } finally {
-      setUncommitDialogOpen(false);
+      setUncommitSheetOpen(false);
       setBlitzToUncommit(null);
     }
   };
@@ -482,19 +472,17 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           </CardContent>
         </Card>
 
-        {/* Bring a Friend Callout Card */}
-        <Card className="mb-6 shadow-sm bg-gradient-to-br from-accent/5 to-accent/10 border-2 border-accent/20">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                <Users className="h-6 w-6 text-accent" />
+        {/* Bring a Friend Callout */}
+        <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20">
+                <Users className="h-5 w-5 text-primary" />
+                <span className="font-bold text-lg">Bring a Friend</span>
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-2">Bring a Friend</h3>
-                <p className="text-sm text-muted-foreground">
-                  Talk to your friends about Vivint. The more people you bring out to summer, the more fun it'll be! Get them in a group chat with your leader.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Talk to your friends about Vivint. The more people you bring out to summer, the more fun it'll be! Get them in a group chat with your leader.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -543,23 +531,33 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </Sheet>
       )}
 
-      {/* Uncommit Confirmation Dialog */}
-      <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Uncommit Confirmation Sheet */}
+      <Sheet open={uncommitSheetOpen} onOpenChange={setUncommitSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Uncommit from Blitz?</SheetTitle>
+            <SheetDescription>
               Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Uncommit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-3">
+            <Button 
+              className="w-full h-12 text-base"
+              variant="destructive"
+              onClick={confirmUncommit}
+            >
+              Yes, Uncommit
+            </Button>
+            <Button 
+              className="w-full h-12 text-base"
+              variant="outline"
+              onClick={() => setUncommitSheetOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
