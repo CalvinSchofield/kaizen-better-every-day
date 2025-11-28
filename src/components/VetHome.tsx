@@ -783,71 +783,79 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </SheetContent>
         </Sheet>
 
-        {/* Weather Sheet */}
+        {/* Weather Sheet - Matches pre-blitz styling */}
         <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-          <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
+          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>{nextBlitz?.name || 'Blitz Details'}</SheetTitle>
+              <SheetTitle>Weather Forecast</SheetTitle>
               <SheetDescription>
-                {nextBlitz?.location && `${nextBlitz.location} • `}
-                {nextBlitz?.date && new Date(nextBlitz.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                {nextBlitz?.endDate && ` - ${new Date(nextBlitz.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                {nextBlitz?.location} - {nextBlitz?.name}
               </SheetDescription>
             </SheetHeader>
             
-            <div className="mt-6 space-y-6">
-              {loadingWeather ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Loading weather forecast...</p>
-                </div>
-              ) : weather.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    {weather.map((day) => (
-                      <div
-                        key={day.date}
-                        className="bg-card rounded-lg p-4 border border-border text-center"
-                      >
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          {day.dayName}
+            {loadingWeather && (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                Loading weather...
+              </div>
+            )}
+            
+            {!loadingWeather && weather.length > 0 && (
+              <>
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  {weather.map((day) => (
+                    <div
+                      key={day.date}
+                      className="bg-card rounded-lg p-4 border border-border text-center"
+                    >
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
+                        {day.dayName}
+                      </div>
+                      <div className="text-xs text-muted-foreground/70 mb-2">
+                        {new Date(day.date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-2xl font-bold text-foreground">
+                          {day.high}°
                         </div>
-                        <div className="text-xs text-muted-foreground/70 mb-2">
-                          {new Date(day.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-foreground">
-                            {day.high}°
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Low {day.low}°
-                          </div>
+                        <div className="text-sm text-muted-foreground">
+                          Low {day.low}°
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </>
-              ) : daysUntilBlitz !== null && daysUntilBlitz > 14 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Weather forecast will be available 14 days before the blitz
-                </p>
-              ) : null}
-
-              {/* Packing list link - show if within 4 days */}
-              {daysUntilBlitz !== null && daysUntilBlitz <= 4 && (
-                <Button 
-                  className="w-full h-12"
-                  onClick={() => {
-                    window.open("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4?source=copy_link", "_blank", "noopener,noreferrer");
-                  }}
-                >
-                  View Packing List
-                </Button>
-              )}
-            </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Weather Tip - Matches pre-blitz */}
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground italic text-center">
+                    {(() => {
+                      if (weather.length === 0) return "";
+                      
+                      const avgHigh = weather.reduce((sum, day) => sum + day.high, 0) / weather.length;
+                      const avgLow = weather.reduce((sum, day) => sum + day.low, 0) / weather.length;
+                      
+                      if (avgHigh > 85) {
+                        return "Pack light and bring sunscreen — it's going to be hot out there!";
+                      } else if (avgHigh < 60) {
+                        return "Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.";
+                      } else if (avgLow < 50) {
+                        return "Days are nice but mornings are cold — bring layers you can adjust throughout the day.";
+                      }
+                      return "Perfect knocking weather — prep your pitch and pack smart!";
+                    })()}
+                  </p>
+                </div>
+              </>
+            )}
+            
+            {!loadingWeather && weather.length === 0 && daysUntilBlitz !== null && daysUntilBlitz > 14 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Weather forecast will be available 14 days before the blitz
+              </p>
+            )}
           </SheetContent>
         </Sheet>
       </div>

@@ -675,7 +675,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         onOpenChange={setCalendarModalOpen}
       />
 
-      {/* Weather Sheet */}
+      {/* Weather Sheet - Matches pre-blitz styling */}
       <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
           <SheetHeader>
@@ -718,6 +718,27 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                     </div>
                   </div>
                 ))}
+              </div>
+              
+              {/* Weather Tip - Matches pre-blitz */}
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground italic text-center">
+                  {(() => {
+                    if (weather.length === 0) return "";
+                    
+                    const avgHigh = weather.reduce((sum, day) => sum + day.high, 0) / weather.length;
+                    const avgLow = weather.reduce((sum, day) => sum + day.low, 0) / weather.length;
+                    
+                    if (avgHigh > 85) {
+                      return "Pack light and bring sunscreen — it's going to be hot out there!";
+                    } else if (avgHigh < 60) {
+                      return "Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.";
+                    } else if (avgLow < 50) {
+                      return "Days are nice but mornings are cold — bring layers you can adjust throughout the day.";
+                    }
+                    return "Perfect knocking weather — prep your pitch and pack smart!";
+                  })()}
+                </p>
               </div>
             </>
           )}
