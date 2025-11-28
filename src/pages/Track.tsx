@@ -55,7 +55,7 @@ const Track = () => {
       </div>
 
       {/* Save Button - Fixed above bottom nav */}
-      <div className="flex-shrink-0 px-4 pb-24">
+      <div className="flex-shrink-0 px-4 pb-20">
         <Button
           onClick={() => setIsSaveSheetOpen(true)}
           className="w-full py-6 text-lg font-semibold shadow-lg"
