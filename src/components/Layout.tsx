@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, BarChart3, Menu } from "lucide-react";
+import { Home, BookOpen, Wrench, BarChart3, Menu, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
@@ -14,6 +14,23 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const { isKnockingMode } = useAppMode();
   const { repData } = useRepData();
+  
+  // Check if user is a pre-blitz rookie
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  const hasAttendedBlitz = blitzes.some((blitz: any) => {
+    if (blitz.endDate) {
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    }
+    return false;
+  });
+
+  const isTrackLocked = isRookie && !hasAttendedBlitz;
   
   // Determine if Track tab should be visible
   const shouldShowTrack = () => {
@@ -101,6 +118,7 @@ const Layout = ({ children }: LayoutProps) => {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
+            const isLocked = item.path === "/track" && isTrackLocked;
             
             return (
               <Link
@@ -112,7 +130,14 @@ const Layout = ({ children }: LayoutProps) => {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className={`w-6 h-6 mb-1 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
+                <div className="relative mb-1">
+                  <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
+                  {isLocked && (
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
+                  )}
+                </div>
                 <span className={`text-xs ${isActive ? "font-semibold" : "font-medium"}`}>
                   {item.label}
                 </span>
