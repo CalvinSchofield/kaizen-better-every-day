@@ -121,7 +121,7 @@ export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 grid-rows-3 gap-3 h-full">
+    <div className="grid grid-cols-2 grid-rows-3 gap-3 h-full w-full max-h-full">
       {counters.map((counter) => (
         <CounterCard
           key={counter.field}
