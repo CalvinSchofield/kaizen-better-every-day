@@ -54,8 +54,8 @@ const Track = () => {
         />
       </div>
 
-      {/* Save Button - Fixed above bottom nav (h-16 + pb-6 = 88px nav height, so pb-28 = 112px clears it) */}
-      <div className="flex-shrink-0 px-4 pb-28">
+      {/* Save Button - Fixed above bottom nav (h-16 + pb-6 + extra space = ~100px, so pb-32 clears it) */}
+      <div className="flex-shrink-0 px-4 pb-32">
         <Button
           onClick={() => setIsSaveSheetOpen(true)}
           className="w-full py-6 text-lg font-semibold shadow-lg"

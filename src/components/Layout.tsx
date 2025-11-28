@@ -15,6 +15,40 @@ const Layout = ({ children }: LayoutProps) => {
   const { isKnockingMode } = useAppMode();
   const { repData } = useRepData();
   
+  // Determine if Track tab should be visible
+  const shouldShowTrack = () => {
+    if (!repData) return false;
+    
+    // Always show for Vets and Sophomores
+    if (repData.year === "Vet" || repData.year === "Sophomore") return true;
+    
+    // For Rookies: check if post-blitz OR currently on a blitz
+    if (repData.year === "Rookie") {
+      const phase4Complete = repData.ramp_phase_4_complete === true;
+      const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+      
+      // Check if attended at least one blitz (end date in past)
+      const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+        if (!blitz?.endDate) return false;
+        const endDate = new Date(blitz.endDate);
+        return endDate < new Date();
+      });
+      
+      // Check if currently on a blitz (between start and end date)
+      const isOnBlitzNow = committedBlitzes.some((blitz: any) => {
+        if (!blitz?.startDate || !blitz?.endDate) return false;
+        const now = new Date();
+        const startDate = new Date(blitz.startDate);
+        const endDate = new Date(blitz.endDate);
+        return now >= startDate && now <= endDate;
+      });
+      
+      return (phase4Complete && hasAttendedBlitz) || isOnBlitzNow;
+    }
+    
+    return false;
+  };
+  
   const preseasonNavItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/training", icon: BookOpen, label: "Training" },
@@ -28,7 +62,8 @@ const Layout = ({ children }: LayoutProps) => {
     { path: "/track", icon: BarChart3, label: "Track" },
   ];
 
-  const navItems = isKnockingMode ? knockingNavItems : preseasonNavItems;
+  // Use knocking nav if in knocking mode OR if user should see Track tab
+  const navItems = (isKnockingMode || shouldShowTrack()) ? knockingNavItems : preseasonNavItems;
   const firstName = repData?.name?.split(' ')[0];
 
   return (
