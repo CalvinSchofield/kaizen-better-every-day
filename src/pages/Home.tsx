@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { VetHome } from "@/components/VetHome";
+import { PostBlitzRookieHome } from "@/components/PostBlitzRookieHome";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
@@ -745,6 +746,18 @@ const Home = () => {
   // Check if user is a Vet or Sophomore - show VetHome instead
   if (repData.year === "Vet" || repData.year === "Sophomore") {
     return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
+  }
+
+  // Check if rookie has completed Ramp to Blitz AND attended at least one blitz
+  const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+  const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+    if (!blitz?.endDate) return false;
+    const endDate = new Date(blitz.endDate);
+    return endDate < new Date(); // End date is in the past
+  });
+
+  if (repData.year === "Rookie" && phase4Complete && hasAttendedBlitz) {
+    return <PostBlitzRookieHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
   }
   
   // Helper to check phase status - case-insensitive matching
