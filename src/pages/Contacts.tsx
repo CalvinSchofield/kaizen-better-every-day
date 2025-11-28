@@ -177,7 +177,7 @@ const Contacts = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="bg-card border-b border-border">
+      <div className="sticky top-0 z-50 bg-card border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center gap-3 mb-4">
             <Button
@@ -248,19 +248,19 @@ const Contacts = () => {
                           )}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-3 pt-0">
-                        <div className="flex gap-2 flex-wrap">
+                      <CardContent className="space-y-2 pt-0">
+                        <div className="flex flex-col gap-2">
                           {contact.phone && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 min-w-[100px] text-xs"
+                              className="w-full text-xs justify-start"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
-                                <Phone className="w-3 h-3 mr-1" />
-                                {contact.phone}
+                                <Phone className="w-3.5 h-3.5 mr-2" />
+                                Call: {contact.phone}
                               </a>
                             </Button>
                           )}
@@ -269,13 +269,13 @@ const Contacts = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 min-w-[100px] text-xs"
+                              className="w-full text-xs justify-start"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`sms:${contact.textPhone.replace(/[^0-9]/g, "")}`}>
-                                <MessageSquare className="w-3 h-3 mr-1" />
-                                {contact.textPhone}
+                                <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                                Text: {contact.textPhone}
                               </a>
                             </Button>
                           )}
@@ -284,12 +284,12 @@ const Contacts = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1 min-w-[100px] text-xs"
+                              className="w-full text-xs justify-start"
                               asChild
                               onClick={(e) => e.stopPropagation()}
                             >
                               <a href={`mailto:${contact.email}`}>
-                                <Mail className="w-3 h-3 mr-1" />
+                                <Mail className="w-3.5 h-3.5 mr-2" />
                                 <span className="truncate">{contact.email}</span>
                               </a>
                             </Button>
@@ -323,7 +323,7 @@ const Contacts = () => {
                                     asChild
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate/time: ___%0D%0AINV: ___%0D%0AA%23: ___%0D%0ACustomer Name: ___`}>
+                                    <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0A%0D%0ADate:%20%0D%0ATime:%20%0D%0AAccount%20number:%20%0D%0ADispatch%20Office:`}>
                                       <MessageSquare className="w-3 h-3 mr-1" />
                                       Send Scheduling Text
                                     </a>
