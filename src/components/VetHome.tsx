@@ -639,12 +639,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   <div className="flex items-center gap-2">
                     <Input
                       type="text"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       enterKeyHint="done"
                       value={repsWithSale}
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setRepsWithSale(Math.round(val * 10) / 10);
+                        const val = parseInt(e.target.value) || 0;
+                        setRepsWithSale(val);
                       }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
@@ -652,12 +652,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                     <span className="text-muted-foreground">/</span>
                     <Input
                       type="text"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       enterKeyHint="done"
                       value={repsWithSaleGoal}
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setRepsWithSaleGoal(Math.round(val * 10) / 10);
+                        const val = parseInt(e.target.value) || 0;
+                        setRepsWithSaleGoal(val);
                       }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
@@ -665,7 +665,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {repsWithSale.toFixed(1)} / {repsWithSaleGoal.toFixed(1)}
+                    {repsWithSale} / {repsWithSaleGoal}
                   </span>
                 )}
               </div>
