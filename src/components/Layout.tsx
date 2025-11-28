@@ -65,20 +65,29 @@ const Layout = ({ children }: LayoutProps) => {
   // Use knocking nav if in knocking mode OR if user should see Track tab
   const navItems = (isKnockingMode || shouldShowTrack()) ? knockingNavItems : preseasonNavItems;
   const firstName = repData?.name?.split(' ')[0];
+  
+  // Determine if we're on the home page to match header color
+  const isHomePage = location.pathname === "/";
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20">
-      {/* Header with Hamburger Menu */}
-      <header className="sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+      {/* Header with Hamburger Menu - matches page header color */}
+      <header className={`sticky top-0 z-40 border-b px-4 py-3 flex items-center justify-between ${
+        isHomePage 
+          ? "bg-primary text-primary-foreground border-primary-foreground/20" 
+          : "bg-card text-foreground border-border"
+      }`}>
         <AppDrawer
           trigger={
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className={isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}>
               <Menu className="h-6 w-6" />
             </Button>
           }
           firstName={firstName}
         />
-        <h1 className="text-lg font-semibold text-foreground">Kaizen</h1>
+        <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
+          Kaizen
+        </h1>
         <div className="w-10" /> {/* Spacer for centering */}
       </header>
 
