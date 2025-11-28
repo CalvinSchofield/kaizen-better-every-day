@@ -541,7 +541,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                         e.target.select();
                         setPersonalFPGoalInput(String(personalFPGoal));
                       }}
-                      className="w-16 h-8 text-center"
+                      disabled={personalFP < 5}
+                      className="w-16 h-8 text-center disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Goal"
                     />
                   </div>
