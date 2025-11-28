@@ -599,6 +599,14 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       enterKeyHint="done"
                       value={personalFP}
                       onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow typing decimal point and numbers
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          setPersonalFP(val === '' ? 0 : parseFloat(val) || 0);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Round to 1 decimal place on blur
                         const val = parseFloat(e.target.value) || 0;
                         setPersonalFP(Math.round(val * 10) / 10);
                       }}
@@ -612,6 +620,14 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       enterKeyHint="done"
                       value={personalFPGoal}
                       onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow typing decimal point and numbers
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          setPersonalFPGoal(val === '' ? 0 : parseFloat(val) || 0);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Round to 1 decimal place on blur
                         const val = parseFloat(e.target.value) || 0;
                         setPersonalFPGoal(Math.round(val * 10) / 10);
                       }}
