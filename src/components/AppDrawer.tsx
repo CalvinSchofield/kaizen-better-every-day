@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, Calendar, Settings } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAppMode } from "@/hooks/useAppMode";
+import { useRepData } from "@/hooks/useRepData";
 import { useState } from "react";
 
 interface AppDrawerProps {
@@ -20,7 +21,25 @@ interface AppDrawerProps {
 
 export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const { isKnockingMode, toggleMode, isToggling } = useAppMode();
+  const { repData } = useRepData();
   const [open, setOpen] = useState(false);
+
+  // Check if user is a pre-blitz rookie
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  const hasAttendedBlitz = blitzes.some((blitz: any) => {
+    if (blitz.endDate) {
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    }
+    return false;
+  });
+
+  const isCalendarLocked = isRookie && !hasAttendedBlitz;
 
   // Strip emojis from firstName
   const cleanFirstName = firstName?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
@@ -68,11 +87,18 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             onClick={() => setOpen(false)}
             className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
           >
-            <Calendar className="w-5 h-5 text-primary" />
+            <div className="relative">
+              <Calendar className="w-5 h-5 text-primary" />
+              {isCalendarLocked && (
+                <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                  <Lock className="w-3 h-3 text-primary" />
+                </div>
+              )}
+            </div>
             <div className="flex flex-col">
               <span className="font-semibold">Calendar</span>
               <span className="text-sm text-muted-foreground">
-                View and manage entries
+                {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
               </span>
             </div>
           </Link>
