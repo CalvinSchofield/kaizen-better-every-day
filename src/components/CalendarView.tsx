@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 
@@ -61,12 +61,20 @@ export const CalendarView = ({
     return entries.find((e) => e.entry_date === dateStr);
   };
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+  const nextPeriod = () => {
+    if (viewMode === "week") {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addMonths(currentDate, 1));
+    }
   };
 
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+  const prevPeriod = () => {
+    if (viewMode === "week") {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subMonths(currentDate, 1));
+    }
   };
 
   const goToToday = () => {
@@ -128,15 +136,18 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Month Navigation */}
+      {/* Period Navigation */}
       <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="icon" onClick={prevMonth}>
+        <Button variant="ghost" size="icon" onClick={prevPeriod}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-lg font-semibold">
-          {format(currentDate, 'MMMM yyyy')}
+          {viewMode === "month" 
+            ? format(currentDate, 'MMMM yyyy')
+            : `Week of ${format(weekStart, 'MMM d')}`
+          }
         </h2>
-        <Button variant="ghost" size="icon" onClick={nextMonth}>
+        <Button variant="ghost" size="icon" onClick={nextPeriod}>
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
