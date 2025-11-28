@@ -297,29 +297,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 }
                 
                 return (
-                  <>
-                    <h1 className="text-3xl font-bold tracking-tight mb-2">
-                      {greeting}, {firstName}
-                    </h1>
-                    {nextBlitz ? (
-                      <BlitzCountdown
-                        tripName={nextBlitz.name}
-                        tripDate={nextBlitz.date}
-                        tripEndDate={nextBlitz.endDate}
-                        tripLocation={nextBlitz.location}
-                        isVet={false}
-                      />
-                    ) : (
-                      <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3">
-                        <span className="text-2xl flex-shrink-0">📆</span>
-                        <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                          {hasPastBlitzes 
-                            ? "Pick a blitz trip and commit to making your next sale"
-                            : "Pick a blitz trip and commit to making your first sale"}
-                        </p>
-                      </div>
-                    )}
-                  </>
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    {greeting}, {firstName}
+                  </h1>
                 );
               })()}
             </div>
@@ -353,6 +333,28 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               </Button>
             </div>
           </div>
+
+          {/* CTA Card - Non-clickable */}
+          {!nextBlitz ? (
+            <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mt-4">
+              <span className="text-2xl flex-shrink-0">📆</span>
+              <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                {hasPastBlitzes 
+                  ? "Pick a blitz trip and commit to making your next sale"
+                  : "Pick a blitz trip and commit to making your first sale"}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <BlitzCountdown
+                tripName={nextBlitz.name}
+                tripDate={nextBlitz.date}
+                tripEndDate={nextBlitz.endDate}
+                tripLocation={nextBlitz.location}
+                isVet={false}
+              />
+            </div>
+          )}
         </div>
       </div>
 
