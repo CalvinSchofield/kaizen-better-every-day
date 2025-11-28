@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, Calendar, Zap, Target, Moon, Users, Edit2, HelpCircle, MessageSquare, Calculator, CheckCircle2 } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, Zap, Target, Moon, Users, Edit2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const { toast } = useToast();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
-  const [helpSheetOpen, setHelpSheetOpen] = useState(false);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
@@ -274,60 +273,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             <div className="flex items-center justify-between">
               <CardTitle>Your Progress</CardTitle>
               <div className="flex items-center gap-2">
-                <Sheet open={helpSheetOpen} onOpenChange={setHelpSheetOpen}>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setHelpSheetOpen(true)}
-                  >
-                    <HelpCircle className="h-4 w-4" />
-                  </Button>
-                  <SheetContent side="bottom" className="rounded-t-3xl">
-                    <SheetHeader>
-                      <SheetTitle>Need help setting goals?</SheetTitle>
-                      <SheetDescription>
-                        Get with your leaders to set preseason goals that push you but are attainable.
-                      </SheetDescription>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        This online preseason calculator also is super helpful in determining what recruiting work needs to be done in order to hit goals on the year.
-                      </p>
-                      <div className="space-y-3">
-                        <Button 
-                          variant="outline"
-                          className="w-full h-12 text-base"
-                          onClick={() => {
-                            openLink("https://vivintevolution.com/2026-season-calculator/");
-                            setHelpSheetOpen(false);
-                          }}
-                        >
-                          <Calculator className="h-5 w-5 mr-2" />
-                          Recruiting Calculator
-                        </Button>
-                        <Button 
-                          className="w-full h-12 text-base"
-                          onClick={() => {
-                            const phone = repData.team_leader_phone;
-                            if (phone) {
-                              window.location.href = `sms:${phone}`;
-                              setHelpSheetOpen(false);
-                            } else {
-                              toast({
-                                title: "No phone number",
-                                description: "Team leader phone number not available",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          <MessageSquare className="h-5 w-5 mr-2" />
-                          Message Leader
-                        </Button>
-                      </div>
-                    </div>
-                  </SheetContent>
-                </Sheet>
                 {isEditingStats ? (
                   <Button
                     size="sm"
