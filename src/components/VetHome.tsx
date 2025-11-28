@@ -598,7 +598,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       inputMode="decimal"
                       enterKeyHint="done"
                       value={personalFP}
-                      onChange={(e) => setPersonalFP(Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setPersonalFP(Math.round(val * 10) / 10);
+                      }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
@@ -608,14 +611,17 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       inputMode="decimal"
                       enterKeyHint="done"
                       value={personalFPGoal}
-                      onChange={(e) => setPersonalFPGoal(Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setPersonalFPGoal(Math.round(val * 10) / 10);
+                      }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {personalFP} / {personalFPGoal}
+                    {personalFP.toFixed(1)} / {personalFPGoal.toFixed(1)}
                   </span>
                 )}
               </div>
@@ -636,7 +642,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       inputMode="decimal"
                       enterKeyHint="done"
                       value={repsWithSale}
-                      onChange={(e) => setRepsWithSale(Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setRepsWithSale(Math.round(val * 10) / 10);
+                      }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
@@ -646,14 +655,17 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       inputMode="decimal"
                       enterKeyHint="done"
                       value={repsWithSaleGoal}
-                      onChange={(e) => setRepsWithSaleGoal(Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setRepsWithSaleGoal(Math.round(val * 10) / 10);
+                      }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {repsWithSale} / {repsWithSaleGoal}
+                    {repsWithSale.toFixed(1)} / {repsWithSaleGoal.toFixed(1)}
                   </span>
                 )}
               </div>

@@ -389,7 +389,10 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       inputMode="decimal"
                       enterKeyHint="done"
                       value={personalFP}
-                      onChange={(e) => setPersonalFP(Number(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setPersonalFP(Math.round(val * 10) / 10);
+                      }}
                       onFocus={(e) => e.target.select()}
                       className="w-16 h-8 text-center"
                     />
@@ -398,7 +401,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {personalFP} / {personalFPGoal}
+                    {personalFP.toFixed(1)} / {personalFPGoal}
                   </span>
                 )}
               </div>
