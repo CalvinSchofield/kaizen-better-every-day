@@ -178,7 +178,6 @@ export const useDailyEntry = (date?: string) => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['daily-entry', entryDate], data);
-      toast.success('Counters reset!');
     },
   });
 
