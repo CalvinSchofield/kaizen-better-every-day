@@ -67,12 +67,9 @@ export const SaveEntrySheet = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-auto rounded-t-3xl">
-        <SheetHeader>
+      <SheetContent side="bottom" className="pb-safe">
+        <SheetHeader className="mb-6">
           <SheetTitle>Save Today's Work</SheetTitle>
-          <SheetDescription>
-            Enter your FP+ and PRMR to finalize this entry
-          </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-4 mt-6">
@@ -108,7 +105,7 @@ export const SaveEntrySheet = ({
             <div className="flex items-center gap-2">
               <Label htmlFor="fp-plus">FP+</Label>
               <a
-                href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt?q=What%20does%20FP%2B%20stand%20for%20and%20how%20do%20I%20calculate%20my%20FP%2B%20on%20the%20day%3F"
+                href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary transition-colors"
