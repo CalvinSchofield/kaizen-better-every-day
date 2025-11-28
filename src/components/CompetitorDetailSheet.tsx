@@ -44,23 +44,21 @@ export const CompetitorDetailSheet = ({
           </div>
 
           {/* OUR SELLING POINTS - Hero Section */}
-          <div className="bg-accent rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-bold mb-3 text-accent-foreground">
-              🎯 OUR SELLING POINTS
-            </h3>
-            {competitor.our_selling_points.length > 0 ? (
+          {competitor.our_selling_points.length > 0 && (
+            <div className="bg-accent rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-bold mb-3 text-accent-foreground">
+                🎯 OUR SELLING POINTS
+              </h3>
               <ul className="space-y-2">
                 {competitor.our_selling_points.map((point, idx) => (
                   <li key={idx} className="flex gap-2">
-                    <span className="text-accent-foreground/60">•</span>
-                    <span className="text-accent-foreground font-medium">{point}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span>{point}</span>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="text-muted-foreground text-sm">No selling points available</p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Collapsible Sections */}
           <Accordion type="single" collapsible className="space-y-3">
