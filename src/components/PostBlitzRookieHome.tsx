@@ -39,8 +39,26 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
-  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number }>>([]);
+  const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
+
+  // Get weather icon based on WMO weather code
+  const getWeatherIcon = (code: number) => {
+    if (code === 0) return "☀️"; // Clear sky
+    if (code <= 3) return "⛅"; // Partly cloudy
+    if (code <= 48) return "🌫️"; // Fog
+    if (code <= 57) return "🌦️"; // Drizzle
+    if (code <= 67) return "🌧️"; // Rain
+    if (code <= 77) return "❄️"; // Snow
+    if (code <= 82) return "🌧️"; // Rain showers
+    if (code <= 86) return "🌨️"; // Snow showers
+    return "⛈️"; // Thunderstorm
+  };
+
+  // Check if weather code indicates rain
+  const isRainy = (code: number) => {
+    return code >= 51 && code <= 82; // Drizzle, rain, and rain showers
+  };
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -677,52 +695,110 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
       {/* Weather Sheet */}
       <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Weather Forecast</SheetTitle>
-            <SheetDescription>
-              {nextBlitz?.location} - {nextBlitz?.name}
-            </SheetDescription>
+        <SheetContent side="bottom" className="max-h-[70vh]">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-center">
+              {nextBlitz?.location || 'Blitz'} Weather
+            </SheetTitle>
           </SheetHeader>
           
-          {loadingWeather && (
-            <div className="text-center text-sm text-muted-foreground py-4">
-              Loading weather...
-            </div>
-          )}
-          
-          {!loadingWeather && weather.length > 0 && (
-            <>
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                {weather.map((day) => (
-                  <div
-                    key={day.date}
-                    className="bg-card rounded-lg p-4 border border-border text-center"
-                  >
-                    <div className="text-xs font-medium text-muted-foreground mb-1">
-                      {day.dayName}
-                    </div>
-                    <div className="text-xs text-muted-foreground/70 mb-2">
-                      {new Date(day.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl font-bold text-foreground">
-                        {day.high}°
+          <div className="relative">
+            <div className="overflow-x-auto pb-3 scrollbar-hide">
+              <div className="flex gap-3 px-1">
+                {weather.map((day) => {
+                    // Parse date in UTC to avoid timezone issues
+                    const [year, month, dayNum] = day.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, dayNum);
+                    const hasRain = isRainy(day.weatherCode);
+                    
+                    return (
+                      <div
+                        key={day.date}
+                        className={`flex-shrink-0 w-20 p-3 rounded-xl bg-secondary/30 border transition-colors text-center ${
+                          hasRain ? 'border-blue-400/50 bg-blue-50/5' : 'border-border/50'
+                        }`}
+                      >
+                        <div className="text-xs text-muted-foreground font-semibold mb-1">
+                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 mb-2">
+                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </div>
+                        <div className="text-3xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
+                        <div className="text-base font-bold">{day.high}°</div>
+                        <div className="text-[10px] text-muted-foreground/70">{day.low}°</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Low {day.low}°
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
-            </>
-          )}
+            </div>
+            
+            {/* Subtle scroll gradient indicators */}
+            {weather.length > 4 && (
+              <>
+                <div className="absolute left-0 top-0 bottom-3 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-3 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+              </>
+            )}
+          </div>
+
+          {/* Cold/Rain Warning */}
+          {(() => {
+            const hasColdDay = weather.some(day => day.high < 65);
+            const hasRainDay = weather.some(day => isRainy(day.weatherCode));
+            
+            return (hasColdDay || hasRainDay) && (
+              <div className="mt-3 mb-4">
+                <p className="text-xs text-muted-foreground italic text-center leading-relaxed">
+                  Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Packing List Button */}
+          {(() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = nextBlitz ? new Date(nextBlitz.date) : null;
+            const diffTime = tripDate ? tripDate.getTime() - today.getTime() : 0;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays <= 4 && (
+              <div className="mt-4 pt-4 border-t">
+                <Button
+                  onClick={() => {
+                    const url = "https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4";
+                    const notionMatch = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
+                    if (notionMatch) {
+                      const pageId = notionMatch[1].replace(/-/g, '');
+                      window.location.href = `notion://${pageId}`;
+                      setTimeout(() => {
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                      }, 500);
+                    }
+                    setWeatherSheetOpen(false);
+                  }}
+                  className="w-full"
+                  size="lg"
+                >
+                  View Packing List
+                </Button>
+              </div>
+            );
+          })()}
         </SheetContent>
       </Sheet>
+      
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 };
