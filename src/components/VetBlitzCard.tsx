@@ -35,6 +35,7 @@ interface VetBlitzCardProps {
   teamMembers: TeamMember[];
   isTeamLead: boolean;
   onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
+  onCommitmentChange?: () => void;
 }
 
 interface BlitzEvent {
@@ -58,7 +59,7 @@ interface TeamMember {
   onboardingStatus: string | null;
 }
 
-export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate }: VetBlitzCardProps) => {
+export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate, onCommitmentChange }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
@@ -156,6 +157,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         title: "Committed! 🎉",
         description: `You're now committed to ${blitzName}`,
       });
+      
+      // Trigger parent refetch to update next blitz display
+      onCommitmentChange?.();
     } catch (error) {
       console.error('Error updating commitment:', error);
       setCommittedBlitzIds(committedBlitzIds);
@@ -187,6 +191,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         title: "Uncommitted",
         description: `Removed from ${blitzToUncommit.name}`,
       });
+      
+      // Trigger parent refetch to update next blitz display
+      onCommitmentChange?.();
     } catch (error) {
       console.error('Error updating commitment:', error);
       setCommittedBlitzIds(committedBlitzIds);

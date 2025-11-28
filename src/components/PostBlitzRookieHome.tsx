@@ -203,6 +203,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
       if (updateError) throw updateError;
 
+      // Refetch to update next blitz and UI
+      onSync();
+
       confetti({
         particleCount: 100,
         spread: 70,
@@ -248,6 +251,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         .eq('id', repData.id);
 
       if (updateError) throw updateError;
+
+      // Refetch to update next blitz and UI
+      onSync();
 
       toast({
         title: "Uncommitted",
@@ -295,15 +301,27 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                     <h1 className="text-3xl font-bold tracking-tight mb-2">
                       {greeting}, {firstName}
                     </h1>
-                    {!nextBlitz && hasPastBlitzes && (
-                      <p className="text-sm text-primary-foreground/80">
-                        🔥 Keep the momentum rolling — commit to another blitz below
-                      </p>
-                    )}
-                    {!nextBlitz && !hasPastBlitzes && (
-                      <p className="text-sm text-primary-foreground/80">
-                        📅 Pick a blitz trip and commit to making your next sale
-                      </p>
+                    {nextBlitz ? (
+                      <BlitzCountdown
+                        tripName={nextBlitz.name}
+                        tripDate={nextBlitz.date}
+                        tripEndDate={nextBlitz.endDate}
+                        tripLocation={nextBlitz.location}
+                        isVet={false}
+                      />
+                    ) : (
+                      <>
+                        {hasPastBlitzes && (
+                          <p className="text-sm text-primary-foreground/80">
+                            🔥 Keep the momentum rolling — commit to another blitz below
+                          </p>
+                        )}
+                        {!hasPastBlitzes && (
+                          <p className="text-sm text-primary-foreground/80">
+                            📅 Pick a blitz trip and commit to making your next sale
+                          </p>
+                        )}
+                      </>
                     )}
                   </>
                 );
