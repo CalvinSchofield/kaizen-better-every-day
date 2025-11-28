@@ -28,6 +28,23 @@ export const useCompetitors = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Load from localStorage on mount for instant offline access
+  useEffect(() => {
+    const cached = localStorage.getItem('competitors-cache');
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const isRecent = Date.now() - timestamp < 60 * 60 * 1000; // 1 hour
+        if (isRecent && data.length > 0) {
+          setCompetitors(data);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error('Failed to parse cached competitors:', e);
+      }
+    }
+  }, []);
+
   const fetchCompetitors = async () => {
     try {
       setLoading(true);
@@ -40,10 +57,31 @@ export const useCompetitors = () => {
 
       if (fetchError) throw fetchError;
 
-      setCompetitors((data || []) as Competitor[]);
+      const competitorData = (data || []) as Competitor[];
+      setCompetitors(competitorData);
+      
+      // Cache the data locally for offline access
+      localStorage.setItem('competitors-cache', JSON.stringify({
+        data: competitorData,
+        timestamp: Date.now()
+      }));
     } catch (err) {
       console.error('Error fetching competitors:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch competitors');
+      
+      // If fetch fails and we have no data, try to load from cache
+      if (competitors.length === 0) {
+        const cached = localStorage.getItem('competitors-cache');
+        if (cached) {
+          try {
+            const { data } = JSON.parse(cached);
+            setCompetitors(data);
+            setError('Showing cached data (offline)');
+          } catch (e) {
+            console.error('Failed to parse cached competitors:', e);
+          }
+        }
+      }
     } finally {
       setLoading(false);
     }
