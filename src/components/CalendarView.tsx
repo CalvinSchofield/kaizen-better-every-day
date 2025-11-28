@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
@@ -24,6 +24,8 @@ export const CalendarView = ({
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [dataViewMode, setDataViewMode] = useState<"totals" | "weekly" | "daily">("totals");
 
   const { entry: selectedEntry, finalizeEntry, deleteEntry, isFinalizing, updateCounter } = useDailyEntry(
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined
@@ -138,6 +140,7 @@ export const CalendarView = ({
       totals.transitions += entry.transitions || 0;
       totals.presentations += entry.presentations || 0;
       totals.closes += entry.closes || 0;
+      totals.daysWorked += 1;
     }
     return totals;
   }, { 
@@ -148,8 +151,19 @@ export const CalendarView = ({
     pitches: 0,
     transitions: 0,
     presentations: 0,
-    closes: 0
+    closes: 0,
+    daysWorked: 0
   });
+
+  // Calculate display values based on view mode
+  const getDisplayValue = (value: number) => {
+    if (dataViewMode === "weekly") {
+      return (value / 6).toFixed(1);
+    } else if (dataViewMode === "daily" && viewTotals.daysWorked > 0) {
+      return (value / viewTotals.daysWorked).toFixed(1);
+    }
+    return value.toString();
+  };
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
@@ -304,89 +318,132 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Summary Card */}
-      <div className="mt-6 p-6 rounded-lg bg-card border border-border space-y-6">
-        <div className="text-base font-semibold text-foreground">
-          {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
-        </div>
-
-        {/* Main Totals - FP+ and PRMR */}
-        <div className="flex gap-6">
-          <div>
-            <div className="text-3xl font-bold text-primary">
-              {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
+      {/* Summary Card - Expandable */}
+      <div className="mt-6 rounded-lg bg-card border border-border overflow-hidden">
+        {/* Header - Always Visible */}
+        <button
+          onClick={() => setSummaryExpanded(!summaryExpanded)}
+          className="w-full p-4 flex items-center justify-between hover:bg-accent/50 transition-colors"
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-base font-semibold text-foreground">
+              {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
             </div>
-            <div className="text-sm text-muted-foreground mt-1">FP+</div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-primary">
-              ${viewTotals.prmr.toFixed(0)}
-            </div>
-            <div className="text-sm text-muted-foreground mt-1">PRMR</div>
-          </div>
-        </div>
-
-        {/* Activity Counters */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Doors Knocked</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.doorsKnocked}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Decision Makers</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.decisionMakers}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Pitches</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.pitches}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Transitions</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.transitions}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Presentations</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.presentations}</div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Closes</div>
-            <div className="text-2xl font-semibold text-foreground">{viewTotals.closes}</div>
-          </div>
-        </div>
-
-        {/* Ratios */}
-        {viewTotals.fpPlus > 0 && (
-          <div className="pt-4 border-t border-border">
-            <div className="text-sm font-semibold text-foreground mb-3">Ratios to 1 FP+</div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Doors</span>
-                <span className="font-semibold text-foreground">
-                  {(viewTotals.doorsKnocked / viewTotals.fpPlus).toFixed(1)}
+            <div className="flex gap-4 text-sm">
+              <div>
+                <span className="font-bold text-primary">
+                  {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
                 </span>
+                <span className="text-muted-foreground ml-1">FP+</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Pitches</span>
-                <span className="font-semibold text-foreground">
-                  {(viewTotals.pitches / viewTotals.fpPlus).toFixed(1)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Transitions</span>
-                <span className="font-semibold text-foreground">
-                  {(viewTotals.transitions / viewTotals.fpPlus).toFixed(1)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Presentations / Closes</span>
-                <span className="font-semibold text-foreground">
-                  {viewTotals.closes > 0 
-                    ? (viewTotals.presentations / viewTotals.closes).toFixed(1)
-                    : '—'
-                  }
-                </span>
+              <div>
+                <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
+                <span className="text-muted-foreground ml-1">PRMR</span>
               </div>
             </div>
+          </div>
+          {summaryExpanded ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+          )}
+        </button>
+
+        {/* Expanded Content */}
+        {summaryExpanded && (
+          <div className="px-4 pb-4 space-y-6 border-t border-border pt-4">
+            {/* View Mode Toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={dataViewMode === "totals" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDataViewMode("totals")}
+              >
+                Totals
+              </Button>
+              <Button
+                variant={dataViewMode === "weekly" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDataViewMode("weekly")}
+              >
+                Weekly Avg
+              </Button>
+              <Button
+                variant={dataViewMode === "daily" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDataViewMode("daily")}
+                disabled={viewTotals.daysWorked === 0}
+              >
+                Daily Avg
+              </Button>
+            </div>
+
+            {dataViewMode === "daily" && viewTotals.daysWorked > 0 && (
+              <div className="text-xs text-muted-foreground">
+                Based on {viewTotals.daysWorked} day{viewTotals.daysWorked !== 1 ? 's' : ''} worked
+              </div>
+            )}
+
+            {/* Activity Counters */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Doors Knocked</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.doorsKnocked)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Decision Makers</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.decisionMakers)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Pitches</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.pitches)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Transitions</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.transitions)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Presentations</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.presentations)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Closes</div>
+                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.closes)}</div>
+              </div>
+            </div>
+
+            {/* Ratios - What it takes to make a sale */}
+            {viewTotals.closes > 0 && (
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-semibold text-foreground mb-3">What it takes to sell</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Doors to sell</span>
+                    <span className="font-semibold text-foreground text-base">
+                      {(viewTotals.doorsKnocked / viewTotals.closes).toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Pitches to sell</span>
+                    <span className="font-semibold text-foreground text-base">
+                      {(viewTotals.pitches / viewTotals.closes).toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Homes to sell</span>
+                    <span className="font-semibold text-foreground text-base">
+                      {(viewTotals.transitions / viewTotals.closes).toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Presentations to close</span>
+                    <span className="font-semibold text-foreground text-base">
+                      {(viewTotals.presentations / viewTotals.closes).toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
