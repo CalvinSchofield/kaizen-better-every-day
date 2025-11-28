@@ -286,7 +286,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       {/* Header with colored background */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-start justify-between mb-2">
+          <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-4">
               {(() => {
                 const hour = new Date().getHours();
@@ -335,11 +335,11 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             </div>
           </div>
 
-          {/* CTA Card - Clickable */}
-          {!nextBlitz ? (
+          {/* CTA Card - Matches pre-blitz styling exactly */}
+          {!nextBlitz && (
             <button
               onClick={() => setCalendarModalOpen(true)}
-              className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mt-4"
+              className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
             >
               <span className="text-2xl flex-shrink-0">📆</span>
               <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
@@ -349,8 +349,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               </p>
               <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
             </button>
-          ) : (
-            <div className="mt-4">
+          )}
+          {nextBlitz && (
+            <div className="mb-3">
               <BlitzCountdown
                 tripName={nextBlitz.name}
                 tripDate={nextBlitz.date}
