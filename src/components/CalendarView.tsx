@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface CalendarViewProps {
   entries?: any[];
@@ -18,6 +19,7 @@ export const CalendarView = ({
   personalSummerStart,
   personalSummerEnd,
 }: CalendarViewProps) => {
+  const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -100,7 +102,11 @@ export const CalendarView = ({
     prmr: number;
     saveDate: string;
   }) => {
-    finalizeEntry(data);
+    finalizeEntry(data, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      }
+    });
   };
 
   const handleDeleteEntry = () => {

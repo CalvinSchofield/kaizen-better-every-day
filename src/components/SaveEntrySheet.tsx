@@ -85,24 +85,26 @@ export const SaveEntrySheet = ({
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="pb-safe">
-          <SheetHeader className="mb-6 relative">
+          <SheetHeader className="mb-6">
             <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
-            {entry?.is_finalized && onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
           </SheetHeader>
 
         <div className="space-y-6 mt-6">
           {/* QTally Counters Grid */}
           <div>
-            <Label className="text-base mb-3 block">Daily Activity</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-base">Daily Activity</Label>
+              {entry?.is_finalized && onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="doors-knocked" className="text-sm">Doors Knocked</Label>
