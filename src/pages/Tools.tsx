@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info } from "lucide-react";
 import CompetitorSyncButton from "@/components/CompetitorSyncButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,14 @@ import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { useRepData } from "@/hooks/useRepData";
 import { ExternalLink as ExternalLinkComponent } from "@/components/ExternalLink";
 import { useNavigate } from "react-router-dom";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface ToolSection {
   title: string;
@@ -19,6 +27,7 @@ interface ToolSection {
     href: string;
     icon: any;
     comingSoon?: boolean;
+    hasInfo?: boolean;
   }>;
 }
 
@@ -123,8 +132,55 @@ const Tools = () => {
           href: "#",
           icon: HelpCircle,
           comingSoon: true,
-        },
-      ],
+      },
+    ],
+  },
+  {
+    title: "Vivint Portals",
+    description: "Essential tools for tracking & managing your business",
+    icon: TrendingUp,
+    links: [
+      {
+        title: "Insider",
+        description: "Simple way to track sales & upgrades",
+        href: "https://insider.vivint.com/login#",
+        icon: BarChart3,
+      },
+      {
+        title: "Curator",
+        description: "Detailed analytics & competitions",
+        href: "https://curator.vivint.com/dashboard/production-test-production-report",
+        icon: TrendingUp,
+        hasInfo: true,
+      },
+      {
+        title: "Source",
+        description: "Paystubs, pay info & buyouts",
+        href: "https://curator.vivint.com/dashboard/source-weekly-pay",
+        icon: Wallet,
+      },
+      {
+        title: "Onboarding Tool",
+        description: "Complete your Vivint onboarding",
+        href: "https://onboardingtool.vivint.com",
+        icon: ClipboardCheck,
+      },
+    ],
+  },
+];
+
+  const socialLinks = [
+    {
+      name: "Lead Region",
+      url: "https://www.instagram.com/lead.region/profilecard/?igsh=aDl1OGE5Nnk3djR2",
+    },
+    {
+      name: "Triumph PTR",
+      url: "https://www.instagram.com/triumph.ptr/profilecard/?igsh=emQzOWJldmludnYw",
+    },
+    {
+      name: "SmartHomePros",
+      url: "https://www.instagram.com/thesmarthomepros/profilecard/?igsh=bHF1MWFoZTU2ZXd3",
     },
   ];
 
@@ -169,6 +225,7 @@ const Tools = () => {
                   const isCalendar = link.title === "Team Calendar";
                   const isComingSoon = link.comingSoon;
                   const isInternalRoute = link.href.startsWith('/');
+                  const hasCuratorInfo = link.hasInfo && link.title === "Curator";
                   
                   if (isCalendar) {
                     return (
@@ -238,6 +295,54 @@ const Tools = () => {
                     );
                   }
                   
+                  if (hasCuratorInfo) {
+                    return (
+                      <div key={link.title} className="flex items-start gap-2">
+                        <ExternalLinkComponent
+                          href={link.href}
+                          showIcon={false}
+                          className="flex-1 flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                            <LinkIcon className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors flex items-center gap-1.5">
+                              {link.title}
+                              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {link.description}
+                            </p>
+                          </div>
+                        </ExternalLinkComponent>
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon" className="mt-2">
+                              <Info className="w-4 h-4" />
+                            </Button>
+                          </SheetTrigger>
+                          <SheetContent side="bottom" className="rounded-t-3xl">
+                            <SheetHeader>
+                              <SheetTitle>Curator Filter Tips</SheetTitle>
+                              <SheetDescription className="text-left space-y-3 pt-4">
+                                <p className="text-sm">
+                                  <strong>PTR (Partnership):</strong> Choose "Triumph" to see how you stack up
+                                </p>
+                                <p className="text-sm">
+                                  <strong>Lead Region:</strong> Choose "Josh Gruwell" under Sr. MGMT
+                                </p>
+                                <p className="text-sm">
+                                  <strong>Office:</strong> Select "San Francisco 2025" to see where you land
+                                </p>
+                              </SheetDescription>
+                            </SheetHeader>
+                          </SheetContent>
+                        </Sheet>
+                      </div>
+                    );
+                  }
+                  
                   return (
                     <ExternalLinkComponent
                       key={link.title}
@@ -264,6 +369,32 @@ const Tools = () => {
             </Card>
           );
         })}
+
+        {/* Stay Connected Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2 mb-2">
+              <Instagram className="w-5 h-5 text-primary" />
+              <CardTitle className="text-lg">Stay Connected</CardTitle>
+            </div>
+            <CardDescription>Follow these to stay in the loop</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {socialLinks.map((social) => (
+                <ExternalLinkComponent
+                  key={social.name}
+                  href={social.url}
+                  showIcon={false}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border bg-background hover:bg-accent transition-colors no-underline hover:no-underline"
+                >
+                  <Instagram className="w-4 h-4" />
+                  <span className="text-sm font-medium">{social.name}</span>
+                </ExternalLinkComponent>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Actions */}
         <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
