@@ -214,17 +214,27 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
   const saveGoals = async () => {
     try {
+      // Convert inputs to numbers and round to 1 decimal place
+      const fpValue = Math.round(parseFloat(personalFPInput) * 10) / 10 || 0;
+      const fpGoalValue = Math.round(parseFloat(personalFPGoalInput) * 10) / 10 || 0;
+      
       const { error } = await supabase
         .from('reps')
         .update({
-          personal_fp: personalFP,
-          personal_fp_goal: personalFPGoal,
+          personal_fp: fpValue,
+          personal_fp_goal: fpGoalValue,
           reps_with_sale: repsWithSale,
           reps_with_sale_goal: repsWithSaleGoal,
         })
         .eq('id', repData.id);
 
       if (error) throw error;
+
+      // Update local state with the saved values
+      setPersonalFP(fpValue);
+      setPersonalFPGoal(fpGoalValue);
+      setPersonalFPInput(String(fpValue));
+      setPersonalFPGoalInput(String(fpGoalValue));
 
       toast({
         title: "Goals saved",
