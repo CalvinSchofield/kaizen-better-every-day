@@ -132,9 +132,24 @@ export const CalendarView = ({
     if (isInView && entry.is_finalized) {
       totals.fpPlus += entry.fp_plus || 0;
       totals.prmr += entry.prmr || 0;
+      totals.doorsKnocked += entry.doors_knocked || 0;
+      totals.decisionMakers += entry.decision_makers || 0;
+      totals.pitches += entry.pitches || 0;
+      totals.transitions += entry.transitions || 0;
+      totals.presentations += entry.presentations || 0;
+      totals.closes += entry.closes || 0;
     }
     return totals;
-  }, { fpPlus: 0, prmr: 0 });
+  }, { 
+    fpPlus: 0, 
+    prmr: 0,
+    doorsKnocked: 0,
+    decisionMakers: 0,
+    pitches: 0,
+    transitions: 0,
+    presentations: 0,
+    closes: 0
+  });
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
@@ -258,8 +273,15 @@ export const CalendarView = ({
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
-                  <div className="text-xs text-primary font-semibold mt-2">
-                    {entry.fp_plus}
+                  <div className="mt-2 space-y-0.5">
+                    <div className="text-xs text-primary font-semibold">
+                      {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
+                    </div>
+                    {entry.prmr > 0 && (
+                      <div className="text-xs text-muted-foreground font-medium">
+                        ${entry.prmr}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -282,21 +304,91 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Totals */}
-      <div className="mt-4 p-4 rounded-lg bg-card border border-border">
-        <div className="text-sm font-semibold text-foreground mb-2">
-          {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Totals
+      {/* Summary Card */}
+      <div className="mt-6 p-6 rounded-lg bg-card border border-border space-y-6">
+        <div className="text-base font-semibold text-foreground">
+          {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
         </div>
-        <div className="flex gap-4">
+
+        {/* Main Totals - FP+ and PRMR */}
+        <div className="flex gap-6">
           <div>
-            <span className="text-2xl font-bold text-primary">{viewTotals.fpPlus.toFixed(1)}</span>
-            <span className="text-sm text-muted-foreground ml-1">FP+</span>
+            <div className="text-3xl font-bold text-primary">
+              {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">FP+</div>
           </div>
           <div>
-            <span className="text-2xl font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
-            <span className="text-sm text-muted-foreground ml-1">PRMR</span>
+            <div className="text-3xl font-bold text-primary">
+              ${viewTotals.prmr.toFixed(0)}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">PRMR</div>
           </div>
         </div>
+
+        {/* Activity Counters */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Doors Knocked</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.doorsKnocked}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Decision Makers</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.decisionMakers}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Pitches</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.pitches}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Transitions</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.transitions}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Presentations</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.presentations}</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Closes</div>
+            <div className="text-2xl font-semibold text-foreground">{viewTotals.closes}</div>
+          </div>
+        </div>
+
+        {/* Ratios */}
+        {viewTotals.fpPlus > 0 && (
+          <div className="pt-4 border-t border-border">
+            <div className="text-sm font-semibold text-foreground mb-3">Ratios to 1 FP+</div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Doors</span>
+                <span className="font-semibold text-foreground">
+                  {(viewTotals.doorsKnocked / viewTotals.fpPlus).toFixed(1)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pitches</span>
+                <span className="font-semibold text-foreground">
+                  {(viewTotals.pitches / viewTotals.fpPlus).toFixed(1)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Transitions</span>
+                <span className="font-semibold text-foreground">
+                  {(viewTotals.transitions / viewTotals.fpPlus).toFixed(1)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Presentations / Closes</span>
+                <span className="font-semibold text-foreground">
+                  {viewTotals.closes > 0 
+                    ? (viewTotals.presentations / viewTotals.closes).toFixed(1)
+                    : '—'
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Save Entry Sheet */}
