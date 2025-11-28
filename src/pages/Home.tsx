@@ -665,22 +665,13 @@ const Home = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-3">
-                <Button 
-                  onClick={() => window.open("sms:", "_self")}
-                  className="flex-1"
-                  variant="outline"
-                >
-                  Text Leaders
-                </Button>
-                <Button
-                  onClick={handleSetupNudge}
-                  className="flex-1"
-                  disabled={isNudging}
-                >
-                  {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Nudge Leaders"}
-                </Button>
-              </div>
+              <Button
+                onClick={handleSetupNudge}
+                className="w-full"
+                disabled={isNudging}
+              >
+                {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ask for help"}
+              </Button>
               <Button
                 onClick={handleSync}
                 variant="outline"
