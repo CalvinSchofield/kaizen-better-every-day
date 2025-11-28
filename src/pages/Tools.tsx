@@ -16,6 +16,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import curatorNav from "@/assets/curator-navigation.jpeg";
 
 interface ToolSection {
   title: string;
@@ -89,6 +90,12 @@ const Tools = () => {
           comingSoon: true,
         },
         {
+          title: "Useful Contacts",
+          description: "Contact info and tips for key resources",
+          href: "/tools/contacts",
+          icon: Phone,
+        },
+        {
           title: "The Vault",
           description: "On-the-doors resource app",
           href: "https://calvinschofield.notion.site/the-vault?pvs=4",
@@ -96,7 +103,7 @@ const Tools = () => {
         },
         {
           title: "Simple Commission Calculator",
-          description: "calculate earnings based on the payscale",
+          description: "Calculate earnings based on the payscale",
           href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
           icon: DollarSign,
         },
@@ -113,12 +120,6 @@ const Tools = () => {
           href: "#",
           icon: Users,
           comingSoon: true,
-        },
-        {
-          title: "Useful Contacts",
-          description: "Contact info and tips for key resources",
-          href: "/tools/contacts",
-          icon: Phone,
         },
         {
           title: "Team Calendar",
@@ -318,7 +319,7 @@ const Tools = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="absolute top-3 right-3 w-8 h-8 rounded-full border border-border hover:bg-accent"
+                              className="absolute top-3 right-3 w-8 h-8 hover:bg-accent"
                             >
                               <Info className="w-4 h-4" />
                             </Button>
@@ -326,15 +327,20 @@ const Tools = () => {
                           <SheetContent side="bottom" className="rounded-t-3xl">
                             <SheetHeader>
                               <SheetTitle>Curator Filter Tips</SheetTitle>
-                              <SheetDescription className="text-left space-y-3 pt-4">
+                              <SheetDescription className="text-left space-y-4 pt-4">
                                 <p className="text-sm">
-                                  <strong>PTR (Partnership):</strong> Choose "Triumph" to see how you stack up
+                                  Curator is your go to resource for tracking sales.
                                 </p>
                                 <p className="text-sm">
-                                  <strong>Lead Region:</strong> Choose "Josh Gruwell" under Sr. MGMT
+                                  Click <strong>menu → Reports → Production Report</strong> and then filter.
                                 </p>
+                                <img 
+                                  src={curatorNav} 
+                                  alt="Curator navigation menu showing Reports and Production Report path" 
+                                  className="w-full rounded-lg border border-border"
+                                />
                                 <p className="text-sm">
-                                  <strong>Office:</strong> Select "San Francisco 2025" to see where you land
+                                  <strong>Tip —</strong> "Group by" should be set to rep to see yourself and how you're doing in the office, region, division or company.
                                 </p>
                               </SheetDescription>
                             </SheetHeader>
