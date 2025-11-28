@@ -80,8 +80,8 @@ const Tools = () => {
           icon: FileText,
         },
         {
-          title: "Payscales",
-          description: "Commission structure & earnings",
+          title: "Simple Commission Calculator",
+          description: "calculate earnings based on the payscale",
           href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
           icon: DollarSign,
         },
