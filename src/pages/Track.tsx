@@ -66,6 +66,7 @@ const Track = () => {
         open={isSaveSheetOpen}
         onOpenChange={setIsSaveSheetOpen}
         entry={entry}
+        date={new Date()} // Track page always saves to today
         onSave={finalizeEntry}
         isSaving={isFinalizing}
       />

@@ -9,8 +9,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
 
@@ -18,6 +16,7 @@ interface SaveEntrySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: any;
+  date: Date; // The date being edited
   onSave: (data: {
     doors_knocked: number;
     decision_makers: number;
@@ -36,6 +35,7 @@ export const SaveEntrySheet = ({
   open,
   onOpenChange,
   entry,
+  date,
   onSave,
   isSaving,
 }: SaveEntrySheetProps) => {
@@ -47,38 +47,23 @@ export const SaveEntrySheet = ({
   const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     if (open && entry) {
-      // Pre-fill with existing entry data if available
-      setDoorsKnocked(entry.doors_knocked?.toString() || "");
-      setDecisionMakers(entry.decision_makers?.toString() || "");
-      setPitches(entry.pitches?.toString() || "");
-      setTransitions(entry.transitions?.toString() || "");
-      setPresentations(entry.presentations?.toString() || "");
-      setCloses(entry.closes?.toString() || "");
-      setFpPlus(entry.fp_plus?.toString() || "");
-      setPrmr(entry.prmr?.toString() || "");
-      
-      // Check if entry_date is before today to show date picker
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const entryDate = entry.entry_date ? new Date(entry.entry_date) : today;
-      
-      if (entryDate < today) {
-        setShowDatePicker(true);
-        setSelectedDate(entryDate);
-      } else {
-        setShowDatePicker(false);
-        setSelectedDate(today);
-      }
+      // Pre-fill with existing entry data if available, show empty for 0 values
+      setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
+      setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
+      setPitches(entry.pitches && entry.pitches > 0 ? entry.pitches.toString() : "");
+      setTransitions(entry.transitions && entry.transitions > 0 ? entry.transitions.toString() : "");
+      setPresentations(entry.presentations && entry.presentations > 0 ? entry.presentations.toString() : "");
+      setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
+      setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
+      setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
     }
   }, [open, entry]);
 
   const handleSave = () => {
-    const saveDate = format(selectedDate, 'yyyy-MM-dd');
+    const saveDate = format(date, 'yyyy-MM-dd');
     onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
@@ -97,37 +82,10 @@ export const SaveEntrySheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="pb-safe">
         <SheetHeader className="mb-6">
-          <SheetTitle>{entry?.is_finalized ? 'Edit Entry' : 'Add Entry'}</SheetTitle>
+          <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
-          {/* Date Picker (only shown if entry_date is before today) */}
-          {showDatePicker && (
-            <div className="space-y-2">
-              <Label>Entry Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(selectedDate, 'PPP')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
           {/* QTally Counters Grid */}
           <div>
             <Label className="text-base mb-3 block">Daily Activity</Label>
