@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight, Info } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight, Info, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +43,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
+  const [rsvpResponse, setRsvpResponse] = useState<'yes' | 'no' | null>(null);
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -342,6 +343,67 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     }
   };
 
+  // RSVP Logic - Check if we should show RSVP for next upcoming blitz
+  const declinedBlitzes = (repData.declined_blitz_rsvps as string[]) || [];
+  const upcomingBlitzForRsvp = allBlitzes.find((blitz) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const blitzDate = new Date(blitz.date);
+    blitzDate.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Must be within 14 days and not yet started
+    if (daysUntil < 0 || daysUntil > 14) return false;
+    
+    // Must not be already committed
+    const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
+    if (isCommitted) return false;
+    
+    // Must not be declined
+    if (declinedBlitzes.includes(blitz.id)) return false;
+    
+    return true;
+  });
+
+  const handleRsvpYes = async () => {
+    if (!upcomingBlitzForRsvp) return;
+    
+    setRsvpResponse('yes');
+    
+    // Commit to the blitz
+    await handleBlitzToggle(upcomingBlitzForRsvp.id, upcomingBlitzForRsvp.name);
+    
+    setTimeout(() => setRsvpResponse(null), 2000);
+  };
+
+  const handleRsvpNo = async () => {
+    if (!upcomingBlitzForRsvp) return;
+    
+    setRsvpResponse('no');
+    
+    // Add to declined list
+    const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
+    
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({ declined_blitz_rsvps: newDeclined })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      setTimeout(() => setRsvpResponse(null), 2000);
+    } catch (error) {
+      console.error("Error declining RSVP:", error);
+      toast({
+        title: "Error",
+        description: "Could not save your response. Please try again.",
+        variant: "destructive",
+      });
+      setRsvpResponse(null);
+    }
+  };
+
   return (
     <div ref={containerRef} className="min-h-screen bg-gradient-to-b from-background to-secondary/30 overflow-y-auto">
       {/* Pull to refresh hint */}
@@ -404,8 +466,52 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             </div>
           </div>
 
-          {/* CTA Card - Matches pre-blitz styling exactly */}
-          {!nextBlitz && (
+          {/* RSVP Card - Shows when blitz is within 2 weeks and not committed */}
+          {upcomingBlitzForRsvp && !rsvpResponse && (
+            <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
+              <p className="text-primary-foreground/90 text-base font-medium mb-3">
+                📆 {upcomingBlitzForRsvp.location} in {Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days — you in?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleRsvpYes}
+                  className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground"
+                >
+                  <Check className="w-5 h-5 mr-2" />
+                  Yes
+                </Button>
+                <Button
+                  onClick={handleRsvpNo}
+                  variant="outline"
+                  className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30"
+                >
+                  <X className="w-5 h-5 mr-2" />
+                  No
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Animated RSVP Response */}
+          {rsvpResponse === 'yes' && (
+            <div className="px-6 py-4 rounded-lg bg-green-500 text-white mb-3 animate-scale-in">
+              <p className="text-base font-medium text-center">
+                <Check className="w-5 h-5 inline mr-2" />
+                Great! Committing you now...
+              </p>
+            </div>
+          )}
+          {rsvpResponse === 'no' && (
+            <div className="px-6 py-4 rounded-lg bg-red-500 text-white mb-3 animate-scale-in">
+              <p className="text-base font-medium text-center">
+                <X className="w-5 h-5 inline mr-2" />
+                No problem, pick another blitz below
+              </p>
+            </div>
+          )}
+
+          {/* CTA Card - Show when no RSVP needed */}
+          {!upcomingBlitzForRsvp && !rsvpResponse && !nextBlitz && (
             <button
               onClick={() => setCalendarModalOpen(true)}
               className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
@@ -419,7 +525,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
             </button>
           )}
-          {nextBlitz && (() => {
+          {!upcomingBlitzForRsvp && !rsvpResponse && nextBlitz && (() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const tripDate = new Date(nextBlitz.date);
