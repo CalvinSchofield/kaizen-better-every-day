@@ -310,9 +310,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                         isVet={false}
                       />
                     ) : (
-                      <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-muted/60 transition-all mb-3">
+                      <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3">
                         <span className="text-2xl flex-shrink-0">📆</span>
-                        <p className="text-foreground/90 text-base font-medium leading-snug flex-1">
+                        <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                           {hasPastBlitzes 
                             ? "Pick a blitz trip and commit to making your next sale"
                             : "Pick a blitz trip and commit to making your first sale"}
