@@ -65,8 +65,11 @@ export const useAppMode = () => {
       const { error } = await supabase
         .from('season_config')
         .upsert({
+          id: seasonConfig?.id,
           user_id: user.id,
           knocking_mode_enabled: enabled,
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;

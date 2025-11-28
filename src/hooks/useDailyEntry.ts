@@ -58,6 +58,15 @@ export const useDailyEntry = (date?: string) => {
         .upsert({
           user_id: user.id,
           entry_date: entryDate,
+          doors_knocked: entry?.doors_knocked || 0,
+          decision_makers: entry?.decision_makers || 0,
+          pitches: entry?.pitches || 0,
+          transitions: entry?.transitions || 0,
+          presentations: entry?.presentations || 0,
+          closes: entry?.closes || 0,
+          fp_plus: entry?.fp_plus || 0,
+          prmr: entry?.prmr || 0,
+          is_finalized: entry?.is_finalized || false,
           ...updates,
         });
 
