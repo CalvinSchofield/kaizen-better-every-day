@@ -1,19 +1,65 @@
 import { useState } from "react";
-import { ArrowLeft, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Search, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCompetitors, Competitor } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
 import DebugNotionButton from "@/components/DebugNotionButton";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Competitors() {
   const navigate = useNavigate();
-  const { competitors, loading } = useCompetitors();
+  const { competitors, loading, syncFromNotion } = useCompetitors();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const { toast } = useToast();
 
-  const filteredCompetitors = competitors.filter((comp) =>
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncFromNotion();
+      toast({
+        title: "Sync Complete!",
+        description: "Competitor data has been updated from Notion",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync competitors from Notion",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Sort competitors by category (cameras, alarm, panels) then alphabetically
+  const sortedCompetitors = [...competitors].sort((a, b) => {
+    const categoryOrder: { [key: string]: number } = {
+      'cameras': 1,
+      'alarm': 2,
+      'panels': 3,
+    };
+    
+    const categoryA = a.category?.toLowerCase() || '';
+    const categoryB = b.category?.toLowerCase() || '';
+    
+    // Get category priority (default to 999 for unknown categories)
+    const priorityA = categoryOrder[categoryA] || 999;
+    const priorityB = categoryOrder[categoryB] || 999;
+    
+    // First sort by category
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // Then sort alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
+
+  const filteredCompetitors = sortedCompetitors.filter((comp) =>
     comp.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -37,6 +83,15 @@ export default function Competitors() {
                 Quick reference for competitor products
               </p>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSync}
+              disabled={syncing}
+              className="rounded-full"
+            >
+              <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+            </Button>
             <DebugNotionButton />
           </div>
 
