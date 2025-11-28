@@ -193,49 +193,44 @@ export const CalendarView = ({
           })}
         </div>
       ) : (
-        /* Week View - Horizontal scrollable day cards */
-        <div>
-          {/* Day header labels */}
-          <div className="flex gap-3 mb-2">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-              <div key={idx} className="flex-shrink-0 w-[80px] text-center text-sm font-semibold text-muted-foreground">
-                {day}
-              </div>
-            ))}
-          </div>
-          
-          {/* Day cards */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
-            {days.map((day, idx) => {
-              const entry = getEntryForDate(day);
-              const isKnocking = isKnockingDay(day);
-              const isTodayDate = isToday(day);
-              const isSunday = getDay(day) === 0;
+        /* Week View - Grid layout matching month view */
+        <div className="grid grid-cols-7 gap-2">
+          {/* Day headers */}
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
+              {day}
+            </div>
+          ))}
 
-              return (
-                <div
-                  key={idx}
-                  onClick={() => handleDayClick(day)}
-                  className={`
-                    flex-shrink-0 w-[80px] h-[120px] p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center
-                    ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
-                    ${isTodayDate ? 'border-primary' : 'border-border'}
-                    ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
-                  `}
-                >
-                  <div className={`text-3xl font-bold mb-1 ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
-                    {format(day, 'd')}
-                  </div>
-                  {entry && entry.is_finalized && (
-                    <div className="text-xs text-center mt-auto">
-                      <div className="text-primary font-bold">{entry.fp_plus}</div>
-                      <div className="text-muted-foreground text-[10px]">${entry.prmr}</div>
-                    </div>
-                  )}
+          {/* Week days */}
+          {days.map((day, idx) => {
+            const entry = getEntryForDate(day);
+            const isKnocking = isKnockingDay(day);
+            const isTodayDate = isToday(day);
+            const isSunday = getDay(day) === 0;
+
+            return (
+              <div
+                key={idx}
+                onClick={() => handleDayClick(day)}
+                className={`
+                  p-3 rounded-lg border cursor-pointer transition-all hover:scale-105 min-h-[100px] flex flex-col
+                  ${isSunday ? 'opacity-40 cursor-not-allowed' : ''}
+                  ${isTodayDate ? 'border-primary border-2' : 'border-border'}
+                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
+                `}
+              >
+                <div className={`text-lg font-semibold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
+                  {format(day, 'd')}
                 </div>
-              );
-            })}
-          </div>
+                {entry && entry.is_finalized && (
+                  <div className="text-xs text-primary font-semibold mt-2">
+                    {entry.fp_plus}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
