@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import confetti from "canvas-confetti";
 import {
@@ -61,21 +62,23 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   };
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
+  // Get FP+ from daily entries (preseason only)
+  const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
+  
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
     onSync();
   }, []);
 
-  // Local state for editable FP+ stat - initialize from repData
-  const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
-  const [personalFPInput, setPersonalFPInput] = useState(String(repData.personal_fp ?? 0));
-  const personalFPGoal = 5; // Fixed goal for rookies
+  // Local state for editable FP+ goal - initialize from repData
+  const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 5);
+  const [personalFPGoalInput, setPersonalFPGoalInput] = useState(String(repData.personal_fp_goal ?? 5));
 
   // Sync local state with repData changes
   useEffect(() => {
-    setPersonalFP(repData.personal_fp ?? 0);
-    setPersonalFPInput(String(repData.personal_fp ?? 0));
-  }, [repData.personal_fp]);
+    setPersonalFPGoal(repData.personal_fp_goal ?? 5);
+    setPersonalFPGoalInput(String(repData.personal_fp_goal ?? 5));
+  }, [repData.personal_fp_goal]);
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   const personalFPProgress = personalFPGoal > 0 ? (personalFP / personalFPGoal) * 100 : 0;
@@ -83,31 +86,31 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const saveGoals = async () => {
     try {
       // Convert input to number and round to 1 decimal place
-      const fpValue = Math.round(parseFloat(personalFPInput) * 10) / 10 || 0;
+      const fpGoalValue = Math.round(parseFloat(personalFPGoalInput) * 10) / 10 || 0;
       
       const { error } = await supabase
         .from('reps')
         .update({
-          personal_fp: fpValue,
+          personal_fp_goal: fpGoalValue,
         })
         .eq('id', repData.id);
 
       if (error) throw error;
 
       // Update local state with the saved value
-      setPersonalFP(fpValue);
-      setPersonalFPInput(String(fpValue));
+      setPersonalFPGoal(fpGoalValue);
+      setPersonalFPGoalInput(String(fpGoalValue));
 
       toast({
-        title: "Progress saved",
-        description: "Your FP+ has been updated successfully",
+        title: "Goal saved",
+        description: "Your FP+ goal has been updated successfully",
       });
       setIsEditingStats(false);
     } catch (error) {
       console.error("Error saving goals:", error);
       toast({
         title: "Save failed",
-        description: "Could not save your progress. Please try again.",
+        description: "Could not save your goal. Please try again.",
         variant: "destructive",
       });
     }
@@ -511,37 +514,40 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 <Label className="text-base font-medium">Personal FP+</Label>
                 {isEditingStats ? (
                   <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold">
+                      {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)}
+                    </span>
+                    <span className="text-muted-foreground">/</span>
                     <Input
                       type="text"
                       inputMode="decimal"
                       enterKeyHint="done"
-                      value={personalFPInput}
+                      value={personalFPGoalInput}
                       onChange={(e) => {
                         const val = e.target.value;
                         // Allow typing decimal point and numbers
                         if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFPInput(val);
+                          setPersonalFPGoalInput(val);
                         }
                       }}
                       onBlur={(e) => {
                         // Round to 1 decimal place and update actual value
                         const val = parseFloat(e.target.value) || 0;
                         const rounded = Math.round(val * 10) / 10;
-                        setPersonalFP(rounded);
-                        setPersonalFPInput(String(rounded));
+                        setPersonalFPGoal(rounded);
+                        setPersonalFPGoalInput(String(rounded));
                       }}
                       onFocus={(e) => {
                         e.target.select();
-                        setPersonalFPInput(String(personalFP));
+                        setPersonalFPGoalInput(String(personalFPGoal));
                       }}
                       className="w-16 h-8 text-center"
+                      placeholder="Goal"
                     />
-                    <span className="text-muted-foreground">/</span>
-                    <span className="text-lg font-bold">{personalFPGoal}</span>
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal}
+                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal % 1 === 0 ? personalFPGoal : personalFPGoal.toFixed(1)}
                   </span>
                 )}
               </div>
