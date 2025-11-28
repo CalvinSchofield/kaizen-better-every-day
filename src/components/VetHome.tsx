@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -374,6 +374,35 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             }}
           />
         )}
+
+        {/* Monday Night Lights Alert - Shows only on Mondays 5-8pm MST */}
+        {(() => {
+          const now = new Date();
+          const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+          const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const hour = mstTime.getHours();
+          
+          // Show only on Mondays (1) between 5pm (17) and 8pm (20)
+          const shouldShowMondayNights = dayOfWeek === 1 && hour >= 17 && hour < 20;
+          
+          return shouldShowMondayNights ? (
+            <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Moon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg mb-2">Monday Night Lights</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Happening now at <strong>6pm MST</strong> — watch Slack for the link!
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null;
+        })()}
 
         {/* Dynamic Blitz CTA */}
         {!nextBlitz && hasPastBlitzes && (

@@ -332,6 +332,35 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
+        {/* Monday Night Lights Alert - Shows only on Mondays 5-8pm MST */}
+        {(() => {
+          const now = new Date();
+          const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+          const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const hour = mstTime.getHours();
+          
+          // Show only on Mondays (1) between 5pm (17) and 8pm (20)
+          const shouldShowMondayNights = dayOfWeek === 1 && hour >= 17 && hour < 20;
+          
+          return shouldShowMondayNights ? (
+            <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Moon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg mb-2">Monday Night Lights</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Happening now at <strong>6pm MST</strong> — watch Slack for the link!
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null;
+        })()}
+
         {/* FP+ Progress Card */}
         <Card className="mb-6 shadow-lg border-2">
           <CardHeader>
@@ -450,23 +479,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 );
               })
             )}
-          </CardContent>
-        </Card>
-
-        {/* Monday Night Lights Card */}
-        <Card className="mb-6 shadow-sm bg-gradient-to-br from-card to-secondary/20 border-2 border-border/50">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Moon className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg mb-2">Monday Night Lights</h3>
-                <p className="text-sm text-muted-foreground">
-                  Every Monday at <strong>6pm MST</strong> — watch Slack for the link!
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
