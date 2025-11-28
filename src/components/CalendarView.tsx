@@ -23,7 +23,7 @@ export const CalendarView = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { entry: selectedEntry, finalizeEntry, isFinalizing, updateCounter } = useDailyEntry(
+  const { entry: selectedEntry, finalizeEntry, deleteEntry, isFinalizing, updateCounter } = useDailyEntry(
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined
   );
 
@@ -101,6 +101,13 @@ export const CalendarView = ({
     saveDate: string;
   }) => {
     finalizeEntry(data);
+  };
+
+  const handleDeleteEntry = () => {
+    if (selectedEntry && 'id' in selectedEntry && selectedEntry.id) {
+      deleteEntry(selectedEntry.id);
+      setSheetOpen(false);
+    }
   };
 
   // Check if current view is on today's month/week
@@ -293,6 +300,7 @@ export const CalendarView = ({
         entry={selectedEntry}
         date={selectedDate || new Date()}
         onSave={handleSaveEntry}
+        onDelete={selectedEntry?.is_finalized ? handleDeleteEntry : undefined}
         isSaving={isFinalizing}
       />
     </div>
