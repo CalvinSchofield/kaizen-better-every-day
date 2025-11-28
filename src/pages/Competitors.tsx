@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Competitors() {
   const navigate = useNavigate();
-  const { competitors, loading, syncFromNotion } = useCompetitors();
+  const { competitors, loading, error, syncFromNotion } = useCompetitors();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -104,6 +104,13 @@ export default function Competitors() {
               className="pl-9"
             />
           </div>
+
+          {/* Offline Indicator */}
+          {error?.includes('offline') && (
+            <div className="mt-3 px-3 py-2 bg-accent/50 rounded-lg flex items-center gap-2 text-sm">
+              <span className="text-accent-foreground/80">📡 Showing cached data (offline)</span>
+            </div>
+          )}
         </div>
       </div>
 
