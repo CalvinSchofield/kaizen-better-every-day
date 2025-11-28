@@ -124,7 +124,17 @@ export const useDailyEntry = (date?: string) => {
 
   // Finalize entry mutation
   const finalizeEntryMutation = useMutation({
-    mutationFn: async ({ fp_plus, prmr, saveDate }: { fp_plus: number; prmr: number; saveDate: string }) => {
+    mutationFn: async (data: {
+      doors_knocked: number;
+      decision_makers: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+      fp_plus: number;
+      prmr: number;
+      saveDate: string;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -132,17 +142,25 @@ export const useDailyEntry = (date?: string) => {
         .from('daily_entries')
         .upsert({
           user_id: user.id,
-          entry_date: saveDate,
-          ...entry,
-          fp_plus,
-          prmr,
+          entry_date: data.saveDate,
+          doors_knocked: data.doors_knocked,
+          decision_makers: data.decision_makers,
+          pitches: data.pitches,
+          transitions: data.transitions,
+          presentations: data.presentations,
+          closes: data.closes,
+          fp_plus: data.fp_plus,
+          prmr: data.prmr,
           is_finalized: true,
+        }, {
+          onConflict: 'user_id,entry_date'
         });
 
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
+      queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
       toast.success('Entry saved successfully!');
     },
   });
