@@ -390,6 +390,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       enterKeyHint="done"
                       value={personalFP}
                       onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow typing decimal point and numbers
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                          setPersonalFP(val === '' ? 0 : parseFloat(val) || 0);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Round to 1 decimal place on blur
                         const val = parseFloat(e.target.value) || 0;
                         setPersonalFP(Math.round(val * 10) / 10);
                       }}
