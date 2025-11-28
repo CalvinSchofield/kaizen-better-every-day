@@ -158,6 +158,10 @@ export const CalendarView = ({
   // Calculate display values based on view mode
   const getDisplayValue = (value: number) => {
     if (dataViewMode === "weekly") {
+      // If worked less than 6 days, show what it would be if worked 6 days (daily avg * 6)
+      if (viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0) {
+        return ((value / viewTotals.daysWorked) * 6).toFixed(1);
+      }
       return (value / 6).toFixed(1);
     } else if (dataViewMode === "daily" && viewTotals.daysWorked > 0) {
       return (value / viewTotals.daysWorked).toFixed(1);
@@ -378,6 +382,18 @@ export const CalendarView = ({
               </Button>
             </div>
 
+            {dataViewMode === "totals" && viewTotals.daysWorked > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {viewTotals.daysWorked} total knocking day{viewTotals.daysWorked !== 1 ? 's' : ''}
+              </div>
+            )}
+            
+            {dataViewMode === "weekly" && viewTotals.daysWorked > 0 && viewTotals.daysWorked < 6 && (
+              <div className="text-xs text-muted-foreground">
+                Based on {viewTotals.daysWorked} day{viewTotals.daysWorked !== 1 ? 's' : ''} worked
+              </div>
+            )}
+            
             {dataViewMode === "daily" && viewTotals.daysWorked > 0 && (
               <div className="text-xs text-muted-foreground">
                 Based on {viewTotals.daysWorked} day{viewTotals.daysWorked !== 1 ? 's' : ''} worked
@@ -430,7 +446,7 @@ export const CalendarView = ({
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Homes to sell</span>
+                    <span className="text-muted-foreground">Transitions to sell</span>
                     <span className="font-semibold text-foreground text-base">
                       {(viewTotals.transitions / viewTotals.closes).toFixed(1)}
                     </span>
