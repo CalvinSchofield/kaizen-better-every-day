@@ -410,6 +410,42 @@ export const CalendarView = ({
               </div>
             )}
 
+            {/* Show averaged FP+ and PRMR when viewing averages */}
+            {(dataViewMode === "weekly" || dataViewMode === "daily") && (
+              <div className="flex gap-6 pt-2 pb-4 border-b border-border">
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">
+                    {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
+                  </div>
+                  <div className="text-2xl font-semibold text-primary">
+                    {dataViewMode === "weekly" 
+                      ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                        ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
+                        : (viewTotals.fpPlus / 6).toFixed(1)
+                      : viewTotals.daysWorked > 0
+                        ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
+                        : "0.0"
+                    }
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">
+                    {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} PRMR
+                  </div>
+                  <div className="text-2xl font-semibold text-primary">
+                    ${dataViewMode === "weekly" 
+                      ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                        ? ((viewTotals.prmr / viewTotals.daysWorked) * 6).toFixed(0)
+                        : (viewTotals.prmr / 6).toFixed(0)
+                      : viewTotals.daysWorked > 0
+                        ? (viewTotals.prmr / viewTotals.daysWorked).toFixed(0)
+                        : "0"
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Activity Counters */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
