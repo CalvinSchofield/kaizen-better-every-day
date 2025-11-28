@@ -90,16 +90,16 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
 
   return (
     <Card
-      className={`flex flex-col items-center justify-center h-full cursor-pointer select-none touch-none bg-card hover:shadow-md transition-all ${
-        isAnimating ? 'scale-110 shadow-lg' : 'scale-100'
+      className={`flex flex-col items-center justify-center h-full min-h-0 cursor-pointer select-none touch-none bg-card hover:shadow-md transition-all ${
+        isAnimating ? 'scale-105 shadow-lg' : 'scale-100'
       }`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={handleClick}
     >
-      <div className={`text-5xl font-bold text-foreground mb-2 transition-all ${
-        isAnimating ? 'scale-125' : 'scale-100'
+      <div className={`text-5xl md:text-6xl font-bold text-foreground mb-2 transition-all ${
+        isAnimating ? 'scale-110' : 'scale-100'
       }`}>
         {value}
       </div>
@@ -121,7 +121,7 @@ export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 grid-rows-3 gap-3 h-full w-full max-h-full">
+    <div className="grid grid-cols-2 grid-rows-3 gap-3 h-full w-full">
       {counters.map((counter) => (
         <CounterCard
           key={counter.field}
