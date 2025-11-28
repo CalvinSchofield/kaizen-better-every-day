@@ -61,14 +61,21 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   const saveGoals = async () => {
     try {
+      // Convert input to number and round to 1 decimal place
+      const fpValue = Math.round(parseFloat(personalFPInput) * 10) / 10 || 0;
+      
       const { error } = await supabase
         .from('reps')
         .update({
-          personal_fp: personalFP,
+          personal_fp: fpValue,
         })
         .eq('id', repData.id);
 
       if (error) throw error;
+
+      // Update local state with the saved value
+      setPersonalFP(fpValue);
+      setPersonalFPInput(String(fpValue));
 
       toast({
         title: "Progress saved",
