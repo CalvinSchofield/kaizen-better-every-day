@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const Track = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
-  const { repData } = useRepData();
+  const { repData, loading: loadingRepData } = useRepData();
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -46,6 +46,11 @@ const Track = () => {
     resetEntry();
   };
 
+  // Show loading state while fetching rep data
+  if (loadingRepData) {
+    return null;
+  }
+
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
     return (
@@ -61,7 +66,7 @@ const Track = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">QTally Unlocks on Your Blitz!</h2>
+              <h2 className="text-2xl font-bold text-foreground">Track Unlocks on Your Blitz!</h2>
               <p className="text-muted-foreground leading-relaxed">
                 Your digital tally sheet is waiting for you! Once you start knocking doors on your first blitz, 
                 you'll track every door, pitch, and close right here in real-time.
