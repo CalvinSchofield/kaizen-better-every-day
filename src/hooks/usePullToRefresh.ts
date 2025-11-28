@@ -11,35 +11,40 @@ export const usePullToRefresh = ({
   threshold = 80,
   isRefreshing = false 
 }: UsePullToRefreshOptions) => {
-  const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const startY = useRef(0);
+  const currentY = useRef(0);
+  const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    let touchStartY = 0;
-    let touchMoveY = 0;
+    const isAtTop = () => {
+      // Check both container scroll and window scroll for PWA compatibility
+      return container.scrollTop === 0 && window.scrollY === 0;
+    };
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Only trigger if at the top of the page
-      if (container.scrollTop === 0) {
-        touchStartY = e.touches[0].clientY;
-        startY.current = touchStartY;
+      if (isAtTop() && !isRefreshing) {
+        startY.current = e.touches[0].clientY;
+        isDragging.current = true;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (startY.current === 0 || container.scrollTop > 0) return;
+      if (!isDragging.current || isRefreshing) return;
+      
+      currentY.current = e.touches[0].clientY;
+      const distance = currentY.current - startY.current;
 
-      touchMoveY = e.touches[0].clientY;
-      const distance = touchMoveY - touchStartY;
-
-      if (distance > 0 && distance < threshold * 2) {
-        setIsPulling(true);
-        setPullDistance(distance);
+      // Only allow pulling down (positive distance) when at top
+      if (distance > 0 && isAtTop()) {
+        // Dampen the pull distance for a more natural feel
+        const dampenedDistance = Math.min(distance * 0.5, threshold * 1.5);
+        setPullDistance(dampenedDistance);
+        
         // Prevent default scroll behavior while pulling
         if (distance > 10) {
           e.preventDefault();
@@ -48,25 +53,28 @@ export const usePullToRefresh = ({
     };
 
     const handleTouchEnd = async () => {
+      if (!isDragging.current) return;
+      
       if (pullDistance >= threshold && !isRefreshing) {
-        setIsPulling(false);
-        setPullDistance(threshold);
         await onRefresh();
       }
       
-      setIsPulling(false);
+      // Reset states
+      isDragging.current = false;
       setPullDistance(0);
       startY.current = 0;
+      currentY.current = 0;
     };
 
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // Use capture phase and non-passive for touchmove to allow preventDefault
+    container.addEventListener('touchstart', handleTouchStart, { passive: true, capture: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
 
     return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchstart', handleTouchStart, true);
+      container.removeEventListener('touchmove', handleTouchMove, true);
+      container.removeEventListener('touchend', handleTouchEnd, true);
     };
   }, [pullDistance, threshold, onRefresh, isRefreshing]);
 
