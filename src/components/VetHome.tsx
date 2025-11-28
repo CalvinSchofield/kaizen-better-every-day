@@ -15,6 +15,7 @@ import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import {
   Sheet,
   SheetContent,
@@ -81,6 +82,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
+  const { totalPRMR: ytdPRMR } = useYTDPRMR();
   
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -653,9 +655,14 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                 )}
               </div>
               <Progress value={personalFPProgress} className="h-3" />
-              <p className="text-sm text-muted-foreground">
-                {Math.round(personalFPProgress)}% towards your personal preseason sales goal
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {Math.round(personalFPProgress)}% towards your personal preseason sales goal
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  YTD: ${ytdPRMR.toLocaleString()}
+                </p>
+              </div>
             </div>
 
             {/* Reps with a Sale */}

@@ -13,6 +13,7 @@ import { RepData } from "@/hooks/useRepData";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import confetti from "canvas-confetti";
 import {
@@ -64,6 +65,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
+  const { totalPRMR: ytdPRMR } = useYTDPRMR();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -570,9 +572,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 )}
               </div>
               <Progress value={personalFPProgress} className="h-3" />
-              <p className="text-sm text-muted-foreground">
-                {Math.round(personalFPProgress)}% towards your first 5 FP+
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {Math.round(personalFPProgress)}% towards your first 5 FP+
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  YTD: ${ytdPRMR.toLocaleString()}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
