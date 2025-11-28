@@ -309,26 +309,20 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                         tripLocation={nextBlitz.location}
                         isVet={false}
                       />
-                    ) : null}
+                    ) : (
+                      <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-muted/60 transition-all mb-3">
+                        <span className="text-2xl flex-shrink-0">📆</span>
+                        <p className="text-foreground/90 text-base font-medium leading-snug flex-1">
+                          {hasPastBlitzes 
+                            ? "Pick a blitz trip and commit to making your next sale"
+                            : "Pick a blitz trip and commit to making your first sale"}
+                        </p>
+                      </div>
+                    )}
                   </>
                 );
               })()}
             </div>
-            
-            {/* Blitz CTA Card - Full Width */}
-            {!nextBlitz && (
-              <div className="w-full px-4 -mt-2 mb-4">
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/60 backdrop-blur-sm">
-                  <div className="text-3xl flex-shrink-0">📆</div>
-                  <div className="flex-1 text-sm font-medium text-foreground/90">
-                    {hasPastBlitzes 
-                      ? "Pick a blitz trip and commit to making your next sale"
-                      : "Pick a blitz trip and commit to making your first sale"}
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div className="flex gap-2 flex-shrink-0 self-start">
               <Button
                 variant="ghost"
