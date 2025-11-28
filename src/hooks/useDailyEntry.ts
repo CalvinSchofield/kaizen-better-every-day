@@ -199,6 +199,28 @@ export const useDailyEntry = (date?: string) => {
     },
   });
 
+  // Delete entry mutation
+  const deleteEntryMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const { error } = await supabase
+        .from('daily_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+      queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      toast.success("Entry deleted");
+    },
+    onError: (error) => {
+      console.error('Error deleting entry:', error);
+      toast.error("Failed to delete entry");
+    },
+  });
+
   return {
     entry: entry || {
       doors_knocked: 0,
@@ -214,6 +236,7 @@ export const useDailyEntry = (date?: string) => {
     isLoading,
     updateCounter: updateCounterMutation.mutate,
     finalizeEntry: finalizeEntryMutation.mutate,
+    deleteEntry: deleteEntryMutation.mutate,
     resetEntry: resetEntryMutation.mutate,
     isFinalizing: finalizeEntryMutation.isPending,
     isResetting: resetEntryMutation.isPending,

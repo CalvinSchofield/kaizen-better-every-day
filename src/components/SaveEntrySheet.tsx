@@ -9,7 +9,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { CalendarIcon, Info } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CalendarIcon, Info, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface SaveEntrySheetProps {
@@ -28,6 +38,7 @@ interface SaveEntrySheetProps {
     prmr: number;
     saveDate: string;
   }) => void;
+  onDelete?: () => void;
   isSaving: boolean;
 }
 
@@ -37,6 +48,7 @@ export const SaveEntrySheet = ({
   entry,
   date,
   onSave,
+  onDelete,
   isSaving,
 }: SaveEntrySheetProps) => {
   const [doorsKnocked, setDoorsKnocked] = useState("");
@@ -47,6 +59,7 @@ export const SaveEntrySheet = ({
   const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (open && entry) {
@@ -79,11 +92,22 @@ export const SaveEntrySheet = ({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="pb-safe">
-        <SheetHeader className="mb-6">
-          <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="pb-safe">
+          <SheetHeader className="mb-6 relative">
+            <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
+            {entry?.is_finalized && onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </SheetHeader>
 
         <div className="space-y-6 mt-6">
           {/* QTally Counters Grid */}
@@ -247,5 +271,30 @@ export const SaveEntrySheet = ({
         </div>
       </SheetContent>
     </Sheet>
+
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this entry. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              onDelete?.();
+              setShowDeleteDialog(false);
+              onOpenChange(false);
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
