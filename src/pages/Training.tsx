@@ -310,33 +310,35 @@ const Training = () => {
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Pay Scales - Always at top */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <DollarSign className="h-5 w-5 text-accent" />
-              Payscales
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Download pay scales and sales rules
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PAY_SCALES.map((doc) => (
-                <Button
-                  key={doc.label}
-                  variant="outline"
-                  className="justify-between"
-                  onClick={() => downloadFile(doc.file, doc.label + '.pdf')}
-                >
-                  <span className="truncate">{doc.label}</span>
-                  <Download className="h-4 w-4 ml-2 flex-shrink-0" />
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Pay Scales - Hidden for Rookies */}
+        {!loading && isVetOrSophomore && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <DollarSign className="h-5 w-5 text-accent" />
+                Payscales
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Download pay scales and sales rules
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PAY_SCALES.map((doc) => (
+                  <Button
+                    key={doc.label}
+                    variant="outline"
+                    className="justify-between"
+                    onClick={() => downloadFile(doc.file, doc.label + '.pdf')}
+                  >
+                    <span className="truncate">{doc.label}</span>
+                    <Download className="h-4 w-4 ml-2 flex-shrink-0" />
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
         {!loading && !isVetOrSophomore && (
