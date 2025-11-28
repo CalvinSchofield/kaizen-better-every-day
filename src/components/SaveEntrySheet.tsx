@@ -18,7 +18,17 @@ interface SaveEntrySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: any;
-  onSave: (data: { fp_plus: number; prmr: number; saveDate: string }) => void;
+  onSave: (data: {
+    doors_knocked: number;
+    decision_makers: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    closes: number;
+    fp_plus: number;
+    prmr: number;
+    saveDate: string;
+  }) => void;
   isSaving: boolean;
 }
 
@@ -29,16 +39,28 @@ export const SaveEntrySheet = ({
   onSave,
   isSaving,
 }: SaveEntrySheetProps) => {
+  const [doorsKnocked, setDoorsKnocked] = useState("");
+  const [decisionMakers, setDecisionMakers] = useState("");
+  const [pitches, setPitches] = useState("");
+  const [transitions, setTransitions] = useState("");
+  const [presentations, setPresentations] = useState("");
+  const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      // Always start with empty inputs
-      setFpPlus("");
-      setPrmr("");
+    if (open && entry) {
+      // Pre-fill with existing entry data if available
+      setDoorsKnocked(entry.doors_knocked?.toString() || "");
+      setDecisionMakers(entry.decision_makers?.toString() || "");
+      setPitches(entry.pitches?.toString() || "");
+      setTransitions(entry.transitions?.toString() || "");
+      setPresentations(entry.presentations?.toString() || "");
+      setCloses(entry.closes?.toString() || "");
+      setFpPlus(entry.fp_plus?.toString() || "");
+      setPrmr(entry.prmr?.toString() || "");
       
       // Check if entry_date is before today to show date picker
       const today = new Date();
@@ -58,6 +80,12 @@ export const SaveEntrySheet = ({
   const handleSave = () => {
     const saveDate = format(selectedDate, 'yyyy-MM-dd');
     onSave({
+      doors_knocked: parseInt(doorsKnocked) || 0,
+      decision_makers: parseInt(decisionMakers) || 0,
+      pitches: parseInt(pitches) || 0,
+      transitions: parseInt(transitions) || 0,
+      presentations: parseInt(presentations) || 0,
+      closes: parseInt(closes) || 0,
       fp_plus: parseFloat(fpPlus) || 0,
       prmr: parseFloat(prmr) || 0,
       saveDate,
@@ -69,10 +97,10 @@ export const SaveEntrySheet = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="pb-safe">
         <SheetHeader className="mb-6">
-          <SheetTitle>Save Today's Work</SheetTitle>
+          <SheetTitle>{entry?.is_finalized ? 'Edit Entry' : 'Add Entry'}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 mt-6">
+        <div className="space-y-6 mt-6">
           {/* Date Picker (only shown if entry_date is before today) */}
           {showDatePicker && (
             <div className="space-y-2">
@@ -100,45 +128,116 @@ export const SaveEntrySheet = ({
             </div>
           )}
 
-          {/* FP+ Input */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="fp-plus">FP+</Label>
-              <a
-                href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-primary transition-colors"
-              >
-                <Info className="h-4 w-4" />
-              </a>
+          {/* QTally Counters Grid */}
+          <div>
+            <Label className="text-base mb-3 block">Daily Activity</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="doors-knocked" className="text-sm">Doors Knocked</Label>
+                <Input
+                  id="doors-knocked"
+                  type="number"
+                  placeholder="0"
+                  value={doorsKnocked}
+                  onChange={(e) => setDoorsKnocked(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="decision-makers" className="text-sm">Decision Makers</Label>
+                <Input
+                  id="decision-makers"
+                  type="number"
+                  placeholder="0"
+                  value={decisionMakers}
+                  onChange={(e) => setDecisionMakers(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pitches" className="text-sm">Pitches</Label>
+                <Input
+                  id="pitches"
+                  type="number"
+                  placeholder="0"
+                  value={pitches}
+                  onChange={(e) => setPitches(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="transitions" className="text-sm">Transitions</Label>
+                <Input
+                  id="transitions"
+                  type="number"
+                  placeholder="0"
+                  value={transitions}
+                  onChange={(e) => setTransitions(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="presentations" className="text-sm">Presentations</Label>
+                <Input
+                  id="presentations"
+                  type="number"
+                  placeholder="0"
+                  value={presentations}
+                  onChange={(e) => setPresentations(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="closes" className="text-sm">Closes</Label>
+                <Input
+                  id="closes"
+                  type="number"
+                  placeholder="0"
+                  value={closes}
+                  onChange={(e) => setCloses(e.target.value)}
+                />
+              </div>
             </div>
-            <Input
-              id="fp-plus"
-              type="number"
-              step="0.1"
-              placeholder="Enter FP+"
-              value={fpPlus}
-              onChange={(e) => setFpPlus(e.target.value)}
-            />
           </div>
 
-          {/* PRMR Input */}
-          <div className="space-y-2">
-            <Label htmlFor="prmr">PRMR</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                $
-              </span>
-              <Input
-                id="prmr"
-                type="number"
-                step="0.01"
-                placeholder="Enter PRMR"
-                value={prmr}
-                onChange={(e) => setPrmr(e.target.value)}
-                className="pl-7"
-              />
+          {/* Results Section */}
+          <div>
+            <Label className="text-base mb-3 block">Results</Label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
+                  <a
+                    href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Info className="h-4 w-4" />
+                  </a>
+                </div>
+                <Input
+                  id="fp-plus"
+                  type="number"
+                  step="0.1"
+                  placeholder="0.0"
+                  value={fpPlus}
+                  onChange={(e) => setFpPlus(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="prmr" className="text-sm">PRMR</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    $
+                  </span>
+                  <Input
+                    id="prmr"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={prmr}
+                    onChange={(e) => setPrmr(e.target.value)}
+                    className="pl-7"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

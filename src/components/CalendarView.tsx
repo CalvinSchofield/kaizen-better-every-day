@@ -89,7 +89,17 @@ export const CalendarView = ({
     setSheetOpen(true);
   };
 
-  const handleSaveEntry = (data: { fp_plus: number; prmr: number; saveDate: string }) => {
+  const handleSaveEntry = (data: {
+    doors_knocked: number;
+    decision_makers: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    closes: number;
+    fp_plus: number;
+    prmr: number;
+    saveDate: string;
+  }) => {
     finalizeEntry(data);
   };
 
