@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
-import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
@@ -75,9 +74,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
-  const [weatherData, setWeatherData] = useState<any[]>([]);
-  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
+  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number }>>([]);
+  const [loadingWeather, setLoadingWeather] = useState(false);
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -117,11 +116,11 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   useEffect(() => {
     const fetchWeather = async () => {
       if (!nextBlitz || !daysUntilBlitz || daysUntilBlitz > 14 || daysUntilBlitz < 0) {
-        setWeatherData([]);
+        setWeather([]);
         return;
       }
 
-      setWeatherLoading(true);
+      setLoadingWeather(true);
       try {
         const { data, error } = await supabase.functions.invoke('get-blitz-weather', {
           body: {
@@ -133,12 +132,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         if (error) throw error;
         if (data?.forecasts) {
-          setWeatherData(data.forecasts);
+          setWeather(data.forecasts);
         }
       } catch (error) {
         console.error('Error fetching weather:', error);
       } finally {
-        setWeatherLoading(false);
+        setLoadingWeather(false);
       }
     };
 
@@ -402,17 +401,37 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               </p>
               <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
             </button>
-          ) : (
-            <div className="mt-4">
-              <BlitzCountdown
-                tripName={nextBlitz.name}
-                tripDate={nextBlitz.date}
-                tripEndDate={nextBlitz.endDate}
-                tripLocation={nextBlitz.location}
-                isVet={true}
-              />
-            </div>
-          )}
+          ) : (() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = new Date(nextBlitz.date);
+            const diffTime = tripDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let ctaText = "";
+            let ctaIcon = "";
+            
+            if (diffDays <= 7) {
+              ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              ctaIcon = "⚡";
+            } else {
+              ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training!`;
+              ctaIcon = "🎯";
+            }
+            
+            return (
+              <button
+                onClick={() => setWeatherSheetOpen(true)}
+                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+              >
+                <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                  {ctaText}
+                </p>
+                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -764,8 +783,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </SheetContent>
         </Sheet>
 
-        {/* Blitz Details Sheet with Weather */}
-        <Sheet open={blitzDetailsOpen} onOpenChange={setBlitzDetailsOpen}>
+        {/* Weather Sheet */}
+        <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
           <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{nextBlitz?.name || 'Blitz Details'}</SheetTitle>
@@ -777,41 +796,39 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </SheetHeader>
             
             <div className="mt-6 space-y-6">
-              {weatherLoading ? (
+              {loadingWeather ? (
                 <div className="text-center py-8">
                   <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Loading weather forecast...</p>
                 </div>
-              ) : weatherData.length > 0 ? (
+              ) : weather.length > 0 ? (
                 <>
-                  <div>
-                    <h3 className="font-semibold mb-3">Weather Forecast</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {weatherData.map((forecast, index) => (
-                        <div key={index} className="bg-secondary/50 rounded-lg p-3">
-                          <p className="text-xs font-medium text-muted-foreground mb-1">
-                            {new Date(forecast.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-2xl font-bold">{Math.round(forecast.maxTemp)}°</p>
-                              <p className="text-xs text-muted-foreground">Low: {Math.round(forecast.minTemp)}°</p>
-                            </div>
-                            <div className="text-3xl">
-                              {forecast.weatherCode <= 3 ? '☀️' : forecast.weatherCode <= 67 ? '🌧️' : '❄️'}
-                            </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {weather.map((day) => (
+                      <div
+                        key={day.date}
+                        className="bg-card rounded-lg p-4 border border-border text-center"
+                      >
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          {day.dayName}
+                        </div>
+                        <div className="text-xs text-muted-foreground/70 mb-2">
+                          {new Date(day.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-foreground">
+                            {day.high}°
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Low {day.low}°
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Cold weather warning */}
-                  {weatherData.some(f => f.maxTemp < 65 || f.weatherCode > 50) && (
-                    <p className="text-sm italic text-muted-foreground border-l-4 border-primary pl-3">
-                      Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
-                    </p>
-                  )}
                 </>
               ) : daysUntilBlitz !== null && daysUntilBlitz > 14 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
