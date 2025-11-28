@@ -13,7 +13,8 @@ import Training from "./pages/Training";
 import Tools from "./pages/Tools";
 import Competitors from "./pages/Competitors";
 import Contacts from "./pages/Contacts";
-import Assistant from "./pages/Assistant";
+import Track from "./pages/Track";
+import Calendar from "./pages/Calendar";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -87,11 +88,21 @@ const App = () => {
               }
             />
             <Route
-              path="/assistant"
+              path="/track"
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <Assistant />
+                    <Track />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Calendar />
                   </Layout>
                 </ProtectedRoute>
               }
