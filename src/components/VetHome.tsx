@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -382,6 +382,37 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               </Button>
             </div>
           </div>
+
+          {/* CTA Card - Clickable (scrolls to blitz section) */}
+          {!nextBlitz ? (
+            <button
+              onClick={() => {
+                const blitzCard = document.querySelector('[data-blitz-card]');
+                if (blitzCard) {
+                  blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mt-4"
+            >
+              <span className="text-2xl flex-shrink-0">📆</span>
+              <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                {hasPastBlitzes 
+                  ? "Pick a blitz trip and commit to making your next sale"
+                  : "Pick a blitz trip and commit to making your first sale"}
+              </p>
+              <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+            </button>
+          ) : (
+            <div className="mt-4">
+              <BlitzCountdown
+                tripName={nextBlitz.name}
+                tripDate={nextBlitz.date}
+                tripEndDate={nextBlitz.endDate}
+                tripLocation={nextBlitz.location}
+                isVet={true}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -431,103 +462,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </Card>
           ) : null;
         })()}
-
-        {/* Dynamic Blitz CTA */}
-        {!nextBlitz && hasPastBlitzes && (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
-            onClick={() => {
-              // Scroll to VetBlitzCard
-              const blitzCard = document.querySelector('[data-blitz-card]');
-              if (blitzCard) {
-                blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Target className="h-6 w-6 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">🔥 Keep the momentum rolling</h3>
-                  <p className="text-sm text-muted-foreground">
-                    You crushed it on your last blitz — commit to another one!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {!nextBlitz && !hasPastBlitzes && (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
-            onClick={() => {
-              const blitzCard = document.querySelector('[data-blitz-card]');
-              if (blitzCard) {
-                blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Calendar className="h-6 w-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">📅 Pick a blitz trip</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Commit to attending a preseason blitz
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {nextBlitz && daysUntilBlitz !== null && daysUntilBlitz < 7 && (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
-            onClick={() => setBlitzDetailsOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Zap className="h-6 w-6 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">
-                    ⚡ {daysUntilBlitz} {daysUntilBlitz === 1 ? 'day' : 'days'} until {nextBlitz.location}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tap to view weather and packing list
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {nextBlitz && daysUntilBlitz !== null && daysUntilBlitz >= 7 && (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
-            onClick={() => setBlitzDetailsOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Target className="h-6 w-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">
-                    🎯 {daysUntilBlitz} days until {nextBlitz.location}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tap to view details
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Status Dashboard Card */}
         <Card className="mb-6 shadow-lg">
