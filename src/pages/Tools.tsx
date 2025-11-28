@@ -348,10 +348,12 @@ const Tools = () => {
                               <Info className="w-4 h-4" />
                             </Button>
                           </SheetTrigger>
-                          <SheetContent side="bottom" className="rounded-t-3xl">
-                            <SheetHeader>
+                          <SheetContent side="bottom" className="rounded-t-3xl max-h-[80vh] flex flex-col">
+                            <SheetHeader className="flex-shrink-0">
                               <SheetTitle>Curator Filter Tips</SheetTitle>
-                              <SheetDescription className="text-left space-y-4 pt-4">
+                            </SheetHeader>
+                            <div className="overflow-y-auto flex-1 mt-4">
+                              <SheetDescription className="text-left space-y-4">
                                 <p className="text-sm">
                                   Curator is your go to resource for tracking sales.
                                 </p>
@@ -367,7 +369,7 @@ const Tools = () => {
                                   <strong>Tip —</strong> "Group by" should be set to rep to see yourself and how you're doing in the office, region, division or company.
                                 </p>
                               </SheetDescription>
-                            </SheetHeader>
+                            </div>
                           </SheetContent>
                         </Sheet>
                       </div>
