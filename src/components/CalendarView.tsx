@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 
@@ -74,6 +74,9 @@ export const CalendarView = ({
   };
 
   const handleDayClick = (date: Date) => {
+    // Don't allow editing Sundays
+    if (getDay(date) === 0) return;
+    
     setSelectedDate(date);
     setSheetOpen(true);
   };
@@ -163,19 +166,21 @@ export const CalendarView = ({
             const isKnocking = isKnockingDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isTodayDate = isToday(day);
+            const isSunday = getDay(day) === 0;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  aspect-square p-2 rounded-lg border cursor-pointer transition-all hover:scale-105
+                  aspect-square p-2 rounded-lg border transition-all
+                  ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
                   ${!isCurrentMonth ? 'opacity-40' : ''}
-                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
-                <div className={`text-sm font-semibold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
+                <div className={`text-sm font-semibold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
@@ -194,20 +199,22 @@ export const CalendarView = ({
             const entry = getEntryForDate(day);
             const isKnocking = isKnockingDay(day);
             const isTodayDate = isToday(day);
+            const isSunday = getDay(day) === 0;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  p-4 rounded-lg border cursor-pointer transition-all hover:scale-[1.02]
+                  p-4 rounded-lg border transition-all
+                  ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02]'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <div className={`text-lg font-bold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
+                    <div className={`text-lg font-bold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
                       {format(day, 'EEEE')}
                     </div>
                     <div className="text-sm text-muted-foreground">
