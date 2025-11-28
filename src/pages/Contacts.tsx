@@ -166,15 +166,20 @@ const Contacts = () => {
 
   const categories = Array.from(new Set(contacts.map(c => c.category)));
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     try {
-      // Download the master VCF file
+      // Fetch and download the master VCF file with correct MIME type
+      const response = await fetch("/Vivint_Master_Contacts.vcf");
+      const vcfContent = await response.text();
+      const blob = new Blob([vcfContent], { type: "text/vcard;charset=utf-8" });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = "/Vivint_Master_Contacts.vcf";
+      link.href = url;
       link.download = "Vivint_Contacts.vcf";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
       toast.success("All contacts downloaded! Import the file to your phone's contacts.");
     } catch (error) {
