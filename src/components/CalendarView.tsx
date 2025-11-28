@@ -239,8 +239,22 @@ export const CalendarView = ({
         </div>
       )}
 
+      {/* Legend */}
+      <div className="mt-4 flex items-center gap-6 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-primary/10 border-2 border-primary" />
+          <span className="text-muted-foreground">Knocking day</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center">
+            <span className="text-xs text-primary font-semibold">2</span>
+          </div>
+          <span className="text-muted-foreground">Entry with FP+</span>
+        </div>
+      </div>
+
       {/* Totals */}
-      <div className="mt-6 p-4 rounded-lg bg-card border border-border">
+      <div className="mt-4 p-4 rounded-lg bg-card border border-border">
         <div className="text-sm font-semibold text-foreground mb-2">
           {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Totals
         </div>
@@ -253,20 +267,6 @@ export const CalendarView = ({
             <span className="text-2xl font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
             <span className="text-sm text-muted-foreground ml-1">PRMR</span>
           </div>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-col gap-2 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-primary/10 border-2 border-primary" />
-          <span className="text-muted-foreground">Knocking day</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center">
-            <span className="text-xs text-primary font-semibold">2</span>
-          </div>
-          <span className="text-muted-foreground">Entry with FP+</span>
         </div>
       </div>
 
