@@ -72,7 +72,39 @@ export const useDailyEntry = (date?: string) => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onMutate: async (updates) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['daily-entry', entryDate] });
+
+      // Snapshot previous value
+      const previousEntry = queryClient.getQueryData(['daily-entry', entryDate]);
+
+      // Optimistically update
+      queryClient.setQueryData(['daily-entry', entryDate], (old: DailyEntry | null) => {
+        if (!old) {
+          return {
+            doors_knocked: 0,
+            decision_makers: 0,
+            pitches: 0,
+            transitions: 0,
+            presentations: 0,
+            closes: 0,
+            fp_plus: 0,
+            prmr: 0,
+            is_finalized: false,
+            ...updates,
+          } as DailyEntry;
+        }
+        return { ...old, ...updates };
+      });
+
+      return { previousEntry };
+    },
+    onError: (err, updates, context) => {
+      // Rollback on error
+      queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
     },
   });
