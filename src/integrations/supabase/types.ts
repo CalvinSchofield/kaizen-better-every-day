@@ -145,6 +145,7 @@ export type Database = {
           completed_tasks: Json | null
           contacted_for_blitz: Json | null
           created_at: string | null
+          declined_blitz_rsvps: Json | null
           email: string | null
           id: string
           ipad_assigned: boolean | null
@@ -185,6 +186,7 @@ export type Database = {
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
           created_at?: string | null
+          declined_blitz_rsvps?: Json | null
           email?: string | null
           id?: string
           ipad_assigned?: boolean | null
@@ -225,6 +227,7 @@ export type Database = {
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
           created_at?: string | null
+          declined_blitz_rsvps?: Json | null
           email?: string | null
           id?: string
           ipad_assigned?: boolean | null
