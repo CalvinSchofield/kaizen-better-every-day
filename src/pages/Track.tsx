@@ -53,8 +53,8 @@ const Track = () => {
         </div>
       </div>
 
-      {/* Counter Grid - Fills all available space with equal padding, accounting for bottom nav (h-16) */}
-      <div className="flex-1 p-4 pb-20 min-h-0 overflow-hidden">
+      {/* Counter Grid - Fills all available space with equal padding, accounting for bottom nav and safe area */}
+      <div className="flex-1 p-4 pb-24 min-h-0 overflow-hidden">
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
