@@ -256,8 +256,20 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   };
 
   const confirmLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/auth");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout failed",
+        description: "Could not log out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoutSheetOpen(false);
+    }
   };
 
   const copyToClipboard = (url: string, label: string) => {
