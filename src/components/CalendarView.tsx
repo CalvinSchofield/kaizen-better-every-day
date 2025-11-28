@@ -291,6 +291,7 @@ export const CalendarView = ({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         entry={selectedEntry}
+        date={selectedDate || new Date()}
         onSave={handleSaveEntry}
         isSaving={isFinalizing}
       />
