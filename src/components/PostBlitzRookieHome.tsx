@@ -401,7 +401,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {personalFP.toFixed(1)} / {personalFPGoal}
+                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal}
                   </span>
                 )}
               </div>
