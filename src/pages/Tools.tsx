@@ -93,7 +93,6 @@ const Tools = () => {
           description: "Quick reference for competitor products",
           href: "/tools/competitors",
           icon: Shield,
-          comingSoon: true,
         },
         {
           title: "Useful Contacts",
