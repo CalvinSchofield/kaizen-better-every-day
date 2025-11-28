@@ -76,6 +76,12 @@ const Tools = () => {
       icon: Wrench,
       links: [
         {
+          title: "Sales Tracking",
+          description: "Track your progress & stats",
+          href: "https://kaizen-better-every-day.lovable.app/auth",
+          icon: BarChart3,
+        },
+        {
           title: "Competitor Cheat Sheet",
           description: "Quick reference for competitor products",
           href: "/tools/competitors",
@@ -93,12 +99,6 @@ const Tools = () => {
           description: "calculate earnings based on the payscale",
           href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
           icon: DollarSign,
-        },
-        {
-          title: "Sales Tracking",
-          description: "Track your progress & stats",
-          href: "https://kaizen-better-every-day.lovable.app/auth",
-          icon: BarChart3,
         },
       ],
     },
@@ -159,12 +159,6 @@ const Tools = () => {
         href: "https://curator.vivint.com/dashboard/source-weekly-pay",
         icon: Wallet,
       },
-      {
-        title: "Onboarding Tool",
-        description: "Complete your Vivint onboarding",
-        href: "https://onboardingtool.vivint.com",
-        icon: ClipboardCheck,
-      },
     ],
   },
 ];
@@ -172,14 +166,17 @@ const Tools = () => {
   const socialLinks = [
     {
       name: "Lead Region",
+      handle: "lead.region",
       url: "https://www.instagram.com/lead.region/profilecard/?igsh=aDl1OGE5Nnk3djR2",
     },
     {
       name: "Triumph PTR",
+      handle: "triumph.ptr",
       url: "https://www.instagram.com/triumph.ptr/profilecard/?igsh=emQzOWJldmludnYw",
     },
     {
       name: "SmartHomePros",
+      handle: "thesmarthomepros",
       url: "https://www.instagram.com/thesmarthomepros/profilecard/?igsh=bHF1MWFoZTU2ZXd3",
     },
   ];
@@ -297,16 +294,16 @@ const Tools = () => {
                   
                   if (hasCuratorInfo) {
                     return (
-                      <div key={link.title} className="flex items-start gap-2">
+                      <div key={link.title} className="relative">
                         <ExternalLinkComponent
                           href={link.href}
                           showIcon={false}
-                          className="flex-1 flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
+                          className="flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all group no-underline hover:no-underline"
                         >
                           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
                             <LinkIcon className="w-5 h-5 text-primary" />
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 pr-8">
                             <h3 className="font-semibold text-sm mb-1 group-hover:text-primary transition-colors flex items-center gap-1.5">
                               {link.title}
                               <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
@@ -318,7 +315,11 @@ const Tools = () => {
                         </ExternalLinkComponent>
                         <Sheet>
                           <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon" className="mt-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="absolute top-3 right-3 w-8 h-8 rounded-full border border-border hover:bg-accent"
+                            >
                               <Info className="w-4 h-4" />
                             </Button>
                           </SheetTrigger>
@@ -377,19 +378,27 @@ const Tools = () => {
               <Instagram className="w-5 h-5 text-primary" />
               <CardTitle className="text-lg">Stay Connected</CardTitle>
             </div>
-            <CardDescription>Follow these to stay in the loop</CardDescription>
+            <CardDescription>Follow to stay in the loop</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3">
+            <div className="space-y-3">
               {socialLinks.map((social) => (
                 <ExternalLinkComponent
                   key={social.name}
                   href={social.url}
                   showIcon={false}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full border bg-background hover:bg-accent transition-colors no-underline hover:no-underline"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent transition-all no-underline hover:no-underline group"
                 >
-                  <Instagram className="w-4 h-4" />
-                  <span className="text-sm font-medium">{social.name}</span>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <Instagram className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm group-hover:text-primary transition-colors">
+                      {social.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">@{social.handle}</div>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                 </ExternalLinkComponent>
               ))}
             </div>
