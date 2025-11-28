@@ -193,48 +193,49 @@ export const CalendarView = ({
           })}
         </div>
       ) : (
-        /* Week View - Bigger cards with more details */
-        <div className="space-y-3">
-          {days.map((day, idx) => {
-            const entry = getEntryForDate(day);
-            const isKnocking = isKnockingDay(day);
-            const isTodayDate = isToday(day);
-            const isSunday = getDay(day) === 0;
+        /* Week View - Horizontal scrollable day cards */
+        <div>
+          {/* Day header labels */}
+          <div className="flex gap-3 mb-2">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+              <div key={idx} className="flex-shrink-0 w-[80px] text-center text-sm font-semibold text-muted-foreground">
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          {/* Day cards */}
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+            {days.map((day, idx) => {
+              const entry = getEntryForDate(day);
+              const isKnocking = isKnockingDay(day);
+              const isTodayDate = isToday(day);
+              const isSunday = getDay(day) === 0;
 
-            return (
-              <div
-                key={idx}
-                onClick={() => handleDayClick(day)}
-                className={`
-                  p-4 rounded-lg border transition-all
-                  ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02]'}
-                  ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
-                `}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className={`text-lg font-bold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
-                      {format(day, 'EEEE')}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(day, 'MMM d, yyyy')}
-                    </div>
+              return (
+                <div
+                  key={idx}
+                  onClick={() => handleDayClick(day)}
+                  className={`
+                    flex-shrink-0 w-[80px] h-[120px] p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center
+                    ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                    ${isTodayDate ? 'border-primary' : 'border-border'}
+                    ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
+                  `}
+                >
+                  <div className={`text-3xl font-bold mb-1 ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
+                    {format(day, 'd')}
                   </div>
                   {entry && entry.is_finalized && (
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
-                        {entry.fp_plus} FP+
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        ${entry.prmr} PRMR
-                      </div>
+                    <div className="text-xs text-center mt-auto">
+                      <div className="text-primary font-bold">{entry.fp_plus}</div>
+                      <div className="text-muted-foreground text-[10px]">${entry.prmr}</div>
                     </div>
                   )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
