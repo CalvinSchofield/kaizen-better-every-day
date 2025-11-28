@@ -238,9 +238,6 @@ const Contacts = () => {
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Useful Contacts</h1>
-              <p className="text-sm text-muted-foreground">
-                Key contacts and helpful tips
-              </p>
             </div>
           </div>
 
