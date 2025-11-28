@@ -126,6 +126,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
 
+  // Check if rookie had past blitzes but no upcoming ones
+  const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+  const hasPastBlitzes = committedBlitzes.some((blitz: any) => {
+    if (!blitz?.endDate) return false;
+    const endDate = new Date(blitz.endDate);
+    return endDate < new Date();
+  });
+
   // Handle blitz commitment toggle
   const handleBlitzToggle = async (blitzId: string) => {
     if (!repData.notion_page_id) {
@@ -374,7 +382,26 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </Card>
 
         {/* Dynamic Blitz CTA */}
-        {!nextBlitz ? (
+        {!nextBlitz && hasPastBlitzes ? (
+          <Card 
+            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
+            onClick={() => setCalendarModalOpen(true)}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Target className="h-6 w-6 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5">🔥 Keep the momentum rolling</h3>
+                  <p className="text-sm text-muted-foreground">
+                    You crushed it on your last blitz — commit to another one!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : !nextBlitz ? (
           <Card 
             className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
             onClick={() => setCalendarModalOpen(true)}
