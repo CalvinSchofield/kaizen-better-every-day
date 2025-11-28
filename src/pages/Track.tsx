@@ -1,13 +1,34 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save, Lock, BarChart3 } from "lucide-react";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { ResetConfirmSheet } from "@/components/ResetConfirmSheet";
+import { useRepData } from "@/hooks/useRepData";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Track = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
+  const { repData } = useRepData();
+  
+  // Check if user is a pre-blitz rookie
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  // Check if rookie has attended a blitz (any blitz with endDate in the past)
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  const hasAttendedBlitz = blitzes.some((blitz: any) => {
+    if (blitz.endDate) {
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    }
+    return false;
+  });
+
+  const isPreBlitzRookie = isRookie && !hasAttendedBlitz;
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
 
@@ -24,6 +45,38 @@ const Track = () => {
   const handleReset = () => {
     resetEntry();
   };
+
+  // Show locked state for pre-blitz rookies
+  if (isPreBlitzRookie) {
+    return (
+      <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
+        <Card className="w-full max-w-md border-border/40">
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <BarChart3 className="h-16 w-16 text-muted-foreground/40" />
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">QTally Unlocks on Your Blitz!</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Your digital tally sheet is waiting for you! Once you start knocking doors on your first blitz, 
+                you'll track every door, pitch, and close right here in real-time.
+              </p>
+            </div>
+            <div className="pt-2">
+              <p className="text-sm text-primary font-medium">
+                Get hyped—your first sale is just around the corner! 💪
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background flex flex-col overflow-hidden touch-none" style={{ height: 'calc(100vh - 88px)' }}>
