@@ -26,31 +26,28 @@ const Track = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary/10 to-accent p-6 rounded-b-3xl shadow-md">
-        <div className="flex items-center justify-between mb-2">
+      <div className="bg-background px-6 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-bold text-foreground">Today's Progress</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">{formattedDate}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleReset}
-              disabled={isResetting}
-              className="h-8 w-8"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleReset}
+            disabled={isResetting}
+            className="h-10 w-10"
+          >
+            <RotateCcw className="h-5 w-5" />
+          </Button>
         </div>
         <p className="text-sm text-muted-foreground">
           Tap to add, swipe down to subtract
         </p>
       </div>
 
-      {/* Counter Grid */}
-      <div className="p-4">
+      {/* Counter Grid - Non-scrollable */}
+      <div className="flex-1 px-4 overflow-hidden">
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
@@ -58,13 +55,13 @@ const Track = () => {
       </div>
 
       {/* Save Button */}
-      <div className="fixed bottom-24 left-0 right-0 px-4">
+      <div className="flex-shrink-0 px-4 pb-4">
         <Button
           onClick={() => setIsSaveSheetOpen(true)}
           className="w-full py-6 text-lg font-semibold shadow-lg"
           size="lg"
         >
-          Save Today's Work →
+          💾 Save Today's Work
         </Button>
       </div>
 

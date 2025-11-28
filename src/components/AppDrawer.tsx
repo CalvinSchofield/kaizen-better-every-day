@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { MessageSquare, Calendar, Settings } from "lucide-react";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -22,28 +22,31 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const { isKnockingMode, toggleMode, isToggling } = useAppMode();
   const [open, setOpen] = useState(false);
 
-  const handleToggle = () => {
-    toggleMode(!isKnockingMode);
+  // Strip emojis from firstName
+  const cleanFirstName = firstName?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
+
+  const handleToggle = (checked: boolean) => {
+    toggleMode(checked);
   };
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
         {trigger}
-      </DrawerTrigger>
-      <DrawerContent className="h-[85vh]">
-        <DrawerHeader>
-          <DrawerTitle>
-            {firstName ? `Hey, ${firstName}` : "Menu"}
-          </DrawerTitle>
-        </DrawerHeader>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-[300px]">
+        <SheetHeader>
+          <SheetTitle>
+            {cleanFirstName ? `Hey, ${cleanFirstName}` : "Menu"}
+          </SheetTitle>
+        </SheetHeader>
         
         <div className="flex flex-col gap-4 p-4">
           {/* Knocking Mode Toggle */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-card">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="knocking-mode" className="text-base font-semibold">
-                🌙 Knocking Mode
+              <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
+                🚪 Knocking Mode
               </Label>
               <p className="text-sm text-muted-foreground">
                 {isKnockingMode ? "Active" : "Preseason"}
@@ -105,7 +108,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </div>
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 };
