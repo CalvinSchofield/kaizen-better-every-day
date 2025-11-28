@@ -98,14 +98,32 @@ export const BlitzCountdown = ({
   }, [tripDate, tripLocation, tripEndDate]);
 
   const getCompactMessage = () => {
-    if (daysUntil === null || daysUntil < 0 || !tripName) {
+    if (daysUntil === null || daysUntil < 0 || !tripName || !tripLocation) {
       return "No blitz scheduled yet";
     }
     
-    if (daysUntil === 0) return `${tripName} starts today!`;
-    if (daysUntil === 1) return `${tripName} tomorrow`;
-    if (daysUntil <= 7) return `${tripName} in ${daysUntil} days`;
-    return `${tripName} - ${daysUntil} days`;
+    const locationName = tripLocation.split(',')[0]; // Get just city name
+    
+    if (daysUntil === 0) return `${locationName} starts today — you got this!`;
+    if (daysUntil === 1) return `1 day until ${locationName} — prep makes perfect`;
+    if (daysUntil <= 7) return `${daysUntil} days until ${locationName} — prep makes perfect`;
+    return `${daysUntil} days until ${locationName}`;
+  };
+  
+  const getWeatherTip = () => {
+    if (weather.length === 0) return "";
+    
+    const avgHigh = weather.reduce((sum, day) => sum + day.high, 0) / weather.length;
+    const avgLow = weather.reduce((sum, day) => sum + day.low, 0) / weather.length;
+    
+    if (avgHigh > 85) {
+      return "Pack light and bring sunscreen — it's going to be hot out there!";
+    } else if (avgHigh < 60) {
+      return "Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.";
+    } else if (avgLow < 50) {
+      return "Days are nice but mornings are cold — bring layers you can adjust throughout the day.";
+    }
+    return "Perfect knocking weather — prep your pitch and pack smart!";
   };
 
   const shouldShowWeather = weather.length > 0 && daysUntil !== null && daysUntil > 0 && daysUntil <= 14;
@@ -122,35 +140,31 @@ export const BlitzCountdown = ({
   return (
     <>
       {/* Compact Blitz Text Line */}
-      <div 
-        className={`flex items-center justify-between py-2 ${
-          !hasBlitz 
-            ? 'cursor-pointer hover:opacity-80 transition-all group' 
-            : ''
-        }`}
-        onClick={!hasBlitz ? () => setShowCalendar(true) : undefined}
-      >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="py-2">
+        <div 
+          className={`flex items-center gap-2 ${
+            !hasBlitz 
+              ? 'cursor-pointer hover:opacity-80 transition-all group' 
+              : ''
+          }`}
+          onClick={!hasBlitz ? () => setShowCalendar(true) : undefined}
+        >
           <span className="text-lg">{getEmoji()}</span>
           <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium truncate ${!hasBlitz ? 'text-primary underline decoration-dashed' : ''}`}>
+            <p className={`text-sm font-medium ${!hasBlitz ? 'text-primary underline decoration-dashed' : 'text-primary-foreground/80'}`}>
               {getCompactMessage()}
-              {hasBlitz && tripLocation && ` • ${tripLocation}`}
             </p>
           </div>
           {!hasBlitz && (
             <ChevronRight className="h-4 w-4 text-primary flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
           )}
-        </div>
-        
-        <div className="flex items-center gap-2 flex-shrink-0">
           {shouldShowWeather && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowWeatherSheet(true);
               }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+              className="text-xs text-primary hover:text-primary/80 transition-colors underline flex-shrink-0"
             >
               Weather
             </button>
@@ -175,32 +189,41 @@ export const BlitzCountdown = ({
           )}
           
           {!loadingWeather && weather.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              {weather.map((day) => (
-                <div
-                  key={day.date}
-                  className="bg-card rounded-lg p-4 border border-border text-center"
-                >
-                  <div className="text-xs font-medium text-muted-foreground mb-1">
-                    {day.dayName}
-                  </div>
-                  <div className="text-xs text-muted-foreground/70 mb-2">
-                    {new Date(day.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-2xl font-bold text-foreground">
-                      {day.high}°
+            <>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {weather.map((day) => (
+                  <div
+                    key={day.date}
+                    className="bg-card rounded-lg p-4 border border-border text-center"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground mb-1">
+                      {day.dayName}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Low {day.low}°
+                    <div className="text-xs text-muted-foreground/70 mb-2">
+                      {new Date(day.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-foreground">
+                        {day.high}°
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Low {day.low}°
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              
+              {/* Weather Tip */}
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground italic text-center">
+                  {getWeatherTip()}
+                </p>
+              </div>
+            </>
           )}
         </SheetContent>
       </Sheet>
