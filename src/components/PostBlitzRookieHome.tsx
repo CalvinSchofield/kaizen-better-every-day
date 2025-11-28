@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, Calendar, Zap, Target, Moon, Users, Edit2, CheckCircle2 } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, Moon, Users, Edit2, CheckCircle2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PostBlitzRookieHomeProps {
   repData: RepData;
@@ -34,8 +45,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const { toast } = useToast();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
-  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
+  const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
+  const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -134,7 +146,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   });
 
   // Handle blitz commitment toggle
-  const handleBlitzToggle = async (blitzId: string) => {
+  const handleBlitzToggle = async (blitzId: string, blitzName: string) => {
     if (!repData.notion_page_id) {
       toast({
         title: "Error",
@@ -147,24 +159,18 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const currentCommitments = (repData.committed_blitzes as any[]) || [];
     const isCurrentlyCommitted = currentCommitments.some((b: any) => b.id === blitzId);
     
-    let newCommitments;
     if (isCurrentlyCommitted) {
-      // Uncommit
-      newCommitments = currentCommitments.filter((b: any) => b.id !== blitzId);
-    } else {
-      // Commit - trigger confetti
-      const blitz = allBlitzes.find(b => b.id === blitzId);
-      if (blitz) {
-        newCommitments = [...currentCommitments, blitz];
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-      } else {
-        newCommitments = currentCommitments;
-      }
+      // Show confirmation dialog for uncommit
+      setBlitzToUncommit({ id: blitzId, name: blitzName });
+      setUncommitDialogOpen(true);
+      return;
     }
+
+    // Commit - trigger confetti
+    const blitz = allBlitzes.find(b => b.id === blitzId);
+    if (!blitz) return;
+
+    const newCommitments = [...currentCommitments, blitz];
 
     try {
       const blitzPageIds = newCommitments.map((b: any) => b.id);
@@ -186,11 +192,15 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
       if (updateError) throw updateError;
 
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
       toast({
-        title: isCurrentlyCommitted ? "Uncommitted" : "Committed!",
-        description: isCurrentlyCommitted 
-          ? "You've been removed from this blitz" 
-          : "You're now committed to this blitz",
+        title: "Committed! 🎉",
+        description: `You're now committed to ${blitzName}`,
       });
     } catch (error) {
       console.error("Error updating commitment:", error);
@@ -199,6 +209,49 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         description: "Could not update your commitment. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const confirmUncommit = async () => {
+    if (!blitzToUncommit) return;
+
+    const currentCommitments = (repData.committed_blitzes as any[]) || [];
+    const newCommitments = currentCommitments.filter((b: any) => b.id !== blitzToUncommit.id);
+
+    try {
+      const blitzPageIds = newCommitments.map((b: any) => b.id);
+      
+      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+        body: { 
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds 
+        },
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      const { error: updateError } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: newCommitments })
+        .eq('id', repData.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Uncommitted",
+        description: `Removed from ${blitzToUncommit.name}`,
+      });
+    } catch (error) {
+      console.error("Error updating commitment:", error);
+      toast({
+        title: "Update failed",
+        description: "Could not update your commitment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUncommitDialogOpen(false);
+      setBlitzToUncommit(null);
     }
   };
 
@@ -215,7 +268,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       {/* Header with colored background */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start justify-between mb-2">
             <div className="flex-1 min-w-0 pr-4">
               {(() => {
                 const hour = new Date().getHours();
@@ -227,9 +280,21 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                 }
                 
                 return (
-                  <h1 className="text-3xl font-bold tracking-tight">
-                    {greeting}, {firstName}
-                  </h1>
+                  <>
+                    <h1 className="text-3xl font-bold tracking-tight mb-2">
+                      {greeting}, {firstName}
+                    </h1>
+                    {!nextBlitz && hasPastBlitzes && (
+                      <p className="text-sm text-primary-foreground/80">
+                        🔥 Keep the momentum rolling — commit to another blitz below
+                      </p>
+                    )}
+                    {!nextBlitz && !hasPastBlitzes && (
+                      <p className="text-sm text-primary-foreground/80">
+                        📅 Pick a blitz trip and commit to making your next sale
+                      </p>
+                    )}
+                  </>
                 );
               })()}
             </div>
@@ -268,7 +333,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
         {/* FP+ Progress Card */}
-        <Card className="mb-6 shadow-lg">
+        <Card className="mb-6 shadow-lg border-2">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Your Progress</CardTitle>
@@ -326,99 +391,16 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           </CardContent>
         </Card>
 
-        {/* Dynamic Blitz CTA */}
-        {!nextBlitz && hasPastBlitzes ? (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
-            onClick={() => setCalendarModalOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Target className="h-6 w-6 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">🔥 Keep the momentum rolling</h3>
-                  <p className="text-sm text-muted-foreground">
-                    You crushed it on your last blitz — commit to another one!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : !nextBlitz ? (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
-            onClick={() => setCalendarModalOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Calendar className="h-6 w-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">Pick your next blitz trip</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Commit to attending another blitz
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : daysUntilBlitz !== null && daysUntilBlitz < 7 ? (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
-            onClick={() => setBlitzDetailsOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Zap className="h-6 w-6 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">
-                    {daysUntilBlitz} {daysUntilBlitz === 1 ? 'day' : 'days'} until {nextBlitz.location}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tap to view weather and packing list
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card 
-            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
-            onClick={() => setBlitzDetailsOpen(true)}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Target className="h-6 w-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base mb-0.5">
-                    {daysUntilBlitz} days until {nextBlitz.location}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Tap to view details
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Upcoming Blitzes Card */}
         <Card className="mb-6 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Upcoming Blitzes
+              Your Blitz Commitments
             </CardTitle>
-            <CardDescription>Browse and commit to preseason trips</CardDescription>
+            <CardDescription>Manage which blitzes you're attending</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {blitzesLoading ? (
               <p className="text-sm text-muted-foreground text-center py-4">Loading blitzes...</p>
             ) : allBlitzes.length === 0 ? (
@@ -427,28 +409,42 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               allBlitzes.map((blitz) => {
                 const committedBlitzes = (repData.committed_blitzes as any[]) || [];
                 const isCommitted = committedBlitzes.some((b: any) => b.id === blitz.id);
+                const startDate = new Date(blitz.date);
+                const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+                const dateStr =
+                  startDate.toDateString() === endDate.toDateString()
+                    ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
                 return (
                   <div
                     key={blitz.id}
-                    onClick={() => handleBlitzToggle(blitz.id)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      isCommitted
-                        ? 'bg-accent/10 border-accent/50 hover:bg-accent/15'
-                        : 'bg-muted/30 border-border/30 hover:bg-muted/50'
-                    }`}
+                    className="border rounded-lg p-4 space-y-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {isCommitted && <CheckCircle2 className="h-5 w-5 text-accent" />}
-                          <p className="font-semibold">{blitz.name}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-lg">{blitz.name}</h3>
+                          {isCommitted && (
+                            <Badge className="bg-green-500 text-white border-green-600">
+                              <Check className="h-3 w-3 mr-1" />
+                              Committed
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {new Date(blitz.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {blitz.endDate && ` - ${new Date(blitz.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                          {blitz.location && ` • ${blitz.location}`}
-                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                          <Calendar className="h-4 w-4" />
+                          <span>{dateStr}</span>
+                          {blitz.location && <span>• {blitz.location}</span>}
+                        </div>
                       </div>
+                      <Button
+                        size="sm"
+                        variant={isCommitted ? "destructive" : "default"}
+                        onClick={() => handleBlitzToggle(blitz.id, blitz.name)}
+                      >
+                        {isCommitted ? "Uncommit" : "Commit"}
+                      </Button>
                     </div>
                   </div>
                 );
@@ -520,13 +516,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </SheetContent>
       </Sheet>
 
-      {/* Calendar Modal */}
-      <TeamCalendarModal 
-        open={calendarModalOpen}
-        onOpenChange={setCalendarModalOpen}
-        teamLeaderPhone={repData.team_leader_phone || ""}
-      />
-
       {/* Blitz Details Sheet */}
       {nextBlitz && (
         <Sheet open={blitzDetailsOpen} onOpenChange={setBlitzDetailsOpen}>
@@ -541,6 +530,24 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           </SheetContent>
         </Sheet>
       )}
+
+      {/* Uncommit Confirmation Dialog */}
+      <AlertDialog open={uncommitDialogOpen} onOpenChange={setUncommitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Uncommit from Blitz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to uncommit from {blitzToUncommit?.name}? You can always commit again later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUncommit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Uncommit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
