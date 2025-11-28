@@ -40,11 +40,13 @@ export const useDailyEntry = (date?: string) => {
         .select('*')
         .eq('user_id', user.id)
         .eq('entry_date', entryDate)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       return data as DailyEntry | null;
     },
+    staleTime: Infinity, // Don't auto-refetch during mutations
+    gcTime: Infinity,
   });
 
   // Update counter mutation (auto-save)
@@ -112,10 +114,11 @@ export const useDailyEntry = (date?: string) => {
     onError: (err, updates, context) => {
       // Rollback on error
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
+      toast.error('Failed to save counter');
     },
-    onSuccess: (data) => {
-      // Update with server response
-      queryClient.setQueryData(['daily-entry', entryDate], data);
+    onSettled: () => {
+      // Refetch to ensure we have the latest data
+      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
     },
   });
 

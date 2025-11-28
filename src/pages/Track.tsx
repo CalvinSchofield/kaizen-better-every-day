@@ -26,7 +26,7 @@ const Track = () => {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden touch-none">
+    <div className="h-screen bg-background flex flex-col overflow-hidden touch-none relative">
       {/* Header */}
       <div className="bg-background px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
@@ -47,15 +47,15 @@ const Track = () => {
       </div>
 
       {/* Counter Grid - Fills available space */}
-      <div className="flex-1 px-4 pb-4 overflow-hidden">
+      <div className="flex-1 px-4 overflow-y-auto pb-40">
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
         />
       </div>
 
-      {/* Save Button - Fixed above bottom nav (h-16 + pb-6 + extra space = ~100px, so pb-32 clears it) */}
-      <div className="flex-shrink-0 px-4 pb-32">
+      {/* Save Button - Fixed at bottom with safe spacing */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-[calc(4rem+env(safe-area-inset-bottom))] px-4">
         <Button
           onClick={() => setIsSaveSheetOpen(true)}
           className="w-full py-6 text-lg font-semibold shadow-lg"
