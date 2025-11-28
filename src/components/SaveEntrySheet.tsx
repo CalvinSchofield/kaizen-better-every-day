@@ -9,17 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { CalendarIcon, Info, Trash2 } from "lucide-react";
+import { Info, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface SaveEntrySheetProps {
@@ -272,29 +262,39 @@ export const SaveEntrySheet = ({
       </SheetContent>
     </Sheet>
 
-    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
-          <AlertDialogDescription>
+    <Sheet open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <SheetContent side="bottom" className="pb-safe">
+        <SheetHeader className="mb-6">
+          <SheetTitle>Delete Entry?</SheetTitle>
+          <SheetDescription>
             This will permanently delete this entry. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          </SheetDescription>
+        </SheetHeader>
+        
+        <div className="flex flex-col gap-3 mt-6">
+          <Button
             onClick={() => {
               onDelete?.();
               setShowDeleteDialog(false);
               onOpenChange(false);
             }}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant="destructive"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
           >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            Delete Entry
+          </Button>
+          <Button
+            onClick={() => setShowDeleteDialog(false)}
+            variant="outline"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Cancel
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
     </>
   );
 };
