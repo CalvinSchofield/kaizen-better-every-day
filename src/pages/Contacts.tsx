@@ -333,7 +333,7 @@ const Contacts = () => {
                                     asChild
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0A%0D%0ADate:%20%0D%0ATime:%20%0D%0AAccount%20number:%20%0D%0ADispatch%20Office:`}>
+                                    <a href={`sms:${contact.textPhone?.replace(/[^0-9]/g, "")}&body=Can you help me schedule this job?%0D%0ADate:%20%0D%0ATime:%20%0D%0AAccount%20number:%20%0D%0ADispatch%20Office:`}>
                                       <MessageSquare className="w-3 h-3 mr-1" />
                                       Send Scheduling Text
                                     </a>
