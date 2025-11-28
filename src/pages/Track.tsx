@@ -54,7 +54,7 @@ const Track = () => {
       </div>
 
       {/* Counter Grid - Fills all available space with equal padding */}
-      <div className="flex-1 p-4 min-h-0 overflow-hidden">
+      <div className="flex-1 px-4 pt-4 pb-20 min-h-0 overflow-hidden">
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
