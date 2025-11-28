@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2 } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -75,11 +75,75 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
+  const [weatherData, setWeatherData] = useState<any[]>([]);
+  const [weatherLoading, setWeatherLoading] = useState(false);
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
     onSync();
   }, []);
+
+  // Get next upcoming blitz from committed blitzes
+  const nextBlitz = repData.committed_blitzes && Array.isArray(repData.committed_blitzes) 
+    ? (() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const upcomingBlitzes = repData.committed_blitzes
+          .filter((blitz: any) => {
+            if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
+            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+            blitzEndDate.setHours(0, 0, 0, 0);
+            return blitzEndDate >= today;
+          })
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        return upcomingBlitzes[0] || null;
+      })()
+    : null;
+
+  // Check if vet had past blitzes but no upcoming ones
+  const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+  const hasPastBlitzes = committedBlitzes.some((blitz: any) => {
+    if (!blitz?.endDate) return false;
+    const endDate = new Date(blitz.endDate);
+    return endDate < new Date();
+  });
+
+  const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+  // Fetch weather for upcoming blitz
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!nextBlitz || !daysUntilBlitz || daysUntilBlitz > 14 || daysUntilBlitz < 0) {
+        setWeatherData([]);
+        return;
+      }
+
+      setWeatherLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('get-blitz-weather', {
+          body: {
+            location: nextBlitz.location,
+            startDate: nextBlitz.date,
+            endDate: nextBlitz.endDate || nextBlitz.date,
+          },
+        });
+
+        if (error) throw error;
+        if (data?.forecasts) {
+          setWeatherData(data.forecasts);
+        }
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+
+    fetchWeather();
+  }, [nextBlitz, daysUntilBlitz]);
 
   // Fetch team members for team leads
   const fetchTeamMembers = useCallback(async () => {
@@ -294,8 +358,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-32">
-        {/* Blitz Countdown - Removed from top */}
-
         {/* Dynamic Alert Card for Team Leads */}
         {isTeamLead && !teamLoading && (
           <VetAlertCard 
@@ -311,6 +373,103 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               );
             }}
           />
+        )}
+
+        {/* Dynamic Blitz CTA */}
+        {!nextBlitz && hasPastBlitzes && (
+          <Card 
+            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
+            onClick={() => {
+              // Scroll to VetBlitzCard
+              const blitzCard = document.querySelector('[data-blitz-card]');
+              if (blitzCard) {
+                blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Target className="h-6 w-6 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5">🔥 Keep the momentum rolling</h3>
+                  <p className="text-sm text-muted-foreground">
+                    You crushed it on your last blitz — commit to another one!
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {!nextBlitz && !hasPastBlitzes && (
+          <Card 
+            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
+            onClick={() => {
+              const blitzCard = document.querySelector('[data-blitz-card]');
+              if (blitzCard) {
+                blitzCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5">📅 Pick a blitz trip</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Commit to attending a preseason blitz
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {nextBlitz && daysUntilBlitz !== null && daysUntilBlitz < 7 && (
+          <Card 
+            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-accent/30"
+            onClick={() => setBlitzDetailsOpen(true)}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <Zap className="h-6 w-6 text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5">
+                    ⚡ {daysUntilBlitz} {daysUntilBlitz === 1 ? 'day' : 'days'} until {nextBlitz.location}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tap to view weather and packing list
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {nextBlitz && daysUntilBlitz !== null && daysUntilBlitz >= 7 && (
+          <Card 
+            className="mb-6 shadow-sm cursor-pointer hover:shadow-md transition-all bg-card border-2 border-border/50"
+            onClick={() => setBlitzDetailsOpen(true)}
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Target className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-base mb-0.5">
+                    🎯 {daysUntilBlitz} days until {nextBlitz.location}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tap to view details
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Status Dashboard Card */}
@@ -513,21 +672,23 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         {/* Unified Blitz Management */}
         {!blitzesLoading && !teamLoading && (
-          <VetBlitzCard 
-            repData={repData} 
-            allBlitzes={allBlitzes}
-            teamMembers={teamMembers}
-            isTeamLead={isTeamLead}
-            onTeamMemberUpdate={(notionPageId, updates) => {
-              setTeamMembers(prev => 
-                prev.map(m => 
-                  m.notionPageId === notionPageId 
-                    ? { ...m, ...updates }
-                    : m
-                )
-              );
-            }}
-          />
+          <div data-blitz-card>
+            <VetBlitzCard 
+              repData={repData} 
+              allBlitzes={allBlitzes}
+              teamMembers={teamMembers}
+              isTeamLead={isTeamLead}
+              onTeamMemberUpdate={(notionPageId, updates) => {
+                setTeamMembers(prev => 
+                  prev.map(m => 
+                    m.notionPageId === notionPageId 
+                      ? { ...m, ...updates }
+                      : m
+                  )
+                );
+              }}
+            />
+          </div>
         )}
 
         {/* 5-5-5 Callout at Bottom */}
@@ -570,6 +731,76 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                 Logout
               </Button>
             </SheetFooter>
+          </SheetContent>
+        </Sheet>
+
+        {/* Blitz Details Sheet with Weather */}
+        <Sheet open={blitzDetailsOpen} onOpenChange={setBlitzDetailsOpen}>
+          <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{nextBlitz?.name || 'Blitz Details'}</SheetTitle>
+              <SheetDescription>
+                {nextBlitz?.location && `${nextBlitz.location} • `}
+                {nextBlitz?.date && new Date(nextBlitz.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {nextBlitz?.endDate && ` - ${new Date(nextBlitz.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="mt-6 space-y-6">
+              {weatherLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Loading weather forecast...</p>
+                </div>
+              ) : weatherData.length > 0 ? (
+                <>
+                  <div>
+                    <h3 className="font-semibold mb-3">Weather Forecast</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {weatherData.map((forecast, index) => (
+                        <div key={index} className="bg-secondary/50 rounded-lg p-3">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">
+                            {new Date(forecast.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-2xl font-bold">{Math.round(forecast.maxTemp)}°</p>
+                              <p className="text-xs text-muted-foreground">Low: {Math.round(forecast.minTemp)}°</p>
+                            </div>
+                            <div className="text-3xl">
+                              {forecast.weatherCode <= 3 ? '☀️' : forecast.weatherCode <= 67 ? '🌧️' : '❄️'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cold weather warning */}
+                  {weatherData.some(f => f.maxTemp < 65 || f.weatherCode > 50) && (
+                    <p className="text-sm italic text-muted-foreground border-l-4 border-primary pl-3">
+                      Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
+                    </p>
+                  )}
+                </>
+              ) : daysUntilBlitz !== null && daysUntilBlitz > 14 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Weather forecast will be available 14 days before the blitz
+                </p>
+              ) : null}
+
+              {/* Packing list link - show if within 4 days */}
+              {daysUntilBlitz !== null && daysUntilBlitz <= 4 && (
+                <Button 
+                  className="w-full h-12"
+                  onClick={() => {
+                    window.open("https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4?source=copy_link", "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  View Packing List
+                </Button>
+              )}
+            </div>
           </SheetContent>
         </Sheet>
       </div>
