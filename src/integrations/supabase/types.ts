@@ -59,6 +59,60 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_entries: {
+        Row: {
+          closes: number | null
+          created_at: string | null
+          decision_makers: number | null
+          doors_knocked: number | null
+          entry_date: string
+          fp_plus: number | null
+          id: string
+          is_finalized: boolean | null
+          notes: string | null
+          pitches: number | null
+          presentations: number | null
+          prmr: number | null
+          transitions: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          closes?: number | null
+          created_at?: string | null
+          decision_makers?: number | null
+          doors_knocked?: number | null
+          entry_date: string
+          fp_plus?: number | null
+          id?: string
+          is_finalized?: boolean | null
+          notes?: string | null
+          pitches?: number | null
+          presentations?: number | null
+          prmr?: number | null
+          transitions?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          closes?: number | null
+          created_at?: string | null
+          decision_makers?: number | null
+          doors_knocked?: number | null
+          entry_date?: string
+          fp_plus?: number | null
+          id?: string
+          is_finalized?: boolean | null
+          notes?: string | null
+          pitches?: number | null
+          presentations?: number | null
+          prmr?: number | null
+          transitions?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -200,6 +254,36 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           year?: string | null
+        }
+        Relationships: []
+      }
+      season_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          knocking_mode_enabled: boolean | null
+          personal_summer_end: string | null
+          personal_summer_start: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          knocking_mode_enabled?: boolean | null
+          personal_summer_end?: string | null
+          personal_summer_start?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          knocking_mode_enabled?: boolean | null
+          personal_summer_end?: string | null
+          personal_summer_start?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

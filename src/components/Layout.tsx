@@ -1,6 +1,10 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, MessageSquare } from "lucide-react";
+import { Home, BookOpen, Wrench, BarChart3, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AppDrawer } from "@/components/AppDrawer";
+import { useAppMode } from "@/hooks/useAppMode";
+import { useRepData } from "@/hooks/useRepData";
 
 interface LayoutProps {
   children: ReactNode;
@@ -8,16 +12,41 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const { isKnockingMode } = useAppMode();
+  const { repData } = useRepData();
   
-  const navItems = [
+  const preseasonNavItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/training", icon: BookOpen, label: "Training" },
     { path: "/tools", icon: Wrench, label: "Tools" },
-    { path: "/assistant", icon: MessageSquare, label: "Assistant" },
   ];
+
+  const knockingNavItems = [
+    { path: "/", icon: Home, label: "Home" },
+    { path: "/training", icon: BookOpen, label: "Training" },
+    { path: "/tools", icon: Wrench, label: "Tools" },
+    { path: "/track", icon: BarChart3, label: "Track" },
+  ];
+
+  const navItems = isKnockingMode ? knockingNavItems : preseasonNavItems;
+  const firstName = repData?.name?.split(' ')[0];
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20">
+      {/* Header with Hamburger Menu */}
+      <header className="sticky top-0 z-40 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+        <AppDrawer
+          trigger={
+            <Button variant="ghost" size="icon">
+              <Menu className="h-6 w-6" />
+            </Button>
+          }
+          firstName={firstName}
+        />
+        <h1 className="text-lg font-semibold text-foreground">Kaizen</h1>
+        <div className="w-10" /> {/* Spacer for centering */}
+      </header>
+
       <main className="flex-1 overflow-auto">
         {children}
       </main>
