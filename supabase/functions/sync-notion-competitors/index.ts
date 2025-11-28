@@ -89,9 +89,9 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
   const data = await response.json();
   const blocks = data.results || [];
   
-  // Fetch children for blocks that have them (callouts, synced blocks, list items)
+  // Recursively fetch children for blocks that have them
   for (const block of blocks) {
-    if (block.has_children && (block.type === 'callout' || block.type === 'bulleted_list_item' || block.type === 'synced_block')) {
+    if (block.has_children && (block.type === 'callout' || block.type === 'bulleted_list_item' || block.type === 'synced_block' || block.type === 'numbered_list_item')) {
       const childResponse = await fetch(`https://api.notion.com/v1/blocks/${block.id}/children?page_size=100`, {
         headers: {
           'Authorization': `Bearer ${notionApiKey}`,
@@ -101,12 +101,36 @@ async function fetchNotionBlocks(pageId: string, notionApiKey: string): Promise<
       
       if (childResponse.ok) {
         const childData = await childResponse.json();
+        const children = childData.results || [];
+        
+        // Recursively fetch deeper children
+        for (const child of children) {
+          if (child.has_children) {
+            const grandchildren = await fetchNotionBlocks(child.id, notionApiKey);
+            if (child.type === 'callout') {
+              child.callout = child.callout || {};
+              child.callout.children = grandchildren;
+            } else if (child.type === 'bulleted_list_item') {
+              child.bulleted_list_item = child.bulleted_list_item || {};
+              child.bulleted_list_item.children = grandchildren;
+            } else if (child.type === 'numbered_list_item') {
+              child.numbered_list_item = child.numbered_list_item || {};
+              child.numbered_list_item.children = grandchildren;
+            } else if (child.type === 'synced_block') {
+              child.synced_block = child.synced_block || {};
+              child.synced_block.children = grandchildren;
+            }
+          }
+        }
+        
         if (block.type === 'callout') {
-          block.callout.children = childData.results || [];
+          block.callout.children = children;
         } else if (block.type === 'bulleted_list_item') {
-          block.bulleted_list_item.children = childData.results || [];
+          block.bulleted_list_item.children = children;
+        } else if (block.type === 'numbered_list_item') {
+          block.numbered_list_item.children = children;
         } else if (block.type === 'synced_block') {
-          block.synced_block.children = childData.results || [];
+          block.synced_block.children = children;
         }
       }
     }
@@ -124,26 +148,42 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
   console.log(`Processing ${blocks.length} blocks for selling points and objections...`);
 
   // Helper function to process children blocks recursively
-  async function processChildrenForSellingPoints(children: any[]): Promise<string[]> {
+  async function processChildrenForSellingPoints(children: any[], depth = 0): Promise<string[]> {
     const points: string[] = [];
     let foundHeading = false;
+    const indent = '  '.repeat(depth);
     
     for (const child of children) {
-      console.log(`  Child block type: ${child.type}`);
+      console.log(`${indent}Child block type: ${child.type}`);
+      
+      // Recursively process nested synced blocks or callouts
+      if (child.type === 'synced_block' && child.synced_block?.children) {
+        console.log(`${indent}Found nested synced_block, processing children...`);
+        const nestedPoints = await processChildrenForSellingPoints(child.synced_block.children, depth + 1);
+        points.push(...nestedPoints);
+        continue;
+      }
+      
+      if (child.type === 'callout' && child.callout?.children) {
+        console.log(`${indent}Found nested callout, processing children...`);
+        const nestedPoints = await processChildrenForSellingPoints(child.callout.children, depth + 1);
+        points.push(...nestedPoints);
+        continue;
+      }
       
       // Look for H1 heading with "selling points"
       if (child.type === 'heading_1') {
         const headingText = child.heading_1?.rich_text?.map((rt: any) => rt.plain_text).join('').toLowerCase() || '';
-        console.log(`  Found H1: "${headingText}"`);
+        console.log(`${indent}Found H1: "${headingText}"`);
         if (headingText.includes('selling points')) {
           foundHeading = true;
-          console.log('  ✅ Found "selling points" heading!');
+          console.log(`${indent}✅ Found "selling points" heading!`);
         }
       }
       
       // Skip dividers
       if (child.type === 'divider') {
-        console.log('  Skipping divider');
+        console.log(`${indent}Skipping divider`);
         continue;
       }
       
@@ -153,7 +193,7 @@ async function extractTextFromBlocks(blocks: any[], notionToken: string): Promis
         const text = child[itemType]?.rich_text?.map((rt: any) => rt.plain_text).join('') || '';
         if (text) {
           const cleanText = text.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '').trim();
-          console.log('  ✅ Extracted selling point:', cleanText);
+          console.log(`${indent}✅ Extracted selling point: ${cleanText.substring(0, 80)}...`);
           points.push(cleanText);
         }
       }
