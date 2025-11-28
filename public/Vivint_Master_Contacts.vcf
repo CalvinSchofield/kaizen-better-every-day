@@ -1,0 +1,110 @@
+BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//iPhone OS 26.1//EN
+N:Sales Contacts;Vivint;;;
+FN:Vivint Sales Contacts
+item1.EMAIL;type=INTERNET;type=pref:dthmanualonboarding@vivint.com
+item1.X-ABLabel:Manual Onboarding
+item2.EMAIL;type=INTERNET:EmployeeOffer@vivint.com
+item2.X-ABLabel:Friends & Family
+item3.EMAIL;type=INTERNET:buyout@vivint.com
+item3.X-ABLabel:Buyouts
+item4.EMAIL;type=INTERNET:screening@Vivint.com
+item4.X-ABLabel:Screening
+item5.EMAIL;type=INTERNET:opportunities@Vivint.com
+item5.X-ABLabel:Opportunities
+item6.EMAIL;type=INTERNET:acadvocates@Vivint.com
+item6.X-ABLabel:Account Creations
+item7.EMAIL;type=INTERNET:MyHR@Vivint.com
+item7.X-ABLabel:HR
+item8.EMAIL;type=INTERNET:reppay@vivint.com
+item8.X-ABLabel:Rep Pay
+item9.EMAIL;type=INTERNET:reptaxdocs@Vivint.com
+item9.X-ABLabel:Tax Help
+item10.EMAIL;type=INTERNET:specialaccounts@vivint.com
+item10.X-ABLabel:Special Accounts
+item11.EMAIL;type=INTERNET:qrfinbox@Vivint.com
+item11.X-ABLabel:QRF Inbox
+item12.EMAIL;type=INTERNET:travel@Vivint.com
+item12.X-ABLabel:Travel
+item13.EMAIL;type=INTERNET:accountarbitration@Vivint.com
+item13.X-ABLabel:Arbitrations
+item14.EMAIL;type=INTERNET:moves@Vivint.com
+item14.X-ABLabel:Moves
+item15.EMAIL;type=INTERNET:vivintgivesback@Vivint.com
+item15.X-ABLabel:Vivint Gives Back
+item16.EMAIL;type=INTERNET:EnergyCommissions@vivint.com
+item16.X-ABLabel:Solar Pay
+item17.EMAIL;type=INTERNET:incentives@Vivint.com
+item17.X-ABLabel:Incentives
+item18.EMAIL;type=INTERNET:legal@Vivint.com
+item18.X-ABLabel:Legal
+item19.EMAIL;type=INTERNET:dthrecruiting@vivint.com
+item19.X-ABLabel:Campus Recruiting
+item20.EMAIL;type=INTERNET:retention@Vivint.com
+item20.X-ABLabel:Retention
+item21.EMAIL;type=INTERNET:repbackends@Vivint.com
+item21.X-ABLabel:Backends
+item22.EMAIL;type=INTERNET:claimresolution@Vivint.com
+item22.X-ABLabel:Claims/Damages
+item23.EMAIL;type=INTERNET:sos@Vivint.com
+item23.X-ABLabel:Customer Loyalty
+item24.EMAIL;type=INTERNET:familyandfriends@Vivint.com
+item24.X-ABLabel:Friends & Family
+item25.EMAIL;type=INTERNET:customersupport@Vivint.com
+item25.X-ABLabel:Customer Care
+item26.EMAIL;type=INTERNET:salesassets@Vivint.com
+item26.X-ABLabel:Assets
+item27.EMAIL;type=INTERNET:amigosupport@Vivint.com
+item27.X-ABLabel:Amigo
+item28.EMAIL;type=INTERNET:employeelicensing@Vivint.com
+item28.X-ABLabel:Employee Licensing
+item29.EMAIL;type=INTERNET:housing@Vivint.com
+item29.X-ABLabel:Housing
+item30.EMAIL;type=INTERNET:pay@Vivint.com
+item30.X-ABLabel:Pay
+item31.EMAIL;type=INTERNET:1stop@Vivint.com
+item31.X-ABLabel:1Stop
+item32.TEL;type=pref:(435) 500-6426
+item32.X-ABLabel:State Licensing (Text)
+item33.TEL:(888) 346-9202
+item33.X-ABLabel:Collections
+item34.TEL:(435) 466-7224
+item34.X-ABLabel:Genie Bar (text only)
+item35.TEL:1 (855) 775-3645
+item35.X-ABLabel:Strategic Business Development (SBD)
+item36.TEL:(801) 823-4406
+item36.X-ABLabel:SOS (text only)
+item37.TEL:(800) 236-6808
+item37.X-ABLabel:SOS
+item38.TEL:(801) 229-7780
+item38.X-ABLabel:Front Desk
+item39.TEL:(801) 655-4357
+item39.X-ABLabel:Service Desk
+item40.TEL:(855) 368-8568
+item40.X-ABLabel:Military Customers
+item41.TEL:(844) 856-7254
+item41.X-ABLabel:Buyouts
+item42.TEL:4352222010
+item42.X-ABLabel:Buyout (text)
+item43.TEL:(844) 737-6900
+item43.X-ABLabel:Citizens One
+item44.TEL:(877) 479-1670
+item44.X-ABLabel:Employee Licensing
+item45.TEL:(801) 221-6828
+item45.X-ABLabel:Special Accounts
+item46.TEL:(844) 364-0945
+item46.X-ABLabel:Insurance
+item47.TEL:(833) 638-0930
+item47.X-ABLabel:Add Payment
+item48.TEL:(800) 216-5232
+item48.X-ABLabel:Customer Care
+item49.TEL:(877) 275-0177
+item49.X-ABLabel:Customer Loyalty
+item50.TEL:(800) 710-2961
+item50.X-ABLabel:Fortiva Retail Credit
+item51.TEL:(801) 509-9080
+item51.X-ABLabel:1Stop (Text)
+item52.TEL:(888) 324-5771
+item52.X-ABLabel:Sales Support
+END:VCARD

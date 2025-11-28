@@ -166,50 +166,15 @@ const Contacts = () => {
 
   const categories = Array.from(new Set(contacts.map(c => c.category)));
 
-  const generateVCF = (contact: Contact): string => {
-    let vcf = "BEGIN:VCARD\nVERSION:3.0\n";
-    vcf += `FN:${contact.name}\n`;
-    vcf += `ORG:Vivint\n`;
-    vcf += `TITLE:${contact.role}\n`;
-    
-    if (contact.phone) {
-      vcf += `TEL;TYPE=WORK,VOICE:${contact.phone}\n`;
-    }
-    
-    if (contact.textPhone && contact.textPhone !== contact.phone) {
-      vcf += `TEL;TYPE=CELL:${contact.textPhone}\n`;
-    }
-    
-    if (contact.email) {
-      vcf += `EMAIL:${contact.email}\n`;
-    }
-    
-    if (contact.notes) {
-      vcf += `NOTE:${contact.notes.replace(/\n/g, '\\n')}\n`;
-    }
-    
-    vcf += "END:VCARD\n";
-    return vcf;
-  };
-
   const handleDownloadAll = () => {
     try {
-      // Generate VCF content for all contacts
-      let allVCF = "";
-      contacts.forEach(contact => {
-        allVCF += generateVCF(contact);
-      });
-      
-      // Create blob and download
-      const blob = new Blob([allVCF], { type: "text/vcard;charset=utf-8" });
-      const url = window.URL.createObjectURL(blob);
+      // Download the master VCF file
       const link = document.createElement("a");
-      link.href = url;
+      link.href = "/Vivint_Master_Contacts.vcf";
       link.download = "Vivint_Contacts.vcf";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
       
       toast.success("All contacts downloaded! Import the file to your phone's contacts.");
     } catch (error) {
