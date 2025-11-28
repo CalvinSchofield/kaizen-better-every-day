@@ -621,7 +621,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                   </div>
                 ) : (
                   <span className="text-lg font-bold">
-                    {personalFP.toFixed(1)} / {personalFPGoal.toFixed(1)}
+                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal % 1 === 0 ? personalFPGoal : personalFPGoal.toFixed(1)}
                   </span>
                 )}
               </div>
