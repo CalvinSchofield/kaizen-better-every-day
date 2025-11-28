@@ -53,24 +53,33 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      const currentEntry = entry || {
+        doors_knocked: 0,
+        decision_makers: 0,
+        pitches: 0,
+        transitions: 0,
+        presentations: 0,
+        closes: 0,
+        fp_plus: 0,
+        prmr: 0,
+        is_finalized: false,
+      };
+
+      const { data, error } = await supabase
         .from('daily_entries')
         .upsert({
           user_id: user.id,
           entry_date: entryDate,
-          doors_knocked: entry?.doors_knocked || 0,
-          decision_makers: entry?.decision_makers || 0,
-          pitches: entry?.pitches || 0,
-          transitions: entry?.transitions || 0,
-          presentations: entry?.presentations || 0,
-          closes: entry?.closes || 0,
-          fp_plus: entry?.fp_plus || 0,
-          prmr: entry?.prmr || 0,
-          is_finalized: entry?.is_finalized || false,
+          ...currentEntry,
           ...updates,
-        });
+        }, {
+          onConflict: 'user_id,entry_date'
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      return data;
     },
     onMutate: async (updates) => {
       // Cancel outgoing refetches
@@ -104,8 +113,9 @@ export const useDailyEntry = (date?: string) => {
       // Rollback on error
       queryClient.setQueryData(['daily-entry', entryDate], context?.previousEntry);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+    onSuccess: (data) => {
+      // Update with server response
+      queryClient.setQueryData(['daily-entry', entryDate], data);
     },
   });
 
