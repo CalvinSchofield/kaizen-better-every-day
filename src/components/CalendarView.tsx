@@ -330,7 +330,8 @@ export const CalendarView = ({
         </div>
       </div>
 
-      {/* Summary Card - Expandable */}
+      {/* Summary Card - Expandable (only show if there's data) */}
+      {viewTotals.daysWorked > 0 && viewTotals.doorsKnocked > 0 && (
       <div className="mt-6 rounded-lg bg-card border border-border overflow-hidden">
         {/* Header - Always Visible */}
         <button
@@ -509,6 +510,7 @@ export const CalendarView = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Save Entry Sheet */}
       <SaveEntrySheet
