@@ -161,6 +161,8 @@ export const useDailyEntry = (date?: string) => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
       queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       toast.success('Entry saved successfully!');
     },
   });
@@ -213,6 +215,7 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
       queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       toast.success("Entry deleted");
     },
     onError: (error) => {

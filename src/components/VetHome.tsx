@@ -14,6 +14,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import {
   Sheet,
   SheetContent,
@@ -77,6 +78,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
+  
+  // Get FP+ from daily entries (preseason only)
+  const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
   
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -202,23 +206,23 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   }, [fetchTeamMembers, refreshTrigger]);
   
   // Local state for editable stats - initialize from repData
-  const [personalFP, setPersonalFP] = useState(repData.personal_fp ?? 0);
   const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 0);
   const [repsWithSale, setRepsWithSale] = useState(repData.reps_with_sale ?? 0);
   const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(repData.reps_with_sale_goal ?? 0);
   
   // Temporary string states for editing
-  const [personalFPInput, setPersonalFPInput] = useState(String(repData.personal_fp ?? 0));
   const [personalFPGoalInput, setPersonalFPGoalInput] = useState(String(repData.personal_fp_goal ?? 0));
+  const [repsWithSaleInput, setRepsWithSaleInput] = useState(String(repData.reps_with_sale ?? 0));
+  const [repsWithSaleGoalInput, setRepsWithSaleGoalInput] = useState(String(repData.reps_with_sale_goal ?? 0));
 
   // Sync local state with repData changes
   useEffect(() => {
-    setPersonalFP(repData.personal_fp ?? 0);
     setPersonalFPGoal(repData.personal_fp_goal ?? 0);
     setRepsWithSale(repData.reps_with_sale ?? 0);
     setRepsWithSaleGoal(repData.reps_with_sale_goal ?? 0);
-    setPersonalFPInput(String(repData.personal_fp ?? 0));
     setPersonalFPGoalInput(String(repData.personal_fp_goal ?? 0));
+    setRepsWithSaleInput(String(repData.reps_with_sale ?? 0));
+    setRepsWithSaleGoalInput(String(repData.reps_with_sale_goal ?? 0));
   }, [repData]);
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
@@ -231,27 +235,29 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
   const saveGoals = async () => {
     try {
-      // Convert inputs to numbers and round to 1 decimal place
-      const fpValue = Math.round(parseFloat(personalFPInput) * 10) / 10 || 0;
+      // Convert inputs to numbers
       const fpGoalValue = Math.round(parseFloat(personalFPGoalInput) * 10) / 10 || 0;
+      const repsValue = parseInt(repsWithSaleInput) || 0;
+      const repsGoalValue = parseInt(repsWithSaleGoalInput) || 0;
       
       const { error } = await supabase
         .from('reps')
         .update({
-          personal_fp: fpValue,
           personal_fp_goal: fpGoalValue,
-          reps_with_sale: repsWithSale,
-          reps_with_sale_goal: repsWithSaleGoal,
+          reps_with_sale: repsValue,
+          reps_with_sale_goal: repsGoalValue,
         })
         .eq('id', repData.id);
 
       if (error) throw error;
 
       // Update local state with the saved values
-      setPersonalFP(fpValue);
       setPersonalFPGoal(fpGoalValue);
-      setPersonalFPInput(String(fpValue));
+      setRepsWithSale(repsValue);
+      setRepsWithSaleGoal(repsGoalValue);
       setPersonalFPGoalInput(String(fpGoalValue));
+      setRepsWithSaleInput(String(repsValue));
+      setRepsWithSaleGoalInput(String(repsGoalValue));
 
       toast({
         title: "Goals saved",
@@ -592,31 +598,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                 <Label className="text-base font-medium">Personal FP+</Label>
                 {isEditingStats ? (
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      enterKeyHint="done"
-                      value={personalFPInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        // Allow typing decimal point and numbers
-                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFPInput(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Round to 1 decimal place and update actual value
-                        const val = parseFloat(e.target.value) || 0;
-                        const rounded = Math.round(val * 10) / 10;
-                        setPersonalFP(rounded);
-                        setPersonalFPInput(String(rounded));
-                      }}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setPersonalFPInput(String(personalFP));
-                      }}
-                      className="w-16 h-8 text-center"
-                    />
+                    <span className="text-lg font-bold">
+                      {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)}
+                    </span>
                     <span className="text-muted-foreground">/</span>
                     <Input
                       type="text"
@@ -642,6 +626,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                         setPersonalFPGoalInput(String(personalFPGoal));
                       }}
                       className="w-16 h-8 text-center"
+                      placeholder="Goal"
                     />
                   </div>
                 ) : (
@@ -666,26 +651,48 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                       type="text"
                       inputMode="numeric"
                       enterKeyHint="done"
-                      value={repsWithSale}
+                      value={repsWithSaleInput}
                       onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d+$/.test(val)) {
+                          setRepsWithSaleInput(val);
+                        }
+                      }}
+                      onBlur={(e) => {
                         const val = parseInt(e.target.value) || 0;
                         setRepsWithSale(val);
+                        setRepsWithSaleInput(String(val));
                       }}
-                      onFocus={(e) => e.target.select()}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setRepsWithSaleInput(String(repsWithSale));
+                      }}
                       className="w-16 h-8 text-center"
+                      placeholder="Current"
                     />
                     <span className="text-muted-foreground">/</span>
                     <Input
                       type="text"
                       inputMode="numeric"
                       enterKeyHint="done"
-                      value={repsWithSaleGoal}
+                      value={repsWithSaleGoalInput}
                       onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d+$/.test(val)) {
+                          setRepsWithSaleGoalInput(val);
+                        }
+                      }}
+                      onBlur={(e) => {
                         const val = parseInt(e.target.value) || 0;
                         setRepsWithSaleGoal(val);
+                        setRepsWithSaleGoalInput(String(val));
                       }}
-                      onFocus={(e) => e.target.select()}
+                      onFocus={(e) => {
+                        e.target.select();
+                        setRepsWithSaleGoalInput(String(repsWithSaleGoal));
+                      }}
                       className="w-16 h-8 text-center"
+                      placeholder="Goal"
                     />
                   </div>
                 ) : (
