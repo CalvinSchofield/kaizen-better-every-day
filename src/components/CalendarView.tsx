@@ -27,6 +27,14 @@ export const CalendarView = ({
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [dataViewMode, setDataViewMode] = useState<"totals" | "weekly" | "daily">("totals");
 
+  // When switching to week view, change from totals to weekly if needed
+  const handleViewModeChange = (mode: "month" | "week") => {
+    setViewMode(mode);
+    if (mode === "week" && dataViewMode === "totals") {
+      setDataViewMode("weekly");
+    }
+  };
+
   const { entry: selectedEntry, finalizeEntry, deleteEntry, isFinalizing, updateCounter } = useDailyEntry(
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined
   );
@@ -178,14 +186,14 @@ export const CalendarView = ({
           <Button
             variant={viewMode === "month" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("month")}
+            onClick={() => handleViewModeChange("month")}
           >
             Month
           </Button>
           <Button
             variant={viewMode === "week" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("week")}
+            onClick={() => handleViewModeChange("week")}
           >
             Week
           </Button>
@@ -358,13 +366,15 @@ export const CalendarView = ({
           <div className="px-4 pb-4 space-y-6 border-t border-border pt-4">
             {/* View Mode Toggle */}
             <div className="flex gap-2">
-              <Button
-                variant={dataViewMode === "totals" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDataViewMode("totals")}
-              >
-                Totals
-              </Button>
+              {viewMode === "month" && (
+                <Button
+                  variant={dataViewMode === "totals" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDataViewMode("totals")}
+                >
+                  Totals
+                </Button>
+              )}
               <Button
                 variant={dataViewMode === "weekly" ? "default" : "outline"}
                 size="sm"
