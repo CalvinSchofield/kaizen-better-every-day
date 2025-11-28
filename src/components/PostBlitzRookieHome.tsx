@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { BlitzCountdown } from "@/components/BlitzCountdown";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import confetti from "canvas-confetti";
 import {
@@ -39,6 +38,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
+  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number }>>([]);
+  const [loadingWeather, setLoadingWeather] = useState(false);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -148,6 +150,50 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     : null;
 
   const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+  // Fetch weather when blitz is within 7 days
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
+        setWeather([]);
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tripDate = new Date(nextBlitz.date);
+      tripDate.setHours(0, 0, 0, 0);
+      const diffTime = tripDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Only fetch weather if blitz is within 7 days and in the future
+      if (diffDays <= 0 || diffDays > 7) {
+        setWeather([]);
+        return;
+      }
+
+      setLoadingWeather(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
+          body: {
+            location: nextBlitz.location,
+            startDate: nextBlitz.date,
+            endDate: nextBlitz.endDate,
+          },
+        });
+
+        if (!error && data?.forecasts) {
+          setWeather(data.forecasts);
+        }
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
+    fetchWeather();
+  }, [nextBlitz]);
 
   // Check if rookie had past blitzes but no upcoming ones
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
@@ -350,17 +396,37 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
             </button>
           )}
-          {nextBlitz && (
-            <div className="mb-3">
-              <BlitzCountdown
-                tripName={nextBlitz.name}
-                tripDate={nextBlitz.date}
-                tripEndDate={nextBlitz.endDate}
-                tripLocation={nextBlitz.location}
-                isVet={false}
-              />
-            </div>
-          )}
+          {nextBlitz && (() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tripDate = new Date(nextBlitz.date);
+            const diffTime = tripDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let ctaText = "";
+            let ctaIcon = "";
+            
+            if (diffDays <= 7) {
+              ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              ctaIcon = "⚡";
+            } else {
+              ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training!`;
+              ctaIcon = "🎯";
+            }
+            
+            return (
+              <button
+                onClick={() => setWeatherSheetOpen(true)}
+                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+              >
+                <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                  {ctaText}
+                </p>
+                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -575,21 +641,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         </SheetContent>
       </Sheet>
 
-      {/* Blitz Details Sheet */}
-      {nextBlitz && (
-        <Sheet open={blitzDetailsOpen} onOpenChange={setBlitzDetailsOpen}>
-          <SheetContent side="bottom" className="rounded-t-3xl">
-            <BlitzCountdown
-              tripName={nextBlitz.name}
-              tripDate={nextBlitz.date}
-              tripEndDate={nextBlitz.endDate}
-              tripLocation={nextBlitz.location}
-              isVet={false}
-            />
-          </SheetContent>
-        </Sheet>
-      )}
-
       {/* Uncommit Confirmation Sheet */}
       <Sheet open={uncommitSheetOpen} onOpenChange={setUncommitSheetOpen}>
         <SheetContent side="bottom" className="rounded-t-3xl">
@@ -619,10 +670,59 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       </Sheet>
 
       {/* Team Calendar Modal */}
-      <TeamCalendarModal 
+      <TeamCalendarModal
         open={calendarModalOpen}
         onOpenChange={setCalendarModalOpen}
       />
+
+      {/* Weather Sheet */}
+      <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Weather Forecast</SheetTitle>
+            <SheetDescription>
+              {nextBlitz?.location} - {nextBlitz?.name}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {loadingWeather && (
+            <div className="text-center text-sm text-muted-foreground py-4">
+              Loading weather...
+            </div>
+          )}
+          
+          {!loadingWeather && weather.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {weather.map((day) => (
+                  <div
+                    key={day.date}
+                    className="bg-card rounded-lg p-4 border border-border text-center"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground mb-1">
+                      {day.dayName}
+                    </div>
+                    <div className="text-xs text-muted-foreground/70 mb-2">
+                      {new Date(day.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-foreground">
+                        {day.high}°
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Low {day.low}°
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
