@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon, ChevronRight } from "lucide-react";
+import { RefreshCw, LogOut, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon, ChevronRight, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -595,7 +595,24 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             {/* Personal FP+ */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Personal FP+</Label>
+                <div className="flex items-center gap-2">
+                  <Label className="text-base font-medium">Personal FP+</Label>
+                  {isEditingStats && (
+                    <button
+                      onClick={() => {
+                        navigate('/calendar');
+                        toast({
+                          title: "Track daily",
+                          description: "Add your daily entries here to see your FP+ grow automatically",
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      aria-label="Track numbers info"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
                 {isEditingStats ? (
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold">
