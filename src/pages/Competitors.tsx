@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCompetitors, Competitor } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
-import DebugNotionButton from "@/components/DebugNotionButton";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Competitors() {
@@ -92,7 +91,6 @@ export default function Competitors() {
             >
               <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
-            <DebugNotionButton />
           </div>
 
           {/* Search Bar */}
