@@ -207,7 +207,7 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'ratios' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      {insights.doorsToFp.toFixed(1)} doors per FP+ · {insights.presentationsToClose.toFixed(1)} presentations per close
+                      <span className="text-primary font-semibold">{insights.doorsToFp.toFixed(1)}</span> doors per FP+ · {insights.presentationsToClose.toFixed(1)} presentations per close
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -348,7 +348,7 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'bestPeriods' && insights.bestDay && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      Best day: {insights.bestDay.fpPlus.toFixed(1)} FP+ on {insights.bestDay.date}
+                      Best day: <span className="text-primary font-semibold">{insights.bestDay.fpPlus.toFixed(1)} FP+</span> on {insights.bestDay.date}
                     </div>
                   )}
                 </CollapsibleTrigger>
