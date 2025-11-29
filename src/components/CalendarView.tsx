@@ -65,7 +65,18 @@ export const CalendarView = ({
       date >= personalSummerStart &&
       date <= personalSummerEnd;
 
-    return inBlitz || inSeason;
+    // Check if entry has actual tracking activity (not just FP+/PRMR)
+    const entry = getEntryForDate(date);
+    const hasTrackingActivity = entry && entry.is_finalized && (
+      (entry.doors_knocked || 0) > 0 ||
+      (entry.decision_makers || 0) > 0 ||
+      (entry.pitches || 0) > 0 ||
+      (entry.transitions || 0) > 0 ||
+      (entry.presentations || 0) > 0 ||
+      (entry.closes || 0) > 0
+    );
+
+    return inBlitz || inSeason || hasTrackingActivity;
   };
 
   const getEntryForDate = (date: Date) => {

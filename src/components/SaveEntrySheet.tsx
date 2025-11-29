@@ -62,6 +62,7 @@ export const SaveEntrySheet = ({
   const [endTime, setEndTime] = useState("");
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
+  const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
 
   useEffect(() => {
     if (open && entry) {
@@ -92,7 +93,30 @@ export const SaveEntrySheet = ({
     }
   }, [open, entry]);
 
+  const hasResultsWithoutActivity = () => {
+    const hasFpOrPrmr = (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
+    const hasAnyActivity = 
+      (parseInt(doorsKnocked) || 0) > 0 ||
+      (parseInt(decisionMakers) || 0) > 0 ||
+      (parseInt(pitches) || 0) > 0 ||
+      (parseInt(transitions) || 0) > 0 ||
+      (parseInt(presentations) || 0) > 0 ||
+      (parseInt(closes) || 0) > 0;
+    
+    return hasFpOrPrmr && !hasAnyActivity;
+  };
+
   const handleSave = () => {
+    // Check for data quality issue first
+    if (hasResultsWithoutActivity()) {
+      setShowDataQualityWarning(true);
+      return;
+    }
+    
+    proceedWithSave();
+  };
+
+  const proceedWithSave = () => {
     const saveDate = format(date, 'yyyy-MM-dd');
     
     // Convert times to ISO strings if provided
@@ -465,6 +489,47 @@ export const SaveEntrySheet = ({
             size="lg"
           >
             Cancel
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
+
+    <Drawer open={showDataQualityWarning} onOpenChange={setShowDataQualityWarning}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader className="mb-6">
+          <DrawerTitle>Track While You Work 📊</DrawerTitle>
+          <DrawerDescription>
+            You've entered results but no daily activity. For the most accurate 
+            insights and data, track your numbers on the app while working next time!
+          </DrawerDescription>
+        </DrawerHeader>
+        
+        <div className="px-4 text-sm text-muted-foreground mb-6">
+          Tracking in real-time helps you see your true ratios (doors per sale, 
+          pitches per close) and understand what it takes to succeed.
+        </div>
+        
+        <div className="flex flex-col gap-3 mt-6 px-4">
+          <Button
+            onClick={() => {
+              setShowDataQualityWarning(false);
+            }}
+            variant="default"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Add Activity Numbers
+          </Button>
+          <Button
+            onClick={() => {
+              setShowDataQualityWarning(false);
+              proceedWithSave();
+            }}
+            variant="outline"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Save Results Only
           </Button>
         </div>
       </DrawerContent>

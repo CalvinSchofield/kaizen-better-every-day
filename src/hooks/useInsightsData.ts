@@ -98,7 +98,17 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         return entryDate >= startOfDay(dateRange.start) && entryDate <= endOfDay(dateRange.end);
       });
 
-      // Calculate totals for the period
+      // Filter entries that have actual activity for ratio calculations
+      const entriesWithActivity = rangeEntries.filter(entry => 
+        (entry.doors_knocked || 0) > 0 ||
+        (entry.decision_makers || 0) > 0 ||
+        (entry.pitches || 0) > 0 ||
+        (entry.transitions || 0) > 0 ||
+        (entry.presentations || 0) > 0 ||
+        (entry.closes || 0) > 0
+      );
+
+      // Calculate totals for the period (use ALL entries including results-only)
       const totals = rangeEntries.reduce((acc, entry) => {
         acc.fpPlus += entry.fp_plus || 0;
         acc.prmr += entry.prmr || 0;
@@ -131,8 +141,47 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         return acc;
       }, { fpPlus: 0, prmr: 0, doors: 0, decisionMakers: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, daysWorked: 0, totalHours: 0 });
 
-      // Calculate overall averages (all-time)
-      const overallTotals = allEntries.reduce((acc, entry) => {
+      // Calculate activity-based totals for ratios (only entries with activity)
+      const activityTotals = entriesWithActivity.reduce((acc, entry) => {
+        acc.fpPlus += entry.fp_plus || 0;
+        acc.doors += entry.doors_knocked || 0;
+        acc.pitches += entry.pitches || 0;
+        acc.transitions += entry.transitions || 0;
+        acc.presentations += entry.presentations || 0;
+        acc.closes += entry.closes || 0;
+        
+        // Calculate work hours for activity entries
+        if (entry.work_start_time && entry.work_end_time) {
+          const start = new Date(entry.work_start_time);
+          const end = new Date(entry.work_end_time);
+          let minutes = differenceInMinutes(end, start);
+          
+          // Subtract break periods
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((breakPeriod: any) => {
+              const breakStart = new Date(breakPeriod.start);
+              const breakEnd = new Date(breakPeriod.end);
+              minutes -= differenceInMinutes(breakEnd, breakStart);
+            });
+          }
+          
+          acc.totalHours += minutes / 60;
+        }
+        
+        return acc;
+      }, { fpPlus: 0, doors: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, totalHours: 0 });
+
+      // Calculate overall averages (all-time, only entries with activity)
+      const allEntriesWithActivity = allEntries.filter(entry => 
+        (entry.doors_knocked || 0) > 0 ||
+        (entry.decision_makers || 0) > 0 ||
+        (entry.pitches || 0) > 0 ||
+        (entry.transitions || 0) > 0 ||
+        (entry.presentations || 0) > 0 ||
+        (entry.closes || 0) > 0
+      );
+      
+      const overallTotals = allEntriesWithActivity.reduce((acc, entry) => {
         acc.fpPlus += entry.fp_plus || 0;
         acc.doors += entry.doors_knocked || 0;
         acc.pitches += entry.pitches || 0;
@@ -142,23 +191,23 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         return acc;
       }, { fpPlus: 0, doors: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0 });
 
-      // Calculate ratios
-      const doorsToFp = totals.fpPlus > 0 ? totals.doors / totals.fpPlus : 0;
-      const pitchesToFp = totals.fpPlus > 0 ? totals.pitches / totals.fpPlus : 0;
-      const transitionsToFp = totals.fpPlus > 0 ? totals.transitions / totals.fpPlus : 0;
-      const presentationsToClose = totals.closes > 0 ? totals.presentations / totals.closes : 0;
+      // Calculate ratios (using activity-based totals)
+      const doorsToFp = activityTotals.fpPlus > 0 ? activityTotals.doors / activityTotals.fpPlus : 0;
+      const pitchesToFp = activityTotals.fpPlus > 0 ? activityTotals.pitches / activityTotals.fpPlus : 0;
+      const transitionsToFp = activityTotals.fpPlus > 0 ? activityTotals.transitions / activityTotals.fpPlus : 0;
+      const presentationsToClose = activityTotals.closes > 0 ? activityTotals.presentations / activityTotals.closes : 0;
 
       const overallDoorsToFp = overallTotals.fpPlus > 0 ? overallTotals.doors / overallTotals.fpPlus : 0;
       const overallPitchesToFp = overallTotals.fpPlus > 0 ? overallTotals.pitches / overallTotals.fpPlus : 0;
       const overallTransitionsToFp = overallTotals.fpPlus > 0 ? overallTotals.transitions / overallTotals.fpPlus : 0;
       const overallPresentationsToClose = overallTotals.closes > 0 ? overallTotals.presentations / overallTotals.closes : 0;
 
-      // Time-based productivity
-      const doorsPerHour = totals.totalHours > 0 ? totals.doors / totals.totalHours : 0;
-      const pitchesPerHour = totals.totalHours > 0 ? totals.pitches / totals.totalHours : 0;
-      const transitionsPerHour = totals.totalHours > 0 ? totals.transitions / totals.totalHours : 0;
-      const presentationsPerHour = totals.totalHours > 0 ? totals.presentations / totals.totalHours : 0;
-      const hoursToFp = totals.fpPlus > 0 ? totals.totalHours / totals.fpPlus : 0;
+      // Time-based productivity (using activity entries with time data)
+      const doorsPerHour = activityTotals.totalHours > 0 ? activityTotals.doors / activityTotals.totalHours : 0;
+      const pitchesPerHour = activityTotals.totalHours > 0 ? activityTotals.pitches / activityTotals.totalHours : 0;
+      const transitionsPerHour = activityTotals.totalHours > 0 ? activityTotals.transitions / activityTotals.totalHours : 0;
+      const presentationsPerHour = activityTotals.totalHours > 0 ? activityTotals.presentations / activityTotals.totalHours : 0;
+      const hoursToFp = activityTotals.fpPlus > 0 ? activityTotals.totalHours / activityTotals.fpPlus : 0;
 
       // Best day (highest FP+)
       const bestDay = rangeEntries.length > 0
