@@ -36,9 +36,19 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
         startDate = new Date(currentYear, 3, 12); // April 12
         endDate = new Date(currentYear, 8, 27); // Sept 27
       } else {
-        // Preseason: Jan 1 to April 11 of current year
-        startDate = new Date(currentYear, 0, 1); // Jan 1
-        endDate = new Date(currentYear, 3, 11); // April 11
+        // Preseason: Sept 28 to April 11 (spans two calendar years)
+        const currentMonth = now.getMonth();
+        const currentDay = now.getDate();
+        
+        if (currentMonth >= 8 && (currentMonth > 8 || currentDay >= 28)) {
+          // Between Sept 28 and Dec 31: show current year Sept 28 to next year April 11
+          startDate = new Date(currentYear, 8, 28); // Sept 28 current year
+          endDate = new Date(currentYear + 1, 3, 11); // April 11 next year
+        } else {
+          // Between Jan 1 and Sept 27: show previous year Sept 28 to current year April 11
+          startDate = new Date(currentYear - 1, 8, 28); // Sept 28 previous year
+          endDate = new Date(currentYear, 3, 11); // April 11 current year
+        }
       }
       
       const startStr = startDate.toISOString().split("T")[0];
