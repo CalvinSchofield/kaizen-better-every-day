@@ -69,6 +69,10 @@ const decimalToTime = (decimal: number): string => {
 export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
   return useQuery({
     queryKey: ['insights-data', format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 1,
+    refetchOnWindowFocus: false,
     queryFn: async (): Promise<InsightsData> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
