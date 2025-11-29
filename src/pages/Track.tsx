@@ -42,6 +42,16 @@ const Track = () => {
   const handleCounterChange = (field: string, value: number) => {
     const updates: any = { [field]: Math.max(0, value) };
     
+    // Auto-end break if one is active when counter is tapped
+    const breakPeriods = entry.break_periods || [];
+    const currentBreak = breakPeriods.find(bp => !bp.end);
+    if (currentBreak) {
+      const updatedBreaks = breakPeriods.map(bp => 
+        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
+      );
+      updates.break_periods = updatedBreaks;
+    }
+    
     // Auto-start work time on first counter tap
     if (!entry.work_start_time && value > 0) {
       const now = new Date();

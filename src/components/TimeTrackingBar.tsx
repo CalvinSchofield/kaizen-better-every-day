@@ -97,18 +97,21 @@ export const TimeTrackingBar = ({
     <>
       <div className="flex items-center justify-center gap-4 py-3 px-4 bg-card/50 border-b border-border/40">
         {/* Start Clock */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => hasStarted ? handleTimeClick('start') : onStartWork()}
-          disabled={hasEnded}
-          className="flex items-center gap-2 h-auto py-2 px-3"
-        >
-          <Clock className={`h-5 w-5 ${hasStarted ? 'text-primary' : 'text-muted-foreground'}`} />
-          {hasStarted && (
-            <span className="text-sm font-medium">{formatTime(workStartTime)}</span>
-          )}
-        </Button>
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => hasStarted ? handleTimeClick('start') : onStartWork()}
+            disabled={hasEnded}
+            className="flex items-center gap-2 h-auto py-2 px-3"
+          >
+            <Clock className={`h-5 w-5 ${hasStarted ? 'text-primary' : 'text-muted-foreground'}`} />
+            {hasStarted && (
+              <span className="text-sm font-medium">{formatTime(workStartTime)}</span>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">Start</span>
+        </div>
 
         {/* Pause/Resume Button with Break Time */}
         {hasStarted && !hasEnded && (
@@ -121,27 +124,33 @@ export const TimeTrackingBar = ({
             >
               {isOnBreak ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </Button>
-            {totalBreakMinutes > 0 && (
-              <span className="text-xs text-muted-foreground font-medium">
-                {breakHours > 0 ? `${breakHours}h ${breakMins}m` : `${breakMins}m`}
-              </span>
-            )}
+            <div className="text-center">
+              <span className="text-xs text-muted-foreground">Break</span>
+              {totalBreakMinutes > 0 && (
+                <div className="text-xs font-semibold text-foreground">
+                  {breakHours > 0 ? `${breakHours}h ${breakMins}m` : `${breakMins}m`}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* End Clock */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => hasEnded ? handleTimeClick('end') : onEndWork()}
-          disabled={!hasStarted || isOnBreak}
-          className="flex items-center gap-2 h-auto py-2 px-3"
-        >
-          <Clock className={`h-5 w-5 ${hasEnded ? 'text-primary' : 'text-muted-foreground'}`} />
-          {hasEnded && (
-            <span className="text-sm font-medium">{formatTime(workEndTime)}</span>
-          )}
-        </Button>
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => hasEnded ? handleTimeClick('end') : onEndWork()}
+            disabled={!hasStarted || isOnBreak}
+            className="flex items-center gap-2 h-auto py-2 px-3"
+          >
+            <Clock className={`h-5 w-5 ${hasEnded ? 'text-primary' : 'text-muted-foreground'}`} />
+            {hasEnded && (
+              <span className="text-sm font-medium">{formatTime(workEndTime)}</span>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">End</span>
+        </div>
       </div>
 
       {/* Time View Sheet (First step) */}
