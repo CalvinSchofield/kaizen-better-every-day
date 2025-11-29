@@ -17,6 +17,8 @@ import { VetHome } from "@/components/VetHome";
 import { PostBlitzRookieHome } from "@/components/PostBlitzRookieHome";
 import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { KnockingModeHome } from "@/components/KnockingModeHome";
+import { useAppMode } from "@/hooks/useAppMode";
 
 interface StepStatus {
   completed: boolean;
@@ -53,6 +55,8 @@ const Home = () => {
     loading,
     refetch
   } = useRepData();
+  
+  const { isKnockingMode } = useAppMode(repData);
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -725,11 +729,6 @@ const Home = () => {
     );
   }
   
-  // Check if user is a Vet or Sophomore - show VetHome instead
-  if (repData.year === "Vet" || repData.year === "Sophomore") {
-    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
-  }
-
   // Check if rookie has completed Ramp to Blitz AND attended at least one blitz
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
   const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
@@ -737,6 +736,36 @@ const Home = () => {
     const endDate = new Date(blitz.endDate);
     return endDate < new Date(); // End date is in the past
   });
+  
+  // Check if knocking mode is active - route to KnockingModeHome
+  if (isKnockingMode) {
+    const year = repData.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const isPostBlitzRookie = year === "Rookie" && phase4Complete && hasAttendedBlitz;
+    
+    // TODO: Add team lead detection logic
+    const isTeamLead = false;
+    const anyBlitzWithin14Days = false;
+    
+    if (isVetOrSoph || isPostBlitzRookie) {
+      return (
+        <KnockingModeHome
+          variant={isVetOrSoph ? "vet" : "rookie"}
+          repData={repData}
+          onSync={handleSync}
+          isSyncing={isSyncing}
+          syncSuccess={syncSuccess}
+          isTeamLead={isTeamLead}
+          anyBlitzWithin14Days={anyBlitzWithin14Days}
+        />
+      );
+    }
+  }
+  
+  // Check if user is a Vet or Sophomore - show VetHome instead
+  if (repData.year === "Vet" || repData.year === "Sophomore") {
+    return <VetHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
+  }
 
   if (repData.year === "Rookie" && phase4Complete && hasAttendedBlitz) {
     return <PostBlitzRookieHome repData={repData} onSync={handleSync} isSyncing={isSyncing} syncSuccess={syncSuccess} />;
