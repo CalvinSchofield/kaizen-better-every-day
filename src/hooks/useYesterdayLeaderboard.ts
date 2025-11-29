@@ -62,11 +62,14 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         const repInfo = repsMap.get(entry.user_id);
         if (!repInfo) return;
 
+        // Strip emojis from names
+        const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+
         // Most doors
         if (entry.doors_knocked && (!leaderboard.mostDoors || entry.doors_knocked > leaderboard.mostDoors.value)) {
           leaderboard.mostDoors = {
             userId: entry.user_id,
-            name: repInfo.name,
+            name: cleanName,
             value: entry.doors_knocked,
           };
         }
@@ -75,7 +78,7 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         if (entry.decision_makers && (!leaderboard.mostDecisionMakers || entry.decision_makers > leaderboard.mostDecisionMakers.value)) {
           leaderboard.mostDecisionMakers = {
             userId: entry.user_id,
-            name: repInfo.name,
+            name: cleanName,
             value: entry.decision_makers,
           };
         }
@@ -84,7 +87,7 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         if (entry.fp_plus && entry.fp_plus > 0 && (!leaderboard.mostFP || entry.fp_plus > leaderboard.mostFP.value)) {
           leaderboard.mostFP = {
             userId: entry.user_id,
-            name: repInfo.name,
+            name: cleanName,
             value: entry.fp_plus,
           };
         }
@@ -93,7 +96,7 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         if (entry.prmr && entry.prmr > 0 && (!leaderboard.mostPRMR || entry.prmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = {
             userId: entry.user_id,
-            name: repInfo.name,
+            name: cleanName,
             value: entry.prmr,
           };
         }
