@@ -84,7 +84,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">fp+</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
             {summary.daysWorked > 0 && (
               <p className="text-xs text-muted-foreground/60 mt-0.5">
                 {summary.dailyAverages.fp.toFixed(1)}/day
@@ -105,7 +105,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
         {/* Sparkline Chart */}
         {summary.chartData.length > 1 && (
           <div className="pt-2">
-            <p className="text-xs text-muted-foreground mb-2">fp+ trend</p>
+            <p className="text-xs text-muted-foreground mb-2">FP+ trend</p>
             <FPSparkline data={summary.chartData} />
           </div>
         )}
@@ -136,7 +136,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
             )}
             <span>
               {isImproving ? "+" : ""}
-              {summary.comparison.fpChange.toFixed(1)} fp+ {summary.comparison.label}
+              {summary.comparison.fpChange.toFixed(1)} FP+ {summary.comparison.label}
             </span>
           </div>
         )}
