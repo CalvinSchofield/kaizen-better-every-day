@@ -1,16 +1,45 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { RotateCcw, Save, Lock, BarChart3 } from "lucide-react";
-import { useDailyEntry } from "@/hooks/useDailyEntry";
-import { QTallyGrid } from "@/components/QTallyGrid";
-import { SaveEntrySheet } from "@/components/SaveEntrySheet";
-import { ResetConfirmSheet } from "@/components/ResetConfirmSheet";
+import { Lock, BarChart3 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { Card, CardContent } from "@/components/ui/card";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
+import { QTallyGrid } from "@/components/QTallyGrid";
+import { DailyEntry } from "@/hooks/useDailyEntry";
 
-const Track = () => {
-  const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
+interface TrackProps {
+  entry: DailyEntry | {
+    doors_knocked: number;
+    decision_makers: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    closes: number;
+    fp_plus: number;
+    prmr: number;
+    is_finalized: boolean;
+    work_start_time: string | null;
+    work_end_time: string | null;
+    break_periods: Array<{ start: string; end: string }>;
+    counter_timestamps: Record<string, string[]>;
+    timezone: string | null;
+  };
+  updateCounter: (updates: Partial<DailyEntry>) => Promise<any>;
+  onCounterChange: (field: string, value: number) => Promise<void>;
+  onStartWork: () => void;
+  onEndWork: () => void;
+  onStartBreak: () => void;
+  onEndBreak: () => void;
+  onUpdateTime: (field: 'start' | 'end', time: string) => void;
+}
+
+const Track = ({
+  entry,
+  onCounterChange,
+  onStartWork,
+  onEndWork,
+  onStartBreak,
+  onEndBreak,
+  onUpdateTime,
+}: TrackProps) => {
   const { repData, loading: loadingRepData } = useRepData();
   
   // Check if user is a pre-blitz rookie
@@ -30,89 +59,6 @@ const Track = () => {
   });
 
   const isPreBlitzRookie = isRookie && !hasAttendedBlitz;
-  const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
-  const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
-
-  const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric' 
-  });
-
-  const handleCounterChange = async (field: string, value: number) => {
-    const updates: any = { [field]: Math.max(0, value) };
-    
-    // Auto-end break if one is active when counter is tapped
-    const breakPeriods = entry.break_periods || [];
-    const currentBreak = breakPeriods.find(bp => !bp.end);
-    if (currentBreak) {
-      const updatedBreaks = breakPeriods.map(bp => 
-        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
-      );
-      updates.break_periods = updatedBreaks;
-    }
-    
-    // Auto-start work time on first counter tap
-    if (!entry.work_start_time && value > 0) {
-      const now = new Date();
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      updates.work_start_time = now.toISOString();
-      updates.timezone = timezone;
-    }
-    
-    // Add timestamp to counter_timestamps
-    const timestamps = entry.counter_timestamps || {};
-    const fieldTimestamps = timestamps[field] || [];
-    updates.counter_timestamps = {
-      ...timestamps,
-      [field]: [...fieldTimestamps, new Date().toISOString()]
-    };
-    
-    await updateCounter(updates);
-  };
-
-  const handleReset = () => {
-    resetEntry();
-  };
-
-  const handleStartWork = () => {
-    const now = new Date();
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    updateCounter({ 
-      work_start_time: now.toISOString(),
-      timezone
-    });
-  };
-
-  const handleEndWork = () => {
-    updateCounter({ work_end_time: new Date().toISOString() });
-  };
-
-  const handleStartBreak = () => {
-    const breakPeriods = entry.break_periods || [];
-    updateCounter({
-      break_periods: [...breakPeriods, { start: new Date().toISOString(), end: '' }]
-    });
-  };
-
-  const handleEndBreak = () => {
-    const breakPeriods = entry.break_periods || [];
-    const currentBreak = breakPeriods.find(bp => !bp.end);
-    if (currentBreak) {
-      const updatedBreaks = breakPeriods.map(bp => 
-        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
-      );
-      updateCounter({ break_periods: updatedBreaks });
-    }
-  };
-
-  const handleUpdateTime = (field: 'start' | 'end', time: string) => {
-    if (field === 'start') {
-      updateCounter({ work_start_time: time });
-    } else {
-      updateCounter({ work_end_time: time });
-    }
-  };
 
   // Show loading state while fetching rep data
   if (loadingRepData) {
@@ -153,43 +99,17 @@ const Track = () => {
 
   return (
     <div className="bg-background flex flex-col overflow-hidden touch-none h-screen">
-      {/* Header */}
-      <div className="bg-background px-6 py-4 flex-shrink-0 border-b border-border/40">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Today's Progress</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setIsSaveSheetOpen(true)}
-              disabled={isFinalizing}
-              className="h-10 px-4 bg-primary hover:bg-primary-dark text-primary-foreground font-semibold shadow-md"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsResetSheetOpen(true)}
-              disabled={isResetting}
-              className="h-10 w-10"
-            >
-              <RotateCcw className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Time Tracking Bar */}
       <div className="flex-shrink-0">
         <TimeTrackingBar
           workStartTime={entry.work_start_time}
           workEndTime={entry.work_end_time}
           breakPeriods={entry.break_periods}
-          onStartWork={handleStartWork}
-          onEndWork={handleEndWork}
-          onStartBreak={handleStartBreak}
-          onEndBreak={handleEndBreak}
-          onUpdateTime={handleUpdateTime}
+          onStartWork={onStartWork}
+          onEndWork={onEndWork}
+          onStartBreak={onStartBreak}
+          onEndBreak={onEndBreak}
+          onUpdateTime={onUpdateTime}
         />
       </div>
 
@@ -197,27 +117,9 @@ const Track = () => {
       <div className="flex-1 px-4 pt-2 pb-2 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))' }}>
         <QTallyGrid
           entry={entry}
-          onCounterChange={handleCounterChange}
+          onCounterChange={onCounterChange}
         />
       </div>
-
-      {/* Save Entry Sheet */}
-      <SaveEntrySheet
-        open={isSaveSheetOpen}
-        onOpenChange={setIsSaveSheetOpen}
-        entry={entry}
-        date={new Date()} // Track page always saves to today
-        onSave={finalizeEntry}
-        isSaving={isFinalizing}
-      />
-
-      {/* Reset Confirm Sheet */}
-      <ResetConfirmSheet
-        open={isResetSheetOpen}
-        onOpenChange={setIsResetSheetOpen}
-        onConfirm={handleReset}
-        isResetting={isResetting}
-      />
     </div>
   );
 };

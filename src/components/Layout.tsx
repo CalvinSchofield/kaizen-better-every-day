@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, BarChart3, Menu, Lock } from "lucide-react";
+import { Home, BookOpen, Wrench, BarChart3, Menu, Lock, Save, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
@@ -8,9 +8,13 @@ import { useRepData } from "@/hooks/useRepData";
 
 interface LayoutProps {
   children: ReactNode;
+  onSave?: () => void;
+  onReset?: () => void;
+  isSaving?: boolean;
+  isResetting?: boolean;
 }
 
-const Layout = ({ children }: LayoutProps) => {
+const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProps) => {
   const location = useLocation();
   const { isKnockingMode } = useAppMode();
   const { repData } = useRepData();
@@ -85,10 +89,28 @@ const Layout = ({ children }: LayoutProps) => {
   
   // Determine if we're on the home page to match header color
   const isHomePage = location.pathname === "/";
+  
+  // Get page title based on current route
+  const getPageTitle = () => {
+    switch (location.pathname) {
+      case "/":
+        return "Kaizen";
+      case "/training":
+        return "Training";
+      case "/tools":
+        return "Tools";
+      case "/track":
+        return "Today's Values";
+      case "/calendar":
+        return "Calendar";
+      default:
+        return "Kaizen";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20">
-      {/* Header with Hamburger Menu - matches page header color */}
+      {/* Header with Hamburger Menu - uniform styling across pages */}
       <header className={`sticky top-0 z-40 border-b px-4 py-3 flex items-center justify-between ${
         isHomePage 
           ? "bg-primary text-primary-foreground border-primary-foreground/20" 
@@ -103,9 +125,31 @@ const Layout = ({ children }: LayoutProps) => {
           firstName={firstName}
         />
         <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-          Kaizen
+          {getPageTitle()}
         </h1>
-        <div className="w-10" /> {/* Spacer for centering */}
+        {location.pathname === "/track" && onSave && onReset ? (
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={onSave}
+              disabled={isSaving}
+              size="sm"
+              className="h-9 px-3 bg-primary hover:bg-primary-dark text-primary-foreground font-semibold shadow-md"
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onReset}
+              disabled={isResetting}
+              className="h-9 w-9"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="w-10" />
+        )}
       </header>
 
       <main className="flex-1 overflow-auto">
