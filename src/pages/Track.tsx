@@ -7,6 +7,7 @@ import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { ResetConfirmSheet } from "@/components/ResetConfirmSheet";
 import { useRepData } from "@/hooks/useRepData";
 import { Card, CardContent } from "@/components/ui/card";
+import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 
 const Track = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
@@ -39,11 +40,68 @@ const Track = () => {
   });
 
   const handleCounterChange = (field: string, value: number) => {
-    updateCounter({ [field]: Math.max(0, value) });
+    const updates: any = { [field]: Math.max(0, value) };
+    
+    // Auto-start work time on first counter tap
+    if (!entry.work_start_time && value > 0) {
+      const now = new Date();
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      updates.work_start_time = now.toISOString();
+      updates.timezone = timezone;
+    }
+    
+    // Add timestamp to counter_timestamps
+    const timestamps = entry.counter_timestamps || {};
+    const fieldTimestamps = timestamps[field] || [];
+    updates.counter_timestamps = {
+      ...timestamps,
+      [field]: [...fieldTimestamps, new Date().toISOString()]
+    };
+    
+    updateCounter(updates);
   };
 
   const handleReset = () => {
     resetEntry();
+  };
+
+  const handleStartWork = () => {
+    const now = new Date();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    updateCounter({ 
+      work_start_time: now.toISOString(),
+      timezone
+    });
+  };
+
+  const handleEndWork = () => {
+    updateCounter({ work_end_time: new Date().toISOString() });
+  };
+
+  const handleStartBreak = () => {
+    const breakPeriods = entry.break_periods || [];
+    updateCounter({
+      break_periods: [...breakPeriods, { start: new Date().toISOString(), end: '' }]
+    });
+  };
+
+  const handleEndBreak = () => {
+    const breakPeriods = entry.break_periods || [];
+    const currentBreak = breakPeriods.find(bp => !bp.end);
+    if (currentBreak) {
+      const updatedBreaks = breakPeriods.map(bp => 
+        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
+      );
+      updateCounter({ break_periods: updatedBreaks });
+    }
+  };
+
+  const handleUpdateTime = (field: 'start' | 'end', time: string) => {
+    if (field === 'start') {
+      updateCounter({ work_start_time: time });
+    } else {
+      updateCounter({ work_end_time: time });
+    }
   };
 
   // Show loading state while fetching rep data
@@ -110,6 +168,18 @@ const Track = () => {
           </div>
         </div>
       </div>
+
+      {/* Time Tracking Bar */}
+      <TimeTrackingBar
+        workStartTime={entry.work_start_time}
+        workEndTime={entry.work_end_time}
+        breakPeriods={entry.break_periods}
+        onStartWork={handleStartWork}
+        onEndWork={handleEndWork}
+        onStartBreak={handleStartBreak}
+        onEndBreak={handleEndBreak}
+        onUpdateTime={handleUpdateTime}
+      />
 
       {/* Counter Grid - Fills all available space with safe bottom padding */}
       <div className="flex-1 px-4 pt-4 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
