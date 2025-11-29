@@ -71,11 +71,13 @@ export const KnockingModeHome = ({
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   
-  // Scroll to leaderboard card when CTA is clicked
+  // Scroll to leaderboard card and expand it when CTA is clicked
   const handleLeaderboardClick = () => {
     const leaderboardCard = document.querySelector('[data-leaderboard-card]');
     if (leaderboardCard) {
       leaderboardCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Trigger expand by dispatching a custom event
+      window.dispatchEvent(new CustomEvent('expandLeaderboard'));
     }
   };
 

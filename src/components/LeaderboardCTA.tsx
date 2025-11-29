@@ -13,6 +13,7 @@ interface LeaderboardCTAProps {
 
 export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: LeaderboardCTAProps) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   
   // Determine if we're in summer mode (after April 12, 2026)
   const isSummer = useMemo(() => {
@@ -21,15 +22,34 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     return now >= summerStart;
   }, []);
 
-  const { data: yesterdayBoard } = useYesterdayLeaderboard();
-  const { data: weeklyBoard } = useWeeklyLeaderboard();
-  const { data: monthlyBoard } = useMonthlyLeaderboard();
-  const { data: seasonBoard } = useSeasonLeaderboard(undefined, isSummer);
+  // Rookies should only see rookie leaderboards
+  const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
+
+  const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
+  const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
+  const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
+  const { data: seasonBoard } = useSeasonLeaderboard(filterByYear, isSummer);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
-    });
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Fetch user's year from reps table
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('year')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (repData) {
+          setCurrentUserYear(repData.year);
+        }
+      }
+    };
+    
+    fetchUser();
   }, []);
 
   // Priority metrics (FP+ > PRMR > hours > doors > transitions > presentations > earliest > latest)
@@ -41,7 +61,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       { board: yesterdayBoard, timeframe: 'yesterday' },
       { board: weeklyBoard, timeframe: 'this week' },
       { board: monthlyBoard, timeframe: 'this month' },
-      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason' },
+      { board: seasonBoard, timeframe: 'preseason' },
     ];
 
     for (const { board, timeframe } of boards) {
@@ -51,14 +71,14 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
         const entry = board[metric as keyof typeof board] as any;
         if (entry && entry.value > 0) {
           const metricLabel = {
-            mostFP: 'Highest FP+',
-            mostPRMR: 'Highest PRMR',
-            mostHoursWorked: 'Most Hours',
-            mostDoors: 'Most Doors',
-            mostTransitions: 'Most Transitions',
-            mostPresentations: 'Most Presentations',
-            earliestDoor: 'Earliest Door',
-            latestDoor: 'Latest Door',
+            mostFP: 'total fp+',
+            mostPRMR: 'PRMR',
+            mostHoursWorked: 'hours worked',
+            mostDoors: 'doors knocked',
+            mostTransitions: 'transitions',
+            mostPresentations: 'presentations',
+            earliestDoor: 'earliest door',
+            latestDoor: 'latest door',
           }[metric];
 
           const isCurrentUser = currentUserId && entry.userId === currentUserId;
@@ -68,7 +88,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
           if (metric === 'mostPRMR') {
             formattedValue = `$${entry.value.toFixed(0)}`;
           } else if (metric === 'mostFP') {
-            formattedValue = `${entry.value.toFixed(1)} FP+`;
+            formattedValue = `${entry.value.toFixed(1)} fp+`;
           } else if (metric === 'mostHoursWorked') {
             formattedValue = `${entry.value.toFixed(1)} hrs`;
           } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
@@ -94,8 +114,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           return {
             text: isCurrentUser 
-              ? `🎉 You lead ${timeframe} — ${metricLabel.toLowerCase()}: ${formattedValue}${closeBehindText}`
-              : `${entry.name} leads ${timeframe} — ${metricLabel.toLowerCase()}: ${formattedValue}`,
+              ? `You're leading the office in ${metricLabel.toLowerCase()} ${timeframe} at ${formattedValue}!${closeBehindText}`
+              : `${entry.name} is leading the office in ${metricLabel.toLowerCase()} ${timeframe} at ${formattedValue}`,
             isCurrentUser,
           };
         }
