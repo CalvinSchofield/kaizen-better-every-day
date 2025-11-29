@@ -14,6 +14,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Card, CardContent } from "@/components/ui/card";
 import { Info, Trash2, Clock, ChevronDown } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
@@ -60,6 +61,7 @@ export const SaveEntrySheet = ({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
+  const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
 
   useEffect(() => {
     if (open && entry) {
@@ -163,150 +165,166 @@ export const SaveEntrySheet = ({
             <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
           </SheetHeader>
 
-        <div className="space-y-6 mt-6">
-          {/* QTally Counters Grid */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-base">Daily Activity</Label>
-              {entry?.is_finalized && onDelete && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="doors-knocked" className="text-sm">Doors Knocked</Label>
-                <Input
-                  id="doors-knocked"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={doorsKnocked}
-                  onChange={(e) => setDoorsKnocked(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="decision-makers" className="text-sm">Decision Makers</Label>
-                <Input
-                  id="decision-makers"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={decisionMakers}
-                  onChange={(e) => setDecisionMakers(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pitches" className="text-sm">Pitches</Label>
-                <Input
-                  id="pitches"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={pitches}
-                  onChange={(e) => setPitches(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="transitions" className="text-sm">Transitions</Label>
-                <Input
-                  id="transitions"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={transitions}
-                  onChange={(e) => setTransitions(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="presentations" className="text-sm">Presentations</Label>
-                <Input
-                  id="presentations"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={presentations}
-                  onChange={(e) => setPresentations(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="closes" className="text-sm">Closes</Label>
-                <Input
-                  id="closes"
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  min="0"
-                  step="1"
-                  placeholder=""
-                  value={closes}
-                  onChange={(e) => setCloses(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-            </div>
-          </div>
+        <div className="space-y-4 mt-6">
+          {/* Daily Activity Card - Collapsible */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <Collapsible open={isDailyActivityOpen} onOpenChange={setIsDailyActivityOpen}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base cursor-pointer">Daily Activity</Label>
+                    {entry?.is_finalized && onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteDialog(true);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isDailyActivityOpen ? 'rotate-180' : ''}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="doors-knocked" className="text-sm">Doors Knocked</Label>
+                      <Input
+                        id="doors-knocked"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={doorsKnocked}
+                        onChange={(e) => setDoorsKnocked(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="decision-makers" className="text-sm">Decision Makers</Label>
+                      <Input
+                        id="decision-makers"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={decisionMakers}
+                        onChange={(e) => setDecisionMakers(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pitches" className="text-sm">Pitches</Label>
+                      <Input
+                        id="pitches"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={pitches}
+                        onChange={(e) => setPitches(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="transitions" className="text-sm">Transitions</Label>
+                      <Input
+                        id="transitions"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={transitions}
+                        onChange={(e) => setTransitions(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="presentations" className="text-sm">Presentations</Label>
+                      <Input
+                        id="presentations"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={presentations}
+                        onChange={(e) => setPresentations(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="closes" className="text-sm">Closes</Label>
+                      <Input
+                        id="closes"
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0"
+                        step="1"
+                        placeholder=""
+                        value={closes}
+                        onChange={(e) => setCloses(e.target.value)}
+                        enterKeyHint="next"
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
 
-          {/* Time Tracking Section - Collapsible */}
-          <Collapsible open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full group">
-              <Label className="text-base cursor-pointer">Time Tracking</Label>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTimeTrackingOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <Input
-                    id="start-time"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="h-9"
-                  />
-                  <span className="text-sm text-muted-foreground">-</span>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
-                  <span className="text-xs text-muted-foreground">Total:</span>
-                  <span className="text-xs font-medium">{calculateTotalTime()}</span>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          {/* Time Tracking Card - Collapsible */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <Collapsible open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
+                  <Label className="text-base cursor-pointer">Time Tracking</Label>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTimeTrackingOpen ? 'rotate-180' : ''}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        id="start-time"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="h-9"
+                      />
+                      <span className="text-sm text-muted-foreground">-</span>
+                      <Input
+                        id="end-time"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
+                      <span className="text-xs text-muted-foreground">Total:</span>
+                      <span className="text-xs font-medium">{calculateTotalTime()}</span>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardContent>
+          </Card>
 
           {/* Results Section */}
           <div>
