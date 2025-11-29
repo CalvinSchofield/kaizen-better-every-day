@@ -100,7 +100,7 @@ const Track = ({
   }
 
   return (
-    <div className="bg-background flex flex-col overflow-hidden touch-none h-full">
+    <div className="absolute inset-0 bg-background flex flex-col overflow-hidden touch-none">
       {/* Time Tracking Bar */}
       <div className="flex-shrink-0">
         <TimeTrackingBar
@@ -115,8 +115,8 @@ const Track = ({
         />
       </div>
 
-      {/* Counter Grid - Fills remaining space */}
-      <div className="flex-1 px-4 pt-2 pb-4 min-h-0 overflow-hidden">
+      {/* Counter Grid - Fills remaining space down to bottom tabs */}
+      <div className="flex-1 px-4 pt-2 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
         <QTallyGrid
           entry={entry}
           onCounterChange={onCounterChange}
