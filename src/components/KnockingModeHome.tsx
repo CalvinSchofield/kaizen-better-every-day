@@ -131,14 +131,15 @@ export const KnockingModeHome = ({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
-        {/* Weather Card - Dynamic positioning with animation */}
+        <DailyFocusCard repData={repData} />
+        
+        {/* Weather Card - positioned after DailyFocusCard during night/morning hours */}
         {weatherAtTop && (
           <div className="animate-fade-in">
             <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
           </div>
         )}
-
-        <DailyFocusCard repData={repData} />
+        
         <WeekSummaryCard repData={repData} />
         <QuickStatsBar repData={repData} />
 

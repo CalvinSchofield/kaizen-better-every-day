@@ -63,8 +63,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           return {
             text: isCurrentUser 
-              ? `🎉 You lead ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${entry.value}${metric === 'mostFP' ? ' FP+' : ''}`
-              : `${entry.name} leads ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${entry.value}${metric === 'mostFP' ? ' FP+' : ''}`,
+              ? `🎉 You lead ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${metric === 'mostFP' ? entry.value.toFixed(1) : metric === 'mostPRMR' ? entry.value.toFixed(1) : entry.value}${metric === 'mostFP' ? ' FP+' : ''}`
+              : `${entry.name} leads ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${metric === 'mostFP' ? entry.value.toFixed(1) : metric === 'mostPRMR' ? entry.value.toFixed(1) : entry.value}${metric === 'mostFP' ? ' FP+' : ''}`,
             isCurrentUser,
           };
         }
