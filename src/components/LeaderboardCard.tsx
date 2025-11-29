@@ -7,12 +7,19 @@ import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState as useReactState } from "react";
 
-type TimeFilter = 'yesterday' | 'week' | 'month' | 'season';
+type TimeFilter = 'yesterday' | 'week' | 'month' | 'preseason';
 
 export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('yesterday');
   const [currentUserId, setCurrentUserId] = useReactState<string | null>(null);
+
+  // Listen for expand event from CTA
+  useEffect(() => {
+    const handleExpand = () => setIsExpanded(true);
+    window.addEventListener('expandLeaderboard', handleExpand);
+    return () => window.removeEventListener('expandLeaderboard', handleExpand);
+  }, []);
 
   const { data: yesterdayBoard } = useYesterdayLeaderboard();
   const { data: weeklyBoard } = useWeeklyLeaderboard();
@@ -29,10 +36,11 @@ export const LeaderboardCard = () => {
     timeFilter === 'yesterday' ? yesterdayBoard :
     timeFilter === 'week' ? weeklyBoard :
     timeFilter === 'month' ? monthlyBoard :
+    timeFilter === 'preseason' ? seasonBoard :
     seasonBoard;
 
   const categories = [
-    { key: 'mostFP', label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+    { key: 'mostFP', label: 'Highest fp+', format: (v: number) => `${v.toFixed(1)} fp+` },
     { key: 'mostPRMR', label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
     { key: 'mostHoursWorked', label: 'Most Hours', format: (v: number) => `${v.toFixed(1)} hrs` },
     { key: 'mostDoors', label: 'Most Doors', format: (v: number) => `${v}` },
@@ -59,7 +67,7 @@ export const LeaderboardCard = () => {
     : 0;
 
   return (
-    <div className="w-full rounded-lg bg-card border border-border mb-6">
+    <div className="w-full rounded-lg bg-card border border-border mb-6" data-leaderboard-card>
       {/* Header - Always Visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -76,36 +84,46 @@ export const LeaderboardCard = () => {
         )}
       </button>
 
-      {/* Filter Pills - Always Visible */}
-      <div className="px-6 pb-4 flex gap-2">
-        {(['yesterday', 'week', 'month', 'season'] as TimeFilter[]).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setTimeFilter(filter)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              timeFilter === filter
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-            }`}
-          >
-            {filter === 'yesterday' ? 'Yesterday' : filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : 'Season'}
-          </button>
-        ))}
-      </div>
-
-      {/* Summary - Always Visible */}
+      {/* Summary - Collapsed State Only */}
       {!isExpanded && (
         <div className="px-6 pb-4">
-          <p className="text-muted-foreground text-sm">
-            {userLeadCount > 0 && `${userLeadCount} ${userLeadCount === 1 ? 'category' : 'categories'} led by you · `}
-            {totalLeaders} total {totalLeaders === 1 ? 'leader' : 'leaders'}
+          <p className="text-foreground text-sm">
+            {userLeadCount > 0 ? (
+              <>
+                <span className="text-primary font-medium">You're</span> leading in{' '}
+                <span className="text-primary font-medium">{userLeadCount}</span>{' '}
+                {userLeadCount === 1 ? 'category' : 'categories'} — keep it going!
+              </>
+            ) : (
+              <span className="text-muted-foreground">
+                {totalLeaders} total {totalLeaders === 1 ? 'leader' : 'leaders'}
+              </span>
+            )}
           </p>
         </div>
       )}
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="px-6 pb-4 space-y-3 border-t border-border pt-4">
+        <div className="border-t border-border pt-4">
+          {/* Filter Pills - Expanded State Only */}
+          <div className="px-6 pb-4 flex gap-2">
+            {(['yesterday', 'week', 'month', 'preseason'] as TimeFilter[]).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setTimeFilter(filter)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  timeFilter === filter
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                }`}
+              >
+                {filter === 'yesterday' ? 'Yesterday' : filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : 'Preseason'}
+              </button>
+            ))}
+          </div>
+          
+          <div className="px-6 pb-4 space-y-3">
           {categories.map(({ key, label, format }) => {
             const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
             
@@ -140,6 +158,7 @@ export const LeaderboardCard = () => {
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>
