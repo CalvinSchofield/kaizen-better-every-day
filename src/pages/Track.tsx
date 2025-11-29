@@ -113,8 +113,8 @@ const Track = ({
         onUpdateTime={onUpdateTime}
       />
 
-      {/* Counter Grid - Equal padding from time bar to bottom tabs */}
-      <div className="flex-1 px-4 py-4 overflow-hidden">
+      {/* Counter Grid - Fills all remaining space to bottom tabs */}
+      <div className="flex-1 px-4 pb-4 min-h-0">
         <QTallyGrid
           entry={entry}
           onCounterChange={onCounterChange}
