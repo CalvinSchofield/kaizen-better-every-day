@@ -38,6 +38,10 @@ export interface InsightsData {
   totalFp: number;
   totalPrmr: number;
   totalDoors: number;
+  totalDecisionMakers: number;
+  totalPitches: number;
+  totalTransitions: number;
+  totalPresentations: number;
   totalCloses: number;
   daysWorked: number;
 }
@@ -99,6 +103,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         acc.fpPlus += entry.fp_plus || 0;
         acc.prmr += entry.prmr || 0;
         acc.doors += entry.doors_knocked || 0;
+        acc.decisionMakers += entry.decision_makers || 0;
         acc.pitches += entry.pitches || 0;
         acc.transitions += entry.transitions || 0;
         acc.presentations += entry.presentations || 0;
@@ -124,7 +129,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         }
         
         return acc;
-      }, { fpPlus: 0, prmr: 0, doors: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, daysWorked: 0, totalHours: 0 });
+      }, { fpPlus: 0, prmr: 0, doors: 0, decisionMakers: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, daysWorked: 0, totalHours: 0 });
 
       // Calculate overall averages (all-time)
       const overallTotals = allEntries.reduce((acc, entry) => {
@@ -334,6 +339,10 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         totalFp: totals.fpPlus,
         totalPrmr: totals.prmr,
         totalDoors: totals.doors,
+        totalDecisionMakers: totals.decisionMakers,
+        totalPitches: totals.pitches,
+        totalTransitions: totals.transitions,
+        totalPresentations: totals.presentations,
         totalCloses: totals.closes,
         daysWorked: totals.daysWorked,
       };
