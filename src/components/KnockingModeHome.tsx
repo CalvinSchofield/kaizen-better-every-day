@@ -16,6 +16,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useAppMode } from "@/hooks/useAppMode";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -38,6 +39,7 @@ export const KnockingModeHome = ({
 }: KnockingModeHomeProps) => {
   const navigate = useNavigate();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const { isOnActiveBlitz } = useAppMode(repData);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -95,8 +97,8 @@ export const KnockingModeHome = ({
             </div>
           </div>
 
-          {/* Weather Card (shows if on active blitz) */}
-          <KnockingModeWeatherCard repData={repData} />
+          {/* Weather Card */}
+          <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
         </div>
       </div>
 
@@ -128,12 +130,12 @@ export const KnockingModeHome = ({
             <PitchPresentationQuickAccess />
 
             {/* Rookie-specific: Yesterday's Rookie Leaders */}
-            <RookieLeaderboardCard />
+            <RookieLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
           </>
         ) : (
           <>
             {/* Vet-specific: Yesterday's Top Performers (all reps) */}
-            <VetLeaderboardCard />
+            <VetLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
           </>
         )}
       </div>

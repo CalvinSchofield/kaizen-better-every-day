@@ -1,12 +1,22 @@
 import { Trophy, Crown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
+import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
-export const RookieLeaderboardCard = () => {
-  const { data: leaderboard, isLoading } = useYesterdayLeaderboard("Rookie");
+interface RookieLeaderboardCardProps {
+  isOnActiveBlitz: boolean;
+}
+
+export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCardProps) => {
+  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard("Rookie");
+  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard("Rookie");
+  
+  const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
+  const isLoading = isOnActiveBlitz ? isLoadingYesterday : isLoadingWeekly;
+  
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +33,11 @@ export const RookieLeaderboardCard = () => {
         </CardContent>
       </Card>
     );
+  }
+
+  // If weekly leaderboard has no data, hide card entirely
+  if (!isOnActiveBlitz && !leaderboard) {
+    return null;
   }
 
   const isUserTopPerformer = currentUserId && (
@@ -42,11 +57,11 @@ export const RookieLeaderboardCard = () => {
             <Trophy className="h-5 w-5 text-primary" />
           )}
           <CardTitle>
-            {isUserTopPerformer ? "You're a Top Performer! 🎉" : "Yesterday's Rookie Leaders"}
+            {isUserTopPerformer ? "You're a Top Performer! 🎉" : isOnActiveBlitz ? "Yesterday's Rookie Leaders" : "This Week's Rookie Leaders"}
           </CardTitle>
         </div>
         <CardDescription>
-          {isUserTopPerformer ? "Keep crushing it!" : "See who led the pack yesterday"}
+          {isUserTopPerformer ? "Keep crushing it!" : isOnActiveBlitz ? "See who led the pack yesterday" : "See who's dominating this week"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
