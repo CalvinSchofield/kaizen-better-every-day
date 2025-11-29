@@ -16,18 +16,18 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if weather should be visible (9:45 PM to 1:00 PM local time)
+  // Check if weather should be visible (10:30 PM to 10:00 AM local time)
   const shouldShowWeather = useMemo(() => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
     
-    // 9:45 PM = 21:45 = 1305 minutes
-    // 1:00 PM = 13:00 = 780 minutes
+    // 10:30 PM = 22:30 = 1350 minutes
+    // 10:00 AM = 10:00 = 600 minutes
     
-    // Show if: 9:45 PM (1305) to midnight (1440) OR midnight (0) to 1:00 PM (780)
-    return currentMinutes >= 1305 || currentMinutes < 780;
+    // Show if: 10:30 PM (1350) to midnight (1440) OR midnight (0) to 10:00 AM (600)
+    return currentMinutes >= 1350 || currentMinutes < 600;
   }, []);
 
   // Determine if there's an active blitz
