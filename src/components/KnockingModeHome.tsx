@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyFocusCard } from "@/components/DailyFocusCard";
 import { ActivitySummaryCard } from "@/components/ActivitySummaryCard";
-import { QuickStatsBar } from "@/components/QuickStatsBar";
 import { CompetitorQuickAccess } from "@/components/CompetitorQuickAccess";
 import { RookieCompetitorQuickAccess } from "@/components/RookieCompetitorQuickAccess";
 import { PitchPresentationQuickAccess } from "@/components/PitchPresentationQuickAccess";
@@ -145,7 +144,6 @@ export const KnockingModeHome = ({
               <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
             </div>
             <ActivitySummaryCard repData={repData} />
-            <QuickStatsBar repData={repData} />
             
             {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
@@ -173,7 +171,6 @@ export const KnockingModeHome = ({
               <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
             </div>
             <ActivitySummaryCard repData={repData} />
-            <QuickStatsBar repData={repData} />
             
             {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
