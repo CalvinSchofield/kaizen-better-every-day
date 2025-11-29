@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, parseISO, startOfDay, endOfDay, differenceInMinutes } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, differenceInMinutes, startOfWeek, endOfWeek } from 'date-fns';
 
 export interface InsightsData {
   // Ratios
@@ -24,7 +24,8 @@ export interface InsightsData {
   
   // Best periods
   bestDay: { date: string; fpPlus: number; stats: string } | null;
-  bestWeek: { weekStart: string; fpPlus: number } | null;
+  bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; stats: string } | null;
+  bestMonth: { month: string; fpPlus: number; stats: string } | null;
   bestRatioDay: { date: string; ratio: number; fpPlus: number } | null;
   
   // Timing patterns
@@ -190,12 +191,20 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           }
         : null;
 
-      // Average start/end times (timezone-relative)
+      // Average start/end times (timezone-relative) - use user's timezone or default to 'America/Denver'
+      const { data: repData } = await supabase
+        .from('reps')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      const userTimezone = 'America/Denver'; // Default timezone for all users
+      
       const timesData = rangeEntries
-        .filter(entry => entry.work_start_time && entry.work_end_time && entry.timezone)
+        .filter(entry => entry.work_start_time && entry.work_end_time)
         .map(entry => {
-          const startLocal = calculateLocalTime(entry.work_start_time!, entry.timezone!);
-          const endLocal = calculateLocalTime(entry.work_end_time!, entry.timezone!);
+          const startLocal = calculateLocalTime(entry.work_start_time!, userTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time!, userTimezone);
           return {
             startDecimal: timeToDecimal(startLocal.hour, startLocal.minute),
             endDecimal: timeToDecimal(endLocal.hour, endLocal.minute),
@@ -204,11 +213,11 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
 
       const avgStartTime = timesData.length > 0
         ? decimalToTime(timesData.reduce((sum, t) => sum + t.startDecimal, 0) / timesData.length)
-        : '--:--';
+        : 'No data';
 
       const avgEndTime = timesData.length > 0
         ? decimalToTime(timesData.reduce((sum, t) => sum + t.endDecimal, 0) / timesData.length)
-        : '--:--';
+        : 'No data';
 
       const avgHoursWorked = totals.daysWorked > 0 ? totals.totalHours / totals.daysWorked : 0;
 
@@ -219,10 +228,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
           const pitchTimestamps = timestamps.pitches || [];
           pitchTimestamps.forEach((timestamp: string) => {
-            if (entry.timezone) {
-              const local = calculateLocalTime(timestamp, entry.timezone);
-              hourlyPitches[local.hour] = (hourlyPitches[local.hour] || 0) + 1;
-            }
+            const local = calculateLocalTime(timestamp, userTimezone);
+            hourlyPitches[local.hour] = (hourlyPitches[local.hour] || 0) + 1;
           });
         }
       });
@@ -231,6 +238,75 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         ? parseInt(Object.entries(hourlyPitches).reduce((best, [hour, count]) => {
             return count > best[1] ? [hour, count] : best;
           }, ['0', 0])[0])
+        : null;
+
+      // Best week (Monday-Saturday chunks only)
+      const weeklyData: Record<string, { entries: any[], fpPlus: number, doors: number, closes: number }> = {};
+      rangeEntries.forEach(entry => {
+        const entryDate = parseISO(entry.entry_date);
+        const dayOfWeek = entryDate.getDay();
+        
+        // Skip Sundays (0)
+        if (dayOfWeek === 0) return;
+        
+        // Get Monday of this week
+        const monday = startOfWeek(entryDate, { weekStartsOn: 1 });
+        const weekKey = format(monday, 'yyyy-MM-dd');
+        
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = { entries: [], fpPlus: 0, doors: 0, closes: 0 };
+        }
+        
+        weeklyData[weekKey].entries.push(entry);
+        weeklyData[weekKey].fpPlus += entry.fp_plus || 0;
+        weeklyData[weekKey].doors += entry.doors_knocked || 0;
+        weeklyData[weekKey].closes += entry.closes || 0;
+      });
+
+      const bestWeekEntry = Object.entries(weeklyData).reduce<any>((best, [weekStart, data]) => {
+        if (!best || data.fpPlus > best.fpPlus) {
+          return { weekStart, ...data };
+        }
+        return best;
+      }, null);
+
+      const bestWeekData = bestWeekEntry
+        ? {
+            weekStart: format(parseISO(bestWeekEntry.weekStart), 'MMM d'),
+            weekEnd: format(endOfWeek(parseISO(bestWeekEntry.weekStart), { weekStartsOn: 1 }), 'MMM d'),
+            fpPlus: bestWeekEntry.fpPlus,
+            stats: `${bestWeekEntry.doors} doors · ${bestWeekEntry.closes} closes`,
+          }
+        : null;
+
+      // Best month
+      const monthlyData: Record<string, { fpPlus: number, doors: number, closes: number }> = {};
+      rangeEntries.forEach(entry => {
+        const entryDate = parseISO(entry.entry_date);
+        const monthKey = format(entryDate, 'yyyy-MM');
+        
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { fpPlus: 0, doors: 0, closes: 0 };
+        }
+        
+        monthlyData[monthKey].fpPlus += entry.fp_plus || 0;
+        monthlyData[monthKey].doors += entry.doors_knocked || 0;
+        monthlyData[monthKey].closes += entry.closes || 0;
+      });
+
+      const bestMonthEntry = Object.entries(monthlyData).reduce<any>((best, [month, data]) => {
+        if (!best || data.fpPlus > best.fpPlus) {
+          return { month, ...data };
+        }
+        return best;
+      }, null);
+
+      const bestMonthData = bestMonthEntry && Object.keys(monthlyData).length > 1
+        ? {
+            month: format(parseISO(bestMonthEntry.month + '-01'), 'MMMM yyyy'),
+            fpPlus: bestMonthEntry.fpPlus,
+            stats: `${bestMonthEntry.doors} doors · ${bestMonthEntry.closes} closes`,
+          }
         : null;
 
       return {
@@ -248,7 +324,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         presentationsPerHour,
         hoursToFp,
         bestDay: bestDayData,
-        bestWeek: null, // Can implement week calculation later
+        bestWeek: bestWeekData,
+        bestMonth: bestMonthData,
         bestRatioDay: bestRatioDayData,
         avgStartTime,
         avgEndTime,

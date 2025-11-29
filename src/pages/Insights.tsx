@@ -2,33 +2,54 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
-import { TrendingUp, TrendingDown, Clock, Target, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 
-type DatePreset = 'week' | 'month' | 'last30' | 'season' | 'alltime';
+type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
 export default function Insights() {
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [customStartDate, setCustomStartDate] = useState<Date>();
+  const [customEndDate, setCustomEndDate] = useState<Date>();
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
+    const summerStartDate = new Date('2026-04-12'); // Official summer start
+    
     switch (preset) {
       case 'week':
         return { start: subDays(now, 7), end: now };
       case 'month':
         return { start: subMonths(now, 1), end: now };
-      case 'last30':
-        return { start: subDays(now, 30), end: now };
-      case 'season':
-        return { start: startOfYear(now), end: now };
-      case 'alltime':
-        return { start: new Date('2025-01-01'), end: now };
+      case 'preseason':
+        return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
+      case 'custom':
+        return { 
+          start: customStartDate || new Date('2025-01-01'), 
+          end: customEndDate || now 
+        };
       default:
         return { start: subMonths(now, 1), end: now };
     }
   };
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset));
+  
+  const handleCustomDateApply = () => {
+    if (customStartDate && customEndDate) {
+      setDatePreset('custom');
+      setShowCustomDialog(false);
+    }
+  };
 
   const getRatioComparison = (current: number, overall: number) => {
     if (current === 0 || overall === 0) return null;
@@ -134,25 +155,19 @@ export default function Insights() {
             This Month
           </Button>
           <Button
-            variant={datePreset === 'last30' ? 'default' : 'outline'}
+            variant={datePreset === 'preseason' ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setDatePreset('last30')}
+            onClick={() => setDatePreset('preseason')}
           >
-            Last 30 Days
+            Preseason
           </Button>
           <Button
-            variant={datePreset === 'season' ? 'default' : 'outline'}
+            variant={datePreset === 'custom' ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setDatePreset('season')}
+            onClick={() => setShowCustomDialog(true)}
           >
-            This Season
-          </Button>
-          <Button
-            variant={datePreset === 'alltime' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('alltime')}
-          >
-            All Time
+            <Calendar className="w-4 h-4 mr-1" />
+            Custom
           </Button>
         </div>
 
@@ -311,6 +326,24 @@ export default function Insights() {
               </Card>
             )}
             
+            {insights.bestWeek && (
+              <Card className="p-4">
+                <div className="text-sm text-muted-foreground mb-1">Best Week (Mon-Sat)</div>
+                <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
+                <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} - {insights.bestWeek.weekEnd}</div>
+                <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
+              </Card>
+            )}
+            
+            {insights.bestMonth && (
+              <Card className="p-4">
+                <div className="text-sm text-muted-foreground mb-1">Best Month</div>
+                <div className="text-xl font-bold text-primary">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
+                <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
+                <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
+              </Card>
+            )}
+            
             {insights.bestRatioDay && (
               <Card className="p-4">
                 <div className="text-sm text-muted-foreground mb-1">Best Efficiency Day</div>
@@ -355,6 +388,64 @@ export default function Insights() {
           </Card>
         </div>
       </div>
+
+      {/* Custom Date Range Dialog */}
+      <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Custom Date Range</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Start Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={customStartDate}
+                    onSelect={setCustomStartDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">End Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={customEndDate}
+                    onSelect={setCustomEndDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button 
+              onClick={handleCustomDateApply} 
+              className="w-full"
+              disabled={!customStartDate || !customEndDate}
+            >
+              Apply Date Range
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
