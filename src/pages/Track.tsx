@@ -114,7 +114,7 @@ const Track = ({
       />
 
       {/* Counter Grid - Fills all remaining space to bottom tabs */}
-      <div className="flex-1 px-4 pb-4 min-h-0">
+      <div className="flex-1 px-4 pt-4 min-h-0">
         <QTallyGrid
           entry={entry}
           onCounterChange={onCounterChange}
