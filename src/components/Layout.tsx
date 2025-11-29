@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, BarChart3, Menu, Lock, Save, RotateCcw } from "lucide-react";
+import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
@@ -16,8 +16,8 @@ interface LayoutProps {
 
 const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProps) => {
   const location = useLocation();
-  const { isKnockingMode } = useAppMode();
   const { repData } = useRepData();
+  const { isKnockingMode } = useAppMode(repData);
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -70,21 +70,52 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
     return false;
   };
   
-  const preseasonNavItems = [
-    { path: "/", icon: Home, label: "Home" },
-    { path: "/training", icon: BookOpen, label: "Training" },
-    { path: "/tools", icon: Wrench, label: "Tools" },
-  ];
+  // Dynamic navigation based on mode and user type
+  const getNavItems = () => {
+    const year = repData?.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const isPostBlitzRookie = year === "Rookie" && hasAttendedBlitz;
 
-  const knockingNavItems = [
-    { path: "/", icon: Home, label: "Home" },
-    { path: "/training", icon: BookOpen, label: "Training" },
-    { path: "/tools", icon: Wrench, label: "Tools" },
-    { path: "/track", icon: BarChart3, label: "Track" },
-  ];
+    if (isKnockingMode) {
+      // Knocking Mode Navigation
+      if (isVetOrSoph) {
+        // Vets/Sophomores: Home, Calendar, Insights, Track
+        return [
+          { path: "/", icon: Home, label: "Home" },
+          { path: "/calendar", icon: Calendar, label: "Calendar" },
+          { path: "/insights", icon: BarChart3, label: "Insights" },
+          { path: "/track", icon: Target, label: "Track" },
+        ];
+      } else if (isPostBlitzRookie) {
+        // Post-blitz Rookies: Home, Calendar, Tools, Track
+        return [
+          { path: "/", icon: Home, label: "Home" },
+          { path: "/calendar", icon: Calendar, label: "Calendar" },
+          { path: "/tools", icon: Wrench, label: "Tools" },
+          { path: "/track", icon: Target, label: "Track" },
+        ];
+      }
+    }
 
-  // Use knocking nav if in knocking mode OR if user should see Track tab
-  const navItems = (isKnockingMode || shouldShowTrack()) ? knockingNavItems : preseasonNavItems;
+    // Preseason Navigation or Track-enabled state
+    if (shouldShowTrack()) {
+      return [
+        { path: "/", icon: Home, label: "Home" },
+        { path: "/training", icon: BookOpen, label: "Training" },
+        { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/track", icon: Target, label: "Track" },
+      ];
+    }
+
+    // Default preseason nav
+    return [
+      { path: "/", icon: Home, label: "Home" },
+      { path: "/training", icon: BookOpen, label: "Training" },
+      { path: "/tools", icon: Wrench, label: "Tools" },
+    ];
+  };
+
+  const navItems = getNavItems();
   const firstName = repData?.name?.split(' ')[0];
   
   // Determine if we're on the home page to match header color

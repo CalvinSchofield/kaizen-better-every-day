@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3 } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -20,13 +20,14 @@ interface AppDrawerProps {
 }
 
 export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
-  const { isKnockingMode, toggleMode, isToggling } = useAppMode();
   const { repData } = useRepData();
+  const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
   const [open, setOpen] = useState(false);
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
   const isRookie = year === "Rookie";
+  const isVetOrSoph = year === "Vet" || year === "Sophomore";
   
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
@@ -61,25 +62,64 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
         </SheetHeader>
         
         <div className="flex flex-col gap-4 p-4">
-          {/* Knocking Mode Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-card">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
-                🚪 Knocking Mode
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {isKnockingMode ? "Active" : "Preseason"}
-              </p>
-            </div>
-            <Switch
-              id="knocking-mode"
-              checked={isKnockingMode}
-              onCheckedChange={handleToggle}
-              disabled={isToggling}
-            />
-          </div>
+          {/* Knocking Mode Toggle - Only show if user has access */}
+          {canAccessKnockingToggle && (
+            <>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-card">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
+                    🚪 Knocking Mode
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {isKnockingMode ? "Active" : "Preseason"}
+                  </p>
+                </div>
+                <Switch
+                  id="knocking-mode"
+                  checked={isKnockingMode}
+                  onCheckedChange={handleToggle}
+                  disabled={isToggling}
+                />
+              </div>
+              <Separator />
+            </>
+          )}
 
-          <Separator />
+          {/* Training Link - Show in drawer when knocking mode is ON */}
+          {isKnockingMode && (
+            <Link
+              to="/training"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+            >
+              <BookOpen className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-semibold">Training</span>
+                <span className="text-sm text-muted-foreground">
+                  Access training resources
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {/* Tools Link - Show in drawer for vets when knocking mode is ON */}
+          {isKnockingMode && isVetOrSoph && (
+            <Link
+              to="/tools"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+            >
+              <Wrench className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-semibold">Tools</span>
+                <span className="text-sm text-muted-foreground">
+                  Access sales tools
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {(isKnockingMode && (canAccessKnockingToggle || isVetOrSoph)) && <Separator />}
 
           {/* Calendar Link */}
           <Link

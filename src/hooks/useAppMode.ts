@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -13,8 +13,55 @@ interface SeasonConfig {
   personal_summer_end: string | null;
 }
 
-export const useAppMode = () => {
+export const useAppMode = (repData?: any) => {
   const queryClient = useQueryClient();
+
+  // Check if currently on an active blitz
+  const isOnActiveBlitz = useMemo(() => {
+    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return repData.committed_blitzes.some((blitz: any) => {
+      if (!blitz?.date || !blitz?.endDate) return false;
+      
+      const startDate = new Date(blitz.date);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(blitz.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      
+      return today >= startDate && today <= endDate;
+    });
+  }, [repData?.committed_blitzes]);
+
+  // Check if user has attended at least one blitz
+  const hasAttendedBlitz = useMemo(() => {
+    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
+      return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return repData.committed_blitzes.some((blitz: any) => {
+      if (!blitz?.endDate) return false;
+      const endDate = new Date(blitz.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      return endDate < today;
+    });
+  }, [repData?.committed_blitzes]);
+
+  // Determine who can access knocking toggle
+  const canAccessKnockingToggle = useMemo(() => {
+    const year = repData?.year || "Rookie";
+    // Vets and Sophomores always have access
+    if (year === "Vet" || year === "Sophomore") return true;
+    // Rookies only after attending first blitz
+    return hasAttendedBlitz;
+  }, [repData?.year, hasAttendedBlitz]);
 
   // Fetch season config
   const { data: seasonConfig, isLoading } = useQuery({
@@ -40,12 +87,17 @@ export const useAppMode = () => {
 
   // Calculate if knocking mode should be active
   const isKnockingMode = useMemo(() => {
-    // Manual override takes precedence
+    // Priority 1: Manual override takes precedence
     if (seasonConfig?.knocking_mode_enabled !== null && seasonConfig?.knocking_mode_enabled !== undefined) {
       return seasonConfig.knocking_mode_enabled;
     }
 
-    // Auto-detect based on dates
+    // Priority 2: Auto-enable if on active blitz
+    if (isOnActiveBlitz) {
+      return true;
+    }
+
+    // Priority 3: Auto-enable if within personal summer dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -58,7 +110,7 @@ export const useAppMode = () => {
       : GLOBAL_SUMMER_END;
 
     return today >= effectiveStart && today <= effectiveEnd;
-  }, [seasonConfig]);
+  }, [seasonConfig, isOnActiveBlitz]);
 
   // Toggle knocking mode
   const toggleModeMutation = useMutation({
@@ -89,5 +141,8 @@ export const useAppMode = () => {
     isLoading,
     toggleMode: toggleModeMutation.mutate,
     isToggling: toggleModeMutation.isPending,
+    canAccessKnockingToggle,
+    isOnActiveBlitz,
+    hasAttendedBlitz,
   };
 };
