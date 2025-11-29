@@ -49,9 +49,9 @@ export const KnockingModeHome = ({
   const firstName = repData?.name?.split(' ')[0]?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="bg-primary text-primary-foreground px-6 py-8 rounded-b-3xl shadow-lg">
+      <div className="bg-primary text-primary-foreground px-6 pt-8 pb-32">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-bold">
             {getGreeting()}, {firstName || "Rep"}
@@ -82,11 +82,10 @@ export const KnockingModeHome = ({
             </Button>
           </div>
         </div>
-        <p className="text-primary-foreground/80">Let's make today count</p>
       </div>
 
-      {/* Main Content */}
-      <div className="p-6 space-y-6">
+      {/* Main Content with negative margin to overlap header */}
+      <div className="px-6 space-y-6 -mt-20">
         {/* Daily Focus Card */}
         <DailyFocusCard repData={repData} />
 
