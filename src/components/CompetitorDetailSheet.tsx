@@ -14,6 +14,8 @@ export const CompetitorDetailSheet = ({
   open,
   onOpenChange,
 }: CompetitorDetailSheetProps) => {
+  if (!competitor) return null;
+  
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
