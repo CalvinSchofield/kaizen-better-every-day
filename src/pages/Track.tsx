@@ -84,7 +84,7 @@ const Track = () => {
   }
 
   return (
-    <div className="bg-background flex flex-col overflow-hidden touch-none" style={{ height: 'calc(100vh - 88px)' }}>
+    <div className="bg-background flex flex-col overflow-hidden touch-none h-screen">
       {/* Header */}
       <div className="bg-background px-6 py-4 flex-shrink-0 border-b border-border/40">
         <div className="flex items-center justify-between">
@@ -111,8 +111,8 @@ const Track = () => {
         </div>
       </div>
 
-      {/* Counter Grid - Fills all available space with equal padding */}
-      <div className="flex-1 px-4 pt-4 pb-20 min-h-0 overflow-hidden">
+      {/* Counter Grid - Fills all available space with safe bottom padding */}
+      <div className="flex-1 px-4 pt-4 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
