@@ -26,7 +26,7 @@ export interface InsightsData {
   bestDay: { date: string; fpPlus: number; stats: string } | null;
   bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; stats: string } | null;
   bestMonth: { month: string; fpPlus: number; stats: string } | null;
-  bestRatioDay: { date: string; ratio: number; fpPlus: number } | null;
+  bestTransitionsDay: { date: string; transitions: number; fpPlus: number } | null;
   
   // Timing patterns
   avgStartTime: string;
@@ -175,24 +175,24 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           }
         : null;
 
-      // Best ratio day (best doors-to-FP+ efficiency)
-      const bestRatioDay = rangeEntries.length > 0
+      // Best transitions day (highest transitions count)
+      const bestTransitionsDay = rangeEntries.length > 0
         ? rangeEntries
-            .filter(entry => (entry.fp_plus || 0) > 0 && (entry.doors_knocked || 0) > 0)
+            .filter(entry => (entry.transitions || 0) > 0)
             .reduce<any>((best, entry) => {
-              const ratio = (entry.doors_knocked || 0) / (entry.fp_plus || 0);
-              if (!best || ratio < best.ratio) {
-                return { entry, ratio };
+              const transitions = entry.transitions || 0;
+              if (!best || transitions > best.transitions) {
+                return { entry, transitions };
               }
               return best;
             }, null)
         : null;
 
-      const bestRatioDayData = bestRatioDay
+      const bestTransitionsDayData = bestTransitionsDay
         ? {
-            date: format(parseISO(bestRatioDay.entry.entry_date), 'MMM d, yyyy'),
-            ratio: bestRatioDay.ratio,
-            fpPlus: bestRatioDay.entry.fp_plus || 0,
+            date: format(parseISO(bestTransitionsDay.entry.entry_date), 'MMM d, yyyy'),
+            transitions: bestTransitionsDay.transitions,
+            fpPlus: bestTransitionsDay.entry.fp_plus || 0,
           }
         : null;
 
@@ -331,7 +331,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         bestDay: bestDayData,
         bestWeek: bestWeekData,
         bestMonth: bestMonthData,
-        bestRatioDay: bestRatioDayData,
+        bestTransitionsDay: bestTransitionsDayData,
         avgStartTime,
         avgEndTime,
         avgHoursWorked,

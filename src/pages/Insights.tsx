@@ -381,12 +381,12 @@ export default function Insights() {
                   </Card>
                 )}
                 
-                {insights.bestRatioDay && (
+                {insights.bestTransitionsDay && (
                   <Card className="p-4">
-                    <div className="text-sm text-muted-foreground mb-1">Best Efficiency Day</div>
-                    <div className="text-xl font-bold text-primary">{insights.bestRatioDay.ratio.toFixed(1)} doors per FP+</div>
-                    <div className="text-sm text-muted-foreground">{insights.bestRatioDay.date}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{insights.bestRatioDay.fpPlus.toFixed(1)} FP+ sold</div>
+                    <div className="text-sm text-muted-foreground mb-1">Most Transitions Day</div>
+                    <div className="text-xl font-bold text-primary">{insights.bestTransitionsDay.transitions} transitions</div>
+                    <div className="text-sm text-muted-foreground">{insights.bestTransitionsDay.date}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+ sold</div>
                   </Card>
                 )}
                   </div>
