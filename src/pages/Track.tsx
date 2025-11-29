@@ -180,16 +180,18 @@ const Track = () => {
       </div>
 
       {/* Time Tracking Bar */}
-      <TimeTrackingBar
-        workStartTime={entry.work_start_time}
-        workEndTime={entry.work_end_time}
-        breakPeriods={entry.break_periods}
-        onStartWork={handleStartWork}
-        onEndWork={handleEndWork}
-        onStartBreak={handleStartBreak}
-        onEndBreak={handleEndBreak}
-        onUpdateTime={handleUpdateTime}
-      />
+      <div className="flex-shrink-0">
+        <TimeTrackingBar
+          workStartTime={entry.work_start_time}
+          workEndTime={entry.work_end_time}
+          breakPeriods={entry.break_periods}
+          onStartWork={handleStartWork}
+          onEndWork={handleEndWork}
+          onStartBreak={handleStartBreak}
+          onEndBreak={handleEndBreak}
+          onUpdateTime={handleUpdateTime}
+        />
+      </div>
 
       {/* Counter Grid - Fills all available space with safe bottom padding */}
       <div className="flex-1 px-4 pt-4 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>

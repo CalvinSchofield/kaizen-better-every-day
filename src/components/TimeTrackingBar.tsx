@@ -118,20 +118,24 @@ export const TimeTrackingBar = ({
           <div className="flex flex-col items-center gap-1">
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={isOnBreak ? onEndBreak : onStartBreak}
-              className={`h-8 w-8 ${isOnBreak ? 'text-amber-500' : 'text-muted-foreground'}`}
+              className="flex items-center gap-2 h-auto py-2 px-3"
             >
-              {isOnBreak ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </Button>
-            <div className="text-center">
-              <span className="text-xs text-muted-foreground">Break</span>
-              {totalBreakMinutes > 0 && (
-                <div className="text-xs font-semibold text-foreground">
-                  {breakHours > 0 ? `${breakHours}h ${breakMins}m` : `${breakMins}m`}
-                </div>
+              {isOnBreak ? (
+                <Play className="h-5 w-5 text-amber-500" />
+              ) : (
+                <Pause className="h-5 w-5 text-muted-foreground" />
               )}
-            </div>
+              {totalBreakMinutes > 0 && (
+                <span className="text-sm font-semibold">
+                  {breakHours > 0 ? `${breakHours}h ${breakMins}m` : `${breakMins}m`}
+                </span>
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {isOnBreak ? "Back to it" : "Take a break"}
+            </span>
           </div>
         )}
 
