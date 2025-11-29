@@ -1,4 +1,4 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 
 interface ResetConfirmSheetProps {
@@ -15,14 +15,14 @@ export const ResetConfirmSheet = ({ open, onOpenChange, onConfirm, isResetting }
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="pb-safe">
-        <SheetHeader className="mb-6">
-          <SheetTitle>Reset All Counters?</SheetTitle>
-          <SheetDescription>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader className="mb-6">
+          <DrawerTitle>Reset All Counters?</DrawerTitle>
+          <DrawerDescription>
             This will reset all today's counters back to 0. This action cannot be undone.
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+        </DrawerHeader>
         
         <div className="flex flex-col gap-3">
           <Button
@@ -43,7 +43,7 @@ export const ResetConfirmSheet = ({ open, onOpenChange, onConfirm, isResetting }
             Cancel
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };
