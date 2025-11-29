@@ -52,16 +52,20 @@ export const KnockingModeHome = ({
     return "Good evening";
   };
 
-  // Determine weather card position based on time of day
-  const isWeatherAtTop = () => {
+  // Determine weather card position and section ordering based on time of day
+  const getTimeBasedLayout = () => {
     const now = new Date();
     const hours = now.getHours();
     
-    // Morning (before noon): Weather at position 2
-    return hours < 12;
+    // Night mode after 9pm: Special ordering
+    const isNightMode = hours >= 21;
+    // Morning before noon: Weather at position 2
+    const isWeatherAtTop = hours < 12;
+    
+    return { isNightMode, isWeatherAtTop };
   };
 
-  const weatherAtTop = isWeatherAtTop();
+  const { isNightMode, isWeatherAtTop } = getTimeBasedLayout();
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   
@@ -128,38 +132,70 @@ export const KnockingModeHome = ({
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
         <DailyFocusCard repData={repData} />
         
-        {/* Morning: Weather at position 2, otherwise at bottom */}
-        {weatherAtTop && (
-          <div className="animate-fade-in">
-            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-          </div>
-        )}
-        
-        <ActivitySummaryCard repData={repData} />
-        
-        {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
-        {isTeamLead && anyBlitzWithin14Days && (
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">
-              Blitz management available for team leads
-            </p>
-          </Card>
-        )}
-        
-        {variant === "rookie" && (
+        {/* Night mode (after 9pm): Today's focus, Leaderboard, Today's results, Weather, Pitches, Competitors */}
+        {isNightMode && (
           <>
-            <PitchPresentationQuickAccess />
-            <RookieCompetitorQuickAccess />
+            <LeaderboardCard />
+            <ActivitySummaryCard repData={repData} />
+            <div className="animate-fade-in">
+              <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+            </div>
+            
+            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
+            {isTeamLead && anyBlitzWithin14Days && (
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Blitz management available for team leads
+                </p>
+              </Card>
+            )}
+            
+            {variant === "rookie" && (
+              <>
+                <PitchPresentationQuickAccess />
+                <RookieCompetitorQuickAccess />
+              </>
+            )}
           </>
         )}
         
-        <LeaderboardCard />
-        
-        {/* Weather at bottom if not morning */}
-        {!weatherAtTop && (
-          <div className="animate-fade-in">
-            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-          </div>
+        {/* Day/Morning mode: Standard ordering */}
+        {!isNightMode && (
+          <>
+            {/* Morning: Weather at position 2, otherwise at bottom */}
+            {isWeatherAtTop && (
+              <div className="animate-fade-in">
+                <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+              </div>
+            )}
+            
+            <ActivitySummaryCard repData={repData} />
+            
+            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
+            {isTeamLead && anyBlitzWithin14Days && (
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Blitz management available for team leads
+                </p>
+              </Card>
+            )}
+            
+            {variant === "rookie" && (
+              <>
+                <PitchPresentationQuickAccess />
+                <RookieCompetitorQuickAccess />
+              </>
+            )}
+            
+            <LeaderboardCard />
+            
+            {/* Weather at bottom if not morning */}
+            {!isWeatherAtTop && (
+              <div className="animate-fade-in">
+                <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+              </div>
+            )}
+          </>
         )}
       </div>
 
