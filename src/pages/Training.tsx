@@ -311,8 +311,23 @@ const Training = () => {
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Pay Scales - Hidden for Rookies */}
+        {loading && isVetOrSophomore && (
+          <Card className="animate-pulse">
+            <CardHeader>
+              <div className="h-5 w-32 bg-muted rounded mb-2" />
+              <div className="h-4 w-48 bg-muted rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-10 bg-muted rounded" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {!loading && isVetOrSophomore && (
-          <Card>
+          <Card className="animate-in fade-in duration-500">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <DollarSign className="h-5 w-5 text-accent" />
