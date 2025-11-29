@@ -81,6 +81,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [rsvpResponse, setRsvpResponse] = useState<'yes' | 'no' | null>(null);
+  const [locallyRespondedBlitzId, setLocallyRespondedBlitzId] = useState<string | null>(null);
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
@@ -367,13 +368,33 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     // Must not be declined
     if (declinedBlitzes.includes(blitz.id)) return false;
     
+    // Must not be the one we just responded to (optimistic state)
+    if (locallyRespondedBlitzId === blitz.id) return false;
+    
     return true;
   });
+  
+  // Clear optimistic state when data updates
+  useEffect(() => {
+    if (locallyRespondedBlitzId) {
+      // Check if the blitz we responded to is no longer in the "needs RSVP" state
+      const stillNeedsRsvp = allBlitzes.some(blitz => {
+        const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
+        const isDeclined = declinedBlitzes.includes(blitz.id);
+        return blitz.id === locallyRespondedBlitzId && !isCommitted && !isDeclined;
+      });
+      
+      if (!stillNeedsRsvp) {
+        setLocallyRespondedBlitzId(null);
+      }
+    }
+  }, [repData.committed_blitzes, declinedBlitzes, locallyRespondedBlitzId, allBlitzes]);
 
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
     
     setRsvpResponse('yes');
+    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update
     
     // Commit to the blitz
     const currentCommitments = (repData.committed_blitzes as any[]) || [];
@@ -411,7 +432,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         description: `You're now committed to ${upcomingBlitzForRsvp.name}`,
       });
 
-      setTimeout(() => setRsvpResponse(null), 2000);
+      setTimeout(() => setRsvpResponse(null), 1500);
     } catch (error) {
       console.error("Error committing:", error);
       toast({
@@ -420,6 +441,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         variant: "destructive",
       });
       setRsvpResponse(null);
+      setLocallyRespondedBlitzId(null); // Reset on error
     }
   };
 
@@ -427,6 +449,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     if (!upcomingBlitzForRsvp) return;
     
     setRsvpResponse('no');
+    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update
     
     // Add to declined list
     const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
@@ -439,7 +462,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       
       if (error) throw error;
       
-      setTimeout(() => setRsvpResponse(null), 2000);
+      setTimeout(() => setRsvpResponse(null), 1500);
     } catch (error) {
       console.error("Error declining RSVP:", error);
       toast({
@@ -448,6 +471,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         variant: "destructive",
       });
       setRsvpResponse(null);
+      setLocallyRespondedBlitzId(null); // Reset on error
     }
   };
 
