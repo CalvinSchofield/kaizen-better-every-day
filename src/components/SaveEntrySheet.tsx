@@ -129,17 +129,59 @@ export const SaveEntrySheet = ({
     onOpenChange(false);
   };
   
-  // Calculate total time worked
+  // Calculate total time worked based on current input values
   const calculateTotalTime = () => {
-    if (!entry?.work_start_time) return "Not started";
+    // If neither time is set, check entry data
+    if (!startTime && !endTime) {
+      if (!entry?.work_start_time) return "Not started";
+      
+      const start = parseISO(entry.work_start_time);
+      const end = entry.work_end_time ? parseISO(entry.work_end_time) : new Date();
+      
+      let totalMinutes = differenceInMinutes(end, start);
+      
+      // Subtract break time
+      const breakPeriods = entry.break_periods || [];
+      breakPeriods.forEach((bp: any) => {
+        if (bp.start) {
+          const breakStart = parseISO(bp.start);
+          const breakEnd = bp.end ? parseISO(bp.end) : new Date();
+          totalMinutes -= differenceInMinutes(breakEnd, breakStart);
+        }
+      });
+      
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      
+      if (hours > 0) {
+        return `${hours}h ${mins}m`;
+      }
+      return `${mins}m`;
+    }
     
-    const start = parseISO(entry.work_start_time);
-    const end = entry.work_end_time ? parseISO(entry.work_end_time) : new Date();
+    // Use current input values for live calculation
+    if (!startTime) return "Set start time";
+    if (!endTime) return "Set end time";
     
-    let totalMinutes = differenceInMinutes(end, start);
+    // Parse input times and calculate difference
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
     
-    // Subtract break time
-    const breakPeriods = entry.break_periods || [];
+    const startDate = new Date(date);
+    startDate.setHours(startHours, startMinutes, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(endHours, endMinutes, 0, 0);
+    
+    let totalMinutes = differenceInMinutes(endDate, startDate);
+    
+    // Handle overnight shifts (end time before start time)
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60; // Add 24 hours
+    }
+    
+    // Subtract break time if available from entry
+    const breakPeriods = entry?.break_periods || [];
     breakPeriods.forEach((bp: any) => {
       if (bp.start) {
         const breakStart = parseISO(bp.start);
