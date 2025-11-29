@@ -80,7 +80,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
-  const [rsvpResponse, setRsvpResponse] = useState<'yes' | 'no' | null>(null);
   const [locallyRespondedBlitzId, setLocallyRespondedBlitzId] = useState<string | null>(null);
   
   // Get FP+ from daily entries (preseason only)
@@ -393,8 +392,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
     
-    setRsvpResponse('yes');
-    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update
+    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update - hides RSVP immediately
     
     // Commit to the blitz
     const currentCommitments = (repData.committed_blitzes as any[]) || [];
@@ -431,8 +429,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         title: "Committed! 🎉",
         description: `You're now committed to ${upcomingBlitzForRsvp.name}`,
       });
-
-      setTimeout(() => setRsvpResponse(null), 1500);
     } catch (error) {
       console.error("Error committing:", error);
       toast({
@@ -440,7 +436,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         description: "Could not update your commitment. Please try again.",
         variant: "destructive",
       });
-      setRsvpResponse(null);
       setLocallyRespondedBlitzId(null); // Reset on error
     }
   };
@@ -448,8 +443,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const handleRsvpNo = async () => {
     if (!upcomingBlitzForRsvp) return;
     
-    setRsvpResponse('no');
-    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update
+    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update - hides RSVP immediately
     
     // Add to declined list
     const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
@@ -461,8 +455,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         .eq('id', repData.id);
       
       if (error) throw error;
-      
-      setTimeout(() => setRsvpResponse(null), 1500);
     } catch (error) {
       console.error("Error declining RSVP:", error);
       toast({
@@ -470,7 +462,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         description: "Could not save your response. Please try again.",
         variant: "destructive",
       });
-      setRsvpResponse(null);
       setLocallyRespondedBlitzId(null); // Reset on error
     }
   };
@@ -538,7 +529,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </div>
 
           {/* RSVP Card - Shows when blitz is within 2 weeks and not committed */}
-          {upcomingBlitzForRsvp && !rsvpResponse && (
+          {upcomingBlitzForRsvp && (
             <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
               <p className="text-primary-foreground/90 text-base font-medium mb-3">
                 📆 {upcomingBlitzForRsvp.location} in {Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days — you in?
@@ -563,26 +554,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </div>
           )}
 
-          {/* Animated RSVP Response */}
-          {rsvpResponse === 'yes' && (
-            <div className="px-6 py-4 rounded-lg bg-green-500 text-white mb-3 animate-scale-in">
-              <p className="text-base font-medium text-center">
-                <Check className="w-5 h-5 inline mr-2" />
-                Great! Committing you now...
-              </p>
-            </div>
-          )}
-          {rsvpResponse === 'no' && (
-            <div className="px-6 py-4 rounded-lg bg-red-500 text-white mb-3 animate-scale-in">
-              <p className="text-base font-medium text-center">
-                <X className="w-5 h-5 inline mr-2" />
-                No problem, pick another blitz below
-              </p>
-            </div>
-          )}
-
           {/* CTA Card - Show when no RSVP needed */}
-          {!upcomingBlitzForRsvp && !rsvpResponse && !nextBlitz && (
+          {!upcomingBlitzForRsvp && !nextBlitz && (
             <button
               onClick={() => {
                 const blitzCard = document.querySelector('[data-blitz-card]');
@@ -601,7 +574,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
             </button>
           )}
-          {!upcomingBlitzForRsvp && !rsvpResponse && nextBlitz && (() => {
+          {!upcomingBlitzForRsvp && nextBlitz && (() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const tripDate = new Date(nextBlitz.date);
@@ -610,6 +583,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             
             let ctaText = "";
             let ctaIcon = "";
+            const isClickable = diffDays <= 7;
             
             if (diffDays <= 7) {
               ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
@@ -619,17 +593,19 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               ctaIcon = "🎯";
             }
             
+            const Element = isClickable ? 'button' : 'div';
+            
             return (
-              <button
-                onClick={() => setWeatherSheetOpen(true)}
-                className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+              <Element
+                {...(isClickable ? { onClick: () => setWeatherSheetOpen(true) } : {})}
+                className={`${isClickable ? 'group' : ''} flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 ${isClickable ? 'hover:bg-primary-foreground/15 cursor-pointer' : 'cursor-default'} transition-all mb-3`}
               >
                 <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                 <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                   {ctaText}
                 </p>
-                <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
-              </button>
+                {isClickable && <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />}
+              </Element>
             );
           })()}
         </div>
