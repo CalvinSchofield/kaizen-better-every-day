@@ -32,8 +32,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     });
   }, []);
 
-  // Priority metrics (most valuable first)
-  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostTransitions', 'mostPresentations', 'mostDoors', 'mostPitches'];
+  // Priority metrics (FP+ > PRMR > hours > doors > transitions > presentations > earliest > latest)
+  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostHoursWorked', 'mostDoors', 'mostTransitions', 'mostPresentations', 'earliestDoor', 'latestDoor'];
 
   // Find the best available callout based on hierarchy: yesterday > week > month > season
   const callout = useMemo(() => {
@@ -48,23 +48,54 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       if (!board) continue;
 
       for (const metric of priorityMetrics) {
-        const entry = board[metric as keyof typeof board];
+        const entry = board[metric as keyof typeof board] as any;
         if (entry && entry.value > 0) {
           const metricLabel = {
             mostFP: 'Highest FP+',
             mostPRMR: 'Highest PRMR',
+            mostHoursWorked: 'Most Hours',
+            mostDoors: 'Most Doors',
             mostTransitions: 'Most Transitions',
             mostPresentations: 'Most Presentations',
-            mostDoors: 'Most Doors',
-            mostPitches: 'Most Pitches',
+            earliestDoor: 'Earliest Door',
+            latestDoor: 'Latest Door',
           }[metric];
 
           const isCurrentUser = currentUserId && entry.userId === currentUserId;
 
+          // Format value based on metric type
+          let formattedValue = '';
+          if (metric === 'mostPRMR') {
+            formattedValue = `$${entry.value.toFixed(0)}`;
+          } else if (metric === 'mostFP') {
+            formattedValue = `${entry.value.toFixed(1)} FP+`;
+          } else if (metric === 'mostHoursWorked') {
+            formattedValue = `${entry.value.toFixed(1)} hrs`;
+          } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
+            formattedValue = entry.timeValue || 'N/A';
+          } else {
+            formattedValue = `${Math.round(entry.value)}`;
+          }
+
+          // Calculate "close behind" count if user is leading
+          let closeBehindText = '';
+          if (isCurrentUser) {
+            const allValues = Object.values(board)
+              .filter((e: any) => e && e.userId !== currentUserId && typeof e.value === 'number')
+              .map((e: any) => e.value);
+            
+            const threshold = entry.value * 0.9; // Within 10%
+            const closeBehindCount = allValues.filter((v: number) => v >= threshold).length;
+            
+            if (closeBehindCount > 0) {
+              closeBehindText = ` · ${closeBehindCount} ${closeBehindCount === 1 ? 'other' : 'others'} close behind`;
+            }
+          }
+
           return {
             text: isCurrentUser 
-              ? `🎉 You lead ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${metric === 'mostFP' ? entry.value.toFixed(1) : metric === 'mostPRMR' ? entry.value.toFixed(1) : entry.value}${metric === 'mostFP' ? ' FP+' : ''}`
-              : `${entry.name} leads ${timeframe} — ${metricLabel.toLowerCase()}: ${metric === 'mostPRMR' ? '$' : ''}${metric === 'mostFP' ? entry.value.toFixed(1) : metric === 'mostPRMR' ? entry.value.toFixed(1) : entry.value}${metric === 'mostFP' ? ' FP+' : ''}`,
+              ? `🎉 You lead ${timeframe} — ${metricLabel.toLowerCase()}: ${formattedValue}${closeBehindText}`
+              : `${entry.name} leads ${timeframe} — ${metricLabel.toLowerCase()}: ${formattedValue}`,
             isCurrentUser,
           };
         }

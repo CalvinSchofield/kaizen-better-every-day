@@ -5,6 +5,7 @@ interface LeaderboardEntry {
   userId: string;
   name: string;
   value: number;
+  timeValue?: string;
 }
 
 interface YesterdayLeaderboard {
@@ -15,13 +16,15 @@ interface YesterdayLeaderboard {
   mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
+  mostHoursWorked: LeaderboardEntry | null;
+  earliestDoor: LeaderboardEntry | null;
+  latestDoor: LeaderboardEntry | null;
 }
 
 export const useYesterdayLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["yesterday-leaderboard", filterByYear],
     queryFn: async () => {
-      // Get yesterday's date in local timezone
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const year = yesterday.getFullYear();
@@ -29,26 +32,22 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
       const day = String(yesterday.getDate()).padStart(2, '0');
       const yesterdayStr = `${year}-${month}-${day}`;
 
-      // Fetch all reps data to get names and year info
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
         .select("user_id, name, year");
 
       if (repsError) throw repsError;
 
-      // Create lookup map
       const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
 
-      // Fetch yesterday's finalized entries
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .eq("entry_date", yesterdayStr)
         .eq("is_finalized", true);
 
       if (error) throw error;
 
-      // Filter by year if specified (for rookie-only leaderboard)
       const filteredEntries = filterByYear 
         ? entries?.filter(e => repsMap.get(e.user_id)?.year === filterByYear) || []
         : entries || [];
@@ -61,82 +60,109 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
+        mostHoursWorked: null,
+        earliestDoor: null,
+        latestDoor: null,
       };
 
-      // Find top performers
       filteredEntries.forEach(entry => {
         const repInfo = repsMap.get(entry.user_id);
         if (!repInfo) return;
 
-        // Strip emojis from names
         const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
 
-        // Most doors
         if (entry.doors_knocked && (!leaderboard.mostDoors || entry.doors_knocked > leaderboard.mostDoors.value)) {
-          leaderboard.mostDoors = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.doors_knocked,
-          };
+          leaderboard.mostDoors = { userId: entry.user_id, name: cleanName, value: entry.doors_knocked };
         }
 
-        // Most decision makers (got into most homes)
         if (entry.decision_makers && (!leaderboard.mostDecisionMakers || entry.decision_makers > leaderboard.mostDecisionMakers.value)) {
-          leaderboard.mostDecisionMakers = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.decision_makers,
-          };
+          leaderboard.mostDecisionMakers = { userId: entry.user_id, name: cleanName, value: entry.decision_makers };
         }
 
-        // Most pitches
         if (entry.pitches && (!leaderboard.mostPitches || entry.pitches > leaderboard.mostPitches.value)) {
-          leaderboard.mostPitches = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.pitches,
-          };
+          leaderboard.mostPitches = { userId: entry.user_id, name: cleanName, value: entry.pitches };
         }
 
-        // Most transitions
         if (entry.transitions && (!leaderboard.mostTransitions || entry.transitions > leaderboard.mostTransitions.value)) {
-          leaderboard.mostTransitions = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.transitions,
-          };
+          leaderboard.mostTransitions = { userId: entry.user_id, name: cleanName, value: entry.transitions };
         }
 
-        // Most presentations
         if (entry.presentations && (!leaderboard.mostPresentations || entry.presentations > leaderboard.mostPresentations.value)) {
-          leaderboard.mostPresentations = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.presentations,
-          };
+          leaderboard.mostPresentations = { userId: entry.user_id, name: cleanName, value: entry.presentations };
         }
 
-        // Most FP+ (only if > 0)
         if (entry.fp_plus && entry.fp_plus > 0 && (!leaderboard.mostFP || entry.fp_plus > leaderboard.mostFP.value)) {
-          leaderboard.mostFP = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.fp_plus,
-          };
+          leaderboard.mostFP = { userId: entry.user_id, name: cleanName, value: entry.fp_plus };
         }
 
-        // Most PRMR (only if > 0)
         if (entry.prmr && entry.prmr > 0 && (!leaderboard.mostPRMR || entry.prmr > leaderboard.mostPRMR.value)) {
-          leaderboard.mostPRMR = {
-            userId: entry.user_id,
-            name: cleanName,
-            value: entry.prmr,
-          };
+          leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: entry.prmr };
+        }
+
+        if (entry.work_start_time && entry.work_end_time) {
+          const startTime = new Date(entry.work_start_time);
+          const endTime = new Date(entry.work_end_time);
+          let totalMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((period: any) => {
+              if (period.start && period.end) {
+                const breakStart = new Date(period.start);
+                const breakEnd = new Date(period.end);
+                const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+                totalMinutes -= breakMinutes;
+              }
+            });
+          }
+
+          const hours = totalMinutes / 60;
+          if (hours > 0 && (!leaderboard.mostHoursWorked || hours > leaderboard.mostHoursWorked.value)) {
+            leaderboard.mostHoursWorked = { userId: entry.user_id, name: cleanName, value: hours };
+          }
+        }
+
+        if (entry.counter_timestamps) {
+          const timestamps = entry.counter_timestamps as any;
+          if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
+            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts));
+            const earliest = new Date(Math.min(...doorTimestamps.map(d => d.getTime())));
+            const latest = new Date(Math.max(...doorTimestamps.map(d => d.getTime())));
+
+            const userTimezone = entry.timezone || 'America/Denver';
+            const earliestTime = earliest.toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              timeZone: userTimezone 
+            });
+            const latestTime = latest.toLocaleTimeString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              timeZone: userTimezone 
+            });
+
+            if (!leaderboard.earliestDoor || earliest.getTime() < (leaderboard.earliestDoor.value || Infinity)) {
+              leaderboard.earliestDoor = { 
+                userId: entry.user_id, 
+                name: cleanName, 
+                value: earliest.getTime(),
+                timeValue: earliestTime
+              };
+            }
+
+            if (!leaderboard.latestDoor || latest.getTime() > (leaderboard.latestDoor.value || 0)) {
+              leaderboard.latestDoor = { 
+                userId: entry.user_id, 
+                name: cleanName, 
+                value: latest.getTime(),
+                timeValue: latestTime
+              };
+            }
+          }
         }
       });
 
       return leaderboard;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };

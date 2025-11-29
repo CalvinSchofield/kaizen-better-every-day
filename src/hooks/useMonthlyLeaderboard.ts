@@ -5,6 +5,7 @@ interface LeaderboardEntry {
   userId: string;
   name: string;
   value: number;
+  timeValue?: string;
 }
 
 interface MonthlyLeaderboard {
@@ -14,6 +15,9 @@ interface MonthlyLeaderboard {
   mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
+  mostHoursWorked: LeaderboardEntry | null;
+  earliestDoor: LeaderboardEntry | null;
+  latestDoor: LeaderboardEntry | null;
 }
 
 export const useMonthlyLeaderboard = (filterByYear?: string) => {
@@ -40,7 +44,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
       // Fetch all finalized entries for the month
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, pitches, transitions, presentations, fp_plus, prmr")
+        .select("user_id, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
         .eq("is_finalized", true);
@@ -60,6 +64,10 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
         presentations: number;
         fp: number;
         prmr: number;
+        hoursWorked: number;
+        earliestDoorTime: number | null;
+        latestDoorTime: number | null;
+        timezone: string;
       }>();
 
       filteredEntries.forEach(entry => {
@@ -70,7 +78,50 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           presentations: 0,
           fp: 0,
           prmr: 0,
+          hoursWorked: 0,
+          earliestDoorTime: null,
+          latestDoorTime: null,
+          timezone: entry.timezone || 'America/Denver',
         };
+
+        let entryHours = 0;
+        if (entry.work_start_time && entry.work_end_time) {
+          const startTime = new Date(entry.work_start_time);
+          const endTime = new Date(entry.work_end_time);
+          let totalMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((period: any) => {
+              if (period.start && period.end) {
+                const breakStart = new Date(period.start);
+                const breakEnd = new Date(period.end);
+                const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+                totalMinutes -= breakMinutes;
+              }
+            });
+          }
+
+          entryHours = totalMinutes / 60;
+        }
+
+        let entryEarliest = current.earliestDoorTime;
+        let entryLatest = current.latestDoorTime;
+
+        if (entry.counter_timestamps) {
+          const timestamps = entry.counter_timestamps as any;
+          if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
+            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts).getTime());
+            const earliest = Math.min(...doorTimestamps);
+            const latest = Math.max(...doorTimestamps);
+
+            if (entryEarliest === null || earliest < entryEarliest) {
+              entryEarliest = earliest;
+            }
+            if (entryLatest === null || latest > entryLatest) {
+              entryLatest = latest;
+            }
+          }
+        }
 
         userTotals.set(entry.user_id, {
           doors: current.doors + (entry.doors_knocked || 0),
@@ -79,6 +130,10 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           presentations: current.presentations + (entry.presentations || 0),
           fp: current.fp + (entry.fp_plus || 0),
           prmr: current.prmr + (entry.prmr || 0),
+          hoursWorked: current.hoursWorked + entryHours,
+          earliestDoorTime: entryEarliest,
+          latestDoorTime: entryLatest,
+          timezone: entry.timezone || current.timezone,
         });
       });
 
@@ -89,6 +144,9 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
         mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
+        mostHoursWorked: null,
+        earliestDoor: null,
+        latestDoor: null,
       };
 
       // Find top performers
@@ -120,6 +178,44 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
 
         if (totals.prmr > 0 && (!leaderboard.mostPRMR || totals.prmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = { userId, name: cleanName, value: totals.prmr };
+        }
+
+        if (totals.hoursWorked > 0 && (!leaderboard.mostHoursWorked || totals.hoursWorked > leaderboard.mostHoursWorked.value)) {
+          leaderboard.mostHoursWorked = { userId, name: cleanName, value: totals.hoursWorked };
+        }
+
+        if (totals.earliestDoorTime !== null) {
+          const earliestTime = new Date(totals.earliestDoorTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: totals.timezone
+          });
+
+          if (!leaderboard.earliestDoor || totals.earliestDoorTime < (leaderboard.earliestDoor.value || Infinity)) {
+            leaderboard.earliestDoor = {
+              userId,
+              name: cleanName,
+              value: totals.earliestDoorTime,
+              timeValue: earliestTime
+            };
+          }
+        }
+
+        if (totals.latestDoorTime !== null) {
+          const latestTime = new Date(totals.latestDoorTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: totals.timezone
+          });
+
+          if (!leaderboard.latestDoor || totals.latestDoorTime > (leaderboard.latestDoor.value || 0)) {
+            leaderboard.latestDoor = {
+              userId,
+              name: cleanName,
+              value: totals.latestDoorTime,
+              timeValue: latestTime
+            };
+          }
         }
       });
 

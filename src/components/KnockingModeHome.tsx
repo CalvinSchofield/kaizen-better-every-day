@@ -7,8 +7,7 @@ import { QuickStatsBar } from "@/components/QuickStatsBar";
 import { CompetitorQuickAccess } from "@/components/CompetitorQuickAccess";
 import { RookieCompetitorQuickAccess } from "@/components/RookieCompetitorQuickAccess";
 import { PitchPresentationQuickAccess } from "@/components/PitchPresentationQuickAccess";
-import { RookieLeaderboardCard } from "@/components/RookieLeaderboardCard";
-import { VetLeaderboardCard } from "@/components/VetLeaderboardCard";
+import { LeaderboardCard } from "./LeaderboardCard";
 import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
@@ -154,27 +153,13 @@ export const KnockingModeHome = ({
 
         {variant === "rookie" ? (
           <>
-            {/* Rookie-specific: Common Competitors */}
             <RookieCompetitorQuickAccess />
-
-            {/* Rookie-specific: Pitch & Presentation Quick Access */}
             <PitchPresentationQuickAccess />
-
-            {/* Rookie-specific: Yesterday's Rookie Leaders */}
-            <div data-leaderboard-card>
-              <RookieLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
-            </div>
           </>
-        ) : (
-          <>
-            {/* Vet-specific: Yesterday's Top Performers (all reps) */}
-            <div data-leaderboard-card>
-              <VetLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
-            </div>
-          </>
-        )}
+        ) : null}
+        
+        <LeaderboardCard />
 
-        {/* Weather Card at bottom (when not at top) - with animation */}
         {!weatherAtTop && (
           <div className="animate-fade-in">
             <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />

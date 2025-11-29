@@ -5,6 +5,7 @@ interface LeaderboardEntry {
   userId: string;
   name: string;
   value: number;
+  timeValue?: string;
 }
 
 interface WeeklyLeaderboard {
@@ -15,19 +16,22 @@ interface WeeklyLeaderboard {
   mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
+  mostHoursWorked: LeaderboardEntry | null;
+  earliestDoor: LeaderboardEntry | null;
+  latestDoor: LeaderboardEntry | null;
 }
 
 const getMondayOfWeek = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 };
 
 const getSaturdayOfWeek = (date: Date): Date => {
   const monday = getMondayOfWeek(date);
   const saturday = new Date(monday);
-  saturday.setDate(monday.getDate() + 5); // Monday + 5 days = Saturday
+  saturday.setDate(monday.getDate() + 5);
   return saturday;
 };
 
@@ -42,7 +46,6 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
       const mondayStr = monday.toISOString().split('T')[0];
       const saturdayStr = saturday.toISOString().split('T')[0];
 
-      // Fetch all user data to map user_id to name and year
       const { data: users, error: usersError } = await supabase
         .from("reps")
         .select("user_id, name, year");
@@ -59,17 +62,15 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         ]) || []
       );
 
-      // Fetch all finalized entries for the current week
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .eq("is_finalized", true)
         .gte("entry_date", mondayStr)
         .lte("entry_date", saturdayStr);
 
       if (entriesError) throw entriesError;
 
-      // Filter entries by year if specified
       let filteredEntries = entries || [];
       if (filterByYear) {
         filteredEntries = filteredEntries.filter((entry) => {
@@ -78,12 +79,10 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         });
       }
 
-      // If no entries, return empty
       if (filteredEntries.length === 0) {
         return null;
       }
 
-      // Aggregate totals per user
       const userTotals = new Map<string, {
         doors: number;
         decisionMakers: number;
@@ -92,6 +91,10 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         presentations: number;
         fp: number;
         prmr: number;
+        hoursWorked: number;
+        earliestDoorTime: number | null;
+        latestDoorTime: number | null;
+        timezone: string;
       }>();
 
       filteredEntries.forEach((entry) => {
@@ -104,7 +107,50 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           presentations: 0,
           fp: 0,
           prmr: 0,
+          hoursWorked: 0,
+          earliestDoorTime: null,
+          latestDoorTime: null,
+          timezone: entry.timezone || 'America/Denver',
         };
+
+        let entryHours = 0;
+        if (entry.work_start_time && entry.work_end_time) {
+          const startTime = new Date(entry.work_start_time);
+          const endTime = new Date(entry.work_end_time);
+          let totalMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((period: any) => {
+              if (period.start && period.end) {
+                const breakStart = new Date(period.start);
+                const breakEnd = new Date(period.end);
+                const breakMinutes = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+                totalMinutes -= breakMinutes;
+              }
+            });
+          }
+
+          entryHours = totalMinutes / 60;
+        }
+
+        let entryEarliest = existing.earliestDoorTime;
+        let entryLatest = existing.latestDoorTime;
+
+        if (entry.counter_timestamps) {
+          const timestamps = entry.counter_timestamps as any;
+          if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
+            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts).getTime());
+            const earliest = Math.min(...doorTimestamps);
+            const latest = Math.max(...doorTimestamps);
+
+            if (entryEarliest === null || earliest < entryEarliest) {
+              entryEarliest = earliest;
+            }
+            if (entryLatest === null || latest > entryLatest) {
+              entryLatest = latest;
+            }
+          }
+        }
         
         userTotals.set(userId, {
           doors: existing.doors + (entry.doors_knocked || 0),
@@ -114,6 +160,10 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           presentations: existing.presentations + (entry.presentations || 0),
           fp: existing.fp + (entry.fp_plus || 0),
           prmr: existing.prmr + (entry.prmr || 0),
+          hoursWorked: existing.hoursWorked + entryHours,
+          earliestDoorTime: entryEarliest,
+          latestDoorTime: entryLatest,
+          timezone: entry.timezone || existing.timezone,
         });
       });
 
@@ -125,6 +175,9 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
+        mostHoursWorked: null,
+        earliestDoor: null,
+        latestDoor: null,
       };
 
       userTotals.forEach((totals, userId) => {
@@ -158,10 +211,48 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         if (totals.prmr > 0 && (!leaderboard.mostPRMR || totals.prmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = { userId, name: userData.name, value: totals.prmr };
         }
+
+        if (totals.hoursWorked > 0 && (!leaderboard.mostHoursWorked || totals.hoursWorked > leaderboard.mostHoursWorked.value)) {
+          leaderboard.mostHoursWorked = { userId, name: userData.name, value: totals.hoursWorked };
+        }
+
+        if (totals.earliestDoorTime !== null) {
+          const earliestTime = new Date(totals.earliestDoorTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: totals.timezone
+          });
+
+          if (!leaderboard.earliestDoor || totals.earliestDoorTime < (leaderboard.earliestDoor.value || Infinity)) {
+            leaderboard.earliestDoor = {
+              userId,
+              name: userData.name,
+              value: totals.earliestDoorTime,
+              timeValue: earliestTime
+            };
+          }
+        }
+
+        if (totals.latestDoorTime !== null) {
+          const latestTime = new Date(totals.latestDoorTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: totals.timezone
+          });
+
+          if (!leaderboard.latestDoor || totals.latestDoorTime > (leaderboard.latestDoor.value || 0)) {
+            leaderboard.latestDoor = {
+              userId,
+              name: userData.name,
+              value: totals.latestDoorTime,
+              timeValue: latestTime
+            };
+          }
+        }
       });
 
       return leaderboard;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
