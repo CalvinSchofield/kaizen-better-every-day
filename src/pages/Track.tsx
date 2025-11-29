@@ -100,21 +100,26 @@ const Track = ({
   }
 
   return (
-    <div className="h-full bg-background flex flex-col overflow-hidden">
+    <div className="h-full bg-background flex flex-col">
       {/* Time Tracking Bar */}
-      <TimeTrackingBar
-        workStartTime={entry.work_start_time}
-        workEndTime={entry.work_end_time}
-        breakPeriods={entry.break_periods}
-        onStartWork={onStartWork}
-        onEndWork={onEndWork}
-        onStartBreak={onStartBreak}
-        onEndBreak={onEndBreak}
-        onUpdateTime={onUpdateTime}
-      />
+      <div className="flex-shrink-0">
+        <TimeTrackingBar
+          workStartTime={entry.work_start_time}
+          workEndTime={entry.work_end_time}
+          breakPeriods={entry.break_periods}
+          onStartWork={onStartWork}
+          onEndWork={onEndWork}
+          onStartBreak={onStartBreak}
+          onEndBreak={onEndBreak}
+          onUpdateTime={onUpdateTime}
+        />
+      </div>
 
-      {/* Counter Grid - Fills all remaining space to bottom tabs */}
-      <div className="flex-1 px-4 pt-4 min-h-0">
+      {/* Counter Grid - Fills all remaining space */}
+      <div className="flex-1 px-4 pt-4 min-h-0" style={{ 
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
         <QTallyGrid
           entry={entry}
           onCounterChange={onCounterChange}
