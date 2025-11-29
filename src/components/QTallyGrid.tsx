@@ -120,8 +120,18 @@ export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
     { label: "Closes", field: "closes", value: entry.closes },
   ];
 
+  const gridRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (gridRef.current) {
+      console.log('Grid container height:', gridRef.current.offsetHeight);
+      console.log('Grid container clientHeight:', gridRef.current.clientHeight);
+      console.log('Grid parent height:', gridRef.current.parentElement?.offsetHeight);
+    }
+  }, []);
+
   return (
-    <div className="grid grid-cols-2 gap-3 h-full w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
+    <div ref={gridRef} className="grid grid-cols-2 gap-3 h-full w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
       {counters.map((counter) => (
         <CounterCard
           key={counter.field}
