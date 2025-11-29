@@ -149,6 +149,28 @@ export const CalendarView = ({
       totals.presentations += entry.presentations || 0;
       totals.closes += entry.closes || 0;
       totals.daysWorked += 1;
+
+      // Calculate total work time in minutes
+      if (entry.work_start_time && entry.work_end_time) {
+        const start = new Date(entry.work_start_time);
+        const end = new Date(entry.work_end_time);
+        let workMinutes = (end.getTime() - start.getTime()) / 1000 / 60;
+
+        // Subtract break periods
+        if (entry.break_periods && Array.isArray(entry.break_periods)) {
+          const breakMinutes = entry.break_periods.reduce((sum: number, period: any) => {
+            if (period.start && period.end) {
+              const breakStart = new Date(period.start);
+              const breakEnd = new Date(period.end);
+              return sum + ((breakEnd.getTime() - breakStart.getTime()) / 1000 / 60);
+            }
+            return sum;
+          }, 0);
+          workMinutes -= breakMinutes;
+        }
+
+        totals.totalWorkMinutes += workMinutes;
+      }
     }
     return totals;
   }, { 
@@ -160,7 +182,8 @@ export const CalendarView = ({
     transitions: 0,
     presentations: 0,
     closes: 0,
-    daysWorked: 0
+    daysWorked: 0,
+    totalWorkMinutes: 0
   });
 
   // Calculate display values based on view mode
@@ -475,34 +498,85 @@ export const CalendarView = ({
               </div>
             </div>
 
-            {/* Ratios - What it takes to make a sale */}
+            {/* Ratios - What it takes to sell */}
             {viewTotals.closes > 0 && (
               <div className="pt-4 border-t border-border">
                 <div className="text-sm font-semibold text-foreground mb-3">What it takes to sell</div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Doors to sell</span>
-                    <span className="font-semibold text-foreground text-base">
-                      {(viewTotals.doorsKnocked / viewTotals.closes).toFixed(1)}
-                    </span>
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Activity Column */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Doors</span>
+                      <span className="font-semibold text-foreground text-base">
+                        {(viewTotals.doorsKnocked / viewTotals.closes).toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Pitches</span>
+                      <span className="font-semibold text-foreground text-base">
+                        {(viewTotals.pitches / viewTotals.closes).toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Transitions</span>
+                      <span className="font-semibold text-foreground text-base">
+                        {(viewTotals.transitions / viewTotals.closes).toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Presentations</span>
+                      <span className="font-semibold text-foreground text-base">
+                        {(viewTotals.presentations / viewTotals.closes).toFixed(1)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Pitches to sell</span>
-                    <span className="font-semibold text-foreground text-base">
-                      {(viewTotals.pitches / viewTotals.closes).toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Transitions to sell</span>
-                    <span className="font-semibold text-foreground text-base">
-                      {(viewTotals.transitions / viewTotals.closes).toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Presentations to close</span>
-                    <span className="font-semibold text-foreground text-base">
-                      {(viewTotals.presentations / viewTotals.closes).toFixed(1)}
-                    </span>
+                  
+                  {/* Time Column */}
+                  <div className="space-y-2 text-sm">
+                    {viewTotals.totalWorkMinutes > 0 && viewTotals.fpPlus > 0 && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Time/FP+</span>
+                          <span className="font-semibold text-foreground text-base">
+                            {(() => {
+                              const minutesPerFp = viewTotals.totalWorkMinutes / viewTotals.fpPlus;
+                              const hours = Math.floor(minutesPerFp / 60);
+                              const minutes = Math.round(minutesPerFp % 60);
+                              return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Time/door</span>
+                          <span className="font-semibold text-foreground text-base">
+                            {viewTotals.doorsKnocked > 0 
+                              ? `${Math.round(viewTotals.totalWorkMinutes / viewTotals.doorsKnocked)}m`
+                              : '-'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Time/pitch</span>
+                          <span className="font-semibold text-foreground text-base">
+                            {viewTotals.pitches > 0 
+                              ? `${Math.round(viewTotals.totalWorkMinutes / viewTotals.pitches)}m`
+                              : '-'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Time/close</span>
+                          <span className="font-semibold text-foreground text-base">
+                            {(() => {
+                              const minutesPerClose = viewTotals.totalWorkMinutes / viewTotals.closes;
+                              const hours = Math.floor(minutesPerClose / 60);
+                              const minutes = Math.round(minutesPerClose % 60);
+                              return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                            })()}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
