@@ -18,10 +18,13 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["yesterday-leaderboard", filterByYear],
     queryFn: async () => {
-      // Get yesterday's date
+      // Get yesterday's date in local timezone
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const year = yesterday.getFullYear();
+      const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const day = String(yesterday.getDate()).padStart(2, '0');
+      const yesterdayStr = `${year}-${month}-${day}`;
 
       // Fetch all reps data to get names and year info
       const { data: repsData, error: repsError } = await supabase
