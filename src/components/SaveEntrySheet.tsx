@@ -9,8 +9,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Info, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { Info, Trash2, Clock } from "lucide-react";
+import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface SaveEntrySheetProps {
   open: boolean;
@@ -27,6 +27,8 @@ interface SaveEntrySheetProps {
     fp_plus: number;
     prmr: number;
     saveDate: string;
+    work_start_time?: string;
+    work_end_time?: string;
   }) => void;
   onDelete?: () => void;
   isSaving: boolean;
@@ -50,6 +52,8 @@ export const SaveEntrySheet = ({
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
 
   useEffect(() => {
     if (open && entry) {
@@ -62,11 +66,45 @@ export const SaveEntrySheet = ({
       setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
       setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
       setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+      
+      // Pre-fill time data
+      if (entry.work_start_time) {
+        const startDate = parseISO(entry.work_start_time);
+        setStartTime(format(startDate, 'HH:mm'));
+      } else {
+        setStartTime("");
+      }
+      
+      if (entry.work_end_time) {
+        const endDate = parseISO(entry.work_end_time);
+        setEndTime(format(endDate, 'HH:mm'));
+      } else {
+        setEndTime("");
+      }
     }
   }, [open, entry]);
 
   const handleSave = () => {
     const saveDate = format(date, 'yyyy-MM-dd');
+    
+    // Convert times to ISO strings if provided
+    let workStartTime: string | undefined;
+    let workEndTime: string | undefined;
+    
+    if (startTime) {
+      const [hours, minutes] = startTime.split(':');
+      const startDate = new Date(date);
+      startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      workStartTime = startDate.toISOString();
+    }
+    
+    if (endTime) {
+      const [hours, minutes] = endTime.split(':');
+      const endDate = new Date(date);
+      endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      workEndTime = endDate.toISOString();
+    }
+    
     onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
@@ -77,8 +115,38 @@ export const SaveEntrySheet = ({
       fp_plus: parseFloat(fpPlus) || 0,
       prmr: parseFloat(prmr) || 0,
       saveDate,
+      work_start_time: workStartTime,
+      work_end_time: workEndTime,
     });
     onOpenChange(false);
+  };
+  
+  // Calculate total time worked
+  const calculateTotalTime = () => {
+    if (!entry?.work_start_time) return "Not started";
+    
+    const start = parseISO(entry.work_start_time);
+    const end = entry.work_end_time ? parseISO(entry.work_end_time) : new Date();
+    
+    let totalMinutes = differenceInMinutes(end, start);
+    
+    // Subtract break time
+    const breakPeriods = entry.break_periods || [];
+    breakPeriods.forEach((bp: any) => {
+      if (bp.start) {
+        const breakStart = parseISO(bp.start);
+        const breakEnd = bp.end ? parseISO(bp.end) : new Date();
+        totalMinutes -= differenceInMinutes(breakEnd, breakStart);
+      }
+    });
+    
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
   };
 
   return (
@@ -195,6 +263,40 @@ export const SaveEntrySheet = ({
                   onChange={(e) => setCloses(e.target.value)}
                   enterKeyHint="next"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Time Tracking Section */}
+          <div>
+            <Label className="text-base mb-3 block">Time Tracking</Label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="start-time" className="text-sm">Start Time</Label>
+                <Input
+                  id="start-time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-1.5">
+                <Label htmlFor="end-time" className="text-sm">End Time</Label>
+                <Input
+                  id="end-time"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-1.5">
+                <Label className="text-sm">Total Time Worked</Label>
+                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border border-border/40">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{calculateTotalTime()}</span>
+                </div>
               </div>
             </div>
           </div>
