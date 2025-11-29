@@ -101,8 +101,8 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
 
         {/* Upfront Pay Calculation */}
         <div className="mt-4 text-center">
-          <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-            Anticipated Upfront Pay: <span className="text-base">${upfrontPay.toLocaleString()}</span>
+          <p className="text-sm font-semibold text-muted-foreground">
+            Anticipated Upfront Pay: <span className="text-base text-green-800 dark:text-green-500">${upfrontPay.toLocaleString()}</span>
           </p>
         </div>
 
