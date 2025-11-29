@@ -1,13 +1,15 @@
-import { Shield } from "lucide-react";
+import { Shield, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useCompetitors } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
+import { useNavigate } from "react-router-dom";
 
 export const RookieCompetitorQuickAccess = () => {
   const { competitors } = useCompetitors();
   const [selectedCompetitor, setSelectedCompetitor] = useState<any>(null);
+  const navigate = useNavigate();
 
   // Filter for the 8 specific competitors rookies face most
   const targetCompetitors = [
@@ -16,9 +18,9 @@ export const RookieCompetitorQuickAccess = () => {
     { search: "ring doorbell", prefer: "battery" },
     { search: "ring outdoor", prefer: "" },
     { search: "adt alarm", prefer: "" },
-    { search: "google doorbell", prefer: "battery" },
-    { search: "blink camera", prefer: "" },
-    { search: "arlo outdoor", prefer: "" }
+    { search: "google", prefer: "camera" },
+    { search: "ring spotlight", prefer: "" },
+    { search: "blink", prefer: "" }
   ];
   
   const commonCompetitors = targetCompetitors.map(target => {
@@ -41,9 +43,20 @@ export const RookieCompetitorQuickAccess = () => {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <CardTitle>Common Competitors</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              <CardTitle>Common Competitors</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/competitors')}
+              className="text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              View all
+              <ChevronRight className="h-3 w-3" />
+            </Button>
           </div>
           <CardDescription>Quick access to the ones you'll see most</CardDescription>
         </CardHeader>
