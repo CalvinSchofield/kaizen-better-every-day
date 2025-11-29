@@ -2,7 +2,7 @@ import { RefreshCw, LogOut, Calendar, TrendingUp, Target, Cloud, CheckCircle2 } 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyFocusCard } from "@/components/DailyFocusCard";
-import { WeekSummaryCard } from "@/components/WeekSummaryCard";
+import { ActivitySummaryCard } from "@/components/ActivitySummaryCard";
 import { QuickStatsBar } from "@/components/QuickStatsBar";
 import { CompetitorQuickAccess } from "@/components/CompetitorQuickAccess";
 import { RookieCompetitorQuickAccess } from "@/components/RookieCompetitorQuickAccess";
@@ -141,7 +141,7 @@ export const KnockingModeHome = ({
           </div>
         )}
         
-        <WeekSummaryCard repData={repData} />
+        <ActivitySummaryCard repData={repData} />
         <QuickStatsBar repData={repData} />
 
         {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
