@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
@@ -166,8 +167,10 @@ export default function Insights() {
             size="sm"
             onClick={() => setShowCustomDialog(true)}
           >
-            <Calendar className="w-4 h-4 mr-1" />
-            Custom
+            <CalendarIcon className="w-4 h-4 mr-1" />
+            {datePreset === 'custom' && customStartDate && customEndDate
+              ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+              : 'Custom'}
           </Button>
         </div>
 
@@ -328,9 +331,9 @@ export default function Insights() {
             
             {insights.bestWeek && (
               <Card className="p-4">
-                <div className="text-sm text-muted-foreground mb-1">Best Week (Mon-Sat)</div>
+                <div className="text-sm text-muted-foreground mb-1">Best Week</div>
                 <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
-                <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} - {insights.bestWeek.weekEnd}</div>
+                <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
                 <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
               </Card>
             )}
@@ -389,28 +392,29 @@ export default function Insights() {
         </div>
       </div>
 
-      {/* Custom Date Range Dialog */}
-      <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Select Custom Date Range</DialogTitle>
-          </DialogHeader>
+      {/* Custom Date Range Sheet */}
+      <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Select Custom Date Range</SheetTitle>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Start Date</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" />
                     {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
+                  <Calendar
                     mode="single"
                     selected={customStartDate}
                     onSelect={setCustomStartDate}
                     initialFocus
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
@@ -421,16 +425,17 @@ export default function Insights() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" />
                     {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
+                  <Calendar
                     mode="single"
                     selected={customEndDate}
                     onSelect={setCustomEndDate}
                     initialFocus
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
@@ -444,8 +449,8 @@ export default function Insights() {
               Apply Date Range
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
