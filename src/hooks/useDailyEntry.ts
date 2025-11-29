@@ -251,6 +251,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
+      queryClient.invalidateQueries({ queryKey: ['week-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['last-week-summary'] });
       toast.success("Entry deleted");
     },
     onError: (error) => {

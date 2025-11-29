@@ -20,10 +20,10 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
 
   // Get goals from localStorage with defaults
-  const [transitionsGoal, setTransitionsGoal] = useState(15);
-  const [presentationsGoal, setPresentationsGoal] = useState(5);
-  const [transitionsInput, setTransitionsInput] = useState("15");
-  const [presentationsInput, setPresentationsInput] = useState("5");
+  const [transitionsGoal, setTransitionsGoal] = useState(3);
+  const [presentationsGoal, setPresentationsGoal] = useState(2);
+  const [transitionsInput, setTransitionsInput] = useState("3");
+  const [presentationsInput, setPresentationsInput] = useState("2");
 
   // Load goals from localStorage on mount
   useEffect(() => {
@@ -50,8 +50,8 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const presentationsProgress = presentationsGoal > 0 ? Math.min((todayPresentations / presentationsGoal) * 100, 100) : 0;
 
   const handleSaveGoals = () => {
-    const transVal = parseInt(transitionsInput) || 15;
-    const presVal = parseInt(presentationsInput) || 5;
+    const transVal = parseInt(transitionsInput) || 3;
+    const presVal = parseInt(presentationsInput) || 2;
     
     setTransitionsGoal(transVal);
     setPresentationsGoal(presVal);
@@ -91,7 +91,7 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
             </Button>
           ) : null}
         </div>
-        <CardDescription>Keep the momentum going</CardDescription>
+        <CardDescription>Simplify your mission today</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isEditing ? (

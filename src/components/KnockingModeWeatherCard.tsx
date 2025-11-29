@@ -32,7 +32,12 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
 
   // Determine if there's an active blitz
   const activeBlitz = useMemo(() => {
-    if (!isOnActiveBlitz || !repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
+    // Only look for active blitz if prop says we're on one
+    if (!isOnActiveBlitz) {
+      return null;
+    }
+    
+    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
       return null;
     }
 
