@@ -86,12 +86,6 @@ const Tools = () => {
           icon: Phone,
         },
         {
-          title: "The Vault",
-          description: "On-the-doors resource app",
-          href: "https://calvinschofield.notion.site/the-vault?pvs=4",
-          icon: FileText,
-        },
-        {
           title: "Simple Commission Calculator",
           description: "Calculate earnings based on the payscale",
           href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
