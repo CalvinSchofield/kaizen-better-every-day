@@ -42,16 +42,8 @@ const Tools = () => {
   const { repData } = useRepData();
   const navigate = useNavigate();
 
-  // Smart link handler - opens Notion links in app, PWA links in same window
+  // Smart link handler - opens Notion links in app
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    // Check if it's the Sales Tracking PWA app
-    if (href.includes('kaizen-better-every-day.lovable.app')) {
-      e.preventDefault();
-      // Open in same window to stay in PWA context
-      window.location.href = href;
-      return;
-    }
-
     // Check if it's a Notion link and try to open in Notion app
     if (href.includes('notion.so') || href.includes('notion.site')) {
       e.preventDefault();
@@ -81,12 +73,6 @@ const Tools = () => {
       description: "Daily tools to help you sell",
       icon: Wrench,
       links: [
-        {
-          title: "Sales Tracking",
-          description: "Track your progress & stats",
-          href: "https://kaizen-better-every-day.lovable.app/auth",
-          icon: BarChart3,
-        },
         {
           title: "Competitor Cheat Sheet",
           description: "Quick reference for competitor products",
