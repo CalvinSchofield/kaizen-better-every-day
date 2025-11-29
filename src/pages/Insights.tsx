@@ -17,15 +17,18 @@ import { cn } from '@/lib/utils';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
+type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | null;
+
 export default function Insights() {
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
-  const [ratiosExpanded, setRatiosExpanded] = useState(false);
-  const [productivityExpanded, setProductivityExpanded] = useState(false);
-  const [bestPeriodsExpanded, setBestPeriodsExpanded] = useState(false);
-  const [timingExpanded, setTimingExpanded] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+  
+  const handleSectionToggle = (section: ExpandedSection) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -193,16 +196,16 @@ export default function Insights() {
 
             {/* Key Ratios */}
             <Card>
-              <Collapsible open={ratiosExpanded} onOpenChange={setRatiosExpanded}>
+              <Collapsible open={expandedSection === 'ratios'} onOpenChange={() => handleSectionToggle('ratios')}>
                 <CollapsibleTrigger className="w-full p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Target className="w-5 h-5" />
                       <h2 className="text-lg font-semibold">Key Ratios</h2>
                     </div>
-                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", ratiosExpanded && "rotate-180")} />
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'ratios' && "rotate-180")} />
                   </div>
-                  {!ratiosExpanded && (
+                  {expandedSection !== 'ratios' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
                       {insights.doorsToFp.toFixed(1)} doors per FP+ · {insights.presentationsToClose.toFixed(1)} presentations per close
                     </div>
@@ -288,18 +291,18 @@ export default function Insights() {
 
             {/* Time-Based Productivity */}
             <Card>
-              <Collapsible open={productivityExpanded} onOpenChange={setProductivityExpanded}>
+              <Collapsible open={expandedSection === 'productivity'} onOpenChange={() => handleSectionToggle('productivity')}>
                 <CollapsibleTrigger className="w-full p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Clock className="w-5 h-5" />
                       <h2 className="text-lg font-semibold">Productivity per Hour</h2>
                     </div>
-                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", productivityExpanded && "rotate-180")} />
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'productivity' && "rotate-180")} />
                   </div>
-                  {!productivityExpanded && (
+                  {expandedSection !== 'productivity' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      {insights.doorsPerHour.toFixed(1)} doors/hr · {insights.hoursToFp.toFixed(1)} hours per FP+
+                      <span className="text-primary font-semibold">{insights.hoursToFp.toFixed(1)} hours</span> to sell 1 FP+
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -334,16 +337,16 @@ export default function Insights() {
 
             {/* Best Periods */}
             <Card>
-              <Collapsible open={bestPeriodsExpanded} onOpenChange={setBestPeriodsExpanded}>
+              <Collapsible open={expandedSection === 'bestPeriods'} onOpenChange={() => handleSectionToggle('bestPeriods')}>
                 <CollapsibleTrigger className="w-full p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Award className="w-5 h-5" />
                       <h2 className="text-lg font-semibold">Best Periods</h2>
                     </div>
-                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", bestPeriodsExpanded && "rotate-180")} />
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'bestPeriods' && "rotate-180")} />
                   </div>
-                  {!bestPeriodsExpanded && insights.bestDay && (
+                  {expandedSection !== 'bestPeriods' && insights.bestDay && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
                       Best day: {insights.bestDay.fpPlus.toFixed(1)} FP+ on {insights.bestDay.date}
                     </div>
@@ -393,16 +396,16 @@ export default function Insights() {
 
             {/* Timing Patterns */}
             <Card>
-              <Collapsible open={timingExpanded} onOpenChange={setTimingExpanded}>
+              <Collapsible open={expandedSection === 'timing'} onOpenChange={() => handleSectionToggle('timing')}>
                 <CollapsibleTrigger className="w-full p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Clock className="w-5 h-5" />
                       <h2 className="text-lg font-semibold">Timing Patterns</h2>
                     </div>
-                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", timingExpanded && "rotate-180")} />
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'timing' && "rotate-180")} />
                   </div>
-                  {!timingExpanded && (
+                  {expandedSection !== 'timing' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
                       {insights.avgStartTime} — {insights.avgEndTime} · {insights.avgHoursWorked.toFixed(1)} hrs avg
                     </div>
