@@ -97,6 +97,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
           onboardingStatus: rookie.onboardingStatus
         });
 
+        // Track the earliest blitz for this rookie to avoid duplicates
+        let earliestBlitz: { blitz: BlitzEvent; daysUntil: number } | null = null;
+
         rookie.committedBlitzes.forEach(blitzId => {
           const blitz = allBlitzes.find(b => b.id === blitzId);
           if (!blitz) {
@@ -104,50 +107,58 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
             return;
           }
 
-          // Parse the date and normalize to start of day
-          const blitzDate = new Date(blitz.date);
-          blitzDate.setHours(0, 0, 0, 0);
+          // Parse the date string as UTC to avoid timezone shifts
+          const blitzDate = new Date(blitz.date + 'T00:00:00Z');
+          const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
           
-          // Calculate days difference
-          const diffTime = blitzDate.getTime() - today.getTime();
-          const daysUntil = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          // Calculate days difference using UTC timestamps
+          const diffTime = blitzDate.getTime() - todayUTC.getTime();
+          const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
           console.log('[VetAlertCard] Blitz check:', {
             rookieName: rookie.name,
             blitzName: blitz.name,
             blitzDate: blitz.date,
             today: today.toISOString(),
-            blitzDateNormalized: blitzDate.toISOString(),
+            blitzDateUTC: blitzDate.toISOString(),
             diffTime,
             daysUntil,
             ipadAssigned: rookie.ipadAssigned,
             onboardingStatus: rookie.onboardingStatus
           });
 
-          // Only check for blitzes within 7 days and in the future
+          // Track the earliest blitz within 7 days for this rookie
           if (daysUntil <= 7 && daysUntil >= 0) {
-            console.log('[VetAlertCard] Blitz within 7 days!', {
-              rookieName: rookie.name,
-              daysUntil
-            });
-
-            const needsIpad = !rookie.ipadAssigned;
-            const status = rookie.onboardingStatus?.toLowerCase() || "";
-            const needsOnboarding = !status.includes("phase 4");
-
-            // Only add alert if rookie needs iPad OR onboarding
-            if (needsIpad || needsOnboarding) {
-              const key = `${rookie.notionPageId}-${blitz.id}`;
-              alertsMap.set(key, {
-                rookie,
-                blitz,
-                daysUntil,
-                needsIpad,
-                needsOnboarding
-              });
+            if (!earliestBlitz || daysUntil < earliestBlitz.daysUntil) {
+              earliestBlitz = { blitz, daysUntil };
             }
           }
         });
+
+        // After checking all blitzes, add ONE alert per rookie if they have an upcoming blitz within 7 days
+        if (earliestBlitz) {
+          console.log('[VetAlertCard] Earliest blitz for rookie:', {
+            rookieName: rookie.name,
+            blitzName: earliestBlitz.blitz.name,
+            daysUntil: earliestBlitz.daysUntil
+          });
+
+          const needsIpad = !rookie.ipadAssigned;
+          const status = rookie.onboardingStatus?.toLowerCase() || "";
+          const needsOnboarding = !status.includes("phase 4");
+
+          // Only add alert if rookie needs iPad OR onboarding
+          if (needsIpad || needsOnboarding) {
+            // Use only rookie ID as key to ensure one alert per rookie
+            alertsMap.set(rookie.notionPageId, {
+              rookie,
+              blitz: earliestBlitz.blitz,
+              daysUntil: earliestBlitz.daysUntil,
+              needsIpad,
+              needsOnboarding
+            });
+          }
+        }
       });
 
       const alerts = Array.from(alertsMap.values());
