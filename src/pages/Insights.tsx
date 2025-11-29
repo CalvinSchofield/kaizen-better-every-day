@@ -23,6 +23,9 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [ratiosExpanded, setRatiosExpanded] = useState(false);
+  const [productivityExpanded, setProductivityExpanded] = useState(false);
+  const [bestPeriodsExpanded, setBestPeriodsExpanded] = useState(false);
+  const [timingExpanded, setTimingExpanded] = useState(false);
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -189,18 +192,24 @@ export default function Insights() {
             </Card>
 
             {/* Key Ratios */}
-            <Collapsible open={ratiosExpanded} onOpenChange={setRatiosExpanded}>
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Target className="w-5 h-5" />
-                    Key Ratios
-                  </h2>
-                  <ChevronDown className={cn("w-5 h-5 transition-transform", ratiosExpanded && "rotate-180")} />
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="space-y-3">
+            <Card>
+              <Collapsible open={ratiosExpanded} onOpenChange={setRatiosExpanded}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Key Ratios</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", ratiosExpanded && "rotate-180")} />
+                  </div>
+                  {!ratiosExpanded && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insights.doorsToFp.toFixed(1)} doors per FP+ · {insights.presentationsToClose.toFixed(1)} presentations per close
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 space-y-3">
                 <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -272,49 +281,76 @@ export default function Insights() {
                     )}
                   </div>
                 </Card>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
 
             {/* Time-Based Productivity */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Productivity per Hour
-              </h2>
-              <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Doors/Hour</div>
-                    <div className="text-xl font-bold">{insights.doorsPerHour.toFixed(1)}</div>
+            <Card>
+              <Collapsible open={productivityExpanded} onOpenChange={setProductivityExpanded}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Productivity per Hour</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", productivityExpanded && "rotate-180")} />
                   </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Pitches/Hour</div>
-                    <div className="text-xl font-bold">{insights.pitchesPerHour.toFixed(1)}</div>
+                  {!productivityExpanded && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insights.doorsPerHour.toFixed(1)} doors/hr · {insights.hoursToFp.toFixed(1)} hours per FP+
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Doors/Hour</div>
+                        <div className="text-xl font-bold">{insights.doorsPerHour.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Pitches/Hour</div>
+                        <div className="text-xl font-bold">{insights.pitchesPerHour.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Transitions/Hour</div>
+                        <div className="text-xl font-bold">{insights.transitionsPerHour.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Presentations/Hour</div>
+                        <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
+                      </div>
+                      <div className="col-span-2 pt-2 border-t border-border">
+                        <div className="text-sm text-muted-foreground">Hours to sell 1 FP+</div>
+                        <div className="text-xl font-bold">{insights.hoursToFp.toFixed(1)}h</div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Transitions/Hour</div>
-                    <div className="text-xl font-bold">{insights.transitionsPerHour.toFixed(1)}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Presentations/Hour</div>
-                    <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
-                  </div>
-                  <div className="col-span-2 pt-2 border-t border-border">
-                    <div className="text-sm text-muted-foreground">Hours to sell 1 FP+</div>
-                    <div className="text-xl font-bold">{insights.hoursToFp.toFixed(1)}h</div>
-                  </div>
-                </div>
-              </Card>
-            </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
 
             {/* Best Periods */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Award className="w-5 h-5" />
-                Best Periods
-              </h2>
-              <div className="space-y-3">
+            <Card>
+              <Collapsible open={bestPeriodsExpanded} onOpenChange={setBestPeriodsExpanded}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Best Periods</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", bestPeriodsExpanded && "rotate-180")} />
+                  </div>
+                  {!bestPeriodsExpanded && insights.bestDay && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      Best day: {insights.bestDay.fpPlus.toFixed(1)} FP+ on {insights.bestDay.date}
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 space-y-3">
                 {insights.bestDay && (
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground mb-1">Best Day</div>
@@ -350,41 +386,57 @@ export default function Insights() {
                     <div className="text-xs text-muted-foreground mt-1">{insights.bestRatioDay.fpPlus.toFixed(1)} FP+ sold</div>
                   </Card>
                 )}
-              </div>
-            </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
 
             {/* Timing Patterns */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Timing Patterns
-              </h2>
-              <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Avg Start Time</div>
-                    <div className="text-xl font-bold">{insights.avgStartTime}</div>
+            <Card>
+              <Collapsible open={timingExpanded} onOpenChange={setTimingExpanded}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Timing Patterns</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", timingExpanded && "rotate-180")} />
                   </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Avg End Time</div>
-                    <div className="text-xl font-bold">{insights.avgEndTime}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
-                    <div className="text-xl font-bold">{insights.avgHoursWorked.toFixed(1)}h</div>
-                  </div>
-                  {insights.mostProductiveHour !== null && (
-                    <div>
-                      <div className="text-sm text-muted-foreground">Most Productive Hour</div>
-                      <div className="text-xl font-bold">
-                        {insights.mostProductiveHour === 0 ? '12' : insights.mostProductiveHour > 12 ? insights.mostProductiveHour - 12 : insights.mostProductiveHour}
-                        {insights.mostProductiveHour >= 12 ? 'PM' : 'AM'}
-                      </div>
+                  {!timingExpanded && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insights.avgStartTime} — {insights.avgEndTime} · {insights.avgHoursWorked.toFixed(1)} hrs avg
                     </div>
                   )}
-                </div>
-              </Card>
-            </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg Start Time</div>
+                        <div className="text-xl font-bold">{insights.avgStartTime}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg End Time</div>
+                        <div className="text-xl font-bold">{insights.avgEndTime}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
+                        <div className="text-xl font-bold">{insights.avgHoursWorked.toFixed(1)}h</div>
+                      </div>
+                      {insights.mostProductiveHour !== null && (
+                        <div>
+                          <div className="text-sm text-muted-foreground">Most Productive Hour</div>
+                          <div className="text-xl font-bold">
+                            {insights.mostProductiveHour === 0 ? '12' : insights.mostProductiveHour > 12 ? insights.mostProductiveHour - 12 : insights.mostProductiveHour}
+                            {insights.mostProductiveHour >= 12 ? 'PM' : 'AM'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
           </>
         )}
       </div>
