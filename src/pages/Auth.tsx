@@ -10,7 +10,7 @@ import { Loader2, LogIn, UserPlus } from "lucide-react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -69,7 +69,21 @@ const Auth = () => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          // Check if user already exists
+          if (error.message.toLowerCase().includes("already registered") || 
+              error.message.toLowerCase().includes("already exists")) {
+            setIsLogin(true);
+            toast({
+              title: "Account already exists",
+              description: "Switching you to login. Please sign in with your existing account.",
+              variant: "default",
+            });
+            setIsLoading(false);
+            return;
+          }
+          throw error;
+        }
 
         toast({
           title: "Account created!",
