@@ -169,7 +169,10 @@ export const SaveEntrySheet = ({
           {/* Daily Activity Card - Collapsible */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <Collapsible open={isDailyActivityOpen} onOpenChange={setIsDailyActivityOpen}>
+              <Collapsible open={isDailyActivityOpen} onOpenChange={(open) => {
+                setIsDailyActivityOpen(open);
+                if (open) setIsTimeTrackingOpen(false);
+              }}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
                   <div className="flex items-center gap-2">
                     <Label className="text-base cursor-pointer">Daily Activity</Label>
@@ -290,7 +293,10 @@ export const SaveEntrySheet = ({
           {/* Time Tracking Card - Collapsible */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <Collapsible open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen}>
+              <Collapsible open={isTimeTrackingOpen} onOpenChange={(open) => {
+                setIsTimeTrackingOpen(open);
+                if (open) setIsDailyActivityOpen(false);
+              }}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
                   <Label className="text-base cursor-pointer">Time Tracking</Label>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTimeTrackingOpen ? 'rotate-180' : ''}`} />
