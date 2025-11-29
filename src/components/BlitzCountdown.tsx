@@ -79,11 +79,12 @@ export const BlitzCountdown = ({
     }
 
     try {
+      // Parse dates as UTC to avoid timezone shifts
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const blitzDate = new Date(tripDate);
-      blitzDate.setHours(0, 0, 0, 0);
-      const diffTime = blitzDate.getTime() - today.getTime();
+      const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      const blitzDate = new Date(tripDate + 'T00:00:00Z');
+      
+      const diffTime = blitzDate.getTime() - todayUTC.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       setDaysUntil(diffDays);
 
