@@ -174,19 +174,21 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   const suggestion = getWeatherSuggestion(weather.high, weather.low, weather.weatherCode);
 
   return (
-    <div className="w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="w-full rounded-lg bg-card border border-border mb-6">
+      <div className="flex items-center gap-3 p-4">
         <span className="text-2xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
-        <p className="text-primary-foreground/90 text-base font-semibold">
-          Weather in {weather.location}
-        </p>
+        <div className="flex-1">
+          <p className="text-foreground text-base font-semibold mb-1">
+            Weather in {weather.location}
+          </p>
+          <p className="text-muted-foreground text-sm mb-1">
+            {weather.high}°F high, {weather.low}°F low · {condition}
+          </p>
+          <p className="text-muted-foreground text-sm leading-snug">
+            {suggestion}
+          </p>
+        </div>
       </div>
-      <p className="text-primary-foreground/80 text-sm mb-1">
-        {weather.high}°F high, {weather.low}°F low · {condition}
-      </p>
-      <p className="text-primary-foreground/70 text-sm leading-snug">
-        {suggestion}
-      </p>
     </div>
   );
 };
