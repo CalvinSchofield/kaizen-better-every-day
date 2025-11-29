@@ -5,6 +5,10 @@ import { DailyFocusCard } from "@/components/DailyFocusCard";
 import { WeekSummaryCard } from "@/components/WeekSummaryCard";
 import { QuickStatsBar } from "@/components/QuickStatsBar";
 import { CompetitorQuickAccess } from "@/components/CompetitorQuickAccess";
+import { RookieCompetitorQuickAccess } from "@/components/RookieCompetitorQuickAccess";
+import { PitchPresentationQuickAccess } from "@/components/PitchPresentationQuickAccess";
+import { RookieLeaderboardCard } from "@/components/RookieLeaderboardCard";
+import { VetLeaderboardCard } from "@/components/VetLeaderboardCard";
 import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { useState } from "react";
@@ -115,8 +119,24 @@ export const KnockingModeHome = ({
           </Card>
         )}
 
-        {/* Competitor Quick Access */}
-        <CompetitorQuickAccess />
+        {/* Conditional content based on variant */}
+        {variant === "rookie" ? (
+          <>
+            {/* Rookie-specific: Common Competitors */}
+            <RookieCompetitorQuickAccess />
+
+            {/* Rookie-specific: Pitch & Presentation Quick Access */}
+            <PitchPresentationQuickAccess />
+
+            {/* Rookie-specific: Yesterday's Rookie Leaders */}
+            <RookieLeaderboardCard />
+          </>
+        ) : (
+          <>
+            {/* Vet-specific: Yesterday's Top Performers (all reps) */}
+            <VetLeaderboardCard />
+          </>
+        )}
       </div>
 
       {/* Logout Confirmation Sheet */}
