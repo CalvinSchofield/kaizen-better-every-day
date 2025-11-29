@@ -536,7 +536,7 @@ export const CalendarView = ({
                     {viewTotals.totalWorkMinutes > 0 && viewTotals.fpPlus > 0 && (
                       <>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Time/FP+</span>
+                          <span className="text-muted-foreground">Hours per FP+</span>
                           <span className="font-semibold text-foreground text-base">
                             {(() => {
                               const minutesPerFp = viewTotals.totalWorkMinutes / viewTotals.fpPlus;
