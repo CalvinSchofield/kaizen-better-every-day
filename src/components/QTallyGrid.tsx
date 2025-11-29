@@ -121,7 +121,7 @@ export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 auto-rows-fr gap-3 h-full w-full">
+    <div className="grid grid-cols-2 gap-3 h-full w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
       {counters.map((counter) => (
         <CounterCard
           key={counter.field}
