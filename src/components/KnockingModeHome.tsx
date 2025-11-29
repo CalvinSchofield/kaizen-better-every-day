@@ -53,21 +53,23 @@ export const KnockingModeHome = ({
     return "Good evening";
   };
 
-  // Determine if weather should be at top (second position) or bottom
-  const shouldWeatherBeAtTop = () => {
+  // Determine section ordering based on time of day
+  const getSectionOrder = () => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     const currentMinutes = hours * 60 + minutes;
     
-    // 10:30 PM = 22:30 = 1350 minutes
-    // 10:00 AM = 10:00 = 600 minutes
+    // 9:30 PM = 21:30 = 1290 minutes
+    // 12:00 PM (noon) = 12:00 = 720 minutes
     
-    // Show at top if: 10:30 PM (1350) to midnight (1440) OR midnight (0) to 10:00 AM (600)
-    return currentMinutes >= 1350 || currentMinutes < 600;
+    // Night mode (after 9:30 PM or before noon): Weather at top
+    const isNightMode = currentMinutes >= 1290 || currentMinutes < 720;
+    
+    return isNightMode;
   };
 
-  const weatherAtTop = shouldWeatherBeAtTop();
+  const isNightMode = getSectionOrder();
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   
@@ -134,38 +136,63 @@ export const KnockingModeHome = ({
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
         <DailyFocusCard repData={repData} />
         
-        {/* Weather Card - positioned after DailyFocusCard during night/morning hours */}
-        {weatherAtTop && (
-          <div className="animate-fade-in">
-            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-          </div>
-        )}
+        {/* Night mode (after 9:30 PM): Weather, Leaderboard, Pitches, Competitors */}
+        {/* Day mode (noon to 9:30 PM): Weather (if applicable), Pitches, Competitors, Leaderboard */}
         
-        <ActivitySummaryCard repData={repData} />
-        <QuickStatsBar repData={repData} />
-
-        {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
-        {isTeamLead && anyBlitzWithin14Days && (
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">
-              Blitz management available for team leads
-            </p>
-          </Card>
-        )}
-
-        {variant === "rookie" ? (
+        {isNightMode && (
           <>
-            <RookieCompetitorQuickAccess />
-            <PitchPresentationQuickAccess />
+            <div className="animate-fade-in">
+              <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+            </div>
+            <ActivitySummaryCard repData={repData} />
+            <QuickStatsBar repData={repData} />
+            
+            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
+            {isTeamLead && anyBlitzWithin14Days && (
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Blitz management available for team leads
+                </p>
+              </Card>
+            )}
+            
+            <LeaderboardCard />
+            
+            {variant === "rookie" && (
+              <>
+                <PitchPresentationQuickAccess />
+                <RookieCompetitorQuickAccess />
+              </>
+            )}
           </>
-        ) : null}
+        )}
         
-        <LeaderboardCard />
-
-        {!weatherAtTop && (
-          <div className="animate-fade-in">
-            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-          </div>
+        {!isNightMode && (
+          <>
+            <div className="animate-fade-in">
+              <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+            </div>
+            <ActivitySummaryCard repData={repData} />
+            <QuickStatsBar repData={repData} />
+            
+            {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
+            {isTeamLead && anyBlitzWithin14Days && (
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground">
+                  Blitz management available for team leads
+                </p>
+              </Card>
+            )}
+            
+            {variant === "rookie" && (
+              <>
+                <PitchPresentationQuickAccess />
+                <RookieCompetitorQuickAccess />
+              </>
+            )}
+            
+            <LeaderboardCard />
+          </>
         )}
       </div>
 
