@@ -194,7 +194,7 @@ const Track = () => {
       </div>
 
       {/* Counter Grid - Fills all available space with safe bottom padding */}
-      <div className="flex-1 px-4 pt-4 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="flex-1 px-4 pt-2 pb-2 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))' }}>
         <QTallyGrid
           entry={entry}
           onCounterChange={handleCounterChange}
