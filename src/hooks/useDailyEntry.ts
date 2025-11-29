@@ -135,6 +135,8 @@ export const useDailyEntry = (date?: string) => {
     onSettled: () => {
       // Refetch to ensure we have the latest data
       queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
+      // Also invalidate activity summary to update real-time
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
     },
   });
 
@@ -187,6 +189,7 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       toast.success('Entry saved successfully!');
     },
   });

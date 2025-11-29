@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
 import { SaveEntrySheet } from "./SaveEntrySheet";
@@ -16,21 +16,9 @@ const TrackWithLayout = () => {
     // Reset counters and timers after successful save
     await resetEntry();
   };
-  
-  // Debounce refs for batching rapid updates
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingUpdatesRef = useRef<any>({});
-  
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
+    // Immediately trigger optimistic update through mutation
     const updates: any = { [field]: Math.max(0, value) };
     
     // Auto-end break if one is active when counter is tapped
@@ -59,23 +47,8 @@ const TrackWithLayout = () => {
       [field]: [...fieldTimestamps, new Date().toISOString()]
     };
     
-    // Accumulate updates
-    pendingUpdatesRef.current = {
-      ...pendingUpdatesRef.current,
-      ...updates
-    };
-    
-    // Clear existing timeout
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
-    }
-    
-    // Set new timeout to batch updates
-    updateTimeoutRef.current = setTimeout(async () => {
-      const batchedUpdates = { ...pendingUpdatesRef.current };
-      pendingUpdatesRef.current = {};
-      await updateCounter(batchedUpdates);
-    }, 300); // 300ms debounce
+    // Immediately call updateCounter for instant optimistic UI update
+    await updateCounter(updates);
   }, [entry, updateCounter]);
 
   const handleStartWork = () => {
