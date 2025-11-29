@@ -171,6 +171,9 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
             </Link>
           )}
 
+          {/* Show separator after Insights only when it's visible in drawer (knocking mode off) */}
+          {!navItems.some(item => item.path === "/insights") && <Separator />}
+
           {/* AI Assistant Link */}
           <a
             href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
