@@ -17,33 +17,37 @@ export const PitchPresentationQuickAccess = () => {
         <ExternalLinkComponent href="https://calvinschofield.notion.site/Upgrade-Door-Approach-18c070fe3bc28077a280ee0783b4881b">
           <Button
             variant="outline"
-            className="w-full h-auto py-3 px-2 flex-col gap-1"
+            className="w-full h-auto py-3 px-2 flex items-center justify-center gap-1.5"
           >
             <span className="text-xs font-medium">Upgrade</span>
+            <ExternalLink className="h-3 w-3" />
           </Button>
         </ExternalLinkComponent>
         <ExternalLinkComponent href="https://calvinschofield.notion.site/Fresh-Door-Approach-18c070fe3bc2803fbffdd0642363096c">
           <Button
             variant="outline"
-            className="w-full h-auto py-3 px-2 flex-col gap-1"
+            className="w-full h-auto py-3 px-2 flex items-center justify-center gap-1.5"
           >
             <span className="text-xs font-medium">Fresh</span>
+            <ExternalLink className="h-3 w-3" />
           </Button>
         </ExternalLinkComponent>
         <ExternalLinkComponent href="https://calvinschofield.notion.site/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489">
           <Button
             variant="outline"
-            className="w-full h-auto py-3 px-2 flex-col gap-1"
+            className="w-full h-auto py-3 px-2 flex items-center justify-center gap-1.5"
           >
             <span className="text-xs font-medium">Takeover</span>
+            <ExternalLink className="h-3 w-3" />
           </Button>
         </ExternalLinkComponent>
         <ExternalLinkComponent href="https://calvinschofield.notion.site/In-Home-Presentation-18c070fe3bc280648438c57ea4c5d0b7">
           <Button
             variant="outline"
-            className="w-full h-auto py-3 px-2 flex-col gap-1"
+            className="w-full h-auto py-3 px-2 flex items-center justify-center gap-1.5"
           >
             <span className="text-xs font-medium">Presentation</span>
+            <ExternalLink className="h-3 w-3" />
           </Button>
         </ExternalLinkComponent>
       </CardContent>
