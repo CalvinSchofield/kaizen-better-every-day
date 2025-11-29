@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface RepData {
   id: string;
@@ -41,20 +42,21 @@ export interface RepData {
 }
 
 export const useRepData = () => {
-  const [repData, setRepData] = useState<RepData | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchRepData = async () => {
-    try {
+  const { data: repData, isLoading: loading } = useQuery({
+    queryKey: ['rep-data'],
+    staleTime: 5 * 60 * 1000, // 5 minutes - consider data fresh
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
+    refetchOnWindowFocus: false,
+    retry: 1,
+    queryFn: async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) return null;
 
       const { data, error } = await supabase
         .from("reps")
@@ -83,8 +85,7 @@ export const useRepData = () => {
             description: "Could not sync your data from Notion. Please contact your team leader.",
             variant: "destructive",
           });
-          setLoading(false);
-          return;
+          return null;
         }
 
         // Fetch the newly synced data
@@ -96,28 +97,19 @@ export const useRepData = () => {
 
         if (refetchError) throw refetchError;
 
-        setRepData(syncedData);
-        
         if (syncedData) {
           toast({
             title: "Sync successful",
             description: "Your data has been loaded from Notion.",
           });
         }
-      } else {
-        setRepData(data);
+
+        return syncedData;
       }
-    } catch (error: any) {
-      console.error("Error fetching rep data:", error);
-      toast({
-        title: "Error loading data",
-        description: "Could not load your journey data. Please try refreshing the page.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      return data;
+    },
+  });
 
   const refetch = async () => {
     // Trigger Notion sync
@@ -125,17 +117,16 @@ export const useRepData = () => {
     // Wait a moment for sync to complete
     await new Promise(resolve => setTimeout(resolve, 1000));
     // Refetch the data
-    await fetchRepData();
+    await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
   };
 
   useEffect(() => {
-    fetchRepData();
-
     // Set up automatic periodic sync from Notion every 5 minutes
     const syncInterval = setInterval(async () => {
       console.log("Auto-syncing from Notion...");
       try {
         await supabase.functions.invoke("sync-notion-reps");
+        await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       } catch (error) {
         console.error("Auto-sync error:", error);
       }
@@ -153,7 +144,7 @@ export const useRepData = () => {
         },
         (payload) => {
           if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
-            setRepData(payload.new as RepData);
+            queryClient.setQueryData(['rep-data'], payload.new as RepData);
           }
         }
       )
@@ -163,7 +154,7 @@ export const useRepData = () => {
       clearInterval(syncInterval);
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, [queryClient, toast]);
 
-  return { repData, loading, refetch };
+  return { repData: repData ?? null, loading, refetch };
 };
