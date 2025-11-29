@@ -61,7 +61,9 @@ export type Database = {
       }
       daily_entries: {
         Row: {
+          break_periods: Json | null
           closes: number | null
+          counter_timestamps: Json | null
           created_at: string | null
           decision_makers: number | null
           doors_knocked: number | null
@@ -73,12 +75,17 @@ export type Database = {
           pitches: number | null
           presentations: number | null
           prmr: number | null
+          timezone: string | null
           transitions: number | null
           updated_at: string | null
           user_id: string
+          work_end_time: string | null
+          work_start_time: string | null
         }
         Insert: {
+          break_periods?: Json | null
           closes?: number | null
+          counter_timestamps?: Json | null
           created_at?: string | null
           decision_makers?: number | null
           doors_knocked?: number | null
@@ -90,12 +97,17 @@ export type Database = {
           pitches?: number | null
           presentations?: number | null
           prmr?: number | null
+          timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
           user_id: string
+          work_end_time?: string | null
+          work_start_time?: string | null
         }
         Update: {
+          break_periods?: Json | null
           closes?: number | null
+          counter_timestamps?: Json | null
           created_at?: string | null
           decision_makers?: number | null
           doors_knocked?: number | null
@@ -107,9 +119,12 @@ export type Database = {
           pitches?: number | null
           presentations?: number | null
           prmr?: number | null
+          timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
           user_id?: string
+          work_end_time?: string | null
+          work_start_time?: string | null
         }
         Relationships: []
       }

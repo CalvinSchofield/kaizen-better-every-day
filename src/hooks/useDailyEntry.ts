@@ -17,6 +17,11 @@ export interface DailyEntry {
   prmr: number;
   is_finalized: boolean;
   notes: string | null;
+  work_start_time?: string | null;
+  work_end_time?: string | null;
+  break_periods?: Array<{ start: string; end: string }>;
+  counter_timestamps?: Record<string, string[]>;
+  timezone?: string | null;
 }
 
 const getTodayDate = () => {
@@ -43,7 +48,17 @@ export const useDailyEntry = (date?: string) => {
         .maybeSingle();
 
       if (error) throw error;
-      return data as DailyEntry | null;
+      
+      // Transform the data to match our interface
+      if (data) {
+        return {
+          ...data,
+          break_periods: (data.break_periods as any) || [],
+          counter_timestamps: (data.counter_timestamps as any) || {},
+        } as DailyEntry;
+      }
+      
+      return null;
     },
     staleTime: Infinity, // Don't auto-refetch during mutations
     gcTime: Infinity,
@@ -188,6 +203,10 @@ export const useDailyEntry = (date?: string) => {
           fp_plus: 0,
           prmr: 0,
           is_finalized: false,
+          work_start_time: null,
+          work_end_time: null,
+          break_periods: [],
+          counter_timestamps: {},
         }, {
           onConflict: 'user_id,entry_date'
         })
@@ -195,7 +214,13 @@ export const useDailyEntry = (date?: string) => {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Transform the data
+      return {
+        ...data,
+        break_periods: (data.break_periods as any) || [],
+        counter_timestamps: (data.counter_timestamps as any) || {},
+      } as DailyEntry;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['daily-entry', entryDate], data);
@@ -237,6 +262,11 @@ export const useDailyEntry = (date?: string) => {
       fp_plus: 0,
       prmr: 0,
       is_finalized: false,
+      work_start_time: null,
+      work_end_time: null,
+      break_periods: [],
+      counter_timestamps: {},
+      timezone: null,
     },
     isLoading,
     updateCounter: updateCounterMutation.mutate,
