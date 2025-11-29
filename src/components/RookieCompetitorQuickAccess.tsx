@@ -9,11 +9,24 @@ export const RookieCompetitorQuickAccess = () => {
   const { competitors } = useCompetitors();
   const [selectedCompetitor, setSelectedCompetitor] = useState<any>(null);
 
-  // Filter for specific common competitors rookies face
-  const commonCompetitorNames = ["Ring", "Blink", "ADT", "Alarm.com"];
+  // Filter for the 8 specific competitors rookies face most
+  const targetCompetitors = [
+    "Ring Doorbell",
+    "Ring Outdoor Camera", 
+    "ADT Alarm Service",
+    "Alarm.com Doorbell",
+    "Alarm.com Outdoor Camera",
+    "Blink Camera",
+    "Google Camera",
+    "Arlo Camera"
+  ];
+  
   const commonCompetitors = competitors.filter(c => 
-    commonCompetitorNames.some(name => c.name.toLowerCase().includes(name.toLowerCase()))
-  ).slice(0, 4);
+    targetCompetitors.some(target => 
+      c.name.toLowerCase().includes(target.toLowerCase()) ||
+      target.toLowerCase().includes(c.name.toLowerCase())
+    )
+  ).slice(0, 8);
 
   return (
     <>
@@ -26,22 +39,22 @@ export const RookieCompetitorQuickAccess = () => {
           <CardDescription>Quick access to the ones you'll see most</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {commonCompetitors.map((competitor) => (
               <Button
                 key={competitor.id}
                 variant="outline"
-                className="h-auto flex-col gap-2 p-4"
+                className="h-auto flex-col gap-1.5 p-3"
                 onClick={() => setSelectedCompetitor(competitor)}
               >
                 {competitor.main_image_url && (
                   <img
                     src={competitor.main_image_url}
                     alt={competitor.name}
-                    className="w-12 h-12 object-contain"
+                    className="w-10 h-10 object-contain"
                   />
                 )}
-                <span className="text-xs font-medium">{competitor.name}</span>
+                <span className="text-xs font-medium text-center leading-tight">{competitor.name}</span>
               </Button>
             ))}
           </div>
