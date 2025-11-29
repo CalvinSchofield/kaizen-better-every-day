@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
 import { SaveEntrySheet } from "./SaveEntrySheet";
@@ -9,8 +9,21 @@ const TrackWithLayout = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
+  
+  // Debounce refs for batching rapid updates
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingUpdatesRef = useRef<any>({});
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
 
-  const handleCounterChange = async (field: string, value: number) => {
+  const handleCounterChange = useCallback(async (field: string, value: number) => {
     const updates: any = { [field]: Math.max(0, value) };
     
     // Auto-end break if one is active when counter is tapped
@@ -39,8 +52,24 @@ const TrackWithLayout = () => {
       [field]: [...fieldTimestamps, new Date().toISOString()]
     };
     
-    await updateCounter(updates);
-  };
+    // Accumulate updates
+    pendingUpdatesRef.current = {
+      ...pendingUpdatesRef.current,
+      ...updates
+    };
+    
+    // Clear existing timeout
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    
+    // Set new timeout to batch updates
+    updateTimeoutRef.current = setTimeout(async () => {
+      const batchedUpdates = { ...pendingUpdatesRef.current };
+      pendingUpdatesRef.current = {};
+      await updateCounter(batchedUpdates);
+    }, 300); // 300ms debounce
+  }, [entry, updateCounter]);
 
   const handleStartWork = () => {
     const now = new Date();
