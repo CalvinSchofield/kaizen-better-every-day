@@ -60,9 +60,11 @@ const Track = ({
 
   const isPreBlitzRookie = isRookie && !hasAttendedBlitz;
 
-  // Show loading state while fetching rep data
+  // Show loading state while fetching rep data - render layout immediately to prevent flash
   if (loadingRepData) {
-    return null;
+    return (
+      <div className="min-h-screen bg-background" />
+    );
   }
 
   // Show locked state for pre-blitz rookies
