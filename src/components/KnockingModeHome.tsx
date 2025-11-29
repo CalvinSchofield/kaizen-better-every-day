@@ -10,6 +10,7 @@ import { PitchPresentationQuickAccess } from "@/components/PitchPresentationQuic
 import { RookieLeaderboardCard } from "@/components/RookieLeaderboardCard";
 import { VetLeaderboardCard } from "@/components/VetLeaderboardCard";
 import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
+import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -93,6 +94,9 @@ export const KnockingModeHome = ({
               </Button>
             </div>
           </div>
+
+          {/* Weather Card (shows if on active blitz) */}
+          <KnockingModeWeatherCard repData={repData} />
         </div>
       </div>
 
@@ -107,9 +111,6 @@ export const KnockingModeHome = ({
         {/* Quick Stats Bar */}
         <QuickStatsBar repData={repData} />
 
-        {/* Weather Widget (conditional - shows if on active blitz) */}
-        <KnockingWeatherWidget repData={repData} />
-
         {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
         {isTeamLead && anyBlitzWithin14Days && (
           <Card className="p-4">
@@ -118,8 +119,6 @@ export const KnockingModeHome = ({
             </p>
           </Card>
         )}
-
-        {/* Conditional content based on variant */}
         {variant === "rookie" ? (
           <>
             {/* Rookie-specific: Common Competitors */}
