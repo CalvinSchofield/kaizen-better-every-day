@@ -46,7 +46,7 @@ export const KnockingModeHome = ({
     return "Good evening";
   };
 
-  const firstName = repData?.name?.split(' ')[0]?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
+  const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -56,7 +56,7 @@ export const KnockingModeHome = ({
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-4">
               <h1 className="text-3xl font-bold tracking-tight">
-                {getGreeting()}, {firstName || "Rep"}
+                {getGreeting()}, {firstName}
               </h1>
             </div>
             <div className="flex gap-2 flex-shrink-0 self-start">
