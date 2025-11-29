@@ -161,8 +161,20 @@ export const SaveEntrySheet = ({
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="pb-safe">
-          <SheetHeader className="mb-6">
-            <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
+          <SheetHeader className="mb-6 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              {entry?.is_finalized && onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
+            </div>
           </SheetHeader>
 
         <div className="space-y-4 mt-6">
@@ -174,22 +186,7 @@ export const SaveEntrySheet = ({
                 if (open) setIsTimeTrackingOpen(false);
               }}>
                 <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base cursor-pointer">Daily Activity</Label>
-                    {entry?.is_finalized && onDelete && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowDeleteDialog(true);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                  <Label className="text-base cursor-pointer">Daily Activity</Label>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isDailyActivityOpen ? 'rotate-180' : ''}`} />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
