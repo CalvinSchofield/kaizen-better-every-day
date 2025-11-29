@@ -51,7 +51,7 @@ export const RookieCompetitorQuickAccess = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/competitors')}
+              onClick={() => navigate('/tools/competitors')}
               className="text-xs text-muted-foreground hover:text-foreground gap-1"
             >
               View all
