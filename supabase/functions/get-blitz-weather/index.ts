@@ -41,7 +41,22 @@ serve(async (req) => {
     if (latitude !== undefined && longitude !== undefined) {
       lat = latitude;
       lng = longitude;
-      locationName = "Your Current Location";
+      
+      // Reverse geocode to get city name
+      const reverseGeocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?latitude=${lat}&longitude=${lng}&count=1&language=en&format=json`;
+      try {
+        const reverseGeocodeResponse = await fetch(reverseGeocodeUrl);
+        const reverseData = await reverseGeocodeResponse.json();
+        
+        if (reverseData.results && reverseData.results.length > 0) {
+          locationName = reverseData.results[0].name;
+        } else {
+          locationName = "Your Location";
+        }
+      } catch (error) {
+        console.error("Reverse geocoding failed:", error);
+        locationName = "Your Location";
+      }
     } else if (location) {
       // Step 1: Geocode the location using Open-Meteo Geocoding API
       // Try multiple location formats to improve success rate

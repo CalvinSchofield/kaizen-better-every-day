@@ -174,17 +174,23 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   const suggestion = getWeatherSuggestion(weather.high, weather.low, weather.weatherCode);
 
   return (
-    <div className="w-full rounded-lg bg-card border border-border mb-6">
-      <div className="flex items-center gap-3 p-4">
-        <span className="text-2xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
-        <div className="flex-1">
-          <p className="text-foreground text-base font-semibold mb-1">
-            Weather in {weather.location}
-          </p>
-          <p className="text-muted-foreground text-sm mb-1">
-            {weather.high}°F high, {weather.low}°F low · {condition}
-          </p>
-          <p className="text-muted-foreground text-sm leading-snug">
+    <div className="w-full rounded-lg bg-card border border-border mb-6 p-6">
+      <div className="flex items-start gap-6">
+        <span className="text-6xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
+        <div className="flex-1 space-y-3">
+          <div>
+            <p className="text-foreground text-xl font-bold mb-1">
+              {weather.location}
+            </p>
+            <p className="text-muted-foreground text-base">
+              {condition}
+            </p>
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="text-foreground text-3xl font-semibold">{weather.high}°F</span>
+            <span className="text-muted-foreground text-lg">Low: {weather.low}°F</span>
+          </div>
+          <p className="text-muted-foreground text-base leading-relaxed pt-2 border-t border-border">
             {suggestion}
           </p>
         </div>
