@@ -15,6 +15,7 @@ import Tools from "./pages/Tools";
 import Competitors from "./pages/Competitors";
 import Contacts from "./pages/Contacts";
 import Calendar from "./pages/Calendar";
+import Insights from "./pages/Insights";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -101,6 +102,16 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <Calendar />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/insights"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Insights />
                   </Layout>
                 </ProtectedRoute>
               }
