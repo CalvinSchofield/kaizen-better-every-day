@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Clock, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 
 interface TimeTrackingBarProps {
   workStartTime: string | null | undefined;
@@ -26,14 +27,33 @@ export const TimeTrackingBar = ({
   onEndBreak,
   onUpdateTime,
 }: TimeTrackingBarProps) => {
+  const [isViewingTime, setIsViewingTime] = useState(false);
+  const [viewField, setViewField] = useState<'start' | 'end'>('start');
   const [isEditingTime, setIsEditingTime] = useState(false);
-  const [editField, setEditField] = useState<'start' | 'end'>('start');
   const [editValue, setEditValue] = useState('');
 
   const currentBreak = breakPeriods.find(bp => !bp.end);
   const isOnBreak = !!currentBreak;
   const hasStarted = !!workStartTime;
   const hasEnded = !!workEndTime;
+
+  // Calculate total break time in minutes
+  const calculateTotalBreakTime = () => {
+    if (!breakPeriods || breakPeriods.length === 0) return 0;
+    
+    let totalMs = 0;
+    breakPeriods.forEach(bp => {
+      const startTime = new Date(bp.start).getTime();
+      const endTime = bp.end ? new Date(bp.end).getTime() : Date.now();
+      totalMs += endTime - startTime;
+    });
+    
+    return Math.floor(totalMs / 60000); // Convert to minutes
+  };
+
+  const totalBreakMinutes = calculateTotalBreakTime();
+  const breakHours = Math.floor(totalBreakMinutes / 60);
+  const breakMins = totalBreakMinutes % 60;
 
   const formatTime = (isoString: string | null | undefined) => {
     if (!isoString) return '';
@@ -45,9 +65,13 @@ export const TimeTrackingBar = ({
     });
   };
 
-  const handleTimeClick = (field: 'start' | 'end', currentValue: string | null | undefined) => {
+  const handleTimeClick = (field: 'start' | 'end') => {
+    setViewField(field);
+    setIsViewingTime(true);
+  };
+
+  const handleEditTimeInSheet = (currentValue: string | null | undefined) => {
     if (!currentValue) return;
-    setEditField(field);
     const date = new Date(currentValue);
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -62,9 +86,12 @@ export const TimeTrackingBar = ({
     const now = new Date();
     now.setHours(parseInt(hours), parseInt(minutes), 0, 0);
     
-    onUpdateTime(editField, now.toISOString());
+    onUpdateTime(viewField, now.toISOString());
     setIsEditingTime(false);
+    setIsViewingTime(false);
   };
+
+  const currentTimeValue = viewField === 'start' ? workStartTime : workEndTime;
 
   return (
     <>
@@ -73,7 +100,7 @@ export const TimeTrackingBar = ({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => hasStarted ? handleTimeClick('start', workStartTime) : onStartWork()}
+          onClick={() => hasStarted ? handleTimeClick('start') : onStartWork()}
           disabled={hasEnded}
           className="flex items-center gap-2 h-auto py-2 px-3"
         >
@@ -83,23 +110,30 @@ export const TimeTrackingBar = ({
           )}
         </Button>
 
-        {/* Pause/Resume Button */}
+        {/* Pause/Resume Button with Break Time */}
         {hasStarted && !hasEnded && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={isOnBreak ? onEndBreak : onStartBreak}
-            className={`h-8 w-8 ${isOnBreak ? 'text-amber-500' : 'text-muted-foreground'}`}
-          >
-            {isOnBreak ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={isOnBreak ? onEndBreak : onStartBreak}
+              className={`h-8 w-8 ${isOnBreak ? 'text-amber-500' : 'text-muted-foreground'}`}
+            >
+              {isOnBreak ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </Button>
+            {totalBreakMinutes > 0 && (
+              <span className="text-xs text-muted-foreground font-medium">
+                {breakHours > 0 ? `${breakHours}h ${breakMins}m` : `${breakMins}m`}
+              </span>
+            )}
+          </div>
         )}
 
         {/* End Clock */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => hasEnded ? handleTimeClick('end', workEndTime) : onEndWork()}
+          onClick={() => hasEnded ? handleTimeClick('end') : onEndWork()}
           disabled={!hasStarted || isOnBreak}
           className="flex items-center gap-2 h-auto py-2 px-3"
         >
@@ -110,11 +144,35 @@ export const TimeTrackingBar = ({
         </Button>
       </div>
 
-      {/* Time Edit Sheet */}
-      <Sheet open={isEditingTime} onOpenChange={setIsEditingTime}>
+      {/* Time View Sheet (First step) */}
+      <Sheet open={isViewingTime} onOpenChange={setIsViewingTime}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader>
-            <SheetTitle>Edit {editField === 'start' ? 'Start' : 'End'} Time</SheetTitle>
+            <SheetTitle>{viewField === 'start' ? 'Start' : 'End'} Time</SheetTitle>
+          </SheetHeader>
+          <div className="pt-6 pb-4">
+            <Card 
+              className="p-6 cursor-pointer hover:bg-accent/50 transition-colors"
+              onClick={() => handleEditTimeInSheet(currentTimeValue)}
+            >
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">Current time</p>
+                <p className="text-3xl font-bold">{formatTime(currentTimeValue)}</p>
+                <p className="text-xs text-muted-foreground mt-3">Tap to edit</p>
+              </div>
+            </Card>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Time Edit Sheet (Second step - native picker) */}
+      <Sheet open={isEditingTime} onOpenChange={(open) => {
+        setIsEditingTime(open);
+        if (!open) setIsViewingTime(true); // Go back to view sheet if dismissed
+      }}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Edit {viewField === 'start' ? 'Start' : 'End'} Time</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
