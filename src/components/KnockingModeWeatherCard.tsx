@@ -75,48 +75,45 @@ export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProp
     return "⛈️";
   };
 
+  const getWeatherCondition = (code: number) => {
+    if (code === 0) return "Clear skies";
+    if (code <= 3) return "Partly cloudy";
+    if (code <= 48) return "Foggy";
+    if (code <= 57) return "Drizzle";
+    if (code <= 67) return "Rainy";
+    if (code <= 77) return "Snowy";
+    if (code <= 82) return "Rain showers";
+    if (code <= 86) return "Snow showers";
+    return "Thunderstorms";
+  };
+
   const getWeatherSuggestion = (high: number, low: number, weatherCode: number) => {
-    const hour = new Date().getHours();
     const dayOfWeek = new Date().getDay();
     const isSaturday = dayOfWeek === 6;
-    
-    // Check if it's rainy
     const isRainy = weatherCode >= 51 && weatherCode <= 82;
     
-    // Build contextual suggestions
-    let suggestions = [];
+    // Priority: Rain > Extreme heat > Cold > Time context
+    if (isRainy) {
+      return "Bring an umbrella or rain jacket";
+    }
     
-    // Temperature-based advice
     if (high >= 85) {
-      suggestions.push("Stay hydrated — bring extra water");
-      suggestions.push("Light clothing recommended");
-    } else if (high >= 75) {
-      suggestions.push("Bring water — it's warm");
+      return "Stay hydrated — bring extra water";
     }
     
     if (low < 50) {
-      suggestions.push("Bring layers — cool mornings");
-    } else if (low < 60 && high < 70) {
-      suggestions.push("Pack a light jacket");
+      return "Bring layers — cool mornings ahead";
     }
     
-    // Rain advice
-    if (isRainy) {
-      suggestions.push("Bring an umbrella or rain jacket");
+    if (high < 60) {
+      return "Pack warm — it's chilly out there";
     }
     
-    // Time-of-day context
     if (isSaturday) {
-      suggestions.push("Sunrise to sunset — pace yourself");
-    } else {
-      if (hour < 14) {
-        suggestions.push("Early afternoon to sunset shift");
-      } else {
-        suggestions.push("Afternoon to evening shift");
-      }
+      return "Sunrise to sunset — pace yourself and stay strong";
     }
     
-    return suggestions.length > 0 ? suggestions : ["Perfect weather to knock!"];
+    return "Perfect weather to knock — let's get after it!";
   };
 
   if (loading) {
@@ -130,23 +127,23 @@ export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProp
 
   if (!weather) return null;
 
-  const suggestions = getWeatherSuggestion(weather.high, weather.low, weather.weatherCode);
+  const condition = getWeatherCondition(weather.weatherCode);
+  const suggestion = getWeatherSuggestion(weather.high, weather.low, weather.weatherCode);
 
   return (
-    <div className="flex items-start gap-3 w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
-      <span className="text-3xl flex-shrink-0 mt-0.5">{getWeatherIcon(weather.weatherCode)}</span>
-      <div className="flex-1">
-        <p className="text-primary-foreground/90 text-base font-semibold leading-snug">
-          {weather.high}°F high, {weather.low}°F low
+    <div className="w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
+        <p className="text-primary-foreground/90 text-base font-semibold">
+          Weather in {activeBlitz.location}
         </p>
-        <ul className="mt-2 space-y-1">
-          {suggestions.map((suggestion, idx) => (
-            <li key={idx} className="text-primary-foreground/70 text-sm leading-snug">
-              • {suggestion}
-            </li>
-          ))}
-        </ul>
       </div>
+      <p className="text-primary-foreground/80 text-sm mb-1">
+        {weather.high}°F high, {weather.low}°F low · {condition}
+      </p>
+      <p className="text-primary-foreground/70 text-sm leading-snug">
+        {suggestion}
+      </p>
     </div>
   );
 };
