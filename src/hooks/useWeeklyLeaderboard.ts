@@ -8,10 +8,13 @@ interface LeaderboardEntry {
 }
 
 interface WeeklyLeaderboard {
-  mostDoors?: LeaderboardEntry;
-  mostDecisionMakers?: LeaderboardEntry;
-  mostFP?: LeaderboardEntry;
-  mostPRMR?: LeaderboardEntry;
+  mostDoors: LeaderboardEntry | null;
+  mostDecisionMakers: LeaderboardEntry | null;
+  mostPitches: LeaderboardEntry | null;
+  mostTransitions: LeaderboardEntry | null;
+  mostPresentations: LeaderboardEntry | null;
+  mostFP: LeaderboardEntry | null;
+  mostPRMR: LeaderboardEntry | null;
 }
 
 const getMondayOfWeek = (date: Date): Date => {
@@ -59,7 +62,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
       // Fetch all finalized entries for the current week
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("*")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr")
         .eq("is_finalized", true)
         .gte("entry_date", mondayStr)
         .lte("entry_date", saturdayStr);
@@ -81,54 +84,83 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
       }
 
       // Aggregate totals per user
-      const userTotals = new Map<string, { doors: number; decisionMakers: number; fp: number; prmr: number }>();
+      const userTotals = new Map<string, {
+        doors: number;
+        decisionMakers: number;
+        pitches: number;
+        transitions: number;
+        presentations: number;
+        fp: number;
+        prmr: number;
+      }>();
 
       filteredEntries.forEach((entry) => {
         const userId = entry.user_id;
-        const existing = userTotals.get(userId) || { doors: 0, decisionMakers: 0, fp: 0, prmr: 0 };
+        const existing = userTotals.get(userId) || {
+          doors: 0,
+          decisionMakers: 0,
+          pitches: 0,
+          transitions: 0,
+          presentations: 0,
+          fp: 0,
+          prmr: 0,
+        };
         
         userTotals.set(userId, {
           doors: existing.doors + (entry.doors_knocked || 0),
           decisionMakers: existing.decisionMakers + (entry.decision_makers || 0),
+          pitches: existing.pitches + (entry.pitches || 0),
+          transitions: existing.transitions + (entry.transitions || 0),
+          presentations: existing.presentations + (entry.presentations || 0),
           fp: existing.fp + (entry.fp_plus || 0),
           prmr: existing.prmr + (entry.prmr || 0),
         });
       });
 
-      // Find top performers from aggregated totals
-      const result: WeeklyLeaderboard = {};
-
-      let maxDoors = 0;
-      let maxDecisionMakers = 0;
-      let maxFP = 0;
-      let maxPRMR = 0;
+      const leaderboard: WeeklyLeaderboard = {
+        mostDoors: null,
+        mostDecisionMakers: null,
+        mostPitches: null,
+        mostTransitions: null,
+        mostPresentations: null,
+        mostFP: null,
+        mostPRMR: null,
+      };
 
       userTotals.forEach((totals, userId) => {
         const userData = userMap.get(userId);
         if (!userData) return;
 
-        if (totals.doors > maxDoors) {
-          maxDoors = totals.doors;
-          result.mostDoors = { userId, name: userData.name, value: totals.doors };
+        if (totals.doors > 0 && (!leaderboard.mostDoors || totals.doors > leaderboard.mostDoors.value)) {
+          leaderboard.mostDoors = { userId, name: userData.name, value: totals.doors };
         }
 
-        if (totals.decisionMakers > maxDecisionMakers) {
-          maxDecisionMakers = totals.decisionMakers;
-          result.mostDecisionMakers = { userId, name: userData.name, value: totals.decisionMakers };
+        if (totals.decisionMakers > 0 && (!leaderboard.mostDecisionMakers || totals.decisionMakers > leaderboard.mostDecisionMakers.value)) {
+          leaderboard.mostDecisionMakers = { userId, name: userData.name, value: totals.decisionMakers };
         }
 
-        if (totals.fp > maxFP) {
-          maxFP = totals.fp;
-          result.mostFP = { userId, name: userData.name, value: totals.fp };
+        if (totals.pitches > 0 && (!leaderboard.mostPitches || totals.pitches > leaderboard.mostPitches.value)) {
+          leaderboard.mostPitches = { userId, name: userData.name, value: totals.pitches };
         }
 
-        if (totals.prmr > maxPRMR) {
-          maxPRMR = totals.prmr;
-          result.mostPRMR = { userId, name: userData.name, value: totals.prmr };
+        if (totals.transitions > 0 && (!leaderboard.mostTransitions || totals.transitions > leaderboard.mostTransitions.value)) {
+          leaderboard.mostTransitions = { userId, name: userData.name, value: totals.transitions };
+        }
+
+        if (totals.presentations > 0 && (!leaderboard.mostPresentations || totals.presentations > leaderboard.mostPresentations.value)) {
+          leaderboard.mostPresentations = { userId, name: userData.name, value: totals.presentations };
+        }
+
+        if (totals.fp > 0 && (!leaderboard.mostFP || totals.fp > leaderboard.mostFP.value)) {
+          leaderboard.mostFP = { userId, name: userData.name, value: totals.fp };
+        }
+
+        if (totals.prmr > 0 && (!leaderboard.mostPRMR || totals.prmr > leaderboard.mostPRMR.value)) {
+          leaderboard.mostPRMR = { userId, name: userData.name, value: totals.prmr };
         }
       });
 
-      return result;
+      return leaderboard;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

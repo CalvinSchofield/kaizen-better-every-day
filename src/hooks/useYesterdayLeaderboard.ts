@@ -10,6 +10,9 @@ interface LeaderboardEntry {
 interface YesterdayLeaderboard {
   mostDoors: LeaderboardEntry | null;
   mostDecisionMakers: LeaderboardEntry | null;
+  mostPitches: LeaderboardEntry | null;
+  mostTransitions: LeaderboardEntry | null;
+  mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
 }
@@ -39,7 +42,7 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
       // Fetch yesterday's finalized entries
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, fp_plus, prmr")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr")
         .eq("entry_date", yesterdayStr)
         .eq("is_finalized", true);
 
@@ -53,6 +56,9 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
       const leaderboard: YesterdayLeaderboard = {
         mostDoors: null,
         mostDecisionMakers: null,
+        mostPitches: null,
+        mostTransitions: null,
+        mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
       };
@@ -80,6 +86,33 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
             userId: entry.user_id,
             name: cleanName,
             value: entry.decision_makers,
+          };
+        }
+
+        // Most pitches
+        if (entry.pitches && (!leaderboard.mostPitches || entry.pitches > leaderboard.mostPitches.value)) {
+          leaderboard.mostPitches = {
+            userId: entry.user_id,
+            name: cleanName,
+            value: entry.pitches,
+          };
+        }
+
+        // Most transitions
+        if (entry.transitions && (!leaderboard.mostTransitions || entry.transitions > leaderboard.mostTransitions.value)) {
+          leaderboard.mostTransitions = {
+            userId: entry.user_id,
+            name: cleanName,
+            value: entry.transitions,
+          };
+        }
+
+        // Most presentations
+        if (entry.presentations && (!leaderboard.mostPresentations || entry.presentations > leaderboard.mostPresentations.value)) {
+          leaderboard.mostPresentations = {
+            userId: entry.user_id,
+            name: cleanName,
+            value: entry.presentations,
           };
         }
 

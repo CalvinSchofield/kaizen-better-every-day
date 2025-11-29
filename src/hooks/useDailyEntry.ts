@@ -253,6 +253,10 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
       queryClient.invalidateQueries({ queryKey: ['week-summary'] });
       queryClient.invalidateQueries({ queryKey: ['last-week-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       toast.success("Entry deleted");
     },
     onError: (error) => {
