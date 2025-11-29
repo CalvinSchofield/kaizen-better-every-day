@@ -9,6 +9,13 @@ const TrackWithLayout = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
+
+  // Handle save with auto-reset
+  const handleSave = async (data: any) => {
+    await finalizeEntry(data);
+    // Reset counters and timers after successful save
+    await resetEntry();
+  };
   
   // Debounce refs for batching rapid updates
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -136,7 +143,7 @@ const TrackWithLayout = () => {
         onOpenChange={setIsSaveSheetOpen}
         entry={entry}
         date={new Date()}
-        onSave={finalizeEntry}
+        onSave={handleSave}
         isSaving={isFinalizing}
       />
 

@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -201,9 +201,9 @@ export const SaveEntrySheet = ({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="pb-safe">
-          <SheetHeader className="mb-6 flex flex-row items-center justify-between">
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader className="mb-6 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {entry?.is_finalized && onDelete && (
                 <Button
@@ -215,9 +215,9 @@ export const SaveEntrySheet = ({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              <SheetTitle>{format(date, 'MMM d')}</SheetTitle>
+              <DrawerTitle>{format(date, 'MMM d')}</DrawerTitle>
             </div>
-          </SheetHeader>
+          </DrawerHeader>
 
         <div className="space-y-4 mt-6">
           {/* Daily Activity Card - Collapsible */}
@@ -433,17 +433,17 @@ export const SaveEntrySheet = ({
             {isSaving ? "Saving..." : "Save Entry"}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
 
-    <Sheet open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-      <SheetContent side="bottom" className="pb-safe">
-        <SheetHeader className="mb-6">
-          <SheetTitle>Delete Entry?</SheetTitle>
-          <SheetDescription>
+    <Drawer open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader className="mb-6">
+          <DrawerTitle>Delete Entry?</DrawerTitle>
+          <DrawerDescription>
             This will permanently delete this entry. This action cannot be undone.
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+        </DrawerHeader>
         
         <div className="flex flex-col gap-3 mt-6">
           <Button
@@ -467,8 +467,8 @@ export const SaveEntrySheet = ({
             Cancel
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
     </>
   );
 };
