@@ -269,34 +269,30 @@ export const SaveEntrySheet = ({
 
           {/* Time Tracking Section */}
           <div>
-            <Label className="text-base mb-3 block">Time Tracking</Label>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="start-time" className="text-sm">Start Time</Label>
+            <Label className="text-base mb-2 block">Time Tracking</Label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <Input
                   id="start-time"
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  className="h-9"
                 />
-              </div>
-              
-              <div className="space-y-1.5">
-                <Label htmlFor="end-time" className="text-sm">End Time</Label>
+                <span className="text-sm text-muted-foreground">-</span>
                 <Input
                   id="end-time"
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  className="h-9"
                 />
               </div>
               
-              <div className="space-y-1.5">
-                <Label className="text-sm">Total Time Worked</Label>
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border border-border/40">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{calculateTotalTime()}</span>
-                </div>
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
+                <span className="text-xs text-muted-foreground">Total:</span>
+                <span className="text-xs font-medium">{calculateTotalTime()}</span>
               </div>
             </div>
           </div>
