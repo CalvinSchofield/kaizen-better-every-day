@@ -145,7 +145,7 @@ const Auth = () => {
                 required
                 disabled={isLoading}
               />
-              {isLogin && (
+              {!isLogin && (
                 <p className="text-xs text-muted-foreground">
                   Use the same email from your onboarding process
                 </p>

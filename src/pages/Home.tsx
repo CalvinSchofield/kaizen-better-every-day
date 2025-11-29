@@ -665,7 +665,7 @@ const Home = () => {
                 className="w-full"
                 disabled={isNudging}
               >
-                {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ask for help"}
+                {isNudging ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request access"}
               </Button>
               <Button
                 onClick={handleSync}
