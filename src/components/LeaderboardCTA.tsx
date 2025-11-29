@@ -71,7 +71,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
         const entry = board[metric as keyof typeof board] as any;
         if (entry && entry.value > 0) {
           const metricLabel = {
-            mostFP: 'total fp+',
+            mostFP: 'total FP+',
             mostPRMR: 'PRMR',
             mostHoursWorked: 'hours worked',
             mostDoors: 'doors knocked',
@@ -88,7 +88,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
           if (metric === 'mostPRMR') {
             formattedValue = `$${entry.value.toFixed(0)}`;
           } else if (metric === 'mostFP') {
-            formattedValue = `${entry.value.toFixed(1)} fp+`;
+            formattedValue = `${entry.value.toFixed(1)} FP+`;
           } else if (metric === 'mostHoursWorked') {
             formattedValue = `${entry.value.toFixed(1)} hrs`;
           } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
@@ -133,7 +133,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
     >
       <span className="text-2xl flex-shrink-0">{callout.isCurrentUser ? '🎉' : '🏆'}</span>
-      <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+      <p className={`text-primary-foreground/90 text-base leading-snug flex-1 ${callout.isCurrentUser ? 'font-bold' : 'font-medium'}`}>
         {callout.text}
       </p>
       <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
