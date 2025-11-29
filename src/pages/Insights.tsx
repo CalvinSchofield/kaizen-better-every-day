@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
   Sheet,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
@@ -21,6 +22,7 @@ export default function Insights() {
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
+  const [ratiosExpanded, setRatiosExpanded] = useState(false);
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -146,11 +148,11 @@ export default function Insights() {
           <>
             {/* Period Summary */}
             <Card className="p-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Period Summary</h2>
-                <span className="text-sm text-muted-foreground">{insights.daysWorked} days worked</span>
+                <span className="text-sm text-primary font-medium">{insights.daysWorked} days worked</span>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
                   <div className="text-sm text-muted-foreground">Total FP+</div>
@@ -160,23 +162,45 @@ export default function Insights() {
                   <div className="text-sm text-muted-foreground">Total PRMR</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{insights.totalDoors}</div>
-                  <div className="text-sm text-muted-foreground">Total Doors</div>
+                  <div className="text-xl font-bold">{insights.totalDoors}</div>
+                  <div className="text-sm text-muted-foreground">Doors Knocked</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">{insights.totalCloses}</div>
-                  <div className="text-sm text-muted-foreground">Total Closes</div>
+                  <div className="text-xl font-bold">{insights.totalDecisionMakers}</div>
+                  <div className="text-sm text-muted-foreground">Decision Makers</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insights.totalPitches}</div>
+                  <div className="text-sm text-muted-foreground">Pitches</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insights.totalTransitions}</div>
+                  <div className="text-sm text-muted-foreground">Transitions</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insights.totalPresentations}</div>
+                  <div className="text-sm text-muted-foreground">Presentations</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insights.totalCloses}</div>
+                  <div className="text-sm text-muted-foreground">Closes</div>
                 </div>
               </div>
             </Card>
 
             {/* Key Ratios */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Key Ratios
-              </h2>
-              <div className="space-y-3">
+            <Collapsible open={ratiosExpanded} onOpenChange={setRatiosExpanded}>
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Target className="w-5 h-5" />
+                    Key Ratios
+                  </h2>
+                  <ChevronDown className={cn("w-5 h-5 transition-transform", ratiosExpanded && "rotate-180")} />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-3">
                 <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -248,8 +272,9 @@ export default function Insights() {
                     )}
                   </div>
                 </Card>
-              </div>
-            </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Time-Based Productivity */}
             <div>
