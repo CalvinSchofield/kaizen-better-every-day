@@ -70,7 +70,8 @@ const Home = () => {
     today.setHours(0, 0, 0, 0);
 
     // Filter to only blitzes that are in the future (check end date if available)
-    const upcomingBlitzes = repData.committed_blitzes
+    const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+    const upcomingBlitzes = committedBlitzes
       .filter((blitz: any) => {
         if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
         
