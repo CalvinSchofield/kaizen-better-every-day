@@ -27,12 +27,13 @@ export const useAppMode = (repData?: any) => {
     return repData.committed_blitzes.some((blitz: any) => {
       if (!blitz?.date || !blitz?.endDate) return false;
       
+      // Parse dates in local timezone by appending 'T00:00:00' to force local interpretation
       // Start: blitz date at 4pm local time
-      const startDate = new Date(blitz.date);
+      const startDate = new Date(blitz.date + 'T00:00:00');
       startDate.setHours(16, 0, 0, 0); // 4pm
       
       // End: blitz end date at 10am local time
-      const endDate = new Date(blitz.endDate);
+      const endDate = new Date(blitz.endDate + 'T00:00:00');
       endDate.setHours(10, 0, 0, 0); // 10am
       
       return now >= startDate && now <= endDate;
