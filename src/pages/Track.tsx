@@ -39,7 +39,7 @@ const Track = () => {
     day: 'numeric' 
   });
 
-  const handleCounterChange = (field: string, value: number) => {
+  const handleCounterChange = async (field: string, value: number) => {
     const updates: any = { [field]: Math.max(0, value) };
     
     // Auto-end break if one is active when counter is tapped
@@ -68,7 +68,7 @@ const Track = () => {
       [field]: [...fieldTimestamps, new Date().toISOString()]
     };
     
-    updateCounter(updates);
+    await updateCounter(updates);
   };
 
   const handleReset = () => {

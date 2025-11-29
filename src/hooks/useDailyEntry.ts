@@ -66,6 +66,7 @@ export const useDailyEntry = (date?: string) => {
 
   // Update counter mutation (auto-save)
   const updateCounterMutation = useMutation({
+    mutationKey: ['update-counter', entryDate],
     mutationFn: async (updates: Partial<DailyEntry>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -149,7 +150,12 @@ export const useDailyEntry = (date?: string) => {
       fp_plus: number;
       prmr: number;
       saveDate: string;
+      work_start_time?: string;
+      work_end_time?: string;
     }) => {
+      // Wait for any pending counter updates to complete first
+      await queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] });
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -166,6 +172,8 @@ export const useDailyEntry = (date?: string) => {
           closes: data.closes,
           fp_plus: data.fp_plus,
           prmr: data.prmr,
+          work_start_time: data.work_start_time,
+          work_end_time: data.work_end_time,
           is_finalized: true,
         }, {
           onConflict: 'user_id,entry_date'
@@ -269,7 +277,7 @@ export const useDailyEntry = (date?: string) => {
       timezone: null,
     },
     isLoading,
-    updateCounter: updateCounterMutation.mutate,
+    updateCounter: updateCounterMutation.mutateAsync,
     finalizeEntry: finalizeEntryMutation.mutate,
     deleteEntry: deleteEntryMutation.mutate,
     resetEntry: resetEntryMutation.mutate,
