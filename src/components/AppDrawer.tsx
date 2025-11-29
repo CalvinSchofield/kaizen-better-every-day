@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -102,6 +102,30 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </span>
             </div>
           </Link>
+
+          {/* Insights Link */}
+          <Link
+            to="/insights"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+          >
+            <div className="relative">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              {isCalendarLocked && (
+                <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                  <Lock className="w-3 h-3 text-primary" />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold">Insights</span>
+              <span className="text-sm text-muted-foreground">
+                {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
+              </span>
+            </div>
+          </Link>
+
+          <Separator />
 
           {/* AI Assistant Link */}
           <a

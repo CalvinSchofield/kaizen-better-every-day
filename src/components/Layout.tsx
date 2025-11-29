@@ -103,6 +103,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
         return "Today's Values";
       case "/calendar":
         return "Calendar";
+      case "/insights":
+        return "Insights";
       default:
         return "Kaizen";
     }
