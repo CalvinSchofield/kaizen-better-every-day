@@ -65,7 +65,7 @@ const FLOW_STEPS: FlowStep[] = [
     icon: FileCheck,
     links: [
       { label: "Welcome Page", url: "https://calvinschofield.notion.site/Welcome-f1ba376d8a1644e29aa8c57566620675", type: "notion" },
-      { label: "Kaizen Preseason Hub", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "This is the onboarding and pre-blitz app for your rookies to help them do their best this summer. Share the link with them and help them add it as an app on their phone." }
+      { label: "Kaizen App", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "Share the Kaizen App link with your rookies and help them add it as an app on their phone. This app will guide them through onboarding and pre-blitz prep." }
     ]
   },
   {
@@ -74,7 +74,7 @@ const FLOW_STEPS: FlowStep[] = [
     icon: Rocket,
     links: [
       { label: "Goals & Gameplan", url: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link", type: "notion" },
-      { label: "Kaizen Preseason Hub", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "The Preseason Hub has ramp to blitz step by step on it. Help your recruits get the app downloaded to their phone and logged in! Then just make sure you update your notion as they progress." }
+      { label: "Kaizen App", url: "https://kaizen-preseason-hub.lovable.app/auth", type: "notion", subtext: "The Kaizen App has Ramp to Blitz step by step on it. Help your recruits get logged in and working through the progression! Update your Notion as they complete each phase." }
     ]
   },
   {
