@@ -171,8 +171,6 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
             </Link>
           )}
 
-          <Separator />
-
           {/* AI Assistant Link */}
           <a
             href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
