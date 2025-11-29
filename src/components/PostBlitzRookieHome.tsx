@@ -40,9 +40,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
-  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
-  const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
-  const [loadingWeather, setLoadingWeather] = useState(false);
   const [locallyRespondedBlitzIds, setLocallyRespondedBlitzIds] = useState<string[]>([]);
 
   // Get weather icon based on WMO weather code
@@ -174,50 +171,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     : null;
 
   const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
-
-  // Fetch weather when blitz is within 7 days
-  useEffect(() => {
-    const fetchWeather = async () => {
-      if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
-        setWeather([]);
-        return;
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tripDate = new Date(nextBlitz.date);
-      tripDate.setHours(0, 0, 0, 0);
-      const diffTime = tripDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      // Only fetch weather if blitz is within 7 days and in the future
-      if (diffDays <= 0 || diffDays > 7) {
-        setWeather([]);
-        return;
-      }
-
-      setLoadingWeather(true);
-      try {
-        const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
-          body: {
-            location: nextBlitz.location,
-            startDate: nextBlitz.date,
-            endDate: nextBlitz.endDate,
-          },
-        });
-
-        if (!error && data?.forecasts) {
-          setWeather(data.forecasts);
-        }
-      } catch (error) {
-        console.error("Error fetching weather:", error);
-      } finally {
-        setLoadingWeather(false);
-      }
-    };
-
-    fetchWeather();
-  }, [nextBlitz]);
 
   // Check if rookie had past blitzes but no upcoming ones
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
@@ -529,29 +482,28 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             
             let ctaText = "";
             let ctaIcon = "";
-            const isClickable = diffDays <= 7;
             
-            if (diffDays <= 7) {
-              ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+            if (diffDays === 0) {
+              ctaText = `${nextBlitz.location || 'Your blitz'} today — you got this!`;
+              ctaIcon = "🔥";
+            } else if (diffDays === 1) {
+              ctaText = `1 day until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              ctaIcon = "⚡";
+            } else if (diffDays <= 7) {
+              ctaText = `${diffDays} days until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
               ctaIcon = "⚡";
             } else {
               ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training!`;
               ctaIcon = "🎯";
             }
             
-            const Element = isClickable ? 'button' : 'div';
-            
             return (
-              <Element
-                {...(isClickable ? { onClick: () => setWeatherSheetOpen(true) } : {})}
-                className={`${isClickable ? 'group' : ''} flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 ${isClickable ? 'hover:bg-primary-foreground/15 cursor-pointer' : 'cursor-default'} transition-all mb-3`}
-              >
+              <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3">
                 <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                 <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                   {ctaText}
                 </p>
-                {isClickable && <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />}
-              </Element>
+              </div>
             );
           })()}
         </div>
@@ -827,103 +779,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         open={calendarModalOpen}
         onOpenChange={setCalendarModalOpen}
       />
-
-      {/* Weather Sheet */}
-      <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[70vh]">
-          <SheetHeader className="pb-4">
-            <SheetTitle className="text-center">
-              {nextBlitz?.location || 'Blitz'} Weather
-            </SheetTitle>
-          </SheetHeader>
-          
-          <div className="relative">
-            <div className="overflow-x-auto pb-3 scrollbar-hide">
-              <div className="flex gap-3 px-1">
-                {weather.map((day) => {
-                    // Parse date in UTC to avoid timezone issues
-                    const [year, month, dayNum] = day.date.split('-').map(Number);
-                    const date = new Date(year, month - 1, dayNum);
-                    const hasRain = isRainy(day.weatherCode);
-                    
-                    return (
-                      <div
-                        key={day.date}
-                        className={`flex-shrink-0 w-20 p-3 rounded-xl bg-secondary/30 border transition-colors text-center ${
-                          hasRain ? 'border-blue-400/50 bg-blue-50/5' : 'border-border/50'
-                        }`}
-                      >
-                        <div className="text-xs text-muted-foreground font-semibold mb-1">
-                          {date.toLocaleDateString("en-US", { weekday: "short" })}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground/70 mb-2">
-                          {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </div>
-                        <div className="text-3xl mb-2">{getWeatherIcon(day.weatherCode)}</div>
-                        <div className="text-base font-bold">{day.high}°</div>
-                        <div className="text-[10px] text-muted-foreground/70">{day.low}°</div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-            
-            {/* Subtle scroll gradient indicators */}
-            {weather.length > 4 && (
-              <>
-                <div className="absolute left-0 top-0 bottom-3 w-8 bg-gradient-to-r from-background to-transparent pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-3 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
-              </>
-            )}
-          </div>
-
-          {/* Cold/Rain Warning */}
-          {(() => {
-            const hasColdDay = weather.some(day => day.high < 65);
-            const hasRainDay = weather.some(day => isRainy(day.weatherCode));
-            
-            return (hasColdDay || hasRainDay) && (
-              <div className="mt-3 mb-4">
-                <p className="text-xs text-muted-foreground italic text-center leading-relaxed">
-                  Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.
-                </p>
-              </div>
-            );
-          })()}
-
-          {/* Packing List Button */}
-          {(() => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tripDate = nextBlitz ? new Date(nextBlitz.date) : null;
-            const diffTime = tripDate ? tripDate.getTime() - today.getTime() : 0;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            return diffDays <= 4 && (
-              <div className="mt-4 pt-4 border-t">
-                <Button
-                  onClick={() => {
-                    const url = "https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4";
-                    const notionMatch = url.match(/([a-f0-9]{32}|[a-f0-9-]{36})/);
-                    if (notionMatch) {
-                      const pageId = notionMatch[1].replace(/-/g, '');
-                      window.location.href = `notion://${pageId}`;
-                      setTimeout(() => {
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                      }, 500);
-                    }
-                    setWeatherSheetOpen(false);
-                  }}
-                  className="w-full"
-                  size="lg"
-                >
-                  View Packing List
-                </Button>
-              </div>
-            );
-          })()}
-        </SheetContent>
-      </Sheet>
       
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {

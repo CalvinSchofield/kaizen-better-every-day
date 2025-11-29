@@ -16,24 +16,26 @@ interface SeasonConfig {
 export const useAppMode = (repData?: any) => {
   const queryClient = useQueryClient();
 
-  // Check if currently on an active blitz
+  // Check if currently on an active blitz (4pm start on start date, 10am end on end date)
   const isOnActiveBlitz = useMemo(() => {
     if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
       return false;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
 
     return repData.committed_blitzes.some((blitz: any) => {
       if (!blitz?.date || !blitz?.endDate) return false;
       
+      // Start: blitz date at 4pm local time
       const startDate = new Date(blitz.date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(blitz.endDate);
-      endDate.setHours(0, 0, 0, 0);
+      startDate.setHours(16, 0, 0, 0); // 4pm
       
-      return today >= startDate && today <= endDate;
+      // End: blitz end date at 10am local time
+      const endDate = new Date(blitz.endDate);
+      endDate.setHours(10, 0, 0, 0); // 10am
+      
+      return now >= startDate && now <= endDate;
     });
   }, [repData?.committed_blitzes]);
 

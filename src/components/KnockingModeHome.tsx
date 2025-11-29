@@ -11,6 +11,7 @@ import { RookieLeaderboardCard } from "@/components/RookieLeaderboardCard";
 import { VetLeaderboardCard } from "@/components/VetLeaderboardCard";
 import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
+import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -53,7 +54,31 @@ export const KnockingModeHome = ({
     return "Good evening";
   };
 
+  // Determine if weather should be at top (second position) or bottom
+  const shouldWeatherBeAtTop = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+    
+    // 10:30 PM = 22:30 = 1350 minutes
+    // 10:00 AM = 10:00 = 600 minutes
+    
+    // Show at top if: 10:30 PM (1350) to midnight (1440) OR midnight (0) to 10:00 AM (600)
+    return currentMinutes >= 1350 || currentMinutes < 600;
+  };
+
+  const weatherAtTop = shouldWeatherBeAtTop();
+
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
+  
+  // Scroll to leaderboard card when CTA is clicked
+  const handleLeaderboardClick = () => {
+    const leaderboardCard = document.querySelector('[data-leaderboard-card]');
+    if (leaderboardCard) {
+      leaderboardCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -97,20 +122,24 @@ export const KnockingModeHome = ({
             </div>
           </div>
 
-          {/* Weather Card */}
-          <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+          {/* Leaderboard CTA */}
+          <LeaderboardCTA 
+            isOnActiveBlitz={isOnActiveBlitz} 
+            onLeaderboardClick={handleLeaderboardClick}
+          />
         </div>
       </div>
 
-      {/* Main Content with negative margin to overlap header */}
-      <div className="px-6 space-y-6 -mt-4 relative z-10 pb-8">
-        {/* Daily Focus Card */}
+      <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
+        {/* Weather Card - Dynamic positioning with animation */}
+        {weatherAtTop && (
+          <div className="animate-fade-in">
+            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+          </div>
+        )}
+
         <DailyFocusCard repData={repData} />
-
-        {/* This Week's Summary */}
         <WeekSummaryCard repData={repData} />
-
-        {/* Quick Stats Bar */}
         <QuickStatsBar repData={repData} />
 
         {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
@@ -121,6 +150,7 @@ export const KnockingModeHome = ({
             </p>
           </Card>
         )}
+
         {variant === "rookie" ? (
           <>
             {/* Rookie-specific: Common Competitors */}
@@ -130,13 +160,24 @@ export const KnockingModeHome = ({
             <PitchPresentationQuickAccess />
 
             {/* Rookie-specific: Yesterday's Rookie Leaders */}
-            <RookieLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
+            <div data-leaderboard-card>
+              <RookieLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
+            </div>
           </>
         ) : (
           <>
             {/* Vet-specific: Yesterday's Top Performers (all reps) */}
-            <VetLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
+            <div data-leaderboard-card>
+              <VetLeaderboardCard isOnActiveBlitz={isOnActiveBlitz} />
+            </div>
           </>
+        )}
+
+        {/* Weather Card at bottom (when not at top) - with animation */}
+        {!weatherAtTop && (
+          <div className="animate-fade-in">
+            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
+          </div>
         )}
       </div>
 
