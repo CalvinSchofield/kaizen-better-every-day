@@ -1,4 +1,4 @@
-import { RefreshCw, LogOut, Calendar, TrendingUp, Target, Cloud } from "lucide-react";
+import { RefreshCw, LogOut, Calendar, TrendingUp, Target, Cloud, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyFocusCard } from "@/components/DailyFocusCard";
@@ -50,42 +50,50 @@ export const KnockingModeHome = ({
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="bg-primary text-primary-foreground px-6 pt-8 pb-32">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">
-            {getGreeting()}, {firstName || "Rep"}
-          </h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onSync}
-              disabled={isSyncing}
-              className={`text-primary-foreground hover:bg-primary-foreground/10 transition-colors ${
-                syncSuccess ? "bg-green-500 hover:bg-green-600" : ""
-              }`}
-            >
-              {syncSuccess ? (
-                <span className="text-lg">✓</span>
-              ) : (
-                <RefreshCw className={`h-5 w-5 ${isSyncing ? "animate-spin" : ""}`} />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLogoutSheetOpen(true)}
-              className="text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
+      {/* Header with colored background */}
+      <div className="bg-primary text-primary-foreground p-6 pb-10">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1 min-w-0 pr-4">
+              <h1 className="text-3xl font-bold tracking-tight">
+                {getGreeting()}, {firstName || "Rep"}
+              </h1>
+            </div>
+            <div className="flex gap-2 flex-shrink-0 self-start">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onSync}
+                disabled={isSyncing}
+                className={`rounded-full transition-all duration-300 border ${
+                  syncSuccess 
+                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
+                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
+                }`}
+                aria-label="Refresh data"
+              >
+                {syncSuccess ? (
+                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
+                ) : (
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLogoutSheetOpen(true)}
+                className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
+                aria-label="Log out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content with negative margin to overlap header */}
-      <div className="px-6 space-y-6 -mt-20">
+      <div className="px-6 space-y-6 -mt-4 relative z-10 pb-8">
         {/* Daily Focus Card */}
         <DailyFocusCard repData={repData} />
 
