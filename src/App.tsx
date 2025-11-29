@@ -8,12 +8,12 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import InstallPrompt from "./components/InstallPrompt";
 import ScrollToTop from "./components/ScrollToTop";
+import TrackWithLayout from "./components/TrackWithLayout";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
 import Tools from "./pages/Tools";
 import Competitors from "./pages/Competitors";
 import Contacts from "./pages/Contacts";
-import Track from "./pages/Track";
 import Calendar from "./pages/Calendar";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -91,9 +91,7 @@ const App = () => {
               path="/track"
               element={
                 <ProtectedRoute>
-                  <Layout>
-                    <Track />
-                  </Layout>
+                  <TrackWithLayout />
                 </ProtectedRoute>
               }
             />
