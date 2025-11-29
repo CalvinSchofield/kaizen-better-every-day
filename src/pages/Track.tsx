@@ -115,8 +115,11 @@ const Track = ({
         />
       </div>
 
-      {/* Counter Grid - Fills remaining space down to bottom tabs */}
-      <div className="flex-1 px-4 pt-2 min-h-0 overflow-hidden" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* Counter Grid - Fills remaining space with equal top/bottom padding */}
+      <div className="flex-1 px-4 min-h-0 overflow-hidden" style={{ 
+        paddingTop: 'calc(88px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' 
+      }}>
         <QTallyGrid
           entry={entry}
           onCounterChange={onCounterChange}
