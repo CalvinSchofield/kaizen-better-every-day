@@ -9,7 +9,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Info, Trash2, Clock } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Info, Trash2, Clock, ChevronDown } from "lucide-react";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface SaveEntrySheetProps {
@@ -54,6 +59,7 @@ export const SaveEntrySheet = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
 
   useEffect(() => {
     if (open && entry) {
@@ -267,35 +273,40 @@ export const SaveEntrySheet = ({
             </div>
           </div>
 
-          {/* Time Tracking Section */}
-          <div>
-            <Label className="text-base mb-2 block">Time Tracking</Label>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <Input
-                  id="start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="h-9"
-                />
-                <span className="text-sm text-muted-foreground">-</span>
-                <Input
-                  id="end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="h-9"
-                />
+          {/* Time Tracking Section - Collapsible */}
+          <Collapsible open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full group">
+              <Label className="text-base cursor-pointer">Time Tracking</Label>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTimeTrackingOpen ? 'rotate-180' : ''}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    id="start-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="h-9"
+                  />
+                  <span className="text-sm text-muted-foreground">-</span>
+                  <Input
+                    id="end-time"
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
+                  <span className="text-xs text-muted-foreground">Total:</span>
+                  <span className="text-xs font-medium">{calculateTotalTime()}</span>
+                </div>
               </div>
-              
-              <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
-                <span className="text-xs text-muted-foreground">Total:</span>
-                <span className="text-xs font-medium">{calculateTotalTime()}</span>
-              </div>
-            </div>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Results Section */}
           <div>
