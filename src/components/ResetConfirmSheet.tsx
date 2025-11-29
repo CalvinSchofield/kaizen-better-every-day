@@ -32,7 +32,7 @@ export const ResetConfirmSheet = ({ open, onOpenChange, onConfirm, isResetting }
             className="w-full py-6 text-lg font-semibold"
             size="lg"
           >
-            {isResetting ? "Resetting..." : "Reset to 0"}
+            {isResetting ? "Resetting..." : "Reset"}
           </Button>
           <Button
             onClick={() => onOpenChange(false)}
