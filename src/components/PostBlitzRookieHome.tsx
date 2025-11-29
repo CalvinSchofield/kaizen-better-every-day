@@ -43,7 +43,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
-  const [locallyRespondedBlitzId, setLocallyRespondedBlitzId] = useState<string | null>(null);
+  const [locallyRespondedBlitzIds, setLocallyRespondedBlitzIds] = useState<string[]>([]);
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -359,35 +359,32 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
     if (isCommitted) return false;
     
-    // Must not be declined
-    if (declinedBlitzes.includes(blitz.id)) return false;
-    
-    // Must not be the one we just responded to (optimistic state)
-    if (locallyRespondedBlitzId === blitz.id) return false;
+    // Must not be declined (in DB or locally)
+    if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
     
     return true;
   });
   
-  // Clear optimistic state when data updates
+  // Clear optimistic state when data updates from DB
   useEffect(() => {
-    if (locallyRespondedBlitzId) {
-      // Check if the blitz we responded to is no longer in the "needs RSVP" state
-      const stillNeedsRsvp = allBlitzes.some(blitz => {
-        const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
-        const isDeclined = declinedBlitzes.includes(blitz.id);
-        return blitz.id === locallyRespondedBlitzId && !isCommitted && !isDeclined;
+    if (locallyRespondedBlitzIds.length > 0) {
+      // Remove any blitz IDs that are now in the DB (either committed or declined)
+      const updatedIds = locallyRespondedBlitzIds.filter(id => {
+        const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === id);
+        const isDeclined = declinedBlitzes.includes(id);
+        return !isCommitted && !isDeclined;
       });
       
-      if (!stillNeedsRsvp) {
-        setLocallyRespondedBlitzId(null);
+      if (updatedIds.length !== locallyRespondedBlitzIds.length) {
+        setLocallyRespondedBlitzIds(updatedIds);
       }
     }
-  }, [repData.committed_blitzes, declinedBlitzes, locallyRespondedBlitzId, allBlitzes]);
+  }, [repData.committed_blitzes, declinedBlitzes, locallyRespondedBlitzIds]);
 
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp) return;
     
-    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update - hides RSVP immediately
+    setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
     // Commit to the blitz
     await handleBlitzToggle(upcomingBlitzForRsvp.id, upcomingBlitzForRsvp.name);
@@ -396,7 +393,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const handleRsvpNo = async () => {
     if (!upcomingBlitzForRsvp) return;
     
-    setLocallyRespondedBlitzId(upcomingBlitzForRsvp.id); // Optimistic update - hides RSVP immediately
+    setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
     // Add to declined list
     const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
@@ -415,7 +412,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         description: "Could not save your response. Please try again.",
         variant: "destructive",
       });
-      setLocallyRespondedBlitzId(null); // Reset on error
+      // Remove the failed ID from optimistic state
+      setLocallyRespondedBlitzIds(prev => prev.filter(id => id !== upcomingBlitzForRsvp.id));
     }
   };
 
