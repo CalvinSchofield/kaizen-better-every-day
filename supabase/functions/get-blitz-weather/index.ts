@@ -21,11 +21,11 @@ serve(async (req) => {
   }
 
   try {
-    const { location, startDate, endDate } = await req.json();
+    const { location, latitude, longitude, startDate, endDate } = await req.json();
 
-    if (!location || !startDate || !endDate) {
+    if (!startDate || !endDate) {
       return new Response(
-        JSON.stringify({ error: "Missing required parameters" }),
+        JSON.stringify({ error: "Missing required parameters: startDate and endDate" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -33,45 +33,66 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Geocode the location using Open-Meteo Geocoding API
-    // Try multiple location formats to improve success rate
-    const locationVariants = [
-      location, // Original format (e.g., "Bakersfield, CA")
-      location.split(',')[0].trim(), // Just city name (e.g., "Bakersfield")
-      location.replace(', ', ' '), // Without comma (e.g., "Bakersfield CA")
-    ];
-    
-    let geocodeData: any = null;
-    
-    for (const variant of locationVariants) {
-      const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-        variant
-      )}&count=1&language=en&format=json`;
+    let lat: number;
+    let lng: number;
+    let locationName: string;
 
-      const geocodeResponse = await fetch(geocodeUrl);
-      const data = await geocodeResponse.json();
+    // If latitude and longitude provided, use them directly
+    if (latitude !== undefined && longitude !== undefined) {
+      lat = latitude;
+      lng = longitude;
+      locationName = "Your Current Location";
+    } else if (location) {
+      // Step 1: Geocode the location using Open-Meteo Geocoding API
+      // Try multiple location formats to improve success rate
+      const locationVariants = [
+        location, // Original format (e.g., "Bakersfield, CA")
+        location.split(',')[0].trim(), // Just city name (e.g., "Bakersfield")
+        location.replace(', ', ' '), // Without comma (e.g., "Bakersfield CA")
+      ];
       
-      if (data.results && data.results.length > 0) {
-        geocodeData = data;
-        console.log(`Successfully geocoded with variant: ${variant}`);
-        break;
-      }
-    }
+      let geocodeData: any = null;
+      
+      for (const variant of locationVariants) {
+        const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+          variant
+        )}&count=1&language=en&format=json`;
 
-    if (!geocodeData || !geocodeData.results || geocodeData.results.length === 0) {
+        const geocodeResponse = await fetch(geocodeUrl);
+        const data = await geocodeResponse.json();
+        
+        if (data.results && data.results.length > 0) {
+          geocodeData = data;
+          console.log(`Successfully geocoded with variant: ${variant}`);
+          break;
+        }
+      }
+
+      if (!geocodeData || !geocodeData.results || geocodeData.results.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Location not found" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      lat = geocodeData.results[0].latitude;
+      lng = geocodeData.results[0].longitude;
+      locationName = geocodeData.results[0].name;
+    } else {
       return new Response(
-        JSON.stringify({ error: "Location not found" }),
+        JSON.stringify({ error: "Either location or latitude/longitude must be provided" }),
         {
-          status: 404,
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    const { latitude, longitude, name } = geocodeData.results[0];
-
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
 
     const weatherResponse = await fetch(weatherUrl);
     const weatherData = await weatherResponse.json();
@@ -123,7 +144,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        location: name,
+        location: locationName,
         forecasts,
       }),
       {

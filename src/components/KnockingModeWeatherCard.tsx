@@ -1,18 +1,38 @@
-import { Cloud, ChevronRight } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface KnockingModeWeatherCardProps {
   repData: any;
+  isOnActiveBlitz: boolean;
 }
 
-export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProps) => {
-  const [weather, setWeather] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingModeWeatherCardProps) => {
+  const [weather, setWeather] = useState<{
+    high: number;
+    low: number;
+    weatherCode: number;
+    location: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Check if currently on an active blitz
+  // Check if weather should be visible (9:45 PM to 1:00 PM local time)
+  const shouldShowWeather = useMemo(() => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+    
+    // 9:45 PM = 21:45 = 1305 minutes
+    // 1:00 PM = 13:00 = 780 minutes
+    
+    // Show if: 9:45 PM (1305) to midnight (1440) OR midnight (0) to 1:00 PM (780)
+    return currentMinutes >= 1305 || currentMinutes < 780;
+  }, []);
+
+  // Determine if there's an active blitz
   const activeBlitz = useMemo(() => {
-    if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
+    if (!isOnActiveBlitz || !repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {
       return null;
     }
 
@@ -21,47 +41,67 @@ export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProp
 
     return repData.committed_blitzes.find((blitz: any) => {
       if (!blitz?.date || !blitz?.endDate) return false;
-      
+
       const startDate = new Date(blitz.date);
       startDate.setHours(0, 0, 0, 0);
       const endDate = new Date(blitz.endDate);
       endDate.setHours(0, 0, 0, 0);
-      
+
       return today >= startDate && today <= endDate;
     });
-  }, [repData?.committed_blitzes]);
+  }, [isOnActiveBlitz, repData?.committed_blitzes]);
 
   useEffect(() => {
     const fetchWeather = async () => {
-      if (!activeBlitz?.location) return;
-
-      setLoading(true);
       try {
+        const today = new Date().toISOString().split("T")[0];
+        let requestBody: any = {
+          startDate: today,
+          endDate: today,
+        };
+
+        // If on active blitz, use blitz location
+        if (activeBlitz?.location) {
+          requestBody.location = activeBlitz.location;
+        } else {
+          // Otherwise, use geolocation
+          if (!navigator.geolocation) {
+            setLoading(false);
+            return;
+          }
+
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+
+          requestBody.latitude = position.coords.latitude;
+          requestBody.longitude = position.coords.longitude;
+        }
+
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
-          body: {
-            location: activeBlitz.location,
-            startDate: activeBlitz.date,
-            endDate: activeBlitz.endDate,
-          },
+          body: requestBody,
         });
 
-        if (!error && data?.forecasts) {
-          setWeather(data.forecasts[0]); // Today's weather
+        if (error) throw error;
+
+        if (data?.forecasts && data.forecasts.length > 0) {
+          const todayForecast = data.forecasts[0];
+          setWeather({
+            high: todayForecast.high,
+            low: todayForecast.low,
+            weatherCode: todayForecast.weatherCode,
+            location: data.location || "Your Current Location",
+          });
         }
       } catch (error) {
-        console.error('Error fetching weather:', error);
+        console.error("Error fetching weather:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (activeBlitz) {
-      fetchWeather();
-    }
-  }, [activeBlitz]);
-
-  // Don't render if not on active blitz
-  if (!activeBlitz) return null;
+    fetchWeather();
+  }, [activeBlitz, isOnActiveBlitz]);
 
   const getWeatherIcon = (code: number) => {
     if (code === 0) return "☀️";
@@ -116,13 +156,11 @@ export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProp
     return "Perfect weather to knock — let's get after it!";
   };
 
+  // Check time-based visibility
+  if (!shouldShowWeather) return null;
+
   if (loading) {
-    return (
-      <div className="flex items-center gap-3 w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
-        <Cloud className="w-6 h-6 text-primary-foreground/60 animate-pulse flex-shrink-0" />
-        <p className="text-primary-foreground/70 text-base font-medium">Loading weather...</p>
-      </div>
-    );
+    return null;
   }
 
   if (!weather) return null;
@@ -135,7 +173,7 @@ export const KnockingModeWeatherCard = ({ repData }: KnockingModeWeatherCardProp
       <div className="flex items-center gap-2 mb-2">
         <span className="text-2xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
         <p className="text-primary-foreground/90 text-base font-semibold">
-          Weather in {activeBlitz.location}
+          Weather in {weather.location}
         </p>
       </div>
       <p className="text-primary-foreground/80 text-sm mb-1">

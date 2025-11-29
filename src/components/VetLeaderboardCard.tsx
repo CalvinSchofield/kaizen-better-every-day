@@ -1,12 +1,22 @@
 import { Trophy, Crown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
+import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 
-export const VetLeaderboardCard = () => {
-  const { data: leaderboard, isLoading } = useYesterdayLeaderboard(); // All reps, not filtered by year
+interface VetLeaderboardCardProps {
+  isOnActiveBlitz: boolean;
+}
+
+export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps) => {
+  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard();
+  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard();
+  
+  const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
+  const isLoading = isOnActiveBlitz ? isLoadingYesterday : isLoadingWeekly;
+  
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,6 +35,11 @@ export const VetLeaderboardCard = () => {
     );
   }
 
+  // If weekly leaderboard has no data, hide card entirely
+  if (!isOnActiveBlitz && !leaderboard) {
+    return null;
+  }
+
   const isUserTopPerformer = currentUserId && (
     leaderboard?.mostDecisionMakers?.userId === currentUserId ||
     leaderboard?.mostFP?.userId === currentUserId ||
@@ -41,7 +56,7 @@ export const VetLeaderboardCard = () => {
             <TrendingUp className="h-5 w-5 text-primary" />
           )}
           <CardTitle>
-            {isUserTopPerformer ? "You're Leading the Pack! 🔥" : "Yesterday's Top Performers"}
+            {isUserTopPerformer ? "You're Leading the Pack! 🔥" : isOnActiveBlitz ? "Yesterday's Top Performers" : "This Week's Top Performers"}
           </CardTitle>
         </div>
         <CardDescription>
