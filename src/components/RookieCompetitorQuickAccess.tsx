@@ -11,22 +11,31 @@ export const RookieCompetitorQuickAccess = () => {
 
   // Filter for the 8 specific competitors rookies face most
   const targetCompetitors = [
-    "Ring Doorbell",
-    "Ring Outdoor Camera", 
-    "ADT Alarm Service",
-    "Alarm.com Doorbell",
-    "Alarm.com Outdoor Camera",
-    "Blink Camera",
-    "Google Camera",
-    "Arlo Camera"
+    { search: "alarm.com doorbell", prefer: "newer" },
+    { search: "alarm.com outdoor", prefer: "" },
+    { search: "ring doorbell", prefer: "battery" },
+    { search: "ring outdoor", prefer: "" },
+    { search: "adt alarm", prefer: "" },
+    { search: "google doorbell", prefer: "battery" },
+    { search: "blink camera", prefer: "" },
+    { search: "arlo outdoor", prefer: "" }
   ];
   
-  const commonCompetitors = competitors.filter(c => 
-    targetCompetitors.some(target => 
-      c.name.toLowerCase().includes(target.toLowerCase()) ||
-      target.toLowerCase().includes(c.name.toLowerCase())
-    )
-  ).slice(0, 8);
+  const commonCompetitors = targetCompetitors.map(target => {
+    const matches = competitors.filter(c => 
+      c.name.toLowerCase().includes(target.search.toLowerCase())
+    );
+    
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    
+    // If multiple matches, prefer one with the preferred term
+    const preferred = matches.find(m => 
+      target.prefer && m.name.toLowerCase().includes(target.prefer.toLowerCase())
+    );
+    
+    return preferred || matches[0];
+  }).filter(Boolean).slice(0, 8);
 
   return (
     <>
