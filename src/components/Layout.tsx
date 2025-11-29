@@ -156,6 +156,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
             </Button>
           }
           firstName={firstName}
+          navItems={navItems}
         />
         <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
           {getPageTitle()}

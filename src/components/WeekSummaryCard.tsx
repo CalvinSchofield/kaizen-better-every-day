@@ -29,11 +29,11 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
       if (error) throw error;
 
       const totals = data?.reduce((acc, entry) => ({
-        doors: acc.doors + (entry.doors_knocked || 0),
+        transitions: acc.transitions + (entry.transitions || 0),
         fp: acc.fp + (Number(entry.fp_plus) || 0),
         prmr: acc.prmr + (Number(entry.prmr) || 0),
         days: acc.days + 1,
-      }), { doors: 0, fp: 0, prmr: 0, days: 0 }) || { doors: 0, fp: 0, prmr: 0, days: 0 };
+      }), { transitions: 0, fp: 0, prmr: 0, days: 0 }) || { transitions: 0, fp: 0, prmr: 0, days: 0 };
 
       return totals;
     },
@@ -68,10 +68,11 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
     enabled: !!repData?.user_id,
   });
 
-  const thisWeek = thisWeekData || { doors: 0, fp: 0, prmr: 0, days: 0 };
+  const thisWeek = thisWeekData || { transitions: 0, fp: 0, prmr: 0, days: 0 };
   const lastWeek = lastWeekData || { fp: 0 };
   const fpChange = thisWeek.fp - lastWeek.fp;
   const isImproving = fpChange >= 0;
+  const upfrontPay = thisWeek.prmr * 4;
 
   return (
     <Card>
@@ -85,8 +86,8 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
       <CardContent>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-primary">{thisWeek.doors}</p>
-            <p className="text-xs text-muted-foreground">Doors</p>
+            <p className="text-2xl font-bold text-primary">{thisWeek.transitions}</p>
+            <p className="text-xs text-muted-foreground">Transitions</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{thisWeek.fp.toFixed(1)}</p>
@@ -96,6 +97,13 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
             <p className="text-2xl font-bold text-primary">${thisWeek.prmr}</p>
             <p className="text-xs text-muted-foreground">PRMR</p>
           </div>
+        </div>
+
+        {/* Upfront Pay Calculation */}
+        <div className="mt-3 text-center">
+          <p className="text-xs text-muted-foreground">
+            Total Upfront Pay: <span className="font-semibold text-foreground">${upfrontPay.toLocaleString()}</span>
+          </p>
         </div>
 
         {lastWeek.fp > 0 && (

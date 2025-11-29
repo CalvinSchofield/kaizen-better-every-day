@@ -17,9 +17,10 @@ import { useState } from "react";
 interface AppDrawerProps {
   trigger: React.ReactNode;
   firstName?: string;
+  navItems?: Array<{ path: string; icon: any; label: string }>;
 }
 
-export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
+export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps) => {
   const { repData } = useRepData();
   const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
   const [open, setOpen] = useState(false);
@@ -85,8 +86,8 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </>
           )}
 
-          {/* Training Link - Show in drawer when knocking mode is ON */}
-          {isKnockingMode && (
+          {/* Training Link - Show in drawer only when NOT in bottom tabs */}
+          {!navItems.some(item => item.path === "/training") && (
             <Link
               to="/training"
               onClick={() => setOpen(false)}
@@ -102,8 +103,8 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </Link>
           )}
 
-          {/* Tools Link - Show in drawer for vets when knocking mode is ON */}
-          {isKnockingMode && isVetOrSoph && (
+          {/* Tools Link - Show in drawer only when NOT in bottom tabs */}
+          {!navItems.some(item => item.path === "/tools") && (
             <Link
               to="/tools"
               onClick={() => setOpen(false)}
@@ -119,51 +120,56 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </Link>
           )}
 
-          {(isKnockingMode && (canAccessKnockingToggle || isVetOrSoph)) && <Separator />}
+          {/* Separator only if we showed Training or Tools */}
+          {(!navItems.some(item => item.path === "/training") || !navItems.some(item => item.path === "/tools")) && <Separator />}
 
-          {/* Calendar Link */}
-          <Link
-            to="/calendar"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-          >
-            <div className="relative">
-              <Calendar className="w-5 h-5 text-primary" />
-              {isCalendarLocked && (
-                <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                  <Lock className="w-3 h-3 text-primary" />
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold">Calendar</span>
-              <span className="text-sm text-muted-foreground">
-                {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
-              </span>
-            </div>
-          </Link>
+          {/* Calendar Link - Show only when NOT in bottom tabs */}
+          {!navItems.some(item => item.path === "/calendar") && (
+            <Link
+              to="/calendar"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+            >
+              <div className="relative">
+                <Calendar className="w-5 h-5 text-primary" />
+                {isCalendarLocked && (
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold">Calendar</span>
+                <span className="text-sm text-muted-foreground">
+                  {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
+                </span>
+              </div>
+            </Link>
+          )}
 
-          {/* Insights Link */}
-          <Link
-            to="/insights"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-          >
-            <div className="relative">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              {isCalendarLocked && (
-                <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                  <Lock className="w-3 h-3 text-primary" />
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="font-semibold">Insights</span>
-              <span className="text-sm text-muted-foreground">
-                {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
-              </span>
-            </div>
-          </Link>
+          {/* Insights Link - Show only when NOT in bottom tabs */}
+          {!navItems.some(item => item.path === "/insights") && (
+            <Link
+              to="/insights"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+            >
+              <div className="relative">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                {isCalendarLocked && (
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold">Insights</span>
+                <span className="text-sm text-muted-foreground">
+                  {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
+                </span>
+              </div>
+            </Link>
+          )}
 
           <Separator />
 
