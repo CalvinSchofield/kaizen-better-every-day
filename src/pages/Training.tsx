@@ -293,21 +293,6 @@ const Training = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border p-6">
-        <div className="max-w-lg mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold">Training Library</h1>
-          </div>
-          <p className="text-muted-foreground text-sm">
-            Access all training materials and resources
-          </p>
-        </div>
-      </div>
-
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Pay Scales - Hidden for Rookies */}
