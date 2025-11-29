@@ -66,80 +66,15 @@ export default function Insights() {
     return { percentDiff: Math.abs(percentDiff), isBetter };
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background p-4 pb-24">
-        <div className="max-w-lg mx-auto space-y-6">
-          {/* Date Range Selector Skeleton */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-9 w-24 bg-muted rounded-md animate-pulse" />
-            ))}
-          </div>
-
-          {/* Ratio Cards Skeleton */}
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-card border border-border rounded-xl p-4">
-                <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
-                <div className="h-8 w-20 bg-muted rounded animate-pulse mb-2" />
-                <div className="h-4 w-48 bg-muted rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-
-          {/* Time Metrics Skeleton */}
-          <div className="bg-card border border-border rounded-xl p-4">
-            <div className="h-6 w-48 bg-muted rounded animate-pulse mb-4" />
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i}>
-                  <div className="h-4 w-24 bg-muted rounded animate-pulse mb-2" />
-                  <div className="h-6 w-16 bg-muted rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Best Periods Skeleton */}
-          <div className="bg-card border border-border rounded-xl p-4">
-            <div className="h-6 w-32 bg-muted rounded animate-pulse mb-4" />
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i}>
-                  <div className="h-4 w-20 bg-muted rounded animate-pulse mb-1" />
-                  <div className="h-5 w-full bg-muted rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!insights || insights.daysWorked === 0) {
-    return (
-      <div className="min-h-screen bg-background p-4 pb-24">
-        <div className="max-w-lg mx-auto text-center py-12">
-          <div className="text-muted-foreground mb-4">No data available for this period</div>
-          <p className="text-sm text-muted-foreground">
-            Start tracking your daily entries to see insights here
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const doorsComparison = getRatioComparison(insights.doorsToFp, insights.overallDoorsToFp);
-  const pitchesComparison = getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp);
-  const transitionsComparison = getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp);
-  const closeComparison = getCloseRatioComparison(insights.presentationsToClose, insights.overallPresentationsToClose);
+  const doorsComparison = insights ? getRatioComparison(insights.doorsToFp, insights.overallDoorsToFp) : null;
+  const pitchesComparison = insights ? getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp) : null;
+  const transitionsComparison = insights ? getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp) : null;
+  const closeComparison = insights ? getCloseRatioComparison(insights.presentationsToClose, insights.overallPresentationsToClose) : null;
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
-        {/* Date Range Selector */}
+        {/* Date Range Selector - Always visible */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           <Button
             variant={datePreset === 'week' ? 'default' : 'outline'}
@@ -174,222 +109,259 @@ export default function Insights() {
           </Button>
         </div>
 
-        {/* Period Summary */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">Period Summary</h2>
-            <span className="text-sm text-muted-foreground">{insights.daysWorked} days worked</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
-              <div className="text-sm text-muted-foreground">Total FP+</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">${insights.totalPrmr.toFixed(0)}</div>
-              <div className="text-sm text-muted-foreground">Total PRMR</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{insights.totalDoors}</div>
-              <div className="text-sm text-muted-foreground">Total Doors</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold">{insights.totalCloses}</div>
-              <div className="text-sm text-muted-foreground">Total Closes</div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Key Ratios */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Target className="w-5 h-5" />
-            Key Ratios
-          </h2>
-          <div className="space-y-3">
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Doors → FP+</div>
-                  <div className="text-2xl font-bold">{insights.doorsToFp.toFixed(1)}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Overall avg: {insights.overallDoorsToFp.toFixed(1)}
-                  </div>
+        {isLoading ? (
+          <>
+            {/* Ratio Cards Skeleton */}
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-card border border-border rounded-xl p-4">
+                  <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-8 w-20 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-4 w-48 bg-muted rounded animate-pulse" />
                 </div>
-                {doorsComparison && (
-                  <div className={`flex items-center gap-1 ${doorsComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
-                    {doorsComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                    <span className="text-sm font-semibold">{doorsComparison.percentDiff.toFixed(0)}%</span>
+              ))}
+            </div>
+
+            {/* Time Metrics Skeleton */}
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="h-6 w-48 bg-muted rounded animate-pulse mb-4" />
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i}>
+                    <div className="h-4 w-24 bg-muted rounded animate-pulse mb-2" />
+                    <div className="h-6 w-16 bg-muted rounded animate-pulse" />
                   </div>
-                )}
+                ))}
+              </div>
+            </div>
+          </>
+        ) : !insights || insights.daysWorked === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground mb-4">No data available for this period</div>
+            <p className="text-sm text-muted-foreground">
+              Start tracking your daily entries to see insights here
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Period Summary */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">Period Summary</h2>
+                <span className="text-sm text-muted-foreground">{insights.daysWorked} days worked</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
+                  <div className="text-sm text-muted-foreground">Total FP+</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary">${insights.totalPrmr.toFixed(0)}</div>
+                  <div className="text-sm text-muted-foreground">Total PRMR</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{insights.totalDoors}</div>
+                  <div className="text-sm text-muted-foreground">Total Doors</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{insights.totalCloses}</div>
+                  <div className="text-sm text-muted-foreground">Total Closes</div>
+                </div>
               </div>
             </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Pitches → FP+</div>
-                  <div className="text-2xl font-bold">{insights.pitchesToFp.toFixed(1)}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Overall avg: {insights.overallPitchesToFp.toFixed(1)}
+            {/* Key Ratios */}
+            <div>
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Key Ratios
+              </h2>
+              <div className="space-y-3">
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Doors → FP+</div>
+                      <div className="text-2xl font-bold">{insights.doorsToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Overall avg: {insights.overallDoorsToFp.toFixed(1)}
+                      </div>
+                    </div>
+                    {doorsComparison && (
+                      <div className={`flex items-center gap-1 ${doorsComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
+                        {doorsComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                        <span className="text-sm font-semibold">{doorsComparison.percentDiff.toFixed(0)}%</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {pitchesComparison && (
-                  <div className={`flex items-center gap-1 ${pitchesComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
-                    {pitchesComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                    <span className="text-sm font-semibold">{pitchesComparison.percentDiff.toFixed(0)}%</span>
-                  </div>
-                )}
-              </div>
-            </Card>
+                </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Transitions → FP+</div>
-                  <div className="text-2xl font-bold">{insights.transitionsToFp.toFixed(1)}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Overall avg: {insights.overallTransitionsToFp.toFixed(1)}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Pitches → FP+</div>
+                      <div className="text-2xl font-bold">{insights.pitchesToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Overall avg: {insights.overallPitchesToFp.toFixed(1)}
+                      </div>
+                    </div>
+                    {pitchesComparison && (
+                      <div className={`flex items-center gap-1 ${pitchesComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
+                        {pitchesComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                        <span className="text-sm font-semibold">{pitchesComparison.percentDiff.toFixed(0)}%</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {transitionsComparison && (
-                  <div className={`flex items-center gap-1 ${transitionsComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
-                    {transitionsComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                    <span className="text-sm font-semibold">{transitionsComparison.percentDiff.toFixed(0)}%</span>
-                  </div>
-                )}
-              </div>
-            </Card>
+                </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Presentations → Close</div>
-                  <div className="text-2xl font-bold">{insights.presentationsToClose.toFixed(1)}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Overall avg: {insights.overallPresentationsToClose.toFixed(1)}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Transitions → FP+</div>
+                      <div className="text-2xl font-bold">{insights.transitionsToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Overall avg: {insights.overallTransitionsToFp.toFixed(1)}
+                      </div>
+                    </div>
+                    {transitionsComparison && (
+                      <div className={`flex items-center gap-1 ${transitionsComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
+                        {transitionsComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                        <span className="text-sm font-semibold">{transitionsComparison.percentDiff.toFixed(0)}%</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {closeComparison && (
-                  <div className={`flex items-center gap-1 ${closeComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
-                    {closeComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                    <span className="text-sm font-semibold">{closeComparison.percentDiff.toFixed(0)}%</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
+                </Card>
 
-        {/* Time-Based Productivity */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            Productivity per Hour
-          </h2>
-          <Card className="p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-muted-foreground">Doors/Hour</div>
-                <div className="text-xl font-bold">{insights.doorsPerHour.toFixed(1)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Pitches/Hour</div>
-                <div className="text-xl font-bold">{insights.pitchesPerHour.toFixed(1)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Transitions/Hour</div>
-                <div className="text-xl font-bold">{insights.transitionsPerHour.toFixed(1)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Presentations/Hour</div>
-                <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
-              </div>
-              <div className="col-span-2 pt-2 border-t border-border">
-                <div className="text-sm text-muted-foreground">Hours to sell 1 FP+</div>
-                <div className="text-xl font-bold">{insights.hoursToFp.toFixed(1)}h</div>
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Presentations → Close</div>
+                      <div className="text-2xl font-bold">{insights.presentationsToClose.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Overall avg: {insights.overallPresentationsToClose.toFixed(1)}
+                      </div>
+                    </div>
+                    {closeComparison && (
+                      <div className={`flex items-center gap-1 ${closeComparison.isBetter ? 'text-green-500' : 'text-red-500'}`}>
+                        {closeComparison.isBetter ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                        <span className="text-sm font-semibold">{closeComparison.percentDiff.toFixed(0)}%</span>
+                      </div>
+                    )}
+                  </div>
+                </Card>
               </div>
             </div>
-          </Card>
-        </div>
 
-        {/* Best Periods */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Award className="w-5 h-5" />
-            Best Periods
-          </h2>
-          <div className="space-y-3">
-            {insights.bestDay && (
+            {/* Time-Based Productivity */}
+            <div>
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Productivity per Hour
+              </h2>
               <Card className="p-4">
-                <div className="text-sm text-muted-foreground mb-1">Best Day</div>
-                <div className="text-xl font-bold text-primary">{insights.bestDay.fpPlus.toFixed(1)} FP+</div>
-                <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
-                <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
-              </Card>
-            )}
-            
-            {insights.bestWeek && (
-              <Card className="p-4">
-                <div className="text-sm text-muted-foreground mb-1">Best Week</div>
-                <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
-                <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
-                <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
-              </Card>
-            )}
-            
-            {insights.bestMonth && (
-              <Card className="p-4">
-                <div className="text-sm text-muted-foreground mb-1">Best Month</div>
-                <div className="text-xl font-bold text-primary">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
-                <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
-                <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
-              </Card>
-            )}
-            
-            {insights.bestRatioDay && (
-              <Card className="p-4">
-                <div className="text-sm text-muted-foreground mb-1">Best Efficiency Day</div>
-                <div className="text-xl font-bold text-primary">{insights.bestRatioDay.ratio.toFixed(1)} doors per FP+</div>
-                <div className="text-sm text-muted-foreground">{insights.bestRatioDay.date}</div>
-                <div className="text-xs text-muted-foreground mt-1">{insights.bestRatioDay.fpPlus.toFixed(1)} FP+ sold</div>
-              </Card>
-            )}
-          </div>
-        </div>
-
-        {/* Timing Patterns */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            Timing Patterns
-          </h2>
-          <Card className="p-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-muted-foreground">Avg Start Time</div>
-                <div className="text-xl font-bold">{insights.avgStartTime}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Avg End Time</div>
-                <div className="text-xl font-bold">{insights.avgEndTime}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
-                <div className="text-xl font-bold">{insights.avgHoursWorked.toFixed(1)}h</div>
-              </div>
-              {insights.mostProductiveHour !== null && (
-                <div>
-                  <div className="text-sm text-muted-foreground">Most Productive Hour</div>
-                  <div className="text-xl font-bold">
-                    {insights.mostProductiveHour === 0 ? '12' : insights.mostProductiveHour > 12 ? insights.mostProductiveHour - 12 : insights.mostProductiveHour}
-                    {insights.mostProductiveHour >= 12 ? 'PM' : 'AM'}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Doors/Hour</div>
+                    <div className="text-xl font-bold">{insights.doorsPerHour.toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Pitches/Hour</div>
+                    <div className="text-xl font-bold">{insights.pitchesPerHour.toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Transitions/Hour</div>
+                    <div className="text-xl font-bold">{insights.transitionsPerHour.toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Presentations/Hour</div>
+                    <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-border">
+                    <div className="text-sm text-muted-foreground">Hours to sell 1 FP+</div>
+                    <div className="text-xl font-bold">{insights.hoursToFp.toFixed(1)}h</div>
                   </div>
                 </div>
-              )}
+              </Card>
             </div>
-          </Card>
-        </div>
+
+            {/* Best Periods */}
+            <div>
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Award className="w-5 h-5" />
+                Best Periods
+              </h2>
+              <div className="space-y-3">
+                {insights.bestDay && (
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Best Day</div>
+                    <div className="text-xl font-bold text-primary">{insights.bestDay.fpPlus.toFixed(1)} FP+</div>
+                    <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
+                  </Card>
+                )}
+                
+                {insights.bestWeek && (
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Best Week</div>
+                    <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
+                    <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
+                  </Card>
+                )}
+                
+                {insights.bestMonth && (
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Best Month</div>
+                    <div className="text-xl font-bold text-primary">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
+                    <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
+                  </Card>
+                )}
+                
+                {insights.bestRatioDay && (
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground mb-1">Best Efficiency Day</div>
+                    <div className="text-xl font-bold text-primary">{insights.bestRatioDay.ratio.toFixed(1)} doors per FP+</div>
+                    <div className="text-sm text-muted-foreground">{insights.bestRatioDay.date}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{insights.bestRatioDay.fpPlus.toFixed(1)} FP+ sold</div>
+                  </Card>
+                )}
+              </div>
+            </div>
+
+            {/* Timing Patterns */}
+            <div>
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Timing Patterns
+              </h2>
+              <Card className="p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Avg Start Time</div>
+                    <div className="text-xl font-bold">{insights.avgStartTime}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Avg End Time</div>
+                    <div className="text-xl font-bold">{insights.avgEndTime}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
+                    <div className="text-xl font-bold">{insights.avgHoursWorked.toFixed(1)}h</div>
+                  </div>
+                  {insights.mostProductiveHour !== null && (
+                    <div>
+                      <div className="text-sm text-muted-foreground">Most Productive Hour</div>
+                      <div className="text-xl font-bold">
+                        {insights.mostProductiveHour === 0 ? '12' : insights.mostProductiveHour > 12 ? insights.mostProductiveHour - 12 : insights.mostProductiveHour}
+                        {insights.mostProductiveHour >= 12 ? 'PM' : 'AM'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Custom Date Range Sheet */}
