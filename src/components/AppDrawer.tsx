@@ -1,17 +1,21 @@
-import { Link } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
 interface AppDrawerProps {
@@ -23,7 +27,10 @@ interface AppDrawerProps {
 export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps) => {
   const { repData } = useRepData();
   const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -50,7 +57,31 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
     toggleMode(checked);
   };
 
+  const handleLogout = () => {
+    setOpen(false);
+    setLogoutSheetOpen(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        toast({
+          title: "Logout failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        navigate('/auth');
+      }
+    } finally {
+      setLogoutSheetOpen(false);
+    }
+  };
+
   return (
+    <>
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         {trigger}
@@ -204,8 +235,53 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
               </span>
             </div>
           </div>
+
+          <Separator />
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
+          >
+            <LogOut className="w-5 h-5" />
+            <div className="flex flex-col">
+              <span className="font-semibold">Logout</span>
+              <span className="text-sm text-muted-foreground">
+                Sign out of your account
+              </span>
+            </div>
+          </button>
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* Logout Confirmation Sheet */}
+    <Sheet open={logoutSheetOpen} onOpenChange={setLogoutSheetOpen}>
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader>
+          <SheetTitle>Confirm Logout</SheetTitle>
+          <SheetDescription>
+            Are you sure you want to log out? You'll need to sign in again to access your account.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => setLogoutSheetOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            className="flex-1"
+            onClick={confirmLogout}
+          >
+            Logout
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };

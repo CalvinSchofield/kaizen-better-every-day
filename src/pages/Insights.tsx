@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
+import { useRepData } from '@/hooks/useRepData';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
   Sheet,
@@ -20,11 +21,30 @@ type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | null;
 
 export default function Insights() {
+  const { repData, loading: loadingRepData } = useRepData();
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+
+  // Check if user is a pre-blitz rookie
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  // Check if rookie has attended a blitz (any blitz with endDate in the past)
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  const hasAttendedBlitz = blitzes.some((blitz: any) => {
+    if (blitz.endDate) {
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    }
+    return false;
+  });
+
+  const isPreBlitzRookie = isRookie && !hasAttendedBlitz;
   
   const handleSectionToggle = (section: ExpandedSection) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -78,6 +98,43 @@ export default function Insights() {
   const pitchesComparison = insights ? getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp) : null;
   const transitionsComparison = insights ? getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp) : null;
   const closeComparison = insights ? getCloseRatioComparison(insights.presentationsToClose, insights.overallPresentationsToClose) : null;
+
+  // Show loading state while fetching rep data
+  if (loadingRepData) {
+    return null;
+  }
+
+  // Show locked state for pre-blitz rookies
+  if (isPreBlitzRookie) {
+    return (
+      <div className="min-h-screen bg-background p-4 pb-24 flex items-center justify-center">
+        <Card className="w-full max-w-md border-border/40">
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <BarChart3 className="h-16 w-16 text-muted-foreground/40" />
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">Insights Unlock on Your Blitz!</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Your performance analytics will become available once you hit the doors on your first blitz. 
+                Track your ratios, productivity, and best periods to level up your game.
+              </p>
+            </div>
+            <div className="pt-2">
+              <p className="text-sm text-primary font-medium">
+                Can't wait to see your stats grow! 📊
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
