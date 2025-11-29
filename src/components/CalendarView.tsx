@@ -547,32 +547,30 @@ export const CalendarView = ({
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Time/door</span>
+                          <span className="text-muted-foreground">Pitches per hour</span>
                           <span className="font-semibold text-foreground text-base">
-                            {viewTotals.doorsKnocked > 0 
-                              ? `${Math.round(viewTotals.totalWorkMinutes / viewTotals.doorsKnocked)}m`
+                            {viewTotals.totalWorkMinutes > 0 
+                              ? ((viewTotals.pitches / viewTotals.totalWorkMinutes) * 60).toFixed(1)
                               : '-'
                             }
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Time/pitch</span>
+                          <span className="text-muted-foreground">Transitions per hour</span>
                           <span className="font-semibold text-foreground text-base">
-                            {viewTotals.pitches > 0 
-                              ? `${Math.round(viewTotals.totalWorkMinutes / viewTotals.pitches)}m`
+                            {viewTotals.totalWorkMinutes > 0 
+                              ? ((viewTotals.transitions / viewTotals.totalWorkMinutes) * 60).toFixed(1)
                               : '-'
                             }
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Time/close</span>
+                          <span className="text-muted-foreground">Presentations per hour</span>
                           <span className="font-semibold text-foreground text-base">
-                            {(() => {
-                              const minutesPerClose = viewTotals.totalWorkMinutes / viewTotals.closes;
-                              const hours = Math.floor(minutesPerClose / 60);
-                              const minutes = Math.round(minutesPerClose % 60);
-                              return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-                            })()}
+                            {viewTotals.totalWorkMinutes > 0 
+                              ? ((viewTotals.presentations / viewTotals.totalWorkMinutes) * 60).toFixed(1)
+                              : '-'
+                            }
                           </span>
                         </div>
                       </>
