@@ -249,22 +249,30 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
 
         {/* Comparison */}
         {summary.comparison && (
-          <div
-            className={`flex items-center gap-2 justify-center text-sm ${
-              isImproving
-                ? "text-green-600 dark:text-green-400"
-                : "text-orange-600 dark:text-orange-400"
-            }`}
-          >
-            {isImproving ? (
-              <TrendingUp className="h-4 w-4" />
-            ) : (
-              <TrendingDown className="h-4 w-4" />
+          <div className="text-center pt-4 border-t space-y-1">
+            <div className="flex items-center justify-center gap-2">
+              {isImproving ? (
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              ) : (
+                <TrendingDown className="h-4 w-4 text-red-500" />
+              )}
+              <span className={`text-sm font-medium ${
+                isImproving
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              }`}>
+                {isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+
+              </span>
+              <span className="text-xs text-muted-foreground">
+                vs {summary.comparison.label}
+              </span>
+            </div>
+            {/* Subtle total context */}
+            {(summary.mode === "blitz" || summary.mode === "summer") && (
+              <p className="text-[10px] text-muted-foreground/60">
+                {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
+              </p>
             )}
-            <span>
-              {isImproving ? "+" : ""}
-              {summary.comparison.fpChange.toFixed(1)} FP+ {summary.comparison.label}
-            </span>
           </div>
         )}
       </CardContent>
