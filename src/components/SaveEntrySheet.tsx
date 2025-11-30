@@ -80,8 +80,7 @@ export const SaveEntrySheet = ({
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
-  // TEMPORARY: Always show help for testing
-  const showHelp = true; // Change back to: isRookie && totalFP < 10
+  const showHelp = isRookie && totalFP < 10;
 
   useEffect(() => {
     if (open && entry) {
@@ -439,7 +438,7 @@ export const SaveEntrySheet = ({
                         variant="outline"
                         size="sm"
                         className="shrink-0"
-                        onClick={() => navigate('/assistant')}
+                        onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                       >
                         <MessageSquare className="h-4 w-4 mr-1" />
                         AI Assistant
@@ -492,7 +491,7 @@ export const SaveEntrySheet = ({
                           variant="outline"
                           size="sm"
                           className="shrink-0"
-                          onClick={() => navigate('/assistant')}
+                          onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                         >
                           <MessageSquare className="h-4 w-4 mr-1" />
                           AI Assistant
