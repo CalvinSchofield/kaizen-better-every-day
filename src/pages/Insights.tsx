@@ -323,7 +323,7 @@ export default function Insights() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400">{insights.totalNewFp.toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">New FP+</div>
+                      <div className="text-xs text-muted-foreground">FP</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insights.totalUpgradeFp.toFixed(1)}</div>
@@ -475,12 +475,12 @@ export default function Insights() {
                   </div>
                 </Card>
 
-                {/* Doors to New FP+ metric */}
+                {/* Doors to FP metric */}
                 {insights.totalNewFp > 0 && (
                   <Card className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm text-muted-foreground mb-1">Doors → New FP+</div>
+                        <div className="text-sm text-muted-foreground mb-1">Doors → FP</div>
                         <div className="text-2xl font-bold">{insights.doorsToNewFp.toFixed(1)}</div>
                         <div className="text-xs text-muted-foreground mt-1">
                           More accurate door efficiency
