@@ -6,12 +6,14 @@ import { ChartContainer } from "@/components/ui/chart";
 import { format, parseISO, startOfWeek, startOfMonth, isSameWeek, isSameMonth } from "date-fns";
 import { useCumulativeFP } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type GroupBy = 'day' | 'week' | 'month';
 type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
 
 export const FPCumulativeChart = () => {
+  const [isOpen, setIsOpen] = useState(true);
   const [movingAvgPeriod, setMovingAvgPeriod] = useState<6 | 12>(6);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
@@ -39,6 +41,10 @@ export const FPCumulativeChart = () => {
   if (!cumulativeData || cumulativeData.length === 0) {
     return null;
   }
+
+  // Determine which grouping options are available based on data length
+  const hasEnoughForWeek = cumulativeData.length >= 7;
+  const hasEnoughForMonth = cumulativeData.length >= 14;
 
   // Determine labels based on mode and metric type
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
@@ -165,112 +171,123 @@ export const FPCumulativeChart = () => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Progress Over Time
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={movingAvgPeriod === 6 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMovingAvgPeriod(6)}
-                className="text-xs"
-              >
-                6-Day Avg
-              </Button>
-              <Button
-                variant={movingAvgPeriod === 12 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMovingAvgPeriod(12)}
-                className="text-xs"
-              >
-                12-Day Avg
-              </Button>
-            </div>
-          </div>
-
-          {/* Grouping and Metric Toggle Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Group By */}
-            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-              <Button
-                variant={groupBy === 'day' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setGroupBy('day')}
-                className="text-xs h-7 px-2"
-              >
-                Day
-              </Button>
-              <Button
-                variant={groupBy === 'week' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setGroupBy('week')}
-                className="text-xs h-7 px-2"
-              >
-                Week
-              </Button>
-              <Button
-                variant={groupBy === 'month' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setGroupBy('month')}
-                className="text-xs h-7 px-2"
-              >
-                Month
-              </Button>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CardHeader>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                <TrendingUp className="w-5 h-5" />
+                <CardTitle>Progress Over Time</CardTitle>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+              </CollapsibleTrigger>
             </div>
 
-            {/* Metric Toggle */}
-            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-              <Button
-                variant={metricType === 'primary' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setMetricType('primary')}
-                className="text-xs h-7 px-2"
-              >
-                {primaryLabel}
-              </Button>
-              <Button
-                variant={metricType === 'secondary' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setMetricType('secondary')}
-                className="text-xs h-7 px-2"
-              >
-                {secondaryLabel}
-              </Button>
-            </div>
-          </div>
+            <CollapsibleContent>
+              {/* All Controls in One Row */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Group By */}
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                  <Button
+                    variant={groupBy === 'day' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setGroupBy('day')}
+                    className="text-xs h-7 px-2"
+                  >
+                    Day
+                  </Button>
+                  {hasEnoughForWeek && (
+                    <Button
+                      variant={groupBy === 'week' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setGroupBy('week')}
+                      className="text-xs h-7 px-2"
+                    >
+                      Week
+                    </Button>
+                  )}
+                  {hasEnoughForMonth && (
+                    <Button
+                      variant={groupBy === 'month' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setGroupBy('month')}
+                      className="text-xs h-7 px-2"
+                    >
+                      Month
+                    </Button>
+                  )}
+                </div>
 
-          {/* Comparison Metrics */}
-          {comparison && (
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                {comparison.isPositive ? (
-                  <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-                )}
-                <span className={comparison.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                  {comparison.isPositive ? '+' : ''}
-                  {metricType === 'secondary' && !efpModeEnabled
-                    ? `$${comparison.change.toFixed(0)}`
-                    : comparison.change.toFixed(efpModeEnabled && metricType === 'primary' ? 2 : 1)}
-                </span>
-                <span className="text-muted-foreground">
-                  ({comparison.percentChange.toFixed(1)}%)
-                </span>
+                {/* Moving Average Period */}
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                  <Button
+                    variant={movingAvgPeriod === 6 ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMovingAvgPeriod(6)}
+                    className="text-xs h-7 px-2"
+                  >
+                    6d Avg
+                  </Button>
+                  <Button
+                    variant={movingAvgPeriod === 12 ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMovingAvgPeriod(12)}
+                    className="text-xs h-7 px-2"
+                  >
+                    12d Avg
+                  </Button>
+                </div>
+
+                {/* Metric Toggle */}
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                  <Button
+                    variant={metricType === 'primary' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMetricType('primary')}
+                    className="text-xs h-7 px-2"
+                  >
+                    {primaryLabel}
+                  </Button>
+                  <Button
+                    variant={metricType === 'secondary' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMetricType('secondary')}
+                    className="text-xs h-7 px-2"
+                  >
+                    {secondaryLabel}
+                  </Button>
+                </div>
               </div>
-              <span className="text-muted-foreground">
-                vs previous {groupBy}
-              </span>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
+
+              {/* Comparison Metrics */}
+              {comparison && (
+                <div className="flex items-center gap-4 text-xs mt-2">
+                  <div className="flex items-center gap-1.5">
+                    {comparison.isPositive ? (
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    )}
+                    <span className={comparison.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                      {comparison.isPositive ? '+' : ''}
+                      {metricType === 'secondary' && !efpModeEnabled
+                        ? `$${comparison.change.toFixed(0)}`
+                        : comparison.change.toFixed(efpModeEnabled && metricType === 'primary' ? 2 : 1)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({comparison.percentChange.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground">
+                    vs previous {groupBy}
+                  </span>
+                </div>
+              )}
+            </CollapsibleContent>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent>
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -315,18 +332,20 @@ export const FPCumulativeChart = () => {
               />
             </LineChart>
           </ResponsiveContainer>
-        </ChartContainer>
-        <div className="flex items-center justify-center gap-6 mt-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-primary rounded" />
-            <span className="text-muted-foreground">Total {currentMetricLabel}</span>
+          </ChartContainer>
+          <div className="flex items-center justify-center gap-6 mt-4 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-primary rounded" />
+              <span className="text-muted-foreground">Total {currentMetricLabel}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-chart-2 rounded" style={{ backgroundImage: 'repeating-linear-gradient(to right, hsl(var(--chart-2)) 0, hsl(var(--chart-2)) 3px, transparent 3px, transparent 8px)' }} />
+              <span className="text-muted-foreground">{movingAvgPeriod}-Day Avg</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-chart-2 rounded" style={{ backgroundImage: 'repeating-linear-gradient(to right, hsl(var(--chart-2)) 0, hsl(var(--chart-2)) 3px, transparent 3px, transparent 8px)' }} />
-            <span className="text-muted-foreground">{movingAvgPeriod}-Day Avg</span>
-          </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      </CollapsibleContent>
     </Card>
+    </Collapsible>
   );
 };
