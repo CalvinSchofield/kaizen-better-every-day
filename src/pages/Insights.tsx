@@ -554,7 +554,8 @@ export default function Insights() {
                   <div className="px-4 pb-4">
                     <HourlyActivityHeatmap 
                       hourlyActivity={insights.hourlyActivity} 
-                      peakHours={insights.peakHours} 
+                      peakHours={insights.peakHours}
+                      hourRange={insights.hourRange}
                     />
                   </div>
                 </CollapsibleContent>

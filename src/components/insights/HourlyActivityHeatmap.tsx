@@ -16,10 +16,17 @@ interface HourlyActivityHeatmapProps {
     presentations: number | null;
     closes: number | null;
   };
+  hourRange: {
+    minHour: number;
+    maxHour: number;
+  };
 }
 
-export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours }: HourlyActivityHeatmapProps) => {
-  const hours = Array.from({ length: 13 }, (_, i) => i + 10); // 10 AM to 10 PM
+export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: HourlyActivityHeatmapProps) => {
+  const hours = Array.from(
+    { length: hourRange.maxHour - hourRange.minHour + 1 }, 
+    (_, i) => i + hourRange.minHour
+  );
   const activities = [
     { key: 'doors', label: 'Doors', data: hourlyActivity.doors, peak: peakHours.doors },
     { key: 'pitches', label: 'Pitches', data: hourlyActivity.pitches, peak: peakHours.pitches },
@@ -51,11 +58,6 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours }: HourlyActiv
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Hourly Activity Pattern</h3>
-          <p className="text-sm text-muted-foreground">When you're most active throughout the day</p>
-        </div>
-
         {/* Heatmap Grid */}
         <div className="overflow-x-auto">
           <div className="min-w-[500px]">
