@@ -149,14 +149,6 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
               </div>
               <Progress value={presentationsProgress} className="h-3" />
             </div>
-
-            <Button 
-              className="w-full group" 
-              onClick={() => navigate("/track")}
-            >
-              Start Tracking
-              <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Button>
           </>
         )}
       </CardContent>
