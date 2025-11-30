@@ -324,6 +324,10 @@ Deno.serve(async (req) => {
 
               if (tripResponse.ok) {
                 const tripData = await tripResponse.json();
+                
+                // Log all available properties for debugging
+                console.log(`Trip properties available: ${JSON.stringify(Object.keys(tripData.properties))}`);
+                
                 const tripName = getTitle(tripData.properties.Name);
                 
                 if (tripName) {
@@ -347,6 +351,8 @@ Deno.serve(async (req) => {
             const code2 = getTextProperty(tripData.properties["Code 2"]);
             const wifi1 = getTextProperty(tripData.properties["WiFi 1"]);
             const wifi2 = getTextProperty(tripData.properties["WiFi 2"]);
+            
+            console.log(`Airbnb details for ${tripName}:`, { address1, address2, code1, code2, wifi1, wifi2 });
                   
                   // Store full blitz details INCLUDING the ID for comparison
                   committedBlitzes.push({
