@@ -136,6 +136,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
         return "Calendar";
       case "/insights":
         return "Insights";
+      case "/settings":
+        return "Personalize";
       default:
         return "Kaizen";
     }

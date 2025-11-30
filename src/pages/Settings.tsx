@@ -270,11 +270,6 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Personalize</h1>
-          <p className="text-muted-foreground mt-1">Customize your experience</p>
-        </div>
-        
         {/* Summer Season Dates */}
         <Card>
           <CardHeader>
