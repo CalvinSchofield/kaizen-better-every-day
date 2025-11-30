@@ -37,6 +37,7 @@ export interface InsightsData {
   bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; efp: number; stats: string } | null;
   bestMonth: { month: string; fpPlus: number; efp: number; stats: string } | null;
   bestTransitionsDay: { date: string; transitions: number; fpPlus: number; efp: number } | null;
+  bestDayOfWeek: { day: string; avgFp: number; avgEfp: number; daysWorked: number } | null;
   
   // Timing patterns
   avgStartTime: string;
@@ -56,6 +57,51 @@ export interface InsightsData {
   daysWorked: number;
   totalWorkMinutes: number;
   customCounterTotals: Record<string, number>;
+  
+  // New visualizations data
+  dayOfWeekData: {
+    [key: string]: {
+      avgFp: number;
+      avgEfp: number;
+      avgDoors: number;
+      avgPitches: number;
+      avgTransitions: number;
+      avgPresentations: number;
+      avgCloses: number;
+      avgHours: number;
+      daysWorked: number;
+    };
+  };
+  funnelData: {
+    doors: { total: number; conversionToNext: number };
+    decisionMakers: { total: number; conversionToNext: number };
+    pitches: { total: number; conversionToNext: number };
+    transitions: { total: number; conversionToNext: number };
+    presentations: { total: number; conversionToNext: number };
+    closes: { total: number };
+  };
+  hourlyActivity: {
+    doors: Record<number, number>;
+    pitches: Record<number, number>;
+    transitions: Record<number, number>;
+    presentations: Record<number, number>;
+  };
+  peakHours: {
+    doors: number | null;
+    pitches: number | null;
+    transitions: number | null;
+    presentations: number | null;
+  };
+  dailyTrend: Array<{
+    date: string;
+    doors: number;
+    pitches: number;
+    transitions: number;
+    presentations: number;
+    fp: number;
+    efp: number;
+    prmr: number;
+  }>;
 }
 
 const calculateLocalTime = (utcTimestamp: string, timezone: string): { hour: number; minute: number } => {
@@ -426,6 +472,167 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           }
         : null;
 
+      // Day of Week Analysis
+      const dayOfWeekMap: Record<number, string> = {
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+      };
+
+      const dayOfWeekTotals: Record<string, any> = {};
+      rangeEntries.forEach(entry => {
+        const entryDate = parseISO(entry.entry_date);
+        const dayOfWeek = entryDate.getDay();
+        
+        // Skip Sundays (0)
+        if (dayOfWeek === 0) return;
+        
+        const dayName = dayOfWeekMap[dayOfWeek];
+        if (!dayOfWeekTotals[dayName]) {
+          dayOfWeekTotals[dayName] = {
+            fpPlus: 0,
+            prmr: 0,
+            doors: 0,
+            pitches: 0,
+            transitions: 0,
+            presentations: 0,
+            closes: 0,
+            totalHours: 0,
+            daysWorked: 0,
+          };
+        }
+        
+        dayOfWeekTotals[dayName].fpPlus += entry.fp_plus || 0;
+        dayOfWeekTotals[dayName].prmr += entry.prmr || 0;
+        dayOfWeekTotals[dayName].doors += entry.doors_knocked || 0;
+        dayOfWeekTotals[dayName].pitches += entry.pitches || 0;
+        dayOfWeekTotals[dayName].transitions += entry.transitions || 0;
+        dayOfWeekTotals[dayName].presentations += entry.presentations || 0;
+        dayOfWeekTotals[dayName].closes += entry.closes || 0;
+        dayOfWeekTotals[dayName].daysWorked += 1;
+        
+        if (entry.work_start_time && entry.work_end_time) {
+          const start = new Date(entry.work_start_time);
+          const end = new Date(entry.work_end_time);
+          let minutes = differenceInMinutes(end, start);
+          
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((breakPeriod: any) => {
+              const breakStart = new Date(breakPeriod.start);
+              const breakEnd = new Date(breakPeriod.end);
+              minutes -= differenceInMinutes(breakEnd, breakStart);
+            });
+          }
+          
+          dayOfWeekTotals[dayName].totalHours += minutes / 60;
+        }
+      });
+
+      const dayOfWeekData: any = {};
+      let bestDayOfWeek: any = null;
+
+      Object.entries(dayOfWeekTotals).forEach(([day, totals]: [string, any]) => {
+        const avgFp = totals.daysWorked > 0 ? totals.fpPlus / totals.daysWorked : 0;
+        const avgEfp = totals.daysWorked > 0 ? (totals.prmr / 85) / totals.daysWorked : 0;
+        
+        dayOfWeekData[day.toLowerCase()] = {
+          avgFp,
+          avgEfp,
+          avgDoors: totals.daysWorked > 0 ? totals.doors / totals.daysWorked : 0,
+          avgPitches: totals.daysWorked > 0 ? totals.pitches / totals.daysWorked : 0,
+          avgTransitions: totals.daysWorked > 0 ? totals.transitions / totals.daysWorked : 0,
+          avgPresentations: totals.daysWorked > 0 ? totals.presentations / totals.daysWorked : 0,
+          avgCloses: totals.daysWorked > 0 ? totals.closes / totals.daysWorked : 0,
+          avgHours: totals.daysWorked > 0 ? totals.totalHours / totals.daysWorked : 0,
+          daysWorked: totals.daysWorked,
+        };
+        
+        if (!bestDayOfWeek || avgFp > bestDayOfWeek.avgFp) {
+          bestDayOfWeek = { day, avgFp, avgEfp, daysWorked: totals.daysWorked };
+        }
+      });
+
+      // Funnel Data (conversion stages)
+      const funnelData = {
+        doors: {
+          total: activityTotals.doors,
+          conversionToNext: activityTotals.doors > 0 ? (totals.decisionMakers / activityTotals.doors) * 100 : 0,
+        },
+        decisionMakers: {
+          total: totals.decisionMakers,
+          conversionToNext: totals.decisionMakers > 0 ? (activityTotals.pitches / totals.decisionMakers) * 100 : 0,
+        },
+        pitches: {
+          total: activityTotals.pitches,
+          conversionToNext: activityTotals.pitches > 0 ? (activityTotals.transitions / activityTotals.pitches) * 100 : 0,
+        },
+        transitions: {
+          total: activityTotals.transitions,
+          conversionToNext: activityTotals.transitions > 0 ? (activityTotals.presentations / activityTotals.transitions) * 100 : 0,
+        },
+        presentations: {
+          total: activityTotals.presentations,
+          conversionToNext: activityTotals.presentations > 0 ? (activityTotals.closes / activityTotals.presentations) * 100 : 0,
+        },
+        closes: {
+          total: activityTotals.closes,
+        },
+      };
+
+      // Hourly Activity (from counter_timestamps)
+      const hourlyActivity: any = {
+        doors: {},
+        pitches: {},
+        transitions: {},
+        presentations: {},
+      };
+
+      rangeEntries.forEach(entry => {
+        if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
+          const timestamps = entry.counter_timestamps as Record<string, string[]>;
+          
+          ['doors_knocked', 'pitches', 'transitions', 'presentations'].forEach(field => {
+            const fieldTimestamps = timestamps[field] || [];
+            const activityKey = field === 'doors_knocked' ? 'doors' : field as 'pitches' | 'transitions' | 'presentations';
+            
+            fieldTimestamps.forEach((timestamp: string) => {
+              const local = calculateLocalTime(timestamp, userTimezone);
+              hourlyActivity[activityKey][local.hour] = (hourlyActivity[activityKey][local.hour] || 0) + 1;
+            });
+          });
+        }
+      });
+
+      const peakHours = {
+        doors: Object.keys(hourlyActivity.doors).length > 0
+          ? parseInt(Object.entries(hourlyActivity.doors).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
+          : null,
+        pitches: Object.keys(hourlyActivity.pitches).length > 0
+          ? parseInt(Object.entries(hourlyActivity.pitches).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
+          : null,
+        transitions: Object.keys(hourlyActivity.transitions).length > 0
+          ? parseInt(Object.entries(hourlyActivity.transitions).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
+          : null,
+        presentations: Object.keys(hourlyActivity.presentations).length > 0
+          ? parseInt(Object.entries(hourlyActivity.presentations).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
+          : null,
+      };
+
+      // Daily Trend Data (for line charts)
+      const dailyTrend = rangeEntries.map(entry => ({
+        date: entry.entry_date,
+        doors: entry.doors_knocked || 0,
+        pitches: entry.pitches || 0,
+        transitions: entry.transitions || 0,
+        presentations: entry.presentations || 0,
+        fp: entry.fp_plus || 0,
+        efp: (entry.prmr || 0) / 85,
+        prmr: entry.prmr || 0,
+      })).sort((a, b) => a.date.localeCompare(b.date));
+
       return {
         doorsToFp,
         pitchesToFp,
@@ -452,6 +659,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         bestWeek: bestWeekData,
         bestMonth: bestMonthData,
         bestTransitionsDay: bestTransitionsDayData,
+        bestDayOfWeek,
         avgStartTime,
         avgEndTime,
         avgHoursWorked,
@@ -467,6 +675,11 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         daysWorked: totals.daysWorked,
         totalWorkMinutes: totals.totalMinutes,
         customCounterTotals: totals.customCounters,
+        dayOfWeekData,
+        funnelData,
+        hourlyActivity,
+        peakHours,
+        dailyTrend,
       };
     },
   });
