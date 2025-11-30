@@ -194,6 +194,7 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
       toast.success('Entry saved successfully!');
     },
   });
@@ -265,6 +266,7 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['insights-data'] });
       toast.success("Entry deleted");
     },
     onError: (error) => {
