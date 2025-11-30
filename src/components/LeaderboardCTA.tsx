@@ -4,6 +4,7 @@ import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
+import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderboardCTAProps {
@@ -25,6 +26,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
   // Rookies should only see rookie leaderboards
   const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
 
+  const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
   const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
   const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
   const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
@@ -55,13 +57,14 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
   // Priority metrics (FP+ > PRMR > Upgrade FP+ > Upgrade PRMR > hours > presentations > transitions > latest > earliest > pitches > doors)
   const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostUpgradePRMR', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
-  // Find the best available callout based on hierarchy: yesterday > week > month > season
+  // Find the best available callout based on hierarchy: YTD > Season > Month > Week > Yesterday
   const callout = useMemo(() => {
     const boards = [
-      { board: yesterdayBoard, timeframe: 'yesterday' },
-      { board: weeklyBoard, timeframe: 'this week' },
+      { board: ytdBoard, timeframe: 'year to date' },
+      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason' },
       { board: monthlyBoard, timeframe: 'this month' },
-      { board: seasonBoard, timeframe: 'preseason' },
+      { board: weeklyBoard, timeframe: 'this week' },
+      { board: yesterdayBoard, timeframe: 'yesterday' },
     ];
 
     for (const { board, timeframe } of boards) {
@@ -100,8 +103,10 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
             formattedValue = `${Math.round(entry.value)}`;
           }
 
-          // Calculate "close behind" count if user is leading
+          // Calculate "close behind" count and gap if user is NOT leading
           let closeBehindText = '';
+          let gapText = '';
+          
           if (isCurrentUser) {
             const allValues = Object.values(board)
               .filter((e: any) => e && e.userId !== currentUserId && typeof e.value === 'number')
@@ -113,12 +118,33 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
             if (closeBehindCount > 0) {
               closeBehindText = ` · ${closeBehindCount} ${closeBehindCount === 1 ? 'other' : 'others'} close behind`;
             }
+          } else {
+            // User is not leading - check if they're close behind
+            const userEntry = Object.values(board)
+              .find((e: any) => e && e.userId === currentUserId && typeof e.value === 'number') as any;
+            
+            if (userEntry) {
+              const gap = entry.value - userEntry.value;
+              const percentBehind = (gap / entry.value) * 100;
+              
+              if (percentBehind <= 15) { // Within 15% of leader
+                if (metric === 'mostPRMR' || metric === 'mostUpgradePRMR') {
+                  gapText = ` · You're $${gap.toFixed(0)} behind`;
+                } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
+                  gapText = ` · You're ${gap.toFixed(1)} FP+ behind`;
+                } else if (metric === 'mostHoursWorked') {
+                  gapText = ` · You're ${gap.toFixed(1)} hrs behind`;
+                } else {
+                  gapText = ` · You're ${Math.round(gap)} behind`;
+                }
+              }
+            }
           }
 
           return {
             text: isCurrentUser 
               ? `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${closeBehindText}`
-              : `${entry.name} is leading the office in ${metricLabel} ${timeframe} at ${formattedValue}`,
+              : `${entry.name} is leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${gapText}`,
             isCurrentUser,
           };
         }
@@ -126,7 +152,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     }
 
     return null;
-  }, [yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
+  }, [ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
 
   if (!callout) return null;
 
