@@ -15,13 +15,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
@@ -64,6 +59,7 @@ export const SaveEntrySheet = ({
 }: SaveEntrySheetProps) => {
   const { repData } = useRepData();
   const { totalFP } = usePreseasonFP();
+  const navigate = useNavigate();
   const [showFpHelp, setShowFpHelp] = useState(false);
   const [showPrmrHelp, setShowPrmrHelp] = useState(false);
   const [doorsKnocked, setDoorsKnocked] = useState("");
@@ -408,38 +404,17 @@ export const SaveEntrySheet = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
-                    {showHelp ? (
-                      <TooltipProvider>
-                        <Tooltip open={showFpHelp} onOpenChange={setShowFpHelp}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-primary transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setShowFpHelp(!showFpHelp);
-                              }}
-                            >
-                              <HelpCircle className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">FP+ = Families Protected Plus</p>
-                            <p className="text-sm">
-                              Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <a
-                        href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-primary transition-colors"
+                    {showHelp && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowFpHelp(!showFpHelp);
+                        }}
                       >
-                        <Info className="h-4 w-4" />
-                      </a>
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                   <Input
@@ -453,50 +428,39 @@ export const SaveEntrySheet = ({
                     onChange={(e) => setFpPlus(e.target.value)}
                     enterKeyHint="next"
                   />
+                  {showHelp && showFpHelp && (
+                    <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-3">
+                      <div className="flex-1 text-sm text-muted-foreground">
+                        <p className="font-semibold text-foreground mb-1">FP+ = Families Protected Plus</p>
+                        <p>Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => navigate('/assistant')}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        AI Assistant
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="prmr" className="text-sm">PRMR</Label>
                     {showHelp && (
-                      <TooltipProvider>
-                        <Tooltip open={showPrmrHelp} onOpenChange={setShowPrmrHelp}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-primary transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setShowPrmrHelp(!showPrmrHelp);
-                              }}
-                            >
-                              <HelpCircle className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <div className="space-y-2">
-                              <p className="font-semibold">Payable Recurring Monthly Revenue</p>
-                              <p className="text-sm">
-                                You can almost think of this as what the customer pays monthly — plus accounting for adders and deductions.
-                              </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => {
-                                  const link = document.createElement('a');
-                                  link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
-                                  link.download = '2025_Sales_Rep_Payscale.pdf';
-                                  link.click();
-                                }}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Download Payscale
-                              </Button>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowPrmrHelp(!showPrmrHelp);
+                        }}
+                      >
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                   <div className="relative">
@@ -516,6 +480,39 @@ export const SaveEntrySheet = ({
                       enterKeyHint="done"
                     />
                   </div>
+                  {showHelp && showPrmrHelp && (
+                    <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="flex-1 text-sm text-muted-foreground">
+                          <p className="font-semibold text-foreground mb-1">Payable Recurring Monthly Revenue</p>
+                          <p>You can almost think of this as what the customer pays monthly — plus accounting for adders and deductions. See more on the payscale.</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => navigate('/assistant')}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          AI Assistant
+                        </Button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
+                          link.download = '2025_Sales_Rep_Payscale.pdf';
+                          link.click();
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Payscale
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
