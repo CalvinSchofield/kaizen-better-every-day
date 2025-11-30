@@ -2,6 +2,7 @@ import { TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useActivitySummary } from "@/hooks/useActivitySummary";
+import { useDailyFocus } from "@/hooks/useDailyFocus";
 import { FPSparkline } from "@/components/FPSparkline";
 import { useNavigate } from "react-router-dom";
 
@@ -12,6 +13,23 @@ interface ActivitySummaryCardProps {
 export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
   const navigate = useNavigate();
   const { data: summary, isLoading } = useActivitySummary(repData);
+
+  // Prepare data for daily focus (only for "Today" mode with data)
+  const focusParams = summary && summary.mode === "preseason" && !summary.isEmpty && summary.daysWorked > 0 ? {
+    today: {
+      doors: summary.totals.doors,
+      pitches: 0, // Not tracked in ActivitySummary but we'll pass 0 for now
+      transitions: summary.totals.transitions,
+      presentations: 0, // Not tracked in ActivitySummary
+      closes: 0, // Not tracked in ActivitySummary
+      fp: summary.totals.fp
+    },
+    comparison: summary.comparison || { fpChange: 0, label: "" },
+    avgDoors: summary.dailyAverages.doors,
+    avgFp: summary.dailyAverages.fp
+  } : null;
+
+  const { data: dailyFocus, isLoading: focusLoading } = useDailyFocus(focusParams);
 
   if (isLoading || !summary) {
     return (
@@ -119,6 +137,20 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
             </span>
           </p>
         </div>
+
+        {/* Daily Focus - AI generated one-liner */}
+        {dailyFocus && summary.mode === "preseason" && (
+          <div className="pt-2 border-t">
+            <p className="text-sm text-center text-muted-foreground italic">
+              {dailyFocus}
+            </p>
+          </div>
+        )}
+        {focusLoading && summary.mode === "preseason" && (
+          <div className="pt-2 border-t">
+            <div className="h-4 w-4/5 bg-muted rounded animate-pulse mx-auto" />
+          </div>
+        )}
 
         {/* Comparison */}
         {summary.comparison && (
