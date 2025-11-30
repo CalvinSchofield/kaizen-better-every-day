@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
           throw new Error(`Error fetching users: ${authError.message}`);
         }
 
-        const user = authUser.users.find(u => u.email === email);
+        const user = authUser.users.find(u => u.email?.toLowerCase() === email?.toLowerCase());
         
         if (!user) {
           console.log(`No user found for email ${email}, skipping`);
@@ -427,7 +427,8 @@ Deno.serve(async (req) => {
             }
             return null;
           };
-          return getEmail(props.Email) || getRichText(props.Email);
+          const email = getEmail(props.Email) || getRichText(props.Email);
+          return email?.toLowerCase();
         })
         .filter(Boolean)
     );
@@ -452,8 +453,8 @@ Deno.serve(async (req) => {
           continue;
         }
         
-        // Check if the user's email matches any Notion email
-        if (!notionEmails.has(user.email)) {
+        // Check if the user's email matches any Notion email (case-insensitive)
+        if (!notionEmails.has(user.email?.toLowerCase())) {
           console.log(`Deleting rep ${rep.name} - email ${user.email} not found in Notion`);
           await supabase.from("reps").delete().eq("id", rep.id);
         }
