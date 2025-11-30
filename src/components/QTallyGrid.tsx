@@ -16,7 +16,7 @@ interface QTallyGridProps {
     custom_counters?: Record<string, number>;
   };
   onCounterChange: (field: string, value: number) => void;
-  customCounterConfig?: Array<{ id: string; name: string; emoji: string }>;
+  customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: CounterLayoutConfig;
 }
 
@@ -145,11 +145,13 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], c
       .filter((c): c is typeof allCoreCounters[0] => c !== undefined);
   }
 
-  const customCounters = customCounterConfig.map((config) => ({
-    label: `${config.emoji} ${config.name}`,
-    field: `custom_${config.id}`,
-    value: entry.custom_counters?.[config.id] || 0,
-  }));
+  const customCounters = customCounterConfig
+    .filter((config) => !config.hidden) // Filter out hidden counters
+    .map((config) => ({
+      label: `${config.emoji} ${config.name}`,
+      field: `custom_${config.id}`,
+      value: entry.custom_counters?.[config.id] || 0,
+    }));
 
   const hasCustomCounters = customCounters.length > 0;
 
