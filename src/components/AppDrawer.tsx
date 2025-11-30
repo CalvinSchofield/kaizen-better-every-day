@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, FileText } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -204,23 +204,6 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
 
           {/* Show separator after Insights only when it's visible in drawer (knocking mode off) */}
           {!navItems.some(item => item.path === "/insights") && <Separator />}
-
-          {/* My Notes Link */}
-          <Link
-            to="/notes"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-          >
-            <FileText className="w-5 h-5 text-primary" />
-            <div className="flex flex-col">
-              <span className="font-semibold">My Notes</span>
-              <span className="text-sm text-muted-foreground">
-                Take and organize notes
-              </span>
-            </div>
-          </Link>
-
-          <Separator />
 
           {/* AI Assistant Link */}
           <a

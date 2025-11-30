@@ -17,8 +17,6 @@ import Contacts from "./pages/Contacts";
 import Calendar from "./pages/Calendar";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
-import Notes from "./pages/Notes";
-import NoteEditor from "./pages/NoteEditor";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -136,26 +134,6 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <Settings />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/notes"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Notes />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/notes/:id"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <NoteEditor />
                   </Layout>
                 </ProtectedRoute>
               }

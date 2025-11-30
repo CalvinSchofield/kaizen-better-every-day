@@ -131,75 +131,6 @@ export type Database = {
         }
         Relationships: []
       }
-      note_tags: {
-        Row: {
-          created_at: string
-          id: string
-          note_id: string
-          tag_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          note_id: string
-          tag_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          note_id?: string
-          tag_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "note_tags_note_id_fkey"
-            columns: ["note_id"]
-            isOneToOne: false
-            referencedRelation: "notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "note_tags_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notes: {
-        Row: {
-          body_json: Json
-          body_preview: string | null
-          created_at: string
-          id: string
-          is_archived: boolean
-          title: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          body_json?: Json
-          body_preview?: string | null
-          created_at?: string
-          id?: string
-          is_archived?: boolean
-          title?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          body_json?: Json
-          body_preview?: string | null
-          created_at?: string
-          id?: string
-          is_archived?: boolean
-          title?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string | null
@@ -382,27 +313,6 @@ export type Database = {
           personal_summer_end?: string | null
           personal_summer_start?: string | null
           updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      tags: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
           user_id?: string
         }
         Relationships: []
