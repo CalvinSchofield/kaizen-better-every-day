@@ -354,7 +354,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         : null;
 
       // Best week (Monday-Saturday chunks only)
-      const weeklyData: Record<string, { entries: any[], fpPlus: number, doors: number, closes: number }> = {};
+      const weeklyData: Record<string, { entries: any[], fpPlus: number, prmr: number, doors: number, closes: number }> = {};
       rangeEntries.forEach(entry => {
         const entryDate = parseISO(entry.entry_date);
         const dayOfWeek = entryDate.getDay();
@@ -367,11 +367,12 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         const weekKey = format(monday, 'yyyy-MM-dd');
         
         if (!weeklyData[weekKey]) {
-          weeklyData[weekKey] = { entries: [], fpPlus: 0, doors: 0, closes: 0 };
+          weeklyData[weekKey] = { entries: [], fpPlus: 0, prmr: 0, doors: 0, closes: 0 };
         }
         
         weeklyData[weekKey].entries.push(entry);
         weeklyData[weekKey].fpPlus += entry.fp_plus || 0;
+        weeklyData[weekKey].prmr += entry.prmr || 0;
         weeklyData[weekKey].doors += entry.doors_knocked || 0;
         weeklyData[weekKey].closes += entry.closes || 0;
       });
@@ -388,22 +389,23 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
             weekStart: format(parseISO(bestWeekEntry.weekStart), 'MMM d'),
             weekEnd: format(endOfWeek(parseISO(bestWeekEntry.weekStart), { weekStartsOn: 1 }), 'MMM d'),
             fpPlus: bestWeekEntry.fpPlus,
-            efp: bestWeekEntry.fpPlus * 85, // Approximate, would need PRMR tracking per week
+            efp: bestWeekEntry.prmr / 85,
             stats: `${bestWeekEntry.doors} doors · ${bestWeekEntry.closes} closes`,
           }
         : null;
 
       // Best month
-      const monthlyData: Record<string, { fpPlus: number, doors: number, closes: number }> = {};
+      const monthlyData: Record<string, { fpPlus: number, prmr: number, doors: number, closes: number }> = {};
       rangeEntries.forEach(entry => {
         const entryDate = parseISO(entry.entry_date);
         const monthKey = format(entryDate, 'yyyy-MM');
         
         if (!monthlyData[monthKey]) {
-          monthlyData[monthKey] = { fpPlus: 0, doors: 0, closes: 0 };
+          monthlyData[monthKey] = { fpPlus: 0, prmr: 0, doors: 0, closes: 0 };
         }
         
         monthlyData[monthKey].fpPlus += entry.fp_plus || 0;
+        monthlyData[monthKey].prmr += entry.prmr || 0;
         monthlyData[monthKey].doors += entry.doors_knocked || 0;
         monthlyData[monthKey].closes += entry.closes || 0;
       });
@@ -419,7 +421,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         ? {
             month: format(parseISO(bestMonthEntry.month + '-01'), 'MMMM yyyy'),
             fpPlus: bestMonthEntry.fpPlus,
-            efp: bestMonthEntry.fpPlus * 85, // Approximate
+            efp: bestMonthEntry.prmr / 85,
             stats: `${bestMonthEntry.doors} doors · ${bestMonthEntry.closes} closes`,
           }
         : null;
