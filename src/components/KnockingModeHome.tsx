@@ -91,26 +91,7 @@ export const KnockingModeHome = ({
                 {getGreeting()}, {firstName}
               </h1>
             </div>
-            <div className="flex gap-2 flex-shrink-0 self-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onSync}
-                disabled={isSyncing}
-                className={`rounded-full transition-all duration-300 border ${
-                  syncSuccess 
-                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
-                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
-                }`}
-                aria-label="Refresh data"
-              >
-                {syncSuccess ? (
-                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
-                ) : (
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-                )}
-              </Button>
-            </div>
+            {/* Auto-refresh on mount, no manual button needed */}
           </div>
 
           {/* Leaderboard CTA */}

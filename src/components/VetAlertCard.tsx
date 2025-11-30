@@ -64,7 +64,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       allBlitzesCount: allBlitzes.length
     });
 
-    // Check Monday Night Lights (Monday 4 AM - 8:30 PM MST)
+    // Check Monday Night Lights (Monday 9 AM - 8:30 PM MST)
     const checkMondayNightLights = () => {
       const now = new Date();
       const mstOffset = -7 * 60; // MST is UTC-7
@@ -76,8 +76,8 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       const minutes = mstTime.getMinutes();
       const totalMinutes = hours * 60 + minutes;
       
-      // Monday is 1, check if between 4:00 AM (240 minutes) and 8:30 PM (1230 minutes)
-      return day === 1 && totalMinutes >= 240 && totalMinutes <= 1230;
+      // Monday is 1, check if between 9:00 AM (540 minutes) and 8:30 PM (1230 minutes)
+      return day === 1 && totalMinutes >= 540 && totalMinutes <= 1230;
     };
 
     // Check for rookies needing attention
