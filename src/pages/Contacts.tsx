@@ -27,6 +27,7 @@ const Contacts = () => {
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");
+  const [aiContactInfo, setAiContactInfo] = useState<{ phone?: string; textPhone?: string; email?: string; name?: string } | null>(null);
   const [showCallLeader, setShowCallLeader] = useState(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
@@ -274,6 +275,7 @@ const Contacts = () => {
     
     setIsLoadingAi(true);
     setAiRecommendation("");
+    setAiContactInfo(null);
     setShowCallLeader(false);
     
     try {
@@ -288,6 +290,7 @@ const Contacts = () => {
         setAiRecommendation("I'm not sure about this one. Your leader can help you figure out who to contact.");
       } else {
         setAiRecommendation(data.recommendation);
+        setAiContactInfo(data.contactInfo);
       }
     } catch (error) {
       console.error("Error getting AI recommendation:", error);
@@ -356,6 +359,55 @@ const Contacts = () => {
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="pt-3 pb-3 space-y-2">
                   <p className="text-sm text-foreground">{aiRecommendation}</p>
+                  
+                  {/* Contact action buttons */}
+                  {aiContactInfo && (
+                    <div className="flex flex-col gap-2">
+                      {aiContactInfo.phone && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs justify-start"
+                          asChild
+                        >
+                          <a href={`tel:${aiContactInfo.phone.replace(/[^0-9]/g, "")}`}>
+                            <Phone className="w-3.5 h-3.5 mr-2" />
+                            Call: {aiContactInfo.phone}
+                          </a>
+                        </Button>
+                      )}
+                      
+                      {aiContactInfo.textPhone && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs justify-start"
+                          asChild
+                        >
+                          <a href={`sms:${aiContactInfo.textPhone.replace(/[^0-9]/g, "")}`}>
+                            <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                            Text: {aiContactInfo.textPhone}
+                          </a>
+                        </Button>
+                      )}
+                      
+                      {aiContactInfo.email && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs justify-start"
+                          asChild
+                        >
+                          <a href={`mailto:${aiContactInfo.email}`}>
+                            <Mail className="w-3.5 h-3.5 mr-2" />
+                            <span className="truncate">{aiContactInfo.email}</span>
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Call leader button for low confidence */}
                   {showCallLeader && repData?.team_leader_phone && (
                     <Button 
                       className="w-full"
