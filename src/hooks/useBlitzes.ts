@@ -13,6 +13,35 @@ export const useBlitzes = () => {
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Load from cache immediately for instant offline access
+  useEffect(() => {
+    const cached = localStorage.getItem('blitzes-cache');
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const isRecent = Date.now() - timestamp < 60 * 60 * 1000; // 1 hour
+        if (isRecent && data.length > 0) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const futureBlitzes = data
+            .filter((blitz: any) => {
+              if (!blitz || !blitz.date) return false;
+              const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+              blitzEndDate.setHours(0, 0, 0, 0);
+              return blitzEndDate >= today;
+            })
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+          setAllBlitzes(futureBlitzes);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error('Failed to parse cached blitzes:', e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const fetchAllBlitzes = async () => {
       setLoading(true);
@@ -36,6 +65,12 @@ export const useBlitzes = () => {
             .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
           setAllBlitzes(futureBlitzes);
+          
+          // Cache for offline access
+          localStorage.setItem('blitzes-cache', JSON.stringify({
+            data: data.blitzes,
+            timestamp: Date.now()
+          }));
         }
       } catch (error) {
         console.error('Error fetching blitzes:', error);
