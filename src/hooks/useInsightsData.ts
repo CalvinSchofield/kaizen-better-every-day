@@ -44,6 +44,8 @@ export interface InsightsData {
   totalPresentations: number;
   totalCloses: number;
   daysWorked: number;
+  totalWorkMinutes: number;
+  customCounterTotals: Record<string, number>;
 }
 
 const calculateLocalTime = (utcTimestamp: string, timezone: string): { hour: number; minute: number } => {
@@ -136,10 +138,31 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           }
           
           acc.totalHours += minutes / 60;
+          acc.totalMinutes += minutes;
+        }
+        
+        // Aggregate custom counters
+        if (entry.custom_counters && typeof entry.custom_counters === 'object') {
+          Object.entries(entry.custom_counters).forEach(([counterId, value]) => {
+            acc.customCounters[counterId] = (acc.customCounters[counterId] || 0) + (value as number);
+          });
         }
         
         return acc;
-      }, { fpPlus: 0, prmr: 0, doors: 0, decisionMakers: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, daysWorked: 0, totalHours: 0 });
+      }, { 
+        fpPlus: 0, 
+        prmr: 0, 
+        doors: 0, 
+        decisionMakers: 0, 
+        pitches: 0, 
+        transitions: 0, 
+        presentations: 0, 
+        closes: 0, 
+        daysWorked: 0, 
+        totalHours: 0, 
+        totalMinutes: 0,
+        customCounters: {} as Record<string, number>
+      });
 
       // Calculate activity-based totals for ratios (only entries with activity)
       const activityTotals = entriesWithActivity.reduce((acc, entry) => {
@@ -394,6 +417,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         totalPresentations: totals.presentations,
         totalCloses: totals.closes,
         daysWorked: totals.daysWorked,
+        totalWorkMinutes: totals.totalMinutes,
+        customCounterTotals: totals.customCounters,
       };
     },
   });

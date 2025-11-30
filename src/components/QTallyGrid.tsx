@@ -9,8 +9,10 @@ interface QTallyGridProps {
     transitions: number;
     presentations: number;
     closes: number;
+    custom_counters?: Record<string, number>;
   };
   onCounterChange: (field: string, value: number) => void;
+  customCounterConfig?: Array<{ id: string; name: string; emoji: string }>;
 }
 
 interface CounterCardProps {
@@ -110,8 +112,8 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
   );
 };
 
-export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
-  const counters = [
+export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [] }: QTallyGridProps) => {
+  const coreCounters = [
     { label: "Doors Knocked", field: "doors_knocked", value: entry.doors_knocked },
     { label: "Decision Makers", field: "decision_makers", value: entry.decision_makers },
     { label: "Pitches", field: "pitches", value: entry.pitches },
@@ -120,17 +122,46 @@ export const QTallyGrid = ({ entry, onCounterChange }: QTallyGridProps) => {
     { label: "Closes", field: "closes", value: entry.closes },
   ];
 
+  const customCounters = customCounterConfig.map((config) => ({
+    label: `${config.emoji} ${config.name}`,
+    field: `custom_${config.id}`,
+    value: entry.custom_counters?.[config.id] || 0,
+  }));
+
+  const hasCustomCounters = customCounters.length > 0;
+
   return (
-    <div className="grid grid-cols-2 gap-3 h-full w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)' }}>
-      {counters.map((counter) => (
-        <CounterCard
-          key={counter.field}
-          label={counter.label}
-          value={counter.value}
-          field={counter.field}
-          onCounterChange={onCounterChange}
-        />
-      ))}
+    <div className={`w-full ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
+      {/* Core 6 counters - Fixed grid */}
+      <div className="grid grid-cols-2 gap-3 w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)', minHeight: hasCustomCounters ? 'auto' : '100%' }}>
+        {coreCounters.map((counter) => (
+          <CounterCard
+            key={counter.field}
+            label={counter.label}
+            value={counter.value}
+            field={counter.field}
+            onCounterChange={onCounterChange}
+          />
+        ))}
+      </div>
+
+      {/* Custom counters - Scrollable section */}
+      {hasCustomCounters && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">My Counters</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {customCounters.map((counter) => (
+              <CounterCard
+                key={counter.field}
+                label={counter.label}
+                value={counter.value}
+                field={counter.field}
+                onCounterChange={onCounterChange}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

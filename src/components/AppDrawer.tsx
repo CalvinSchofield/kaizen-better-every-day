@@ -225,16 +225,20 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
 
           <Separator />
 
-          {/* Settings (placeholder) */}
-          <div className="flex items-center gap-3 p-4 rounded-lg opacity-50 cursor-not-allowed">
-            <Settings className="w-5 h-5 text-muted-foreground" />
+          {/* Settings */}
+          <Link
+            to="/settings"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+          >
+            <Settings className="w-5 h-5 text-primary" />
             <div className="flex flex-col">
               <span className="font-semibold">Settings</span>
               <span className="text-sm text-muted-foreground">
-                Coming soon
+                {isVetOrSoph ? "Manage custom counters" : "Account settings"}
               </span>
             </div>
-          </div>
+          </Link>
 
           <Separator />
 

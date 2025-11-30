@@ -22,6 +22,7 @@ export interface DailyEntry {
   break_periods?: Array<{ start: string; end: string }>;
   counter_timestamps?: Record<string, string[]>;
   timezone?: string | null;
+  custom_counters?: Record<string, number>;
 }
 
 const getTodayDate = () => {
@@ -55,6 +56,7 @@ export const useDailyEntry = (date?: string) => {
           ...data,
           break_periods: (data.break_periods as any) || [],
           counter_timestamps: (data.counter_timestamps as any) || {},
+          custom_counters: (data.custom_counters as any) || {},
         } as DailyEntry;
       }
       
@@ -81,6 +83,7 @@ export const useDailyEntry = (date?: string) => {
         fp_plus: 0,
         prmr: 0,
         is_finalized: false,
+        custom_counters: {},
       };
 
       const { data, error } = await supabase
@@ -119,6 +122,7 @@ export const useDailyEntry = (date?: string) => {
             fp_plus: 0,
             prmr: 0,
             is_finalized: false,
+            custom_counters: {},
             ...updates,
           } as DailyEntry;
         }
@@ -231,6 +235,7 @@ export const useDailyEntry = (date?: string) => {
         ...data,
         break_periods: (data.break_periods as any) || [],
         counter_timestamps: (data.counter_timestamps as any) || {},
+        custom_counters: (data.custom_counters as any) || {},
       } as DailyEntry;
     },
     onSuccess: (data) => {
@@ -284,6 +289,7 @@ export const useDailyEntry = (date?: string) => {
       break_periods: [],
       counter_timestamps: {},
       timezone: null,
+      custom_counters: {},
     },
     isLoading,
     updateCounter: updateCounterMutation.mutateAsync,

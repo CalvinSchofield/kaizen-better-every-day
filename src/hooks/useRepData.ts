@@ -39,6 +39,7 @@ export interface RepData {
   blitz_trip_location: string | null;
   committed_blitzes: unknown; // JSONB array of committed blitz names
   declined_blitz_rsvps: unknown; // JSONB array of declined blitz IDs
+  custom_counter_config: unknown; // JSONB array of custom counter definitions
 }
 
 export const useRepData = () => {
