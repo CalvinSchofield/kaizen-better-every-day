@@ -175,10 +175,11 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
 
-  // Fetch weather when blitz is within 8 days
+  // Fetch weather when blitz is within 8 days AND weather sheet opens
   useEffect(() => {
     const fetchWeather = async () => {
       if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
+        console.log("Weather fetch skipped - missing blitz data:", { nextBlitz });
         setWeather([]);
         return;
       }
@@ -190,11 +191,20 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       const diffTime = tripDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+      console.log("Weather check:", { diffDays, location: nextBlitz.location, weatherSheetOpen });
+
       if (diffDays <= 0 || diffDays > 8) {
+        console.log("Weather fetch skipped - blitz not in range");
         setWeather([]);
         return;
       }
 
+      // Only fetch if sheet is open to avoid unnecessary calls
+      if (!weatherSheetOpen) {
+        return;
+      }
+
+      console.log("Fetching weather for:", nextBlitz.location);
       setLoadingWeather(true);
       try {
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
@@ -205,18 +215,38 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           },
         });
 
-        if (!error && data?.forecasts) {
+        console.log("Weather response:", { data, error });
+
+        if (error) {
+          console.error("Weather API error:", error);
+          toast({
+            title: "Weather unavailable",
+            description: "Could not load weather forecast. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data?.forecasts) {
+          console.log("Setting weather data:", data.forecasts);
           setWeather(data.forecasts);
+        } else {
+          console.log("No forecast data in response");
         }
       } catch (error) {
         console.error("Error fetching weather:", error);
+        toast({
+          title: "Weather error",
+          description: "Failed to fetch weather forecast.",
+          variant: "destructive",
+        });
       } finally {
         setLoadingWeather(false);
       }
     };
 
     fetchWeather();
-  }, [nextBlitz]);
+  }, [nextBlitz, weatherSheetOpen, toast]);
 
   // Check if rookie had past blitzes but no upcoming ones
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
@@ -847,8 +877,15 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           </SheetHeader>
           
           {loadingWeather && (
-            <div className="text-center text-sm text-muted-foreground py-4">
-              Loading weather...
+            <div className="text-center text-sm text-muted-foreground py-8">
+              <div className="animate-pulse">Loading weather forecast...</div>
+            </div>
+          )}
+          
+          {!loadingWeather && weather.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-8">
+              <p>Weather forecast unavailable for this location.</p>
+              <p className="text-xs mt-2">Try refreshing or check back later.</p>
             </div>
           )}
           
