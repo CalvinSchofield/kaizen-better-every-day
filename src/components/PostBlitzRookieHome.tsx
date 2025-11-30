@@ -193,7 +193,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
       console.log("Weather check:", { diffDays, location: nextBlitz.location, weatherSheetOpen });
 
-      if (diffDays <= 0 || diffDays > 8) {
+      // Skip if blitz is in the past or more than 8 days away (allow 0-8 days)
+      if (diffDays < 0 || diffDays > 8) {
         console.log("Weather fetch skipped - blitz not in range");
         setWeather([]);
         return;
