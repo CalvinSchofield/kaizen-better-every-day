@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ArrowLeft, Search, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCompetitors, Competitor } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Competitors() {
   const navigate = useNavigate();
@@ -14,6 +15,12 @@ export default function Competitors() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
+  
+  // AI recommendation state
+  const [aiInput, setAiInput] = useState("");
+  const [aiRecommendation, setAiRecommendation] = useState("");
+  const [aiCompetitors, setAiCompetitors] = useState<Array<{ name: string; notion_page_id: string }>>([]);
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -31,6 +38,41 @@ export default function Competitors() {
       });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleAiRecommendation = async () => {
+    if (!aiInput.trim()) return;
+    
+    setIsLoadingAi(true);
+    setAiRecommendation("");
+    setAiCompetitors([]);
+    
+    try {
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('recommend-competitor', {
+        body: { situation: aiInput, competitors: competitors }
+      });
+
+      if (functionError) throw functionError;
+      
+      setAiRecommendation(functionData.recommendation);
+      setAiCompetitors(functionData.competitors || []);
+    } catch (error: any) {
+      console.error('AI recommendation error:', error);
+      toast({
+        title: "AI Error",
+        description: error.message || "Failed to get AI recommendation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
+
+  const openCompetitorByNotionId = (notionPageId: string) => {
+    const competitor = competitors.find(c => c.notion_page_id === notionPageId);
+    if (competitor) {
+      setSelectedCompetitor(competitor);
     }
   };
 
@@ -91,6 +133,52 @@ export default function Competitors() {
             >
               <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
+          </div>
+
+          {/* AI Input Section */}
+          <div className="mb-4 space-y-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                <Input
+                  placeholder="What do you see on their door? (e.g., 'Ring doorbell, blue ADT sign')"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiRecommendation()}
+                  className="pl-9"
+                />
+              </div>
+              <Button
+                onClick={handleAiRecommendation}
+                disabled={isLoadingAi || !aiInput.trim()}
+                size="icon"
+                className="shrink-0"
+              >
+                {isLoadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+            </div>
+            
+            {/* AI Recommendation Display */}
+            {aiRecommendation && (
+              <div className="bg-primary/10 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-foreground">{aiRecommendation}</p>
+                {aiCompetitors.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {aiCompetitors.map((comp, idx) => (
+                      <Button
+                        key={idx}
+                        onClick={() => openCompetitorByNotionId(comp.notion_page_id)}
+                        variant="default"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        View {comp.name}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Search Bar */}
