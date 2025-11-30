@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +78,7 @@ export const SaveEntrySheet = ({
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
+  const isSavingRef = useRef(false);
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
@@ -94,7 +95,8 @@ export const SaveEntrySheet = ({
   }, [fpPlus]);
 
   useEffect(() => {
-    if (open && entry) {
+    // Don't repopulate form if we're in the save/close sequence
+    if (open && entry && !isSavingRef.current) {
       // Pre-fill with existing entry data if available, show empty for 0 values
       setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
       setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
@@ -128,6 +130,11 @@ export const SaveEntrySheet = ({
         setEndTime("");
       }
     }
+    
+    // Reset the flag when sheet closes
+    if (!open) {
+      isSavingRef.current = false;
+    }
   }, [open, entry, customCounterConfig]);
 
   const hasResultsWithoutActivity = () => {
@@ -154,6 +161,9 @@ export const SaveEntrySheet = ({
   };
 
   const proceedWithSave = async () => {
+    // Set flag to prevent useEffect from repopulating form during save/close
+    isSavingRef.current = true;
+    
     const saveDate = format(date, 'yyyy-MM-dd');
     
     // Auto-fill end time with current time if not set (only when saving)
@@ -508,7 +518,7 @@ export const SaveEntrySheet = ({
 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="prmr" className="text-sm">PRMR</Label>
+                    <Label htmlFor="prmr" className="text-sm">Total PRMR</Label>
                     {showHelp && (
                       <button
                         type="button"
