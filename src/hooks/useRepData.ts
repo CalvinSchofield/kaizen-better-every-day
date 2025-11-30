@@ -54,6 +54,24 @@ export const useRepData = () => {
     refetchOnWindowFocus: false,
     retry: 1,
     queryFn: async () => {
+      // Try to load from cache first for instant display
+      const cachedRep = localStorage.getItem('rep-data-cache');
+      if (cachedRep) {
+        try {
+          const { data: cached, timestamp } = JSON.parse(cachedRep);
+          const isRecent = Date.now() - timestamp < 5 * 60 * 1000; // 5 minutes
+          if (isRecent && cached) {
+            // Return cached data immediately and fetch in background
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+            }, 100);
+            return cached;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached rep data:', e);
+        }
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -104,10 +122,21 @@ export const useRepData = () => {
             title: "Sync successful",
             description: "Your data has been loaded from Notion.",
           });
+          // Cache the synced data
+          localStorage.setItem('rep-data-cache', JSON.stringify({
+            data: syncedData,
+            timestamp: Date.now()
+          }));
         }
 
         return syncedData;
       }
+
+      // Cache the data for offline access
+      localStorage.setItem('rep-data-cache', JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
 
       return data;
     },

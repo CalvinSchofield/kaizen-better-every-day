@@ -21,7 +21,13 @@ const Auth = () => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/");
+        // Check if setup has been completed
+        const setupComplete = localStorage.getItem('kaizen-setup-complete');
+        if (setupComplete) {
+          navigate("/");
+        } else {
+          navigate("/setup");
+        }
       }
     });
   }, [navigate]);
@@ -44,7 +50,14 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You've successfully logged in.",
         });
-        navigate("/");
+        
+        // Check if setup has been completed
+        const setupComplete = localStorage.getItem('kaizen-setup-complete');
+        if (setupComplete) {
+          navigate("/");
+        } else {
+          navigate("/setup");
+        }
       } else {
         // Sign up
         if (!name.trim()) {
@@ -89,7 +102,9 @@ const Auth = () => {
           title: "Account created!",
           description: "Welcome to Kaizen. Setting up your account...",
         });
-        navigate("/");
+        
+        // New accounts always need setup
+        navigate("/setup");
       }
     } catch (error: any) {
       toast({

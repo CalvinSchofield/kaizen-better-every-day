@@ -8,7 +8,9 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import InstallPrompt from "./components/InstallPrompt";
 import ScrollToTop from "./components/ScrollToTop";
+import OfflineIndicator from "./components/OfflineIndicator";
 import TrackWithLayout from "./components/TrackWithLayout";
+import SetupFlow from "./components/SetupFlow";
 import Home from "./pages/Home";
 import Training from "./pages/Training";
 import Tools from "./pages/Tools";
@@ -48,12 +50,14 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <OfflineIndicator />
         <BrowserRouter>
           <ScrollToTop />
           <InstallPrompt />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/setup" element={<ProtectedRoute><SetupFlow /></ProtectedRoute>} />
             <Route
               path="/"
               element={
