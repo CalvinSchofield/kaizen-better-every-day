@@ -328,8 +328,11 @@ Deno.serve(async (req) => {
                 // Log all available properties for debugging
                 console.log(`Trip properties available: ${JSON.stringify(Object.keys(tripData.properties))}`);
                 
-                // Debug Address 1 property structure
-                console.log(`Address 1 property structure:`, JSON.stringify(tripData.properties["Address 1"]));
+                // Debug ALL Airbnb-related property structures
+                console.log(`Airbnb 1 property:`, JSON.stringify(tripData.properties["Airbnb 1"]));
+                console.log(`Airbnb 2 property:`, JSON.stringify(tripData.properties["Airbnb 2"]));
+                console.log(`Address 1 property:`, JSON.stringify(tripData.properties["Address 1"]));
+                console.log(`Address 2 property:`, JSON.stringify(tripData.properties["Address 2"]));
                 
                 const tripName = getTitle(tripData.properties.Name);
                 
