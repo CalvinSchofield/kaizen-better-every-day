@@ -28,12 +28,6 @@ serve(async (req) => {
 
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
-CRITICAL RULES:
-1. ONLY recommend contacts from the list below
-2. Your response must include the exact contact name in your recommendation
-3. If the situation doesn't clearly match any contact below, respond with EXACTLY: "LOW_CONFIDENCE"
-4. Keep responses to 1-2 sentences MAX
-
 Available contacts:
 - Account Creation Front Line (Call 888-324-5771 or text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
 - Account Creation Advocates (Call 888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
@@ -46,8 +40,7 @@ Available contacts:
 - Arbitration (Email accountarbitration@vivint.com): Arbitration questions and requests
 - Compliance (Text 385-250-4896 or email joshua.powell@vivint.com): Compliance questions
 
-Example response: "Contact Account Creation Front Line at 888-324-5771 for scheduling help."
-Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
+Respond with 1-2 sentences MAX and include the exact contact name.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -61,6 +54,35 @@ Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
           { role: "system", content: systemPrompt },
           { role: "user", content: situation },
         ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "recommend_contact",
+              description: "Recommend a Vivint support contact with confidence level",
+              parameters: {
+                type: "object",
+                properties: {
+                  recommendation: {
+                    type: "string",
+                    description: "1-2 sentence recommendation including contact name and number/email"
+                  },
+                  contactName: {
+                    type: "string",
+                    description: "Exact contact name from the list (e.g., 'Account Creation Front Line', 'SOS')"
+                  },
+                  confidence: {
+                    type: "number",
+                    description: "Confidence level from 0-100 on how well this situation matches the contact"
+                  }
+                },
+                required: ["recommendation", "contactName", "confidence"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "recommend_contact" } }
       }),
     });
 
@@ -86,23 +108,26 @@ Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
     }
 
     const data = await response.json();
-    const recommendation = data.choices?.[0]?.message?.content;
-    const isLowConfidence = recommendation?.includes("LOW_CONFIDENCE");
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    
+    if (!toolCall?.function?.arguments) {
+      throw new Error("No tool call response from AI");
+    }
 
-    // Extract contact info from recommendation
+    const result = JSON.parse(toolCall.function.arguments);
+    const { recommendation, contactName, confidence } = result;
+    const isLowConfidence = confidence < 50;
+
+    // Extract contact info from contact name
     let contactInfo = null;
-    if (!isLowConfidence && recommendation) {
-      for (const [key, value] of Object.entries(contactsMap)) {
-        if (recommendation.includes(key)) {
-          contactInfo = value;
-          break;
-        }
-      }
+    if (!isLowConfidence && contactName) {
+      contactInfo = contactsMap[contactName] || null;
     }
 
     return new Response(JSON.stringify({ 
       recommendation: isLowConfidence ? null : recommendation,
       lowConfidence: isLowConfidence,
+      confidence,
       contactInfo 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
