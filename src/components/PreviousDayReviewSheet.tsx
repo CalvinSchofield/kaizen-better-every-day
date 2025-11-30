@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar, Trash2 } from "lucide-react";
 import { DailyEntry } from "@/hooks/useDailyEntry";
 
 interface PreviousDayReviewSheetProps {
@@ -35,6 +36,7 @@ export const PreviousDayReviewSheet = ({
   const [fpPlus, setFpPlus] = useState<string>("");
   const [prmr, setPrmr] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -57,15 +59,14 @@ export const PreviousDayReviewSheet = ({
     });
   };
 
-  // Pre-populate end time with latest counter timestamp if available
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && latestCounterTimestamp && !endTime) {
+  // Auto-populate end time with latest activity when user clicks the input
+  const handleEndTimeFocus = () => {
+    if (latestCounterTimestamp && !endTime) {
       const date = new Date(latestCounterTimestamp);
       const hours = date.getHours().toString().padStart(2, '0');
       const minutes = date.getMinutes().toString().padStart(2, '0');
       setEndTime(`${hours}:${minutes}`);
     }
-    onOpenChange(isOpen);
   };
 
   const handleSave = async () => {
@@ -96,7 +97,8 @@ export const PreviousDayReviewSheet = ({
     onOpenChange(false);
   };
 
-  const handleDiscard = async () => {
+  const handleDiscardConfirm = async () => {
+    setShowDiscardConfirm(false);
     await onDiscard();
     setFpPlus("");
     setPrmr("");
@@ -112,17 +114,28 @@ export const PreviousDayReviewSheet = ({
                       entry.closes > 0;
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-3xl">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            Review Previous Day
-          </SheetTitle>
-          <SheetDescription>
-            You have unsaved work from {formatDate(entryDate)}
-          </SheetDescription>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <div className="flex items-center justify-between">
+              <SheetTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                Review Previous Day
+              </SheetTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDiscardConfirm(true)}
+                className="h-8 w-8"
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+            <SheetDescription>
+              You have unsaved work from {formatDate(entryDate)}
+            </SheetDescription>
+          </SheetHeader>
 
         <div className="space-y-6 pt-6">
           {/* Activity Summary */}
@@ -158,7 +171,8 @@ export const PreviousDayReviewSheet = ({
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="text-lg"
+              onFocus={handleEndTimeFocus}
+              className="text-lg w-full"
               required
             />
             {latestCounterTimestamp && (
@@ -194,18 +208,10 @@ export const PreviousDayReviewSheet = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
+          {/* Action Button */}
+          <div className="pt-2">
             <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleDiscard}
-              disabled={isSaving}
-            >
-              Discard
-            </Button>
-            <Button
-              className="flex-1"
+              className="w-full"
               onClick={handleSave}
               disabled={isSaving || !endTime || !hasActivity}
             >
@@ -219,5 +225,29 @@ export const PreviousDayReviewSheet = ({
         </div>
       </SheetContent>
     </Sheet>
+
+    <Drawer open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Discard Work?</DrawerTitle>
+          <DrawerDescription>
+            This will permanently delete your unsaved work from {formatDate(entryDate)}. This action cannot be undone.
+          </DrawerDescription>
+        </DrawerHeader>
+        <DrawerFooter>
+          <Button
+            variant="destructive"
+            onClick={handleDiscardConfirm}
+            disabled={isSaving}
+          >
+            Discard Work
+          </Button>
+          <DrawerClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+    </>
   );
 };
