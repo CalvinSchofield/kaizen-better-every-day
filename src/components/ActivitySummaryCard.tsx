@@ -250,28 +250,52 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
         {/* Comparison */}
         {summary.comparison && (
           <div className="text-center pt-4 border-t space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              {isImproving ? (
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-500" />
-              )}
-              <span className={`text-sm font-medium ${
-                isImproving
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }`}>
-                {isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+
-              </span>
-              <span className="text-xs text-muted-foreground">
-                vs {summary.comparison.label}
-              </span>
-            </div>
-            {/* Subtle total context */}
-            {(summary.mode === "blitz" || summary.mode === "summer") && (
-              <p className="text-[10px] text-muted-foreground/60">
-                {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
-              </p>
+            {summary.comparison.showComparison ? (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  {isImproving ? (
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className={`text-sm font-medium ${
+                    isImproving
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}>
+                    {isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    vs {summary.comparison.label}
+                  </span>
+                </div>
+                {/* Subtle totals */}
+                <p className="text-[10px] text-muted-foreground/60">
+                  {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
+                  {summary.comparison.previousPeriodTotal !== undefined && (
+                    <> · {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {summary.totals.fp.toFixed(1)} FP+
+                  </span>
+                  <span className="text-xs text-muted-foreground/60">
+                    total {summary.mode === "blitz" ? "this blitz" : "this week"}
+                  </span>
+                </div>
+                {summary.comparison.previousPeriodTotal !== undefined && (
+                  <p className="text-[10px] text-muted-foreground/60">
+                    {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}
+                    {summary.comparison.previousDaysWorked && (
+                      <> · Need {summary.comparison.previousDaysWorked - summary.daysWorked} more day{summary.comparison.previousDaysWorked - summary.daysWorked !== 1 ? 's' : ''} to compare</>
+                    )}
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
