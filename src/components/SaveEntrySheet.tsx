@@ -80,7 +80,7 @@ export const SaveEntrySheet = ({
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
-  const showHelp = isRookie && totalFP < 10;
+  const showHelp = true; // TEMPORARY: Always show for testing. Change back to: isRookie && totalFP < 10
 
   useEffect(() => {
     if (open && entry) {
@@ -429,19 +429,19 @@ export const SaveEntrySheet = ({
                     enterKeyHint="next"
                   />
                   {showHelp && showFpHelp && (
-                    <div className="mt-2 p-3 bg-background border border-border rounded-lg flex items-start gap-3">
-                      <div className="flex-1 text-sm text-muted-foreground">
-                        <p className="font-semibold text-foreground mb-1">FP+ = Families Protected Plus</p>
-                        <p>Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)</p>
-                      </div>
+                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
+                      </p>
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
-                        className="shrink-0"
+                        className="h-7 text-xs px-2"
                         onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                       >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        AI Assistant
+                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                        Ask
                       </Button>
                     </div>
                   )}
@@ -481,36 +481,35 @@ export const SaveEntrySheet = ({
                     />
                   </div>
                   {showHelp && showPrmrHelp && (
-                    <div className="mt-2 p-3 bg-background border border-border rounded-lg">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="flex-1 text-sm text-muted-foreground">
-                          <p className="font-semibold text-foreground mb-1">Payable Recurring Monthly Revenue</p>
-                          <p>You can almost think of this as what the customer pays monthly — plus accounting for adders and deductions. See more on the payscale.</p>
-                        </div>
+                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        What the customer pays monthly (plus adders/deductions). See payscale for details.
+                      </p>
+                      <div className="flex items-center gap-2">
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
-                          className="shrink-0"
+                          className="h-7 text-xs px-2"
                           onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                         >
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          AI Assistant
+                          <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                          Ask
                         </Button>
+                        <button
+                          type="button"
+                          className="flex items-center justify-center h-7 w-7 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                          title="Download pay scale"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
+                            link.download = '2025_Sales_Rep_Payscale.pdf';
+                            link.click();
+                          }}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
-                          link.download = '2025_Sales_Rep_Payscale.pdf';
-                          link.click();
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Payscale
-                      </Button>
                     </div>
                   )}
                 </div>
