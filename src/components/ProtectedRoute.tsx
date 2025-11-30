@@ -13,10 +13,21 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const updateTimezone = async (userId: string) => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await supabase
+        .from('reps')
+        .update({ timezone })
+        .eq('user_id', userId);
+    };
+
     // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        updateTimezone(session.user.id);
+      }
     });
 
     // Listen for auth changes
@@ -25,6 +36,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        updateTimezone(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
