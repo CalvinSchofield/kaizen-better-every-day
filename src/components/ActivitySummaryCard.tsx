@@ -85,7 +85,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{summary.totals.doors}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">Doors</p>
-            {summary.daysWorked > 0 && (
+            {summary.daysWorked > 1 && (
               <p className="text-xs text-muted-foreground/60 mt-0.5">
                 {summary.dailyAverages.doors.toFixed(0)}/day
               </p>
@@ -94,7 +94,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
-            {summary.daysWorked > 0 && (
+            {summary.daysWorked > 1 && (
               <p className="text-xs text-muted-foreground/60 mt-0.5">
                 {summary.dailyAverages.transitions.toFixed(1)}/day
               </p>
@@ -103,7 +103,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
-            {summary.daysWorked > 0 && (
+            {summary.daysWorked > 1 && (
               <p className="text-xs text-muted-foreground/60 mt-0.5">
                 {summary.dailyAverages.fp.toFixed(1)}/day
               </p>
@@ -112,7 +112,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">${summary.totals.prmr}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">PRMR</p>
-            {summary.daysWorked > 0 && (
+            {summary.daysWorked > 1 && (
               <p className="text-xs text-muted-foreground/60 mt-0.5">
                 ${summary.dailyAverages.prmr.toFixed(0)}/day
               </p>

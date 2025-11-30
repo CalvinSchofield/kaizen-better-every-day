@@ -77,7 +77,7 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
                 <div className="w-28 flex-shrink-0 text-sm font-medium pr-3 text-right">
                   {activity.label}
                 </div>
-                <div className="flex-1 flex gap-1">
+                <div className="flex flex-1 gap-1">
                   {hours.map(hour => {
                     const count = activity.data[hour] || 0;
                     const isPeak = activity.peak === hour;
@@ -85,7 +85,7 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
                       <div
                         key={hour}
                         className={cn(
-                          "flex-1 aspect-square rounded transition-all hover:scale-110 cursor-pointer relative group",
+                          "w-6 h-6 rounded transition-all hover:scale-110 cursor-pointer relative group",
                           getIntensity(count),
                           isPeak && "ring-2 ring-primary"
                         )}
