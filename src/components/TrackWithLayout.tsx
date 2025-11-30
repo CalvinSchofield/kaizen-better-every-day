@@ -6,13 +6,28 @@ import { ResetConfirmSheet } from "./ResetConfirmSheet";
 import { PreviousDayReviewSheet } from "./PreviousDayReviewSheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { supabase } from "@/integrations/supabase/client";
+import { useRepData } from "@/hooks/useRepData";
 
 const TrackWithLayout = () => {
+  const { repData } = useRepData();
   const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
   const [isPreviousDayReviewOpen, setIsPreviousDayReviewOpen] = useState(false);
+
+  // Get custom counter config
+  const customCounterConfig = Array.isArray(repData?.custom_counter_config)
+    ? (repData.custom_counter_config as any[]).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        emoji: c.emoji,
+        hidden: c.hidden,
+      }))
+    : [];
+
+  // Get counter layout config
+  const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
 
   // Check for unsaved work from previous days on mount
   useEffect(() => {
@@ -301,6 +316,8 @@ const TrackWithLayout = () => {
         date={new Date()}
         onSave={handleSave}
         isSaving={isFinalizing}
+        customCounterConfig={customCounterConfig}
+        counterLayoutConfig={counterLayoutConfig}
       />
 
       {/* Reset Confirm Sheet */}
