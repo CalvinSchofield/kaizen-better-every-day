@@ -94,6 +94,10 @@ export interface InsightsData {
     presentations: number | null;
     closes: number | null;
   };
+  hourRange: {
+    minHour: number;
+    maxHour: number;
+  };
   dailyTrend: Array<{
     date: string;
     doors: number;
@@ -593,6 +597,10 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         closes: {},
       };
 
+      let minHour = 21; // Default to 9 PM if no data
+      let maxHour = 21; // Default to 9 PM if no data
+      let hasTimestampData = false;
+
       rangeEntries.forEach(entry => {
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
@@ -604,10 +612,23 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
             fieldTimestamps.forEach((timestamp: string) => {
               const local = calculateLocalTime(timestamp, userTimezone);
               hourlyActivity[activityKey][local.hour] = (hourlyActivity[activityKey][local.hour] || 0) + 1;
+              
+              // Track min/max hours from actual data
+              if (!hasTimestampData) {
+                minHour = local.hour;
+                maxHour = local.hour;
+                hasTimestampData = true;
+              } else {
+                minHour = Math.min(minHour, local.hour);
+                maxHour = Math.max(maxHour, local.hour);
+              }
             });
           });
         }
       });
+
+      // Cap maxHour at 21 (9 PM)
+      maxHour = Math.min(maxHour, 21);
 
       const peakHours = {
         doors: Object.keys(hourlyActivity.doors).length > 0
@@ -685,6 +706,10 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         funnelData,
         hourlyActivity,
         peakHours,
+        hourRange: {
+          minHour,
+          maxHour,
+        },
         dailyTrend,
       };
     },
