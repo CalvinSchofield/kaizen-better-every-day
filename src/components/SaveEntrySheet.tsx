@@ -407,13 +407,13 @@ export const SaveEntrySheet = ({
                     {showHelp && (
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
                           setShowFpHelp(!showFpHelp);
                         }}
                       >
-                        <HelpCircle className="h-4 w-4" />
+                        <HelpCircle className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
@@ -429,7 +429,7 @@ export const SaveEntrySheet = ({
                     enterKeyHint="next"
                   />
                   {showHelp && showFpHelp && (
-                    <div className="mt-2 p-3 bg-muted/50 rounded-lg flex items-start gap-3">
+                    <div className="mt-2 p-3 bg-background border border-border rounded-lg flex items-start gap-3">
                       <div className="flex-1 text-sm text-muted-foreground">
                         <p className="font-semibold text-foreground mb-1">FP+ = Families Protected Plus</p>
                         <p>Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)</p>
@@ -453,13 +453,13 @@ export const SaveEntrySheet = ({
                     {showHelp && (
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
                           setShowPrmrHelp(!showPrmrHelp);
                         }}
                       >
-                        <HelpCircle className="h-4 w-4" />
+                        <HelpCircle className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
@@ -481,7 +481,7 @@ export const SaveEntrySheet = ({
                     />
                   </div>
                   {showHelp && showPrmrHelp && (
-                    <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                    <div className="mt-2 p-3 bg-background border border-border rounded-lg">
                       <div className="flex items-start gap-3 mb-3">
                         <div className="flex-1 text-sm text-muted-foreground">
                           <p className="font-semibold text-foreground mb-1">Payable Recurring Monthly Revenue</p>
