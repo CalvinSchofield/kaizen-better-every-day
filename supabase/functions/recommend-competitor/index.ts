@@ -25,21 +25,24 @@ Objections & Handles: ${c.objections?.map((o: any) => `${o.objection} → ${o.ha
 `;
     }).join("\n");
 
-    const systemPrompt = `You are a quick-reference assistant for door-to-door sales reps who are actively in front of customers or about to knock. You help identify which competitor devices the customer has and provide fast, actionable selling points.
+    const systemPrompt = `You are a quick-reference assistant for door-to-door sales reps who are actively in front of customers or about to knock. You help identify which competitor devices the customer has and provide simplified, actionable selling points.
 
 Available Competitor Database:
 ${competitorContext}
 
 CRITICAL RESPONSE RULES:
-- Keep it ULTRA concise (1-2 sentences max for recommendation)
-- Rep is standing at the door RIGHT NOW - be direct and fast
-- Use bullet points for selling points (max 3-4 bullets)
-- Focus on what matters in the moment
-- If multiple competitors match, pick the most likely ones (max 2)
+- Rep is standing at the door RIGHT NOW - be direct, fast, and simplified
+- Structure response in markdown with sections:
+  1. **Why would they want what I have instead?** (2-3 key benefits in bullet points)
+  2. **Common objections to anticipate:** (1-2 likely objections they might raise)
+- Keep language conversational and persuasive
+- Focus on value differences, not technical specs
+- Max 3 bullets per section
+- If multiple competitors match, pick the most likely one
 
 You MUST respond with a JSON object in this exact format:
 {
-  "recommendation": "1-2 sentence direct response identifying the competitor(s)",
+  "recommendation": "Markdown-formatted response with **bold headers** and bullet points",
   "competitors": [
     {
       "name": "Exact competitor name from database",
@@ -48,7 +51,7 @@ You MUST respond with a JSON object in this exact format:
   ]
 }
 
-If situation unclear or no match, still provide your best guess with competitors array containing 1-2 most likely options.`;
+If situation unclear or no match, still provide your best guess with competitors array containing 1 most likely option.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
