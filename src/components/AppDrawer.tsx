@@ -93,170 +93,173 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
           </SheetTitle>
         </SheetHeader>
         
-        <div className="flex flex-col gap-4 p-4">
-          {/* Knocking Mode Toggle - Only show if user has access */}
-          {canAccessKnockingToggle && (
-            <>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-card">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
-                    🚪 Knocking Mode
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    {isKnockingMode ? "Active" : "Preseason"}
-                  </p>
+        <div className="flex flex-col gap-4 p-4 h-full">
+          <div className="flex flex-col gap-4">
+            {/* Knocking Mode Toggle - Only show if user has access */}
+            {canAccessKnockingToggle && (
+              <>
+                <div className="flex items-center justify-between p-4 rounded-lg bg-card">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
+                      🚪 Knocking Mode
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {isKnockingMode ? "Active" : "Preseason"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="knocking-mode"
+                    checked={isKnockingMode}
+                    onCheckedChange={handleToggle}
+                    disabled={isToggling}
+                  />
                 </div>
-                <Switch
-                  id="knocking-mode"
-                  checked={isKnockingMode}
-                  onCheckedChange={handleToggle}
-                  disabled={isToggling}
-                />
-              </div>
-              <Separator />
-            </>
-          )}
+                <Separator />
+              </>
+            )}
 
-          {/* Training Link - Show in drawer only when NOT in bottom tabs */}
-          {!navItems.some(item => item.path === "/training") && (
+            {/* Training Link - Show in drawer only when NOT in bottom tabs */}
+            {!navItems.some(item => item.path === "/training") && (
+              <Link
+                to="/training"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              >
+                <BookOpen className="w-5 h-5 text-primary" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Training</span>
+                  <span className="text-sm text-muted-foreground">
+                    Access training resources
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* Tools Link - Show in drawer only when NOT in bottom tabs */}
+            {!navItems.some(item => item.path === "/tools") && (
+              <Link
+                to="/tools"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              >
+                <Wrench className="w-5 h-5 text-primary" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Tools</span>
+                  <span className="text-sm text-muted-foreground">
+                    Access sales tools
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* Separator only if we showed Training or Tools */}
+            {(!navItems.some(item => item.path === "/training") || !navItems.some(item => item.path === "/tools")) && <Separator />}
+
+            {/* Calendar Link - Show only when NOT in bottom tabs */}
+            {!navItems.some(item => item.path === "/calendar") && (
+              <Link
+                to="/calendar"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              >
+                <div className="relative">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  {isCalendarLocked && (
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold">Calendar</span>
+                  <span className="text-sm text-muted-foreground">
+                    {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* Insights Link - Show only when NOT in bottom tabs */}
+            {!navItems.some(item => item.path === "/insights") && (
+              <Link
+                to="/insights"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              >
+                <div className="relative">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  {isCalendarLocked && (
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold">Insights</span>
+                  <span className="text-sm text-muted-foreground">
+                    {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* Show separator after Insights only when it's visible in drawer (knocking mode off) */}
+            {!navItems.some(item => item.path === "/insights") && <Separator />}
+
+            {/* AI Assistant Link */}
+            <a
+              href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+            >
+              <MessageSquare className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-semibold">AI Assistant</span>
+                <span className="text-sm text-muted-foreground">
+                  {isKnockingMode
+                    ? "Help with sales & objections"
+                    : "Help with onboarding & training"}
+                </span>
+              </div>
+            </a>
+
+            <Separator />
+
+            {/* Personalize */}
             <Link
-              to="/training"
+              to="/settings"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
             >
-              <BookOpen className="w-5 h-5 text-primary" />
+              <Settings className="w-5 h-5 text-primary" />
               <div className="flex flex-col">
-                <span className="font-semibold">Training</span>
+                <span className="font-semibold">Personalize</span>
                 <span className="text-sm text-muted-foreground">
-                  Access training resources
+                  {isVetOrSoph 
+                    ? "Customize counters & preferences" 
+                    : "Customize your experience"}
                 </span>
               </div>
             </Link>
-          )}
+          </div>
 
-          {/* Tools Link - Show in drawer only when NOT in bottom tabs */}
-          {!navItems.some(item => item.path === "/tools") && (
-            <Link
-              to="/tools"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+          {/* Logout Button - Pushed to bottom */}
+          <div className="mt-auto pt-4">
+            <Separator className="mb-4" />
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
             >
-              <Wrench className="w-5 h-5 text-primary" />
+              <LogOut className="w-5 h-5" />
               <div className="flex flex-col">
-                <span className="font-semibold">Tools</span>
+                <span className="font-semibold">Logout</span>
                 <span className="text-sm text-muted-foreground">
-                  Access sales tools
+                  Sign out of your account
                 </span>
               </div>
-            </Link>
-          )}
-
-          {/* Separator only if we showed Training or Tools */}
-          {(!navItems.some(item => item.path === "/training") || !navItems.some(item => item.path === "/tools")) && <Separator />}
-
-          {/* Calendar Link - Show only when NOT in bottom tabs */}
-          {!navItems.some(item => item.path === "/calendar") && (
-            <Link
-              to="/calendar"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-            >
-              <div className="relative">
-                <Calendar className="w-5 h-5 text-primary" />
-                {isCalendarLocked && (
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="font-semibold">Calendar</span>
-                <span className="text-sm text-muted-foreground">
-                  {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
-                </span>
-              </div>
-            </Link>
-          )}
-
-          {/* Insights Link - Show only when NOT in bottom tabs */}
-          {!navItems.some(item => item.path === "/insights") && (
-            <Link
-              to="/insights"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-            >
-              <div className="relative">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                {isCalendarLocked && (
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="font-semibold">Insights</span>
-                <span className="text-sm text-muted-foreground">
-                  {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
-                </span>
-              </div>
-            </Link>
-          )}
-
-          {/* Show separator after Insights only when it's visible in drawer (knocking mode off) */}
-          {!navItems.some(item => item.path === "/insights") && <Separator />}
-
-          {/* AI Assistant Link */}
-          <a
-            href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-          >
-            <MessageSquare className="w-5 h-5 text-primary" />
-            <div className="flex flex-col">
-              <span className="font-semibold">AI Assistant</span>
-              <span className="text-sm text-muted-foreground">
-                {isKnockingMode
-                  ? "Help with sales & objections"
-                  : "Help with onboarding & training"}
-              </span>
-            </div>
-          </a>
-
-          <Separator />
-
-          {/* Personalize */}
-          <Link
-            to="/settings"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-          >
-            <Settings className="w-5 h-5 text-primary" />
-            <div className="flex flex-col">
-              <span className="font-semibold">Personalize</span>
-              <span className="text-sm text-muted-foreground">
-                {isVetOrSoph 
-                  ? "Customize counters & preferences" 
-                  : "Customize your experience"}
-              </span>
-            </div>
-          </Link>
-
-          <Separator />
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
-          >
-            <LogOut className="w-5 h-5" />
-            <div className="flex flex-col">
-              <span className="font-semibold">Logout</span>
-              <span className="text-sm text-muted-foreground">
-                Sign out of your account
-              </span>
-            </div>
-          </button>
+            </button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
