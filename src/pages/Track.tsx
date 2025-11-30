@@ -41,6 +41,15 @@ const Track = ({
   onUpdateTime,
 }: TrackProps) => {
   const { repData, loading: loadingRepData } = useRepData();
+
+  // Get custom counter config for Vets/Sophomores
+  const customCounterConfig = Array.isArray(repData?.custom_counter_config)
+    ? (repData.custom_counter_config as any[]).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        emoji: c.emoji,
+      }))
+    : [];
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -121,6 +130,7 @@ const Track = ({
           <QTallyGrid
             entry={entry}
             onCounterChange={onCounterChange}
+            customCounterConfig={customCounterConfig}
           />
         </div>
       </div>

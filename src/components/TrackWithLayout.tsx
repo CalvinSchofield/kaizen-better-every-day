@@ -21,6 +21,17 @@ const TrackWithLayout = () => {
     // Immediately trigger optimistic update through mutation
     const updates: any = { [field]: Math.max(0, value) };
     
+    // Handle custom counters separately
+    if (field.startsWith('custom_')) {
+      const customId = field.replace('custom_', '');
+      const customCounters = entry.custom_counters || {};
+      updates.custom_counters = {
+        ...customCounters,
+        [customId]: Math.max(0, value),
+      };
+      delete updates[field]; // Remove the custom_ prefixed field
+    }
+    
     // Auto-end break if one is active when counter is tapped
     const breakPeriods = entry.break_periods || [];
     const currentBreak = breakPeriods.find(bp => !bp.end);

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
-type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | null;
+type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | 'custom' | null;
 
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
@@ -497,6 +497,71 @@ export default function Insights() {
                 </CollapsibleContent>
               </Collapsible>
             </Card>
+
+            {/* Personal Metrics (Custom Counters) - Only for Vets/Sophomores */}
+            {(repData?.year === "Vet" || repData?.year === "Sophomore") && insights.customCounterTotals && Object.keys(insights.customCounterTotals).length > 0 && (
+              <Card>
+                <Collapsible open={expandedSection === 'custom'} onOpenChange={() => handleSectionToggle('custom' as ExpandedSection)}>
+                  <CollapsibleTrigger className="w-full p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Personal Metrics</h2>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'custom' && "rotate-180")} />
+                    </div>
+                    {expandedSection !== 'custom' && (
+                      <div className="mt-2 text-left text-sm text-muted-foreground">
+                        Your custom tracking ({Object.keys(insights.customCounterTotals).length} counters)
+                      </div>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Custom counters appear here and are not included in team leaderboards
+                      </p>
+                      <div className="space-y-4">
+                        {Object.entries(insights.customCounterTotals).map(([counterId, total]) => {
+                          const config = (repData?.custom_counter_config as any[])?.find((c: any) => c.id === counterId);
+                          if (!config) return null;
+                          
+                          const dailyAvg = (total as number) / insights.daysWorked;
+                          const perHour = insights.totalWorkMinutes > 0 
+                            ? ((total as number) / insights.totalWorkMinutes) * 60 
+                            : 0;
+                          
+                          return (
+                            <Card key={counterId} className="p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-2xl">{config.emoji}</span>
+                                <span className="font-semibold">{config.name}</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Total</div>
+                                  <div className="text-xl font-bold">{total}</div>
+                                </div>
+                                <div>
+                                  <div className="text-sm text-muted-foreground">Daily Avg</div>
+                                  <div className="text-xl font-bold">{dailyAvg.toFixed(1)}</div>
+                                </div>
+                                {perHour > 0 && (
+                                  <div>
+                                    <div className="text-sm text-muted-foreground">Per Hour</div>
+                                    <div className="text-xl font-bold">{perHour.toFixed(1)}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            )}
           </>
         )}
       </div>

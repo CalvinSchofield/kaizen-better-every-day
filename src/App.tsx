@@ -16,6 +16,7 @@ import Competitors from "./pages/Competitors";
 import Contacts from "./pages/Contacts";
 import Calendar from "./pages/Calendar";
 import Insights from "./pages/Insights";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
@@ -123,6 +124,16 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <Insights />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Settings />
                   </Layout>
                 </ProtectedRoute>
               }

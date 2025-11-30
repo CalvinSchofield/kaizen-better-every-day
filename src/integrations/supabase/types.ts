@@ -65,6 +65,7 @@ export type Database = {
           closes: number | null
           counter_timestamps: Json | null
           created_at: string | null
+          custom_counters: Json | null
           decision_makers: number | null
           doors_knocked: number | null
           entry_date: string
@@ -87,6 +88,7 @@ export type Database = {
           closes?: number | null
           counter_timestamps?: Json | null
           created_at?: string | null
+          custom_counters?: Json | null
           decision_makers?: number | null
           doors_knocked?: number | null
           entry_date: string
@@ -109,6 +111,7 @@ export type Database = {
           closes?: number | null
           counter_timestamps?: Json | null
           created_at?: string | null
+          custom_counters?: Json | null
           decision_makers?: number | null
           doors_knocked?: number | null
           entry_date?: string
@@ -160,6 +163,7 @@ export type Database = {
           completed_tasks: Json | null
           contacted_for_blitz: Json | null
           created_at: string | null
+          custom_counter_config: Json | null
           declined_blitz_rsvps: Json | null
           email: string | null
           id: string
@@ -201,6 +205,7 @@ export type Database = {
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
           created_at?: string | null
+          custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
           email?: string | null
           id?: string
@@ -242,6 +247,7 @@ export type Database = {
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
           created_at?: string | null
+          custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
           email?: string | null
           id?: string
