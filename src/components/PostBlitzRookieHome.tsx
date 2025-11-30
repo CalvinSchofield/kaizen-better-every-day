@@ -632,7 +632,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       {nextBlitz.address1 && (
                         <button 
                           onClick={() => openInMaps(nextBlitz.address1!)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 hover:bg-background/70 transition-all text-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 hover:bg-background/70 transition-all text-sm font-medium"
                         >
                           <MapPin className="w-4 h-4" />
                           <span>Map</span>
@@ -642,7 +642,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       {nextBlitz.wifi1 && (
                         <button 
                           onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 hover:bg-background/70 transition-all text-sm"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 hover:bg-background/70 transition-all text-sm font-medium"
                         >
                           <Wifi className="w-4 h-4" />
                           <span>Password</span>
@@ -650,7 +650,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                       )}
                       
                       {nextBlitz.code1 && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 text-sm">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-primary/30 bg-background/50 text-sm font-medium">
                           <Key className="w-4 h-4" />
                           <span className="font-mono">{nextBlitz.code1}</span>
                         </div>
