@@ -17,7 +17,6 @@ interface YTDLeaderboard {
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
   mostUpgradeFP: LeaderboardEntry | null;
-  mostUpgradePRMR: LeaderboardEntry | null;
   mostHoursWorked: LeaderboardEntry | null;
   earliestDoor: LeaderboardEntry | null;
   latestDoor: LeaderboardEntry | null;
@@ -72,7 +71,6 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         presentations: number;
         fp: number;
         prmr: number;
-        upgradeFp: number;
         upgradePrmr: number;
         hoursWorked: number;
         earliestDoorTime: string | null;
@@ -88,7 +86,6 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
           presentations: 0,
           fp: 0,
           prmr: 0,
-          upgradeFp: 0,
           upgradePrmr: 0,
           hoursWorked: 0,
           earliestDoorTime: null,
@@ -103,7 +100,6 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         stats.fp += entry.fp_plus || 0;
         stats.prmr += entry.prmr || 0;
         stats.upgradePrmr += entry.upgrade_prmr || 0;
-        stats.upgradeFp += (entry.fp_plus || 0) - Math.floor(entry.fp_plus || 0);
 
         // Calculate hours worked
         if (entry.work_start_time && entry.work_end_time) {
@@ -154,7 +150,6 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         mostFP: null,
         mostPRMR: null,
         mostUpgradeFP: null,
-        mostUpgradePRMR: null,
         mostHoursWorked: null,
         earliestDoor: null,
         latestDoor: null,
@@ -185,11 +180,9 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         if (stats.prmr > (leaderboard.mostPRMR?.value || 0)) {
           leaderboard.mostPRMR = { userId, name: rep.name, value: stats.prmr };
         }
-        if (stats.upgradeFp > (leaderboard.mostUpgradeFP?.value || 0)) {
-          leaderboard.mostUpgradeFP = { userId, name: rep.name, value: stats.upgradeFp };
-        }
-        if (stats.upgradePrmr > (leaderboard.mostUpgradePRMR?.value || 0)) {
-          leaderboard.mostUpgradePRMR = { userId, name: rep.name, value: stats.upgradePrmr };
+        const upgradeFp = stats.upgradePrmr / 85;
+        if (upgradeFp > (leaderboard.mostUpgradeFP?.value || 0)) {
+          leaderboard.mostUpgradeFP = { userId, name: rep.name, value: upgradeFp };
         }
         if (stats.hoursWorked > (leaderboard.mostHoursWorked?.value || 0)) {
           leaderboard.mostHoursWorked = { userId, name: rep.name, value: stats.hoursWorked };
