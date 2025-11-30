@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
@@ -51,6 +51,32 @@ export const CalendarView = ({
   const days = viewMode === "month" 
     ? eachDayOfInterval({ start: calendarStart, end: calendarEnd })
     : eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  // Calculate previous period for comparison
+  const prevPeriodStart = viewMode === "week" 
+    ? subWeeks(weekStart, 1)
+    : viewMode === "month"
+    ? subMonths(monthStart, 1)
+    : null;
+  
+  const prevPeriodEnd = viewMode === "week"
+    ? subWeeks(weekEnd, 1)
+    : viewMode === "month"
+    ? subMonths(monthEnd, 1)
+    : null;
+
+  // Calculate previous period totals for comparison
+  const prevPeriodTotals = prevPeriodStart && prevPeriodEnd ? entries.reduce((totals, entry) => {
+    const entryDate = new Date(entry.entry_date);
+    const isInPrevPeriod = entryDate >= prevPeriodStart && entryDate <= prevPeriodEnd;
+
+    if (isInPrevPeriod && entry.is_finalized) {
+      totals.fpPlus += entry.fp_plus || 0;
+      totals.prmr += entry.prmr || 0;
+      totals.daysWorked += 1;
+    }
+    return totals;
+  }, { fpPlus: 0, prmr: 0, daysWorked: 0 }) : null;
 
   const isKnockingDay = (date: Date) => {
     // Check if date is within any blitz
@@ -434,6 +460,30 @@ export const CalendarView = ({
             <ChevronDown className="h-5 w-5 text-muted-foreground" />
           )}
         </button>
+
+        {/* Period-over-Period Comparison (always visible when not expanded) */}
+        {!summaryExpanded && prevPeriodTotals && prevPeriodTotals.daysWorked > 0 && (
+          <div className="px-4 pb-3">
+            {(() => {
+              const fpChange = viewTotals.fpPlus - prevPeriodTotals.fpPlus;
+              const isImproving = fpChange >= 0;
+              return (
+                <div className={`flex items-center gap-2 text-xs ${
+                  isImproving ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                }`}>
+                  {isImproving ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span>
+                    {isImproving ? "+" : ""}{fpChange.toFixed(1)} FP+ vs {viewMode === "week" ? "last week" : "last month"}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Expanded Content */}
         {summaryExpanded && (

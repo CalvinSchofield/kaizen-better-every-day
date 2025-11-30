@@ -32,15 +32,14 @@ Today's Performance:
 Comparison: ${comparison.fpChange >= 0 ? '+' : ''}${comparison.fpChange.toFixed(1)} FP+ ${comparison.label}
 `;
 
-    const systemPrompt = `You are a supportive door-to-door sales coach. Based on today's performance data, provide ONE actionable focus for tomorrow in a single sentence. Keep it encouraging, specific, and conversational.
+    const systemPrompt = `You are a supportive door-to-door sales coach. Based on today's performance compared to their averages, give a single-sentence focus for tomorrow. Be brief, encouraging, and actionable.
 
-Examples of good responses:
+Examples:
 - "Tomorrow, focus on getting into more homes — your pitch is working!"
-- "Volume was great today. Tomorrow, spend more time with fewer people."
-- "Get out earlier tomorrow — more doors = more opportunities."
-- "Keep that momentum going — let's close more of those presentations!"
+- "Keep the volume up tomorrow, but spend more time with the right people."
+- "More doors tomorrow = more opportunities. Let's go!"
 
-Keep it to ONE sentence. Be specific about what to do differently. Use "you" language. Keep it motivating.`;
+Keep it conversational, motivational, and under 15 words. Use "you" language. Base feedback on their personal averages, not absolute standards.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

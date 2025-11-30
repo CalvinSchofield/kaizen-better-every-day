@@ -5,7 +5,7 @@ import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useInsightsFeedback } from '@/hooks/useInsightsFeedback';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon, Sparkles } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
   Sheet,
@@ -113,7 +113,7 @@ export default function Insights() {
     daysWorked: insights.daysWorked
   } : null;
 
-  const { data: aiFeedback, isLoading: feedbackLoading } = useInsightsFeedback(feedbackParams);
+  const { data: aiFeedback, isLoading: feedbackLoading } = useInsightsFeedback(feedbackParams, repData?.year);
   
   const handleCustomDateApply = () => {
     if (customStartDate && customEndDate) {
@@ -317,7 +317,7 @@ export default function Insights() {
               {aiFeedback && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                    <span className="text-lg">💡</span>
+                    <Sparkles className="w-5 h-5 text-primary mt-0.5" />
                     <p className="text-sm text-foreground/90 leading-relaxed flex-1">
                       {aiFeedback}
                     </p>
@@ -327,7 +327,7 @@ export default function Insights() {
               {feedbackLoading && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
-                    <span className="text-lg">💡</span>
+                    <Sparkles className="w-5 h-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1 space-y-2">
                       <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
                       <div className="h-4 w-full bg-muted rounded animate-pulse" />
