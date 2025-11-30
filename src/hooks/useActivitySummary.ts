@@ -28,6 +28,9 @@ interface ActivitySummaryData {
     fpChange: number;
     label: string;
     previousBlitzFp?: number;
+    previousPeriodTotal?: number;
+    previousDaysWorked?: number;
+    showComparison: boolean;
   };
   chartData: Array<{ date: string; fp: number }>;
   daysWorked: number;
@@ -158,76 +161,70 @@ export const useActivitySummary = (repData: any) => {
           const prevBlitz = previousBlitzes[0];
           const prevBlitzStart = new Date(prevBlitz.date + 'T00:00:00');
           
-          // Calculate how many days into current blitz we are (day-aligned comparison)
-          const currentBlitzDays = daysWorked;
-          const prevBlitzEndDate = new Date(prevBlitzStart);
-          prevBlitzEndDate.setDate(prevBlitzStart.getDate() + currentBlitzDays - 1);
-          
-          const { data: prevEntries } = await supabase
-            .from("daily_entries")
-            .select("*")
-            .eq("user_id", repData.user_id)
-            .gte("entry_date", format(prevBlitzStart, "yyyy-MM-dd"))
-            .lte("entry_date", format(prevBlitzEndDate, "yyyy-MM-dd"))
-            .eq("is_finalized", true);
-
-          const prevWorkdayEntries = prevEntries?.filter(entry => {
-            const entryDate = new Date(entry.entry_date + 'T00:00:00');
-            return getDay(entryDate) !== 0; // Exclude Sundays
-          }) || [];
-
-          const prevFp = prevWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-          
-          // Also get full previous blitz total for context
+          // Get full previous blitz stats first
           const { data: prevFullEntries } = await supabase
             .from("daily_entries")
-            .select("fp_plus")
+            .select("*")
             .eq("user_id", repData.user_id)
             .gte("entry_date", prevBlitz.date)
             .lte("entry_date", prevBlitz.endDate)
             .eq("is_finalized", true);
 
-          const prevFullFp = prevFullEntries?.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0) || 0;
+          const prevFullWorkdayEntries = prevFullEntries?.filter(entry => {
+            const entryDate = new Date(entry.entry_date + 'T00:00:00');
+            return getDay(entryDate) !== 0; // Exclude Sundays
+          }) || [];
+
+          const prevBlitzTotalFp = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+          const prevBlitzDaysWorked = prevFullWorkdayEntries.length;
+          
+          // Calculate day-aligned comparison for same number of days
+          const currentBlitzDays = daysWorked;
+          const prevDayAlignedEntries = prevFullWorkdayEntries.slice(0, currentBlitzDays);
+          const prevDayAlignedFp = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
           
           comparison = {
-            fpChange: totals.fp - prevFp,
-            label: `day ${currentBlitzDays}`,
-            previousBlitzFp: prevFullFp,
+            fpChange: totals.fp - prevDayAlignedFp,
+            label: `day ${currentBlitzDays} last blitz`,
+            previousBlitzFp: prevBlitzTotalFp,
+            previousPeriodTotal: prevBlitzTotalFp,
+            previousDaysWorked: prevBlitzDaysWorked,
+            showComparison: currentBlitzDays <= prevBlitzDaysWorked,
           };
         }
       } else if (mode === "summer") {
         // Compare to last week (day-aligned)
         const lastWeekStart = startOfWeek(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 });
-        const currentDayOfWeek = getDay(now);
+        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
         
-        // Calculate how many workdays into this week we are (excluding Sundays)
-        const currentWeekDays = daysWorked;
-        
-        // Get same number of days from last week
-        const lastWeekAlignedEnd = new Date(lastWeekStart);
-        let daysAdded = 0;
-        while (daysAdded < currentWeekDays) {
-          lastWeekAlignedEnd.setDate(lastWeekAlignedEnd.getDate() + 1);
-          if (getDay(lastWeekAlignedEnd) !== 0) daysAdded++;
-        }
-
-        const { data: lastWeekEntries } = await supabase
+        // Get full last week data first
+        const { data: lastWeekFullEntries } = await supabase
           .from("daily_entries")
           .select("*")
           .eq("user_id", repData.user_id)
           .gte("entry_date", format(lastWeekStart, "yyyy-MM-dd"))
-          .lte("entry_date", format(lastWeekAlignedEnd, "yyyy-MM-dd"))
+          .lte("entry_date", format(lastWeekEnd, "yyyy-MM-dd"))
           .eq("is_finalized", true);
 
-        const lastWeekWorkdayEntries = lastWeekEntries?.filter(entry => {
+        const lastWeekFullWorkdayEntries = lastWeekFullEntries?.filter(entry => {
           const entryDate = new Date(entry.entry_date + 'T00:00:00');
           return getDay(entryDate) !== 0;
         }) || [];
 
-        const lastWeekFp = lastWeekWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        const lastWeekTotalFp = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        const lastWeekDaysWorked = lastWeekFullWorkdayEntries.length;
+        
+        // Day-aligned comparison
+        const currentWeekDays = daysWorked;
+        const lastWeekDayAlignedEntries = lastWeekFullWorkdayEntries.slice(0, currentWeekDays);
+        const lastWeekDayAlignedFp = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        
         comparison = {
-          fpChange: totals.fp - lastWeekFp,
-          label: `day ${currentWeekDays}`,
+          fpChange: totals.fp - lastWeekDayAlignedFp,
+          label: `day ${currentWeekDays} last week`,
+          previousPeriodTotal: lastWeekTotalFp,
+          previousDaysWorked: lastWeekDaysWorked,
+          showComparison: currentWeekDays <= lastWeekDaysWorked,
         };
       } else if (mode === "preseason" && daysWorked > 0) {
         // Compare to last same day of week
@@ -250,6 +247,7 @@ export const useActivitySummary = (repData: any) => {
           comparison = {
             fpChange: totals.fp - lastFp,
             label: `vs last ${dayNames[todayDayOfWeek]}`,
+            showComparison: true,
           };
         }
       }
