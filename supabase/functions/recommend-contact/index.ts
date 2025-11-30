@@ -26,6 +26,13 @@ Available contacts:
 - Housing (call 888-324-5771 Option 1-3-4, email housing@vivint.com): Summer housing, rent questions, utility deductions
 - Arbitration (email accountarbitration@vivint.com): Arbitration questions and requests
 - Compliance (text 385-250-4896 Josh Powell, email joshua.powell@vivint.com): Compliance questions
+- Customer Care (call 800-216-5232 option 5): General customer support, questions, complaints, concerns, things not working. If it's outside of the ROR then pass customers to Customer Care
+- Customer Loyalty (call 800-216-5232 option 3): Customer retention during ROR. They have offers to help keep customers from canceling
+- Military Support (call 844-843-8368): For active duty military customers
+- Customer Buyout Support (call 855-246-5514): For customers with buyout questions, concerns, or frustrations
+- Citizens LOAN Support (call 800-819-1111 option 4): Old loan provider/financing partner. For customers with questions about old payment amounts or what they still owe to Citizens
+- Equifax Unfreeze (call 888-298-0045 or visit my.equifax.com for frozen credit, lockandalert.equifax.com for locked credit): Help customers unfreeze credit for soft credit checks. Usually fast to do online
+- Fortiva (call 800-459-7172): Current financing partner. For customers wanting to see how much they owe or their payment details
 
 You MUST respond with a JSON object in this exact format:
 {

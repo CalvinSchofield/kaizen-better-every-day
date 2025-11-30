@@ -332,6 +332,7 @@ const Contacts = () => {
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAiRecommendation()}
+                onFocus={(e) => e.target.select()}
                 className="flex-1"
               />
               <Button 
