@@ -29,11 +29,12 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'Kaizen <onboarding@resend.dev>',
         to: ['calvinjschofield@gmail.com'],
-        subject: `${repName || 'A rep'} nudged you to set up the home page`,
+        subject: `${repName || 'A rep'} requested account setup`,
         html: `
-          <h2>${repName || 'A rep'} nudged you to set up the home page</h2>
+          <h2>${repName || 'A rep'} requested account setup</h2>
+          <p><strong>Rep Name:</strong> ${repName || 'Not provided'}</p>
           <p><strong>Email in Notion:</strong> ${notionEmail || 'Not found'}</p>
-          <p><strong>Email they put in:</strong> ${userEmail}</p>
+          <p><strong>Email they used to sign up:</strong> ${userEmail}</p>
         `,
       }),
     });
