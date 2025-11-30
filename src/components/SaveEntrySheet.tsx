@@ -60,8 +60,7 @@ export const SaveEntrySheet = ({
   const { repData } = useRepData();
   const { totalFP } = usePreseasonFP();
   const navigate = useNavigate();
-  const [showFpHelp, setShowFpHelp] = useState(false);
-  const [showPrmrHelp, setShowPrmrHelp] = useState(false);
+  const [openHelp, setOpenHelp] = useState<'fp' | 'prmr' | null>(null);
   const [doorsKnocked, setDoorsKnocked] = useState("");
   const [decisionMakers, setDecisionMakers] = useState("");
   const [pitches, setPitches] = useState("");
@@ -410,7 +409,7 @@ export const SaveEntrySheet = ({
                         className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
-                          setShowFpHelp(!showFpHelp);
+                          setOpenHelp(openHelp === 'fp' ? null : 'fp');
                         }}
                       >
                         <HelpCircle className="h-3.5 w-3.5" />
@@ -428,16 +427,16 @@ export const SaveEntrySheet = ({
                     onChange={(e) => setFpPlus(e.target.value)}
                     enterKeyHint="next"
                   />
-                  {showHelp && showFpHelp && (
-                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-2">
+                  {showHelp && openHelp === 'fp' && (
+                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground flex-1">
                         FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
                       </p>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 text-xs px-2"
+                        className="h-7 text-xs px-2 shrink-0"
                         onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                       >
                         <MessageSquare className="h-3.5 w-3.5 mr-1" />
@@ -456,7 +455,7 @@ export const SaveEntrySheet = ({
                         className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
                         onClick={(e) => {
                           e.preventDefault();
-                          setShowPrmrHelp(!showPrmrHelp);
+                          setOpenHelp(openHelp === 'prmr' ? null : 'prmr');
                         }}
                       >
                         <HelpCircle className="h-3.5 w-3.5" />
@@ -480,12 +479,12 @@ export const SaveEntrySheet = ({
                       enterKeyHint="done"
                     />
                   </div>
-                  {showHelp && showPrmrHelp && (
-                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        What the customer pays monthly (plus adders/deductions). See payscale for details.
+                  {showHelp && openHelp === 'prmr' && (
+                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground flex-1">
+                        What the customer pays monthly (plus adders/deductions)
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
                           type="button"
                           variant="outline"
@@ -498,7 +497,7 @@ export const SaveEntrySheet = ({
                         </Button>
                         <button
                           type="button"
-                          className="flex items-center justify-center h-7 w-7 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                          className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
                           title="Download pay scale"
                           onClick={() => {
                             const link = document.createElement('a');
@@ -508,6 +507,7 @@ export const SaveEntrySheet = ({
                           }}
                         >
                           <Download className="h-3.5 w-3.5" />
+                          <span className="text-xs">Payscale</span>
                         </button>
                       </div>
                     </div>
