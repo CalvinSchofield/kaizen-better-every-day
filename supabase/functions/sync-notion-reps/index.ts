@@ -328,6 +328,9 @@ Deno.serve(async (req) => {
                 // Log all available properties for debugging
                 console.log(`Trip properties available: ${JSON.stringify(Object.keys(tripData.properties))}`);
                 
+                // Debug Address 1 property structure
+                console.log(`Address 1 property structure:`, JSON.stringify(tripData.properties["Address 1"]));
+                
                 const tripName = getTitle(tripData.properties.Name);
                 
                 if (tripName) {
