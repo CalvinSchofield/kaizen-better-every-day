@@ -892,54 +892,34 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           
           {!loadingWeather && weather.length > 0 && (
             <>
-              <div className="space-y-3 mt-4">
-                {weather.map((day) => {
-                  const getWeatherIcon = (code: number) => {
-                    if (code === 0) return "☀️";
-                    if (code >= 1 && code <= 3) return "⛅";
-                    if (code >= 45 && code <= 48) return "🌫️";
-                    if (code >= 51 && code <= 67) return "🌧️";
-                    if (code >= 71 && code <= 77) return "❄️";
-                    if (code >= 80 && code <= 82) return "🌦️";
-                    if (code >= 85 && code <= 86) return "🌨️";
-                    if (code >= 95 && code <= 99) return "⛈️";
-                    return "☀️";
-                  };
+              {/* Horizontal scrollable weather cards */}
+              <div className="overflow-x-auto -mx-6 px-6 mt-4">
+                <div className="flex gap-3 pb-2">
+                  {weather.map((day) => {
+                    const getWeatherIcon = (code: number) => {
+                      if (code === 0) return "☀️";
+                      if (code >= 1 && code <= 3) return "⛅";
+                      if (code >= 45 && code <= 48) return "🌫️";
+                      if (code >= 51 && code <= 67) return "🌧️";
+                      if (code >= 71 && code <= 77) return "❄️";
+                      if (code >= 80 && code <= 82) return "🌦️";
+                      if (code >= 85 && code <= 86) return "🌨️";
+                      if (code >= 95 && code <= 99) return "⛈️";
+                      return "☀️";
+                    };
 
-                  return (
-                    <div
-                      key={day.date}
-                      className="bg-card rounded-lg p-4 border border-border flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-3xl">
+                    return (
+                      <div key={day.date} className="flex-shrink-0 w-24 p-3 bg-muted/30 rounded-lg text-center border border-border">
+                        <p className="text-xs font-medium mb-2">{day.dayName}</p>
+                        <div className="text-2xl mb-2">
                           {getWeatherIcon(day.weatherCode)}
                         </div>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground">
-                            {day.dayName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(day.date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </div>
-                        </div>
+                        <p className="text-sm font-semibold mb-1">{day.high}°</p>
+                        <p className="text-xs text-muted-foreground">{day.low}°</p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-foreground">
-                            {day.high}°
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {day.low}°
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
               
               {/* Weather Tip */}
