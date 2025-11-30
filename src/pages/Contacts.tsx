@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { ArrowLeft, Phone, Download, ChevronDown, ChevronUp, MessageSquare, Mail } from "lucide-react";
+import { ArrowLeft, Phone, Download, ChevronDown, ChevronUp, MessageSquare, Mail, Copy, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Contact {
   id: string;
@@ -21,6 +23,9 @@ interface Contact {
 const Contacts = () => {
   const navigate = useNavigate();
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
+  const [aiInput, setAiInput] = useState("");
+  const [aiRecommendation, setAiRecommendation] = useState("");
+  const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   const contacts: Contact[] = [
     // Vivint Support Contacts
@@ -261,33 +266,91 @@ const Contacts = () => {
     setExpandedContact(expandedContact === contactId ? null : contactId);
   };
 
+  const handleAiRecommendation = async () => {
+    if (!aiInput.trim()) return;
+    
+    setIsLoadingAi(true);
+    setAiRecommendation("");
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('recommend-contact', {
+        body: { situation: aiInput }
+      });
+      
+      if (error) throw error;
+      
+      setAiRecommendation(data.recommendation);
+    } catch (error) {
+      console.error("Error getting AI recommendation:", error);
+      toast.error("Failed to get recommendation. Please try again.");
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-card border-b border-border">
         <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/tools")}
+                className="rounded-full"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <h1 className="text-2xl font-bold">Useful Contacts</h1>
+            </div>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/tools")}
-              className="rounded-full"
+              onClick={handleDownloadAll}
+              className="flex flex-col h-auto py-2 px-3 gap-1"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <Download className="w-4 h-4" />
+              <span className="text-[10px]">Download</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Useful Contacts</h1>
-            </div>
           </div>
 
-          <Button
-            onClick={handleDownloadAll}
-            className="w-full"
-            variant="outline"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download All Contacts
-          </Button>
+          {/* AI Recommendation */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Describe your situation..."
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAiRecommendation()}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleAiRecommendation}
+                disabled={isLoadingAi || !aiInput.trim()}
+                size="icon"
+              >
+                {isLoadingAi ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span className="text-sm">✨</span>
+                )}
+              </Button>
+            </div>
+            {aiRecommendation && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="pt-3 pb-3">
+                  <p className="text-sm text-foreground">{aiRecommendation}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
 
@@ -339,13 +402,26 @@ const Contacts = () => {
                               variant="outline"
                               size="sm"
                               className="w-full text-xs justify-start"
-                              asChild
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (contact.category === "Customer Contacts (Give to Customers Only)") {
+                                  copyToClipboard(contact.phone, "Phone number");
+                                } else {
+                                  window.location.href = `tel:${contact.phone.replace(/[^0-9]/g, "")}`;
+                                }
+                              }}
                             >
-                              <a href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}>
-                                <Phone className="w-3.5 h-3.5 mr-2" />
-                                Call: {contact.phone}
-                              </a>
+                              {contact.category === "Customer Contacts (Give to Customers Only)" ? (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 mr-2" />
+                                  Copy: {contact.phone}
+                                </>
+                              ) : (
+                                <>
+                                  <Phone className="w-3.5 h-3.5 mr-2" />
+                                  Call: {contact.phone}
+                                </>
+                              )}
                             </Button>
                           )}
                           
