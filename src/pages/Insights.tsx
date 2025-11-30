@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
+import { useInsightsFeedback } from '@/hooks/useInsightsFeedback';
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
@@ -78,6 +79,41 @@ export default function Insights() {
   };
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset));
+  
+  // Prepare data for AI feedback
+  const feedbackParams = insights && insights.daysWorked > 0 ? {
+    funnel: insights.funnelData,
+    ratios: {
+      doorsToFp: { 
+        current: efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp, 
+        overall: efpModeEnabled ? insights.overallDoorsToEfp : insights.overallDoorsToFp 
+      },
+      pitchesToFp: { 
+        current: efpModeEnabled ? insights.pitchesToEfp : insights.pitchesToFp,
+        overall: efpModeEnabled ? insights.overallPitchesToEfp : insights.overallPitchesToFp
+      },
+      transitionsToFp: { 
+        current: efpModeEnabled ? insights.transitionsToEfp : insights.transitionsToFp,
+        overall: efpModeEnabled ? insights.overallTransitionsToEfp : insights.overallTransitionsToFp
+      },
+      presentationsToClose: { 
+        current: insights.presentationsToClose, 
+        overall: insights.overallPresentationsToClose 
+      }
+    },
+    totals: {
+      fp: insights.totalFp,
+      doors: insights.totalDoors,
+      pitches: insights.totalPitches,
+      transitions: insights.totalTransitions,
+      presentations: insights.totalPresentations,
+      closes: insights.totalCloses
+    },
+    timeframe: datePreset === 'week' ? 'week' : datePreset === 'month' ? 'month' : datePreset === 'preseason' ? 'preseason' : 'custom period',
+    daysWorked: insights.daysWorked
+  } : null;
+
+  const { data: aiFeedback, isLoading: feedbackLoading } = useInsightsFeedback(feedbackParams);
   
   const handleCustomDateApply = () => {
     if (customStartDate && customEndDate) {
@@ -224,7 +260,7 @@ export default function Insights() {
             {/* Period Summary */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Period Summary</h2>
+                <h2 className="text-lg font-semibold">Summary</h2>
                 <span className="text-sm text-primary font-medium">{insights.daysWorked} days worked</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -276,6 +312,29 @@ export default function Insights() {
                   <div className="text-sm text-muted-foreground">Closes</div>
                 </div>
               </div>
+
+              {/* AI Coaching Feedback */}
+              {aiFeedback && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <span className="text-lg">💡</span>
+                    <p className="text-sm text-foreground/90 leading-relaxed flex-1">
+                      {aiFeedback}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {feedbackLoading && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
+                    <span className="text-lg">💡</span>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Sales Funnel - Collapsible */}
