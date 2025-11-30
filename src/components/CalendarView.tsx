@@ -140,7 +140,7 @@ export const CalendarView = ({
     setSheetOpen(true);
   };
 
-  const handleSaveEntry = (data: {
+  const handleSaveEntry = async (data: {
     doors_knocked: number;
     decision_makers: number;
     pitches: number;
@@ -149,12 +149,19 @@ export const CalendarView = ({
     closes: number;
     fp_plus: number;
     prmr: number;
+    upgrade_prmr?: number | null;
     saveDate: string;
+    work_start_time?: string;
+    work_end_time?: string;
+    custom_counters?: Record<string, number>;
   }) => {
-    finalizeEntry(data, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
-      }
+    await new Promise<void>((resolve) => {
+      finalizeEntry(data, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+          resolve();
+        }
+      });
     });
   };
 

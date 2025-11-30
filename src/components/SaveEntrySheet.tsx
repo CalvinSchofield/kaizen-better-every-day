@@ -40,7 +40,7 @@ interface SaveEntrySheetProps {
     work_start_time?: string;
     work_end_time?: string;
     custom_counters?: Record<string, number>;
-  }) => void;
+  }) => Promise<void>;
   onDelete?: () => void;
   isSaving: boolean;
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
@@ -153,8 +153,16 @@ export const SaveEntrySheet = ({
     proceedWithSave();
   };
 
-  const proceedWithSave = () => {
+  const proceedWithSave = async () => {
     const saveDate = format(date, 'yyyy-MM-dd');
+    
+    // Auto-fill end time with current time if not set (only when saving)
+    let finalEndTime = endTime;
+    if (startTime && !endTime) {
+      const now = new Date();
+      finalEndTime = format(now, 'HH:mm');
+      setEndTime(finalEndTime); // Update local state so user sees it
+    }
     
     // Convert times to ISO strings if provided
     let workStartTime: string | undefined;
@@ -167,8 +175,8 @@ export const SaveEntrySheet = ({
       workStartTime = startDate.toISOString();
     }
     
-    if (endTime) {
-      const [hours, minutes] = endTime.split(':');
+    if (finalEndTime) {
+      const [hours, minutes] = finalEndTime.split(':');
       const endDate = new Date(date);
       endDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       workEndTime = endDate.toISOString();
@@ -185,7 +193,8 @@ export const SaveEntrySheet = ({
     const upgradeFP = fpValue - newAccounts;
     const upgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
     
-    onSave({
+    // Wait for save to complete before closing
+    await onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
       pitches: parseInt(pitches) || 0,
@@ -200,6 +209,8 @@ export const SaveEntrySheet = ({
       work_end_time: workEndTime,
       custom_counters: customCounterData,
     });
+    
+    // Only close after save completes and resets
     onOpenChange(false);
   };
   
