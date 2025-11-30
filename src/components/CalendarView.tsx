@@ -132,6 +132,11 @@ export const CalendarView = ({
     });
   };
 
+  // Helper to format numbers: show 1 decimal place but strip .0
+  const formatValue = (value: number): string => {
+    return value % 1 === 0 ? value.toString() : value.toFixed(1);
+  };
+
   const handleDeleteEntry = () => {
     if (selectedEntry && 'id' in selectedEntry && selectedEntry.id) {
       deleteEntry(selectedEntry.id);
@@ -296,7 +301,7 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="text-xs text-primary font-semibold mt-1">
-                    {efpModeEnabled ? calculateEfp(entry.prmr || 0).toFixed(1) : (entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(0))}
+                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
               </div>
@@ -339,16 +344,16 @@ export const CalendarView = ({
                     {efpModeEnabled ? (
                       <>
                         <div className="text-xs text-primary font-semibold">
-                          {calculateEfp(entry.prmr || 0).toFixed(1)} EFP
+                          {formatValue(calculateEfp(entry.prmr || 0))} EFP
                         </div>
                         <div className="text-xs text-muted-foreground font-medium">
-                          {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
+                          {formatValue(entry.fp_plus || 0)} FP+
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="text-xs text-primary font-semibold">
-                          {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
+                          {formatValue(entry.fp_plus || 0)} FP+
                         </div>
                         {entry.prmr > 0 && (
                           <div className="text-xs text-muted-foreground font-medium">
