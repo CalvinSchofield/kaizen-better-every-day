@@ -456,7 +456,7 @@ const Home = () => {
     }
   }, [completedSteps, previousProgress, toast]);
 
-  // Fetch weather for upcoming blitzes (within 14 days)
+  // Fetch weather for upcoming blitzes (within 7 days)
   useEffect(() => {
     const fetchWeather = async () => {
       if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
@@ -471,8 +471,8 @@ const Home = () => {
       const diffTime = tripDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      // Only fetch weather if blitz is within 14 days and in the future
-      if (diffDays <= 0 || diffDays > 14) {
+      // Only fetch weather if blitz is within 7 days and in the future
+      if (diffDays <= 0 || diffDays > 7) {
         setWeather([]);
         return;
       }
@@ -1030,8 +1030,8 @@ const Home = () => {
             const showWeather = weather.length > 0 && hasValidBlitz;
             const weatherDiffDays = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
-            // Only clickable if no blitz OR blitz is within 14 days with weather data
-            const isClickable = !hasValidBlitz || (weatherDiffDays <= 14 && showWeather);
+            // Only clickable if no blitz OR blitz is within 7 days
+            const isClickable = !hasValidBlitz || weatherDiffDays <= 7;
             
             const handleCtaClick = () => {
               if (!isClickable) return; // Prevent click when not within 7 days
