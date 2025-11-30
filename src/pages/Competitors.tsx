@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ArrowLeft, Search, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { useCompetitors, Competitor } from "@/hooks/useCompetitors";
 import { CompetitorDetailSheet } from "@/components/CompetitorDetailSheet";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 export default function Competitors() {
   const navigate = useNavigate();
   const { competitors, loading, error, syncFromNotion } = useCompetitors();
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
@@ -100,29 +100,22 @@ export default function Competitors() {
     return a.name.localeCompare(b.name);
   });
 
-  const filteredCompetitors = sortedCompetitors.filter((comp) =>
-    comp.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-6xl mx-auto p-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/tools")}
-              className="rounded-full"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1">
+      <div className="sticky top-0 z-50 bg-card border-b border-border">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/tools")}
+                className="rounded-full"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
               <h1 className="text-2xl font-bold">Competitor Cheat Sheet</h1>
-              <p className="text-sm text-muted-foreground">
-                Quick reference for competitor products
-              </p>
             </div>
             <Button
               variant="ghost"
@@ -131,92 +124,69 @@ export default function Competitors() {
               disabled={syncing}
               className="rounded-full"
             >
-              <RefreshCw className={`h-5 w-5 ${syncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
 
-          {/* AI Input Section */}
-          <div className="mb-4 space-y-3">
+          {/* AI Recommendation */}
+          <div className="space-y-2">
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-                <Input
-                  placeholder="What do you see on their door? (e.g., 'Ring doorbell, blue ADT sign')"
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAiRecommendation()}
-                  className="pl-9"
-                />
-              </div>
-              <Button
+              <Input
+                placeholder="What do you see on their door? (e.g., 'Ring doorbell, blue ADT sign')"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAiRecommendation()}
+                className="flex-1"
+              />
+              <Button 
                 onClick={handleAiRecommendation}
                 disabled={isLoadingAi || !aiInput.trim()}
                 size="icon"
-                className="shrink-0"
               >
-                {isLoadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isLoadingAi ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span className="text-sm">✨</span>
+                )}
               </Button>
             </div>
-            
-            {/* AI Recommendation Display */}
             {aiRecommendation && (
-              <div className="bg-primary/10 rounded-lg p-4 space-y-3">
-                <p className="text-sm text-foreground">{aiRecommendation}</p>
-                {aiCompetitors.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {aiCompetitors.map((comp, idx) => (
-                      <Button
-                        key={idx}
-                        onClick={() => openCompetitorByNotionId(comp.notion_page_id)}
-                        variant="default"
-                        size="sm"
-                        className="text-xs"
-                      >
-                        View {comp.name}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="pt-3 pb-3 space-y-3">
+                  <p className="text-sm text-foreground">{aiRecommendation}</p>
+                  {aiCompetitors.length > 0 && (
+                    <div className="flex justify-end gap-2">
+                      {aiCompetitors.map((comp, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => openCompetitorByNotionId(comp.notion_page_id)}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          View {comp.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
-
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search by name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Offline Indicator */}
-          {error?.includes('offline') && (
-            <div className="mt-3 px-3 py-2 bg-accent/50 rounded-lg flex items-center gap-2 text-sm">
-              <span className="text-accent-foreground/80">📡 Showing cached data (offline)</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Competitor Grid */}
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="max-w-lg mx-auto px-4 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredCompetitors.length === 0 ? (
+        ) : sortedCompetitors.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              {searchQuery ? "No competitors found matching your search." : "No competitors available yet."}
-            </p>
+            <p className="text-muted-foreground">No competitors available yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredCompetitors.map((competitor) => (
+          <div className="grid grid-cols-2 gap-4">
+            {sortedCompetitors.map((competitor) => (
               <button
                 key={competitor.id}
                 onClick={() => setSelectedCompetitor(competitor)}
