@@ -162,6 +162,7 @@ export type Database = {
           committed_blitzes: Json | null
           completed_tasks: Json | null
           contacted_for_blitz: Json | null
+          counter_layout_config: Json | null
           created_at: string | null
           custom_counter_config: Json | null
           declined_blitz_rsvps: Json | null
@@ -205,6 +206,7 @@ export type Database = {
           committed_blitzes?: Json | null
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
+          counter_layout_config?: Json | null
           created_at?: string | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
@@ -248,6 +250,7 @@ export type Database = {
           committed_blitzes?: Json | null
           completed_tasks?: Json | null
           contacted_for_blitz?: Json | null
+          counter_layout_config?: Json | null
           created_at?: string | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null

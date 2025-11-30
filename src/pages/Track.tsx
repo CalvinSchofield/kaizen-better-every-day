@@ -52,7 +52,7 @@ const Track = ({
     : [];
   
   // Get counter layout config
-  const counterLayoutConfig = repData?.counter_layout_config || undefined;
+  const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
