@@ -13,11 +13,24 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const contactsMap: Record<string, { phone?: string; textPhone?: string; email?: string; name: string }> = {
+      "Account Creation Front Line": { phone: "888-324-5771", textPhone: "435-466-7224", name: "Account Creation - Front Line" },
+      "Account Creation Advocates": { phone: "888-324-5771", name: "Account Creation - Advocates" },
+      "1Stop/Assets": { phone: "888-324-5771", textPhone: "801-509-9080", name: "1Stop/Assets" },
+      "SOS": { phone: "800-236-6808", textPhone: "801-823-4406", name: "SOS" },
+      "QRF": { email: "qrfInbox@vivint.com", name: "QRF" },
+      "Buyouts": { textPhone: "435-222-2010", email: "buyout@vivint.com", name: "Buyouts" },
+      "State Licensing": { phone: "888-324-5771", email: "employeelicensing@vivint.com", name: "State Licensing" },
+      "Housing": { phone: "888-324-5771", email: "housing@vivint.com", name: "Housing" },
+      "Arbitration": { email: "accountarbitration@vivint.com", name: "Arbitration" },
+      "Compliance": { textPhone: "385-250-4896", email: "joshua.powell@vivint.com", name: "Compliance - Josh Powell" },
+    };
+
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
 CRITICAL RULES:
 1. ONLY recommend contacts from the list below
-2. ALWAYS include the phone number or email in your response
+2. Your response must include the exact contact name in your recommendation
 3. If the situation doesn't clearly match any contact below, respond with EXACTLY: "LOW_CONFIDENCE"
 4. Keep responses to 1-2 sentences MAX
 
@@ -31,9 +44,9 @@ Available contacts:
 - State Licensing (Call 888-324-5771 or email employeelicensing@vivint.com): Applications, fees, renewals, fingerprints
 - Housing (Call 888-324-5771 or email housing@vivint.com): Summer housing, rent questions, utility deductions
 - Arbitration (Email accountarbitration@vivint.com): Arbitration questions and requests
-- Compliance - Josh Powell (Text 385-250-4896 or email joshua.powell@vivint.com): Compliance questions
+- Compliance (Text 385-250-4896 or email joshua.powell@vivint.com): Compliance questions
 
-Example good response: "Call Account Creation Front Line at 888-324-5771 for scheduling help."
+Example response: "Contact Account Creation Front Line at 888-324-5771 for scheduling help."
 Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -76,9 +89,21 @@ Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
     const recommendation = data.choices?.[0]?.message?.content;
     const isLowConfidence = recommendation?.includes("LOW_CONFIDENCE");
 
+    // Extract contact info from recommendation
+    let contactInfo = null;
+    if (!isLowConfidence && recommendation) {
+      for (const [key, value] of Object.entries(contactsMap)) {
+        if (recommendation.includes(key)) {
+          contactInfo = value;
+          break;
+        }
+      }
+    }
+
     return new Response(JSON.stringify({ 
       recommendation: isLowConfidence ? null : recommendation,
-      lowConfidence: isLowConfidence 
+      lowConfidence: isLowConfidence,
+      contactInfo 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
