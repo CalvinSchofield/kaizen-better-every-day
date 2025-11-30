@@ -11,6 +11,7 @@ import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
+import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,6 +128,7 @@ export const KnockingModeHome = ({
         {isNightMode && (
           <>
             <LeaderboardCard />
+            <FPCumulativeChart />
             <ActivitySummaryCard repData={repData} />
             <div className="animate-fade-in">
               <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
@@ -179,6 +181,7 @@ export const KnockingModeHome = ({
             )}
             
             <LeaderboardCard />
+            <FPCumulativeChart />
             
             {/* Weather at bottom if not morning */}
             {!isWeatherAtTop && (
