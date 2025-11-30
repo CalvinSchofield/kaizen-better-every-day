@@ -325,7 +325,6 @@ export default function Settings() {
   };
   
   const handleToggleEfpMode = async (enabled: boolean) => {
-    setEfpMode(enabled);
     setIsSavingEfp(true);
     
     try {
@@ -336,7 +335,11 @@ export default function Settings() {
       
       if (error) throw error;
       
+      // Wait for cache to refresh with new value
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
+      
+      setEfpMode(enabled);
       
       toast({
         title: enabled ? "EFP mode enabled" : "EFP mode disabled",
@@ -346,7 +349,6 @@ export default function Settings() {
       });
     } catch (error: any) {
       console.error("Error toggling EFP mode:", error);
-      setEfpMode(!enabled); // Revert on error
       toast({
         title: "Failed to update EFP mode",
         description: error.message,
