@@ -134,6 +134,12 @@ export const CalendarView = ({
   };
 
   const handleDayClick = (date: Date) => {
+    const isSunday = getDay(date) === 0;
+    const entry = getEntryForDate(date);
+    
+    // Don't allow editing Sundays unless they have existing data
+    if (isSunday && !entry) return;
+    
     setSelectedDate(date);
     setSheetOpen(true);
   };
@@ -316,19 +322,21 @@ export const CalendarView = ({
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isTodayDate = isToday(day);
             const isSunday = getDay(day) === 0;
+            const sundayHasData = isSunday && entry;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  aspect-square p-2 rounded-lg border transition-all cursor-pointer hover:scale-105
+                  aspect-square p-2 rounded-lg border transition-all
+                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
                   ${!isCurrentMonth ? 'opacity-40' : ''}
-                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
-                <div className={`text-sm font-semibold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
+                <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
@@ -356,18 +364,20 @@ export const CalendarView = ({
             const isKnocking = isKnockingDay(day);
             const isTodayDate = isToday(day);
             const isSunday = getDay(day) === 0;
+            const sundayHasData = isSunday && entry;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  p-3 rounded-lg border cursor-pointer transition-all hover:scale-105 min-h-[100px] flex flex-col
+                  p-3 rounded-lg border transition-all min-h-[100px] flex flex-col
+                  ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
-                <div className={`text-lg font-semibold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
+                <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
