@@ -9,13 +9,17 @@ interface ActivitySummaryData {
   dayNumber?: number;
   totals: {
     doors: number;
+    pitches: number;
     transitions: number;
+    presentations: number;
     fp: number;
     prmr: number;
   };
   dailyAverages: {
     doors: number;
+    pitches: number;
     transitions: number;
+    presentations: number;
     fp: number;
     prmr: number;
   };
@@ -23,6 +27,7 @@ interface ActivitySummaryData {
   comparison?: {
     fpChange: number;
     label: string;
+    previousBlitzFp?: number;
   };
   chartData: Array<{ date: string; fp: number }>;
   daysWorked: number;
@@ -105,19 +110,23 @@ export const useActivitySummary = (repData: any) => {
       const totals = entries?.reduce(
         (acc, entry) => ({
           doors: acc.doors + (entry.doors_knocked || 0),
+          pitches: acc.pitches + (entry.pitches || 0),
           transitions: acc.transitions + (entry.transitions || 0),
+          presentations: acc.presentations + (entry.presentations || 0),
           fp: acc.fp + (Number(entry.fp_plus) || 0),
           prmr: acc.prmr + (Number(entry.prmr) || 0),
         }),
-        { doors: 0, transitions: 0, fp: 0, prmr: 0 }
-      ) || { doors: 0, transitions: 0, fp: 0, prmr: 0 };
+        { doors: 0, pitches: 0, transitions: 0, presentations: 0, fp: 0, prmr: 0 }
+      ) || { doors: 0, pitches: 0, transitions: 0, presentations: 0, fp: 0, prmr: 0 };
 
       const daysWorked = entries?.length || 0;
       const isEmpty = daysWorked === 0;
 
       const dailyAverages = {
         doors: daysWorked > 0 ? totals.doors / daysWorked : 0,
+        pitches: daysWorked > 0 ? totals.pitches / daysWorked : 0,
         transitions: daysWorked > 0 ? totals.transitions / daysWorked : 0,
+        presentations: daysWorked > 0 ? totals.presentations / daysWorked : 0,
         fp: daysWorked > 0 ? totals.fp / daysWorked : 0,
         prmr: daysWorked > 0 ? totals.prmr / daysWorked : 0,
       };
@@ -153,6 +162,7 @@ export const useActivitySummary = (repData: any) => {
           comparison = {
             fpChange: totals.fp - prevFp,
             label: `vs last blitz`,
+            previousBlitzFp: prevFp,
           };
         }
       } else if (mode === "summer") {
