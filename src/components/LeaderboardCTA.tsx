@@ -52,8 +52,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     fetchUser();
   }, []);
 
-  // Priority metrics (FP+ > PRMR > hours > doors > transitions > presentations > earliest > latest)
-  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostHoursWorked', 'mostDoors', 'mostTransitions', 'mostPresentations', 'earliestDoor', 'latestDoor'];
+  // Priority metrics (FP+ > PRMR > hours > presentations > transitions > latest > earliest > pitches > doors)
+  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
   // Find the best available callout based on hierarchy: yesterday > week > month > season
   const callout = useMemo(() => {
@@ -71,12 +71,13 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
         const entry = board[metric as keyof typeof board] as any;
         if (entry && entry.value > 0) {
           const metricLabel = {
-            mostFP: 'total FP+',
+            mostFP: 'FP+',
             mostPRMR: 'PRMR',
             mostHoursWorked: 'hours worked',
             mostDoors: 'doors knocked',
             mostTransitions: 'transitions',
             mostPresentations: 'presentations',
+            mostPitches: 'pitches',
             earliestDoor: 'earliest door',
             latestDoor: 'latest door',
           }[metric];
@@ -114,8 +115,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           return {
             text: isCurrentUser 
-              ? `You're leading the office in ${metricLabel.toLowerCase()} ${timeframe} at ${formattedValue}!${closeBehindText}`
-              : `${entry.name} is leading the office in ${metricLabel.toLowerCase()} ${timeframe} at ${formattedValue}`,
+              ? `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${closeBehindText}`
+              : `${entry.name} is leading the office in ${metricLabel} ${timeframe} at ${formattedValue}`,
             isCurrentUser,
           };
         }
