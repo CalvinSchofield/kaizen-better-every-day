@@ -51,6 +51,9 @@ const Track = ({
       }))
     : [];
   
+  // Get counter layout config
+  const counterLayoutConfig = repData?.counter_layout_config || undefined;
+  
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
   const isRookie = year === "Rookie";
@@ -131,6 +134,7 @@ const Track = ({
             entry={entry}
             onCounterChange={onCounterChange}
             customCounterConfig={customCounterConfig}
+            counterLayoutConfig={counterLayoutConfig}
           />
         </div>
       </div>

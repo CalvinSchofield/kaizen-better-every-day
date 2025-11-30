@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 
+interface CounterLayoutConfig {
+  order: string[];
+  hidden: string[];
+}
+
 interface QTallyGridProps {
   entry: {
     doors_knocked: number;
@@ -13,6 +18,7 @@ interface QTallyGridProps {
   };
   onCounterChange: (field: string, value: number) => void;
   customCounterConfig?: Array<{ id: string; name: string; emoji: string }>;
+  counterLayoutConfig?: CounterLayoutConfig;
 }
 
 interface CounterCardProps {
@@ -112,8 +118,17 @@ const CounterCard = ({ label, value, field, onCounterChange }: CounterCardProps)
   );
 };
 
-export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [] }: QTallyGridProps) => {
-  const coreCounters = [
+export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], counterLayoutConfig }: QTallyGridProps) => {
+  const counterLabels: Record<string, string> = {
+    doors_knocked: "Doors Knocked",
+    decision_makers: "Decision Makers",
+    pitches: "Pitches",
+    transitions: "Transitions",
+    presentations: "Presentations",
+    closes: "Closes"
+  };
+  
+  const allCoreCounters = [
     { label: "Doors Knocked", field: "doors_knocked", value: entry.doors_knocked },
     { label: "Decision Makers", field: "decision_makers", value: entry.decision_makers },
     { label: "Pitches", field: "pitches", value: entry.pitches },
@@ -121,6 +136,20 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [] }:
     { label: "Presentations", field: "presentations", value: entry.presentations },
     { label: "Closes", field: "closes", value: entry.closes },
   ];
+  
+  // Apply custom layout if available
+  let coreCounters = allCoreCounters;
+  if (counterLayoutConfig) {
+    // Filter out hidden counters
+    const visibleFields = counterLayoutConfig.order.filter(
+      field => !counterLayoutConfig.hidden.includes(field)
+    );
+    
+    // Reorder based on layout config
+    coreCounters = visibleFields
+      .map(field => allCoreCounters.find(c => c.field === field))
+      .filter((c): c is typeof allCoreCounters[0] => c !== undefined);
+  }
 
   const customCounters = customCounterConfig.map((config) => ({
     label: `${config.emoji} ${config.name}`,
