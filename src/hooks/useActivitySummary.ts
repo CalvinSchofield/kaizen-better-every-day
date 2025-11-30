@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, isBefore, isAfter, isWithinInterval, parseISO, getDay } from "date-fns";
+import { format, startOfWeek, endOfWeek, isBefore, isAfter, getDay } from "date-fns";
 
 interface ActivitySummaryData {
   mode: "blitz" | "summer" | "preseason";
@@ -44,12 +44,18 @@ export const useActivitySummary = (repData: any) => {
       const now = new Date();
       const committed_blitzes = repData.committed_blitzes || [];
 
-      // Find active blitz
+      // Find active blitz (4 PM start on startDate, 10 AM end on endDate)
       const activeBlitz = committed_blitzes.find((blitz: any) => {
-        if (!blitz.startDate || !blitz.endDate) return false;
-        const start = parseISO(blitz.startDate);
-        const end = parseISO(blitz.endDate);
-        return isWithinInterval(now, { start, end });
+        if (!blitz.date || !blitz.endDate) return false;
+        
+        // Parse dates in local timezone
+        const startDate = new Date(blitz.date + 'T00:00:00');
+        startDate.setHours(16, 0, 0, 0); // 4pm start
+        
+        const endDate = new Date(blitz.endDate + 'T00:00:00');
+        endDate.setHours(10, 0, 0, 0); // 10am end
+        
+        return now >= startDate && now <= endDate;
       });
 
       // Determine mode
@@ -67,8 +73,8 @@ export const useActivitySummary = (repData: any) => {
       let dayNumber: number | undefined;
 
       if (mode === "blitz") {
-        startDate = parseISO(activeBlitz.startDate);
-        endDate = parseISO(activeBlitz.endDate);
+        startDate = new Date(activeBlitz.date + 'T00:00:00');
+        endDate = new Date(activeBlitz.endDate + 'T00:00:00');
         const daysIntoBlitz = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         dayNumber = daysIntoBlitz;
         title = `This Blitz — Day ${daysIntoBlitz}`;
@@ -130,8 +136,8 @@ export const useActivitySummary = (repData: any) => {
       if (mode === "blitz") {
         // Compare to previous blitz
         const previousBlitzes = committed_blitzes
-          .filter((b: any) => b.endDate && isBefore(parseISO(b.endDate), now))
-          .sort((a: any, b: any) => parseISO(b.endDate).getTime() - parseISO(a.endDate).getTime());
+          .filter((b: any) => b.endDate && isBefore(new Date(b.endDate + 'T00:00:00'), now))
+          .sort((a: any, b: any) => new Date(b.endDate + 'T00:00:00').getTime() - new Date(a.endDate + 'T00:00:00').getTime());
 
         if (previousBlitzes.length > 0) {
           const prevBlitz = previousBlitzes[0];
@@ -139,7 +145,7 @@ export const useActivitySummary = (repData: any) => {
             .from("daily_entries")
             .select("fp_plus")
             .eq("user_id", repData.user_id)
-            .gte("entry_date", prevBlitz.startDate)
+            .gte("entry_date", prevBlitz.date)
             .lte("entry_date", prevBlitz.endDate)
             .eq("is_finalized", true);
 
@@ -180,7 +186,7 @@ export const useActivitySummary = (repData: any) => {
           .eq("is_finalized", true);
 
         const lastSameDayEntry = sameDayEntries
-          ?.filter((e) => getDay(parseISO(e.entry_date)) === todayDayOfWeek)
+          ?.filter((e) => getDay(new Date(e.entry_date + 'T00:00:00')) === todayDayOfWeek)
           .sort((a, b) => b.entry_date.localeCompare(a.entry_date))[0];
 
         if (lastSameDayEntry) {
