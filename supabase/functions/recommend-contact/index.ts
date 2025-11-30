@@ -13,34 +13,21 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const contactsMap: Record<string, { phone?: string; textPhone?: string; email?: string; name: string }> = {
-      "Account Creation Front Line": { phone: "888-324-5771", textPhone: "435-466-7224", name: "Account Creation - Front Line" },
-      "Account Creation Advocates": { phone: "888-324-5771", name: "Account Creation - Advocates" },
-      "1Stop/Assets": { phone: "888-324-5771", textPhone: "801-509-9080", name: "1Stop/Assets" },
-      "SOS": { phone: "800-236-6808", textPhone: "801-823-4406", name: "SOS" },
-      "QRF": { email: "qrfInbox@vivint.com", name: "QRF" },
-      "Buyouts": { textPhone: "435-222-2010", email: "buyout@vivint.com", name: "Buyouts" },
-      "State Licensing": { phone: "888-324-5771", email: "employeelicensing@vivint.com", name: "State Licensing" },
-      "Housing": { phone: "888-324-5771", email: "housing@vivint.com", name: "Housing" },
-      "Arbitration": { email: "accountarbitration@vivint.com", name: "Arbitration" },
-      "Compliance": { textPhone: "385-250-4896", email: "joshua.powell@vivint.com", name: "Compliance - Josh Powell" },
-    };
-
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
 Available contacts:
-- Account Creation Front Line (Call 888-324-5771 or text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
-- Account Creation Advocates (Call 888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
-- 1Stop/Assets (Call 888-324-5771 or text 801-509-9080): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
-- SOS (Call 800-236-6808 or text 801-823-4406): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
-- QRF (Email qrfInbox@vivint.com): Equipment troubleshooting, install issues, support before calling SOS
-- Buyouts (Text 435-222-2010 or email buyout@vivint.com): Buyout amounts and questions, elite fulfillment
-- State Licensing (Call 888-324-5771 or email employeelicensing@vivint.com): Applications, fees, renewals, fingerprints
-- Housing (Call 888-324-5771 or email housing@vivint.com): Summer housing, rent questions, utility deductions
-- Arbitration (Email accountarbitration@vivint.com): Arbitration questions and requests
-- Compliance (Text 385-250-4896 or email joshua.powell@vivint.com): Compliance questions
+- Account Creation Front Line (888-324-5771, text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
+- Account Creation Advocates (888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
+- 1Stop/Assets (888-324-5771, text 801-509-9080): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
+- SOS (800-236-6808, text 801-823-4406): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
+- QRF (email qrfInbox@vivint.com): Equipment troubleshooting, install issues, support before calling SOS
+- Buyouts (text 435-222-2010): Buyout amounts and questions, elite fulfillment
+- State Licensing (888-324-5771): Applications, fees, renewals, fingerprints
+- Housing (888-324-5771): Summer housing, rent questions, utility deductions
+- Arbitration (email accountarbitration@vivint.com): Arbitration questions and requests
+- Compliance - Josh Powell (text 385-250-4896): Compliance questions
 
-Respond with 1-2 sentences MAX and include the exact contact name.`;
+Respond in 1-2 sentences MAX. Be direct and specific about who to contact and how.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -54,35 +41,6 @@ Respond with 1-2 sentences MAX and include the exact contact name.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: situation },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "recommend_contact",
-              description: "Recommend a Vivint support contact with confidence level",
-              parameters: {
-                type: "object",
-                properties: {
-                  recommendation: {
-                    type: "string",
-                    description: "1-2 sentence recommendation including contact name and number/email"
-                  },
-                  contactName: {
-                    type: "string",
-                    description: "Exact contact name from the list (e.g., 'Account Creation Front Line', 'SOS')"
-                  },
-                  confidence: {
-                    type: "number",
-                    description: "Confidence level from 0-100 on how well this situation matches the contact"
-                  }
-                },
-                required: ["recommendation", "contactName", "confidence"],
-                additionalProperties: false
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "recommend_contact" } }
       }),
     });
 
@@ -108,28 +66,9 @@ Respond with 1-2 sentences MAX and include the exact contact name.`;
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    
-    if (!toolCall?.function?.arguments) {
-      throw new Error("No tool call response from AI");
-    }
+    const recommendation = data.choices?.[0]?.message?.content;
 
-    const result = JSON.parse(toolCall.function.arguments);
-    const { recommendation, contactName, confidence } = result;
-    const isLowConfidence = confidence < 50;
-
-    // Extract contact info from contact name
-    let contactInfo = null;
-    if (!isLowConfidence && contactName) {
-      contactInfo = contactsMap[contactName] || null;
-    }
-
-    return new Response(JSON.stringify({ 
-      recommendation: isLowConfidence ? null : recommendation,
-      lowConfidence: isLowConfidence,
-      confidence,
-      contactInfo 
-    }), {
+    return new Response(JSON.stringify({ recommendation }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
