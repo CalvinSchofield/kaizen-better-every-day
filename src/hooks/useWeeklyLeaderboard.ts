@@ -16,6 +16,8 @@ interface WeeklyLeaderboard {
   mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
+  mostUpgradeFP: LeaderboardEntry | null;
+  mostUpgradePRMR: LeaderboardEntry | null;
   mostHoursWorked: LeaderboardEntry | null;
   earliestDoor: LeaderboardEntry | null;
   latestDoor: LeaderboardEntry | null;
@@ -64,7 +66,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .eq("is_finalized", true)
         .gte("entry_date", mondayStr)
         .lte("entry_date", saturdayStr);
@@ -91,6 +93,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         presentations: number;
         fp: number;
         prmr: number;
+        upgradePrmr: number;
+        upgradeFp: number;
         hoursWorked: number;
         earliestDoorTime: number | null;
         latestDoorTime: number | null;
@@ -107,6 +111,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           presentations: 0,
           fp: 0,
           prmr: 0,
+          upgradePrmr: 0,
+          upgradeFp: 0,
           hoursWorked: 0,
           earliestDoorTime: null,
           latestDoorTime: null,
@@ -152,6 +158,9 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           }
         }
         
+        const upgradePrmr = entry.upgrade_prmr || 0;
+        const upgradeFp = upgradePrmr > 0 ? upgradePrmr / 85 : 0;
+        
         userTotals.set(userId, {
           doors: existing.doors + (entry.doors_knocked || 0),
           decisionMakers: existing.decisionMakers + (entry.decision_makers || 0),
@@ -160,6 +169,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           presentations: existing.presentations + (entry.presentations || 0),
           fp: existing.fp + (entry.fp_plus || 0),
           prmr: existing.prmr + (entry.prmr || 0),
+          upgradePrmr: existing.upgradePrmr + upgradePrmr,
+          upgradeFp: existing.upgradeFp + upgradeFp,
           hoursWorked: existing.hoursWorked + entryHours,
           earliestDoorTime: entryEarliest,
           latestDoorTime: entryLatest,
@@ -175,6 +186,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
+        mostUpgradeFP: null,
+        mostUpgradePRMR: null,
         mostHoursWorked: null,
         earliestDoor: null,
         latestDoor: null,
@@ -210,6 +223,14 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
         if (totals.prmr > 0 && (!leaderboard.mostPRMR || totals.prmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = { userId, name: userData.name, value: totals.prmr };
+        }
+
+        if (totals.upgradeFp > 0 && (!leaderboard.mostUpgradeFP || totals.upgradeFp > leaderboard.mostUpgradeFP.value)) {
+          leaderboard.mostUpgradeFP = { userId, name: userData.name, value: totals.upgradeFp };
+        }
+
+        if (totals.upgradePrmr > 0 && (!leaderboard.mostUpgradePRMR || totals.upgradePrmr > leaderboard.mostUpgradePRMR.value)) {
+          leaderboard.mostUpgradePRMR = { userId, name: userData.name, value: totals.upgradePrmr };
         }
 
         if (totals.hoursWorked > 0 && (!leaderboard.mostHoursWorked || totals.hoursWorked > leaderboard.mostHoursWorked.value)) {

@@ -16,6 +16,8 @@ interface YesterdayLeaderboard {
   mostPresentations: LeaderboardEntry | null;
   mostFP: LeaderboardEntry | null;
   mostPRMR: LeaderboardEntry | null;
+  mostUpgradeFP: LeaderboardEntry | null;
+  mostUpgradePRMR: LeaderboardEntry | null;
   mostHoursWorked: LeaderboardEntry | null;
   earliestDoor: LeaderboardEntry | null;
   latestDoor: LeaderboardEntry | null;
@@ -42,7 +44,7 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .eq("entry_date", yesterdayStr)
         .eq("is_finalized", true);
 
@@ -60,6 +62,8 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         mostPresentations: null,
         mostFP: null,
         mostPRMR: null,
+        mostUpgradeFP: null,
+        mostUpgradePRMR: null,
         mostHoursWorked: null,
         earliestDoor: null,
         latestDoor: null,
@@ -97,6 +101,16 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
 
         if (entry.prmr && entry.prmr > 0 && (!leaderboard.mostPRMR || entry.prmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: entry.prmr };
+        }
+
+        if (entry.upgrade_prmr && entry.upgrade_prmr > 0) {
+          const upgradeFp = entry.upgrade_prmr / 85;
+          if (!leaderboard.mostUpgradeFP || upgradeFp > leaderboard.mostUpgradeFP.value) {
+            leaderboard.mostUpgradeFP = { userId: entry.user_id, name: cleanName, value: upgradeFp };
+          }
+          if (!leaderboard.mostUpgradePRMR || entry.upgrade_prmr > leaderboard.mostUpgradePRMR.value) {
+            leaderboard.mostUpgradePRMR = { userId: entry.user_id, name: cleanName, value: entry.upgrade_prmr };
+          }
         }
 
         if (entry.work_start_time && entry.work_end_time) {
