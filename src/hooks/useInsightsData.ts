@@ -85,12 +85,14 @@ export interface InsightsData {
     pitches: Record<number, number>;
     transitions: Record<number, number>;
     presentations: Record<number, number>;
+    closes: Record<number, number>;
   };
   peakHours: {
     doors: number | null;
     pitches: number | null;
     transitions: number | null;
     presentations: number | null;
+    closes: number | null;
   };
   dailyTrend: Array<{
     date: string;
@@ -588,15 +590,16 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         pitches: {},
         transitions: {},
         presentations: {},
+        closes: {},
       };
 
       rangeEntries.forEach(entry => {
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
           
-          ['doors_knocked', 'pitches', 'transitions', 'presentations'].forEach(field => {
+          ['doors_knocked', 'pitches', 'transitions', 'presentations', 'closes'].forEach(field => {
             const fieldTimestamps = timestamps[field] || [];
-            const activityKey = field === 'doors_knocked' ? 'doors' : field as 'pitches' | 'transitions' | 'presentations';
+            const activityKey = field === 'doors_knocked' ? 'doors' : field as 'pitches' | 'transitions' | 'presentations' | 'closes';
             
             fieldTimestamps.forEach((timestamp: string) => {
               const local = calculateLocalTime(timestamp, userTimezone);
@@ -618,6 +621,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           : null,
         presentations: Object.keys(hourlyActivity.presentations).length > 0
           ? parseInt(Object.entries(hourlyActivity.presentations).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
+          : null,
+        closes: Object.keys(hourlyActivity.closes).length > 0
+          ? parseInt(Object.entries(hourlyActivity.closes).reduce((best, [hour, count]) => count > best[1] ? [hour, count] : best, ['0', 0])[0])
           : null,
       };
 
