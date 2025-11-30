@@ -70,9 +70,18 @@ export default function Competitors() {
   };
 
   const openCompetitorByNotionId = (notionPageId: string) => {
+    console.log('Looking for competitor with notion_page_id:', notionPageId);
+    console.log('Available competitors:', competitors.map(c => ({ name: c.name, id: c.notion_page_id })));
     const competitor = competitors.find(c => c.notion_page_id === notionPageId);
+    console.log('Found competitor:', competitor);
     if (competitor) {
       setSelectedCompetitor(competitor);
+    } else {
+      toast({
+        title: "Competitor not found",
+        description: "Unable to locate this competitor. Try selecting from the grid below.",
+        variant: "destructive",
+      });
     }
   };
 

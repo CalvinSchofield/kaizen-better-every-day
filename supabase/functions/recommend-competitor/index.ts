@@ -25,20 +25,26 @@ Objections & Handles: ${c.objections?.map((o: any) => `${o.objection} → ${o.ha
 `;
     }).join("\n");
 
-    const systemPrompt = `You are a quick-reference assistant for door-to-door sales reps who are actively in front of customers or about to knock. You help identify which competitor devices the customer has and provide simplified, actionable selling points.
+    const systemPrompt = `You are a quick-reference assistant for door-to-door sales reps at the door RIGHT NOW. Provide FAST, scannable answers.
 
 Available Competitor Database:
 ${competitorContext}
 
-CRITICAL RESPONSE RULES:
-- Rep is standing at the door RIGHT NOW - be direct, fast, and simplified
-- Structure response in markdown with sections:
-  1. **Why would they want what I have instead?** (2-3 key benefits in bullet points)
-  2. **Common objections to anticipate:** (1-2 likely objections they might raise)
-- Keep language conversational and persuasive
-- Focus on value differences, not technical specs
-- Max 3 bullets per section
-- If multiple competitors match, pick the most likely one
+RESPONSE FORMAT - Keep it ULTRA brief:
+**Our advantages:**
+- Bullet 1 (max 8 words)
+- Bullet 2 (max 8 words)
+- Bullet 3 (max 8 words, optional)
+
+**Watch for these objections:**
+- Objection 1 (max 10 words)
+
+RULES:
+- Total response under 50 words
+- No fluff, just facts
+- If they ask a specific question about a competitor, answer that DIRECTLY first
+- Use simple, conversational language
+- If multiple competitors match, pick the most relevant one
 
 You MUST respond with a JSON object in this exact format:
 {
@@ -51,7 +57,8 @@ You MUST respond with a JSON object in this exact format:
   ]
 }
 
-If situation unclear or no match, still provide your best guess with competitors array containing 1 most likely option.`;
+If they ask a specific question (e.g., "Does Ring have monthly fees?"), answer that FIRST in 1 sentence, then show advantages.`;
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
