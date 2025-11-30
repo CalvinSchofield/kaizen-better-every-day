@@ -153,14 +153,22 @@ export default function Competitors() {
             {aiRecommendation && (
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="pt-3 pb-3 space-y-3">
-                  <p className="text-sm text-foreground">{aiRecommendation}</p>
+                  <div 
+                    className="text-sm text-foreground prose prose-sm max-w-none prose-strong:text-foreground prose-strong:font-semibold"
+                    dangerouslySetInnerHTML={{ 
+                      __html: aiRecommendation
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/- (.*?)(?=\n|$)/g, '• $1')
+                        .replace(/\n/g, '<br/>')
+                    }}
+                  />
                   {aiCompetitors.length > 0 && (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex gap-2 pt-1">
                       {aiCompetitors.map((comp, idx) => (
                         <button
                           key={idx}
                           onClick={() => openCompetitorByNotionId(comp.notion_page_id)}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                          className="flex-1 py-2.5 px-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-sm font-semibold shadow-sm"
                         >
                           View {comp.name}
                         </button>
