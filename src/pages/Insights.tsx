@@ -21,6 +21,7 @@ import { SalesFunnelChart } from '@/components/insights/SalesFunnelChart';
 import { HourlyActivityHeatmap } from '@/components/insights/HourlyActivityHeatmap';
 import { ActivityTrendChart } from '@/components/insights/ActivityTrendChart';
 import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
+import { FPCumulativeChart } from '@/components/FPCumulativeChart';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
@@ -356,6 +357,9 @@ export default function Insights() {
                 </div>
               )}
             </Card>
+
+            {/* Progress Over Time Chart */}
+            <FPCumulativeChart />
 
             {/* Sales Funnel - Collapsible */}
             <Card>

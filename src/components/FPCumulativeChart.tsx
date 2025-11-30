@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { format, parseISO } from "date-fns";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { ChartContainer } from "@/components/ui/chart";
+import { format, parseISO, startOfWeek, startOfMonth, isSameWeek, isSameMonth } from "date-fns";
 import { useCumulativeFP } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
+
+type GroupBy = 'day' | 'week' | 'month';
+type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
 
 export const FPCumulativeChart = () => {
   const [movingAvgPeriod, setMovingAvgPeriod] = useState<6 | 12>(6);
+  const [groupBy, setGroupBy] = useState<GroupBy>('day');
+  const [metricType, setMetricType] = useState<MetricType>('primary');
   const { data: cumulativeData, isLoading } = useCumulativeFP();
   const { efpModeEnabled } = useEfpMode();
 
@@ -35,19 +40,82 @@ export const FPCumulativeChart = () => {
     return null;
   }
 
-  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
+  // Determine labels based on mode and metric type
+  const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
+  const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
+  const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
 
-  const chartData = cumulativeData.map((point) => ({
-    date: point.date,
-    displayDate: format(parseISO(point.date), "MMM d"),
-    cumulative: point.cumulative,
-    movingAvg: movingAvgPeriod === 6 ? point.movingAvg6 : point.movingAvg12,
-    dailyValue: point.dailyValue,
-  }));
+  // Group data by day/week/month
+  const groupedData = () => {
+    if (groupBy === 'day') {
+      return cumulativeData.map((point) => ({
+        date: point.date,
+        displayDate: format(parseISO(point.date), "MMM d"),
+        cumulative: metricType === 'primary' ? point.cumulative : point.cumulativePrmr,
+        movingAvg: metricType === 'primary' 
+          ? (movingAvgPeriod === 6 ? point.movingAvg6 : point.movingAvg12)
+          : (movingAvgPeriod === 6 ? point.movingAvgPrmr6 : point.movingAvgPrmr12),
+        dailyValue: metricType === 'primary' ? point.dailyValue : point.dailyPrmr,
+      }));
+    }
+
+    // Group by week or month
+    const grouped: Record<string, any> = {};
+    cumulativeData.forEach((point) => {
+      const date = parseISO(point.date);
+      const key = groupBy === 'week' 
+        ? format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        : format(startOfMonth(date), 'yyyy-MM-dd');
+      
+      if (!grouped[key]) {
+        grouped[key] = {
+          date: key,
+          displayDate: groupBy === 'week' 
+            ? format(parseISO(key), "MMM d")
+            : format(parseISO(key), "MMM"),
+          cumulative: metricType === 'primary' ? point.cumulative : point.cumulativePrmr,
+          total: metricType === 'primary' ? point.dailyValue : point.dailyPrmr,
+          count: 1,
+        };
+      } else {
+        grouped[key].cumulative = metricType === 'primary' ? point.cumulative : point.cumulativePrmr;
+        grouped[key].total += metricType === 'primary' ? point.dailyValue : point.dailyPrmr;
+        grouped[key].count += 1;
+      }
+    });
+
+    return Object.values(grouped).map((g: any) => ({
+      ...g,
+      movingAvg: g.total / g.count, // Average for the period
+    }));
+  };
+
+  const chartData = groupedData();
+
+  // Calculate comparison metrics
+  const calculateComparison = () => {
+    if (chartData.length < 2) return null;
+
+    const current = chartData[chartData.length - 1];
+    const previous = chartData[chartData.length - 2];
+    
+    const change = current.cumulative - previous.cumulative;
+    const percentChange = previous.cumulative > 0 
+      ? ((change / previous.cumulative) * 100)
+      : 0;
+
+    return {
+      change,
+      percentChange,
+      isPositive: change >= 0,
+    };
+  };
+
+  const comparison = calculateComparison();
 
   const chartConfig = {
     cumulative: {
-      label: `Total ${metricLabel}`,
+      label: `Total ${currentMetricLabel}`,
       color: "hsl(var(--primary))",
     },
     movingAvg: {
@@ -68,20 +136,26 @@ export const FPCumulativeChart = () => {
         </p>
         <div className="space-y-1 text-xs">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Total {metricLabel}:</span>
+            <span className="text-muted-foreground">Total {currentMetricLabel}:</span>
             <span className="font-semibold" style={{ color: chartConfig.cumulative.color }}>
-              {efpModeEnabled 
-                ? data.cumulative.toFixed(2) 
-                : data.cumulative.toFixed(1)}
+              {metricType === 'secondary' && !efpModeEnabled
+                ? `$${data.cumulative.toFixed(0)}`
+                : (efpModeEnabled && metricType === 'primary')
+                  ? data.cumulative.toFixed(2)
+                  : data.cumulative.toFixed(1)}
             </span>
           </div>
           {data.movingAvg !== null && (
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Daily Avg ({movingAvgPeriod}d):</span>
+              <span className="text-muted-foreground">
+                {groupBy === 'day' ? 'Daily' : groupBy === 'week' ? 'Weekly' : 'Monthly'} Avg ({movingAvgPeriod}d):
+              </span>
               <span className="font-semibold" style={{ color: chartConfig.movingAvg.color }}>
-                {efpModeEnabled 
-                  ? data.movingAvg.toFixed(2) 
-                  : data.movingAvg.toFixed(1)}
+                {metricType === 'secondary' && !efpModeEnabled
+                  ? `$${data.movingAvg.toFixed(0)}`
+                  : (efpModeEnabled && metricType === 'primary')
+                    ? data.movingAvg.toFixed(2)
+                    : data.movingAvg.toFixed(1)}
               </span>
             </div>
           )}
@@ -93,29 +167,107 @@ export const FPCumulativeChart = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Progress Over Time
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant={movingAvgPeriod === 6 ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMovingAvgPeriod(6)}
-              className="text-xs"
-            >
-              6-Day Avg
-            </Button>
-            <Button
-              variant={movingAvgPeriod === 12 ? "default" : "outline"}
-              size="sm"
-              onClick={() => setMovingAvgPeriod(12)}
-              className="text-xs"
-            >
-              12-Day Avg
-            </Button>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              Progress Over Time
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant={movingAvgPeriod === 6 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMovingAvgPeriod(6)}
+                className="text-xs"
+              >
+                6-Day Avg
+              </Button>
+              <Button
+                variant={movingAvgPeriod === 12 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMovingAvgPeriod(12)}
+                className="text-xs"
+              >
+                12-Day Avg
+              </Button>
+            </div>
           </div>
+
+          {/* Grouping and Metric Toggle Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Group By */}
+            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+              <Button
+                variant={groupBy === 'day' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setGroupBy('day')}
+                className="text-xs h-7 px-2"
+              >
+                Day
+              </Button>
+              <Button
+                variant={groupBy === 'week' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setGroupBy('week')}
+                className="text-xs h-7 px-2"
+              >
+                Week
+              </Button>
+              <Button
+                variant={groupBy === 'month' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setGroupBy('month')}
+                className="text-xs h-7 px-2"
+              >
+                Month
+              </Button>
+            </div>
+
+            {/* Metric Toggle */}
+            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+              <Button
+                variant={metricType === 'primary' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetricType('primary')}
+                className="text-xs h-7 px-2"
+              >
+                {primaryLabel}
+              </Button>
+              <Button
+                variant={metricType === 'secondary' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setMetricType('secondary')}
+                className="text-xs h-7 px-2"
+              >
+                {secondaryLabel}
+              </Button>
+            </div>
+          </div>
+
+          {/* Comparison Metrics */}
+          {comparison && (
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                {comparison.isPositive ? (
+                  <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                )}
+                <span className={comparison.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                  {comparison.isPositive ? '+' : ''}
+                  {metricType === 'secondary' && !efpModeEnabled
+                    ? `$${comparison.change.toFixed(0)}`
+                    : comparison.change.toFixed(efpModeEnabled && metricType === 'primary' ? 2 : 1)}
+                </span>
+                <span className="text-muted-foreground">
+                  ({comparison.percentChange.toFixed(1)}%)
+                </span>
+              </div>
+              <span className="text-muted-foreground">
+                vs previous {groupBy}
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -167,7 +319,7 @@ export const FPCumulativeChart = () => {
         <div className="flex items-center justify-center gap-6 mt-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5 bg-primary rounded" />
-            <span className="text-muted-foreground">Total {metricLabel}</span>
+            <span className="text-muted-foreground">Total {currentMetricLabel}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5 bg-chart-2 rounded" style={{ backgroundImage: 'repeating-linear-gradient(to right, hsl(var(--chart-2)) 0, hsl(var(--chart-2)) 3px, transparent 3px, transparent 8px)' }} />
