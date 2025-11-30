@@ -79,7 +79,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [locallyRespondedBlitzIds, setLocallyRespondedBlitzIds] = useState<string[]>([]);
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
-  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number }>>([]);
+  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
   
   // Get FP+ from daily entries (preseason only)
@@ -993,9 +993,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
           <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Weather Forecast</SheetTitle>
+              <SheetTitle>Weather for {nextBlitz?.location}</SheetTitle>
               <SheetDescription>
-                {nextBlitz?.location} - {nextBlitz?.name}
+                {nextBlitz?.name}
               </SheetDescription>
             </SheetHeader>
             
@@ -1007,31 +1007,54 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             
             {!loadingWeather && weather.length > 0 && (
               <>
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  {weather.map((day) => (
-                    <div
-                      key={day.date}
-                      className="bg-card rounded-lg p-4 border border-border text-center"
-                    >
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        {day.dayName}
-                      </div>
-                      <div className="text-xs text-muted-foreground/70 mb-2">
-                        {new Date(day.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-2xl font-bold text-foreground">
-                          {day.high}°
+                <div className="space-y-3 mt-4">
+                  {weather.map((day) => {
+                    const getWeatherIcon = (code: number) => {
+                      if (code === 0) return "☀️";
+                      if (code >= 1 && code <= 3) return "⛅";
+                      if (code >= 45 && code <= 48) return "🌫️";
+                      if (code >= 51 && code <= 67) return "🌧️";
+                      if (code >= 71 && code <= 77) return "❄️";
+                      if (code >= 80 && code <= 82) return "🌦️";
+                      if (code >= 85 && code <= 86) return "🌨️";
+                      if (code >= 95 && code <= 99) return "⛈️";
+                      return "☀️";
+                    };
+
+                    return (
+                      <div
+                        key={day.date}
+                        className="bg-card rounded-lg p-4 border border-border flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="text-3xl">
+                            {getWeatherIcon(day.weatherCode)}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-foreground">
+                              {day.dayName}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(day.date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          Low {day.low}°
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-foreground">
+                              {day.high}°
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {day.low}°
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {/* Weather Tip */}
