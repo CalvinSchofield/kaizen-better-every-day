@@ -80,7 +80,8 @@ export const SaveEntrySheet = ({
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
-  const showHelp = isRookie && totalFP < 10;
+  // TEMPORARY: Always show help for testing
+  const showHelp = true; // Change back to: isRookie && totalFP < 10
 
   useEffect(() => {
     if (open && entry) {
