@@ -34,7 +34,11 @@ interface UseInsightsFeedbackParams {
   daysWorked: number;
 }
 
-export const useInsightsFeedback = (params: UseInsightsFeedbackParams | null) => {
+export const useInsightsFeedback = (params: UseInsightsFeedbackParams | null, userYear: string = "Rookie") => {
+  // Determine minimum days required based on user type
+  const isRookie = userYear === "Rookie";
+  const minDaysRequired = isRookie ? 21 : 14; // 3 weeks for rookies, 2 weeks for vets
+
   return useQuery({
     queryKey: ['insights-feedback', params],
     queryFn: async () => {
@@ -51,7 +55,7 @@ export const useInsightsFeedback = (params: UseInsightsFeedbackParams | null) =>
 
       return data.feedback as string;
     },
-    enabled: !!params && params.daysWorked > 0,
+    enabled: !!params && params.daysWorked >= minDaysRequired,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
   });

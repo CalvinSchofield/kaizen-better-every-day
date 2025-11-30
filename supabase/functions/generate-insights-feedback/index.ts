@@ -43,17 +43,18 @@ TOTALS:
 - Total Closes: ${totals.closes}
 `;
 
-    const systemPrompt = `You are a supportive door-to-door sales coach analyzing rep performance data. Provide brief, actionable feedback (1-3 sentences max). Focus on the ONE thing that will help them most.
+    const systemPrompt = `You are a supportive door-to-door sales coach analyzing rep performance. Provide brief, encouraging feedback (1-2 sentences max). Focus on ONE actionable improvement.
 
 Key coaching principles:
 - If there's a gap in the funnel, the problem is usually the step BEFORE the gap
-- High transitions + low presentations/close rate → focus on presentation skills, building value, or the close
-- High pitches + low transitions → work on qualifying buyers faster, spending time with right people
-- Low doors + low closes → need more volume, knock more doors
-- High presentations + low close rate → focus on building value, paperwork process, or the close
-- High doors + low pitches → be pickier about which doors to knock, better prospecting
+- High transitions + low presentations/close rate → presentation skills or building value
+- High pitches + low transitions → qualify buyers faster
+- Low doors + low closes → need more volume
+- High presentations + low close rate → building value or the close
+- High doors + low pitches → better prospecting
 
-Keep feedback encouraging but direct. Use "you" language. Reference specific numbers when impactful. Keep it conversational and motivating.`;
+Base feedback on the user's own performance averages and ratios, not absolute standards. Be brief, encouraging, and conversational. Use "you" language.`;
+
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
