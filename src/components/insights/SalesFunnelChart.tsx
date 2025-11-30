@@ -12,13 +12,53 @@ interface SalesFunnelChartProps {
 }
 
 export const SalesFunnelChart = ({ funnelData }: SalesFunnelChartProps) => {
+  // Calculate widths dynamically based on conversion rates
+  // Start at 100% for doors, then calculate each stage based on conversion
+  const calculateWidths = () => {
+    const minWidth = 30; // Minimum width to ensure text fits
+    let currentWidth = 100;
+    
+    const widths = [currentWidth]; // Doors at 100%
+    
+    // Decision Makers: heavily dampened (keep it looking like a funnel, not a T)
+    // Use 75% base + 20% of actual conversion to dampen the dramatic drop
+    const dmConversion = funnelData.doors.conversionToNext;
+    currentWidth = Math.max(minWidth, 75 + (dmConversion / 100) * 20);
+    widths.push(currentWidth);
+    
+    // Pitches: moderately dampened
+    // Use 60% of previous width + 40% based on conversion
+    const pitchConversion = funnelData.decisionMakers.conversionToNext;
+    currentWidth = Math.max(minWidth, currentWidth * 0.6 + (currentWidth * pitchConversion / 100) * 0.4);
+    widths.push(currentWidth);
+    
+    // Transitions: more accurate reflection
+    const transConversion = funnelData.pitches.conversionToNext;
+    currentWidth = Math.max(minWidth, currentWidth * (transConversion / 100));
+    widths.push(currentWidth);
+    
+    // Presentations: accurate reflection
+    const presConversion = funnelData.transitions.conversionToNext;
+    currentWidth = Math.max(minWidth, currentWidth * (presConversion / 100));
+    widths.push(currentWidth);
+    
+    // Closes: accurate reflection
+    const closeConversion = funnelData.presentations.conversionToNext;
+    currentWidth = Math.max(minWidth, currentWidth * (closeConversion / 100));
+    widths.push(currentWidth);
+    
+    return widths;
+  };
+  
+  const widths = calculateWidths();
+  
   const stages = [
-    { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext, width: 100 },
-    { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext, width: 85 },
-    { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext, width: 70 },
-    { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext, width: 55 },
-    { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext, width: 40 },
-    { label: 'Closes', value: funnelData.closes.total, conversion: 0, width: 25 },
+    { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext, width: widths[0] },
+    { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext, width: widths[1] },
+    { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext, width: widths[2] },
+    { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext, width: widths[3] },
+    { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext, width: widths[4] },
+    { label: 'Closes', value: funnelData.closes.total, conversion: 0, width: widths[5] },
   ];
 
   return (
