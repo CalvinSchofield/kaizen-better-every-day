@@ -16,18 +16,28 @@ serve(async (req) => {
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
 Available contacts:
-- Account Creation Front Line (888-324-5771, text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
-- Account Creation Advocates (888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
-- 1Stop/Assets (888-324-5771, text 801-509-9080): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
-- SOS (800-236-6808, text 801-823-4406): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
+- Account Creation Front Line (call 888-324-5771 Option 1, text 435-466-7224, email acadvocates@vivint.com): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
+- Account Creation Advocates (call 888-324-5771 Option 3, email acadvocates@vivint.com): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
+- 1Stop/Assets (call 888-324-5771 Option 1-3-1, text 801-509-9080, email 1stop@vivint.com): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
+- SOS (call 800-236-6808, text 801-823-4406, email sos@vivint.com): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
 - QRF (email qrfInbox@vivint.com): Equipment troubleshooting, install issues, support before calling SOS
-- Buyouts (text 435-222-2010): Buyout amounts and questions, elite fulfillment
-- State Licensing (888-324-5771): Applications, fees, renewals, fingerprints
-- Housing (888-324-5771): Summer housing, rent questions, utility deductions
+- Buyouts (email buyout@vivint.com, text 435-222-2010): Buyout amounts and questions, elite fulfillment
+- State Licensing (call 888-324-5771 Option 1-3-2, email employeelicensing@vivint.com): Applications, fees, renewals, fingerprints
+- Housing (call 888-324-5771 Option 1-3-4, email housing@vivint.com): Summer housing, rent questions, utility deductions
 - Arbitration (email accountarbitration@vivint.com): Arbitration questions and requests
-- Compliance - Josh Powell (text 385-250-4896): Compliance questions
+- Compliance (text 385-250-4896 Josh Powell, email joshua.powell@vivint.com): Compliance questions
 
-Respond in 1-2 sentences MAX. Be direct and specific about who to contact and how.`;
+You MUST respond with a JSON object in this exact format:
+{
+  "recommendation": "1-2 sentence recommendation",
+  "action": {
+    "type": "call" | "text" | "email",
+    "contact": "phone number or email",
+    "prefilledText": "prefilled message based on the situation (only for text/email)"
+  }
+}
+
+Be direct and specific. Choose the most appropriate contact method (text preferred for quick questions, call for urgent issues, email for documentation).`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -41,6 +51,7 @@ Respond in 1-2 sentences MAX. Be direct and specific about who to contact and ho
           { role: "system", content: systemPrompt },
           { role: "user", content: situation },
         ],
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -66,9 +77,10 @@ Respond in 1-2 sentences MAX. Be direct and specific about who to contact and ho
     }
 
     const data = await response.json();
-    const recommendation = data.choices?.[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content;
+    const parsed = JSON.parse(content);
 
-    return new Response(JSON.stringify({ recommendation }), {
+    return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

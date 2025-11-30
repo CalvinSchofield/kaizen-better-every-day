@@ -25,6 +25,7 @@ const Contacts = () => {
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");
+  const [aiAction, setAiAction] = useState<{ type: string; contact: string; prefilledText?: string } | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   const contacts: Contact[] = [
@@ -271,6 +272,7 @@ const Contacts = () => {
     
     setIsLoadingAi(true);
     setAiRecommendation("");
+    setAiAction(null);
     
     try {
       const { data, error } = await supabase.functions.invoke('recommend-contact', {
@@ -279,7 +281,8 @@ const Contacts = () => {
       
       if (error) throw error;
       
-      setAiRecommendation(data.recommendation);
+      setAiRecommendation(data.recommendation || "Unable to determine the best contact. Please browse the list below.");
+      setAiAction(data.action || null);
     } catch (error) {
       console.error("Error getting AI recommendation:", error);
       toast.error("Failed to get recommendation. Please try again.");
@@ -345,8 +348,39 @@ const Contacts = () => {
             </div>
             {aiRecommendation && (
               <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="pt-3 pb-3">
+                <CardContent className="pt-3 pb-3 space-y-3">
                   <p className="text-sm text-foreground">{aiRecommendation}</p>
+                  {aiAction && (
+                    <div className="flex justify-end">
+                      {aiAction.type === "call" && (
+                        <a
+                          href={`tel:${aiAction.contact}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          <Phone className="w-4 h-4" />
+                          Call {aiAction.contact}
+                        </a>
+                      )}
+                      {aiAction.type === "text" && (
+                        <a
+                          href={`sms:${aiAction.contact}${aiAction.prefilledText ? `&body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Text {aiAction.contact}
+                        </a>
+                      )}
+                      {aiAction.type === "email" && (
+                        <a
+                          href={`mailto:${aiAction.contact}${aiAction.prefilledText ? `?body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                        >
+                          <Mail className="w-4 h-4" />
+                          Email {aiAction.contact}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
