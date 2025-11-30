@@ -18,6 +18,14 @@ const TrackWithLayout = () => {
   };
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
+    // Get current value to determine if adding or subtracting
+    const currentValue = field.startsWith('custom_') 
+      ? (entry.custom_counters?.[field.replace('custom_', '')] || 0)
+      : (entry[field as keyof typeof entry] as number || 0);
+    
+    const isAdding = value > currentValue;
+    const isSubtracting = value < currentValue;
+    
     // Immediately trigger optimistic update through mutation
     const updates: any = { [field]: Math.max(0, value) };
     
@@ -32,31 +40,43 @@ const TrackWithLayout = () => {
       delete updates[field]; // Remove the custom_ prefixed field
     }
     
-    // Auto-end break if one is active when counter is tapped
-    const breakPeriods = entry.break_periods || [];
-    const currentBreak = breakPeriods.find(bp => !bp.end);
-    if (currentBreak) {
-      const updatedBreaks = breakPeriods.map(bp => 
-        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
-      );
-      updates.break_periods = updatedBreaks;
+    // Auto-end break if one is active when counter is tapped (only when adding)
+    if (isAdding) {
+      const breakPeriods = entry.break_periods || [];
+      const currentBreak = breakPeriods.find(bp => !bp.end);
+      if (currentBreak) {
+        const updatedBreaks = breakPeriods.map(bp => 
+          bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
+        );
+        updates.break_periods = updatedBreaks;
+      }
     }
     
-    // Auto-start work time on first counter tap
-    if (!entry.work_start_time && value > 0) {
+    // Auto-start work time on first counter tap (only when adding)
+    if (isAdding && !entry.work_start_time && value > 0) {
       const now = new Date();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       updates.work_start_time = now.toISOString();
       updates.timezone = timezone;
     }
     
-    // Add timestamp to counter_timestamps
+    // Handle timestamps: add when increasing, remove when decreasing
     const timestamps = entry.counter_timestamps || {};
     const fieldTimestamps = timestamps[field] || [];
-    updates.counter_timestamps = {
-      ...timestamps,
-      [field]: [...fieldTimestamps, new Date().toISOString()]
-    };
+    
+    if (isAdding) {
+      // Adding: append new timestamp
+      updates.counter_timestamps = {
+        ...timestamps,
+        [field]: [...fieldTimestamps, new Date().toISOString()]
+      };
+    } else if (isSubtracting) {
+      // Subtracting: remove most recent timestamp
+      updates.counter_timestamps = {
+        ...timestamps,
+        [field]: fieldTimestamps.slice(0, -1)
+      };
+    }
     
     // Immediately call updateCounter for instant optimistic UI update
     await updateCounter(updates);
