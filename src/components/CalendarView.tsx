@@ -134,9 +134,6 @@ export const CalendarView = ({
   };
 
   const handleDayClick = (date: Date) => {
-    // Don't allow editing Sundays
-    if (getDay(date) === 0) return;
-    
     setSelectedDate(date);
     setSheetOpen(true);
   };
@@ -325,14 +322,13 @@ export const CalendarView = ({
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  aspect-square p-2 rounded-lg border transition-all
-                  ${isSunday ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                  aspect-square p-2 rounded-lg border transition-all cursor-pointer hover:scale-105
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
                   ${!isCurrentMonth ? 'opacity-40' : ''}
-                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
-                <div className={`text-sm font-semibold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
+                <div className={`text-sm font-semibold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
@@ -367,12 +363,11 @@ export const CalendarView = ({
                 onClick={() => handleDayClick(day)}
                 className={`
                   p-3 rounded-lg border cursor-pointer transition-all hover:scale-105 min-h-[100px] flex flex-col
-                  ${isSunday ? 'opacity-40 cursor-not-allowed' : ''}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking && !isSunday ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking ? 'bg-primary/10' : 'bg-card'}
                 `}
               >
-                <div className={`text-lg font-semibold ${isKnocking && !isSunday ? 'text-primary' : isSunday ? 'text-muted-foreground' : 'text-foreground'}`}>
+                <div className={`text-lg font-semibold ${isKnocking ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
                 {entry && entry.is_finalized && (
