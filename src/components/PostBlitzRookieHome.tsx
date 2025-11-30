@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight, Info, X } from "lucide-react";
+import { RefreshCw, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight, Info, X, MapPin, Wifi, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -142,6 +142,46 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   const openLink = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const openInMaps = (address: string) => {
+    if (!address) return;
+    
+    // Encode address for URL
+    const encodedAddress = encodeURIComponent(address);
+    
+    // Try to detect platform and use appropriate maps URL
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    if (isIOS) {
+      // Apple Maps
+      window.location.href = `maps://maps.apple.com/?q=${encodedAddress}`;
+    } else if (isAndroid) {
+      // Google Maps intent
+      window.location.href = `geo:0,0?q=${encodedAddress}`;
+    } else {
+      // Fallback to Google Maps web
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+    }
+  };
+
+  const copyToClipboard = async (text: string, successMessage: string) => {
+    if (!text) return;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: successMessage,
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRefresh = async () => {
@@ -565,8 +605,49 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               ctaIcon = "🎯";
             }
             
-            // Clickable when within 8 days, plain text when beyond
-            if (diffDays <= 8) {
+            // Show Airbnb actions when it's blitz day (diffDays === 0), otherwise weather
+            if (diffDays === 0) {
+              return (
+                <div className="space-y-3 mb-3">
+                  <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10">
+                    <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                    <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                      {ctaText}
+                    </p>
+                  </div>
+                  
+                  {/* Airbnb Action Buttons */}
+                  <div className="flex items-center justify-center gap-3 px-2">
+                    {nextBlitz.address1 && (
+                      <button 
+                        onClick={() => openInMaps(nextBlitz.address1!)}
+                        className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                      >
+                        <MapPin className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-medium">Map</span>
+                      </button>
+                    )}
+                    
+                    {nextBlitz.wifi1 && (
+                      <button 
+                        onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')}
+                        className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                      >
+                        <Wifi className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-medium">Password</span>
+                      </button>
+                    )}
+                    
+                    {nextBlitz.code1 && (
+                      <div className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10">
+                        <Key className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-mono font-semibold">{nextBlitz.code1}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            } else if (diffDays <= 8) {
               return (
                 <button
                   onClick={() => setWeatherSheetOpen(true)}
