@@ -12,14 +12,32 @@ interface SalesFunnelChartProps {
 }
 
 export const SalesFunnelChart = ({ funnelData }: SalesFunnelChartProps) => {
-  const stages = [
-    { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext, width: 100 },
-    { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext, width: 85 },
-    { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext, width: 70 },
-    { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext, width: 55 },
-    { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext, width: 40 },
-    { label: 'Closes', value: funnelData.closes.total, conversion: 0, width: 25 },
-  ];
+  // Calculate widths based on conversion rates, starting at 100 for doors
+  const calculateWidths = () => {
+    const baseData = [
+      { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext },
+      { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext },
+      { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext },
+      { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext },
+      { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext },
+      { label: 'Closes', value: funnelData.closes.total, conversion: 0 },
+    ];
+
+    const minWidth = 35; // Minimum width to ensure text fits
+    let currentWidth = 100;
+    
+    return baseData.map((stage, index) => {
+      const stageWidth = currentWidth;
+      // Calculate next width based on conversion rate, but enforce minimum
+      if (index < baseData.length - 1) {
+        const nextWidth = Math.max(minWidth, currentWidth * (stage.conversion / 100));
+        currentWidth = nextWidth;
+      }
+      return { ...stage, width: stageWidth };
+    });
+  };
+
+  const stages = calculateWidths();
 
   return (
     <div className="space-y-6 py-2">
