@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Trash2, Plus, Info, Calendar as CalendarIcon } from "lucide-react";
+import { Trash2, Plus, Info, Calendar as CalendarIcon, GripVertical, Eye, EyeOff } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,29 @@ interface CustomCounter {
   name: string;
   emoji: string;
 }
+
+interface CounterLayoutConfig {
+  order: string[];
+  hidden: string[];
+}
+
+const DEFAULT_COUNTER_ORDER = [
+  'doors_knocked',
+  'decision_makers',
+  'pitches',
+  'transitions',
+  'presentations',
+  'closes'
+];
+
+const COUNTER_LABELS: Record<string, string> = {
+  doors_knocked: "Doors Knocked",
+  decision_makers: "Decision Makers",
+  pitches: "Pitches",
+  transitions: "Transitions",
+  presentations: "Presentations",
+  closes: "Closes"
+};
 
 export default function Settings() {
   const { repData } = useRepData();
@@ -39,6 +62,14 @@ export default function Settings() {
   // EFP mode state
   const [efpMode, setEfpMode] = useState(false);
   const [isSavingEfp, setIsSavingEfp] = useState(false);
+  
+  // Counter layout state
+  const [counterLayout, setCounterLayout] = useState<CounterLayoutConfig>({
+    order: DEFAULT_COUNTER_ORDER,
+    hidden: []
+  });
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -75,6 +106,11 @@ export default function Settings() {
       
       // Load EFP mode from rep data
       setEfpMode(repData.efp_mode_enabled || false);
+      
+      // Load counter layout config
+      if (repData.counter_layout_config) {
+        setCounterLayout(repData.counter_layout_config as CounterLayoutConfig);
+      }
     };
     
     loadUserData();
@@ -264,6 +300,83 @@ export default function Settings() {
       setIsSavingEfp(false);
     }
   };
+  
+  const handleToggleCounterVisibility = (counterId: string) => {
+    setCounterLayout(prev => {
+      const isCurrentlyHidden = prev.hidden.includes(counterId);
+      const newHidden = isCurrentlyHidden
+        ? prev.hidden.filter(id => id !== counterId)
+        : [...prev.hidden, counterId];
+      
+      // Ensure at least 4 counters are visible
+      const visibleCount = prev.order.length - newHidden.length;
+      if (visibleCount < 4 && !isCurrentlyHidden) {
+        toast({
+          title: "Minimum counters required",
+          description: "You must keep at least 4 counters visible",
+          variant: "destructive",
+        });
+        return prev;
+      }
+      
+      return { ...prev, hidden: newHidden };
+    });
+  };
+  
+  const handleDragStart = (counterId: string) => {
+    setDraggedCounter(counterId);
+  };
+  
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedCounter || draggedCounter === targetId) return;
+    
+    setCounterLayout(prev => {
+      const newOrder = [...prev.order];
+      const draggedIndex = newOrder.indexOf(draggedCounter);
+      const targetIndex = newOrder.indexOf(targetId);
+      
+      // Remove from old position
+      newOrder.splice(draggedIndex, 1);
+      // Insert at new position
+      newOrder.splice(targetIndex, 0, draggedCounter);
+      
+      return { ...prev, order: newOrder };
+    });
+  };
+  
+  const handleDragEnd = () => {
+    setDraggedCounter(null);
+  };
+  
+  const handleSaveCounterLayout = async () => {
+    setIsSavingLayout(true);
+    
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({ counter_layout_config: counterLayout as any })
+        .eq('id', repData?.id);
+      
+      if (error) throw error;
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: "Layout saved",
+        description: "Your counter layout has been updated",
+      });
+    } catch (error: any) {
+      console.error("Error saving counter layout:", error);
+      toast({
+        title: "Failed to save layout",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingLayout(false);
+    }
+  };
 
   const commonEmojis = ["📊", "📈", "📞", "🎯", "✅", "💰", "📝", "🔥", "⭐", "💪"];
 
@@ -352,6 +465,71 @@ export default function Settings() {
             </p>
           </CardContent>
         </Card>
+        
+        {/* Counter Layout (Vets/Sophomores only) */}
+        {canAddCustomCounters && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Counter Layout</CardTitle>
+              <CardDescription>
+                Customize the order and visibility of counters on your Track page
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {counterLayout.order.map((counterId) => {
+                  const isHidden = counterLayout.hidden.includes(counterId);
+                  const label = COUNTER_LABELS[counterId];
+                  
+                  return (
+                    <div
+                      key={counterId}
+                      draggable
+                      onDragStart={() => handleDragStart(counterId)}
+                      onDragOver={(e) => handleDragOver(e, counterId)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-3 p-3 border rounded-lg transition-all ${
+                        draggedCounter === counterId ? 'opacity-50' : ''
+                      } ${isHidden ? 'bg-muted/50 border-muted' : 'bg-card border-border'}`}
+                    >
+                      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                      <span className={`flex-1 font-medium ${isHidden ? 'text-muted-foreground line-through' : ''}`}>
+                        {label}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleCounterVisibility(counterId)}
+                        className="flex-shrink-0"
+                      >
+                        {isHidden ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <Button
+                onClick={handleSaveCounterLayout}
+                disabled={isSavingLayout}
+                className="w-full"
+              >
+                {isSavingLayout ? "Saving..." : "Save Layout"}
+              </Button>
+              
+              <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
+                <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Drag counters to reorder them. Toggle the eye icon to hide/show counters. You must keep at least 4 counters visible.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         {/* EFP Mode (Vets only) */}
         {isVet && (
