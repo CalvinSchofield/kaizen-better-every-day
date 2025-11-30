@@ -425,23 +425,9 @@ export const SaveEntrySheet = ({
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
                             <p className="font-semibold mb-1">FP+ = Families Protected Plus</p>
-                            <p className="text-sm mb-3">
+                            <p className="text-sm">
                               Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)
                             </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              asChild
-                            >
-                              <a
-                                href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Ask VivintGPT
-                              </a>
-                            </Button>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
