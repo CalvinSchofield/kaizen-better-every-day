@@ -4,14 +4,15 @@ import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
+import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState as useReactState } from "react";
 
-type TimeFilter = 'yesterday' | 'week' | 'month' | 'preseason';
+type TimeFilter = 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
 
 export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('yesterday');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('ytd');
   const [currentUserId, setCurrentUserId] = useReactState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useReactState<string | null>(null);
 
@@ -25,6 +26,7 @@ export const LeaderboardCard = () => {
   // Rookies should only see rookie leaderboards
   const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
 
+  const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
   const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
   const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
   const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
@@ -53,11 +55,12 @@ export const LeaderboardCard = () => {
   }, []);
 
   const currentBoard = 
+    timeFilter === 'ytd' ? ytdBoard :
     timeFilter === 'yesterday' ? yesterdayBoard :
     timeFilter === 'week' ? weeklyBoard :
     timeFilter === 'month' ? monthlyBoard :
     timeFilter === 'preseason' ? seasonBoard :
-    seasonBoard;
+    ytdBoard;
 
   const categories = [
     { key: 'mostFP', label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
@@ -89,10 +92,11 @@ export const LeaderboardCard = () => {
 
   const findUserHighlight = () => {
     const boards = [
-      { board: yesterdayBoard, timeframe: 'yesterday' },
-      { board: weeklyBoard, timeframe: 'this week' },
-      { board: monthlyBoard, timeframe: 'this month' },
+      { board: ytdBoard, timeframe: 'year to date' },
       { board: seasonBoard, timeframe: 'preseason' },
+      { board: monthlyBoard, timeframe: 'this month' },
+      { board: weeklyBoard, timeframe: 'this week' },
+      { board: yesterdayBoard, timeframe: 'yesterday' },
     ];
     
     // Find first match where user is leading
@@ -166,8 +170,8 @@ export const LeaderboardCard = () => {
       {isExpanded && (
         <div className="border-t border-border pt-4">
           {/* Filter Pills - Expanded State Only */}
-          <div className="px-6 pb-4 flex gap-2">
-            {(['yesterday', 'week', 'month', 'preseason'] as TimeFilter[]).map((filter) => (
+          <div className="px-6 pb-4 flex gap-2 flex-wrap">
+            {(['ytd', 'preseason', 'month', 'week', 'yesterday'] as TimeFilter[]).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setTimeFilter(filter)}
@@ -177,7 +181,7 @@ export const LeaderboardCard = () => {
                     : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                 }`}
               >
-                {filter === 'yesterday' ? 'Yesterday' : filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : 'Preseason'}
+                {filter === 'ytd' ? 'YTD' : filter === 'yesterday' ? 'Yesterday' : filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : 'Preseason'}
               </button>
             ))}
           </div>
