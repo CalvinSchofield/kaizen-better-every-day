@@ -70,8 +70,8 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
   const isImproving = summary.comparison && summary.comparison.fpChange >= 0;
   const isRookie = repData?.year === "Rookie";
   const isBlitzMode = summary.mode === "blitz";
-  const hasNoDoorsLogged = isBlitzMode && summary.totals.doors === 0;
   const previousBlitzFp = summary.comparison?.previousBlitzFp || 0;
+  const hasNoBlitzEntries = isBlitzMode && summary.daysWorked === 0 && previousBlitzFp > 0;
   const shouldShowActivityMetrics = isRookie && isBlitzMode && previousBlitzFp > 0 && previousBlitzFp < 2;
 
   // Calculate EFP for display
@@ -91,7 +91,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Empty Blitz Encouragement */}
-        {hasNoDoorsLogged && (
+        {hasNoBlitzEntries && (
           <div className="text-center p-4 bg-muted/50 rounded-lg border border-dashed">
             <p className="text-sm font-medium mb-2">Track your blitz progress! 📊</p>
             <p className="text-xs text-muted-foreground mb-3">
@@ -109,7 +109,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
         )}
 
         {/* Metrics Grid */}
-        {!hasNoDoorsLogged && (
+        {!hasNoBlitzEntries && (
           <div className="grid grid-cols-4 gap-3">
             <div className="text-center">
               <p className="text-2xl font-bold text-primary">{summary.totals.doors}</p>

@@ -107,7 +107,13 @@ export const useActivitySummary = (repData: any) => {
 
       if (error) throw error;
 
-      const totals = entries?.reduce(
+      // Filter out Sundays from entries
+      const workdayEntries = entries?.filter(entry => {
+        const entryDate = new Date(entry.entry_date + 'T00:00:00');
+        return getDay(entryDate) !== 0; // 0 = Sunday
+      }) || [];
+
+      const totals = workdayEntries.reduce(
         (acc, entry) => ({
           doors: acc.doors + (entry.doors_knocked || 0),
           pitches: acc.pitches + (entry.pitches || 0),
@@ -117,9 +123,9 @@ export const useActivitySummary = (repData: any) => {
           prmr: acc.prmr + (Number(entry.prmr) || 0),
         }),
         { doors: 0, pitches: 0, transitions: 0, presentations: 0, fp: 0, prmr: 0 }
-      ) || { doors: 0, pitches: 0, transitions: 0, presentations: 0, fp: 0, prmr: 0 };
+      );
 
-      const daysWorked = entries?.length || 0;
+      const daysWorked = workdayEntries.length;
       const isEmpty = daysWorked === 0;
 
       const dailyAverages = {
@@ -133,11 +139,11 @@ export const useActivitySummary = (repData: any) => {
 
       const upfrontPay = totals.prmr * 4;
 
-      // Chart data (last 7 data points)
-      const chartData = entries?.slice(-7).map((entry) => ({
+      // Chart data (last 7 data points, excluding Sundays)
+      const chartData = workdayEntries.slice(-7).map((entry) => ({
         date: entry.entry_date,
         fp: Number(entry.fp_plus) || 0,
-      })) || [];
+      }));
 
       // Comparison logic
       let comparison: ActivitySummaryData["comparison"];
