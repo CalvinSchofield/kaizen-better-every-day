@@ -15,7 +15,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useRepData } from "@/hooks/useRepData";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 
 interface SaveEntrySheetProps {
@@ -35,9 +43,12 @@ interface SaveEntrySheetProps {
     saveDate: string;
     work_start_time?: string;
     work_end_time?: string;
+    custom_counters?: Record<string, number>;
   }) => void;
   onDelete?: () => void;
   isSaving: boolean;
+  customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
+  counterLayoutConfig?: { order: string[] };
 }
 
 export const SaveEntrySheet = ({
@@ -48,7 +59,13 @@ export const SaveEntrySheet = ({
   onSave,
   onDelete,
   isSaving,
+  customCounterConfig = [],
+  counterLayoutConfig,
 }: SaveEntrySheetProps) => {
+  const { repData } = useRepData();
+  const { totalFP } = usePreseasonFP();
+  const [showFpHelp, setShowFpHelp] = useState(false);
+  const [showPrmrHelp, setShowPrmrHelp] = useState(false);
   const [doorsKnocked, setDoorsKnocked] = useState("");
   const [decisionMakers, setDecisionMakers] = useState("");
   const [pitches, setPitches] = useState("");
@@ -57,12 +74,17 @@ export const SaveEntrySheet = ({
   const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
+  const [customCounters, setCustomCounters] = useState<Record<string, string>>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
+
+  // Determine if user is a rookie with <10 FP+
+  const isRookie = repData?.year === "Rookie";
+  const showHelp = isRookie && totalFP < 10;
 
   useEffect(() => {
     if (open && entry) {
@@ -75,6 +97,14 @@ export const SaveEntrySheet = ({
       setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
       setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
       setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+      
+      // Pre-fill custom counters
+      const customCounterData: Record<string, string> = {};
+      customCounterConfig.forEach(config => {
+        const value = entry.custom_counters?.[config.id];
+        customCounterData[config.id] = value && value > 0 ? value.toString() : "";
+      });
+      setCustomCounters(customCounterData);
       
       // Pre-fill time data
       if (entry.work_start_time) {
@@ -91,7 +121,7 @@ export const SaveEntrySheet = ({
         setEndTime("");
       }
     }
-  }, [open, entry]);
+  }, [open, entry, customCounterConfig]);
 
   const hasResultsWithoutActivity = () => {
     const hasFpOrPrmr = (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
@@ -137,6 +167,12 @@ export const SaveEntrySheet = ({
       workEndTime = endDate.toISOString();
     }
     
+    // Process custom counters
+    const customCounterData: Record<string, number> = {};
+    Object.keys(customCounters).forEach(id => {
+      customCounterData[id] = parseInt(customCounters[id]) || 0;
+    });
+    
     onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
@@ -149,6 +185,7 @@ export const SaveEntrySheet = ({
       saveDate,
       work_start_time: workStartTime,
       work_end_time: workEndTime,
+      custom_counters: customCounterData,
     });
     onOpenChange(false);
   };
@@ -257,96 +294,64 @@ export const SaveEntrySheet = ({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="doors-knocked" className="text-sm">Doors Knocked</Label>
-                      <Input
-                        id="doors-knocked"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={doorsKnocked}
-                        onChange={(e) => setDoorsKnocked(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="decision-makers" className="text-sm">Decision Makers</Label>
-                      <Input
-                        id="decision-makers"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={decisionMakers}
-                        onChange={(e) => setDecisionMakers(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pitches" className="text-sm">Pitches</Label>
-                      <Input
-                        id="pitches"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={pitches}
-                        onChange={(e) => setPitches(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="transitions" className="text-sm">Transitions</Label>
-                      <Input
-                        id="transitions"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={transitions}
-                        onChange={(e) => setTransitions(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="presentations" className="text-sm">Presentations</Label>
-                      <Input
-                        id="presentations"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={presentations}
-                        onChange={(e) => setPresentations(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="closes" className="text-sm">Closes</Label>
-                      <Input
-                        id="closes"
-                        type="number"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        min="0"
-                        step="1"
-                        placeholder=""
-                        value={closes}
-                        onChange={(e) => setCloses(e.target.value)}
-                        enterKeyHint="next"
-                      />
-                    </div>
+                    {(() => {
+                      // Build counter definitions matching Track page order
+                      const allCounters = [
+                        { field: "doors_knocked", label: "Doors Knocked", value: doorsKnocked, setter: setDoorsKnocked },
+                        { field: "decision_makers", label: "Decision Makers", value: decisionMakers, setter: setDecisionMakers },
+                        { field: "pitches", label: "Pitches", value: pitches, setter: setPitches },
+                        { field: "transitions", label: "Transitions", value: transitions, setter: setTransitions },
+                        { field: "presentations", label: "Presentations", value: presentations, setter: setPresentations },
+                        { field: "closes", label: "Closes", value: closes, setter: setCloses },
+                      ];
+
+                      // Apply custom layout if available (matching Track page)
+                      let coreCounters = allCounters;
+                      if (counterLayoutConfig?.order) {
+                        coreCounters = counterLayoutConfig.order
+                          .map(field => allCounters.find(c => c.field === field))
+                          .filter((c): c is typeof allCounters[0] => c !== undefined);
+                      }
+
+                      return coreCounters.map((counter, idx) => (
+                        <div key={counter.field} className="space-y-1.5">
+                          <Label htmlFor={counter.field} className="text-sm">{counter.label}</Label>
+                          <Input
+                            id={counter.field}
+                            type="number"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            min="0"
+                            step="1"
+                            placeholder=""
+                            value={counter.value}
+                            onChange={(e) => counter.setter(e.target.value)}
+                            enterKeyHint="next"
+                          />
+                        </div>
+                      ));
+                    })()}
+
+                    {/* Custom counters (if any) */}
+                    {customCounterConfig.filter(c => !c.hidden).map(config => (
+                      <div key={config.id} className="space-y-1.5">
+                        <Label htmlFor={`custom-${config.id}`} className="text-sm">
+                          {config.emoji} {config.name}
+                        </Label>
+                        <Input
+                          id={`custom-${config.id}`}
+                          type="number"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          min="0"
+                          step="1"
+                          placeholder=""
+                          value={customCounters[config.id] || ""}
+                          onChange={(e) => setCustomCounters(prev => ({ ...prev, [config.id]: e.target.value }))}
+                          enterKeyHint="next"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -395,57 +400,126 @@ export const SaveEntrySheet = ({
             </CardContent>
           </Card>
 
-          {/* Results Section */}
-          <div>
-            <Label className="text-base mb-3 block">Results</Label>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
-                  <a
-                    href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <Info className="h-4 w-4" />
-                  </a>
-                </div>
-                <Input
-                  id="fp-plus"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.1"
-                  placeholder=""
-                  value={fpPlus}
-                  onChange={(e) => setFpPlus(e.target.value)}
-                  enterKeyHint="next"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="prmr" className="text-sm">PRMR</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    $
-                  </span>
+          {/* Results Card */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <Label className="text-base mb-3 block">Results</Label>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
+                    {showHelp ? (
+                      <TooltipProvider>
+                        <Tooltip open={showFpHelp} onOpenChange={setShowFpHelp}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setShowFpHelp(!showFpHelp);
+                              }}
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="font-semibold mb-1">FP+ = Families Protected Plus</p>
+                            <p className="text-sm">
+                              Calculated as: FP (Families Protected) + Upgrades (upgrade PRMR / 85)
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <a
+                        href="https://chatgpt.com/g/g-676a50c52d988191bdc2edf913ffbe90-vivint-gpt"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
                   <Input
-                    id="prmr"
+                    id="fp-plus"
                     type="number"
                     inputMode="decimal"
                     min="0"
-                    step="0.01"
+                    step="0.1"
                     placeholder=""
-                    value={prmr}
-                    onChange={(e) => setPrmr(e.target.value)}
-                    className="pl-7"
-                    enterKeyHint="done"
+                    value={fpPlus}
+                    onChange={(e) => setFpPlus(e.target.value)}
+                    enterKeyHint="next"
                   />
                 </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="prmr" className="text-sm">PRMR</Label>
+                    {showHelp && (
+                      <TooltipProvider>
+                        <Tooltip open={showPrmrHelp} onOpenChange={setShowPrmrHelp}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setShowPrmrHelp(!showPrmrHelp);
+                              }}
+                            >
+                              <HelpCircle className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-2">
+                              <p className="font-semibold">Payable Recurring Monthly Revenue</p>
+                              <p className="text-sm">
+                                You can almost think of this as what the customer pays monthly — plus accounting for adders and deductions.
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
+                                  link.download = '2025_Sales_Rep_Payscale.pdf';
+                                  link.click();
+                                }}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download Payscale
+                              </Button>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      $
+                    </span>
+                    <Input
+                      id="prmr"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      placeholder=""
+                      value={prmr}
+                      onChange={(e) => setPrmr(e.target.value)}
+                      className="pl-7"
+                      enterKeyHint="done"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Save Button */}
           <Button
