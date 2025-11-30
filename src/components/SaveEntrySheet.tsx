@@ -78,10 +78,12 @@ export const SaveEntrySheet = ({
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
+  const [showHighValueWarning, setShowHighValueWarning] = useState(false);
   const isSavingRef = useRef(false);
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
+  const isVet = repData?.year === "Vet" || repData?.year === "Sophomore";
   const showHelp = true; // TEMPORARY: Always show for testing. Change back to: isRookie && totalFP < 10
 
   // Auto-set newAccounts when fpPlus changes
@@ -150,10 +152,29 @@ export const SaveEntrySheet = ({
     return hasFpOrPrmr && !hasAnyActivity;
   };
 
+  const hasUnusuallyHighValues = () => {
+    const fpValue = parseFloat(fpPlus) || 0;
+    const prmrValue = parseFloat(prmr) || 0;
+    
+    if (isRookie) {
+      return fpValue > 4 || prmrValue > 425;
+    } else if (isVet) {
+      return fpValue > 7 || prmrValue > 850;
+    }
+    
+    return false;
+  };
+
   const handleSave = () => {
     // Check for data quality issue first
     if (hasResultsWithoutActivity()) {
       setShowDataQualityWarning(true);
+      return;
+    }
+    
+    // Check for unusually high values
+    if (hasUnusuallyHighValues()) {
+      setShowHighValueWarning(true);
       return;
     }
     
@@ -670,6 +691,48 @@ export const SaveEntrySheet = ({
             size="lg"
           >
             Save Results Only
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
+
+    <Drawer open={showHighValueWarning} onOpenChange={setShowHighValueWarning}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader className="mb-6">
+          <DrawerTitle>Double-Check Your Numbers 🤔</DrawerTitle>
+          <DrawerDescription>
+            {isRookie 
+              ? `You entered ${fpPlus || '0'} FP+ and $${prmr || '0'} PRMR. That's higher than usual for most rookies (4 FP+ / $425 PRMR). Just want to make sure these numbers are correct!`
+              : `You entered ${fpPlus || '0'} FP+ and $${prmr || '0'} PRMR. That's higher than usual (7 FP+ / $850 PRMR). Just want to make sure these numbers are correct!`
+            }
+          </DrawerDescription>
+        </DrawerHeader>
+        
+        <div className="px-4 text-sm text-muted-foreground mb-6">
+          If these numbers are right, great work! If not, go back and adjust them.
+        </div>
+        
+        <div className="flex flex-col gap-3 mt-6 px-4">
+          <Button
+            onClick={() => {
+              setShowHighValueWarning(false);
+            }}
+            variant="outline"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Edit Numbers
+          </Button>
+          <Button
+            onClick={() => {
+              setShowHighValueWarning(false);
+              proceedWithSave();
+            }}
+            variant="default"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Yes, Numbers Are Correct
           </Button>
         </div>
       </DrawerContent>
