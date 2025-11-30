@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,12 @@ const Home = () => {
         date: next.date,
         endDate: next.endDate,
         location: next.location,
+        address1: next.address1,
+        address2: next.address2,
+        code1: next.code1,
+        code2: next.code2,
+        wifi1: next.wifi1,
+        wifi2: next.wifi2,
       });
     } else {
       setNextBlitz(null);
@@ -110,7 +116,18 @@ const Home = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
-  const [nextBlitz, setNextBlitz] = useState<{ name: string; date: string; endDate: string | null; location: string } | null>(null);
+  const [nextBlitz, setNextBlitz] = useState<{ 
+    name: string; 
+    date: string; 
+    endDate: string | null; 
+    location: string;
+    address1?: string | null;
+    address2?: string | null;
+    code1?: string | null;
+    code2?: string | null;
+    wifi1?: string | null;
+    wifi2?: string | null;
+  } | null>(null);
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -521,6 +538,40 @@ const Home = () => {
   const confirmLogout = () => {
     setLogoutSheetOpen(false);
     handleLogout();
+  };
+
+  const openInMaps = (address: string) => {
+    if (!address) return;
+    
+    const encodedAddress = encodeURIComponent(address);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    if (isIOS) {
+      window.location.href = `maps://maps.apple.com/?q=${encodedAddress}`;
+    } else if (isAndroid) {
+      window.location.href = `geo:0,0?q=${encodedAddress}`;
+    } else {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+    }
+  };
+
+  const copyToClipboard = async (text: string, successMessage: string) => {
+    if (!text) return;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: successMessage,
+        duration: 2000,
+      });
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSync = async () => {
@@ -1018,8 +1069,14 @@ const Home = () => {
               const diffTime = tripDate.getTime() - today.getTime();
               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               
-              if (diffDays <= 8) {
-                ctaText = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              if (diffDays === 0) {
+                ctaText = `${nextBlitz.location || 'Your blitz'} today — you got this!`;
+                ctaIcon = "🔥";
+              } else if (diffDays === 1) {
+                ctaText = `1 day until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+                ctaIcon = "⚡";
+              } else if (diffDays <= 8) {
+                ctaText = `${diffDays} days until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
                 ctaIcon = "⚡";
               } else {
                 ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training! Focus on role plays with leaders`;
@@ -1030,11 +1087,55 @@ const Home = () => {
             const showWeather = weather.length > 0 && hasValidBlitz;
             const weatherDiffDays = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
-            // Only clickable if no blitz OR blitz is within 8 days
-            const isClickable = !hasValidBlitz || weatherDiffDays <= 8;
+            // Show Airbnb actions on blitz day
+            if (hasValidBlitz && weatherDiffDays === 0) {
+              return (
+                <div className="space-y-3 mb-3">
+                  <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10">
+                    <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                    <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                      {ctaText}
+                    </p>
+                  </div>
+                  
+                  {/* Airbnb Action Buttons */}
+                  <div className="flex items-center justify-center gap-3 px-2">
+                    {nextBlitz.address1 && (
+                      <button 
+                        onClick={() => openInMaps(nextBlitz.address1!)}
+                        className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                      >
+                        <MapPin className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-medium">Map</span>
+                      </button>
+                    )}
+                    
+                    {nextBlitz.wifi1 && (
+                      <button 
+                        onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')}
+                        className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                      >
+                        <Wifi className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-medium">Password</span>
+                      </button>
+                    )}
+                    
+                    {nextBlitz.code1 && (
+                      <div className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10">
+                        <Key className="w-5 h-5 text-primary-foreground/80" />
+                        <span className="text-xs text-primary-foreground/70 font-mono font-semibold">{nextBlitz.code1}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            
+            // Only clickable if no blitz OR blitz is within 8 days (but not today)
+            const isClickable = !hasValidBlitz || (weatherDiffDays > 0 && weatherDiffDays <= 8);
             
             const handleCtaClick = () => {
-              if (!isClickable) return; // Prevent click when blitz is more than 8 days away
+              if (!isClickable) return;
               
               if (!hasValidBlitz) {
                 setCalendarModalOpen(true);

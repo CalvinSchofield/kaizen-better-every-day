@@ -126,6 +126,14 @@ Deno.serve(async (req) => {
           return false;
         };
 
+        const getPlace = (prop: NotionProperty) => {
+          // Notion "location" type returns place data with address
+          if (prop?.type === "location" && prop.location) {
+            return prop.location.address || prop.location.name || null;
+          }
+          return null;
+        };
+
         // Map Notion properties to our database fields
         const name = getTitle(props.Name) || getRichText(props.Name) || "Unknown";
         const email = getEmail(props.Email) || getRichText(props.Email);
@@ -275,7 +283,19 @@ Deno.serve(async (req) => {
         let blitzTripDate: string | null = null;
         let blitzTripEndDate: string | null = null;
         let blitzTripLocation: string | null = null;
-        const committedBlitzes: Array<{id: string, name: string, date: string, endDate: string | null, location: string | null}> = [];
+        const committedBlitzes: Array<{
+          id: string, 
+          name: string, 
+          date: string, 
+          endDate: string | null, 
+          location: string | null,
+          address1?: string | null,
+          address2?: string | null,
+          code1?: string | null,
+          code2?: string | null,
+          wifi1?: string | null,
+          wifi2?: string | null
+        }> = [];
 
         console.log(`Processing blitz trips for ${name}...`);
         console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
@@ -313,6 +333,14 @@ Deno.serve(async (req) => {
                   const tripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
                   console.log(`Trip location: ${tripLocation}`);
                   
+                  // Extract Airbnb details
+                  const address1 = getPlace(tripData.properties["Address 1"]) || getRichText(tripData.properties["Address 1"]);
+                  const address2 = getPlace(tripData.properties["Address 2"]) || getRichText(tripData.properties["Address 2"]);
+                  const code1 = getRichText(tripData.properties["Code 1"]);
+                  const code2 = getRichText(tripData.properties["Code 2"]);
+                  const wifi1 = getRichText(tripData.properties["WiFi 1"]);
+                  const wifi2 = getRichText(tripData.properties["WiFi 2"]);
+                  
                   // Store full blitz details INCLUDING the ID for comparison
                   committedBlitzes.push({
                     id: tripId,
@@ -320,6 +348,12 @@ Deno.serve(async (req) => {
                     date: tripDate || '',
                     endDate: tripEndDate,
                     location: tripLocation,
+                    address1,
+                    address2,
+                    code1,
+                    code2,
+                    wifi1,
+                    wifi2,
                   });
                   console.log(`Added committed blitz: ${tripName} (ID: ${tripId})`);
                   
