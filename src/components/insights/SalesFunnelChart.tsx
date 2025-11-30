@@ -12,29 +12,14 @@ interface SalesFunnelChartProps {
 }
 
 export const SalesFunnelChart = ({ funnelData }: SalesFunnelChartProps) => {
-  // Calculate widths based on actual conversion rates
-  const calculateWidths = () => {
-    const baseData = [
-      { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext },
-      { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext },
-      { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext },
-      { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext },
-      { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext },
-      { label: 'Closes', value: funnelData.closes.total, conversion: 0 },
-    ];
-
-    let currentWidth = 100;
-    return baseData.map((stage, index) => {
-      const stageWidth = currentWidth;
-      // Calculate next stage's width based on conversion rate
-      if (index < baseData.length - 1) {
-        currentWidth = currentWidth * (stage.conversion / 100);
-      }
-      return { ...stage, width: stageWidth };
-    });
-  };
-
-  const stages = calculateWidths();
+  const stages = [
+    { label: 'Doors', value: funnelData.doors.total, conversion: funnelData.doors.conversionToNext, width: 100 },
+    { label: 'Decision Makers', value: funnelData.decisionMakers.total, conversion: funnelData.decisionMakers.conversionToNext, width: 85 },
+    { label: 'Pitches', value: funnelData.pitches.total, conversion: funnelData.pitches.conversionToNext, width: 70 },
+    { label: 'Transitions', value: funnelData.transitions.total, conversion: funnelData.transitions.conversionToNext, width: 55 },
+    { label: 'Presentations', value: funnelData.presentations.total, conversion: funnelData.presentations.conversionToNext, width: 40 },
+    { label: 'Closes', value: funnelData.closes.total, conversion: 0, width: 25 },
+  ];
 
   return (
     <div className="space-y-6 py-2">
