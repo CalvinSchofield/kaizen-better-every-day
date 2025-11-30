@@ -13,6 +13,7 @@ export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('yesterday');
   const [currentUserId, setCurrentUserId] = useReactState<string | null>(null);
+  const [currentUserYear, setCurrentUserYear] = useReactState<string | null>(null);
 
   // Listen for expand event from CTA
   useEffect(() => {
@@ -21,15 +22,34 @@ export const LeaderboardCard = () => {
     return () => window.removeEventListener('expandLeaderboard', handleExpand);
   }, []);
 
-  const { data: yesterdayBoard } = useYesterdayLeaderboard();
-  const { data: weeklyBoard } = useWeeklyLeaderboard();
-  const { data: monthlyBoard } = useMonthlyLeaderboard();
-  const { data: seasonBoard } = useSeasonLeaderboard();
+  // Rookies should only see rookie leaderboards
+  const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
+
+  const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
+  const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
+  const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
+  const { data: seasonBoard } = useSeasonLeaderboard(filterByYear);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id || null);
-    });
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Fetch user's year from reps table
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('year')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (repData) {
+          setCurrentUserYear(repData.year);
+        }
+      }
+    };
+    
+    fetchUser();
   }, []);
 
   const currentBoard = 
@@ -40,7 +60,7 @@ export const LeaderboardCard = () => {
     seasonBoard;
 
   const categories = [
-    { key: 'mostFP', label: 'Highest fp+', format: (v: number) => `${v.toFixed(1)} fp+` },
+    { key: 'mostFP', label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
     { key: 'mostPRMR', label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
     { key: 'mostHoursWorked', label: 'Most Hours', format: (v: number) => `${v.toFixed(1)} hrs` },
     { key: 'mostDoors', label: 'Most Doors', format: (v: number) => `${v}` },
@@ -50,21 +70,55 @@ export const LeaderboardCard = () => {
     { key: 'latestDoor', label: 'Latest Door', format: (_v: number, timeValue?: string) => timeValue || 'N/A' },
   ];
 
-  const userLeadCount = currentBoard
-    ? categories.filter(cat => {
-        const entry = currentBoard[cat.key as keyof typeof currentBoard];
-        return entry && (entry as any).userId === currentUserId;
-      }).length
-    : 0;
+  // Priority hierarchy for finding user highlights
+  const priorityMetrics = [
+    { key: 'mostFP', label: 'FP+' },
+    { key: 'mostPRMR', label: 'PRMR' },
+    { key: 'mostHoursWorked', label: 'hours' },
+    { key: 'mostPresentations', label: 'presentations' },
+    { key: 'mostTransitions', label: 'transitions' },
+    { key: 'latestDoor', label: 'latest door' },
+    { key: 'earliestDoor', label: 'earliest door' },
+    { key: 'mostPitches', label: 'pitches' },
+    { key: 'mostDoors', label: 'doors' },
+  ];
 
-  const totalLeaders = currentBoard
-    ? new Set(
-        categories
-          .map(cat => currentBoard[cat.key as keyof typeof currentBoard])
-          .filter(Boolean)
-          .map((entry: any) => entry.userId)
-      ).size
-    : 0;
+  const findUserHighlight = () => {
+    const boards = [
+      { board: yesterdayBoard, timeframe: 'yesterday' },
+      { board: weeklyBoard, timeframe: 'this week' },
+      { board: monthlyBoard, timeframe: 'this month' },
+      { board: seasonBoard, timeframe: 'preseason' },
+    ];
+    
+    // Find first match where user is leading
+    for (const { board, timeframe } of boards) {
+      if (!board) continue;
+      for (const { key, label } of priorityMetrics) {
+        const entry = board[key as keyof typeof board] as any;
+        if (entry?.userId === currentUserId && entry.value > 0) {
+          return { metric: label, timeframe, isUserLeading: true };
+        }
+      }
+    }
+    
+    // Fallback: show top FP+ leader
+    for (const { board, timeframe } of boards) {
+      if (!board) continue;
+      const fpEntry = board.mostFP as any;
+      if (fpEntry?.value > 0) {
+        return { 
+          name: fpEntry.name, 
+          value: fpEntry.value.toFixed(1), 
+          timeframe,
+          isUserLeading: false 
+        };
+      }
+    }
+    return null;
+  };
+
+  const highlight = findUserHighlight();
 
   return (
     <div className="w-full rounded-lg bg-card border border-border mb-6" data-leaderboard-card>
@@ -85,19 +139,20 @@ export const LeaderboardCard = () => {
       </button>
 
       {/* Summary - Collapsed State Only */}
-      {!isExpanded && (
+      {!isExpanded && highlight && (
         <div className="px-6 pb-4">
           <p className="text-foreground text-sm">
-            {userLeadCount > 0 ? (
+            {highlight.isUserLeading ? (
               <>
-                <span className="text-primary font-medium">You're</span> leading in{' '}
-                <span className="text-primary font-medium">{userLeadCount}</span>{' '}
-                {userLeadCount === 1 ? 'category' : 'categories'} — keep it going!
+                <span className="text-primary font-medium">You're leading</span> in{' '}
+                <span className="text-primary font-medium">{highlight.metric}</span>{' '}
+                {highlight.timeframe}
               </>
             ) : (
-              <span className="text-muted-foreground">
-                {totalLeaders} total {totalLeaders === 1 ? 'leader' : 'leaders'}
-              </span>
+              <>
+                <span className="font-medium">{highlight.name}</span> leads FP+ {highlight.timeframe} at{' '}
+                <span className="text-primary font-medium">{highlight.value}</span>
+              </>
             )}
           </p>
         </div>
