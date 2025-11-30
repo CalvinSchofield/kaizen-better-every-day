@@ -62,11 +62,11 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
         <div className="overflow-x-auto">
           <div className="min-w-[500px]">
             {/* Hour labels */}
-            <div className="flex mb-2">
+            <div className="flex mb-2 gap-1">
               <div className="w-28 flex-shrink-0" />
               {hours.map(hour => (
-                <div key={hour} className="flex-1 text-center text-xs text-muted-foreground">
-                  {hour === 10 || hour === 14 || hour === 18 || hour === 22 ? formatHour(hour).split(' ')[0] : ''}
+                <div key={hour} className="w-6 text-center text-xs text-muted-foreground">
+                  {hour % 2 === 0 ? formatHour(hour).split(' ')[0] : ''}
                 </div>
               ))}
             </div>
