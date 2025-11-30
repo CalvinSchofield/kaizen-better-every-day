@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, Minus } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -450,11 +450,13 @@ export const SaveEntrySheet = ({
                     {parseFloat(fpPlus) > 0 && (
                       <button
                         type="button"
-                        onClick={() => setNewAccounts(Math.max(0, newAccounts - 1))}
-                        disabled={newAccounts === 0}
-                        className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in slide-in-from-right-2 duration-200"
+                        onClick={() => {
+                          const maxFP = Math.floor(parseFloat(fpPlus));
+                          // Cycle: decrement until 0, then loop back to max
+                          setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted active:scale-95 animate-in fade-in slide-in-from-right-2 duration-200"
                       >
-                        <Minus className="h-3.5 w-3.5" />
                         <span>{newAccounts} FP</span>
                       </button>
                     )}
