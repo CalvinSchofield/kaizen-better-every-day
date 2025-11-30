@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, Minus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -35,6 +35,7 @@ interface SaveEntrySheetProps {
     closes: number;
     fp_plus: number;
     prmr: number;
+    upgrade_prmr?: number | null;
     saveDate: string;
     work_start_time?: string;
     work_end_time?: string;
@@ -69,6 +70,7 @@ export const SaveEntrySheet = ({
   const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
+  const [newAccounts, setNewAccounts] = useState(0);
   const [customCounters, setCustomCounters] = useState<Record<string, string>>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [startTime, setStartTime] = useState("");
@@ -80,6 +82,16 @@ export const SaveEntrySheet = ({
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
   const showHelp = true; // TEMPORARY: Always show for testing. Change back to: isRookie && totalFP < 10
+
+  // Auto-set newAccounts when fpPlus changes
+  useEffect(() => {
+    const fpValue = parseFloat(fpPlus);
+    if (fpValue > 0) {
+      setNewAccounts(Math.floor(fpValue));
+    } else {
+      setNewAccounts(0);
+    }
+  }, [fpPlus]);
 
   useEffect(() => {
     if (open && entry) {
@@ -168,6 +180,11 @@ export const SaveEntrySheet = ({
       customCounterData[id] = parseInt(customCounters[id]) || 0;
     });
     
+    // Calculate upgrade metrics
+    const fpValue = parseFloat(fpPlus) || 0;
+    const upgradeFP = fpValue - newAccounts;
+    const upgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
+    
     onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
@@ -175,8 +192,9 @@ export const SaveEntrySheet = ({
       transitions: parseInt(transitions) || 0,
       presentations: parseInt(presentations) || 0,
       closes: parseInt(closes) || 0,
-      fp_plus: parseFloat(fpPlus) || 0,
+      fp_plus: fpValue,
       prmr: parseFloat(prmr) || 0,
+      upgrade_prmr: upgradePrmr,
       saveDate,
       work_start_time: workStartTime,
       work_end_time: workEndTime,
@@ -416,17 +434,31 @@ export const SaveEntrySheet = ({
                       </button>
                     )}
                   </div>
-                  <Input
-                    id="fp-plus"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.1"
-                    placeholder=""
-                    value={fpPlus}
-                    onChange={(e) => setFpPlus(e.target.value)}
-                    enterKeyHint="next"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="fp-plus"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.1"
+                      placeholder=""
+                      value={fpPlus}
+                      onChange={(e) => setFpPlus(e.target.value)}
+                      enterKeyHint="next"
+                      className="flex-1"
+                    />
+                    {parseFloat(fpPlus) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setNewAccounts(Math.max(0, newAccounts - 1))}
+                        disabled={newAccounts === 0}
+                        className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in slide-in-from-right-2 duration-200"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                        <span>{newAccounts} FP</span>
+                      </button>
+                    )}
+                  </div>
                   {showHelp && openHelp === 'fp' && (
                     <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
                       <p className="text-xs text-muted-foreground flex-1">
@@ -440,10 +472,25 @@ export const SaveEntrySheet = ({
                         onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
                       >
                         <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                        Ask
+                        Ask GPT
                       </Button>
                     </div>
                   )}
+                  {/* Upgrade indicator */}
+                  {(() => {
+                    const fpValue = parseFloat(fpPlus) || 0;
+                    const upgradeFP = fpValue - newAccounts;
+                    const upgradePrmr = upgradeFP > 0 ? Math.round(upgradeFP * 85) : 0;
+                    
+                    if (upgradeFP > 0) {
+                      return (
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          📊 Includes {upgradeFP.toFixed(1)} upgrade FP+ (${upgradePrmr})
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="space-y-1.5">
