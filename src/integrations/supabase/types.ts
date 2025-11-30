@@ -165,6 +165,7 @@ export type Database = {
           created_at: string | null
           custom_counter_config: Json | null
           declined_blitz_rsvps: Json | null
+          efp_mode_enabled: boolean | null
           email: string | null
           id: string
           ipad_assigned: boolean | null
@@ -207,6 +208,7 @@ export type Database = {
           created_at?: string | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
+          efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
           ipad_assigned?: boolean | null
@@ -249,6 +251,7 @@ export type Database = {
           created_at?: string | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
+          efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
           ipad_assigned?: boolean | null

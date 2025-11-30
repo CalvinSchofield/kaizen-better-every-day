@@ -22,11 +22,21 @@ export interface InsightsData {
   presentationsPerHour: number;
   hoursToFp: number;
   
+  // EFP metrics
+  totalEfp: number;
+  doorsToEfp: number;
+  pitchesToEfp: number;
+  transitionsToEfp: number;
+  hoursToEfp: number;
+  overallDoorsToEfp: number;
+  overallPitchesToEfp: number;
+  overallTransitionsToEfp: number;
+  
   // Best periods
-  bestDay: { date: string; fpPlus: number; stats: string } | null;
-  bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; stats: string } | null;
-  bestMonth: { month: string; fpPlus: number; stats: string } | null;
-  bestTransitionsDay: { date: string; transitions: number; fpPlus: number } | null;
+  bestDay: { date: string; fpPlus: number; efp: number; stats: string } | null;
+  bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; efp: number; stats: string } | null;
+  bestMonth: { month: string; fpPlus: number; efp: number; stats: string } | null;
+  bestTransitionsDay: { date: string; transitions: number; fpPlus: number; efp: number } | null;
   
   // Timing patterns
   avgStartTime: string;
@@ -231,6 +241,30 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const transitionsPerHour = activityTotals.totalHours > 0 ? activityTotals.transitions / activityTotals.totalHours : 0;
       const presentationsPerHour = activityTotals.totalHours > 0 ? activityTotals.presentations / activityTotals.totalHours : 0;
       const hoursToFp = activityTotals.fpPlus > 0 ? activityTotals.totalHours / activityTotals.fpPlus : 0;
+      
+      // EFP calculations (PRMR / 85)
+      const totalEfp = totals.prmr / 85;
+      const activityEfp = rangeEntries
+        .filter(entry => 
+          (entry.doors_knocked || 0) > 0 ||
+          (entry.decision_makers || 0) > 0 ||
+          (entry.pitches || 0) > 0 ||
+          (entry.transitions || 0) > 0 ||
+          (entry.presentations || 0) > 0 ||
+          (entry.closes || 0) > 0
+        )
+        .reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+      
+      const overallEfp = allEntriesWithActivity.reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+      
+      const doorsToEfp = activityEfp > 0 ? activityTotals.doors / activityEfp : 0;
+      const pitchesToEfp = activityEfp > 0 ? activityTotals.pitches / activityEfp : 0;
+      const transitionsToEfp = activityEfp > 0 ? activityTotals.transitions / activityEfp : 0;
+      const hoursToEfp = activityEfp > 0 ? activityTotals.totalHours / activityEfp : 0;
+      
+      const overallDoorsToEfp = overallEfp > 0 ? overallTotals.doors / overallEfp : 0;
+      const overallPitchesToEfp = overallEfp > 0 ? overallTotals.pitches / overallEfp : 0;
+      const overallTransitionsToEfp = overallEfp > 0 ? overallTotals.transitions / overallEfp : 0;
 
       // Best day (highest FP+)
       const bestDay = rangeEntries.length > 0
@@ -243,6 +277,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         ? {
             date: format(parseISO(bestDay.entry_date), 'MMM d, yyyy'),
             fpPlus: bestDay.fp_plus || 0,
+            efp: (bestDay.prmr || 0) / 85,
             stats: `${bestDay.doors_knocked} doors · ${bestDay.closes} closes`,
           }
         : null;
@@ -265,6 +300,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
             date: format(parseISO(bestTransitionsDay.entry.entry_date), 'MMM d, yyyy'),
             transitions: bestTransitionsDay.transitions,
             fpPlus: bestTransitionsDay.entry.fp_plus || 0,
+            efp: (bestTransitionsDay.entry.prmr || 0) / 85,
           }
         : null;
 
@@ -352,6 +388,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
             weekStart: format(parseISO(bestWeekEntry.weekStart), 'MMM d'),
             weekEnd: format(endOfWeek(parseISO(bestWeekEntry.weekStart), { weekStartsOn: 1 }), 'MMM d'),
             fpPlus: bestWeekEntry.fpPlus,
+            efp: bestWeekEntry.fpPlus * 85, // Approximate, would need PRMR tracking per week
             stats: `${bestWeekEntry.doors} doors · ${bestWeekEntry.closes} closes`,
           }
         : null;
@@ -382,6 +419,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         ? {
             month: format(parseISO(bestMonthEntry.month + '-01'), 'MMMM yyyy'),
             fpPlus: bestMonthEntry.fpPlus,
+            efp: bestMonthEntry.fpPlus * 85, // Approximate
             stats: `${bestMonthEntry.doors} doors · ${bestMonthEntry.closes} closes`,
           }
         : null;
@@ -400,6 +438,14 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         transitionsPerHour,
         presentationsPerHour,
         hoursToFp,
+        totalEfp,
+        doorsToEfp,
+        pitchesToEfp,
+        transitionsToEfp,
+        hoursToEfp,
+        overallDoorsToEfp,
+        overallPitchesToEfp,
+        overallTransitionsToEfp,
         bestDay: bestDayData,
         bestWeek: bestWeekData,
         bestMonth: bestMonthData,

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
+import { useEfpMode } from '@/hooks/useEfpMode';
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
@@ -22,6 +23,7 @@ type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | 'c
 
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
+  const { efpModeEnabled, calculateEfp } = useEfpMode();
   const [datePreset, setDatePreset] = useState<DatePreset>('month');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
@@ -94,9 +96,15 @@ export default function Insights() {
     return { percentDiff: Math.abs(percentDiff), isBetter };
   };
 
-  const doorsComparison = insights ? getRatioComparison(insights.doorsToFp, insights.overallDoorsToFp) : null;
-  const pitchesComparison = insights ? getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp) : null;
-  const transitionsComparison = insights ? getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp) : null;
+  const doorsComparison = insights && efpModeEnabled 
+    ? getRatioComparison(insights.doorsToEfp, insights.overallDoorsToEfp) 
+    : insights ? getRatioComparison(insights.doorsToFp, insights.overallDoorsToFp) : null;
+  const pitchesComparison = insights && efpModeEnabled
+    ? getRatioComparison(insights.pitchesToEfp, insights.overallPitchesToEfp)
+    : insights ? getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp) : null;
+  const transitionsComparison = insights && efpModeEnabled
+    ? getRatioComparison(insights.transitionsToEfp, insights.overallTransitionsToEfp)
+    : insights ? getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp) : null;
   const closeComparison = insights ? getCloseRatioComparison(insights.presentationsToClose, insights.overallPresentationsToClose) : null;
 
   // Show loading state while fetching rep data
@@ -216,14 +224,29 @@ export default function Insights() {
                 <span className="text-sm text-primary font-medium">{insights.daysWorked} days worked</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
-                  <div className="text-sm text-muted-foreground">Total FP+</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-primary">${insights.totalPrmr.toFixed(0)}</div>
-                  <div className="text-sm text-muted-foreground">Total PRMR</div>
-                </div>
+                {efpModeEnabled ? (
+                  <>
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{insights.totalEfp.toFixed(2)}</div>
+                      <div className="text-sm text-muted-foreground">Total EFP</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">Total FP+</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{insights.totalFp.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground">Total FP+</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-primary">${insights.totalPrmr.toFixed(0)}</div>
+                      <div className="text-sm text-muted-foreground">Total PRMR</div>
+                    </div>
+                  </>
+                )}
                 <div>
                   <div className="text-xl font-bold">{insights.totalDoors}</div>
                   <div className="text-sm text-muted-foreground">Doors Knocked</div>
@@ -264,7 +287,9 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'ratios' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      <span className="text-primary font-semibold">{insights.doorsToFp.toFixed(1)}</span> doors per FP+ · {insights.presentationsToClose.toFixed(1)} presentations per close
+                      <span className="text-primary font-semibold">
+                        {efpModeEnabled ? insights.doorsToEfp.toFixed(1) : insights.doorsToFp.toFixed(1)}
+                      </span> doors per {efpModeEnabled ? "EFP" : "FP+"} · {insights.presentationsToClose.toFixed(1)} presentations per close
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -273,10 +298,10 @@ export default function Insights() {
                 <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">Doors → FP+</div>
-                      <div className="text-2xl font-bold">{insights.doorsToFp.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground mb-1">Doors → {efpModeEnabled ? "EFP" : "FP+"}</div>
+                      <div className="text-2xl font-bold">{efpModeEnabled ? insights.doorsToEfp.toFixed(1) : insights.doorsToFp.toFixed(1)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Overall avg: {insights.overallDoorsToFp.toFixed(1)}
+                        Overall avg: {efpModeEnabled ? insights.overallDoorsToEfp.toFixed(1) : insights.overallDoorsToFp.toFixed(1)}
                       </div>
                     </div>
                     {doorsComparison && (
@@ -291,10 +316,10 @@ export default function Insights() {
                 <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">Pitches → FP+</div>
-                      <div className="text-2xl font-bold">{insights.pitchesToFp.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground mb-1">Pitches → {efpModeEnabled ? "EFP" : "FP+"}</div>
+                      <div className="text-2xl font-bold">{efpModeEnabled ? insights.pitchesToEfp.toFixed(1) : insights.pitchesToFp.toFixed(1)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Overall avg: {insights.overallPitchesToFp.toFixed(1)}
+                        Overall avg: {efpModeEnabled ? insights.overallPitchesToEfp.toFixed(1) : insights.overallPitchesToFp.toFixed(1)}
                       </div>
                     </div>
                     {pitchesComparison && (
@@ -309,10 +334,10 @@ export default function Insights() {
                 <Card className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm text-muted-foreground mb-1">Transitions → FP+</div>
-                      <div className="text-2xl font-bold">{insights.transitionsToFp.toFixed(1)}</div>
+                      <div className="text-sm text-muted-foreground mb-1">Transitions → {efpModeEnabled ? "EFP" : "FP+"}</div>
+                      <div className="text-2xl font-bold">{efpModeEnabled ? insights.transitionsToEfp.toFixed(1) : insights.transitionsToFp.toFixed(1)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Overall avg: {insights.overallTransitionsToFp.toFixed(1)}
+                        Overall avg: {efpModeEnabled ? insights.overallTransitionsToEfp.toFixed(1) : insights.overallTransitionsToFp.toFixed(1)}
                       </div>
                     </div>
                     {transitionsComparison && (
@@ -359,7 +384,9 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'productivity' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      <span className="text-primary font-semibold">{insights.hoursToFp.toFixed(1)} hours</span> to sell 1 FP+
+                      <span className="text-primary font-semibold">
+                        {efpModeEnabled ? insights.hoursToEfp.toFixed(1) : insights.hoursToFp.toFixed(1)} hours
+                      </span> to sell 1 {efpModeEnabled ? "EFP" : "FP+"}
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -383,8 +410,8 @@ export default function Insights() {
                         <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
                       </div>
                       <div className="col-span-2 pt-2 border-t border-border">
-                        <div className="text-sm text-muted-foreground">Hours to sell 1 FP+</div>
-                        <div className="text-xl font-bold">{insights.hoursToFp.toFixed(1)}h</div>
+                        <div className="text-sm text-muted-foreground">Hours to sell 1 {efpModeEnabled ? "EFP" : "FP+"}</div>
+                        <div className="text-xl font-bold">{efpModeEnabled ? insights.hoursToEfp.toFixed(1) : insights.hoursToFp.toFixed(1)}h</div>
                       </div>
                     </div>
                   </div>
@@ -405,7 +432,9 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'bestPeriods' && insights.bestDay && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      Best day: <span className="text-primary font-semibold">{insights.bestDay.fpPlus.toFixed(1)} FP+</span> on {insights.bestDay.date}
+                      Best day: <span className="text-primary font-semibold">
+                        {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                      </span> on {insights.bestDay.date}
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -414,7 +443,14 @@ export default function Insights() {
                 {insights.bestDay && (
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground mb-1">Best Day</div>
-                    <div className="text-xl font-bold text-primary">{insights.bestDay.fpPlus.toFixed(1)} FP+</div>
+                    {efpModeEnabled ? (
+                      <>
+                        <div className="text-xl font-bold text-primary">{insights.bestDay.efp.toFixed(2)} EFP</div>
+                        <div className="text-sm text-muted-foreground">{insights.bestDay.fpPlus.toFixed(1)} FP+</div>
+                      </>
+                    ) : (
+                      <div className="text-xl font-bold text-primary">{insights.bestDay.fpPlus.toFixed(1)} FP+</div>
+                    )}
                     <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
                     <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
                   </Card>
@@ -423,7 +459,14 @@ export default function Insights() {
                 {insights.bestWeek && (
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground mb-1">Best Week</div>
-                    <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
+                    {efpModeEnabled ? (
+                      <>
+                        <div className="text-xl font-bold text-primary">{insights.bestWeek.efp.toFixed(2)} EFP</div>
+                        <div className="text-sm text-muted-foreground">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
+                      </>
+                    ) : (
+                      <div className="text-xl font-bold text-primary">{insights.bestWeek.fpPlus.toFixed(1)} FP+</div>
+                    )}
                     <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
                     <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
                   </Card>
@@ -432,7 +475,14 @@ export default function Insights() {
                 {insights.bestMonth && (
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground mb-1">Best Month</div>
-                    <div className="text-xl font-bold text-primary">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
+                    {efpModeEnabled ? (
+                      <>
+                        <div className="text-xl font-bold text-primary">{insights.bestMonth.efp.toFixed(2)} EFP</div>
+                        <div className="text-sm text-muted-foreground">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
+                      </>
+                    ) : (
+                      <div className="text-xl font-bold text-primary">{insights.bestMonth.fpPlus.toFixed(1)} FP+</div>
+                    )}
                     <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
                     <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
                   </Card>
@@ -443,7 +493,11 @@ export default function Insights() {
                     <div className="text-sm text-muted-foreground mb-1">Most Transitions Day</div>
                     <div className="text-xl font-bold text-primary">{insights.bestTransitionsDay.transitions} transitions</div>
                     <div className="text-sm text-muted-foreground">{insights.bestTransitionsDay.date}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+ sold</div>
+                    {efpModeEnabled ? (
+                      <div className="text-xs text-muted-foreground mt-1">{insights.bestTransitionsDay.efp.toFixed(2)} EFP · {insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+ sold</div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-1">{insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+ sold</div>
+                    )}
                   </Card>
                 )}
                   </div>
