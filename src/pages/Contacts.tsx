@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Phone, Download, ChevronDown, ChevronUp, MessageSquare, Mail, Copy, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useRepData } from "@/hooks/useRepData";
 
 interface Contact {
   id: string;
@@ -22,9 +23,11 @@ interface Contact {
 
 const Contacts = () => {
   const navigate = useNavigate();
+  const { repData } = useRepData();
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");
+  const [showCallLeader, setShowCallLeader] = useState(false);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   const contacts: Contact[] = [
@@ -271,6 +274,7 @@ const Contacts = () => {
     
     setIsLoadingAi(true);
     setAiRecommendation("");
+    setShowCallLeader(false);
     
     try {
       const { data, error } = await supabase.functions.invoke('recommend-contact', {
@@ -279,7 +283,12 @@ const Contacts = () => {
       
       if (error) throw error;
       
-      setAiRecommendation(data.recommendation);
+      if (data.lowConfidence) {
+        setShowCallLeader(true);
+        setAiRecommendation("I'm not sure about this one. Your leader can help you figure out who to contact.");
+      } else {
+        setAiRecommendation(data.recommendation);
+      }
     } catch (error) {
       console.error("Error getting AI recommendation:", error);
       toast.error("Failed to get recommendation. Please try again.");
@@ -345,8 +354,20 @@ const Contacts = () => {
             </div>
             {aiRecommendation && (
               <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="pt-3 pb-3">
+                <CardContent className="pt-3 pb-3 space-y-2">
                   <p className="text-sm text-foreground">{aiRecommendation}</p>
+                  {showCallLeader && repData?.team_leader_phone && (
+                    <Button 
+                      className="w-full"
+                      size="sm"
+                      asChild
+                    >
+                      <a href={`tel:${repData.team_leader_phone.replace(/[^0-9]/g, "")}`}>
+                        <Phone className="w-4 h-4 mr-2" />
+                        Call {repData.team_leader?.split(' ')[0] || 'Leader'}
+                      </a>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
