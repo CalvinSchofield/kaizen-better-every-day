@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Trash2, Plus, Info, Calendar as CalendarIcon, GripVertical, Eye, EyeOff } from "lucide-react";
+import { Trash2, Plus, Info, Calendar as CalendarIcon, GripVertical } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +22,6 @@ interface CustomCounter {
 
 interface CounterLayoutConfig {
   order: string[];
-  hidden: string[];
 }
 
 const DEFAULT_COUNTER_ORDER = [
@@ -65,8 +64,7 @@ export default function Settings() {
   
   // Counter layout state
   const [counterLayout, setCounterLayout] = useState<CounterLayoutConfig>({
-    order: DEFAULT_COUNTER_ORDER,
-    hidden: []
+    order: DEFAULT_COUNTER_ORDER
   });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
@@ -301,28 +299,6 @@ export default function Settings() {
     }
   };
   
-  const handleToggleCounterVisibility = (counterId: string) => {
-    setCounterLayout(prev => {
-      const isCurrentlyHidden = prev.hidden.includes(counterId);
-      const newHidden = isCurrentlyHidden
-        ? prev.hidden.filter(id => id !== counterId)
-        : [...prev.hidden, counterId];
-      
-      // Ensure at least 4 counters are visible
-      const visibleCount = prev.order.length - newHidden.length;
-      if (visibleCount < 4 && !isCurrentlyHidden) {
-        toast({
-          title: "Minimum counters required",
-          description: "You must keep at least 4 counters visible",
-          variant: "destructive",
-        });
-        return prev;
-      }
-      
-      return { ...prev, hidden: newHidden };
-    });
-  };
-  
   const handleDragStart = (counterId: string) => {
     setDraggedCounter(counterId);
   };
@@ -466,70 +442,6 @@ export default function Settings() {
           </CardContent>
         </Card>
         
-        {/* Counter Layout (Vets/Sophomores only) */}
-        {canAddCustomCounters && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Counter Layout</CardTitle>
-              <CardDescription>
-                Customize the order and visibility of counters on your Track page
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                {counterLayout.order.map((counterId) => {
-                  const isHidden = counterLayout.hidden.includes(counterId);
-                  const label = COUNTER_LABELS[counterId];
-                  
-                  return (
-                    <div
-                      key={counterId}
-                      draggable
-                      onDragStart={() => handleDragStart(counterId)}
-                      onDragOver={(e) => handleDragOver(e, counterId)}
-                      onDragEnd={handleDragEnd}
-                      className={`flex items-center gap-3 p-3 border rounded-lg transition-all ${
-                        draggedCounter === counterId ? 'opacity-50' : ''
-                      } ${isHidden ? 'bg-muted/50 border-muted' : 'bg-card border-border'}`}
-                    >
-                      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                      <span className={`flex-1 font-medium ${isHidden ? 'text-muted-foreground line-through' : ''}`}>
-                        {label}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleCounterVisibility(counterId)}
-                        className="flex-shrink-0"
-                      >
-                        {isHidden ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <Button
-                onClick={handleSaveCounterLayout}
-                disabled={isSavingLayout}
-                className="w-full"
-              >
-                {isSavingLayout ? "Saving..." : "Save Layout"}
-              </Button>
-              
-              <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-                <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">
-                  Drag counters to reorder them. Toggle the eye icon to hide/show counters. You must keep at least 4 counters visible.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
         
         {/* EFP Mode (Vets only) */}
         {isVet && (
@@ -561,65 +473,110 @@ export default function Settings() {
         {canAddCustomCounters ? (
           <Card>
             <CardHeader>
-              <CardTitle>Custom Counters</CardTitle>
+              <CardTitle>Track Counters</CardTitle>
               <CardDescription>
-                Track additional metrics beyond the core 6 counters. Custom counters appear on your Track page and in your personal Insights.
+                Customize your counter layout and track additional metrics on your Track page
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {customCounters.length > 0 ? (
+            <CardContent className="space-y-6">
+              {/* Core Counters Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Core Counters</h3>
+                  <span className="text-xs text-muted-foreground">Drag to reorder</span>
+                </div>
                 <div className="space-y-2">
-                  {customCounters.map((counter) => (
-                    <div
-                      key={counter.id}
-                      className="flex items-center justify-between p-3 border border-border rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{counter.emoji}</span>
-                        <span className="font-medium">{counter.name}</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteCounter(counter.id)}
-                        disabled={isDeleting === counter.id}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  {counterLayout.order.map((counterId) => {
+                    const label = COUNTER_LABELS[counterId];
+                    
+                    return (
+                      <div
+                        key={counterId}
+                        draggable
+                        onDragStart={() => handleDragStart(counterId)}
+                        onDragOver={(e) => handleDragOver(e, counterId)}
+                        onDragEnd={handleDragEnd}
+                        className={`flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
+                          draggedCounter === counterId ? 'opacity-50' : ''
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                        <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                        <span className="flex-1 font-medium">{label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No custom counters yet</p>
-                  <p className="text-sm mt-1">Add counters to track additional metrics</p>
-                </div>
-              )}
-
-              {canAddMore ? (
                 <Button
-                  variant="outline"
+                  onClick={handleSaveCounterLayout}
+                  disabled={isSavingLayout}
+                  size="sm"
                   className="w-full"
-                  onClick={() => setShowAddSheet(true)}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Counter ({customCounters.length}/{maxCounters})
+                  {isSavingLayout ? "Saving..." : "Save Counter Order"}
                 </Button>
-              ) : (
-                <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-                  <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    You've reached the maximum of {maxCounters} custom counters. Delete one to add a new counter.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  <strong>Note:</strong> Deleting a counter will remove all its historical data. This cannot be undone.
+              </div>
+              
+              {/* Divider */}
+              <div className="border-t border-border" />
+              
+              {/* Custom Counters Section */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Custom Counters</h3>
+                <p className="text-xs text-muted-foreground">
+                  Add up to {maxCounters} personal metrics. Custom counters appear only in your personal Insights.
                 </p>
+                
+                {customCounters.length > 0 && (
+                  <div className="space-y-2">
+                    {customCounters.map((counter) => (
+                      <div
+                        key={counter.id}
+                        className="flex items-center justify-between p-3 border border-border rounded-lg bg-card"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{counter.emoji}</span>
+                          <span className="font-medium">{counter.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCounter(counter.id)}
+                          disabled={isDeleting === counter.id}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {canAddMore ? (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowAddSheet(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Custom Counter ({customCounters.length}/{maxCounters})
+                  </Button>
+                ) : (
+                  <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
+                    <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      You've reached the maximum of {maxCounters} custom counters. Delete one to add a new counter.
+                    </p>
+                  </div>
+                )}
+
+                {customCounters.length > 0 && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      <strong>Note:</strong> Deleting a counter removes all its historical data. This cannot be undone.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 
 interface CounterLayoutConfig {
   order: string[];
-  hidden: string[];
 }
 
 interface QTallyGridProps {
@@ -140,13 +139,8 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], c
   // Apply custom layout if available
   let coreCounters = allCoreCounters;
   if (counterLayoutConfig) {
-    // Filter out hidden counters
-    const visibleFields = counterLayoutConfig.order.filter(
-      field => !counterLayoutConfig.hidden.includes(field)
-    );
-    
     // Reorder based on layout config
-    coreCounters = visibleFields
+    coreCounters = counterLayoutConfig.order
       .map(field => allCoreCounters.find(c => c.field === field))
       .filter((c): c is typeof allCoreCounters[0] => c !== undefined);
   }
