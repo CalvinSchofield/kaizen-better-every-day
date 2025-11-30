@@ -29,6 +29,7 @@ interface TrackProps {
   onStartBreak: () => void;
   onEndBreak: () => void;
   onUpdateTime: (field: 'start' | 'end', time: string) => void;
+  counterTimestamps?: Record<string, string[]>;
 }
 
 const Track = ({
@@ -39,6 +40,7 @@ const Track = ({
   onStartBreak,
   onEndBreak,
   onUpdateTime,
+  counterTimestamps,
 }: TrackProps) => {
   const { repData, loading: loadingRepData } = useRepData();
 
@@ -119,6 +121,7 @@ const Track = ({
           workStartTime={entry.work_start_time}
           workEndTime={entry.work_end_time}
           breakPeriods={entry.break_periods}
+          counterTimestamps={counterTimestamps}
           onStartWork={onStartWork}
           onEndWork={onEndWork}
           onStartBreak={onStartBreak}

@@ -10,6 +10,7 @@ interface TimeTrackingBarProps {
   workStartTime: string | null | undefined;
   workEndTime: string | null | undefined;
   breakPeriods: Array<{ start: string; end: string }> | undefined;
+  counterTimestamps?: Record<string, string[]>;
   onStartWork: () => void;
   onEndWork: () => void;
   onStartBreak: () => void;
@@ -21,6 +22,7 @@ export const TimeTrackingBar = ({
   workStartTime,
   workEndTime,
   breakPeriods = [],
+  counterTimestamps = {},
   onStartWork,
   onEndWork,
   onStartBreak,
@@ -64,6 +66,25 @@ export const TimeTrackingBar = ({
       hour12: true 
     });
   };
+
+  // Get the latest counter timestamp
+  const getLatestCounterTimestamp = () => {
+    if (!counterTimestamps || Object.keys(counterTimestamps).length === 0) return null;
+    
+    let latestTimestamp: string | null = null;
+    Object.values(counterTimestamps).forEach(timestamps => {
+      if (timestamps && timestamps.length > 0) {
+        const latest = timestamps[timestamps.length - 1];
+        if (!latestTimestamp || new Date(latest) > new Date(latestTimestamp)) {
+          latestTimestamp = latest;
+        }
+      }
+    });
+    
+    return latestTimestamp;
+  };
+
+  const latestCounterTimestamp = getLatestCounterTimestamp();
 
   const handleTimeClick = (field: 'start' | 'end') => {
     setViewField(field);
@@ -154,6 +175,11 @@ export const TimeTrackingBar = ({
             )}
           </Button>
           <span className="text-xs text-muted-foreground">End</span>
+          {!hasEnded && latestCounterTimestamp && (
+            <span className="text-[10px] text-muted-foreground/60">
+              Last: {formatTime(latestCounterTimestamp)}
+            </span>
+          )}
         </div>
       </div>
 
