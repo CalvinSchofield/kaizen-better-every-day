@@ -19,7 +19,7 @@ interface ActivityTrendChartProps {
   efpModeEnabled?: boolean;
 }
 
-type MetricKey = 'doors' | 'pitches' | 'transitions' | 'fp';
+type MetricKey = 'doors' | 'pitches' | 'transitions' | 'presentations' | 'fp' | 'prmr';
 
 export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: ActivityTrendChartProps) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('doors');
@@ -28,16 +28,37 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     { key: 'doors' as MetricKey, label: 'Doors', color: 'hsl(var(--chart-1))' },
     { key: 'pitches' as MetricKey, label: 'Pitches', color: 'hsl(var(--chart-2))' },
     { key: 'transitions' as MetricKey, label: 'Transitions', color: 'hsl(var(--chart-3))' },
-    { key: 'fp' as MetricKey, label: efpModeEnabled ? 'EFP' : 'FP+', color: 'hsl(var(--primary))' },
+    { key: 'presentations' as MetricKey, label: 'Presentations', color: 'hsl(var(--chart-4))' },
+    ...(efpModeEnabled 
+      ? [
+          { key: 'fp' as MetricKey, label: 'EFP', color: 'hsl(var(--primary))' },
+          { key: 'prmr' as MetricKey, label: 'FP+', color: 'hsl(var(--chart-5))' },
+        ]
+      : [
+          { key: 'fp' as MetricKey, label: 'FP+', color: 'hsl(var(--primary))' },
+          { key: 'prmr' as MetricKey, label: 'PRMR', color: 'hsl(var(--chart-5))' },
+        ]
+    ),
   ];
 
   const currentMetric = metrics.find(m => m.key === selectedMetric)!;
 
-  const chartData = dailyTrend.map(day => ({
-    ...day,
-    displayValue: selectedMetric === 'fp' && efpModeEnabled ? day.efp : day[selectedMetric],
-    displayDate: format(parseISO(day.date), 'MMM d'),
-  }));
+  const chartData = dailyTrend.map(day => {
+    let displayValue: number;
+    if (selectedMetric === 'fp' && efpModeEnabled) {
+      displayValue = day.efp;
+    } else if (selectedMetric === 'prmr' && efpModeEnabled) {
+      displayValue = day.fp; // Show FP+ when PRMR key is selected in EFP mode
+    } else {
+      displayValue = day[selectedMetric];
+    }
+    
+    return {
+      ...day,
+      displayValue,
+      displayDate: format(parseISO(day.date), 'MMM d'),
+    };
+  });
 
   const chartConfig = {
     displayValue: {
@@ -49,13 +70,6 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Activity Trends</h3>
-            <p className="text-sm text-muted-foreground">Track your performance over time</p>
-          </div>
-        </div>
-
         {/* Metric Selector */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           {metrics.map(metric => (
@@ -85,10 +99,13 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
               />
               <ChartTooltip
                 content={<ChartTooltipContent />}
-                formatter={(value: any) => [
-                  selectedMetric === 'fp' ? Number(value).toFixed(1) : value,
-                  currentMetric.label
-                ]}
+                formatter={(value: any) => {
+                  const shouldShowDecimal = selectedMetric === 'fp' || selectedMetric === 'prmr';
+                  return [
+                    shouldShowDecimal ? Number(value).toFixed(1) : value,
+                    currentMetric.label
+                  ];
+                }}
               />
               <Line
                 type="monotone"
@@ -107,33 +124,50 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
           <div className="p-2 rounded-lg bg-accent/30 text-center">
             <div className="text-muted-foreground mb-1">Total</div>
             <div className="font-semibold">
-              {selectedMetric === 'fp' && efpModeEnabled
-                ? dailyTrend.reduce((sum, d) => sum + d.efp, 0).toFixed(1)
-                : dailyTrend.reduce((sum, d) => sum + d[selectedMetric], 0).toFixed(0)
-              }
+              {(() => {
+                let sum = 0;
+                if (selectedMetric === 'fp' && efpModeEnabled) {
+                  sum = dailyTrend.reduce((s, d) => s + d.efp, 0);
+                } else if (selectedMetric === 'prmr' && efpModeEnabled) {
+                  sum = dailyTrend.reduce((s, d) => s + d.fp, 0);
+                } else {
+                  sum = dailyTrend.reduce((s, d) => s + d[selectedMetric], 0);
+                }
+                return (selectedMetric === 'fp' || selectedMetric === 'prmr') ? sum.toFixed(1) : sum.toFixed(0);
+              })()}
             </div>
           </div>
           <div className="p-2 rounded-lg bg-accent/30 text-center">
             <div className="text-muted-foreground mb-1">Avg/Day</div>
             <div className="font-semibold">
-              {dailyTrend.length > 0
-                ? (selectedMetric === 'fp' && efpModeEnabled
-                  ? (dailyTrend.reduce((sum, d) => sum + d.efp, 0) / dailyTrend.length).toFixed(1)
-                  : (dailyTrend.reduce((sum, d) => sum + d[selectedMetric], 0) / dailyTrend.length).toFixed(0)
-                )
-                : '0'
-              }
+              {dailyTrend.length > 0 ? (() => {
+                let sum = 0;
+                if (selectedMetric === 'fp' && efpModeEnabled) {
+                  sum = dailyTrend.reduce((s, d) => s + d.efp, 0) / dailyTrend.length;
+                } else if (selectedMetric === 'prmr' && efpModeEnabled) {
+                  sum = dailyTrend.reduce((s, d) => s + d.fp, 0) / dailyTrend.length;
+                } else {
+                  sum = dailyTrend.reduce((s, d) => s + d[selectedMetric], 0) / dailyTrend.length;
+                }
+                return (selectedMetric === 'fp' || selectedMetric === 'prmr') ? sum.toFixed(1) : sum.toFixed(0);
+              })() : '0'}
             </div>
           </div>
           <div className="p-2 rounded-lg bg-accent/30 text-center">
             <div className="text-muted-foreground mb-1">Best Day</div>
             <div className="font-semibold">
-              {dailyTrend.length > 0
-                ? Math.max(...dailyTrend.map(d => 
-                    selectedMetric === 'fp' && efpModeEnabled ? d.efp : d[selectedMetric]
-                  )).toFixed(selectedMetric === 'fp' ? 1 : 0)
-                : '0'
-              }
+              {dailyTrend.length > 0 ? (() => {
+                let values: number[];
+                if (selectedMetric === 'fp' && efpModeEnabled) {
+                  values = dailyTrend.map(d => d.efp);
+                } else if (selectedMetric === 'prmr' && efpModeEnabled) {
+                  values = dailyTrend.map(d => d.fp);
+                } else {
+                  values = dailyTrend.map(d => d[selectedMetric]);
+                }
+                const max = Math.max(...values);
+                return (selectedMetric === 'fp' || selectedMetric === 'prmr') ? max.toFixed(1) : max.toFixed(0);
+              })() : '0'}
             </div>
           </div>
         </div>
