@@ -561,7 +561,7 @@ const Home = () => {
         body: {
           userEmail: user.email,
           notionEmail: repData?.email || null,
-          repName: repData?.name || null,
+          repName: repData?.name || user.user_metadata?.name || null,
         }
       });
       
