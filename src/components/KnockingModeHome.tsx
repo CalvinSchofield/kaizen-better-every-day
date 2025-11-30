@@ -1,4 +1,4 @@
-import { RefreshCw, LogOut, Calendar, TrendingUp, Target, Cloud, CheckCircle2 } from "lucide-react";
+import { RefreshCw, Calendar, TrendingUp, Target, Cloud, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyFocusCard } from "@/components/DailyFocusCard";
@@ -108,15 +108,6 @@ export const KnockingModeHome = ({
                 ) : (
                   <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
                 )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLogoutSheetOpen(true)}
-                className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
-                aria-label="Log out"
-              >
-                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           </div>
