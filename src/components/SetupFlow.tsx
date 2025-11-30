@@ -58,37 +58,55 @@ const SetupFlow = () => {
       setCurrentStep(1);
       updateStep(1, 'loading');
       
-      const { data: competitors } = await supabase
+      const { data: competitors, error: competitorFetchError } = await supabase
         .from('competitors')
         .select('*')
         .order('name', { ascending: true });
 
+      console.log('Initial competitors fetch:', { count: competitors?.length, error: competitorFetchError });
+
       if (!competitors || competitors.length === 0) {
+        console.log('No competitors found, syncing from Notion...');
+        
         // Sync from Notion if no competitors
-        await supabase.functions.invoke('sync-notion-competitors');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-notion-competitors');
         
-        // Refetch after sync
-        const { data: syncedCompetitors } = await supabase
-          .from('competitors')
-          .select('*')
-          .order('name', { ascending: true });
+        console.log('Sync response:', { syncData, syncError });
         
-        if (syncedCompetitors) {
-          localStorage.setItem('competitors-cache', JSON.stringify({
-            data: syncedCompetitors,
-            timestamp: Date.now()
-          }));
+        if (syncError) {
+          console.error('Competitor sync error:', syncError);
+          updateStep(1, 'error');
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer for sync
+          
+          // Refetch after sync
+          const { data: syncedCompetitors, error: refetchError } = await supabase
+            .from('competitors')
+            .select('*')
+            .order('name', { ascending: true });
+          
+          console.log('After sync competitors:', { count: syncedCompetitors?.length, error: refetchError });
+          
+          if (syncedCompetitors && syncedCompetitors.length > 0) {
+            localStorage.setItem('competitors-cache', JSON.stringify({
+              data: syncedCompetitors,
+              timestamp: Date.now()
+            }));
+            updateStep(1, 'success');
+          } else {
+            console.warn('No competitors after sync, but continuing...');
+            updateStep(1, 'error');
+          }
         }
       } else {
         // Cache existing data
+        console.log('Caching existing competitors:', competitors.length);
         localStorage.setItem('competitors-cache', JSON.stringify({
           data: competitors,
           timestamp: Date.now()
         }));
+        updateStep(1, 'success');
       }
-      
-      updateStep(1, 'success');
 
       // Step 3: Fetch blitzes
       setCurrentStep(2);
