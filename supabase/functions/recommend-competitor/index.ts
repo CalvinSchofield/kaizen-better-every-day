@@ -13,10 +13,11 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Build competitor database context for the AI
+    // Build competitor database context for the AI with explicit IDs
     const competitorContext = competitors.map((c: any) => {
       const versions = c.alternate_versions?.map((v: any) => v.name).join(", ") || "";
       return `
+[ID: ${c.notion_page_id}]
 ${c.name} (Category: ${c.category || "N/A"})${versions ? ` - Versions: ${versions}` : ""}
 Our Selling Points: ${c.our_selling_points?.join("; ") || "None listed"}
 Their Selling Points: ${c.their_selling_points?.join("; ") || "None listed"}
@@ -52,10 +53,12 @@ You MUST respond with a JSON object in this exact format:
   "competitors": [
     {
       "name": "Exact competitor name from database",
-      "notion_page_id": "The notion_page_id from the competitor record"
+      "notion_page_id": "The EXACT [ID: ...] shown at the start of each competitor entry - copy it EXACTLY"
     }
   ]
 }
+
+CRITICAL: The notion_page_id MUST be copied EXACTLY from the [ID: ...] shown at the start of the competitor entry. Do not make up IDs.
 
 If they ask a specific question (e.g., "Does Ring have monthly fees?"), answer that FIRST in 1 sentence, then show advantages.`;
 
