@@ -41,6 +41,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [locallyRespondedBlitzIds, setLocallyRespondedBlitzIds] = useState<string[]>([]);
+  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
+  const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number }>>([]);
+  const [loadingWeather, setLoadingWeather] = useState(false);
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -171,6 +174,67 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     : null;
 
   const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+  // Fetch weather when blitz is within 14 days
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!nextBlitz?.location || !nextBlitz?.date || !nextBlitz?.endDate) {
+        setWeather([]);
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tripDate = new Date(nextBlitz.date);
+      tripDate.setHours(0, 0, 0, 0);
+      const diffTime = tripDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Only fetch weather if blitz is within 14 days and in the future
+      if (diffDays <= 0 || diffDays > 14) {
+        setWeather([]);
+        return;
+      }
+
+      setLoadingWeather(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
+          body: {
+            location: nextBlitz.location,
+            startDate: nextBlitz.date,
+            endDate: nextBlitz.endDate,
+          },
+        });
+
+        if (!error && data?.forecasts) {
+          setWeather(data.forecasts);
+        }
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
+    fetchWeather();
+  }, [nextBlitz]);
+
+  // Get weather packing tip
+  const getWeatherTip = () => {
+    if (weather.length === 0) return "";
+    
+    const avgHigh = weather.reduce((sum, day) => sum + day.high, 0) / weather.length;
+    const avgLow = weather.reduce((sum, day) => sum + day.low, 0) / weather.length;
+    
+    if (avgHigh > 85) {
+      return "Pack light and bring sunscreen — it's going to be hot out there!";
+    } else if (avgHigh < 60) {
+      return "Pack warm — it gets colder than you think when you're outside all day. Pants are probably the move not shorts.";
+    } else if (avgLow < 50) {
+      return "Days are nice but mornings are cold — bring layers you can adjust throughout the day.";
+    }
+    return "Perfect knocking weather — prep your pitch and pack smart!";
+  };
 
   // Check if rookie had past blitzes but no upcoming ones
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
@@ -497,13 +561,24 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               ctaIcon = "🎯";
             }
             
+            const shouldShowWeather = weather.length > 0 && diffDays > 0 && diffDays <= 14;
+            
             return (
-              <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3">
+              <button
+                onClick={() => shouldShowWeather && setWeatherSheetOpen(true)}
+                disabled={!shouldShowWeather}
+                className={`group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 transition-all mb-3 ${
+                  shouldShowWeather ? 'hover:bg-primary-foreground/15 cursor-pointer' : ''
+                }`}
+              >
                 <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                 <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                   {ctaText}
                 </p>
-              </div>
+                {shouldShowWeather && (
+                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                )}
+              </button>
             );
           })()}
         </div>
@@ -771,6 +846,73 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               Cancel
             </Button>
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Weather Sheet */}
+      <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto pb-safe">
+          <SheetHeader>
+            <SheetTitle>Weather Forecast</SheetTitle>
+            <SheetDescription>
+              {nextBlitz?.location} - {nextBlitz?.name}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {loadingWeather && (
+            <div className="text-center text-sm text-muted-foreground py-4">
+              Loading weather...
+            </div>
+          )}
+          
+          {!loadingWeather && weather.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {weather.map((day) => (
+                  <div
+                    key={day.date}
+                    className="bg-card rounded-lg p-4 border border-border text-center"
+                  >
+                    <div className="text-xs font-medium text-muted-foreground mb-1">
+                      {day.dayName}
+                    </div>
+                    <div className="text-xs text-muted-foreground/70 mb-2">
+                      {new Date(day.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-2xl font-bold text-foreground">
+                        {day.high}°
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Low {day.low}°
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Weather Tip */}
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground italic text-center">
+                  {getWeatherTip()}
+                </p>
+              </div>
+
+              {/* Packing List Link */}
+              <div className="mt-4">
+                <Button
+                  onClick={() => openLink("https://www.notion.so/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4")}
+                  className="w-full"
+                  size="lg"
+                >
+                  View Packing List
+                </Button>
+              </div>
+            </>
+          )}
         </SheetContent>
       </Sheet>
 
