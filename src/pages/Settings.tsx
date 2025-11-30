@@ -143,15 +143,23 @@ export default function Settings() {
       };
 
       const updatedCounters = [...customCounters, newCounter];
+      
+      console.log("Adding counter:", newCounter);
+      console.log("Updated counters array:", updatedCounters);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("reps")
         .update({ custom_counter_config: updatedCounters as any })
-        .eq("id", repData?.id);
+        .eq("id", repData?.id)
+        .select();
+      
+      console.log("Supabase update response:", { data, error });
 
       if (error) throw error;
 
+      // Force immediate refetch
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
 
       toast({
         title: "Counter added",
@@ -307,18 +315,29 @@ export default function Settings() {
     e.preventDefault();
     if (!draggedCounter || draggedCounter === targetId) return;
     
-    setCounterLayout(prev => {
-      const newOrder = [...prev.order];
-      const draggedIndex = newOrder.indexOf(draggedCounter);
-      const targetIndex = newOrder.indexOf(targetId);
-      
-      // Remove from old position
-      newOrder.splice(draggedIndex, 1);
-      // Insert at new position
-      newOrder.splice(targetIndex, 0, draggedCounter);
-      
-      return { ...prev, order: newOrder };
-    });
+    // Build a combined list of all counter IDs (core + custom)
+    const allCounterIds = [
+      ...counterLayout.order,
+      ...customCounters.map(c => `custom_${c.id}`)
+    ];
+    
+    const draggedIndex = allCounterIds.indexOf(draggedCounter);
+    const targetIndex = allCounterIds.indexOf(targetId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    // Reorder the combined list
+    const reordered = [...allCounterIds];
+    reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, draggedCounter);
+    
+    // Split back into core and custom order
+    const newCoreOrder = reordered.filter(id => !id.startsWith('custom_'));
+    
+    setCounterLayout(prev => ({
+      ...prev,
+      order: newCoreOrder
+    }));
   };
   
   const handleDragEnd = () => {
@@ -475,17 +494,21 @@ export default function Settings() {
             <CardHeader>
               <CardTitle>Track Counters</CardTitle>
               <CardDescription>
-                Customize your counter layout and track additional metrics on your Track page
+                Reorder all counters and manage your custom tracking metrics
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Core Counters Section */}
+            <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Core Counters</h3>
+                  <h3 className="text-sm font-semibold">All Counters</h3>
                   <span className="text-xs text-muted-foreground">Drag to reorder</span>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Core counters feed team leaderboards. Custom counters appear only in your personal Insights.
+                </p>
+                
                 <div className="space-y-2">
+                  {/* Core Counters */}
                   {counterLayout.order.map((counterId) => {
                     const label = COUNTER_LABELS[counterId];
                     
@@ -502,10 +525,39 @@ export default function Settings() {
                       >
                         <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
                         <span className="flex-1 font-medium">{label}</span>
+                        <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">Core</span>
                       </div>
                     );
                   })}
+                  
+                  {/* Custom Counters */}
+                  {customCounters.map((counter) => (
+                    <div
+                      key={`custom_${counter.id}`}
+                      draggable
+                      onDragStart={() => handleDragStart(`custom_${counter.id}`)}
+                      onDragOver={(e) => handleDragOver(e, `custom_${counter.id}`)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
+                        draggedCounter === `custom_${counter.id}` ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                      <span className="text-xl">{counter.emoji}</span>
+                      <span className="flex-1 font-medium">{counter.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteCounter(counter.id)}
+                        disabled={isDeleting === counter.id}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
+                
                 <Button
                   onClick={handleSaveCounterLayout}
                   disabled={isSavingLayout}
@@ -516,41 +568,8 @@ export default function Settings() {
                 </Button>
               </div>
               
-              {/* Divider */}
-              <div className="border-t border-border" />
-              
-              {/* Custom Counters Section */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Custom Counters</h3>
-                <p className="text-xs text-muted-foreground">
-                  Add up to {maxCounters} personal metrics. Custom counters appear only in your personal Insights.
-                </p>
-                
-                {customCounters.length > 0 && (
-                  <div className="space-y-2">
-                    {customCounters.map((counter) => (
-                      <div
-                        key={counter.id}
-                        className="flex items-center justify-between p-3 border border-border rounded-lg bg-card"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{counter.emoji}</span>
-                          <span className="font-medium">{counter.name}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteCounter(counter.id)}
-                          disabled={isDeleting === counter.id}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+              {/* Add Counter Button */}
+              <div className="pt-2 border-t border-border">
                 {canAddMore ? (
                   <Button
                     variant="outline"
@@ -564,20 +583,20 @@ export default function Settings() {
                   <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
                     <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-muted-foreground">
-                      You've reached the maximum of {maxCounters} custom counters. Delete one to add a new counter.
-                    </p>
-                  </div>
-                )}
-
-                {customCounters.length > 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      <strong>Note:</strong> Deleting a counter removes all its historical data. This cannot be undone.
+                      Maximum of {maxCounters} custom counters reached. Delete one to add a new counter.
                     </p>
                   </div>
                 )}
               </div>
+              
+              {customCounters.length > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Deleting a counter removes all its historical data permanently.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
