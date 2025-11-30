@@ -15,6 +15,7 @@ export interface DailyEntry {
   closes: number;
   fp_plus: number;
   prmr: number;
+  upgrade_prmr?: number | null;
   is_finalized: boolean;
   notes: string | null;
   work_start_time?: string | null;
@@ -155,6 +156,7 @@ export const useDailyEntry = (date?: string) => {
       closes: number;
       fp_plus: number;
       prmr: number;
+      upgrade_prmr?: number | null;
       saveDate: string;
       work_start_time?: string;
       work_end_time?: string;
@@ -178,6 +180,7 @@ export const useDailyEntry = (date?: string) => {
           closes: data.closes,
           fp_plus: data.fp_plus,
           prmr: data.prmr,
+          upgrade_prmr: data.upgrade_prmr,
           work_start_time: data.work_start_time,
           work_end_time: data.work_end_time,
           is_finalized: true,

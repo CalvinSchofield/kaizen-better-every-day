@@ -79,6 +79,7 @@ export type Database = {
           timezone: string | null
           transitions: number | null
           updated_at: string | null
+          upgrade_prmr: number | null
           user_id: string
           work_end_time: string | null
           work_start_time: string | null
@@ -102,6 +103,7 @@ export type Database = {
           timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
+          upgrade_prmr?: number | null
           user_id: string
           work_end_time?: string | null
           work_start_time?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
+          upgrade_prmr?: number | null
           user_id?: string
           work_end_time?: string | null
           work_start_time?: string | null

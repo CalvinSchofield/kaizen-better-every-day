@@ -116,6 +116,7 @@ const TrackWithLayout = () => {
     prmr: number; 
     work_end_time: string;
     saveDate: string;
+    upgrade_prmr?: number | null;
   }) => {
     if (!previousDayEntry) return;
     
@@ -128,6 +129,7 @@ const TrackWithLayout = () => {
       closes: previousDayEntry.closes,
       fp_plus: data.fp_plus,
       prmr: data.prmr,
+      upgrade_prmr: data.upgrade_prmr,
       work_start_time: previousDayEntry.work_start_time,
       work_end_time: data.work_end_time,
       saveDate: data.saveDate,
