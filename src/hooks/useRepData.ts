@@ -41,6 +41,7 @@ export interface RepData {
   declined_blitz_rsvps: unknown; // JSONB array of declined blitz IDs
   custom_counter_config: unknown; // JSONB array of custom counter definitions
   efp_mode_enabled: boolean | null;
+  timezone: string | null;
 }
 
 export const useRepData = () => {

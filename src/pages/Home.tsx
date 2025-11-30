@@ -937,27 +937,9 @@ const Home = () => {
             </div>
             <div className="flex gap-2 flex-shrink-0 self-start">
               <Button 
-                onClick={handleSync} 
-                variant="ghost" 
-                size="sm" 
-                className={`rounded-full transition-all duration-300 border ${
-                  syncSuccess 
-                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
-                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
-                }`}
-                disabled={isSyncing}
-                aria-label="Refresh data"
-              >
-                {syncSuccess ? (
-                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
-                ) : (
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                )}
-              </Button>
-              <Button 
                 onClick={() => setLogoutSheetOpen(true)}
                 variant="ghost" 
-                size="sm" 
+                size="sm"
                 className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
                 aria-label="Log out"
               >
