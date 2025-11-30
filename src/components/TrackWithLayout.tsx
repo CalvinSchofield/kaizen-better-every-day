@@ -63,6 +63,13 @@ const TrackWithLayout = () => {
   }, [entry, updateCounter]);
 
   const handleStartWork = () => {
+    // If work already started but not ended, end it instead
+    if (entry.work_start_time && !entry.work_end_time) {
+      handleEndWork();
+      return;
+    }
+    
+    // Otherwise start work
     const now = new Date();
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     updateCounter({ 
@@ -77,6 +84,15 @@ const TrackWithLayout = () => {
 
   const handleStartBreak = () => {
     const breakPeriods = entry.break_periods || [];
+    const currentBreak = breakPeriods.find(bp => !bp.end);
+    
+    // If break already started but not ended, end it instead
+    if (currentBreak) {
+      handleEndBreak();
+      return;
+    }
+    
+    // Otherwise start break
     updateCounter({
       break_periods: [...breakPeriods, { start: new Date().toISOString(), end: '' }]
     });
