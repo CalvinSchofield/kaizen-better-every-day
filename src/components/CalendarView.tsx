@@ -585,6 +585,55 @@ export const CalendarView = ({
               </div>
             </div>
 
+            {/* Mini Funnel Teaser - Relative visualization */}
+            {viewTotals.doorsKnocked > 0 && viewTotals.closes > 0 && (
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Quick Funnel</h4>
+                  <button 
+                    onClick={() => window.location.href = '/insights'}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    See full analysis →
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {/* Doors bar */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-16">Doors</span>
+                    <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
+                      <div className="bg-muted h-full" style={{ width: '100%' }} />
+                    </div>
+                    <span className="text-xs font-semibold w-10 text-right">{viewTotals.doorsKnocked}</span>
+                  </div>
+                  {/* Pitches bar */}
+                  {viewTotals.pitches > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-16">Pitches</span>
+                      <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-primary/40 h-full" 
+                          style={{ width: `${Math.min((viewTotals.pitches / viewTotals.doorsKnocked) * 100, 100)}%` }} 
+                        />
+                      </div>
+                      <span className="text-xs font-semibold w-10 text-right">{viewTotals.pitches}</span>
+                    </div>
+                  )}
+                  {/* Closes bar */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-16">Closes</span>
+                    <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-primary h-full" 
+                        style={{ width: `${Math.min((viewTotals.closes / viewTotals.doorsKnocked) * 100, 100)}%` }} 
+                      />
+                    </div>
+                    <span className="text-xs font-semibold w-10 text-right">{viewTotals.closes}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Ratios - What it takes to sell */}
             {viewTotals.closes > 0 && (
               <div className="pt-4 border-t border-border">

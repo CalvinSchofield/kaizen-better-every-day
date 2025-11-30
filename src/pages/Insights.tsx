@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon } from 'lucide-react';
 import { format, subDays, subMonths, startOfYear } from 'date-fns';
 import {
   Sheet,
@@ -16,10 +16,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { SalesFunnelChart } from '@/components/insights/SalesFunnelChart';
+import { HourlyActivityHeatmap } from '@/components/insights/HourlyActivityHeatmap';
+import { ActivityTrendChart } from '@/components/insights/ActivityTrendChart';
+import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
-type ExpandedSection = 'ratios' | 'productivity' | 'bestPeriods' | 'timing' | 'custom' | null;
+type ExpandedSection = 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
@@ -274,6 +278,9 @@ export default function Insights() {
               </div>
             </Card>
 
+            {/* Sales Funnel - Always visible, not collapsible */}
+            <SalesFunnelChart funnelData={insights.funnelData} />
+
             {/* Key Ratios */}
             <Card>
               <Collapsible open={expandedSection === 'ratios'} onOpenChange={() => handleSectionToggle('ratios')}>
@@ -419,6 +426,60 @@ export default function Insights() {
               </Collapsible>
             </Card>
 
+            {/* Activity Trends */}
+            <Card>
+              <Collapsible open={expandedSection === 'trends'} onOpenChange={() => handleSectionToggle('trends')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUpIcon className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Activity Trends</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'trends' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'trends' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      Track your performance over time
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <ActivityTrendChart dailyTrend={insights.dailyTrend} efpModeEnabled={efpModeEnabled} />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
+            {/* Hourly Patterns */}
+            <Card>
+              <Collapsible open={expandedSection === 'hourly'} onOpenChange={() => handleSectionToggle('hourly')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Hourly Patterns</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'hourly' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'hourly' && insights.peakHours.doors !== null && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      Peak hour: {insights.peakHours.doors === 0 ? '12' : insights.peakHours.doors > 12 ? insights.peakHours.doors - 12 : insights.peakHours.doors}
+                      {insights.peakHours.doors >= 12 ? 'PM' : 'AM'}
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <HourlyActivityHeatmap 
+                      hourlyActivity={insights.hourlyActivity} 
+                      peakHours={insights.peakHours} 
+                    />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
             {/* Best Periods */}
             <Card>
               <Collapsible open={expandedSection === 'bestPeriods'} onOpenChange={() => handleSectionToggle('bestPeriods')}>
@@ -499,6 +560,15 @@ export default function Insights() {
                       <div className="text-xs text-muted-foreground mt-1">{insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+ sold</div>
                     )}
                   </Card>
+                )}
+                
+                {/* Day of Week Analysis */}
+                {insights.bestDayOfWeek && (
+                  <DayOfWeekAnalysis 
+                    dayOfWeekData={insights.dayOfWeekData}
+                    bestDayOfWeek={insights.bestDayOfWeek}
+                    efpModeEnabled={efpModeEnabled}
+                  />
                 )}
                   </div>
                 </CollapsibleContent>
