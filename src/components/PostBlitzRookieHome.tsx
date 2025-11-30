@@ -687,15 +687,17 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
-        {/* Monday Night Lights Alert - Shows only on Mondays 5am-8pm MST */}
+        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
         {(() => {
           const now = new Date();
           const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
           const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
           const hour = mstTime.getHours();
+          const minutes = mstTime.getMinutes();
+          const totalMinutes = hour * 60 + minutes;
           
-          // Show only on Mondays (1) between 5am (5) and 8pm (20)
-          const shouldShowMondayNights = dayOfWeek === 1 && hour >= 5 && hour < 20;
+          // Show only on Mondays (1) between 9am (540 minutes) and 8:30pm (1230 minutes)
+          const shouldShowMondayNights = dayOfWeek === 1 && totalMinutes >= 540 && totalMinutes <= 1230;
           
           return shouldShowMondayNights ? (
             <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">

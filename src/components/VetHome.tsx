@@ -546,26 +546,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
                 );
               })()}
             </div>
-            <div className="flex gap-2 flex-shrink-0 self-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isSyncing}
-                className={`rounded-full transition-all duration-300 border ${
-                  syncSuccess 
-                    ? 'bg-green-500 text-white border-green-500 hover:bg-green-500' 
-                    : 'bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 border-primary-foreground/20'
-                }`}
-                aria-label="Refresh data"
-              >
-                {syncSuccess ? (
-                  <CheckCircle2 className="w-4 h-4 animate-scale-in" />
-                ) : (
-                  <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
-                )}
-              </Button>
-            </div>
+            {/* Auto-refresh on mount, no manual button needed */}
           </div>
 
           {/* RSVP Card - Shows when blitz is within 2 weeks and not committed */}
@@ -737,15 +718,17 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           />
         )}
 
-        {/* Monday Night Lights Alert - Shows only on Mondays 5am-8pm MST */}
+        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
         {(() => {
           const now = new Date();
           const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
           const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
           const hour = mstTime.getHours();
+          const minutes = mstTime.getMinutes();
+          const totalMinutes = hour * 60 + minutes;
           
-          // Show only on Mondays (1) between 5am (5) and 8pm (20)
-          const shouldShowMondayNights = dayOfWeek === 1 && hour >= 5 && hour < 20;
+          // Show only on Mondays (1) between 9am (540 minutes) and 8:30pm (1230 minutes)
+          const shouldShowMondayNights = dayOfWeek === 1 && totalMinutes >= 540 && totalMinutes <= 1230;
           
           return shouldShowMondayNights ? (
             <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
