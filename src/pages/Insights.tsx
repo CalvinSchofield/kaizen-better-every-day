@@ -313,6 +313,26 @@ export default function Insights() {
                 </div>
               </div>
 
+              {/* Upgrade Breakdown */}
+              {insights.totalUpgradeFp > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-medium text-muted-foreground">FP+ Breakdown</div>
+                    <div className="text-xs text-primary font-semibold">{insights.upgradeRate.toFixed(0)}% upgrades</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{insights.totalNewFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">New FP+</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insights.totalUpgradeFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">Upgrade FP+</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* AI Coaching Feedback */}
               {aiFeedback && (
                 <div className="mt-4 pt-4 border-t border-border">
@@ -454,6 +474,21 @@ export default function Insights() {
                     )}
                   </div>
                 </Card>
+
+                {/* Doors to New FP+ metric */}
+                {insights.totalNewFp > 0 && (
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Doors → New FP+</div>
+                        <div className="text-2xl font-bold">{insights.doorsToNewFp.toFixed(1)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          More accurate door efficiency
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>

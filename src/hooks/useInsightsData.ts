@@ -32,6 +32,14 @@ export interface InsightsData {
   overallPitchesToEfp: number;
   overallTransitionsToEfp: number;
   
+  // Upgrade metrics
+  totalUpgradePrmr: number;
+  totalUpgradeFp: number;
+  totalNewFp: number;
+  totalNewPrmr: number;
+  upgradeRate: number;
+  doorsToNewFp: number;
+  
   // Best periods
   bestDay: { date: string; fpPlus: number; efp: number; stats: string } | null;
   bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; efp: number; stats: string } | null;
@@ -317,6 +325,14 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const overallDoorsToEfp = overallEfp > 0 ? overallTotals.doors / overallEfp : 0;
       const overallPitchesToEfp = overallEfp > 0 ? overallTotals.pitches / overallEfp : 0;
       const overallTransitionsToEfp = overallEfp > 0 ? overallTotals.transitions / overallEfp : 0;
+
+      // Upgrade calculations
+      const totalUpgradePrmr = rangeEntries.reduce((sum, entry) => sum + (entry.upgrade_prmr || 0), 0);
+      const totalUpgradeFp = totalUpgradePrmr / 85;
+      const totalNewFp = totals.fpPlus - totalUpgradeFp;
+      const totalNewPrmr = totals.prmr - totalUpgradePrmr;
+      const upgradeRate = totals.fpPlus > 0 ? (totalUpgradeFp / totals.fpPlus) * 100 : 0;
+      const doorsToNewFp = totalNewFp > 0 ? activityTotals.doors / totalNewFp : 0;
 
       // Best day (highest FP+)
       const bestDay = rangeEntries.length > 0
@@ -682,6 +698,12 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         overallDoorsToEfp,
         overallPitchesToEfp,
         overallTransitionsToEfp,
+        totalUpgradePrmr,
+        totalUpgradeFp,
+        totalNewFp,
+        totalNewPrmr,
+        upgradeRate,
+        doorsToNewFp,
         bestDay: bestDayData,
         bestWeek: bestWeekData,
         bestMonth: bestMonthData,

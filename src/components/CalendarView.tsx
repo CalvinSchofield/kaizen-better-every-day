@@ -73,10 +73,11 @@ export const CalendarView = ({
     if (isInPrevPeriod && entry.is_finalized) {
       totals.fpPlus += entry.fp_plus || 0;
       totals.prmr += entry.prmr || 0;
+      totals.upgradePrmr += entry.upgrade_prmr || 0;
       totals.daysWorked += 1;
     }
     return totals;
-  }, { fpPlus: 0, prmr: 0, daysWorked: 0 }) : null;
+  }, { fpPlus: 0, prmr: 0, upgradePrmr: 0, daysWorked: 0 }) : null;
 
   const isKnockingDay = (date: Date) => {
     // Check if date is within any blitz
@@ -193,6 +194,7 @@ export const CalendarView = ({
     if (isInView && entry.is_finalized) {
       totals.fpPlus += entry.fp_plus || 0;
       totals.prmr += entry.prmr || 0;
+      totals.upgradePrmr += entry.upgrade_prmr || 0;
       totals.doorsKnocked += entry.doors_knocked || 0;
       totals.decisionMakers += entry.decision_makers || 0;
       totals.pitches += entry.pitches || 0;
@@ -227,6 +229,7 @@ export const CalendarView = ({
   }, { 
     fpPlus: 0, 
     prmr: 0,
+    upgradePrmr: 0,
     doorsKnocked: 0,
     decisionMakers: 0,
     pitches: 0,
@@ -641,6 +644,27 @@ export const CalendarView = ({
                 <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.closes)}</div>
               </div>
             </div>
+
+            {/* Upgrade Breakdown */}
+            {viewTotals.upgradePrmr > 0 && (
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-semibold text-foreground mb-3">FP+ Breakdown</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="text-sm text-muted-foreground">New FP+</div>
+                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                      {(viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)).toFixed(1)}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm text-muted-foreground">Upgrade FP+</div>
+                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {(viewTotals.upgradePrmr / 85).toFixed(1)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Mini Funnel Teaser - Relative visualization */}
             {viewTotals.doorsKnocked > 0 && viewTotals.closes > 0 && (

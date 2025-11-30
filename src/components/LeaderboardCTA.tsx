@@ -52,8 +52,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     fetchUser();
   }, []);
 
-  // Priority metrics (FP+ > PRMR > hours > presentations > transitions > latest > earliest > pitches > doors)
-  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
+  // Priority metrics (FP+ > PRMR > Upgrade FP+ > Upgrade PRMR > hours > presentations > transitions > latest > earliest > pitches > doors)
+  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostUpgradePRMR', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
   // Find the best available callout based on hierarchy: yesterday > week > month > season
   const callout = useMemo(() => {
@@ -73,6 +73,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
           const metricLabel = {
             mostFP: 'FP+',
             mostPRMR: 'PRMR',
+            mostUpgradeFP: 'upgrade FP+',
+            mostUpgradePRMR: 'upgrade PRMR',
             mostHoursWorked: 'hours worked',
             mostDoors: 'doors knocked',
             mostTransitions: 'transitions',
@@ -86,9 +88,9 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           // Format value based on metric type
           let formattedValue = '';
-          if (metric === 'mostPRMR') {
+          if (metric === 'mostPRMR' || metric === 'mostUpgradePRMR') {
             formattedValue = `$${entry.value.toFixed(0)}`;
-          } else if (metric === 'mostFP') {
+          } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
             formattedValue = `${entry.value.toFixed(1)} FP+`;
           } else if (metric === 'mostHoursWorked') {
             formattedValue = `${entry.value.toFixed(1)} hrs`;

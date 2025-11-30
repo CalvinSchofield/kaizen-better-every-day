@@ -62,6 +62,8 @@ export const LeaderboardCard = () => {
   const categories = [
     { key: 'mostFP', label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
     { key: 'mostPRMR', label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
+    { key: 'mostUpgradeFP', label: 'Highest Upgrade FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+    { key: 'mostUpgradePRMR', label: 'Highest Upgrade PRMR', format: (v: number) => `$${v.toFixed(0)}` },
     { key: 'mostHoursWorked', label: 'Most Hours', format: (v: number) => `${v.toFixed(1)} hrs` },
     { key: 'mostDoors', label: 'Most Doors', format: (v: number) => `${v}` },
     { key: 'mostTransitions', label: 'Most Transitions', format: (v: number) => `${v}` },
@@ -74,6 +76,8 @@ export const LeaderboardCard = () => {
   const priorityMetrics = [
     { key: 'mostFP', label: 'FP+' },
     { key: 'mostPRMR', label: 'PRMR' },
+    { key: 'mostUpgradeFP', label: 'upgrade FP+' },
+    { key: 'mostUpgradePRMR', label: 'upgrade PRMR' },
     { key: 'mostHoursWorked', label: 'hours' },
     { key: 'mostPresentations', label: 'presentations' },
     { key: 'mostTransitions', label: 'transitions' },
