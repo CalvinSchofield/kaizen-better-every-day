@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.generate-daily-focus]
 verify_jwt = false
+
+[functions.recommend-contact]
+verify_jwt = false
+
+[functions.recommend-competitor]
+verify_jwt = false
