@@ -80,32 +80,28 @@ export const CalendarView = ({
   }, { fpPlus: 0, prmr: 0, upgradePrmr: 0, daysWorked: 0 }) : null;
 
   const isKnockingDay = (date: Date) => {
-    // Check if date is within any blitz
-    const inBlitz = blitzes.some((blitz) => {
-      const start = new Date(blitz.date);
-      const end = new Date(blitz.endDate || blitz.date);
-      return date >= start && date <= end;
-    });
-
-    // Check if date is within personal summer season
-    const inSeason =
-      personalSummerStart &&
-      personalSummerEnd &&
-      date >= personalSummerStart &&
-      date <= personalSummerEnd;
-
-    // Check if entry has actual tracking activity (not just FP+/PRMR)
+    const isSunday = getDay(date) === 0;
+    
+    // Check if entry has actual data (activity counters OR FP+/PRMR)
     const entry = getEntryForDate(date);
-    const hasTrackingActivity = entry && entry.is_finalized && (
+    const hasData = entry && entry.is_finalized && (
       (entry.doors_knocked || 0) > 0 ||
       (entry.decision_makers || 0) > 0 ||
       (entry.pitches || 0) > 0 ||
       (entry.transitions || 0) > 0 ||
       (entry.presentations || 0) > 0 ||
-      (entry.closes || 0) > 0
+      (entry.closes || 0) > 0 ||
+      (entry.fp_plus || 0) > 0 ||
+      (entry.prmr || 0) > 0
     );
 
-    return inBlitz || inSeason || hasTrackingActivity;
+    // Sundays are only knocking days if they have data
+    if (isSunday) {
+      return hasData;
+    }
+
+    // All other days are knocking days if they have data
+    return hasData;
   };
 
   const getEntryForDate = (date: Date) => {
@@ -656,15 +652,41 @@ export const CalendarView = ({
                 <div className="text-sm font-semibold text-foreground mb-3">FP+ Breakdown</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">New FP+</div>
+                    <div className="text-sm text-muted-foreground">FP</div>
                     <div className="text-lg font-bold text-green-600 dark:text-green-400">
                       {(viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)).toFixed(1)}
                     </div>
+                    {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        Avg {dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6
+                            ? (((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / viewTotals.daysWorked) * 6).toFixed(1)
+                            : ((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / 6).toFixed(1)
+                          : ((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / viewTotals.daysWorked).toFixed(1)
+                        } / day
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <div className="text-sm text-muted-foreground">Upgrade FP+</div>
                     <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                       {(viewTotals.upgradePrmr / 85).toFixed(1)}
+                    </div>
+                    {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        Avg {dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6
+                            ? (((viewTotals.upgradePrmr / 85) / viewTotals.daysWorked) * 6).toFixed(1)
+                            : ((viewTotals.upgradePrmr / 85) / 6).toFixed(1)
+                          : ((viewTotals.upgradePrmr / 85) / viewTotals.daysWorked).toFixed(1)
+                        } / day
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm text-muted-foreground">Avg PRMR per FP</div>
+                    <div className="text-lg font-bold text-primary">
+                      ${viewTotals.fpPlus > 0 ? (viewTotals.prmr / viewTotals.fpPlus).toFixed(0) : "0"}
                     </div>
                   </div>
                 </div>
