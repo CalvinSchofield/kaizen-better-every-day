@@ -54,8 +54,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     fetchUser();
   }, []);
 
-  // Priority metrics (FP+ > PRMR > Upgrade FP+ > Upgrade PRMR > hours > presentations > transitions > latest > earliest > pitches > doors)
-  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostUpgradePRMR', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
+  // Priority metrics (FP+ > PRMR > Upgrade FP+ > hours > presentations > transitions > latest > earliest > pitches > doors)
+  const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
   // Find the best available callout based on hierarchy: YTD > Season > Month > Week > Yesterday
   const callout = useMemo(() => {
@@ -77,7 +77,6 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
             mostFP: 'FP+',
             mostPRMR: 'PRMR',
             mostUpgradeFP: 'upgrade FP+',
-            mostUpgradePRMR: 'upgrade PRMR',
             mostHoursWorked: 'hours worked',
             mostDoors: 'doors knocked',
             mostTransitions: 'transitions',
@@ -91,7 +90,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           // Format value based on metric type
           let formattedValue = '';
-          if (metric === 'mostPRMR' || metric === 'mostUpgradePRMR') {
+          if (metric === 'mostPRMR') {
             formattedValue = `$${entry.value.toFixed(0)}`;
           } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
             formattedValue = `${entry.value.toFixed(1)} FP+`;
@@ -128,7 +127,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
               const percentBehind = (gap / entry.value) * 100;
               
               if (percentBehind <= 15) { // Within 15% of leader
-                if (metric === 'mostPRMR' || metric === 'mostUpgradePRMR') {
+                if (metric === 'mostPRMR') {
                   gapText = ` · You're $${gap.toFixed(0)} behind`;
                 } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
                   gapText = ` · You're ${gap.toFixed(1)} FP+ behind`;
