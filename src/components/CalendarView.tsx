@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isTod
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface CalendarViewProps {
   entries?: any[];
@@ -20,6 +21,7 @@ export const CalendarView = ({
   personalSummerEnd,
 }: CalendarViewProps) => {
   const queryClient = useQueryClient();
+  const { efpModeEnabled, calculateEfp } = useEfpMode();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -294,7 +296,7 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="text-xs text-primary font-semibold mt-1">
-                    {entry.fp_plus}
+                    {efpModeEnabled ? calculateEfp(entry.prmr || 0).toFixed(1) : (entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(0))}
                   </div>
                 )}
               </div>
@@ -334,13 +336,26 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="mt-2 space-y-0.5">
-                    <div className="text-xs text-primary font-semibold">
-                      {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
-                    </div>
-                    {entry.prmr > 0 && (
-                      <div className="text-xs text-muted-foreground font-medium">
-                        ${entry.prmr}
-                      </div>
+                    {efpModeEnabled ? (
+                      <>
+                        <div className="text-xs text-primary font-semibold">
+                          {calculateEfp(entry.prmr || 0).toFixed(1)} EFP
+                        </div>
+                        <div className="text-xs text-muted-foreground font-medium">
+                          {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-primary font-semibold">
+                          {entry.fp_plus % 1 === 0 ? entry.fp_plus : entry.fp_plus.toFixed(1)} FP+
+                        </div>
+                        {entry.prmr > 0 && (
+                          <div className="text-xs text-muted-foreground font-medium">
+                            ${entry.prmr}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -377,16 +392,35 @@ export const CalendarView = ({
               {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
             </div>
             <div className="flex gap-4 text-sm">
-              <div>
-                <span className="font-bold text-primary">
-                  {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
-                </span>
-                <span className="text-muted-foreground ml-1">FP+</span>
-              </div>
-              <div>
-                <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
-                <span className="text-muted-foreground ml-1">PRMR</span>
-              </div>
+              {efpModeEnabled ? (
+                <>
+                  <div>
+                    <span className="font-bold text-primary">
+                      {calculateEfp(viewTotals.prmr).toFixed(1)}
+                    </span>
+                    <span className="text-muted-foreground ml-1">EFP</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-primary">
+                      {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
+                    </span>
+                    <span className="text-muted-foreground ml-1">FP+</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="font-bold text-primary">
+                      {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
+                    </span>
+                    <span className="text-muted-foreground ml-1">FP+</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
+                    <span className="text-muted-foreground ml-1">PRMR</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           {summaryExpanded ? (
@@ -445,39 +479,76 @@ export const CalendarView = ({
               </div>
             )}
 
-            {/* Show averaged FP+ and PRMR when viewing averages */}
+            {/* Show averaged metrics when viewing averages */}
             {(dataViewMode === "weekly" || dataViewMode === "daily") && (
               <div className="flex gap-6 pt-2 pb-4 border-b border-border">
-                <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">
-                    {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
-                  </div>
-                  <div className="text-2xl font-semibold text-primary">
-                    {dataViewMode === "weekly" 
-                      ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                        ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
-                        : (viewTotals.fpPlus / 6).toFixed(1)
-                      : viewTotals.daysWorked > 0
-                        ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
-                        : "0.0"
-                    }
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-sm text-muted-foreground">
-                    {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} PRMR
-                  </div>
-                  <div className="text-2xl font-semibold text-primary">
-                    ${dataViewMode === "weekly" 
-                      ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                        ? ((viewTotals.prmr / viewTotals.daysWorked) * 6).toFixed(0)
-                        : (viewTotals.prmr / 6).toFixed(0)
-                      : viewTotals.daysWorked > 0
-                        ? (viewTotals.prmr / viewTotals.daysWorked).toFixed(0)
-                        : "0"
-                    }
-                  </div>
-                </div>
+                {efpModeEnabled ? (
+                  <>
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">
+                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} EFP
+                      </div>
+                      <div className="text-2xl font-semibold text-primary">
+                        {dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                            ? (((viewTotals.prmr / viewTotals.daysWorked) * 6) / 85).toFixed(1)
+                            : (viewTotals.prmr / 6 / 85).toFixed(1)
+                          : viewTotals.daysWorked > 0
+                            ? (viewTotals.prmr / viewTotals.daysWorked / 85).toFixed(1)
+                            : "0.0"
+                        }
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">
+                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
+                      </div>
+                      <div className="text-2xl font-semibold text-primary">
+                        {dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                            ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
+                            : (viewTotals.fpPlus / 6).toFixed(1)
+                          : viewTotals.daysWorked > 0
+                            ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
+                            : "0.0"
+                        }
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">
+                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
+                      </div>
+                      <div className="text-2xl font-semibold text-primary">
+                        {dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                            ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
+                            : (viewTotals.fpPlus / 6).toFixed(1)
+                          : viewTotals.daysWorked > 0
+                            ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
+                            : "0.0"
+                        }
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">
+                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} PRMR
+                      </div>
+                      <div className="text-2xl font-semibold text-primary">
+                        ${dataViewMode === "weekly" 
+                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
+                            ? (((viewTotals.prmr / viewTotals.daysWorked) * 6)).toFixed(0)
+                            : (viewTotals.prmr / 6).toFixed(0)
+                          : viewTotals.daysWorked > 0
+                            ? (viewTotals.prmr / viewTotals.daysWorked).toFixed(0)
+                            : "0"
+                        }
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

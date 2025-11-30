@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Trash2, Plus, Info } from "lucide-react";
+import { Trash2, Plus, Info, Calendar as CalendarIcon } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface CustomCounter {
   id: string;
@@ -26,8 +30,18 @@ export default function Settings() {
   const [counterEmoji, setCounterEmoji] = useState("📊");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Summer dates state
+  const [summerStart, setSummerStart] = useState<Date>();
+  const [summerEnd, setSummerEnd] = useState<Date>();
+  const [isSavingSummer, setIsSavingSummer] = useState(false);
+  
+  // EFP mode state
+  const [efpMode, setEfpMode] = useState(false);
+  const [isSavingEfp, setIsSavingEfp] = useState(false);
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
+  const isVet = repData?.year === "Vet";
   const customCounters: CustomCounter[] = Array.isArray(repData?.custom_counter_config) 
     ? (repData.custom_counter_config as any[]).map((c: any) => ({
         id: c.id,
@@ -37,6 +51,34 @@ export default function Settings() {
     : [];
   const maxCounters = 6;
   const canAddMore = customCounters.length < maxCounters;
+  
+  // Load summer dates and EFP mode from database on mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!repData?.user_id) return;
+      
+      // Load season config for summer dates
+      const { data: seasonConfig } = await supabase
+        .from('season_config')
+        .select('*')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      
+      if (seasonConfig) {
+        if (seasonConfig.personal_summer_start) {
+          setSummerStart(new Date(seasonConfig.personal_summer_start));
+        }
+        if (seasonConfig.personal_summer_end) {
+          setSummerEnd(new Date(seasonConfig.personal_summer_end));
+        }
+      }
+      
+      // Load EFP mode from rep data
+      setEfpMode(repData.efp_mode_enabled || false);
+    };
+    
+    loadUserData();
+  }, [repData]);
 
   const handleAddCounter = async () => {
     if (!counterName.trim()) {
@@ -128,15 +170,220 @@ export default function Settings() {
     }
   };
 
+  const handleSaveSummerDates = async () => {
+    if (!summerStart || !summerEnd) {
+      toast({
+        title: "Dates required",
+        description: "Please select both start and end dates",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const minDate = new Date('2026-04-12');
+    const maxDate = new Date('2026-09-27');
+    
+    if (summerStart < minDate || summerStart > maxDate || summerEnd < minDate || summerEnd > maxDate) {
+      toast({
+        title: "Invalid dates",
+        description: "Dates must be between April 12, 2026 and September 27, 2026",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (summerEnd < summerStart) {
+      toast({
+        title: "Invalid date range",
+        description: "End date must be after start date",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSavingSummer(true);
+    
+    try {
+      const { error } = await supabase
+        .from('season_config')
+        .upsert({
+          user_id: repData?.user_id,
+          personal_summer_start: format(summerStart, 'yyyy-MM-dd'),
+          personal_summer_end: format(summerEnd, 'yyyy-MM-dd'),
+        }, {
+          onConflict: 'user_id'
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Summer dates saved",
+        description: "Your personal summer season has been updated",
+      });
+    } catch (error: any) {
+      console.error("Error saving summer dates:", error);
+      toast({
+        title: "Failed to save dates",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingSummer(false);
+    }
+  };
+  
+  const handleToggleEfpMode = async (enabled: boolean) => {
+    setEfpMode(enabled);
+    setIsSavingEfp(true);
+    
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({ efp_mode_enabled: enabled })
+        .eq('id', repData?.id);
+      
+      if (error) throw error;
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: enabled ? "EFP mode enabled" : "EFP mode disabled",
+        description: enabled 
+          ? "EFP will now be your primary metric in Calendar and Insights"
+          : "FP+ will now be your primary metric",
+      });
+    } catch (error: any) {
+      console.error("Error toggling EFP mode:", error);
+      setEfpMode(!enabled); // Revert on error
+      toast({
+        title: "Failed to update EFP mode",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEfp(false);
+    }
+  };
+
   const commonEmojis = ["📊", "📈", "📞", "🎯", "✅", "💰", "📝", "🔥", "⭐", "💪"];
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground mt-1">Manage your account preferences</p>
+          <h1 className="text-2xl font-bold">Personalize</h1>
+          <p className="text-muted-foreground mt-1">Customize your experience</p>
         </div>
+        
+        {/* Summer Season Dates */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Summer Season Dates</CardTitle>
+            <CardDescription>
+              Set your personal summer season dates between April 12, 2026 and September 27, 2026
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div>
+                <Label>Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal mt-1"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {summerStart ? format(summerStart, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={summerStart}
+                      onSelect={setSummerStart}
+                      disabled={(date) =>
+                        date < new Date('2026-04-12') || 
+                        date > new Date('2026-09-27') ||
+                        (summerEnd && date > summerEnd)
+                      }
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div>
+                <Label>End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal mt-1"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {summerEnd ? format(summerEnd, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={summerEnd}
+                      onSelect={setSummerEnd}
+                      disabled={(date) =>
+                        date < new Date('2026-04-12') || 
+                        date > new Date('2026-09-27') ||
+                        (summerStart && date < summerStart)
+                      }
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleSaveSummerDates}
+              disabled={!summerStart || !summerEnd || isSavingSummer}
+              className="w-full"
+            >
+              {isSavingSummer ? "Saving..." : "Save Summer Dates"}
+            </Button>
+            
+            <p className="text-xs text-muted-foreground">
+              These dates will be used for your personal goal calculations
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* EFP Mode (Vets only) */}
+        {isVet && (
+          <Card>
+            <CardHeader>
+              <CardTitle>EFP Mode</CardTitle>
+              <CardDescription>
+                Track EFP (PRMR ÷ 85) as your primary metric instead of FP+
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable EFP Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, Calendar and Insights will show EFP as your primary metric
+                  </p>
+                </div>
+                <Switch
+                  checked={efpMode}
+                  onCheckedChange={handleToggleEfpMode}
+                  disabled={isSavingEfp}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {canAddCustomCounters ? (
           <Card>
