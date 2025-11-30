@@ -74,12 +74,12 @@ export const DayOfWeekAnalysis = ({ dayOfWeekData, bestDayOfWeek, efpModeEnabled
 
       {/* Breakdown Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="h-[85vh]">
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col">
           <SheetHeader>
             <SheetTitle>Day of Week Breakdown</SheetTitle>
           </SheetHeader>
           
-          <div className="mt-6 space-y-6">
+          <div className="mt-6 space-y-6 flex-1 overflow-y-auto pb-6">
             {/* Chart */}
             <div>
               <h3 className="text-sm font-semibold mb-4">

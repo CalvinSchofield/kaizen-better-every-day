@@ -225,7 +225,7 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
 
           <Separator />
 
-          {/* Settings */}
+          {/* Personalize */}
           <Link
             to="/settings"
             onClick={() => setOpen(false)}
@@ -233,9 +233,11 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
           >
             <Settings className="w-5 h-5 text-primary" />
             <div className="flex flex-col">
-              <span className="font-semibold">Settings</span>
+              <span className="font-semibold">Personalize</span>
               <span className="text-sm text-muted-foreground">
-                {isVetOrSoph ? "Manage custom counters" : "Account settings"}
+                {isVetOrSoph 
+                  ? "Customize counters & preferences" 
+                  : "Customize your experience"}
               </span>
             </div>
           </Link>

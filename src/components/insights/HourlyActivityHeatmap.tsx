@@ -7,12 +7,14 @@ interface HourlyActivityHeatmapProps {
     pitches: Record<number, number>;
     transitions: Record<number, number>;
     presentations: Record<number, number>;
+    closes: Record<number, number>;
   };
   peakHours: {
     doors: number | null;
     pitches: number | null;
     transitions: number | null;
     presentations: number | null;
+    closes: number | null;
   };
 }
 
@@ -23,6 +25,7 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours }: HourlyActiv
     { key: 'pitches', label: 'Pitches', data: hourlyActivity.pitches, peak: peakHours.pitches },
     { key: 'transitions', label: 'Transitions', data: hourlyActivity.transitions, peak: peakHours.transitions },
     { key: 'presentations', label: 'Presentations', data: hourlyActivity.presentations, peak: peakHours.presentations },
+    { key: 'closes', label: 'Closes', data: hourlyActivity.closes, peak: peakHours.closes },
   ];
 
   // Find max value for normalization

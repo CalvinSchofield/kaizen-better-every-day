@@ -23,7 +23,7 @@ import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 
-type ExpandedSection = 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
+type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
@@ -278,8 +278,30 @@ export default function Insights() {
               </div>
             </Card>
 
-            {/* Sales Funnel - Always visible, not collapsible */}
-            <SalesFunnelChart funnelData={insights.funnelData} />
+            {/* Sales Funnel - Collapsible */}
+            <Card>
+              <Collapsible open={expandedSection === 'funnel'} onOpenChange={() => handleSectionToggle('funnel')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUpIcon className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Sales Funnel</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'funnel' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'funnel' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insights.funnelData.doors.total} doors → {insights.funnelData.closes.total} closes · {insights.funnelData.doors.conversionToNext.toFixed(1)}% DM rate
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <SalesFunnelChart funnelData={insights.funnelData} />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
 
             {/* Key Ratios */}
             <Card>
