@@ -618,41 +618,41 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               const hasAirbnbData = nextBlitz.address1 || nextBlitz.wifi1 || nextBlitz.code1;
               
               return (
-                <div className="space-y-3 mb-3">
-                  <div className="flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10">
+                <div className="flex flex-col gap-2 w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
+                  <div className="flex items-center gap-3">
                     <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                     <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
                       {diffDays === 0 ? ctaText : `${nextBlitz.location} this week — you got this!`}
                     </p>
                   </div>
                   
-                  {/* Airbnb Action Buttons */}
+                  {/* Airbnb Action Buttons - pill style inside card */}
                   {hasAirbnbData && (
-                    <div className="flex items-center justify-center gap-3 px-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {nextBlitz.address1 && (
                         <button 
                           onClick={() => openInMaps(nextBlitz.address1!)}
-                          className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 hover:bg-background/70 transition-all text-sm"
                         >
-                          <MapPin className="w-5 h-5 text-primary-foreground/80" />
-                          <span className="text-xs text-primary-foreground/70 font-medium">Map</span>
+                          <MapPin className="w-4 h-4" />
+                          <span>Map</span>
                         </button>
                       )}
                       
                       {nextBlitz.wifi1 && (
                         <button 
                           onClick={() => copyToClipboard(nextBlitz.wifi1!, 'WiFi password copied!')}
-                          className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-all active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 hover:bg-background/70 transition-all text-sm"
                         >
-                          <Wifi className="w-5 h-5 text-primary-foreground/80" />
-                          <span className="text-xs text-primary-foreground/70 font-medium">Password</span>
+                          <Wifi className="w-4 h-4" />
+                          <span>Password</span>
                         </button>
                       )}
                       
                       {nextBlitz.code1 && (
-                        <div className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-primary-foreground/10">
-                          <Key className="w-5 h-5 text-primary-foreground/80" />
-                          <span className="text-xs text-primary-foreground/70 font-mono font-semibold">{nextBlitz.code1}</span>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/50 text-sm">
+                          <Key className="w-4 h-4" />
+                          <span className="font-mono">{nextBlitz.code1}</span>
                         </div>
                       )}
                     </div>

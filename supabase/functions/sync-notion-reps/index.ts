@@ -98,6 +98,13 @@ Deno.serve(async (req) => {
           return null;
         };
 
+        const getTextProperty = (prop: NotionProperty) => {
+          if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
+            return prop.rich_text[0].plain_text;
+          }
+          return null;
+        };
+
     const getSelect = (prop: NotionProperty) => {
       if (prop?.type === "select" && prop.select) {
         return prop.select.name;
@@ -333,13 +340,13 @@ Deno.serve(async (req) => {
                   const tripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
                   console.log(`Trip location: ${tripLocation}`);
                   
-                  // Extract Airbnb details
-                  const address1 = getPlace(tripData.properties["Address 1"]) || getRichText(tripData.properties["Address 1"]);
-                  const address2 = getPlace(tripData.properties["Address 2"]) || getRichText(tripData.properties["Address 2"]);
-                  const code1 = getRichText(tripData.properties["Code 1"]);
-                  const code2 = getRichText(tripData.properties["Code 2"]);
-                  const wifi1 = getRichText(tripData.properties["WiFi 1"]);
-                  const wifi2 = getRichText(tripData.properties["WiFi 2"]);
+            // Extract Airbnb details (all text properties now)
+            const address1 = getTextProperty(tripData.properties["Address 1"]);
+            const address2 = getTextProperty(tripData.properties["Address 2"]);
+            const code1 = getTextProperty(tripData.properties["Code 1"]);
+            const code2 = getTextProperty(tripData.properties["Code 2"]);
+            const wifi1 = getTextProperty(tripData.properties["WiFi 1"]);
+            const wifi2 = getTextProperty(tripData.properties["WiFi 2"]);
                   
                   // Store full blitz details INCLUDING the ID for comparison
                   committedBlitzes.push({
