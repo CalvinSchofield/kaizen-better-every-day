@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Trash2, Plus, Info, Calendar as CalendarIcon, GripVertical } from "lucide-react";
-import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { format } from "date-fns";
+import { useRepData } from "@/hooks/useRepData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface CustomCounter {
   id: string;
   name: string;
   emoji: string;
+  hidden?: boolean;
 }
 
 interface CounterLayoutConfig {
@@ -50,7 +53,7 @@ export default function Settings() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
   const [counterEmoji, setCounterEmoji] = useState("📊");
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteConfirmCounter, setDeleteConfirmCounter] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
   // Summer dates state
@@ -68,6 +71,11 @@ export default function Settings() {
   });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
+  
+  // Collapsible states
+  const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
+  const [isEfpModeOpen, setIsEfpModeOpen] = useState(false);
+  const [isTrackCountersOpen, setIsTrackCountersOpen] = useState(false);
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -76,6 +84,7 @@ export default function Settings() {
         id: c.id,
         name: c.name,
         emoji: c.emoji,
+        hidden: c.hidden || false,
       }))
     : [];
   const maxCounters = 6;
@@ -140,6 +149,7 @@ export default function Settings() {
         id: crypto.randomUUID(),
         name: counterName.trim(),
         emoji: counterEmoji || "📊",
+        hidden: false,
       };
 
       const updatedCounters = [...customCounters, newCounter];
@@ -182,33 +192,73 @@ export default function Settings() {
   };
 
   const handleDeleteCounter = async (counterId: string) => {
-    setIsDeleting(counterId);
-
     try {
-      const updatedCounters = customCounters.filter((c) => c.id !== counterId);
-
+      const updatedCounters = customCounters.filter(c => c.id !== counterId);
+      
+      // Also remove from counter layout order
+      const updatedOrder = counterLayout.order.filter(id => id !== `custom_${counterId}`);
+      
       const { error } = await supabase
-        .from("reps")
-        .update({ custom_counter_config: updatedCounters as any })
-        .eq("id", repData?.id);
+        .from('reps')
+        .update({ 
+          custom_counter_config: updatedCounters as any,
+          counter_layout_config: { order: updatedOrder } as any
+        })
+        .eq('id', repData?.id);
 
       if (error) throw error;
 
-      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-
       toast({
         title: "Counter deleted",
-        description: "The counter and its historical data have been removed",
+        description: "Custom counter has been removed.",
       });
+      
+      setDeleteConfirmCounter(null);
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
     } catch (error: any) {
-      console.error("Error deleting counter:", error);
+      console.error('Error deleting counter:', error);
       toast({
-        title: "Failed to delete counter",
-        description: error.message,
+        title: "Error",
+        description: "Failed to delete counter. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsDeleting(null);
+    }
+  };
+
+  const handleToggleCounterVisibility = async (counterId: string) => {
+    try {
+      const updatedCounters = customCounters.map(c => 
+        c.id === counterId ? { ...c, hidden: !c.hidden } : c
+      );
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ 
+          custom_counter_config: updatedCounters as any
+        })
+        .eq('id', repData?.id);
+
+      if (error) throw error;
+
+      const wasHidden = customCounters.find(c => c.id === counterId)?.hidden;
+
+      toast({
+        title: wasHidden ? "Counter visible" : "Counter hidden",
+        description: wasHidden 
+          ? "Counter is now visible on Track page." 
+          : "Counter hidden from Track page.",
+      });
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
+    } catch (error: any) {
+      console.error('Error toggling counter visibility:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update counter visibility.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -331,13 +381,10 @@ export default function Settings() {
     reordered.splice(draggedIndex, 1);
     reordered.splice(targetIndex, 0, draggedCounter);
     
-    // Split back into core and custom order
-    const newCoreOrder = reordered.filter(id => !id.startsWith('custom_'));
-    
-    setCounterLayout(prev => ({
-      ...prev,
-      order: newCoreOrder
-    }));
+    // Update order (includes both core and custom IDs)
+    setCounterLayout({
+      order: reordered
+    });
   };
   
   const handleDragEnd = () => {
@@ -350,12 +397,13 @@ export default function Settings() {
     try {
       const { error } = await supabase
         .from('reps')
-        .update({ counter_layout_config: counterLayout as any } as any)
+        .update({ counter_layout_config: counterLayout as any })
         .eq('id', repData?.id);
       
       if (error) throw error;
       
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
       
       toast({
         title: "Layout saved",
@@ -375,258 +423,291 @@ export default function Settings() {
 
   const commonEmojis = ["📊", "📈", "📞", "🎯", "✅", "💰", "📝", "🔥", "⭐", "💪"];
 
+  // Build ordered list combining core and custom counters
+  const orderedCounters = [
+    ...counterLayout.order.map(id => {
+      if (id.startsWith('custom_')) {
+        const customId = id.replace('custom_', '');
+        const counter = customCounters.find(c => c.id === customId);
+        return counter ? { id, emoji: counter.emoji, name: counter.name, isCustom: true, hidden: counter.hidden } : null;
+      }
+      return { id, emoji: '', name: COUNTER_LABELS[id], isCustom: false, hidden: false };
+    }).filter(Boolean),
+    ...customCounters
+      .filter(c => !counterLayout.order.includes(`custom_${c.id}`))
+      .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
+  ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
+
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
-        {/* Summer Season Dates */}
+        {/* Summer Season Dates - Collapsible */}
         <Card>
-          <CardHeader>
-            <CardTitle>Summer Season Dates</CardTitle>
-            <CardDescription>
-              Set your personal summer season dates between April 12, 2026 and September 27, 2026
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div>
-                <Label>Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal mt-1"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {summerStart ? format(summerStart, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={summerStart}
-                      onSelect={setSummerStart}
-                      disabled={(date) =>
-                        date < new Date('2026-04-12') || 
-                        date > new Date('2026-09-27') ||
-                        (summerEnd && date > summerEnd)
-                      }
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div>
-                <Label>End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal mt-1"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {summerEnd ? format(summerEnd, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={summerEnd}
-                      onSelect={setSummerEnd}
-                      disabled={(date) =>
-                        date < new Date('2026-04-12') || 
-                        date > new Date('2026-09-27') ||
-                        (summerStart && date < summerStart)
-                      }
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            
-            <Button 
-              onClick={handleSaveSummerDates}
-              disabled={!summerStart || !summerEnd || isSavingSummer}
-              className="w-full"
-            >
-              {isSavingSummer ? "Saving..." : "Save Summer Dates"}
-            </Button>
-            
-            <p className="text-xs text-muted-foreground">
-              These dates will be used for your personal goal calculations
-            </p>
-          </CardContent>
+          <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle>Summer Season Dates</CardTitle>
+                    {!isSummerDatesOpen && (summerStart || summerEnd) && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {summerStart ? format(summerStart, 'MMM d') : '—'} to {summerEnd ? format(summerEnd, 'MMM d, yyyy') : '—'}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isSummerDatesOpen && "rotate-180")} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <Label>Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal mt-1"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {summerStart ? format(summerStart, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={summerStart}
+                          onSelect={setSummerStart}
+                          disabled={(date) =>
+                            date < new Date('2026-04-12') || 
+                            date > new Date('2026-09-27') ||
+                            (summerEnd && date > summerEnd)
+                          }
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div>
+                    <Label>End Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal mt-1"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {summerEnd ? format(summerEnd, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={summerEnd}
+                          onSelect={setSummerEnd}
+                          disabled={(date) =>
+                            date < new Date('2026-04-12') || 
+                            date > new Date('2026-09-27') ||
+                            (summerStart && date < summerStart)
+                          }
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={handleSaveSummerDates}
+                  disabled={!summerStart || !summerEnd || isSavingSummer}
+                  className="w-full"
+                >
+                  {isSavingSummer ? "Saving..." : "Save Summer Dates"}
+                </Button>
+                
+                <p className="text-xs text-muted-foreground">
+                  These dates will be used for your personal goal calculations
+                </p>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
         
-        
-        {/* EFP Mode (Vets only) */}
+        {/* EFP Mode (Vets only) - Collapsible */}
         {isVet && (
           <Card>
-            <CardHeader>
-              <CardTitle>EFP Mode</CardTitle>
-              <CardDescription>
-                Track EFP (PRMR ÷ 85) as your primary metric instead of FP+
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Enable EFP Mode</Label>
-                  <p className="text-sm text-muted-foreground">
-                    When enabled, Calendar and Insights will show EFP as your primary metric
-                  </p>
-                </div>
-                <Switch
-                  checked={efpMode}
-                  onCheckedChange={handleToggleEfpMode}
-                  disabled={isSavingEfp}
-                />
-              </div>
-            </CardContent>
+            <Collapsible open={isEfpModeOpen} onOpenChange={setIsEfpModeOpen}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle>EFP Mode</CardTitle>
+                      {!isEfpModeOpen && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {efpMode ? "Enabled" : "Disabled"}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isEfpModeOpen && "rotate-180")} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Enable EFP Mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        When enabled, Calendar and Insights will show EFP as your primary metric
+                      </p>
+                    </div>
+                    <Switch
+                      checked={efpMode}
+                      onCheckedChange={handleToggleEfpMode}
+                      disabled={isSavingEfp}
+                    />
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
           </Card>
         )}
 
-        {canAddCustomCounters ? (
+        {/* Track Counters - Collapsible */}
+        {canAddCustomCounters && (
           <Card>
-            <CardHeader>
-              <CardTitle>Track Counters</CardTitle>
-              <CardDescription>
-                Reorder all counters and manage your custom tracking metrics
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">All Counters</h3>
-                  <span className="text-xs text-muted-foreground">Drag to reorder</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Core counters feed team leaderboards. Custom counters appear only in your personal Insights.
-                </p>
-                
-                <div className="space-y-2">
-                  {/* Core Counters */}
-                  {counterLayout.order.map((counterId) => {
-                    const label = COUNTER_LABELS[counterId];
-                    
-                    return (
-                      <div
-                        key={counterId}
-                        draggable
-                        onDragStart={() => handleDragStart(counterId)}
-                        onDragOver={(e) => handleDragOver(e, counterId)}
-                        onDragEnd={handleDragEnd}
-                        className={`flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
-                          draggedCounter === counterId ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                        <span className="flex-1 font-medium">{label}</span>
-                        <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">Core</span>
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Custom Counters */}
-                  {customCounters.map((counter) => (
-                    <div
-                      key={`custom_${counter.id}`}
-                      draggable
-                      onDragStart={() => handleDragStart(`custom_${counter.id}`)}
-                      onDragOver={(e) => handleDragOver(e, `custom_${counter.id}`)}
-                      onDragEnd={handleDragEnd}
-                      className={`flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
-                        draggedCounter === `custom_${counter.id}` ? 'opacity-50' : ''
-                      }`}
-                    >
-                      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
-                      <span className="text-xl">{counter.emoji}</span>
-                      <span className="flex-1 font-medium">{counter.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteCounter(counter.id)}
-                        disabled={isDeleting === counter.id}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+            <Collapsible open={isTrackCountersOpen} onOpenChange={setIsTrackCountersOpen}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle>Track Counters</CardTitle>
+                      {!isTrackCountersOpen && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {customCounters.length} custom counter{customCounters.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
-                
-                <Button
-                  onClick={handleSaveCounterLayout}
-                  disabled={isSavingLayout}
-                  size="sm"
-                  className="w-full"
-                >
-                  {isSavingLayout ? "Saving..." : "Save Counter Order"}
-                </Button>
-              </div>
-              
-              {/* Add Counter Button */}
-              <div className="pt-2 border-t border-border">
-                {canAddMore ? (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowAddSheet(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Custom Counter ({customCounters.length}/{maxCounters})
-                  </Button>
-                ) : (
-                  <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-                    <Info className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground">
-                      Maximum of {maxCounters} custom counters reached. Delete one to add a new counter.
-                    </p>
+                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isTrackCountersOpen && "rotate-180")} />
                   </div>
-                )}
-              </div>
-              
-              {customCounters.length > 0 && (
-                <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                  <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Deleting a counter removes all its historical data permanently.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Custom Counters</CardTitle>
-              <CardDescription>
-                Available for Vets and Sophomores
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Custom counters allow experienced reps to track additional metrics beyond the core 6 inputs. This feature will be available once you complete your rookie season.
-              </p>
-            </CardContent>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">All Counters</h3>
+                      <span className="text-xs text-muted-foreground">Drag to reorder</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Core counters feed team leaderboards. Custom counters appear only in your personal Insights.
+                    </p>
+                    
+                    <div className="space-y-2">
+                      {orderedCounters.map((counter) => (
+                        <div
+                          key={counter.id}
+                          draggable
+                          onDragStart={() => handleDragStart(counter.id)}
+                          onDragOver={(e) => handleDragOver(e, counter.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`group flex items-center gap-3 p-3 border rounded-lg bg-card border-border transition-opacity ${
+                            draggedCounter === counter.id ? 'opacity-50' : ''
+                          }`}
+                        >
+                          <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0" />
+                          <span className="flex-1 font-medium flex items-center gap-2">
+                            {counter.emoji && <span className="text-xl">{counter.emoji}</span>}
+                            {counter.name}
+                          </span>
+                          {!counter.isCustom && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">Core</span>
+                          )}
+                          {counter.isCustom && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const customId = counter.id.replace('custom_', '');
+                                  handleToggleCounterVisibility(customId);
+                                }}
+                              >
+                                {counter.hidden ? (
+                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const customId = counter.id.replace('custom_', '');
+                                  setDeleteConfirmCounter(customId);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <Button
+                      onClick={handleSaveCounterLayout}
+                      disabled={isSavingLayout}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {isSavingLayout ? "Saving..." : "Save Counter Order"}
+                    </Button>
+                  </div>
+                  
+                  {/* Add Counter Button */}
+                  <div className="pt-2 border-t border-border">
+                    {canAddMore ? (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowAddSheet(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Custom Counter ({customCounters.length}/{maxCounters})
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center">
+                        Maximum of {maxCounters} custom counters reached
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
           </Card>
         )}
       </div>
 
-      {/* Add Counter Sheet */}
-      <Sheet open={showAddSheet} onOpenChange={setShowAddSheet}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>Add Custom Counter</SheetTitle>
-            <SheetDescription>
-              Create a new counter to track on your QTally page
-            </SheetDescription>
-          </SheetHeader>
+      {/* Add Custom Counter Drawer */}
+      <Drawer open={showAddSheet} onOpenChange={setShowAddSheet}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader>
+            <DrawerTitle>Add Custom Counter</DrawerTitle>
+            <DrawerDescription>
+              Create a custom counter to track additional metrics on the Track page.
+            </DrawerDescription>
+          </DrawerHeader>
 
-          <div className="space-y-4 mt-6">
+          <div className="space-y-4 mt-6 px-4">
             <div>
               <Label htmlFor="counter-name">Counter Name</Label>
               <Input
@@ -665,30 +746,48 @@ export default function Settings() {
               </p>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setShowAddSheet(false);
-                  setCounterName("");
-                  setCounterEmoji("📊");
-                }}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleAddCounter}
-                disabled={!counterName.trim() || isSaving}
-              >
-                {isSaving ? "Adding..." : "Add Counter"}
-              </Button>
-            </div>
+            <Button
+              className="w-full py-6 text-lg font-semibold"
+              onClick={handleAddCounter}
+              disabled={!counterName.trim() || isSaving}
+              size="lg"
+            >
+              {isSaving ? "Adding..." : "Add Counter"}
+            </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Delete Confirmation Drawer */}
+      <Drawer open={deleteConfirmCounter !== null} onOpenChange={(open) => !open && setDeleteConfirmCounter(null)}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader>
+            <DrawerTitle>Delete Counter?</DrawerTitle>
+            <DrawerDescription>
+              This will permanently delete this custom counter. This action cannot be undone.
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <Button
+              onClick={() => deleteConfirmCounter && handleDeleteCounter(deleteConfirmCounter)}
+              variant="destructive"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={() => setDeleteConfirmCounter(null)}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
