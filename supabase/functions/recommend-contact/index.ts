@@ -15,19 +15,26 @@ serve(async (req) => {
 
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
-Available contacts:
-- Account Creation Front Line (888-324-5771, text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
-- Account Creation Advocates (888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
-- 1Stop/Assets (888-324-5771, text 801-509-9080): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
-- SOS (800-236-6808, text 801-823-4406): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
-- QRF (email qrfInbox@vivint.com): Equipment troubleshooting, install issues, support before calling SOS
-- Buyouts (text 435-222-2010): Buyout amounts and questions, elite fulfillment
-- State Licensing (888-324-5771): Applications, fees, renewals, fingerprints
-- Housing (888-324-5771): Summer housing, rent questions, utility deductions
-- Arbitration (email accountarbitration@vivint.com): Arbitration questions and requests
-- Compliance - Josh Powell (text 385-250-4896): Compliance questions
+CRITICAL RULES:
+1. ONLY recommend contacts from the list below
+2. ALWAYS include the phone number or email in your response
+3. If the situation doesn't clearly match any contact below, respond with EXACTLY: "LOW_CONFIDENCE"
+4. Keep responses to 1-2 sentences MAX
 
-Respond in 1-2 sentences MAX. Be direct and specific about who to contact and how.`;
+Available contacts:
+- Account Creation Front Line (Call 888-324-5771 or text 435-466-7224): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
+- Account Creation Advocates (Call 888-324-5771): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
+- 1Stop/Assets (Call 888-324-5771 or text 801-509-9080): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
+- SOS (Call 800-236-6808 or text 801-823-4406): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
+- QRF (Email qrfInbox@vivint.com): Equipment troubleshooting, install issues, support before calling SOS
+- Buyouts (Text 435-222-2010 or email buyout@vivint.com): Buyout amounts and questions, elite fulfillment
+- State Licensing (Call 888-324-5771 or email employeelicensing@vivint.com): Applications, fees, renewals, fingerprints
+- Housing (Call 888-324-5771 or email housing@vivint.com): Summer housing, rent questions, utility deductions
+- Arbitration (Email accountarbitration@vivint.com): Arbitration questions and requests
+- Compliance - Josh Powell (Text 385-250-4896 or email joshua.powell@vivint.com): Compliance questions
+
+Example good response: "Call Account Creation Front Line at 888-324-5771 for scheduling help."
+Example low confidence: If unsure, respond with: "LOW_CONFIDENCE"`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -67,8 +74,12 @@ Respond in 1-2 sentences MAX. Be direct and specific about who to contact and ho
 
     const data = await response.json();
     const recommendation = data.choices?.[0]?.message?.content;
+    const isLowConfidence = recommendation?.includes("LOW_CONFIDENCE");
 
-    return new Response(JSON.stringify({ recommendation }), {
+    return new Response(JSON.stringify({ 
+      recommendation: isLowConfidence ? null : recommendation,
+      lowConfidence: isLowConfidence 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
