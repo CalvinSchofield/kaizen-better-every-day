@@ -108,8 +108,8 @@ export default function Settings() {
       setEfpMode(repData.efp_mode_enabled || false);
       
       // Load counter layout config
-      if (repData.counter_layout_config) {
-        setCounterLayout(repData.counter_layout_config as CounterLayoutConfig);
+      if ((repData as any).counter_layout_config) {
+        setCounterLayout((repData as any).counter_layout_config as CounterLayoutConfig);
       }
     };
     
@@ -355,7 +355,7 @@ export default function Settings() {
     try {
       const { error } = await supabase
         .from('reps')
-        .update({ counter_layout_config: counterLayout as any })
+        .update({ counter_layout_config: counterLayout as any } as any)
         .eq('id', repData?.id);
       
       if (error) throw error;
