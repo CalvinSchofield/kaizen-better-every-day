@@ -1028,17 +1028,9 @@ const Home = () => {
                     <span className="text-2xl">🌙</span>
                     <h3 className="text-primary-foreground font-bold text-lg">Monday Night Lights — Tonight!</h3>
                   </div>
-                  <p className="text-primary-foreground/90 text-sm leading-relaxed mb-3">
-                    Join us for training, Q&A, and team connection. Attend online or in person in Lehi if you can make it!
+                  <p className="text-primary-foreground/90 text-sm leading-relaxed">
+                    Join us for training, Q&A, and team connection. Attend online or in person in Lehi if you can make it! Watch Slack for the link at <strong>6pm MST</strong>.
                   </p>
-                  <Button 
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => window.open('https://calvinschofield.notion.site/Monday-Night-Lights-15c1f9c4ddcd80e192a2fb0f4d533b55', '_blank')}
-                  >
-                    View Details
-                  </Button>
                 </div>
               );
             }
