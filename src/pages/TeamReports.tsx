@@ -415,38 +415,93 @@ const TeamReports = () => {
                   <CollapsibleContent>
                     <div className="px-4 pb-4">
                       <div className="space-y-4">
-                        {insightsData.repBreakdown.map((rep) => (
-                          <div key={rep.userId} className="border-b pb-4 last:border-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <p className="font-semibold">{rep.name}</p>
-                                <p className="text-sm text-muted-foreground">{rep.year}</p>
+                        {(() => {
+                          // Sort based on access level
+                          const accessLevel = accessData?.accessLevel || 'none';
+                          let sortedReps = [...insightsData.repBreakdown];
+                          
+                          if (accessLevel === 'area_director') {
+                            // Sort by: MGMT Group → Team → Name
+                            sortedReps.sort((a, b) => {
+                              if (a.mgmtGroupName !== b.mgmtGroupName) {
+                                return a.mgmtGroupName.localeCompare(b.mgmtGroupName);
+                              }
+                              if (a.teamName !== b.teamName) {
+                                return a.teamName.localeCompare(b.teamName);
+                              }
+                              return a.name.localeCompare(b.name);
+                            });
+                          } else if (accessLevel === 'mgmt_group_lead') {
+                            // Sort by: Team → Name
+                            sortedReps.sort((a, b) => {
+                              if (a.teamName !== b.teamName) {
+                                return a.teamName.localeCompare(b.teamName);
+                              }
+                              return a.name.localeCompare(b.name);
+                            });
+                          } else {
+                            // Team Lead: Sort by Name only
+                            sortedReps.sort((a, b) => a.name.localeCompare(b.name));
+                          }
+                          
+                          return sortedReps.map((rep, index, arr) => {
+                            // Determine if we should show group/team headers
+                            const showMgmtHeader = accessLevel === 'area_director' && 
+                              (index === 0 || arr[index - 1].mgmtGroupName !== rep.mgmtGroupName);
+                            const showTeamHeader = (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') &&
+                              (index === 0 || arr[index - 1].teamName !== rep.teamName);
+                            
+                            return (
+                              <div key={rep.userId}>
+                                {showMgmtHeader && (
+                                  <div className="pt-4 pb-2 -mx-4 px-4 bg-muted/30 border-t border-b border-border">
+                                    <p className="text-sm font-semibold text-primary">{rep.mgmtGroupName}</p>
+                                  </div>
+                                )}
+                                {showTeamHeader && !showMgmtHeader && (
+                                  <div className="pt-3 pb-2 -mx-4 px-4 bg-muted/20 border-t border-border">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{rep.teamName}</p>
+                                  </div>
+                                )}
+                                {showTeamHeader && showMgmtHeader && (
+                                  <div className="pt-1 pb-2 -mx-4 px-4 bg-muted/20">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{rep.teamName}</p>
+                                  </div>
+                                )}
+                                <div className="border-b pb-4 last:border-0">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <p className="font-semibold">{rep.name}</p>
+                                      <p className="text-sm text-muted-foreground">{rep.year}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-lg font-bold">{rep.fp.toFixed(1)} FP</p>
+                                      <p className="text-sm text-muted-foreground">${rep.prmr.toFixed(0)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-4 gap-2 text-sm">
+                                    <div>
+                                      <p className="text-muted-foreground">Doors</p>
+                                      <p className="font-semibold">{rep.doors}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Pitches</p>
+                                      <p className="font-semibold">{rep.pitches}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Presentations</p>
+                                      <p className="font-semibold">{rep.presentations}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground">Closes</p>
+                                      <p className="font-semibold">{rep.closes}</p>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-lg font-bold">{rep.fp.toFixed(1)} FP</p>
-                                <p className="text-sm text-muted-foreground">${rep.prmr.toFixed(0)}</p>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">Doors</p>
-                                <p className="font-semibold">{rep.doors}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Pitches</p>
-                                <p className="font-semibold">{rep.pitches}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Presentations</p>
-                                <p className="font-semibold">{rep.presentations}</p>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground">Closes</p>
-                                <p className="font-semibold">{rep.closes}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   </CollapsibleContent>
