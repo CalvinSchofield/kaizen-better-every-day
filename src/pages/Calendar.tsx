@@ -15,19 +15,30 @@ const Calendar = () => {
   const year = repData?.year || "Rookie";
   const isRookie = year === "Rookie";
   
-  // Check if rookie has attended a blitz (any blitz with endDate in the past)
+  // Check if rookie has attended a blitz OR is currently on an active blitz
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
-  const hasAttendedBlitz = blitzes.some((blitz: any) => {
-    if (blitz.endDate) {
-      const endDate = new Date(blitz.endDate);
-      return endDate < new Date();
-    }
-    return false;
+  
+  const now = new Date();
+  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
+    if (!blitz.date || !blitz.endDate) return false;
+    
+    // Check if blitz is currently active (between start and end date)
+    const startDate = new Date(blitz.date + 'T00:00:00');
+    startDate.setHours(16, 0, 0, 0); // 4pm start
+    const endDate = new Date(blitz.endDate + 'T00:00:00');
+    endDate.setHours(10, 0, 0, 0); // 10am end
+    
+    const isCurrentlyActive = now >= startDate && now <= endDate;
+    
+    // Check if blitz has ended (past)
+    const hasEnded = endDate < now;
+    
+    return isCurrentlyActive || hasEnded;
   });
 
-  const isPreBlitzRookie = isRookie && !hasAttendedBlitz;
+  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
 
   // Fetch all daily entries for the logged-in user
   const { data: entries = [] } = useQuery({
