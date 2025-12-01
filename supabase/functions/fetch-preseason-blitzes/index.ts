@@ -106,6 +106,9 @@ Deno.serve(async (req) => {
         }
 
         const location = getRichText(props.Location) || getSelect(props.Location);
+        const address1 = getRichText(props["Address 1"]);
+        const wifi1 = getRichText(props["WiFi 1"]);
+        const code1 = getRichText(props["Code 1"]);
 
         // Only include blitzes with valid dates
         if (date) {
@@ -115,6 +118,9 @@ Deno.serve(async (req) => {
             date,
             endDate,
             location,
+            address1,
+            wifi1,
+            code1,
           });
         }
       } catch (error: any) {

@@ -7,6 +7,9 @@ interface BlitzEvent {
   date: string;
   endDate: string | null;
   location: string | null;
+  address1?: string | null;
+  wifi1?: string | null;
+  code1?: string | null;
 }
 
 export const useBlitzes = () => {

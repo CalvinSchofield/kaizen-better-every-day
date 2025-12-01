@@ -47,6 +47,9 @@ interface BlitzEvent {
   date: string;
   endDate: string | null;
   location: string | null;
+  address1?: string | null;
+  wifi1?: string | null;
+  code1?: string | null;
 }
 
 interface TeamMember {
@@ -143,6 +146,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
   // Load committed blitzes from repData
   useEffect(() => {
+    // Don't overwrite state while an update is in progress
+    if (isUpdating) return;
+    
     if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
       const committedIds = repData.committed_blitzes
         .map((b: any) => b.id)
@@ -151,7 +157,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } else {
       setCommittedBlitzIds([]);
     }
-  }, [repData]);
+  }, [repData, isUpdating]);
 
   // Sync team members from props
   useEffect(() => {
@@ -204,11 +210,10 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
     // Optimistic update for commit
     setIsUpdating(true);
-    setCommittedBlitzIds(prev => [...prev, blitzId]);
+    const newCommittedIds = [...committedBlitzIds, blitzId];
+    setCommittedBlitzIds(newCommittedIds);
 
     try {
-      const newCommittedIds = [...committedBlitzIds, blitzId];
-
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
           repNotionPageId: repData.notion_page_id,
@@ -228,11 +233,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         description: `You're now committed to ${blitzName}`,
       });
       
+      // Wait for both backend update AND state update to complete before clearing optimistic state
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Trigger parent refetch to update next blitz display
       onCommitmentChange?.();
     } catch (error) {
       console.error('Error updating commitment:', error);
-      setCommittedBlitzIds(committedBlitzIds);
+      // Revert optimistic update on error
+      setCommittedBlitzIds(committedBlitzIds.filter(id => id !== blitzId));
       toast({
         title: "Update failed",
         description: "Could not update your commitment. Please try again.",
@@ -246,6 +255,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const confirmUncommit = async () => {
     if (!blitzToUncommit) return;
 
+    // Optimistic update
+    const originalCommittedIds = [...committedBlitzIds];
     const newCommittedIds = committedBlitzIds.filter(id => id !== blitzToUncommit.id);
     setCommittedBlitzIds(newCommittedIds);
 
@@ -264,11 +275,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         description: `Removed from ${blitzToUncommit.name}`,
       });
       
+      // Wait for state to stabilize before triggering refetch
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Trigger parent refetch to update next blitz display
       onCommitmentChange?.();
     } catch (error) {
       console.error('Error updating commitment:', error);
-      setCommittedBlitzIds(committedBlitzIds);
+      // Revert on error
+      setCommittedBlitzIds(originalCommittedIds);
       toast({
         title: "Update failed",
         description: "Could not update your commitment. Please try again.",
@@ -500,6 +515,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
   // Cycle through scope options
   const cycleScopeOption = () => {
+    if (loadingAttendance) return; // Prevent cycling while loading
+    
     if (accessLevel === 'area_director') {
       const options: Array<'you' | 'team' | 'mgmt' | 'office'> = ['you', 'team', 'mgmt', 'office'];
       const currentIndex = options.indexOf(attendanceScope);
