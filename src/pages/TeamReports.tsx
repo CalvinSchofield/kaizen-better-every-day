@@ -105,14 +105,6 @@ const TeamReports = () => {
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
       <div className="max-w-lg mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Team Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            Pull insights from your team's performance
-          </p>
-        </div>
-
         {/* Date Range Selector - Matching Insights Page */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           <Button

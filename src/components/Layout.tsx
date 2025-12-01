@@ -138,6 +138,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
         return "Insights";
       case "/settings":
         return "Personalize";
+      case "/team-reports":
+        return "Reports";
       default:
         return "Kaizen";
     }
