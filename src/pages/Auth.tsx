@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { PWAInstallGate } from "@/components/PWAInstallGate";
+import { isPWAInstalled, hasUserSignedUp, markUserSignedUp } from "@/utils/pwaDetection";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +18,9 @@ const Auth = () => {
   const [name, setName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if PWA is installed
+  const isPWA = isPWAInstalled();
 
   useEffect(() => {
     // Check if user is already logged in
@@ -30,6 +35,12 @@ const Auth = () => {
         }
       }
     });
+
+    // Set default view based on signup history
+    // If user has signed up before on this device, default to login
+    if (hasUserSignedUp()) {
+      setIsLogin(true);
+    }
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -98,6 +109,9 @@ const Auth = () => {
           throw error;
         }
 
+        // Mark that user has signed up on this device
+        markUserSignedUp();
+
         toast({
           title: "Account created!",
           description: "Welcome to Kaizen. Setting up your account...",
@@ -116,6 +130,11 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  // Show PWA install gate if not installed
+  if (!isPWA) {
+    return <PWAInstallGate />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
