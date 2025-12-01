@@ -83,13 +83,21 @@ export const useActivitySummary = (repData: any) => {
       if (mode === "blitz") {
         startDate = new Date(activeBlitz.date + 'T00:00:00');
         endDate = new Date(activeBlitz.endDate + 'T00:00:00');
-        const daysIntoBlitz = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // If blitz starts on Sunday, Day 1 is Monday
+        let dayOneDate = new Date(startDate);
+        if (getDay(startDate) === 0) {
+          dayOneDate.setDate(dayOneDate.getDate() + 1); // Move to Monday
+        }
+        
+        const daysIntoBlitz = Math.floor((now.getTime() - dayOneDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         dayNumber = daysIntoBlitz;
         title = `This Blitz — Day ${daysIntoBlitz}`;
         subtitle = activeBlitz.name || activeBlitz.location;
       } else if (mode === "summer") {
-        startDate = startOfWeek(now, { weekStartsOn: 1 });
-        endDate = endOfWeek(now, { weekStartsOn: 1 });
+        // Summer weeks run Sunday to Saturday
+        startDate = startOfWeek(now, { weekStartsOn: 0 });
+        endDate = endOfWeek(now, { weekStartsOn: 0 });
         title = "This Week";
       } else {
         // Preseason mode - Today + totals
@@ -193,9 +201,9 @@ export const useActivitySummary = (repData: any) => {
           };
         }
       } else if (mode === "summer") {
-        // Compare to last week (day-aligned)
-        const lastWeekStart = startOfWeek(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 });
-        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
+        // Compare to last week (day-aligned) - Summer weeks run Sunday to Saturday
+        const lastWeekStart = startOfWeek(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 0 });
+        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
         
         // Get full last week data first
         const { data: lastWeekFullEntries } = await supabase
