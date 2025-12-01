@@ -16,6 +16,7 @@ import { VetAlertCard } from "@/components/VetAlertCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -83,6 +84,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
+  
+  // Get team access data for passing to VetBlitzCard
+  const { data: teamAccessData } = useTeamAccess();
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
@@ -1022,6 +1026,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               allBlitzes={allBlitzes}
               teamMembers={teamMembers}
               isTeamLead={isTeamLead}
+              accessLevel={teamAccessData?.accessLevel || 'none'}
+              mgmtGroups={teamAccessData?.mgmtGroups || []}
+              teams={teamAccessData?.teams || []}
               onTeamMemberUpdate={(notionPageId, updates) => {
                 setTeamMembers(prev => 
                   prev.map(m => 
