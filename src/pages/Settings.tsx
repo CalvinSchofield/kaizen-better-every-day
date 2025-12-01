@@ -324,15 +324,33 @@ export default function Settings() {
     setIsSavingEfp(true);
     
     try {
+      // Optimistically update the UI immediately
+      queryClient.setQueryData(['rep-data'], (old: any) => {
+        if (!old) return old;
+        return { ...old, efp_mode_enabled: enabled };
+      });
+
+      // Update localStorage cache immediately
+      const cachedRep = localStorage.getItem('rep-data-cache');
+      if (cachedRep) {
+        try {
+          const { data } = JSON.parse(cachedRep);
+          localStorage.setItem('rep-data-cache', JSON.stringify({
+            data: { ...data, efp_mode_enabled: enabled },
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.error('Failed to update cache:', e);
+        }
+      }
+      
+      // Update database
       const { error } = await supabase
         .from('reps')
         .update({ efp_mode_enabled: enabled })
         .eq('id', repData?.id);
       
       if (error) throw error;
-      
-      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
-      await queryClient.refetchQueries({ queryKey: ['rep-data'] });
       
       toast({
         title: enabled ? "EFP mode enabled" : "EFP mode disabled",
@@ -342,6 +360,10 @@ export default function Settings() {
       });
     } catch (error: any) {
       console.error("Error toggling EFP mode:", error);
+      
+      // Revert optimistic update on error
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
       toast({
         title: "Failed to update EFP mode",
         description: error.message,
