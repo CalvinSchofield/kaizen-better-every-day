@@ -16,6 +16,38 @@ interface NotionPage {
   properties: Record<string, NotionProperty>;
 }
 
+// Retry helper for Notion API with exponential backoff
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited (429), retry with exponential backoff
+      if (response.status === 429) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000); // Max 32 seconds
+        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Return response for other status codes (caller will handle errors)
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,8 +65,8 @@ Deno.serve(async (req) => {
 
     console.log("Fetching blitzes from Preseason Trips database:", databaseId);
 
-    // Fetch all pages from the Preseason Trips database
-    const notionResponse = await fetch(
+    // Fetch all pages from the Preseason Trips database with retry logic
+    const notionResponse = await fetchNotionWithRetry(
       `https://api.notion.com/v1/databases/${databaseId}/query`,
       {
         method: "POST",

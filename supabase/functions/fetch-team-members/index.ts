@@ -5,6 +5,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Retry helper for Notion API with exponential backoff
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited (429), retry with exponential backoff
+      if (response.status === 429) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000); // Max 32 seconds
+        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Return response for other status codes (caller will handle errors)
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -25,8 +57,8 @@ Deno.serve(async (req) => {
     console.log(`Fetching team members for leader: ${leaderNotionPageId}`);
 
     // Step 1: Find teams where this leader is the Group Lead
-    // Query the Teams database
-    const teamsResponse = await fetch(
+    // Query the Teams database with retry logic
+    const teamsResponse = await fetchNotionWithRetry(
       `https://api.notion.com/v1/databases/287070fe3bc280e1ab5fec17d5582878/query`,
       {
         method: "POST",
@@ -67,8 +99,8 @@ Deno.serve(async (req) => {
     const teamIds = teamsData.results.map((team: any) => team.id);
     console.log(`Team IDs: ${teamIds.join(", ")}`);
 
-    // Step 2: Find all reps that belong to these teams
-    const repsResponse = await fetch(
+    // Step 2: Find all reps that belong to these teams with retry logic
+    const repsResponse = await fetchNotionWithRetry(
       `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
       {
         method: "POST",
