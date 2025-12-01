@@ -16,6 +16,7 @@ const SetupFlow = () => {
     { name: 'Syncing your profile', status: 'pending', description: 'Loading your data from Notion' },
     { name: 'Loading competitors', status: 'pending', description: 'Downloading competitor information' },
     { name: 'Fetching blitz schedule', status: 'pending', description: 'Getting upcoming blitz dates' },
+    { name: 'Loading team access', status: 'pending', description: 'Checking your team permissions' },
     { name: 'Preparing your data', status: 'pending', description: 'Setting up your tracking' },
   ]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -123,9 +124,39 @@ const SetupFlow = () => {
       
       updateStep(2, blitzError ? 'error' : 'success');
 
-      // Step 4: Initialize daily entry for today
+      // Step 4: Fetch team access (for leadership features)
       setCurrentStep(3);
       updateStep(3, 'loading');
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const { data: teamAccessData, error: teamAccessError } = await supabase.functions.invoke('fetch-team-access', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          
+          if (teamAccessData) {
+            localStorage.setItem('team-access-cache', JSON.stringify({
+              data: teamAccessData,
+              timestamp: Date.now()
+            }));
+          }
+          
+          updateStep(3, teamAccessError ? 'error' : 'success');
+        } else {
+          updateStep(3, 'error');
+        }
+      } catch (error) {
+        console.error('Team access fetch error:', error);
+        updateStep(3, 'error');
+      }
+
+      // Step 5: Initialize daily entry for today
+      setCurrentStep(4);
+      updateStep(4, 'loading');
       
       const today = new Date().toISOString().split('T')[0];
       await supabase
@@ -147,7 +178,7 @@ const SetupFlow = () => {
           ignoreDuplicates: true
         });
       
-      updateStep(3, 'success');
+      updateStep(4, 'success');
 
       // Mark setup as complete
       localStorage.setItem('kaizen-setup-complete', 'true');

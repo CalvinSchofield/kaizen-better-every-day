@@ -415,7 +415,9 @@ export const CalendarView = ({
           <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center">
             <span className="text-xs text-primary font-semibold">2</span>
           </div>
-          <span className="text-muted-foreground">Entry with FP+</span>
+          <span className="text-muted-foreground">
+            {efpModeEnabled ? 'Entry with EFP' : 'Entry with FP+'}
+          </span>
         </div>
       </div>
 
