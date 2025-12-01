@@ -96,9 +96,12 @@ export const SaveEntrySheet = ({
     }
   }, [fpPlus]);
 
+  // Track if form has been initialized to prevent repopulation during typing
+  const formInitializedRef = useRef(false);
+  
   useEffect(() => {
-    // Don't repopulate form if we're in the save/close sequence
-    if (open && entry && !isSavingRef.current) {
+    // Only populate form when sheet first opens, not on every entry change
+    if (open && entry && !isSavingRef.current && !formInitializedRef.current) {
       // Pre-fill with existing entry data if available, show empty for 0 values
       setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
       setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
@@ -131,13 +134,16 @@ export const SaveEntrySheet = ({
       } else {
         setEndTime("");
       }
+      
+      formInitializedRef.current = true;
     }
     
-    // Reset the flag when sheet closes
+    // Reset flags when sheet closes
     if (!open) {
       isSavingRef.current = false;
+      formInitializedRef.current = false;
     }
-  }, [open, entry, customCounterConfig]);
+  }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
   const hasResultsWithoutActivity = () => {
     const hasFpOrPrmr = (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
