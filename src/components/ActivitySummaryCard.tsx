@@ -67,7 +67,6 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
     );
   }
 
-  const isImproving = summary.comparison && summary.comparison.fpChange >= 0;
   const isRookie = repData?.year === "Rookie";
   const isBlitzMode = summary.mode === "blitz";
   const previousBlitzFp = summary.comparison?.previousBlitzFp || 0;
@@ -76,6 +75,20 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
 
   // Calculate EFP for display
   const efpValue = efpModeEnabled ? calculateEfp(summary.totals.prmr) : 0;
+  
+  // Calculate previous period EFP if in EFP mode and comparison exists
+  const previousPeriodEfp = efpModeEnabled && summary.comparison?.previousPeriodTotal 
+    ? calculateEfp((summary.comparison.previousPeriodTotal || 0) * 85) 
+    : 0;
+  
+  // Calculate day-aligned previous EFP for comparison
+  const dayAlignedPreviousEfp = efpModeEnabled && summary.comparison?.fpChange !== undefined
+    ? calculateEfp((summary.totals.prmr || 0)) - calculateEfp(((summary.totals.prmr || 0) - (summary.comparison.fpChange * 85)))
+    : 0;
+  
+  const isImproving = efpModeEnabled 
+    ? dayAlignedPreviousEfp >= 0
+    : summary.comparison && summary.comparison.fpChange >= 0;
 
   return (
     <Card>
@@ -263,7 +276,11 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400"
                   }`}>
-                    {isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+
+                    {efpModeEnabled ? (
+                      <>{isImproving ? "+" : ""}{dayAlignedPreviousEfp.toFixed(2)} EFP</>
+                    ) : (
+                      <>{isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+</>
+                    )}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     vs {summary.comparison.label}
@@ -271,9 +288,25 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                 </div>
                 {/* Subtle totals */}
                 <p className="text-[10px] text-muted-foreground/60">
-                  {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
-                  {summary.comparison.previousPeriodTotal !== undefined && (
-                    <> · {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
+                  {efpModeEnabled ? (
+                    <>
+                      {efpValue.toFixed(2)} EFP total {summary.mode === "blitz" ? "this blitz" : "this week"}
+                      {summary.comparison.previousPeriodTotal !== undefined && (
+                        <> · {previousPeriodEfp.toFixed(2)} EFP total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
+                      )}
+                      <br />
+                      {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
+                      {summary.comparison.previousPeriodTotal !== undefined && (
+                        <> · {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
+                      {summary.comparison.previousPeriodTotal !== undefined && (
+                        <> · {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
+                      )}
+                    </>
                   )}
                 </p>
               </>
@@ -281,7 +314,11 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
               <>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">
-                    {summary.totals.fp.toFixed(1)} FP+
+                    {efpModeEnabled ? (
+                      <>{efpValue.toFixed(2)} EFP</>
+                    ) : (
+                      <>{summary.totals.fp.toFixed(1)} FP+</>
+                    )}
                   </span>
                   <span className="text-xs text-muted-foreground/60">
                     total {summary.mode === "blitz" ? "this blitz" : "this week"}
@@ -289,7 +326,17 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                 </div>
                 {summary.comparison.previousPeriodTotal !== undefined && (
                   <p className="text-[10px] text-muted-foreground/60">
-                    {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}
+                    {efpModeEnabled ? (
+                      <>
+                        {previousPeriodEfp.toFixed(2)} EFP total {summary.mode === "blitz" ? "last blitz" : "last week"}
+                        <br />
+                        {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}
+                      </>
+                    ) : (
+                      <>
+                        {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}
+                      </>
+                    )}
                     {summary.comparison.previousDaysWorked && (
                       <> · Need {summary.comparison.previousDaysWorked - summary.daysWorked} more day{summary.comparison.previousDaysWorked - summary.daysWorked !== 1 ? 's' : ''} to compare</>
                     )}
