@@ -85,6 +85,14 @@ Deno.serve(async (req) => {
           }
           return null;
         };
+        
+        const getPlace = (prop: NotionProperty) => {
+          if (prop?.type === "location" && prop.location) {
+            // Location type has address field
+            return prop.location.address || null;
+          }
+          return null;
+        };
 
         const getSelect = (prop: NotionProperty) => {
           if (prop?.type === "select" && prop.select) {
@@ -106,7 +114,7 @@ Deno.serve(async (req) => {
         }
 
         const location = getRichText(props.Location) || getSelect(props.Location);
-        const address1 = getRichText(props["Address 1"]);
+        const address1 = getPlace(props["Address 1"]) || getRichText(props["Address 1"]);
         const wifi1 = getRichText(props["WiFi 1"]);
         const code1 = getRichText(props["Code 1"]);
 

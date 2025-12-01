@@ -140,11 +140,12 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     }
   }, [repData?.notion_page_id, attendanceScope, toast]);
 
+  // Only refetch when scope changes or on mount, not on every repData change
   useEffect(() => {
     fetchAttendanceData();
-  }, [fetchAttendanceData]);
+  }, [attendanceScope]); // Removed fetchAttendanceData from deps to prevent constant refetching
 
-  // Load committed blitzes from repData
+  // Load committed blitzes from repData - only update when actually different
   useEffect(() => {
     // Don't overwrite state while an update is in progress
     if (isUpdating) return;
