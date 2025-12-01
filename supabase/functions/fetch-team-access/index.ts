@@ -160,6 +160,16 @@ Deno.serve(async (req) => {
       accessLevel = 'area_director';
     }
 
+    // Helper function to determine if a rep is a team lead
+    const getRepTeamInfo = (repNotionId: string) => {
+      const repTeam = teams.find(t => t.groupLeadId === repNotionId);
+      return {
+        isTeamLead: !!repTeam,
+        teamId: repTeam?.id || null,
+        mgmtGroupId: repTeam ? mgmtGroups.find(g => g.teamIds.includes(repTeam.id))?.id || null : null
+      };
+    };
+
     // Get all accessible reps based on access level
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
@@ -172,11 +182,17 @@ Deno.serve(async (req) => {
       
       if (allReps) {
         accessibleUserIds = allReps.map(r => r.user_id);
-        accessibleReps = allReps.map(r => ({
-          userId: r.user_id,
-          name: r.name,
-          notionPageId: r.notion_page_id,
-        }));
+        accessibleReps = allReps.map(r => {
+          const teamInfo = getRepTeamInfo(r.notion_page_id);
+          return {
+            userId: r.user_id,
+            name: r.name,
+            notionPageId: r.notion_page_id,
+            isTeamLead: teamInfo.isTeamLead,
+            teamId: teamInfo.teamId,
+            mgmtGroupId: teamInfo.mgmtGroupId,
+          };
+        });
       }
     } else if (accessLevel === 'mgmt_group_lead') {
       // Get reps from teams in user's MGMT groups
@@ -197,11 +213,15 @@ Deno.serve(async (req) => {
             accessibleTeamIds.includes(t.id));
           
           if (repTeam) {
+            const teamInfo = getRepTeamInfo(rep.notion_page_id);
             accessibleUserIds.push(rep.user_id);
             accessibleReps.push({
               userId: rep.user_id,
               name: rep.name,
               notionPageId: rep.notion_page_id,
+              isTeamLead: teamInfo.isTeamLead,
+              teamId: teamInfo.teamId,
+              mgmtGroupId: teamInfo.mgmtGroupId,
             });
           }
         }
@@ -218,11 +238,17 @@ Deno.serve(async (req) => {
         if (teamReps) {
           // This is simplified - in reality would need to query reps table's Teams relation
           accessibleUserIds = teamReps.map(r => r.user_id);
-          accessibleReps = teamReps.map(r => ({
-            userId: r.user_id,
-            name: r.name,
-            notionPageId: r.notion_page_id,
-          }));
+          accessibleReps = teamReps.map(r => {
+            const teamInfo = getRepTeamInfo(r.notion_page_id);
+            return {
+              userId: r.user_id,
+              name: r.name,
+              notionPageId: r.notion_page_id,
+              isTeamLead: teamInfo.isTeamLead,
+              teamId: teamInfo.teamId,
+              mgmtGroupId: teamInfo.mgmtGroupId,
+            };
+          });
         }
       }
     }
