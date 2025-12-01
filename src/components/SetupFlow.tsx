@@ -214,13 +214,13 @@ const SetupFlow = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="pt-8 pb-6">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl font-bold text-primary">K</span>
+      <Card className="w-full max-w-md max-h-[85vh] overflow-y-auto">
+        <CardContent className="pt-6 pb-6">
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <span className="text-2xl font-bold text-primary">K</span>
             </div>
-            <h2 className="text-2xl font-bold mb-2">
+            <h2 className="text-xl font-bold mb-1.5">
               {canContinue ? "You're all set!" : "Getting things ready"}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -230,11 +230,11 @@ const SetupFlow = () => {
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {steps.map((step, index) => (
               <div
                 key={index}
-                className={`flex items-start gap-3 p-3 rounded-lg transition-all ${
+                className={`flex items-start gap-2.5 p-2.5 rounded-lg transition-all ${
                   step.status === 'loading' 
                     ? 'bg-primary/5 border border-primary/20' 
                     : step.status === 'success'
@@ -246,7 +246,7 @@ const SetupFlow = () => {
                   {getStepIcon(step.status)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-medium ${
+                  <p className={`text-sm font-medium ${
                     step.status === 'loading' ? 'text-foreground' : 'text-muted-foreground'
                   }`}>
                     {step.name}
@@ -262,7 +262,7 @@ const SetupFlow = () => {
           {canContinue && (
             <button
               onClick={() => navigate('/')}
-              className="w-full mt-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              className="w-full mt-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
               Continue to Dashboard
             </button>
