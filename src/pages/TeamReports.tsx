@@ -1,20 +1,66 @@
 import { useState } from "react";
-import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Users } from "lucide-react";
+import { Filter, Users, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, subDays, startOfMonth, endOfMonth, startOfYear } from "date-fns";
+import { cn } from "@/lib/utils";
+import { SalesFunnelChart } from "@/components/insights/SalesFunnelChart";
+
+type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
+type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | null;
+type GroupViewMode = 'totals' | 'teams' | 'mgmt-groups' | 'individuals';
 
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [customStartDate, setCustomStartDate] = useState<Date>();
+  const [customEndDate, setCustomEndDate] = useState<Date>();
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [excludeUserIds, setExcludeUserIds] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'totals' | 'individual'>('totals');
+  const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+  const [groupViewMode, setGroupViewMode] = useState<GroupViewMode>('totals');
+
+  const getDateRange = (preset: DatePreset) => {
+    const now = new Date();
+    const summerStartDate = new Date('2026-04-12');
+    
+    switch (preset) {
+      case 'week':
+        return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+      case 'month':
+        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
+      case 'preseason':
+        return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now < summerStartDate ? now : summerStartDate, 'yyyy-MM-dd') };
+      case 'custom':
+        return { 
+          start: customStartDate ? format(customStartDate, 'yyyy-MM-dd') : format(new Date('2025-01-01'), 'yyyy-MM-dd'), 
+          end: customEndDate ? format(customEndDate, 'yyyy-MM-dd') : format(now, 'yyyy-MM-dd')
+        };
+      default:
+        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
+    }
+  };
+
+  const handleCustomDateApply = () => {
+    if (customStartDate && customEndDate) {
+      setDatePreset('custom');
+      setShowCustomDialog(false);
+    }
+  };
+
+  const handleSectionToggle = (section: ExpandedSection) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
 
   // Initialize selected users when access data loads
   const effectiveUserIds = selectedUserIds.length > 0 
@@ -23,25 +69,25 @@ const TeamReports = () => {
 
   const { data: insightsData, isLoading: insightsLoading } = useTeamInsightsData({
     userIds: effectiveUserIds,
-    dateRange,
+    dateRange: getDateRange(datePreset),
     excludeUserIds,
   });
 
   if (accessLoading) {
     return (
-      <Layout>
-        <div className="container mx-auto p-6 space-y-6">
+      <div className="min-h-screen bg-background p-4 pb-24">
+        <div className="max-w-lg mx-auto space-y-6">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-96 w-full" />
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (accessData?.accessLevel === 'none') {
     return (
-      <Layout>
-        <div className="container mx-auto p-6">
+      <div className="min-h-screen bg-background p-4 pb-24">
+        <div className="max-w-lg mx-auto">
           <Card>
             <CardHeader>
               <CardTitle>Access Denied</CardTitle>
@@ -51,171 +97,379 @@ const TeamReports = () => {
             </CardHeader>
           </Card>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Team Reports</h1>
-            <p className="text-muted-foreground">
-              View and analyze your team's performance
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            onClick={() => setIsFilterOpen(true)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filter Team
-          </Button>
+    <div className="min-h-screen bg-background p-4 pb-24">
+      <div className="max-w-lg mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">Team Reports</h1>
+          <p className="text-sm text-muted-foreground">
+            Pull insights from your team's performance
+          </p>
         </div>
 
-        {insightsLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        ) : insightsData ? (
-          <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Total FP</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{insightsData.totalFP.toFixed(1)}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {insightsData.totalUpgradeFP.toFixed(1)} upgrade FP
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Total PRMR</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${insightsData.totalPRMR.toFixed(0)}</div>
-                  <p className="text-xs text-muted-foreground">
-                    ${insightsData.totalUpgradePRMR.toFixed(0)} from upgrades
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Total Doors</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{insightsData.totalDoors}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {insightsData.doorsToFp.toFixed(1)} doors per FP
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Date Range Selector with Filter Button */}
+        <div className="relative">
+          <div className="overflow-x-auto pb-2 -mr-16">
+            <div className="flex gap-2 pr-16">
+              <Button
+                variant={datePreset === 'week' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('week')}
+              >
+                This Week
+              </Button>
+              <Button
+                variant={datePreset === 'month' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('month')}
+              >
+                This Month
+              </Button>
+              <Button
+                variant={datePreset === 'preseason' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('preseason')}
+              >
+                Preseason
+              </Button>
+              <Button
+                variant={datePreset === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowCustomDialog(true)}
+              >
+                <CalendarIcon className="w-4 h-4 mr-1" />
+                {datePreset === 'custom' && customStartDate && customEndDate
+                  ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+                  : 'Custom'}
+              </Button>
             </div>
+          </div>
+          <div className="absolute right-0 top-0 h-full flex items-center bg-gradient-to-l from-background via-background to-transparent pl-8 pr-0">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsFilterOpen(true)}
+              className="gap-2 shadow-sm"
+            >
+              <Filter className="h-4 w-4" />
+              Filter
+            </Button>
+          </div>
+        </div>
 
-            {/* Key Ratios */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Key Ratios</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Doors → FP</p>
-                    <p className="text-2xl font-bold">{insightsData.doorsToFp.toFixed(1)}</p>
+        {/* Custom Date Dialog */}
+        <Popover open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+          <PopoverTrigger asChild>
+            <div />
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Start Date</label>
+                <Calendar
+                  mode="single"
+                  selected={customStartDate}
+                  onSelect={setCustomStartDate}
+                  initialFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">End Date</label>
+                <Calendar
+                  mode="single"
+                  selected={customEndDate}
+                  onSelect={setCustomEndDate}
+                />
+              </div>
+              <Button onClick={handleCustomDateApply} className="w-full">
+                Apply
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {insightsLoading ? (
+          <>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-card border border-border rounded-xl p-4">
+                  <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : !insightsData || insightsData.totalFP === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground mb-4">No data available for this period</div>
+            <p className="text-sm text-muted-foreground">
+              Team members need to start tracking daily entries
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Summary Card - Not Collapsible */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Team Summary</h2>
+                <span className="text-sm text-primary font-medium">{insightsData.repBreakdown.length} team members</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-2xl font-bold text-primary">{insightsData.totalFP.toFixed(1)}</div>
+                  <div className="text-sm text-muted-foreground">Total FP+</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-primary">${insightsData.totalPRMR.toFixed(0)}</div>
+                  <div className="text-sm text-muted-foreground">Total PRMR</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalDoors}</div>
+                  <div className="text-sm text-muted-foreground">Doors Knocked</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalDMs}</div>
+                  <div className="text-sm text-muted-foreground">Decision Makers</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalPitches}</div>
+                  <div className="text-sm text-muted-foreground">Pitches</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalTransitions}</div>
+                  <div className="text-sm text-muted-foreground">Transitions</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalPresentations}</div>
+                  <div className="text-sm text-muted-foreground">Presentations</div>
+                </div>
+                <div>
+                  <div className="text-xl font-bold">{insightsData.totalCloses}</div>
+                  <div className="text-sm text-muted-foreground">Closes</div>
+                </div>
+              </div>
+
+              {/* FP+ Breakdown */}
+              {insightsData.totalUpgradeFP > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-medium text-muted-foreground">FP+ Breakdown</div>
+                    <div className="text-xs text-primary font-semibold">{((insightsData.totalUpgradeFP / insightsData.totalFP) * 100).toFixed(0)}% upgrades</div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Pitches → FP</p>
-                    <p className="text-2xl font-bold">{insightsData.pitchesToFp.toFixed(1)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Transitions → FP</p>
-                    <p className="text-2xl font-bold">{insightsData.transitionsToFp.toFixed(1)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Presentations → Close</p>
-                    <p className="text-2xl font-bold">{insightsData.presentationsToClose.toFixed(1)}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{(insightsData.totalFP - insightsData.totalUpgradeFP).toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">FP (New Sales)</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insightsData.totalUpgradeFP.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground">Upgrade FP+</div>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
+              )}
             </Card>
 
-            {/* Productivity Metrics */}
+            {/* Sales Funnel - Collapsible */}
             <Card>
-              <CardHeader>
-                <CardTitle>Productivity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Doors per Hour</p>
-                    <p className="text-2xl font-bold">{insightsData.doorsPerHour.toFixed(1)}</p>
+              <Collapsible open={expandedSection === 'funnel'} onOpenChange={() => handleSectionToggle('funnel')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUpIcon className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Sales Funnel</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'funnel' && "rotate-180")} />
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Hours to FP</p>
-                    <p className="text-2xl font-bold">{insightsData.hoursToFp.toFixed(1)}</p>
+                  {expandedSection !== 'funnel' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insightsData.totalDoors} doors → {insightsData.totalCloses} closes · {((insightsData.totalDMs / insightsData.totalDoors) * 100).toFixed(1)}% DM rate
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Doors</span>
+                        <span className="font-semibold">{insightsData.totalDoors}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Decision Makers</span>
+                        <span className="font-semibold">{insightsData.totalDMs} ({((insightsData.totalDMs / insightsData.totalDoors) * 100).toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Pitches</span>
+                        <span className="font-semibold">{insightsData.totalPitches} ({((insightsData.totalPitches / insightsData.totalDMs) * 100).toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Transitions</span>
+                        <span className="font-semibold">{insightsData.totalTransitions} ({((insightsData.totalTransitions / insightsData.totalPitches) * 100).toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Presentations</span>
+                        <span className="font-semibold">{insightsData.totalPresentations} ({((insightsData.totalPresentations / insightsData.totalTransitions) * 100).toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Closes</span>
+                        <span className="font-semibold">{insightsData.totalCloses} ({((insightsData.totalCloses / insightsData.totalPresentations) * 100).toFixed(1)}%)</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
-            {/* Individual Breakdown */}
+            {/* Key Ratios - Collapsible */}
+            <Card>
+              <Collapsible open={expandedSection === 'ratios'} onOpenChange={() => handleSectionToggle('ratios')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Key Ratios</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'ratios' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'ratios' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insightsData.doorsToFp.toFixed(1)} doors/FP · {insightsData.pitchesToFp.toFixed(1)} pitches/FP
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Doors → FP</div>
+                        <div className="text-2xl font-bold">{insightsData.doorsToFp.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Pitches → FP</div>
+                        <div className="text-2xl font-bold">{insightsData.pitchesToFp.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Transitions → FP</div>
+                        <div className="text-2xl font-bold">{insightsData.transitionsToFp.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Presentations → Close</div>
+                        <div className="text-2xl font-bold">{insightsData.presentationsToClose.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
+            {/* Productivity - Collapsible */}
+            <Card>
+              <Collapsible open={expandedSection === 'productivity'} onOpenChange={() => handleSectionToggle('productivity')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Productivity</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'productivity' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'productivity' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insightsData.doorsPerHour.toFixed(1)} doors/hr · {insightsData.hoursToFp.toFixed(1)} hrs to FP
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Doors per Hour</div>
+                        <div className="text-2xl font-bold">{insightsData.doorsPerHour.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Hours to FP</div>
+                        <div className="text-2xl font-bold">{insightsData.hoursToFp.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Pitches per Hour</div>
+                        <div className="text-2xl font-bold">{insightsData.pitchesPerHour.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Presentations per Hour</div>
+                        <div className="text-2xl font-bold">{insightsData.presentationsPerHour.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
+            {/* Individual Breakdown - Collapsible */}
             {viewMode === 'individual' && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Individual Rep Performance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {insightsData.repBreakdown.map((rep) => (
-                      <div key={rep.userId} className="border-b pb-4 last:border-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <p className="font-semibold">{rep.name}</p>
-                            <p className="text-sm text-muted-foreground">{rep.year}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold">{rep.fp.toFixed(1)} FP</p>
-                            <p className="text-sm text-muted-foreground">${rep.prmr.toFixed(0)}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Doors</p>
-                            <p className="font-semibold">{rep.doors}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Pitches</p>
-                            <p className="font-semibold">{rep.pitches}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Presentations</p>
-                            <p className="font-semibold">{rep.presentations}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Closes</p>
-                            <p className="font-semibold">{rep.closes}</p>
-                          </div>
-                        </div>
+                <Collapsible open={expandedSection === 'trends'} onOpenChange={() => handleSectionToggle('trends')}>
+                  <CollapsibleTrigger className="w-full p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Individual Performance</h2>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'trends' && "rotate-180")} />
+                    </div>
+                    {expandedSection !== 'trends' && (
+                      <div className="mt-2 text-left text-sm text-muted-foreground">
+                        {insightsData.repBreakdown.length} team members
+                      </div>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      <div className="space-y-4">
+                        {insightsData.repBreakdown.map((rep) => (
+                          <div key={rep.userId} className="border-b pb-4 last:border-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="font-semibold">{rep.name}</p>
+                                <p className="text-sm text-muted-foreground">{rep.year}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold">{rep.fp.toFixed(1)} FP</p>
+                                <p className="text-sm text-muted-foreground">${rep.prmr.toFixed(0)}</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Doors</p>
+                                <p className="font-semibold">{rep.doors}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Pitches</p>
+                                <p className="font-semibold">{rep.pitches}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Presentations</p>
+                                <p className="font-semibold">{rep.presentations}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">Closes</p>
+                                <p className="font-semibold">{rep.closes}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </Card>
             )}
-          </div>
-        ) : null}
+          </>
+        )}
 
         <TeamFilterSheet
           open={isFilterOpen}
@@ -229,7 +483,7 @@ const TeamReports = () => {
           onViewModeChange={setViewMode}
         />
       </div>
-    </Layout>
+    </div>
   );
 };
 
