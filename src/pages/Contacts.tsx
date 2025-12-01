@@ -26,6 +26,7 @@ const Contacts = () => {
   const [aiInput, setAiInput] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState("");
   const [aiAction, setAiAction] = useState<{ type: string; contact: string; prefilledText?: string } | null>(null);
+  const [aiSecondaryAction, setAiSecondaryAction] = useState<{ type: string; contact: string; prefilledText?: string } | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
   const contacts: Contact[] = [
@@ -273,16 +274,21 @@ const Contacts = () => {
     setIsLoadingAi(true);
     setAiRecommendation("");
     setAiAction(null);
+    setAiSecondaryAction(null);
     
     try {
+      // Get user's timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
       const { data, error } = await supabase.functions.invoke('recommend-contact', {
-        body: { situation: aiInput }
+        body: { situation: aiInput, timezone }
       });
       
       if (error) throw error;
       
       setAiRecommendation(data.recommendation || "Unable to determine the best contact. Please browse the list below.");
       setAiAction(data.action || null);
+      setAiSecondaryAction(data.secondaryAction || null);
     } catch (error) {
       console.error("Error getting AI recommendation:", error);
       toast.error("Failed to get recommendation. Please try again.");
@@ -351,34 +357,69 @@ const Contacts = () => {
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="pt-3 pb-3 space-y-3">
                   <p className="text-sm text-foreground">{aiRecommendation}</p>
-                  {aiAction && (
-                    <div className="flex justify-end">
-                      {aiAction.type === "call" && (
-                        <a
-                          href={`tel:${aiAction.contact}`}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                        >
-                          <Phone className="w-4 h-4" />
-                          Call {aiAction.contact}
-                        </a>
+                  {(aiAction || aiSecondaryAction) && (
+                    <div className="flex flex-col gap-2">
+                      {aiAction && (
+                        <div className="flex justify-end">
+                          {aiAction.type === "call" && (
+                            <a
+                              href={`tel:${aiAction.contact}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                            >
+                              <Phone className="w-4 h-4" />
+                              Call {aiAction.contact}
+                            </a>
+                          )}
+                          {aiAction.type === "text" && (
+                            <a
+                              href={`sms:${aiAction.contact}${aiAction.prefilledText ? `&body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                              Text {aiAction.contact}
+                            </a>
+                          )}
+                          {aiAction.type === "email" && (
+                            <a
+                              href={`mailto:${aiAction.contact}${aiAction.prefilledText ? `?body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                            >
+                              <Mail className="w-4 h-4" />
+                              Email {aiAction.contact}
+                            </a>
+                          )}
+                        </div>
                       )}
-                      {aiAction.type === "text" && (
-                        <a
-                          href={`sms:${aiAction.contact}${aiAction.prefilledText ? `&body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          Text {aiAction.contact}
-                        </a>
-                      )}
-                      {aiAction.type === "email" && (
-                        <a
-                          href={`mailto:${aiAction.contact}${aiAction.prefilledText ? `?body=${encodeURIComponent(aiAction.prefilledText)}` : ''}`}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                        >
-                          <Mail className="w-4 h-4" />
-                          Email {aiAction.contact}
-                        </a>
+                      {aiSecondaryAction && (
+                        <div className="flex justify-end">
+                          {aiSecondaryAction.type === "call" && (
+                            <a
+                              href={`tel:${aiSecondaryAction.contact}`}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors text-xs font-medium"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              Or call {aiSecondaryAction.contact}
+                            </a>
+                          )}
+                          {aiSecondaryAction.type === "text" && (
+                            <a
+                              href={`sms:${aiSecondaryAction.contact}${aiSecondaryAction.prefilledText ? `&body=${encodeURIComponent(aiSecondaryAction.prefilledText)}` : ''}`}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors text-xs font-medium"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              Or text {aiSecondaryAction.contact}
+                            </a>
+                          )}
+                          {aiSecondaryAction.type === "email" && (
+                            <a
+                              href={`mailto:${aiSecondaryAction.contact}${aiSecondaryAction.prefilledText ? `?body=${encodeURIComponent(aiSecondaryAction.prefilledText)}` : ''}`}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors text-xs font-medium"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Or email {aiSecondaryAction.contact}
+                            </a>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
