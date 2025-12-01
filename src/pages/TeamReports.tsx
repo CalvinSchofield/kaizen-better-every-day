@@ -210,7 +210,7 @@ const TeamReports = () => {
                     onClick={() => setGroupViewMode('mgmt-groups')}
                     className="flex-shrink-0"
                   >
-                    By Group
+                    By MGMT
                   </Button>
                 )}
                 <Button
