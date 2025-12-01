@@ -148,6 +148,44 @@ interface TeamInsightsData {
     doorsToFpRatio: number;
     hoursWorked: number;
   }>;
+
+  // Grouped data
+  groupedByMgmt?: Array<{
+    mgmtGroupName: string;
+    totals: {
+      fp: number;
+      prmr: number;
+      doors: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+    };
+    members: Array<{
+      userId: string;
+      name: string;
+      fp: number;
+    }>;
+  }>;
+
+  groupedByTeam?: Array<{
+    teamName: string;
+    mgmtGroupName: string;
+    totals: {
+      fp: number;
+      prmr: number;
+      doors: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+    };
+    members: Array<{
+      userId: string;
+      name: string;
+      fp: number;
+    }>;
+  }>;
 }
 
 interface UseTeamInsightsDataParams {
@@ -698,6 +736,53 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         };
       });
 
+      // Calculate grouped data
+      const groupedByMgmt = Array.from(
+        repBreakdown.reduce((acc, rep) => {
+          if (!acc.has(rep.mgmtGroupName)) {
+            acc.set(rep.mgmtGroupName, {
+              mgmtGroupName: rep.mgmtGroupName,
+              totals: { fp: 0, prmr: 0, doors: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0 },
+              members: []
+            });
+          }
+          const group = acc.get(rep.mgmtGroupName)!;
+          group.totals.fp += rep.fp;
+          group.totals.prmr += rep.prmr;
+          group.totals.doors += rep.doors;
+          group.totals.pitches += rep.pitches;
+          group.totals.transitions += rep.transitions;
+          group.totals.presentations += rep.presentations;
+          group.totals.closes += rep.closes;
+          group.members.push({ userId: rep.userId, name: rep.name, fp: rep.fp });
+          return acc;
+        }, new Map())
+      ).map(([_, group]) => group);
+
+      const groupedByTeam = Array.from(
+        repBreakdown.reduce((acc, rep) => {
+          const key = `${rep.teamName}|${rep.mgmtGroupName}`;
+          if (!acc.has(key)) {
+            acc.set(key, {
+              teamName: rep.teamName,
+              mgmtGroupName: rep.mgmtGroupName,
+              totals: { fp: 0, prmr: 0, doors: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0 },
+              members: []
+            });
+          }
+          const team = acc.get(key)!;
+          team.totals.fp += rep.fp;
+          team.totals.prmr += rep.prmr;
+          team.totals.doors += rep.doors;
+          team.totals.pitches += rep.pitches;
+          team.totals.transitions += rep.transitions;
+          team.totals.presentations += rep.presentations;
+          team.totals.closes += rep.closes;
+          team.members.push({ userId: rep.userId, name: rep.name, fp: rep.fp });
+          return acc;
+        }, new Map())
+      ).map(([_, team]) => team);
+
       return {
         totalDoors: totals.doors,
         totalDMs: totals.dms,
@@ -741,6 +826,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         peakHours,
         hourRange,
         repBreakdown,
+        groupedByMgmt,
+        groupedByTeam,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,

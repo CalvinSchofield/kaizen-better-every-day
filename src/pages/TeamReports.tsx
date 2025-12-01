@@ -20,7 +20,7 @@ import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
-type GroupViewMode = 'totals' | 'teams' | 'mgmt-groups' | 'individuals';
+type GroupViewMode = 'all' | 'mgmt-groups' | 'teams' | 'individuals';
 
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
@@ -31,8 +31,12 @@ const TeamReports = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [excludeUserIds, setExcludeUserIds] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'totals' | 'individual'>('totals');
+  const [groupViewMode, setGroupViewMode] = useState<GroupViewMode>('all');
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+
+  const stripEmojis = (text: string) => {
+    return text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
+  };
 
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -183,6 +187,70 @@ const TeamReports = () => {
               <Filter className="h-4 w-4" />
               Filter
             </Button>
+          </div>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 pb-2 whitespace-nowrap">
+            {(accessData?.accessLevel === 'area_director' || accessData?.accessLevel === 'mgmt_group_lead') && (
+              <>
+                <Button
+                  variant={groupViewMode === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupViewMode('all')}
+                  className="flex-shrink-0"
+                >
+                  All
+                </Button>
+                {accessData?.accessLevel === 'area_director' && (
+                  <Button
+                    variant={groupViewMode === 'mgmt-groups' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setGroupViewMode('mgmt-groups')}
+                    className="flex-shrink-0"
+                  >
+                    By Group
+                  </Button>
+                )}
+                <Button
+                  variant={groupViewMode === 'teams' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupViewMode('teams')}
+                  className="flex-shrink-0"
+                >
+                  By Team
+                </Button>
+                <Button
+                  variant={groupViewMode === 'individuals' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupViewMode('individuals')}
+                  className="flex-shrink-0"
+                >
+                  Individual
+                </Button>
+              </>
+            )}
+            {accessData?.accessLevel === 'team_lead' && (
+              <>
+                <Button
+                  variant={groupViewMode === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupViewMode('all')}
+                  className="flex-shrink-0"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={groupViewMode === 'individuals' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupViewMode('individuals')}
+                  className="flex-shrink-0"
+                >
+                  Individual
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -624,28 +692,34 @@ const TeamReports = () => {
               </Collapsible>
             </Card>
 
-            {/* Individual Breakdown - Collapsible */}
-            {viewMode === 'individual' && (
+            {/* Individual/Group Breakdown - Collapsible */}
+            {groupViewMode !== 'all' && (
               <Card>
                 <Collapsible open={expandedSection === 'individuals'} onOpenChange={() => handleSectionToggle('individuals')}>
                   <CollapsibleTrigger className="w-full p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Users className="w-5 h-5" />
-                        <h2 className="text-lg font-semibold">Individual Performance</h2>
+                        <h2 className="text-lg font-semibold">
+                          {groupViewMode === 'mgmt-groups' ? 'MGMT Group Performance' : 
+                           groupViewMode === 'teams' ? 'Team Performance' : 
+                           'Individual Performance'}
+                        </h2>
                       </div>
                       <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'individuals' && "rotate-180")} />
                     </div>
                     {expandedSection !== 'individuals' && (
                       <div className="mt-2 text-left text-sm text-muted-foreground">
-                        {insightsData.repBreakdown.length} team members
+                        {groupViewMode === 'individuals' && `${insightsData.repBreakdown.length} team members`}
+                        {groupViewMode === 'mgmt-groups' && `${insightsData.groupedByMgmt?.length || 0} groups`}
+                        {groupViewMode === 'teams' && `${insightsData.groupedByTeam?.length || 0} teams`}
                       </div>
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="px-4 pb-4">
                       <div className="space-y-4">
-                        {(() => {
+                        {groupViewMode === 'individuals' && (() => {
                           // Sort based on access level
                           const accessLevel = accessData?.accessLevel || 'none';
                           let sortedReps = [...insightsData.repBreakdown];
@@ -659,7 +733,7 @@ const TeamReports = () => {
                               if (a.teamName !== b.teamName) {
                                 return a.teamName.localeCompare(b.teamName);
                               }
-                              return a.name.localeCompare(b.name);
+                              return stripEmojis(a.name).localeCompare(stripEmojis(b.name));
                             });
                           } else if (accessLevel === 'mgmt_group_lead') {
                             // Sort by: Team → Name
@@ -667,11 +741,11 @@ const TeamReports = () => {
                               if (a.teamName !== b.teamName) {
                                 return a.teamName.localeCompare(b.teamName);
                               }
-                              return a.name.localeCompare(b.name);
+                              return stripEmojis(a.name).localeCompare(stripEmojis(b.name));
                             });
                           } else {
                             // Team Lead: Sort by Name only
-                            sortedReps.sort((a, b) => a.name.localeCompare(b.name));
+                            sortedReps.sort((a, b) => stripEmojis(a.name).localeCompare(stripEmojis(b.name)));
                           }
                           
                           return sortedReps.map((rep, index, arr) => {
@@ -701,7 +775,7 @@ const TeamReports = () => {
                                 <div className="border-b pb-4 last:border-0">
                                   <div className="flex items-center justify-between mb-2">
                                     <div>
-                                      <p className="font-semibold">{rep.name}</p>
+                                      <p className="font-semibold">{stripEmojis(rep.name)}</p>
                                       <p className="text-sm text-muted-foreground">{rep.year}</p>
                                     </div>
                                     <div className="text-right">
@@ -732,6 +806,65 @@ const TeamReports = () => {
                             );
                           });
                         })()}
+
+                        {groupViewMode === 'mgmt-groups' && insightsData.groupedByMgmt?.map((group) => (
+                          <Card key={group.mgmtGroupName} className="p-4">
+                            <div className="mb-3">
+                              <p className="font-semibold text-lg">{group.mgmtGroupName}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mb-3">
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{group.totals.fp.toFixed(1)}</div>
+                                <div className="text-xs text-muted-foreground">FP+</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">${group.totals.prmr.toFixed(0)}</div>
+                                <div className="text-xs text-muted-foreground">PRMR</div>
+                              </div>
+                              <div>
+                                <div className="text-lg font-bold">{group.totals.doors}</div>
+                                <div className="text-xs text-muted-foreground">Doors</div>
+                              </div>
+                              <div>
+                                <div className="text-lg font-bold">{group.totals.pitches}</div>
+                                <div className="text-xs text-muted-foreground">Pitches</div>
+                              </div>
+                            </div>
+                            <div className="pt-3 border-t border-border">
+                              <p className="text-xs text-muted-foreground">{group.members.length} members</p>
+                            </div>
+                          </Card>
+                        ))}
+
+                        {groupViewMode === 'teams' && insightsData.groupedByTeam?.map((team) => (
+                          <Card key={team.teamName} className="p-4">
+                            <div className="mb-3">
+                              <p className="font-semibold text-lg">{team.teamName}</p>
+                              <p className="text-xs text-muted-foreground">{team.mgmtGroupName}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mb-3">
+                              <div>
+                                <div className="text-2xl font-bold text-primary">{team.totals.fp.toFixed(1)}</div>
+                                <div className="text-xs text-muted-foreground">FP+</div>
+                              </div>
+                              <div>
+                                <div className="text-2xl font-bold text-primary">${team.totals.prmr.toFixed(0)}</div>
+                                <div className="text-xs text-muted-foreground">PRMR</div>
+                              </div>
+                              <div>
+                                <div className="text-lg font-bold">{team.totals.doors}</div>
+                                <div className="text-xs text-muted-foreground">Doors</div>
+                              </div>
+                              <div>
+                                <div className="text-lg font-bold">{team.totals.pitches}</div>
+                                <div className="text-xs text-muted-foreground">Pitches</div>
+                              </div>
+                            </div>
+                            <div className="pt-3 border-t border-border">
+                              <p className="text-xs text-muted-foreground">{team.members.length} members</p>
+                            </div>
+                          </Card>
+                        ))}
                       </div>
                     </div>
                   </CollapsibleContent>
@@ -749,8 +882,6 @@ const TeamReports = () => {
           onUserIdsChange={setSelectedUserIds}
           excludeUserIds={excludeUserIds}
           onExcludeUserIdsChange={setExcludeUserIds}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
         />
       </div>
 
