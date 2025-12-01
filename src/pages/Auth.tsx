@@ -131,10 +131,10 @@ const Auth = () => {
     }
   };
 
-  // Show PWA install gate if not installed (unless user has bypass access)
-  if (!isPWA && !shouldBypassPWAGate(email)) {
-    return <PWAInstallGate />;
-  }
+  // PWA install gate disabled temporarily
+  // if (!isPWA && !shouldBypassPWAGate(email)) {
+  //   return <PWAInstallGate />;
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
