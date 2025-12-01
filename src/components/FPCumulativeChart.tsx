@@ -59,15 +59,15 @@ export const FPCumulativeChart = () => {
         displayDate: format(parseISO(point.date), "MMM d"),
         cumulative: metricType === 'primary' 
           ? point.cumulative 
-          : (efpModeEnabled ? point.cumulativePrmr / 85 : point.cumulativePrmr),
+          : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
         movingAvg: metricType === 'primary' 
           ? (movingAvgPeriod === 6 ? point.movingAvg6 : point.movingAvg12)
           : (efpModeEnabled 
-              ? ((movingAvgPeriod === 6 ? point.movingAvgPrmr6 : point.movingAvgPrmr12) || 0) / 85
+              ? (movingAvgPeriod === 6 ? point.movingAvgFp6 : point.movingAvgFp12)
               : (movingAvgPeriod === 6 ? point.movingAvgPrmr6 : point.movingAvgPrmr12)),
         dailyValue: metricType === 'primary' 
           ? point.dailyValue 
-          : (efpModeEnabled ? point.dailyPrmr / 85 : point.dailyPrmr),
+          : (efpModeEnabled ? point.dailyFp : point.dailyPrmr),
       }));
     }
 
@@ -87,19 +87,19 @@ export const FPCumulativeChart = () => {
             : format(parseISO(key), "MMM"),
           cumulative: metricType === 'primary' 
             ? point.cumulative 
-            : (efpModeEnabled ? point.cumulativePrmr / 85 : point.cumulativePrmr),
+            : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
           total: metricType === 'primary' 
             ? point.dailyValue 
-            : (efpModeEnabled ? point.dailyPrmr / 85 : point.dailyPrmr),
+            : (efpModeEnabled ? point.dailyFp : point.dailyPrmr),
           count: 1,
         };
       } else {
         grouped[key].cumulative = metricType === 'primary' 
           ? point.cumulative 
-          : (efpModeEnabled ? point.cumulativePrmr / 85 : point.cumulativePrmr);
+          : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         grouped[key].total += metricType === 'primary' 
           ? point.dailyValue 
-          : (efpModeEnabled ? point.dailyPrmr / 85 : point.dailyPrmr);
+          : (efpModeEnabled ? point.dailyFp : point.dailyPrmr);
         grouped[key].count += 1;
       }
     });
@@ -187,7 +187,7 @@ export const FPCumulativeChart = () => {
   const totalForMode = metricType === 'primary' 
     ? cumulativeData[cumulativeData.length - 1].cumulative  // EFP or FP+ depending on mode
     : (efpModeEnabled
-        ? cumulativeData[cumulativeData.length - 1].cumulativePrmr / 85  // FP+ when in EFP mode secondary
+        ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
         : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
 
   const latestMovingAvg = chartData[chartData.length - 1]?.movingAvg || 0;
