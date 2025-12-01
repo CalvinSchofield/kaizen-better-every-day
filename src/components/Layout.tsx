@@ -160,13 +160,13 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20">
+    <div className="min-h-screen bg-background flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))]">
       {/* Header with Hamburger Menu - uniform styling across pages */}
-      <header className={`sticky top-0 z-40 border-b px-4 py-3 flex items-center justify-between ${
+      <header className={`sticky top-0 z-40 border-b px-4 py-2 flex items-center justify-between ${
         isHomePage 
           ? "bg-primary text-primary-foreground border-primary-foreground/20" 
           : "bg-card text-foreground border-border"
-      }`}>
+      }`} style={{ paddingTop: `max(0.5rem, env(safe-area-inset-top))` }}>
         <AppDrawer
           trigger={
             <Button variant="ghost" size="icon" className={isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}>
@@ -208,8 +208,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
       </main>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 safe-area-inset-bottom">
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-4">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
