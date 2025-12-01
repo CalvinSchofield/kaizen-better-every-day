@@ -16,6 +16,7 @@ interface TeamMember {
   year: string | null;
   stage: string | null;
   onboardingStatus: string | null;
+  userId?: string | null; // Optional - only present if rep has app access
 }
 
 Deno.serve(async (req) => {
@@ -143,56 +144,58 @@ Deno.serve(async (req) => {
 
       // Filter reps based on accessible teams
       for (const rep of notionReps) {
-        const emailProp = rep.properties?.Email?.email;
-        if (!emailProp) continue;
-
         const teamsRelation = rep.properties?.Teams?.relation || [];
         const hasAccessToRep = teamsRelation.some((teamRel: any) =>
           accessibleTeamIds.includes(teamRel.id)
         );
 
-        console.log(`Checking rep ${rep.properties?.Name?.title?.[0]?.plain_text}:`, {
-          email: emailProp,
-          teams: teamsRelation.map((t: any) => t.id),
-          hasAccess: hasAccessToRep
-        });
-
         if (!hasAccessToRep) continue;
 
-        // Fetch Supabase user ID for this rep
-        const { data: repUser } = await supabase
-          .from("reps")
-          .select("user_id, notion_page_id, name, email, phone, year, stage, ipad_assigned, committed_blitzes")
-          .ilike("email", emailProp)
-          .single();
+        // Extract Notion data
+        const notionName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
+        const notionEmail = rep.properties?.Email?.email || null;
+        const notionPhone = rep.properties?.Phone?.phone_number || null;
+        const notionYear = rep.properties?.Year?.select?.name || null;
+        const notionStage = rep.properties?.Stage?.select?.name || null;
+        const notionIpadAssigned = rep.properties?.["iPad Assigned"]?.checkbox || false;
+        const onboardingStatus = rep.properties?.["Onboarding Step Completed"]?.status?.name ||
+          rep.properties?.["Onboarding Step Completed"]?.select?.name || null;
+        
+        // Get committed blitzes from Notion
+        const preseasonTrips = rep.properties?.["Preseason trips"]?.relation || [];
+        const committedBlitzes = preseasonTrips.map((trip: any) => trip.id).filter((id: string) => id);
 
-        if (repUser) {
-          accessibleUserIds.push(repUser.user_id);
-
-          const committedBlitzes = Array.isArray(repUser.committed_blitzes)
-            ? repUser.committed_blitzes.map((b: any) => b.id).filter((id: string) => id)
-            : [];
-
-          const onboardingStatus = rep.properties?.["Onboarding Step Completed"]?.status?.name ||
-            rep.properties?.["Onboarding Step Completed"]?.select?.name || null;
-
-          accessibleReps.push({
-            notionPageId: rep.id,
-            name: repUser.name,
-            email: repUser.email,
-            phone: repUser.phone,
-            blitzReady: onboardingStatus?.includes("Phase 4") || false,
-            committedBlitzes,
-            ipadAssigned: repUser.ipad_assigned || false,
-            year: repUser.year,
-            stage: repUser.stage,
-            onboardingStatus,
-          });
+        // Try to find Supabase user if they have email
+        let userId = null;
+        if (notionEmail) {
+          const { data: repUser } = await supabase
+            .from("reps")
+            .select("user_id")
+            .ilike("email", notionEmail)
+            .single();
           
-          console.log(`✓ Added rep: ${repUser.name}`);
-        } else {
-          console.log(`✗ No Supabase user found for email: ${emailProp}`);
+          if (repUser) {
+            userId = repUser.user_id;
+            accessibleUserIds.push(userId);
+          }
         }
+
+        // Add all team members regardless of app access
+        accessibleReps.push({
+          notionPageId: rep.id,
+          name: notionName,
+          email: notionEmail,
+          phone: notionPhone,
+          blitzReady: onboardingStatus?.includes("Phase 4") || false,
+          committedBlitzes,
+          ipadAssigned: notionIpadAssigned,
+          year: notionYear,
+          stage: notionStage,
+          onboardingStatus,
+          userId, // Include userId if they have app access, null otherwise
+        });
+        
+        console.log(`✓ Added rep: ${notionName} (App access: ${userId ? 'Yes' : 'No'})`);
       }
       
       console.log(`Total accessible reps found: ${accessibleReps.length}`);
