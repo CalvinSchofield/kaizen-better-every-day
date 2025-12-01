@@ -28,6 +28,7 @@ export const useBlitzAttendance = (
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, any>>(new Map());
 
   // Load from cache immediately
   useEffect(() => {
@@ -96,12 +97,43 @@ export const useBlitzAttendance = (
     fetchAttendance();
   }, [fetchAttendance]);
 
+  // Apply optimistic updates on top of data
+  const getOptimisticData = () => {
+    if (!data) return null;
+    
+    let updatedData = { ...data };
+    
+    // Apply any optimistic updates
+    optimisticUpdates.forEach((update, key) => {
+      if (key.startsWith('member-')) {
+        const memberId = key.replace('member-', '');
+        updatedData.teamMembers = updatedData.teamMembers.map(m =>
+          m.notionPageId === memberId ? { ...m, ...update } : m
+        );
+      }
+    });
+    
+    return updatedData;
+  };
+
+  const optimisticData = getOptimisticData();
+
   return {
-    teamMembers: data?.teamMembers || [],
-    contactedForBlitz: data?.contactedForBlitz || {},
-    accessibleUserIds: data?.accessibleUserIds || [],
+    teamMembers: optimisticData?.teamMembers || [],
+    contactedForBlitz: optimisticData?.contactedForBlitz || {},
+    accessibleUserIds: optimisticData?.accessibleUserIds || [],
     loading,
     error,
     refetch: fetchAttendance,
+    setOptimisticUpdate: (key: string, update: any) => {
+      setOptimisticUpdates(prev => new Map(prev).set(key, update));
+    },
+    clearOptimisticUpdate: (key: string) => {
+      setOptimisticUpdates(prev => {
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+    },
   };
 };
