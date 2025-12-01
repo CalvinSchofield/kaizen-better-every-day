@@ -9,14 +9,33 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { situation } = await req.json();
+    const { situation, timezone } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Determine if it's work hours based on rep's timezone
+    const now = new Date();
+    const repTime = new Date(now.toLocaleString("en-US", { timeZone: timezone || "America/Chicago" }));
+    const day = repTime.getDay(); // 0 = Sunday, 6 = Saturday
+    const hour = repTime.getHours();
+    const minute = repTime.getMinutes();
+    const timeInMinutes = hour * 60 + minute;
+    
+    let isWorkHours = false;
+    if (day >= 1 && day <= 5) { // Monday-Friday
+      isWorkHours = timeInMinutes >= 12 * 60 && timeInMinutes <= 20 * 60 + 30; // noon to 8:30pm
+    } else if (day === 6) { // Saturday
+      isWorkHours = timeInMinutes >= 10 * 60 && timeInMinutes <= 20 * 60 + 30; // 10am to 8:30pm
+    }
+
+    const contactMethodPreference = isWorkHours 
+      ? "Prefer text or email during work hours (it's currently work hours). If multiple methods work, show text/email first, then call as secondary option."
+      : "Prefer call outside work hours (it's currently outside work hours). If multiple methods work, show call first, then text/email as secondary option.";
 
     const systemPrompt = `You are a helpful assistant that recommends the right Vivint support contact based on a rep's situation. 
 
 Available contacts:
-- Account Creation Front Line (call 888-324-5771 Option 1, text 435-466-7224, email acadvocates@vivint.com): Pre-install surveys, scheduling technicians, customer pre-qualification, upgrade support, package questions before activation
+- Account Creation Front Line (call 888-324-5771 Option 1, text 435-466-7224, email acadvocates@vivint.com): Pre-install surveys, scheduling technicians through corporate, customer pre-qualification, upgrade support, package questions before activation. IMPORTANT: If the situation involves scheduling through corporate, use this prefilled text template: "Hey! Can you help me schedule this job?\n\nAccount Number:\nDate:\nTime:\nInstall office:\n\nThanks!"
 - Account Creation Advocates (call 888-324-5771 Option 3, email acadvocates@vivint.com): Fixing issues after activation, extending ROR, post-activation upgrades, creating ROR appointments, solar arbitration
 - 1Stop/Assets (call 888-324-5771 Option 1-3-1, text 801-509-9080, email 1stop@vivint.com): Password reset, rep promised credits, office changes, onboarding questions, account funding, commissions, iPads/equipment
 - SOS (call 800-236-6808, text 801-823-4406, email sos@vivint.com): Escalated customers, billing escalations, upgrades/add-ons, downgrades, incomplete installs, extending ROR, work orders
@@ -34,6 +53,8 @@ Available contacts:
 - Equifax Unfreeze (call 888-298-0045 or visit my.equifax.com for frozen credit, lockandalert.equifax.com for locked credit): Help customers unfreeze credit for soft credit checks. Usually fast to do online
 - Fortiva (call 800-459-7172): Current financing partner. For customers wanting to see how much they owe or their payment details
 
+${contactMethodPreference}
+
 You MUST respond with a JSON object in this exact format:
 {
   "recommendation": "1-2 sentence recommendation",
@@ -41,10 +62,15 @@ You MUST respond with a JSON object in this exact format:
     "type": "call" | "text" | "email",
     "contact": "phone number or email",
     "prefilledText": "prefilled message based on the situation (only for text/email)"
-  }
+  },
+  "secondaryAction": {
+    "type": "call" | "text" | "email",
+    "contact": "phone number or email",
+    "prefilledText": "prefilled message (only for text/email)"
+  } // optional, only include if multiple methods work for this situation
 }
 
-Be direct and specific. Choose the most appropriate contact method (text preferred for quick questions, call for urgent issues, email for documentation).`;
+Be direct and specific.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
