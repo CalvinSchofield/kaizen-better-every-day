@@ -136,7 +136,7 @@ const TeamReports = () => {
         <div className="relative">
           {/* Scrollable date buttons */}
           <div className="overflow-x-auto pb-2 scrollbar-hide">
-            <div className="flex gap-2 pr-32 whitespace-nowrap">
+            <div className="flex gap-2 pr-24 whitespace-nowrap">
               <Button
                 variant={datePreset === 'week' ? 'default' : 'outline'}
                 size="sm"
@@ -177,7 +177,7 @@ const TeamReports = () => {
           
           {/* Fixed Filter button with fade gradient */}
           <div className="absolute right-0 top-0 bottom-2 flex items-start pointer-events-none">
-            <div className="w-32 h-full bg-gradient-to-l from-background from-50% via-background/90 via-70% to-transparent" />
+            <div className="w-20 h-full bg-gradient-to-l from-background from-60% to-transparent" />
             <Button 
               variant="outline" 
               size="sm"
