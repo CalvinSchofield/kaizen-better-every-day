@@ -835,7 +835,7 @@ export default function Insights() {
             <SheetTitle>Select Custom Date Range</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 py-4">
-            <div>
+            <div className={cn("transition-all duration-300", customStartDate && "animate-scale-in")}>
               <label className="text-sm font-medium mb-2 block">Start Date</label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -848,7 +848,16 @@ export default function Insights() {
                   <Calendar
                     mode="single"
                     selected={customStartDate}
-                    onSelect={setCustomStartDate}
+                    onSelect={(date) => {
+                      setCustomStartDate(date);
+                      // Auto-open end date picker if end date is empty
+                      if (date && !customEndDate) {
+                        setTimeout(() => {
+                          const endDateButton = document.querySelector('[data-end-date-trigger]') as HTMLButtonElement;
+                          endDateButton?.click();
+                        }, 200);
+                      }
+                    }}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
@@ -856,11 +865,15 @@ export default function Insights() {
               </Popover>
             </div>
             
-            <div>
+            <div className={cn("transition-all duration-300", customStartDate && !customEndDate && "animate-pulse")}>
               <label className="text-sm font-medium mb-2 block">End Date</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start text-left font-normal"
+                    data-end-date-trigger
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
                   </Button>
@@ -870,6 +883,7 @@ export default function Insights() {
                     mode="single"
                     selected={customEndDate}
                     onSelect={setCustomEndDate}
+                    disabled={(date) => customStartDate ? date < customStartDate : false}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
