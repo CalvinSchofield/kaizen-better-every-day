@@ -6,7 +6,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useInsightsFeedback } from '@/hooks/useInsightsFeedback';
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon, Sparkles } from 'lucide-react';
-import { format, subDays, subMonths, startOfYear } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -66,7 +66,7 @@ export default function Insights() {
       case 'week':
         return { start: subDays(now, 7), end: now };
       case 'month':
-        return { start: subMonths(now, 1), end: now };
+        return { start: startOfMonth(now), end: endOfMonth(now) };
       case 'preseason':
         return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
       case 'custom':
@@ -75,7 +75,7 @@ export default function Insights() {
           end: customEndDate || now 
         };
       default:
-        return { start: subMonths(now, 1), end: now };
+        return { start: startOfMonth(now), end: endOfMonth(now) };
     }
   };
 
@@ -559,7 +559,24 @@ export default function Insights() {
                   </div>
                   {expandedSection !== 'trends' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      Track your performance over time
+                      {(() => {
+                        const transitionsData = insights.dailyTrend;
+                        if (transitionsData.length < 2) return `${insights.totalTransitions} transitions tracked`;
+                        
+                        const firstHalf = transitionsData.slice(0, Math.floor(transitionsData.length / 2));
+                        const secondHalf = transitionsData.slice(Math.floor(transitionsData.length / 2));
+                        const firstAvg = firstHalf.reduce((sum, d) => sum + d.transitions, 0) / firstHalf.length;
+                        const secondAvg = secondHalf.reduce((sum, d) => sum + d.transitions, 0) / secondHalf.length;
+                        const growth = ((secondAvg - firstAvg) / firstAvg) * 100;
+                        
+                        if (Math.abs(growth) < 5) {
+                          return `${insights.totalTransitions} transitions · Steady pattern this ${datePreset === 'week' ? 'week' : datePreset === 'month' ? 'month' : 'period'}`;
+                        } else if (growth > 0) {
+                          return `${insights.totalTransitions} transitions · Up ${growth.toFixed(0)}% this ${datePreset === 'week' ? 'week' : datePreset === 'month' ? 'month' : 'period'}`;
+                        } else {
+                          return `${insights.totalTransitions} transitions · Down ${Math.abs(growth).toFixed(0)}% this ${datePreset === 'week' ? 'week' : datePreset === 'month' ? 'month' : 'period'}`;
+                        }
+                      })()}
                     </div>
                   )}
                 </CollapsibleTrigger>
