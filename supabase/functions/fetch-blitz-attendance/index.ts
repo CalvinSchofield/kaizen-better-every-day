@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     } else {
       // Fetch teams and MGMT groups from Notion
       const teamsResponse = await fetch(
-        `https://api.notion.com/v1/databases/287070fe3bc28000000000000000000/query`,
+        `https://api.notion.com/v1/databases/287070fe3bc280e1ab5fec17d5582878/query`,
         {
           method: "POST",
           headers: {
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
 
       // Fetch all reps from Notion
       const repsResponse = await fetch(
-        `https://api.notion.com/v1/databases/272070fe3bc2800000000000000000/query`,
+        `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
         {
           method: "POST",
           headers: {
