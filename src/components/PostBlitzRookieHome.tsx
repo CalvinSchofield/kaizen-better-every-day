@@ -16,6 +16,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import confetti from "canvas-confetti";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +35,7 @@ interface PostBlitzRookieHomeProps {
 export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }: PostBlitzRookieHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
@@ -125,6 +127,10 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   const confirmLogout = async () => {
     try {
+      // Clear all caches before signing out
+      localStorage.removeItem('rep-data-cache');
+      queryClient.clear();
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       navigate("/auth");

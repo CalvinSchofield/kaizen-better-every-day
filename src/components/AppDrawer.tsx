@@ -17,6 +17,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -29,6 +30,7 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
   const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
 
@@ -64,6 +66,10 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
 
   const confirmLogout = async () => {
     try {
+      // Clear all caches before signing out
+      localStorage.removeItem('rep-data-cache');
+      queryClient.clear();
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("Logout error:", error);
@@ -244,22 +250,24 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
             </Link>
           </div>
 
-          {/* Logout Button - Pushed to bottom */}
-          <div className="mt-auto pt-4">
-            <Separator className="mb-4" />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
-            >
-              <LogOut className="w-5 h-5" />
-              <div className="flex flex-col">
-                <span className="font-semibold">Logout</span>
-                <span className="text-sm text-muted-foreground">
-                  Sign out of your account
-                </span>
-              </div>
-            </button>
-          </div>
+          {/* Logout Button - Pushed to bottom - Hidden for pre-blitz rookies */}
+          {!isCalendarLocked && (
+            <div className="mt-auto pt-4">
+              <Separator className="mb-4" />
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
+              >
+                <LogOut className="w-5 h-5" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Logout</span>
+                  <span className="text-sm text-muted-foreground">
+                    Sign out of your account
+                  </span>
+                </div>
+              </button>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

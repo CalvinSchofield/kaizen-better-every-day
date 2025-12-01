@@ -19,6 +19,7 @@ import { BlitzCountdown } from "@/components/BlitzCountdown";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { KnockingModeHome } from "@/components/KnockingModeHome";
 import { useAppMode } from "@/hooks/useAppMode";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface StepStatus {
   completed: boolean;
@@ -57,6 +58,7 @@ const Home = () => {
   } = useRepData();
   
   const { isKnockingMode } = useAppMode(repData);
+  const queryClient = useQueryClient();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -518,6 +520,10 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
+      // Clear all caches before signing out
+      localStorage.removeItem('rep-data-cache');
+      queryClient.clear();
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);

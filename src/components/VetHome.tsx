@@ -17,6 +17,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import confetti from "canvas-confetti";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
   SheetContent,
@@ -69,6 +70,7 @@ interface TeamMember {
 export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [isEditingStats, setIsEditingStats] = useState(false);
   const [helpSheetOpen, setHelpSheetOpen] = useState(false);
@@ -308,6 +310,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
   const confirmLogout = async () => {
     try {
+      // Clear all caches before signing out
+      localStorage.removeItem('rep-data-cache');
+      queryClient.clear();
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       navigate("/auth");
