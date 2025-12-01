@@ -183,6 +183,8 @@ All colors MUST be HSL.
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Support for device notches and safe areas */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   
   #root {
