@@ -408,7 +408,7 @@ export const CalendarView = ({
       {/* Legend */}
       <div className="mt-4 flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-primary/10 border-2 border-primary" />
+          <div className="w-4 h-4 rounded bg-primary" />
           <span className="text-muted-foreground">Knocking day</span>
         </div>
         <div className="flex items-center gap-2">
