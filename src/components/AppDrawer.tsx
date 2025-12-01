@@ -419,23 +419,21 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
           </div>
         </div>
 
-        {/* Logout - Fixed at bottom - Hidden for pre-blitz rookies */}
-        {!isCalendarLocked && (
-          <div className="pt-3 border-t">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
-            >
-              <LogOut className="w-5 h-5" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Logout</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Sign out
-                </span>
-              </div>
-            </button>
-          </div>
-        )}
+        {/* Logout - Fixed at bottom */}
+        <div className="pt-3 border-t">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
+          >
+            <LogOut className="w-5 h-5" />
+            <div className="flex flex-col flex-1 min-w-0">
+              <span className="font-semibold text-sm">Logout</span>
+              <span className="text-xs text-muted-foreground truncate">
+                Sign out
+              </span>
+            </div>
+          </button>
+        </div>
       </SheetContent>
     </Sheet>
 
