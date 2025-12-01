@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Users, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target } from "lucide-react";
+import { Filter, Users, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,9 +13,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, subDays, startOfMonth, endOfMonth, startOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SalesFunnelChart } from "@/components/insights/SalesFunnelChart";
+import { ActivityTrendChart } from "@/components/insights/ActivityTrendChart";
+import { HourlyActivityHeatmap } from "@/components/insights/HourlyActivityHeatmap";
+import { DayOfWeekAnalysis } from "@/components/insights/DayOfWeekAnalysis";
+import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
-type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | null;
+type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
 type GroupViewMode = 'totals' | 'teams' | 'mgmt-groups' | 'individuals';
 
 const TeamReports = () => {
@@ -29,7 +33,6 @@ const TeamReports = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'totals' | 'individual'>('totals');
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
-  const [groupViewMode, setGroupViewMode] = useState<GroupViewMode>('totals');
 
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -63,6 +66,20 @@ const TeamReports = () => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
+  const getRatioComparison = (current: number, overall: number) => {
+    if (current === 0 || overall === 0) return null;
+    const percentDiff = ((overall - current) / overall) * 100;
+    const isBetter = current < overall; // Lower ratios are better
+    return { percentDiff: Math.abs(percentDiff), isBetter };
+  };
+
+  const getCloseRatioComparison = (current: number, overall: number) => {
+    if (current === 0 || overall === 0) return null;
+    const percentDiff = ((current - overall) / overall) * 100;
+    const isBetter = current < overall; // Lower is better
+    return { percentDiff: Math.abs(percentDiff), isBetter };
+  };
+
   // Initialize selected users when access data loads
   const effectiveUserIds = selectedUserIds.length > 0 
     ? selectedUserIds 
@@ -73,6 +90,12 @@ const TeamReports = () => {
     dateRange: getDateRange(datePreset),
     excludeUserIds,
   });
+
+  // Calculate ratio comparisons
+  const doorsComparison = insightsData ? getRatioComparison(insightsData.doorsToFp, insightsData.overallDoorsToFp) : null;
+  const pitchesComparison = insightsData ? getRatioComparison(insightsData.pitchesToFp, insightsData.overallPitchesToFp) : null;
+  const transitionsComparison = insightsData ? getRatioComparison(insightsData.transitionsToFp, insightsData.overallTransitionsToFp) : null;
+  const closeComparison = insightsData ? getCloseRatioComparison(insightsData.presentationsToClose, insightsData.overallPresentationsToClose) : null;
 
   if (accessLoading) {
     return (
@@ -206,7 +229,7 @@ const TeamReports = () => {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Team Summary</h2>
-                <span className="text-sm text-primary font-medium">{insightsData.repBreakdown.length} team members</span>
+                <span className="text-sm text-primary font-medium">{insightsData.daysWorked} days worked</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -253,7 +276,7 @@ const TeamReports = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400">{(insightsData.totalFP - insightsData.totalUpgradeFP).toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">FP (New Sales)</div>
+                      <div className="text-xs text-muted-foreground">FP</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insightsData.totalUpgradeFP.toFixed(1)}</div>
@@ -263,6 +286,9 @@ const TeamReports = () => {
                 </div>
               )}
             </Card>
+
+            {/* Progress Over Time Chart */}
+            <FPCumulativeChart />
 
             {/* Sales Funnel - Collapsible */}
             <Card>
@@ -277,38 +303,13 @@ const TeamReports = () => {
                   </div>
                   {expandedSection !== 'funnel' && (
                     <div className="mt-2 text-left text-sm text-muted-foreground">
-                      {insightsData.totalDoors} doors → {insightsData.totalCloses} closes · {((insightsData.totalDMs / insightsData.totalDoors) * 100).toFixed(1)}% DM rate
+                      {insightsData.funnelData.doors.total} doors → {insightsData.funnelData.closes.total} closes · {insightsData.funnelData.doors.conversionToNext.toFixed(1)}% DM rate
                     </div>
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="px-4 pb-4 space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Doors</span>
-                        <span className="font-semibold">{insightsData.totalDoors}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Decision Makers</span>
-                        <span className="font-semibold">{insightsData.totalDMs} ({((insightsData.totalDMs / insightsData.totalDoors) * 100).toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Pitches</span>
-                        <span className="font-semibold">{insightsData.totalPitches} ({((insightsData.totalPitches / insightsData.totalDMs) * 100).toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Transitions</span>
-                        <span className="font-semibold">{insightsData.totalTransitions} ({((insightsData.totalTransitions / insightsData.totalPitches) * 100).toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Presentations</span>
-                        <span className="font-semibold">{insightsData.totalPresentations} ({((insightsData.totalPresentations / insightsData.totalTransitions) * 100).toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Closes</span>
-                        <span className="font-semibold">{insightsData.totalCloses} ({((insightsData.totalCloses / insightsData.totalPresentations) * 100).toFixed(1)}%)</span>
-                      </div>
-                    </div>
+                  <div className="px-4 pb-4">
+                    <SalesFunnelChart funnelData={insightsData.funnelData} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -333,23 +334,64 @@ const TeamReports = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-4 pb-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
+                    {/* Doors → FP */}
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="text-sm text-muted-foreground">Doors → FP</div>
-                        <div className="text-2xl font-bold">{insightsData.doorsToFp.toFixed(1)}</div>
+                        {doorsComparison && (
+                          <div className={cn("flex items-center gap-1 text-xs", doorsComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                            {doorsComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            {doorsComparison.percentDiff.toFixed(0)}% vs overall
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="text-3xl font-bold">{insightsData.doorsToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallDoorsToFp.toFixed(1)}</div>
+                    </div>
+
+                    {/* Pitches → FP */}
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="text-sm text-muted-foreground">Pitches → FP</div>
-                        <div className="text-2xl font-bold">{insightsData.pitchesToFp.toFixed(1)}</div>
+                        {pitchesComparison && (
+                          <div className={cn("flex items-center gap-1 text-xs", pitchesComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                            {pitchesComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            {pitchesComparison.percentDiff.toFixed(0)}% vs overall
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="text-3xl font-bold">{insightsData.pitchesToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallPitchesToFp.toFixed(1)}</div>
+                    </div>
+
+                    {/* Transitions → FP */}
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="text-sm text-muted-foreground">Transitions → FP</div>
-                        <div className="text-2xl font-bold">{insightsData.transitionsToFp.toFixed(1)}</div>
+                        {transitionsComparison && (
+                          <div className={cn("flex items-center gap-1 text-xs", transitionsComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                            {transitionsComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            {transitionsComparison.percentDiff.toFixed(0)}% vs overall
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="text-3xl font-bold">{insightsData.transitionsToFp.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallTransitionsToFp.toFixed(1)}</div>
+                    </div>
+
+                    {/* Presentations → Close */}
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="text-sm text-muted-foreground">Presentations → Close</div>
-                        <div className="text-2xl font-bold">{insightsData.presentationsToClose.toFixed(1)}</div>
+                        {closeComparison && (
+                          <div className={cn("flex items-center gap-1 text-xs", closeComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                            {closeComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            {closeComparison.percentDiff.toFixed(0)}% vs overall
+                          </div>
+                        )}
                       </div>
+                      <div className="text-3xl font-bold">{insightsData.presentationsToClose.toFixed(1)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallPresentationsToClose.toFixed(1)}</div>
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -363,7 +405,7 @@ const TeamReports = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Clock className="w-5 h-5" />
-                      <h2 className="text-lg font-semibold">Productivity</h2>
+                      <h2 className="text-lg font-semibold">Productivity per Hour</h2>
                     </div>
                     <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'productivity' && "rotate-180")} />
                   </div>
@@ -389,6 +431,10 @@ const TeamReports = () => {
                         <div className="text-2xl font-bold">{insightsData.pitchesPerHour.toFixed(1)}</div>
                       </div>
                       <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">Transitions per Hour</div>
+                        <div className="text-2xl font-bold">{insightsData.transitionsPerHour.toFixed(1)}</div>
+                      </div>
+                      <div className="space-y-1">
                         <div className="text-sm text-muted-foreground">Presentations per Hour</div>
                         <div className="text-2xl font-bold">{insightsData.presentationsPerHour.toFixed(1)}</div>
                       </div>
@@ -398,19 +444,199 @@ const TeamReports = () => {
               </Collapsible>
             </Card>
 
+            {/* Activity Trends - Collapsible */}
+            {insightsData.dailyTrend.length > 0 && (
+              <Card>
+                <Collapsible open={expandedSection === 'trends'} onOpenChange={() => handleSectionToggle('trends')}>
+                  <CollapsibleTrigger className="w-full p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TrendingUpIcon className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Activity Trends</h2>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'trends' && "rotate-180")} />
+                    </div>
+                    {expandedSection !== 'trends' && (
+                      <div className="mt-2 text-left text-sm text-muted-foreground">
+                        Daily trends · {insightsData.dailyTrend.length} days tracked
+                      </div>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      <ActivityTrendChart dailyTrend={insightsData.dailyTrend} />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            )}
+
+            {/* Hourly Activity - Collapsible */}
+            {insightsData.hourRange && (
+              <Card>
+                <Collapsible open={expandedSection === 'hourly'} onOpenChange={() => handleSectionToggle('hourly')}>
+                  <CollapsibleTrigger className="w-full p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Hourly Patterns</h2>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'hourly' && "rotate-180")} />
+                    </div>
+                    {expandedSection !== 'hourly' && insightsData.mostProductiveHour !== null && (
+                      <div className="mt-2 text-left text-sm text-muted-foreground">
+                        Most productive: {insightsData.mostProductiveHour === 0 ? '12' : insightsData.mostProductiveHour > 12 ? insightsData.mostProductiveHour - 12 : insightsData.mostProductiveHour}
+                        {insightsData.mostProductiveHour >= 12 ? 'PM' : 'AM'}
+                      </div>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      <HourlyActivityHeatmap 
+                        hourlyActivity={insightsData.hourlyActivity}
+                        peakHours={insightsData.peakHours}
+                        hourRange={insightsData.hourRange}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            )}
+
+            {/* Best Periods - Collapsible */}
+            {(insightsData.bestDay || insightsData.bestWeek || insightsData.bestDayOfWeek) && (
+              <Card>
+                <Collapsible open={expandedSection === 'bestPeriods'} onOpenChange={() => handleSectionToggle('bestPeriods')}>
+                  <CollapsibleTrigger className="w-full p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Best Periods</h2>
+                      </div>
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'bestPeriods' && "rotate-180")} />
+                    </div>
+                    {expandedSection !== 'bestPeriods' && insightsData.bestDay && (
+                      <div className="mt-2 text-left text-sm text-muted-foreground">
+                        Best day: {insightsData.bestDay.date} · {insightsData.bestDay.fp.toFixed(1)} FP
+                      </div>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4 space-y-4">
+                      {insightsData.bestDay && (
+                        <Card className="p-4 bg-accent/20">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Award className="w-4 h-4 text-primary" />
+                            <div className="text-sm font-semibold">Best Day</div>
+                          </div>
+                          <div className="text-lg font-bold">{insightsData.bestDay.date}</div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {insightsData.bestDay.fp.toFixed(1)} FP+ · {insightsData.bestDay.repName}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestDay.stats}</div>
+                        </Card>
+                      )}
+
+                      {insightsData.bestWeek && (
+                        <Card className="p-4">
+                          <div className="text-sm font-semibold text-muted-foreground mb-2">Best Week</div>
+                          <div className="text-lg font-bold">{insightsData.bestWeek.weekStart} — {insightsData.bestWeek.weekEnd}</div>
+                          <div className="text-sm text-muted-foreground mt-1">{insightsData.bestWeek.fp.toFixed(1)} FP+</div>
+                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestWeek.stats}</div>
+                        </Card>
+                      )}
+
+                      {insightsData.bestMonth && (
+                        <Card className="p-4">
+                          <div className="text-sm font-semibold text-muted-foreground mb-2">Best Month</div>
+                          <div className="text-lg font-bold">{insightsData.bestMonth.month}</div>
+                          <div className="text-sm text-muted-foreground mt-1">{insightsData.bestMonth.fp.toFixed(1)} FP+</div>
+                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestMonth.stats}</div>
+                        </Card>
+                      )}
+
+                      {insightsData.bestTransitionsDay && (
+                        <Card className="p-4">
+                          <div className="text-sm font-semibold text-muted-foreground mb-2">Most Transitions</div>
+                          <div className="text-lg font-bold">{insightsData.bestTransitionsDay.date} · {insightsData.bestTransitionsDay.repName}</div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {insightsData.bestTransitionsDay.transitions} transitions · {insightsData.bestTransitionsDay.fp.toFixed(1)} FP+
+                          </div>
+                        </Card>
+                      )}
+
+                      {insightsData.bestDayOfWeek && (
+                        <DayOfWeekAnalysis 
+                          dayOfWeekData={insightsData.dayOfWeekData}
+                          bestDayOfWeek={insightsData.bestDayOfWeek}
+                        />
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            )}
+
+            {/* Timing Patterns - Collapsible */}
+            <Card>
+              <Collapsible open={expandedSection === 'timing'} onOpenChange={() => handleSectionToggle('timing')}>
+                <CollapsibleTrigger className="w-full p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <h2 className="text-lg font-semibold">Timing Patterns</h2>
+                    </div>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'timing' && "rotate-180")} />
+                  </div>
+                  {expandedSection !== 'timing' && (
+                    <div className="mt-2 text-left text-sm text-muted-foreground">
+                      {insightsData.avgStartTime} — {insightsData.avgEndTime} · {insightsData.avgHoursWorked.toFixed(1)} hrs avg
+                    </div>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg Start Time</div>
+                        <div className="text-xl font-bold">{insightsData.avgStartTime}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg End Time</div>
+                        <div className="text-xl font-bold">{insightsData.avgEndTime}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
+                        <div className="text-xl font-bold">{insightsData.avgHoursWorked.toFixed(1)}h</div>
+                      </div>
+                      {insightsData.mostProductiveHour !== null && (
+                        <div>
+                          <div className="text-sm text-muted-foreground">Most Productive Hour</div>
+                          <div className="text-xl font-bold">
+                            {insightsData.mostProductiveHour === 0 ? '12' : insightsData.mostProductiveHour > 12 ? insightsData.mostProductiveHour - 12 : insightsData.mostProductiveHour}
+                            {insightsData.mostProductiveHour >= 12 ? 'PM' : 'AM'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
             {/* Individual Breakdown - Collapsible */}
             {viewMode === 'individual' && (
               <Card>
-                <Collapsible open={expandedSection === 'trends'} onOpenChange={() => handleSectionToggle('trends')}>
+                <Collapsible open={expandedSection === 'individuals'} onOpenChange={() => handleSectionToggle('individuals')}>
                   <CollapsibleTrigger className="w-full p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Users className="w-5 h-5" />
                         <h2 className="text-lg font-semibold">Individual Performance</h2>
                       </div>
-                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'trends' && "rotate-180")} />
+                      <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'individuals' && "rotate-180")} />
                     </div>
-                    {expandedSection !== 'trends' && (
+                    {expandedSection !== 'individuals' && (
                       <div className="mt-2 text-left text-sm text-muted-foreground">
                         {insightsData.repBreakdown.length} team members
                       </div>
@@ -582,7 +808,13 @@ const TeamReports = () => {
                   <Calendar
                     mode="single"
                     selected={customEndDate}
-                    onSelect={setCustomEndDate}
+                    onSelect={(date) => {
+                      setCustomEndDate(date);
+                      if (date) {
+                        // Auto-close after selecting end date
+                        setTimeout(() => setShowCustomDialog(false), 150);
+                      }
+                    }}
                     disabled={(date) => customStartDate ? date < customStartDate : false}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
