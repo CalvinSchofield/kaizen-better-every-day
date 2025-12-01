@@ -23,6 +23,8 @@ interface RepInfo {
   user_id: string;
   name: string;
   year: string;
+  teamName?: string;
+  mgmtGroupName?: string;
 }
 
 interface TeamInsightsData {
@@ -66,6 +68,8 @@ interface TeamInsightsData {
     userId: string;
     name: string;
     year: string;
+    teamName: string;
+    mgmtGroupName: string;
     doors: number;
     dms: number;
     pitches: number;
@@ -264,6 +268,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           userId: rep.user_id,
           name: rep.name,
           year: rep.year,
+          teamName: rep.teamName || 'Unknown Team',
+          mgmtGroupName: rep.mgmtGroupName || 'Unknown Group',
           doors: repTotals.doors,
           dms: repTotals.dms,
           pitches: repTotals.pitches,
