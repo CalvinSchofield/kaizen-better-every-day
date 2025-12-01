@@ -105,48 +105,58 @@ const TeamReports = () => {
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
       <div className="max-w-lg mx-auto space-y-6">
-        {/* Date Range Selector - Matching Insights Page */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          <Button
-            variant={datePreset === 'week' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('week')}
-          >
-            This Week
-          </Button>
-          <Button
-            variant={datePreset === 'month' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('month')}
-          >
-            This Month
-          </Button>
-          <Button
-            variant={datePreset === 'preseason' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('preseason')}
-          >
-            Preseason
-          </Button>
-          <Button
-            variant={datePreset === 'custom' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowCustomDialog(true)}
-          >
-            <CalendarIcon className="w-4 h-4 mr-1" />
-            {datePreset === 'custom' && customStartDate && customEndDate
-              ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
-              : 'Custom'}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setIsFilterOpen(true)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
+        {/* Date Range Selector with Fade and Fixed Filter */}
+        <div className="relative">
+          {/* Scrollable date buttons */}
+          <div className="overflow-x-auto pb-2 -mr-20 scrollbar-hide">
+            <div className="flex gap-2 pr-24">
+              <Button
+                variant={datePreset === 'week' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('week')}
+              >
+                This Week
+              </Button>
+              <Button
+                variant={datePreset === 'month' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('month')}
+              >
+                This Month
+              </Button>
+              <Button
+                variant={datePreset === 'preseason' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('preseason')}
+              >
+                Preseason
+              </Button>
+              <Button
+                variant={datePreset === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowCustomDialog(true)}
+              >
+                <CalendarIcon className="w-4 h-4 mr-1" />
+                {datePreset === 'custom' && customStartDate && customEndDate
+                  ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+                  : 'Custom'}
+              </Button>
+            </div>
+          </div>
+          
+          {/* Fixed Filter button with fade gradient */}
+          <div className="absolute right-0 top-0 bottom-0 flex items-start pt-0 pointer-events-none">
+            <div className="w-20 h-full bg-gradient-to-l from-background via-background to-transparent" />
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsFilterOpen(true)}
+              className="gap-2 pointer-events-auto"
+            >
+              <Filter className="h-4 w-4" />
+              Filter
+            </Button>
+          </div>
         </div>
 
 
