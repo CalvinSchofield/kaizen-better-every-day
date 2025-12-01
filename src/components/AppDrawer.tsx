@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -28,11 +29,14 @@ interface AppDrawerProps {
 export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps) => {
   const { repData } = useRepData();
   const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
+  const { data: teamAccess } = useTeamAccess();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -204,6 +208,23 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
                   <span className="font-semibold">Insights</span>
                   <span className="text-sm text-muted-foreground">
                     {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* Team Reports Link - Show only for leaders */}
+            {isLeader && (
+              <Link
+                to="/team-reports"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              >
+                <Users className="w-5 h-5 text-primary" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Team Reports</span>
+                  <span className="text-sm text-muted-foreground">
+                    View team performance
                   </span>
                 </div>
               </Link>
