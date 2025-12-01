@@ -77,7 +77,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       const totalMinutes = hours * 60 + minutes;
       
       // Monday is 1, check if between 9:00 AM (540 minutes) and 8:30 PM (1230 minutes)
-      return day === 1 && totalMinutes >= 540 && totalMinutes <= 1230;
+      const isMonday = day === 1;
+      const isInTimeWindow = totalMinutes >= 540 && totalMinutes <= 1230;
+      return { isMonday: isMonday && isInTimeWindow, isEvening: hours >= 17 }; // 5 PM = 17:00
     };
 
     // Check for rookies needing attention
@@ -169,14 +171,15 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       return alerts;
     };
 
-    const isMNL = checkMondayNightLights();
-    setIsMondayNightLights(isMNL);
+    const mnlStatus = checkMondayNightLights();
+    setIsMondayNightLights(mnlStatus.isMonday);
     const alerts = checkRookieAlerts();
 
     // Show card if any condition is met
-    const shouldShow = isMNL || alerts.length > 0;
+    const shouldShow = mnlStatus.isMonday || alerts.length > 0;
     console.log('[VetAlertCard] Should show card:', shouldShow, {
-      isMNL,
+      isMNL: mnlStatus.isMonday,
+      isEvening: mnlStatus.isEvening,
       alertsCount: alerts.length
     });
     setShowCard(shouldShow);
@@ -309,16 +312,26 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Moon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <h3 className="font-semibold text-lg">Monday Night Lights — Tonight!</h3>
+              <h3 className="font-semibold text-lg">
+                Monday Night Lights — {(() => {
+                  const now = new Date();
+                  const mstOffset = -7 * 60;
+                  const localOffset = now.getTimezoneOffset();
+                  const mstTime = new Date(now.getTime() + (localOffset - mstOffset) * 60000);
+                  const hours = mstTime.getHours();
+                  return hours >= 17 ? "Happening Now!" : "This Evening!";
+                })()}
+              </h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Team training and Q&A session.
+              6:00 PM - 8:30 PM MST • Team training and Q&A session
             </p>
             <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <p className="text-sm font-medium mb-2">💡 Leader Reminder:</p>
+              <p className="text-sm font-medium mb-2">💡 Team Lead & MGMT Reminder:</p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Send personal invites to your recruits</li>
-                <li>Take notes on key takeaways to share</li>
+                <li>Send <strong>personal invites</strong> to each of your recruits individually</li>
+                <li>Encourage them to <strong>take notes</strong> on key takeaways</li>
+                <li>If you're in <strong>Utah</strong>, encourage your team to attend <strong>in person</strong> when possible</li>
               </ul>
             </div>
           </div>
