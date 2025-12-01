@@ -40,20 +40,13 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         return null;
       }
 
-      // Filter by year if specified
-      const filteredReps = filterByYear 
-        ? reps?.filter(rep => rep.year === filterByYear) 
-        : reps;
+      // Create reps map for lookups
+      const repsMap = new Map(reps?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
 
-      if (!filteredReps || filteredReps.length === 0) return null;
-
-      const userIds = filteredReps.map(rep => rep.user_id);
-
-      // Fetch all finalized entries for the year
+      // Fetch ALL finalized entries for the year (no pre-filtering)
       const { data: entries, error: entriesError } = await supabase
         .from('daily_entries')
         .select('*')
-        .in('user_id', userIds)
         .eq('is_finalized', true)
         .gte('entry_date', yearStart);
 
@@ -61,6 +54,11 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         console.error('Error fetching entries:', entriesError);
         return null;
       }
+
+      // Filter entries by year if specified
+      const filteredEntries = filterByYear 
+        ? entries?.filter(e => repsMap.get(e.user_id)?.year === filterByYear) || []
+        : entries || [];
 
       // Aggregate by user
       const userStats = new Map<string, {
@@ -77,7 +75,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         latestDoorTime: string | null;
       }>();
 
-      entries?.forEach(entry => {
+      filteredEntries.forEach(entry => {
         const stats = userStats.get(entry.user_id) || {
           doors: 0,
           decisionMakers: 0,
@@ -156,36 +154,38 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
       };
 
       userStats.forEach((stats, userId) => {
-        const rep = filteredReps.find(r => r.user_id === userId);
-        if (!rep) return;
+        const repInfo = repsMap.get(userId);
+        if (!repInfo) return;
+        
+        const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
 
         if (stats.doors > (leaderboard.mostDoors?.value || 0)) {
-          leaderboard.mostDoors = { userId, name: rep.name, value: stats.doors };
+          leaderboard.mostDoors = { userId, name: cleanName, value: stats.doors };
         }
         if (stats.decisionMakers > (leaderboard.mostDecisionMakers?.value || 0)) {
-          leaderboard.mostDecisionMakers = { userId, name: rep.name, value: stats.decisionMakers };
+          leaderboard.mostDecisionMakers = { userId, name: cleanName, value: stats.decisionMakers };
         }
         if (stats.pitches > (leaderboard.mostPitches?.value || 0)) {
-          leaderboard.mostPitches = { userId, name: rep.name, value: stats.pitches };
+          leaderboard.mostPitches = { userId, name: cleanName, value: stats.pitches };
         }
         if (stats.transitions > (leaderboard.mostTransitions?.value || 0)) {
-          leaderboard.mostTransitions = { userId, name: rep.name, value: stats.transitions };
+          leaderboard.mostTransitions = { userId, name: cleanName, value: stats.transitions };
         }
         if (stats.presentations > (leaderboard.mostPresentations?.value || 0)) {
-          leaderboard.mostPresentations = { userId, name: rep.name, value: stats.presentations };
+          leaderboard.mostPresentations = { userId, name: cleanName, value: stats.presentations };
         }
         if (stats.fp > (leaderboard.mostFP?.value || 0)) {
-          leaderboard.mostFP = { userId, name: rep.name, value: stats.fp };
+          leaderboard.mostFP = { userId, name: cleanName, value: stats.fp };
         }
         if (stats.prmr > (leaderboard.mostPRMR?.value || 0)) {
-          leaderboard.mostPRMR = { userId, name: rep.name, value: stats.prmr };
+          leaderboard.mostPRMR = { userId, name: cleanName, value: stats.prmr };
         }
         const upgradeFp = stats.upgradePrmr / 85;
         if (upgradeFp > (leaderboard.mostUpgradeFP?.value || 0)) {
-          leaderboard.mostUpgradeFP = { userId, name: rep.name, value: upgradeFp };
+          leaderboard.mostUpgradeFP = { userId, name: cleanName, value: upgradeFp };
         }
         if (stats.hoursWorked > (leaderboard.mostHoursWorked?.value || 0)) {
-          leaderboard.mostHoursWorked = { userId, name: rep.name, value: stats.hoursWorked };
+          leaderboard.mostHoursWorked = { userId, name: cleanName, value: stats.hoursWorked };
         }
 
         // Earliest door
@@ -200,7 +200,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
             });
             leaderboard.earliestDoor = { 
               userId, 
-              name: rep.name, 
+              name: cleanName, 
               value: newEarliest.getTime(),
               timeValue: timeStr
             };
@@ -219,7 +219,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
             });
             leaderboard.latestDoor = { 
               userId, 
-              name: rep.name, 
+              name: cleanName, 
               value: newLatest.getTime(),
               timeValue: timeStr
             };
