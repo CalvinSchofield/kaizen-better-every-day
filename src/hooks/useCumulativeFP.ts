@@ -12,6 +12,10 @@ export interface CumulativeDataPoint {
   movingAvgPrmr6: number | null;
   movingAvgPrmr12: number | null;
   dailyPrmr: number;
+  cumulativeFp: number; // Always track actual FP+ regardless of mode
+  movingAvgFp6: number | null;
+  movingAvgFp12: number | null;
+  dailyFp: number;
 }
 
 export const useCumulativeFP = () => {
@@ -38,6 +42,7 @@ export const useCumulativeFP = () => {
       const dataPoints: CumulativeDataPoint[] = [];
       let cumulative = 0;
       let cumulativePrmr = 0;
+      let cumulativeFp = 0;
 
       entries.forEach((entry, index) => {
         const value = efpModeEnabled 
@@ -45,9 +50,11 @@ export const useCumulativeFP = () => {
           : (entry.fp_plus || 0);
         
         const prmrValue = entry.prmr || 0;
+        const fpValue = entry.fp_plus || 0;
         
         cumulative += value;
         cumulativePrmr += prmrValue;
+        cumulativeFp += fpValue;
 
         // Calculate 6-day moving average (last 6 days including current)
         const last6 = entries.slice(Math.max(0, index - 5), index + 1);
@@ -75,6 +82,15 @@ export const useCumulativeFP = () => {
           ? last12.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12.length
           : null;
 
+        // Calculate FP+ moving averages (always actual FP+, not EFP)
+        const movingAvgFp6 = last6.length >= 1
+          ? last6.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last6.length
+          : null;
+
+        const movingAvgFp12 = last12.length >= 1
+          ? last12.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last12.length
+          : null;
+
         dataPoints.push({
           date: entry.entry_date,
           cumulative,
@@ -85,6 +101,10 @@ export const useCumulativeFP = () => {
           movingAvgPrmr6,
           movingAvgPrmr12,
           dailyPrmr: prmrValue,
+          cumulativeFp,
+          movingAvgFp6,
+          movingAvgFp12,
+          dailyFp: fpValue,
         });
       });
 
