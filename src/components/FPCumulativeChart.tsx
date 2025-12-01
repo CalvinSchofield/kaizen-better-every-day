@@ -170,20 +170,41 @@ export const FPCumulativeChart = () => {
     );
   };
 
+  const totalForMode = metricType === 'primary' 
+    ? cumulativeData[cumulativeData.length - 1].cumulative  // EFP or FP+ depending on mode
+    : (efpModeEnabled
+        ? cumulativeData[cumulativeData.length - 1].cumulativePrmr / 85  // FP+ when in EFP mode secondary
+        : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
+
+  const latestMovingAvg = chartData[chartData.length - 1]?.movingAvg || 0;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card>
-        <CardHeader>
-          <div className="space-y-3">
+        <div className="p-4">
+          <CollapsibleTrigger className="w-full">
             <div className="flex items-center justify-between">
-              <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+              <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5" />
-                <CardTitle>Progress Over Time</CardTitle>
-                <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
-              </CollapsibleTrigger>
+                <h2 className="text-lg font-semibold">Progress Over Time</h2>
+              </div>
+              <ChevronDown className={`w-5 h-5 transition-transform text-muted-foreground ${isOpen ? "rotate-180" : ""}`} />
             </div>
+            {!isOpen && (
+              <div className="mt-2 text-left text-sm text-muted-foreground">
+                {metricType === 'primary' 
+                  ? (efpModeEnabled 
+                      ? `${totalForMode.toFixed(2)} EFP total · ${latestMovingAvg.toFixed(2)} ${movingAvgPeriod}d avg`
+                      : `${totalForMode.toFixed(1)} FP+ total · ${latestMovingAvg.toFixed(1)} ${movingAvgPeriod}d avg`)
+                  : (efpModeEnabled
+                      ? `${totalForMode.toFixed(1)} FP+ total · ${latestMovingAvg.toFixed(1)} ${movingAvgPeriod}d avg`
+                      : `$${totalForMode.toFixed(0)} PRMR total · $${latestMovingAvg.toFixed(0)} ${movingAvgPeriod}d avg`)}
+              </div>
+            )}
+          </CollapsibleTrigger>
 
-            <CollapsibleContent>
+          <CollapsibleContent>
+            <div className="pt-3 space-y-3">
               {/* All Controls in One Row */}
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Group By */}
@@ -261,7 +282,7 @@ export const FPCumulativeChart = () => {
 
               {/* Comparison Metrics */}
               {comparison && (
-                <div className="flex items-center gap-4 text-xs mt-2">
+                <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1.5">
                     {comparison.isPositive ? (
                       <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -283,11 +304,11 @@ export const FPCumulativeChart = () => {
                   </span>
                 </div>
               )}
-            </CollapsibleContent>
-          </div>
-        </CardHeader>
+            </div>
+          </CollapsibleContent>
+        </div>
         <CollapsibleContent>
-          <CardContent>
+          <div className="px-4 pb-4">
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -343,7 +364,7 @@ export const FPCumulativeChart = () => {
               <span className="text-muted-foreground">{movingAvgPeriod}-Day Avg</span>
             </div>
           </div>
-        </CardContent>
+        </div>
       </CollapsibleContent>
     </Card>
     </Collapsible>
