@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -99,6 +99,29 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
     } finally {
       setLogoutSheetOpen(false);
     }
+  };
+
+  const handleForceRefresh = () => {
+    // Clear all localStorage caches
+    localStorage.removeItem('rep-data-cache');
+    localStorage.removeItem('competitors-cache');
+    localStorage.removeItem('blitzes-cache');
+    localStorage.removeItem('team-access-cache');
+    localStorage.removeItem('kaizen-setup-complete');
+    localStorage.removeItem('kaizen-setup-timestamp');
+    
+    // Clear React Query cache
+    queryClient.clear();
+    
+    toast({
+      title: "Refreshing app...",
+      description: "Clearing cache and reloading",
+    });
+    
+    // Reload the page after a brief delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   return (
@@ -377,6 +400,22 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 </span>
               </div>
             </Link>
+
+            <Separator />
+
+            {/* Force Refresh */}
+            <button
+              onClick={handleForceRefresh}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors w-full"
+            >
+              <RefreshCw className="w-5 h-5 text-primary" />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Force Refresh</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  Clear cache & reload app
+                </span>
+              </div>
+            </button>
           </div>
         </div>
 
