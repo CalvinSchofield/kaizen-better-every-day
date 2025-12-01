@@ -171,9 +171,8 @@ export const TeamFilterSheet = ({
                               checked={localSelected.includes(rep.userId)}
                               onCheckedChange={() => toggleRep(rep.userId)}
                             />
-                            <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1 flex items-center gap-2">
+                            <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1">
                               {stripEmojis(rep.name)}
-                              {rep.isTeamLead && <Badge variant="secondary" className="text-xs">Lead</Badge>}
                             </Label>
                           </div>
                         ))}
@@ -194,9 +193,8 @@ export const TeamFilterSheet = ({
                           checked={localSelected.includes(rep.userId)}
                           onCheckedChange={() => toggleRep(rep.userId)}
                         />
-                        <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1 flex items-center gap-2">
+                        <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1">
                           {stripEmojis(rep.name)}
-                          {rep.isTeamLead && <Badge variant="secondary" className="text-xs">Lead</Badge>}
                         </Label>
                       </div>
                     ))}
@@ -210,9 +208,8 @@ export const TeamFilterSheet = ({
                       checked={localSelected.includes(rep.userId)}
                       onCheckedChange={() => toggleRep(rep.userId)}
                     />
-                    <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1 flex items-center gap-2">
+                    <Label htmlFor={rep.userId} className="font-normal cursor-pointer flex-1">
                       {stripEmojis(rep.name)}
-                      {rep.isTeamLead && <Badge variant="secondary" className="text-xs">Lead</Badge>}
                     </Label>
                   </div>
                 ))}
