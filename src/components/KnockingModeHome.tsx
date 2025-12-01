@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAppMode } from "@/hooks/useAppMode";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -38,10 +39,15 @@ export const KnockingModeHome = ({
   anyBlitzWithin14Days = false
 }: KnockingModeHomeProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { isOnActiveBlitz } = useAppMode(repData);
 
   const handleLogout = async () => {
+    // Clear all caches before signing out
+    localStorage.removeItem('rep-data-cache');
+    queryClient.clear();
+    
     await supabase.auth.signOut();
     navigate('/auth');
   };
