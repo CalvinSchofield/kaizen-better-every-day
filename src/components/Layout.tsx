@@ -75,30 +75,24 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
     const year = repData?.year || "Rookie";
     const isVetOrSoph = year === "Vet" || year === "Sophomore";
     const isPostBlitzRookie = year === "Rookie" && hasAttendedBlitz;
+    const isPreBlitzRookie = year === "Rookie" && !hasAttendedBlitz;
 
     if (isKnockingMode) {
-      // Knocking Mode Navigation
-      if (isVetOrSoph) {
-        // Vets/Sophomores: Home, Calendar, Insights, Track
+      // KNOCKING MODE ON
+      if (isVetOrSoph || isPostBlitzRookie) {
+        // Vets/Sophomores & Post-blitz Rookies: HOME, TOOLS, CALENDAR, TRACK
         return [
           { path: "/", icon: Home, label: "Home" },
-          { path: "/calendar", icon: Calendar, label: "Calendar" },
-          { path: "/insights", icon: BarChart3, label: "Insights" },
-          { path: "/track", icon: Target, label: "Track" },
-        ];
-      } else if (isPostBlitzRookie) {
-        // Post-blitz Rookies: Home, Calendar, Tools, Track
-        return [
-          { path: "/", icon: Home, label: "Home" },
-          { path: "/calendar", icon: Calendar, label: "Calendar" },
           { path: "/tools", icon: Wrench, label: "Tools" },
+          { path: "/calendar", icon: Calendar, label: "Calendar" },
           { path: "/track", icon: Target, label: "Track" },
         ];
       }
     }
 
-    // Preseason Navigation or Track-enabled state
-    if (shouldShowTrack()) {
+    // KNOCKING MODE OFF (Preseason)
+    if (isVetOrSoph || isPostBlitzRookie) {
+      // Vets/Sophomores & Post-blitz Rookies: HOME, TRAINING, TOOLS, TRACK
       return [
         { path: "/", icon: Home, label: "Home" },
         { path: "/training", icon: BookOpen, label: "Training" },
@@ -107,7 +101,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
       ];
     }
 
-    // Default preseason nav
+    // Pre-blitz Rookies: HOME, TRAINING, TOOLS
     return [
       { path: "/", icon: Home, label: "Home" },
       { path: "/training", icon: BookOpen, label: "Training" },

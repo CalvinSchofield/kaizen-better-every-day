@@ -128,66 +128,173 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </>
             )}
 
-            {/* Calendar */}
-            <Link
-              to="/calendar"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <div className="relative">
-                <Calendar className="w-5 h-5 text-primary" />
-                {isCalendarLocked && (
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
+            {/* Dynamic Menu Items based on user type and knocking mode */}
+            {/* PRE-BLITZ ROOKIES: Show Track (locked), Calendar (locked), Insights (locked) */}
+            {isCalendarLocked && (
+              <>
+                <Link
+                  to="/track"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div className="relative">
+                    <Wrench className="w-5 h-5 text-primary" />
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Calendar</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {isCalendarLocked ? "Unlocks on first blitz" : "View knocking metrics"}
-                </span>
-              </div>
-            </Link>
-
-            {/* Insights */}
-            <Link
-              to="/insights"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <div className="relative">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                {isCalendarLocked && (
-                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                    <Lock className="w-3 h-3 text-primary" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm">Track</span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Unlocks on first blitz
+                    </span>
                   </div>
-                )}
-              </div>
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Insights</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {isCalendarLocked ? "Unlocks on first blitz" : "Track performance"}
-                </span>
-              </div>
-            </Link>
+                </Link>
 
-            {/* Team Reports - Leaders only */}
-            {!teamAccess ? null : isLeader ? (
-              <Link
-                to="/team-reports"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-              >
-                <Users className="w-5 h-5 text-primary" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="font-semibold text-sm">Team Reports</span>
-                  <span className="text-xs text-muted-foreground truncate">
-                    View team performance
-                  </span>
-                </div>
-              </Link>
-            ) : null}
+                <Link
+                  to="/calendar"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div className="relative">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm">Calendar</span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Unlocks on first blitz
+                    </span>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/insights"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div className="relative">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                      <Lock className="w-3 h-3 text-primary" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm">Insights</span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Unlocks on first blitz
+                    </span>
+                  </div>
+                </Link>
+              </>
+            )}
+
+            {/* POST-BLITZ ROOKIES & VETS/SOPHS */}
+            {!isCalendarLocked && (
+              <>
+                {/* KNOCKING MODE OFF: Show Calendar, Insights, Reports (if leader) */}
+                {!isKnockingMode && (
+                  <>
+                    <Link
+                      to="/calendar"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Calendar</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          View knocking metrics
+                        </span>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/insights"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Insights</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Track performance
+                        </span>
+                      </div>
+                    </Link>
+
+                    {/* Team Reports - Leaders only */}
+                    {isLeader && (
+                      <Link
+                        to="/team-reports"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <Users className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="font-semibold text-sm">Reports</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            View team performance
+                          </span>
+                        </div>
+                      </Link>
+                    )}
+                  </>
+                )}
+
+                {/* KNOCKING MODE ON: Show Reports (if leader), Insights, Training */}
+                {isKnockingMode && (
+                  <>
+                    {/* Team Reports - Leaders only, show first */}
+                    {isLeader && (
+                      <Link
+                        to="/team-reports"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <Users className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="font-semibold text-sm">Reports</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            View team performance
+                          </span>
+                        </div>
+                      </Link>
+                    )}
+
+                    <Link
+                      to="/insights"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <BarChart3 className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Insights</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Track performance
+                        </span>
+                      </div>
+                    </Link>
+
+                    <Link
+                      to="/training"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <BookOpen className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Training</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Review resources
+                        </span>
+                      </div>
+                    </Link>
+                  </>
+                )}
+              </>
+            )}
 
             <Separator />
 
