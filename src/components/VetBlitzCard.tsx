@@ -78,6 +78,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
   const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
   const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
 
   // Fetch team members and contacted status based on attendance scope
   const fetchAttendanceData = useCallback(async () => {
@@ -190,6 +191,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
 
   const handleBlitzCommit = async (blitzId: string, blitzName: string) => {
+    if (isUpdating) return; // Prevent rapid clicks
+    
     const isCurrentlyCommitted = committedBlitzIds.includes(blitzId);
 
     if (isCurrentlyCommitted) {
@@ -200,6 +203,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     }
 
     // Optimistic update for commit
+    setIsUpdating(true);
     setCommittedBlitzIds(prev => [...prev, blitzId]);
 
     try {
@@ -234,6 +238,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         description: "Could not update your commitment. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -492,18 +498,62 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     );
   }
 
-  // Simplified view for vets who are not team leads
-  if (!propIsTeamLead) {
+  // Cycle through scope options
+  const cycleScopeOption = () => {
+    if (accessLevel === 'area_director') {
+      const options: Array<'you' | 'team' | 'mgmt' | 'office'> = ['you', 'team', 'mgmt', 'office'];
+      const currentIndex = options.indexOf(attendanceScope);
+      const nextIndex = (currentIndex + 1) % options.length;
+      setAttendanceScope(options[nextIndex]);
+    } else if (accessLevel === 'mgmt_group_lead') {
+      const options: Array<'you' | 'team' | 'mgmt'> = ['you', 'team', 'mgmt'];
+      const currentIndex = options.indexOf(attendanceScope as 'you' | 'team' | 'mgmt');
+      const nextIndex = (currentIndex + 1) % options.length;
+      setAttendanceScope(options[nextIndex]);
+    } else {
+      // Team lead
+      setAttendanceScope(attendanceScope === 'you' ? 'team' : 'you');
+    }
+  };
+
+  const getScopeLabel = () => {
+    switch(attendanceScope) {
+      case 'you': return 'You';
+      case 'team': return 'Team';
+      case 'mgmt': return 'MGMT';
+      case 'office': return 'Office';
+    }
+  };
+
+  // Simplified personal view for non-team leads OR when scope is 'you'
+  if (!propIsTeamLead || attendanceScope === 'you') {
     return (
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Your Blitz Commitments
-          </CardTitle>
-          <CardDescription>
-            Manage which blitzes you're attending
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                {propIsTeamLead ? 'Blitz Management' : 'Your Blitz Commitments'}
+              </CardTitle>
+              <CardDescription>
+                {propIsTeamLead ? 'Manage your commitments and team attendance' : 'Manage which blitzes you\'re attending'}
+              </CardDescription>
+            </div>
+            
+            {/* Cycling scope selector - only for leaders */}
+            {propIsTeamLead && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-8 px-3 text-xs font-medium"
+                onClick={cycleScopeOption}
+              >
+                {getScopeLabel()}
+                <ChevronRight className="h-3 w-3 ml-1" />
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {allBlitzes.map((blitz) => {
@@ -518,7 +568,10 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             return (
               <div
                 key={blitz.id}
-                className="border rounded-lg p-4 space-y-3"
+                className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                  isUpdating ? 'opacity-50 pointer-events-none' : 'hover:bg-accent/5'
+                }`}
+                onClick={() => handleBlitzCommit(blitz.id, blitz.name)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 space-y-2">
@@ -537,13 +590,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                       {blitz.location && <span>• {blitz.location}</span>}
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={isCommitted ? "destructive" : "default"}
-                    onClick={() => handleBlitzCommit(blitz.id, blitz.name)}
-                  >
-                    {isCommitted ? "Uncommit" : "Commit"}
-                  </Button>
                 </div>
               </div>
             );
@@ -579,7 +625,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     );
   }
 
-  // Full team management view for vets with team members
+  // Full team management view for leaders with team scope
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -594,47 +640,17 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             </CardDescription>
           </div>
           
-          {/* Scope toggle - visible only for leaders */}
-          {propIsTeamLead && (
-            <div className="flex gap-1 border rounded-lg p-1 bg-muted/50">
-              <Button
-                size="sm"
-                variant={attendanceScope === 'you' ? 'default' : 'ghost'}
-                className="h-7 px-2 text-xs"
-                onClick={() => setAttendanceScope('you')}
-              >
-                You
-              </Button>
-              <Button
-                size="sm"
-                variant={attendanceScope === 'team' ? 'default' : 'ghost'}
-                className="h-7 px-2 text-xs"
-                onClick={() => setAttendanceScope('team')}
-              >
-                Team
-              </Button>
-              {(accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director') && (
-                <Button
-                  size="sm"
-                  variant={attendanceScope === 'mgmt' ? 'default' : 'ghost'}
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setAttendanceScope('mgmt')}
-                >
-                  MGMT
-                </Button>
-              )}
-              {accessLevel === 'area_director' && (
-                <Button
-                  size="sm"
-                  variant={attendanceScope === 'office' ? 'default' : 'ghost'}
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setAttendanceScope('office')}
-                >
-                  Office
-                </Button>
-              )}
-            </div>
-          )}
+          {/* Cycling scope selector */}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8 px-3 text-xs font-medium"
+            onClick={cycleScopeOption}
+            disabled={loadingAttendance}
+          >
+            {getScopeLabel()}
+            <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -645,7 +661,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           </div>
         )}
         
-        {!loadingAttendance && attendanceScope !== 'you' && teamMembers.length === 0 && (
+        {!loadingAttendance && teamMembers.length === 0 && (
           <Alert className="bg-muted/50">
             <AlertDescription className="text-sm">
               {attendanceScope === 'team' && "No team members found. Make sure you have reps assigned to your team in Notion."}
@@ -817,33 +833,34 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                     </div>
                   )}
 
-                  {/* Invite list for uncommitted members */}
-                  <Collapsible
-                    open={expandedInviteLists.has(blitz.id)}
-                    onOpenChange={() => toggleInviteList(blitz.id)}
-                  >
-                    <div className="space-y-2">
-                      <CollapsibleTrigger asChild>
-                        <Button variant="outline" className="w-full">
-                          {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
-                          {(() => {
-                            const uninvitedCount = uncommittedMembers.filter(
-                              member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId)
-                            ).length;
-                            
-                            if (uninvitedCount === 0 && uncommittedMembers.length > 0) {
-                              return (
-                                <>
-                                  {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
-                                  <Check className="h-4 w-4 ml-2 text-green-500" />
-                                </>
-                              );
-                            }
-                            
-                            return `${committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} (${uninvitedCount})`;
-                          })()}
-                        </Button>
-                      </CollapsibleTrigger>
+                  {/* Invite list for uncommitted members - only show if there are uncommitted members */}
+                  {uncommittedMembers.length > 0 && (
+                    <Collapsible
+                      open={expandedInviteLists.has(blitz.id)}
+                      onOpenChange={() => toggleInviteList(blitz.id)}
+                    >
+                      <div className="space-y-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                            {(() => {
+                              const uninvitedCount = uncommittedMembers.filter(
+                                member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId)
+                              ).length;
+                              
+                              if (uninvitedCount === 0) {
+                                return (
+                                  <>
+                                    {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
+                                    <Check className="h-4 w-4 ml-2 text-green-500" />
+                                  </>
+                                );
+                              }
+                              
+                              return `${committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} (${uninvitedCount})`;
+                            })()}
+                          </Button>
+                        </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-2">
                         {uncommittedMembers.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
@@ -882,7 +899,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                       </CollapsibleContent>
                     </div>
                   </Collapsible>
-                    </div>
+                  )}
+                </div>
                 </CollapsibleContent>
               </div>
             </Collapsible>

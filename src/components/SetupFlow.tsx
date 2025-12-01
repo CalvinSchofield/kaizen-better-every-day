@@ -17,6 +17,7 @@ const SetupFlow = () => {
     { name: 'Loading competitors', status: 'pending', description: 'Downloading competitor information' },
     { name: 'Fetching blitz schedule', status: 'pending', description: 'Getting upcoming blitz dates' },
     { name: 'Loading team access', status: 'pending', description: 'Checking your team permissions' },
+    { name: 'Loading team attendance', status: 'pending', description: 'Fetching blitz attendance data' },
     { name: 'Preparing your data', status: 'pending', description: 'Setting up your tracking' },
   ]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -154,9 +155,51 @@ const SetupFlow = () => {
         updateStep(3, 'error');
       }
 
-      // Step 5: Initialize daily entry for today
+      // Step 5: Fetch blitz attendance for leaders
       setCurrentStep(4);
       updateStep(4, 'loading');
+      
+      try {
+        const { data: repData } = await supabase
+          .from('reps')
+          .select('notion_page_id')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (repData?.notion_page_id) {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            // Fetch for team scope by default
+            const { data: attendanceData } = await supabase.functions.invoke('fetch-blitz-attendance', {
+              body: {
+                scope: 'team',
+                leaderNotionPageId: repData.notion_page_id,
+              },
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+            
+            // Cache attendance data
+            if (attendanceData) {
+              localStorage.setItem('blitz-attendance-cache', JSON.stringify({
+                data: attendanceData,
+                timestamp: Date.now()
+              }));
+            }
+          }
+        }
+        
+        updateStep(4, 'success');
+      } catch (error) {
+        console.error('Attendance fetch error:', error);
+        updateStep(4, 'error');
+      }
+
+      // Step 6: Initialize daily entry for today
+      setCurrentStep(5);
+      updateStep(5, 'loading');
       
       const today = new Date().toISOString().split('T')[0];
       await supabase
@@ -178,7 +221,7 @@ const SetupFlow = () => {
           ignoreDuplicates: true
         });
       
-      updateStep(4, 'success');
+      updateStep(5, 'success');
 
       // Mark setup as complete
       localStorage.setItem('kaizen-setup-complete', 'true');
