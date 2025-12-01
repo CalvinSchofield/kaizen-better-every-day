@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,14 +141,25 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   }, [repData?.notion_page_id, attendanceScope, toast]);
 
   // Only refetch when scope changes or on mount, not on every repData change
+  // Fetch attendance when scope changes - use ref to prevent redundant fetches
+  const lastScopeRef = useRef<string>("");
   useEffect(() => {
+    const scopeKey = `${attendanceScope}`;
+    if (scopeKey === lastScopeRef.current) return; // Skip if scope didn't change
+    lastScopeRef.current = scopeKey;
+    
     fetchAttendanceData();
   }, [attendanceScope]); // Removed fetchAttendanceData from deps to prevent constant refetching
 
   // Load committed blitzes from repData - only update when actually different
+  const lastCommittedBlitzesRef = useRef<string>("");
   useEffect(() => {
     // Don't overwrite state while an update is in progress
     if (isUpdating) return;
+    
+    const currentHash = JSON.stringify(repData?.committed_blitzes);
+    if (currentHash === lastCommittedBlitzesRef.current) return; // Skip if no change
+    lastCommittedBlitzesRef.current = currentHash;
     
     if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
       const committedIds = repData.committed_blitzes
@@ -158,7 +169,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } else {
       setCommittedBlitzIds([]);
     }
-  }, [repData, isUpdating]);
+  }, [repData?.committed_blitzes, isUpdating]);
 
   // Sync team members from props
   useEffect(() => {
