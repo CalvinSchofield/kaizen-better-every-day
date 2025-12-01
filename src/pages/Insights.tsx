@@ -882,7 +882,12 @@ export default function Insights() {
                   <Calendar
                     mode="single"
                     selected={customEndDate}
-                    onSelect={setCustomEndDate}
+                    onSelect={(date) => {
+                      setCustomEndDate(date);
+                      if (date) {
+                        setTimeout(() => setShowCustomDialog(false), 150);
+                      }
+                    }}
                     disabled={(date) => customStartDate ? date < customStartDate : false}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
