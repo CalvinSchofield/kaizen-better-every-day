@@ -294,11 +294,6 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                       {summary.comparison.previousPeriodTotal !== undefined && (
                         <> · {previousPeriodEfp.toFixed(2)} EFP total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
                       )}
-                      <br />
-                      {summary.totals.fp.toFixed(1)} FP+ total {summary.mode === "blitz" ? "this blitz" : "this week"}
-                      {summary.comparison.previousPeriodTotal !== undefined && (
-                        <> · {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}</>
-                      )}
                     </>
                   ) : (
                     <>
@@ -329,8 +324,6 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                     {efpModeEnabled ? (
                       <>
                         {previousPeriodEfp.toFixed(2)} EFP total {summary.mode === "blitz" ? "last blitz" : "last week"}
-                        <br />
-                        {summary.comparison.previousPeriodTotal.toFixed(1)} FP+ total {summary.mode === "blitz" ? "last blitz" : "last week"}
                       </>
                     ) : (
                       <>
