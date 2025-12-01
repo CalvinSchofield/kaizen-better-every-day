@@ -45,12 +45,24 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
+  const now = new Date();
   const hasAttendedBlitz = blitzes.some((blitz: any) => {
-    if (blitz.endDate) {
-      const endDate = new Date(blitz.endDate);
-      return endDate < new Date();
-    }
-    return false;
+    if (!blitz.date || !blitz.endDate) return false;
+    
+    // Check if today matches the blitz start date (unlock immediately on blitz day)
+    const todayStr = now.toISOString().split('T')[0];
+    const blitzStartStr = blitz.date;
+    const isStartingToday = todayStr === blitzStartStr;
+    
+    // Check if blitz is currently active (between start and end date)
+    const startDate = new Date(blitz.date + 'T00:00:00');
+    const endDate = new Date(blitz.endDate + 'T23:59:59');
+    const isCurrentlyActive = now >= startDate && now <= endDate;
+    
+    // Check if blitz has ended (past)
+    const hasEnded = endDate < now;
+    
+    return isStartingToday || isCurrentlyActive || hasEnded;
   });
 
   const isCalendarLocked = isRookie && !hasAttendedBlitz;
