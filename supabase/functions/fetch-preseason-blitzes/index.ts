@@ -115,13 +115,17 @@ Deno.serve(async (req) => {
 
         const location = getRichText(props.Location) || getSelect(props.Location);
         
-        // Detailed logging for Address 1
+        // Detailed logging for Address 1 - check all possible property name variations
         console.log(`\n=== Address 1 Debug for ${name} ===`);
+        console.log('All property names:', Object.keys(props));
         console.log('Address 1 property exists:', !!props["Address 1"]);
         console.log('Address 1 property type:', props["Address 1"]?.type);
         console.log('Address 1 full property:', JSON.stringify(props["Address 1"], null, 2));
         
-        const address1 = getPlace(props["Address 1"]) || getRichText(props["Address 1"]);
+        // Try multiple variations of the property name
+        const address1 = getPlace(props["Address 1"]) || getRichText(props["Address 1"]) || 
+                        getPlace(props["Address1"]) || getRichText(props["Address1"]) ||
+                        getPlace(props["address 1"]) || getRichText(props["address 1"]);
         console.log('Extracted address1 value:', address1);
         console.log('=== End Address 1 Debug ===\n');
         
