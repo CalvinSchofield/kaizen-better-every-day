@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      blitz_invites: {
+        Row: {
+          blitz_id: string
+          contacted_at: string | null
+          contacted_by: string | null
+          id: string
+          rep_notion_page_id: string
+        }
+        Insert: {
+          blitz_id: string
+          contacted_at?: string | null
+          contacted_by?: string | null
+          id?: string
+          rep_notion_page_id: string
+        }
+        Update: {
+          blitz_id?: string
+          contacted_at?: string | null
+          contacted_by?: string | null
+          id?: string
+          rep_notion_page_id?: string
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           alternate_versions: Json | null
