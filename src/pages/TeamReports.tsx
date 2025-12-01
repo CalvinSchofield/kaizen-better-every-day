@@ -135,8 +135,8 @@ const TeamReports = () => {
         {/* Date Range Selector with Fade and Fixed Filter */}
         <div className="relative">
           {/* Scrollable date buttons */}
-          <div className="overflow-x-auto pb-2 -mr-20 scrollbar-hide">
-            <div className="flex gap-2 pr-24 whitespace-nowrap">
+          <div className="overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex gap-2 pr-28 whitespace-nowrap">
               <Button
                 variant={datePreset === 'week' ? 'default' : 'outline'}
                 size="sm"
@@ -176,13 +176,13 @@ const TeamReports = () => {
           </div>
           
           {/* Fixed Filter button with fade gradient */}
-          <div className="absolute right-0 top-0 bottom-0 flex items-start pt-0 pointer-events-none">
-            <div className="w-20 h-full bg-gradient-to-l from-background via-background to-transparent" />
+          <div className="absolute right-0 top-0 bottom-2 flex items-start pointer-events-none">
+            <div className="w-24 h-full bg-gradient-to-l from-background from-40% via-background/80 to-transparent" />
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => setIsFilterOpen(true)}
-              className="gap-2 pointer-events-auto flex-shrink-0"
+              className="gap-2 pointer-events-auto flex-shrink-0 bg-background"
             >
               <Filter className="h-4 w-4" />
               Filter
