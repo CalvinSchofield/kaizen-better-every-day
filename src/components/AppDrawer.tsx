@@ -23,10 +23,9 @@ import { useQueryClient } from "@tanstack/react-query";
 interface AppDrawerProps {
   trigger: React.ReactNode;
   firstName?: string;
-  navItems?: Array<{ path: string; icon: any; label: string }>;
 }
 
-export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps) => {
+export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const { repData } = useRepData();
   const { isKnockingMode, toggleMode, isToggling, canAccessKnockingToggle } = useAppMode(repData);
   const { data: teamAccess } = useTeamAccess();
@@ -96,24 +95,25 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
       <SheetTrigger asChild>
         {trigger}
       </SheetTrigger>
-      <SheetContent side="left" className="w-[300px]">
+      <SheetContent side="left" className="w-[280px] flex flex-col">
         <SheetHeader>
           <SheetTitle>
             {cleanFirstName ? `Hey, ${cleanFirstName}` : "Menu"}
           </SheetTitle>
         </SheetHeader>
         
-        <div className="flex flex-col gap-4 p-4 h-full">
-          <div className="flex flex-col gap-4">
-            {/* Knocking Mode Toggle - Only show if user has access */}
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
+          <div className="flex flex-col gap-3 py-4">
+            {/* Knocking Mode Toggle */}
             {canAccessKnockingToggle && (
               <>
-                <div className="flex items-center justify-between p-4 rounded-lg bg-card">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-card">
                   <div className="flex flex-col gap-1">
-                    <Label htmlFor="knocking-mode" className="text-base font-semibold cursor-pointer">
+                    <Label htmlFor="knocking-mode" className="text-sm font-semibold cursor-pointer">
                       🚪 Knocking Mode
                     </Label>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {isKnockingMode ? "Active" : "Preseason"}
                     </p>
                   </div>
@@ -128,125 +128,81 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
               </>
             )}
 
-            {/* Training Link - Show in drawer only when NOT in bottom tabs */}
-            {!navItems.some(item => item.path === "/training") && (
-              <Link
-                to="/training"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-              >
-                <BookOpen className="w-5 h-5 text-primary" />
-                <div className="flex flex-col">
-                  <span className="font-semibold">Training</span>
-                  <span className="text-sm text-muted-foreground">
-                    Access training resources
-                  </span>
-                </div>
-              </Link>
-            )}
+            {/* Calendar */}
+            <Link
+              to="/calendar"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+            >
+              <div className="relative">
+                <Calendar className="w-5 h-5 text-primary" />
+                {isCalendarLocked && (
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Calendar</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {isCalendarLocked ? "Unlocks on first blitz" : "View knocking metrics"}
+                </span>
+              </div>
+            </Link>
 
-            {/* Tools Link - Show in drawer only when NOT in bottom tabs */}
-            {!navItems.some(item => item.path === "/tools") && (
-              <Link
-                to="/tools"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-              >
-                <Wrench className="w-5 h-5 text-primary" />
-                <div className="flex flex-col">
-                  <span className="font-semibold">Tools</span>
-                  <span className="text-sm text-muted-foreground">
-                    Access sales tools
-                  </span>
-                </div>
-              </Link>
-            )}
+            {/* Insights */}
+            <Link
+              to="/insights"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+            >
+              <div className="relative">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                {isCalendarLocked && (
+                  <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                    <Lock className="w-3 h-3 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Insights</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {isCalendarLocked ? "Unlocks on first blitz" : "Track performance"}
+                </span>
+              </div>
+            </Link>
 
-            {/* Separator only if we showed Training or Tools */}
-            {(!navItems.some(item => item.path === "/training") || !navItems.some(item => item.path === "/tools")) && <Separator />}
-
-            {/* Calendar Link - Show only when NOT in bottom tabs */}
-            {!navItems.some(item => item.path === "/calendar") && (
-              <Link
-                to="/calendar"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-              >
-                <div className="relative">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  {isCalendarLocked && (
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold">Calendar</span>
-                  <span className="text-sm text-muted-foreground">
-                    {isCalendarLocked ? "Unlocks on your first blitz" : "View your knocking metrics"}
-                  </span>
-                </div>
-              </Link>
-            )}
-
-            {/* Insights Link - Show only when NOT in bottom tabs */}
-            {!navItems.some(item => item.path === "/insights") && (
-              <Link
-                to="/insights"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
-              >
-                <div className="relative">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                  {isCalendarLocked && (
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold">Insights</span>
-                  <span className="text-sm text-muted-foreground">
-                    {isCalendarLocked ? "Unlocks on your first blitz" : "Track your performance"}
-                  </span>
-                </div>
-              </Link>
-            )}
-
-            {/* Team Reports Link - Show only for leaders */}
+            {/* Team Reports - Leaders only */}
             {isLeader && (
               <Link
                 to="/team-reports"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
               >
                 <Users className="w-5 h-5 text-primary" />
-                <div className="flex flex-col">
-                  <span className="font-semibold">Team Reports</span>
-                  <span className="text-sm text-muted-foreground">
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Team Reports</span>
+                  <span className="text-xs text-muted-foreground truncate">
                     View team performance
                   </span>
                 </div>
               </Link>
             )}
 
-            {/* Show separator after Insights only when it's visible in drawer (knocking mode off) */}
-            {!navItems.some(item => item.path === "/insights") && <Separator />}
+            <Separator />
 
-            {/* AI Assistant Link */}
+            {/* AI Assistant */}
             <a
               href="https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
             >
               <MessageSquare className="w-5 h-5 text-primary" />
-              <div className="flex flex-col">
-                <span className="font-semibold">AI Assistant</span>
-                <span className="text-sm text-muted-foreground">
-                  {isKnockingMode
-                    ? "Help with sales & objections"
-                    : "Help with onboarding & training"}
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">AI Assistant</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {isKnockingMode ? "Sales & objections help" : "Onboarding & training help"}
                 </span>
               </div>
             </a>
@@ -257,39 +213,36 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
             <Link
               to="/settings"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-4 rounded-lg hover:bg-accent transition-colors"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
             >
               <Settings className="w-5 h-5 text-primary" />
-              <div className="flex flex-col">
-                <span className="font-semibold">Personalize</span>
-                <span className="text-sm text-muted-foreground">
-                  {isVetOrSoph 
-                    ? "Customize counters & preferences" 
-                    : "Customize your experience"}
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Personalize</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {isVetOrSoph ? "Customize counters" : "Customize experience"}
                 </span>
               </div>
             </Link>
           </div>
-
-          {/* Logout Button - Pushed to bottom - Hidden for pre-blitz rookies */}
-          {!isCalendarLocked && (
-            <div className="mt-auto pt-4">
-              <Separator className="mb-4" />
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 p-4 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
-              >
-                <LogOut className="w-5 h-5" />
-                <div className="flex flex-col">
-                  <span className="font-semibold">Logout</span>
-                  <span className="text-sm text-muted-foreground">
-                    Sign out of your account
-                  </span>
-                </div>
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Logout - Fixed at bottom - Hidden for pre-blitz rookies */}
+        {!isCalendarLocked && (
+          <div className="pt-3 border-t">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 transition-colors text-destructive w-full"
+            >
+              <LogOut className="w-5 h-5" />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Logout</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  Sign out
+                </span>
+              </div>
+            </button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
 
