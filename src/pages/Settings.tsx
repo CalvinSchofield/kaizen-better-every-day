@@ -339,6 +339,7 @@ export default function Settings() {
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
       
+      // Update local state after refetch completes
       setEfpMode(enabled);
       
       toast({
