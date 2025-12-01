@@ -173,7 +173,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </Link>
 
             {/* Team Reports - Leaders only */}
-            {isLeader && (
+            {!teamAccess ? null : isLeader ? (
               <Link
                 to="/team-reports"
                 onClick={() => setOpen(false)}
@@ -187,7 +187,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                   </span>
                 </div>
               </Link>
-            )}
+            ) : null}
 
             <Separator />
 
