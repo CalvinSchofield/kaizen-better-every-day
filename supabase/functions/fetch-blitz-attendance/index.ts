@@ -62,8 +62,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (repError || !repData) {
+      console.error("Rep data error:", repError);
       throw new Error("Rep data not found");
     }
+
+    console.log("Rep data found:", { email: repData.email, notionPageId: repData.notion_page_id });
 
     // Determine access level based on email
     const areaDirectorEmails = ["calvinjschofield@gmail.com", "calvin.schofield@vivint.com"];
@@ -92,6 +95,8 @@ Deno.serve(async (req) => {
 
       const teamsData = await teamsResponse.json();
       const teams = teamsData.results || [];
+      
+      console.log(`Fetched ${teams.length} teams from Notion`);
 
       // Determine which teams the leader has access to based on scope
       let accessibleTeamIds: string[] = [];
@@ -99,14 +104,21 @@ Deno.serve(async (req) => {
       if (scope === "office" && isAreaDirector) {
         // Area Director sees all teams
         accessibleTeamIds = teams.map((team: any) => team.id);
+        console.log(`Area Director - accessible teams: ${accessibleTeamIds.length}`);
       } else if (scope === "mgmt" || scope === "team") {
         // Find teams where this leader is the Group Lead
         for (const team of teams) {
-          const groupLeadRelation = team.properties?.["Group lead"]?.relation || [];
+          const groupLeadRelation = team.properties?.["Group Lead"]?.relation || [];
+          console.log(`Checking team ${team.id}:`, {
+            teamName: team.properties?.Name?.title?.[0]?.plain_text,
+            groupLeadRelation: groupLeadRelation.map((r: any) => r.id)
+          });
           if (groupLeadRelation.some((rel: any) => rel.id === leaderNotionPageId)) {
             accessibleTeamIds.push(team.id);
+            console.log(`✓ Leader has access to team: ${team.properties?.Name?.title?.[0]?.plain_text}`);
           }
         }
+        console.log(`${scope} scope - accessible teams: ${accessibleTeamIds.length}`);
       }
 
       // Fetch all reps from Notion
@@ -125,6 +137,9 @@ Deno.serve(async (req) => {
 
       const repsData = await repsResponse.json();
       const notionReps = repsData.results || [];
+      
+      console.log(`Fetched ${notionReps.length} reps from Notion`);
+      console.log(`Accessible team IDs: ${accessibleTeamIds.join(', ')}`);
 
       // Filter reps based on accessible teams
       for (const rep of notionReps) {
@@ -135,6 +150,12 @@ Deno.serve(async (req) => {
         const hasAccessToRep = teamsRelation.some((teamRel: any) =>
           accessibleTeamIds.includes(teamRel.id)
         );
+
+        console.log(`Checking rep ${rep.properties?.Name?.title?.[0]?.plain_text}:`, {
+          email: emailProp,
+          teams: teamsRelation.map((t: any) => t.id),
+          hasAccess: hasAccessToRep
+        });
 
         if (!hasAccessToRep) continue;
 
@@ -167,8 +188,14 @@ Deno.serve(async (req) => {
             stage: repUser.stage,
             onboardingStatus,
           });
+          
+          console.log(`✓ Added rep: ${repUser.name}`);
+        } else {
+          console.log(`✗ No Supabase user found for email: ${emailProp}`);
         }
       }
+      
+      console.log(`Total accessible reps found: ${accessibleReps.length}`);
     }
 
     // Fetch contacted/invite status from blitz_invites table

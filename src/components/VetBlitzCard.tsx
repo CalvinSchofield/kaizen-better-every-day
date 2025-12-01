@@ -85,14 +85,28 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
     setLoadingAttendance(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
       const { data, error } = await supabase.functions.invoke('fetch-blitz-attendance', {
         body: {
           scope: attendanceScope,
           leaderNotionPageId: repData.notion_page_id,
         },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
+
+      console.log('Attendance data received:', data);
 
       if (data) {
         if (attendanceScope === 'you') {
@@ -103,17 +117,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           const filteredMembers = (data.teamMembers || []).filter(
             (member: TeamMember) => member.notionPageId !== repData.notion_page_id
           );
+          console.log(`Filtered ${filteredMembers.length} team members for scope: ${attendanceScope}`);
           setTeamMembers(filteredMembers);
         }
         
         // Set contacted members from shared blitz_invites table
         setContactedMembers(data.contactedForBlitz || {});
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching attendance data:', error);
       toast({
         title: "Error loading attendance",
-        description: "Could not load team attendance data. Please refresh.",
+        description: error.message || "Could not load team attendance data. Please try switching scopes or refresh the page.",
         variant: "destructive",
       });
     } finally {
@@ -623,8 +638,24 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {loadingAttendance && <div className="text-sm text-muted-foreground">Loading...</div>}
-        {allBlitzes.map((blitz) => {
+        {loadingAttendance && (
+          <div className="flex items-center justify-center gap-2 py-8">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            <span className="text-sm text-muted-foreground">Loading attendance data...</span>
+          </div>
+        )}
+        
+        {!loadingAttendance && attendanceScope !== 'you' && teamMembers.length === 0 && (
+          <Alert className="bg-muted/50">
+            <AlertDescription className="text-sm">
+              {attendanceScope === 'team' && "No team members found. Make sure you have reps assigned to your team in Notion."}
+              {attendanceScope === 'mgmt' && "No management group members found. Verify your MGMT group assignments in Notion."}
+              {attendanceScope === 'office' && "No office members found. Check team and MGMT group structures in Notion."}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {!loadingAttendance && allBlitzes.map((blitz) => {
           const isCommitted = committedBlitzIds.includes(blitz.id);
           const isExpanded = expandedBlitz === blitz.id;
           const committedMembers = getCommittedMembers(blitz.id);
