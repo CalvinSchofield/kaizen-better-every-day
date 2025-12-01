@@ -102,7 +102,7 @@ const TeamReports = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-24">
+    <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
       <div className="max-w-lg mx-auto space-y-6">
         {/* Header */}
         <div>
@@ -112,54 +112,48 @@ const TeamReports = () => {
           </p>
         </div>
 
-        {/* Date Range Selector with Filter Button */}
-        <div className="relative">
-          <div className="overflow-x-auto pb-2 -mr-16">
-            <div className="flex gap-2 pr-16">
-              <Button
-                variant={datePreset === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('week')}
-              >
-                This Week
-              </Button>
-              <Button
-                variant={datePreset === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('month')}
-              >
-                This Month
-              </Button>
-              <Button
-                variant={datePreset === 'preseason' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('preseason')}
-              >
-                Preseason
-              </Button>
-              <Button
-                variant={datePreset === 'custom' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setShowCustomDialog(true)}
-              >
-                <CalendarIcon className="w-4 h-4 mr-1" />
-                {datePreset === 'custom' && customStartDate && customEndDate
-                  ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
-                  : 'Custom'}
-              </Button>
-            </div>
-          </div>
-          <div className="absolute right-0 top-0 h-full flex items-center bg-gradient-to-l from-background via-background to-transparent pl-8 pr-0">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsFilterOpen(true)}
-              className="gap-2 shadow-sm"
-            >
-              <Filter className="h-4 w-4" />
-              Filter
-            </Button>
-          </div>
+        {/* Date Range Selector - Matching Insights Page */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          <Button
+            variant={datePreset === 'week' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('week')}
+          >
+            This Week
+          </Button>
+          <Button
+            variant={datePreset === 'month' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('month')}
+          >
+            This Month
+          </Button>
+          <Button
+            variant={datePreset === 'preseason' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('preseason')}
+          >
+            Preseason
+          </Button>
+          <Button
+            variant={datePreset === 'custom' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowCustomDialog(true)}
+          >
+            <CalendarIcon className="w-4 h-4 mr-1" />
+            {datePreset === 'custom' && customStartDate && customEndDate
+              ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+              : 'Custom'}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsFilterOpen(true)}
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filter
+          </Button>
         </div>
 
         {/* Custom Date Dialog */}
@@ -205,12 +199,30 @@ const TeamReports = () => {
             </div>
           </>
         ) : !insightsData || insightsData.totalFP === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-muted-foreground mb-4">No data available for this period</div>
-            <p className="text-sm text-muted-foreground">
-              Team members need to start tracking daily entries
-            </p>
-          </div>
+          <Card className="border-border/40">
+            <CardContent className="pt-8 pb-8 text-center space-y-6">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <BarChart3 className="h-16 w-16 text-muted-foreground/40" />
+                  <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                    <Target className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-foreground">No Data Yet</h2>
+                <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  Encourage your team to track their daily activity so you can pull insights into what they need and how to help them level up. 
+                  No more guessing — get the data you need to lead effectively.
+                </p>
+              </div>
+              <div className="pt-2">
+                <p className="text-sm text-primary font-medium">
+                  Let's get tracking! 📊
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <>
             {/* Summary Card - Not Collapsible */}
