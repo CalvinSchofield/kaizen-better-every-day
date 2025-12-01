@@ -21,8 +21,8 @@ const InstallPrompt = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Don't show on auth page
-    if (location.pathname === "/auth") {
+    // Don't show on auth page (we use PWAInstallGate there instead)
+    if (location.pathname === "/auth" || location.pathname === "/forgot-password") {
       setShowBanner(false);
       return;
     }
