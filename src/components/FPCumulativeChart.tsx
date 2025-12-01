@@ -253,6 +253,26 @@ export const FPCumulativeChart = () => {
                   )}
                 </div>
 
+                {/* Metric Toggle (EFP/FP+ when in EFP mode) */}
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                  <Button
+                    variant={metricType === 'primary' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMetricType('primary')}
+                    className="text-xs h-7 px-2"
+                  >
+                    {primaryLabel}
+                  </Button>
+                  <Button
+                    variant={metricType === 'secondary' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setMetricType('secondary')}
+                    className="text-xs h-7 px-2"
+                  >
+                    {secondaryLabel}
+                  </Button>
+                </div>
+
                 {/* Moving Average Period */}
                 <div className="flex items-center gap-1 border border-border rounded-lg p-1">
                   <Button
@@ -270,26 +290,6 @@ export const FPCumulativeChart = () => {
                     className="text-xs h-7 px-2"
                   >
                     12d Avg
-                  </Button>
-                </div>
-
-                {/* Metric Toggle */}
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                  <Button
-                    variant={metricType === 'primary' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMetricType('primary')}
-                    className="text-xs h-7 px-2"
-                  >
-                    {primaryLabel}
-                  </Button>
-                  <Button
-                    variant={metricType === 'secondary' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMetricType('secondary')}
-                    className="text-xs h-7 px-2"
-                  >
-                    {secondaryLabel}
                   </Button>
                 </div>
               </div>
