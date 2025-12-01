@@ -109,11 +109,12 @@ const TeamReports = () => {
         <div className="relative">
           {/* Scrollable date buttons */}
           <div className="overflow-x-auto pb-2 -mr-20 scrollbar-hide">
-            <div className="flex gap-2 pr-24">
+            <div className="flex gap-2 pr-24 whitespace-nowrap">
               <Button
                 variant={datePreset === 'week' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDatePreset('week')}
+                className="flex-shrink-0"
               >
                 This Week
               </Button>
@@ -121,6 +122,7 @@ const TeamReports = () => {
                 variant={datePreset === 'month' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDatePreset('month')}
+                className="flex-shrink-0"
               >
                 This Month
               </Button>
@@ -128,6 +130,7 @@ const TeamReports = () => {
                 variant={datePreset === 'preseason' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDatePreset('preseason')}
+                className="flex-shrink-0"
               >
                 Preseason
               </Button>
@@ -135,6 +138,7 @@ const TeamReports = () => {
                 variant={datePreset === 'custom' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setShowCustomDialog(true)}
+                className="flex-shrink-0"
               >
                 <CalendarIcon className="w-4 h-4 mr-1" />
                 {datePreset === 'custom' && customStartDate && customEndDate
@@ -151,7 +155,7 @@ const TeamReports = () => {
               variant="outline" 
               size="sm"
               onClick={() => setIsFilterOpen(true)}
-              className="gap-2 pointer-events-auto"
+              className="gap-2 pointer-events-auto flex-shrink-0"
             >
               <Filter className="h-4 w-4" />
               Filter
