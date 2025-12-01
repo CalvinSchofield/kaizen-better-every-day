@@ -82,7 +82,7 @@ export const CalendarView = ({
   const isKnockingDay = (date: Date) => {
     const isSunday = getDay(date) === 0;
     
-    // Check if entry has actual data (activity counters OR FP+/PRMR)
+    // Check if entry has activity counters (not just FP+/PRMR results)
     const entry = getEntryForDate(date);
     const hasData = entry && entry.is_finalized && (
       (entry.doors_knocked || 0) > 0 ||
@@ -90,9 +90,7 @@ export const CalendarView = ({
       (entry.pitches || 0) > 0 ||
       (entry.transitions || 0) > 0 ||
       (entry.presentations || 0) > 0 ||
-      (entry.closes || 0) > 0 ||
-      (entry.fp_plus || 0) > 0 ||
-      (entry.prmr || 0) > 0
+      (entry.closes || 0) > 0
     );
 
     // Sundays are only knocking days if they have data
