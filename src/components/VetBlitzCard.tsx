@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,9 @@ interface VetBlitzCardProps {
   isTeamLead: boolean;
   onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
   onCommitmentChange?: () => void;
+  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  mgmtGroups?: Array<{ id: string; name: string }>;
+  teams?: Array<{ id: string; name: string }>;
 }
 
 interface BlitzEvent {
@@ -59,7 +62,7 @@ interface TeamMember {
   onboardingStatus: string | null;
 }
 
-export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate, onCommitmentChange }: VetBlitzCardProps) => {
+export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate, onCommitmentChange, accessLevel = 'none', mgmtGroups = [], teams = [] }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
@@ -73,6 +76,54 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
+  const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+
+  // Fetch team members and contacted status based on attendance scope
+  const fetchAttendanceData = useCallback(async () => {
+    if (!repData?.notion_page_id) return;
+
+    setLoadingAttendance(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-blitz-attendance', {
+        body: {
+          scope: attendanceScope,
+          leaderNotionPageId: repData.notion_page_id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        if (attendanceScope === 'you') {
+          // Personal view - show no team members
+          setTeamMembers([]);
+        } else {
+          // Filter out the leader themselves from team list
+          const filteredMembers = (data.teamMembers || []).filter(
+            (member: TeamMember) => member.notionPageId !== repData.notion_page_id
+          );
+          setTeamMembers(filteredMembers);
+        }
+        
+        // Set contacted members from shared blitz_invites table
+        setContactedMembers(data.contactedForBlitz || {});
+      }
+    } catch (error) {
+      console.error('Error fetching attendance data:', error);
+      toast({
+        title: "Error loading attendance",
+        description: "Could not load team attendance data. Please refresh.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAttendance(false);
+    }
+  }, [repData?.notion_page_id, attendanceScope, toast]);
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, [fetchAttendanceData]);
 
   // Load committed blitzes from repData
   useEffect(() => {
@@ -270,17 +321,22 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       [blitzId]: newContacted,
     };
 
+    // Optimistic update
     setContactedMembers(newContactedMembers);
 
     try {
-      const { error } = await supabase
-        .from('reps')
-        .update({ contacted_for_blitz: newContactedMembers })
-        .eq('id', repData.id);
+      const { error } = await supabase.functions.invoke('toggle-blitz-invite', {
+        body: {
+          blitzId,
+          repNotionPageId: memberId,
+          isContacted: !isContacted,
+        },
+      });
 
       if (error) throw error;
     } catch (error) {
       console.error('Error updating contacted status:', error);
+      // Revert on error
       setContactedMembers(contactedMembers);
       toast({
         title: "Update failed",
@@ -512,15 +568,62 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Blitz Management
-        </CardTitle>
-        <CardDescription>
-          Manage your commitments and team attendance
-        </CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Blitz Management
+            </CardTitle>
+            <CardDescription>
+              Manage your commitments and team attendance
+            </CardDescription>
+          </div>
+          
+          {/* Scope toggle - visible only for leaders */}
+          {propIsTeamLead && (
+            <div className="flex gap-1 border rounded-lg p-1 bg-muted/50">
+              <Button
+                size="sm"
+                variant={attendanceScope === 'you' ? 'default' : 'ghost'}
+                className="h-7 px-2 text-xs"
+                onClick={() => setAttendanceScope('you')}
+              >
+                You
+              </Button>
+              <Button
+                size="sm"
+                variant={attendanceScope === 'team' ? 'default' : 'ghost'}
+                className="h-7 px-2 text-xs"
+                onClick={() => setAttendanceScope('team')}
+              >
+                Team
+              </Button>
+              {(accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director') && (
+                <Button
+                  size="sm"
+                  variant={attendanceScope === 'mgmt' ? 'default' : 'ghost'}
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setAttendanceScope('mgmt')}
+                >
+                  MGMT
+                </Button>
+              )}
+              {accessLevel === 'area_director' && (
+                <Button
+                  size="sm"
+                  variant={attendanceScope === 'office' ? 'default' : 'ghost'}
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setAttendanceScope('office')}
+                >
+                  Office
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {loadingAttendance && <div className="text-sm text-muted-foreground">Loading...</div>}
         {allBlitzes.map((blitz) => {
           const isCommitted = committedBlitzIds.includes(blitz.id);
           const isExpanded = expandedBlitz === blitz.id;

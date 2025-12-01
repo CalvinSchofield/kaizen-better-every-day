@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.recommend-competitor]
 verify_jwt = false
+
+[functions.fetch-blitz-attendance]
+verify_jwt = false
+
+[functions.toggle-blitz-invite]
+verify_jwt = false
