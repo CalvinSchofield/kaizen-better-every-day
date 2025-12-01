@@ -62,7 +62,6 @@ export default function Settings() {
   const [isSavingSummer, setIsSavingSummer] = useState(false);
   
   // EFP mode state
-  const [efpMode, setEfpMode] = useState(false);
   const [isSavingEfp, setIsSavingEfp] = useState(false);
   
   // Counter layout state
@@ -110,9 +109,6 @@ export default function Settings() {
           setSummerEnd(new Date(seasonConfig.personal_summer_end));
         }
       }
-      
-      // Load EFP mode from rep data
-      setEfpMode(repData.efp_mode_enabled || false);
       
       // Load counter layout config
       if ((repData as any).counter_layout_config) {
@@ -335,12 +331,8 @@ export default function Settings() {
       
       if (error) throw error;
       
-      // Wait for cache to refresh with new value
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       await queryClient.refetchQueries({ queryKey: ['rep-data'] });
-      
-      // Update local state after refetch completes
-      setEfpMode(enabled);
       
       toast({
         title: enabled ? "EFP mode enabled" : "EFP mode disabled",
@@ -551,7 +543,7 @@ export default function Settings() {
                       <CardTitle>EFP Mode</CardTitle>
                       {!isEfpModeOpen && (
                         <p className="text-sm text-muted-foreground mt-1">
-                          {efpMode ? "Enabled" : "Disabled"}
+                          {repData?.efp_mode_enabled ? "Enabled" : "Disabled"}
                         </p>
                       )}
                     </div>
@@ -568,11 +560,11 @@ export default function Settings() {
                         When enabled, Calendar and Insights will show EFP as your primary metric
                       </p>
                     </div>
-                    <Switch
-                      checked={efpMode}
-                      onCheckedChange={handleToggleEfpMode}
-                      disabled={isSavingEfp}
-                    />
+                  <Switch
+                    checked={repData?.efp_mode_enabled || false}
+                    onCheckedChange={handleToggleEfpMode}
+                    disabled={isSavingEfp}
+                  />
                   </div>
                 </CardContent>
               </CollapsibleContent>
