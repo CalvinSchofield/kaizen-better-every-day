@@ -6,6 +6,7 @@ import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Filter, Users, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -156,36 +157,6 @@ const TeamReports = () => {
           </Button>
         </div>
 
-        {/* Custom Date Dialog */}
-        <Popover open={showCustomDialog} onOpenChange={setShowCustomDialog}>
-          <PopoverTrigger asChild>
-            <div />
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <div className="p-4 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Start Date</label>
-                <Calendar
-                  mode="single"
-                  selected={customStartDate}
-                  onSelect={setCustomStartDate}
-                  initialFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">End Date</label>
-                <Calendar
-                  mode="single"
-                  selected={customEndDate}
-                  onSelect={setCustomEndDate}
-                />
-              </div>
-              <Button onClick={handleCustomDateApply} className="w-full">
-                Apply
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
 
         {insightsLoading ? (
           <>
@@ -495,6 +466,80 @@ const TeamReports = () => {
           onViewModeChange={setViewMode}
         />
       </div>
+
+      {/* Custom Date Range Sheet */}
+      <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Select Custom Date Range</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 py-4">
+            <div className={cn("transition-all duration-300", customStartDate && "animate-scale-in")}>
+              <label className="text-sm font-medium mb-2 block">Start Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customStartDate}
+                    onSelect={(date) => {
+                      setCustomStartDate(date);
+                      // Auto-open end date picker if end date is empty
+                      if (date && !customEndDate) {
+                        setTimeout(() => {
+                          const endDateButton = document.querySelector('[data-end-date-trigger]') as HTMLButtonElement;
+                          endDateButton?.click();
+                        }, 200);
+                      }
+                    }}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className={cn("transition-all duration-300", customStartDate && !customEndDate && "animate-pulse")}>
+              <label className="text-sm font-medium mb-2 block">End Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start text-left font-normal"
+                    data-end-date-trigger
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customEndDate}
+                    onSelect={setCustomEndDate}
+                    disabled={(date) => customStartDate ? date < customStartDate : false}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button 
+              onClick={handleCustomDateApply} 
+              className="w-full"
+              disabled={!customStartDate || !customEndDate}
+            >
+              Apply Date Range
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
