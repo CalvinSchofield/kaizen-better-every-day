@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { PWAInstallGate } from "@/components/PWAInstallGate";
-import { isPWAInstalled, hasUserSignedUp, markUserSignedUp } from "@/utils/pwaDetection";
+import { isPWAInstalled, hasUserSignedUp, markUserSignedUp, shouldBypassPWAGate } from "@/utils/pwaDetection";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -131,8 +131,8 @@ const Auth = () => {
     }
   };
 
-  // Show PWA install gate if not installed
-  if (!isPWA) {
+  // Show PWA install gate if not installed (unless user has bypass access)
+  if (!isPWA && !shouldBypassPWAGate(email)) {
     return <PWAInstallGate />;
   }
 

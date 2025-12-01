@@ -79,8 +79,16 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
 
     if (isKnockingMode) {
       // KNOCKING MODE ON
-      if (isVetOrSoph || isPostBlitzRookie) {
-        // Vets/Sophomores & Post-blitz Rookies: HOME, TOOLS, CALENDAR, TRACK
+      if (isVetOrSoph) {
+        // Vets/Sophomores: HOME, INSIGHTS, CALENDAR, TRACK
+        return [
+          { path: "/", icon: Home, label: "Home" },
+          { path: "/insights", icon: BarChart3, label: "Insights" },
+          { path: "/calendar", icon: Calendar, label: "Calendar" },
+          { path: "/track", icon: Target, label: "Track" },
+        ];
+      } else if (isPostBlitzRookie) {
+        // Post-blitz Rookies: HOME, TOOLS, CALENDAR, TRACK
         return [
           { path: "/", icon: Home, label: "Home" },
           { path: "/tools", icon: Wrench, label: "Tools" },

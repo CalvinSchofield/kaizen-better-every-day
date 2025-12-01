@@ -12,6 +12,14 @@ export const isPWAInstalled = (): boolean => {
 };
 
 /**
+ * Checks if user should bypass PWA gate (for development/testing)
+ */
+export const shouldBypassPWAGate = (email: string | null | undefined): boolean => {
+  if (!email) return false;
+  return email.toLowerCase() === 'calvinjschofield@gmail.com';
+};
+
+/**
  * Tracks that user has signed up at least once on this device
  */
 export const markUserSignedUp = () => {
