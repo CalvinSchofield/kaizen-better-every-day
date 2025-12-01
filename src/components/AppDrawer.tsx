@@ -173,7 +173,7 @@ export const AppDrawer = ({ trigger, firstName, navItems = [] }: AppDrawerProps)
                 <div className="flex flex-col">
                   <span className="font-semibold">Calendar</span>
                   <span className="text-sm text-muted-foreground">
-                    {isCalendarLocked ? "Unlocks on your first blitz" : "View and manage entries"}
+                    {isCalendarLocked ? "Unlocks on your first blitz" : "View your knocking metrics"}
                   </span>
                 </div>
               </Link>

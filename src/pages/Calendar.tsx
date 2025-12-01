@@ -4,9 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Calendar = () => {
   const { repData, loading: loadingRepData } = useRepData();
+  const navigate = useNavigate();
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -96,8 +99,18 @@ const Calendar = () => {
                 you'll be able to log your daily numbers and watch your stats grow.
               </p>
             </div>
-            <div className="pt-2">
-              <p className="text-sm text-primary font-medium">
+            <div className="pt-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Looking for the team blitz schedule?
+              </p>
+              <Button 
+                onClick={() => navigate("/tools")}
+                variant="outline"
+                className="w-full"
+              >
+                View Team Calendar
+              </Button>
+              <p className="text-sm text-primary font-medium pt-2">
                 Can't wait to see you out there crushing it! 🚀
               </p>
             </div>
