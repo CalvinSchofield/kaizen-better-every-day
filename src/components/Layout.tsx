@@ -26,12 +26,24 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
+  const now = new Date();
   const hasAttendedBlitz = blitzes.some((blitz: any) => {
-    if (blitz.endDate) {
-      const endDate = new Date(blitz.endDate);
-      return endDate < new Date();
-    }
-    return false;
+    if (!blitz.date || !blitz.endDate) return false;
+    
+    // Check if today matches the blitz start date (unlock immediately on blitz day)
+    const todayStr = now.toISOString().split('T')[0];
+    const blitzStartStr = blitz.date;
+    const isStartingToday = todayStr === blitzStartStr;
+    
+    // Check if blitz is currently active (between start and end date)
+    const startDate = new Date(blitz.date + 'T00:00:00');
+    const endDate = new Date(blitz.endDate + 'T23:59:59');
+    const isCurrentlyActive = now >= startDate && now <= endDate;
+    
+    // Check if blitz has ended (past)
+    const hasEnded = endDate < now;
+    
+    return isStartingToday || isCurrentlyActive || hasEnded;
   });
 
   const isTrackLocked = isRookie && !hasAttendedBlitz;
@@ -196,7 +208,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
       </main>
       
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 pb-6">
+      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 safe-area-inset-bottom">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-4">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
