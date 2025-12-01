@@ -17,6 +17,7 @@ import { ActivityTrendChart } from "@/components/insights/ActivityTrendChart";
 import { HourlyActivityHeatmap } from "@/components/insights/HourlyActivityHeatmap";
 import { DayOfWeekAnalysis } from "@/components/insights/DayOfWeekAnalysis";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
+import { useTeamCumulativeFP } from "@/hooks/useTeamCumulativeFP";
 
 type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
@@ -90,6 +91,12 @@ const TeamReports = () => {
     : (accessData?.accessibleUserIds || []);
 
   const { data: insightsData, isLoading: insightsLoading } = useTeamInsightsData({
+    userIds: effectiveUserIds,
+    dateRange: getDateRange(datePreset),
+    excludeUserIds,
+  });
+
+  const { data: teamCumulativeData, isLoading: cumulativeLoading } = useTeamCumulativeFP({
     userIds: effectiveUserIds,
     dateRange: getDateRange(datePreset),
     excludeUserIds,
@@ -356,7 +363,10 @@ const TeamReports = () => {
             </Card>
 
             {/* Progress Over Time Chart */}
-            <FPCumulativeChart />
+            <FPCumulativeChart 
+              teamData={teamCumulativeData}
+              isTeamLoading={cumulativeLoading}
+            />
 
             {/* Sales Funnel - Collapsible */}
             <Card>

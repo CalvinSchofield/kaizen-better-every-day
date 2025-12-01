@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import { format, parseISO, startOfWeek, startOfMonth, isSameWeek, isSameMonth } from "date-fns";
-import { useCumulativeFP } from "@/hooks/useCumulativeFP";
+import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -12,13 +12,22 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 type GroupBy = 'day' | 'week' | 'month';
 type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
 
-export const FPCumulativeChart = () => {
+interface FPCumulativeChartProps {
+  teamData?: CumulativeDataPoint[];
+  isTeamLoading?: boolean;
+}
+
+export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChartProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [movingAvgPeriod, setMovingAvgPeriod] = useState<6 | 12>(6);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
-  const { data: cumulativeData, isLoading } = useCumulativeFP();
+  const { data: personalData, isLoading: personalLoading } = useCumulativeFP();
   const { efpModeEnabled } = useEfpMode();
+
+  // Use team data if provided, otherwise use personal data
+  const cumulativeData = teamData || personalData;
+  const isLoading = isTeamLoading !== undefined ? isTeamLoading : personalLoading;
 
   if (isLoading) {
     return (
