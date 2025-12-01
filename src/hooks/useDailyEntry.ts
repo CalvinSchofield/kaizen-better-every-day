@@ -198,6 +198,12 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['ytd-prmr-total'] });
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['insights-data'] });
+      // Invalidate all leaderboards so they update immediately
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       toast.success('Entry saved successfully!');
     },
   });
