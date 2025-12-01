@@ -29,6 +29,7 @@ interface ActivitySummaryData {
     label: string;
     previousBlitzFp?: number;
     previousPeriodTotal?: number;
+    previousPeriodPrmr?: number;
     previousDaysWorked?: number;
     showComparison: boolean;
   };
@@ -184,6 +185,7 @@ export const useActivitySummary = (repData: any) => {
           }) || [];
 
           const prevBlitzTotalFp = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+          const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           const prevBlitzDaysWorked = prevFullWorkdayEntries.length;
           
           // Calculate day-aligned comparison for same number of days
@@ -196,6 +198,7 @@ export const useActivitySummary = (repData: any) => {
             label: `day ${currentBlitzDays} last blitz`,
             previousBlitzFp: prevBlitzTotalFp,
             previousPeriodTotal: prevBlitzTotalFp,
+            previousPeriodPrmr: prevBlitzTotalPrmr,
             previousDaysWorked: prevBlitzDaysWorked,
             showComparison: currentBlitzDays <= prevBlitzDaysWorked,
           };
@@ -220,6 +223,7 @@ export const useActivitySummary = (repData: any) => {
         }) || [];
 
         const lastWeekTotalFp = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        const lastWeekTotalPrmr = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
         const lastWeekDaysWorked = lastWeekFullWorkdayEntries.length;
         
         // Day-aligned comparison
@@ -231,6 +235,7 @@ export const useActivitySummary = (repData: any) => {
           fpChange: totals.fp - lastWeekDayAlignedFp,
           label: `day ${currentWeekDays} last week`,
           previousPeriodTotal: lastWeekTotalFp,
+          previousPeriodPrmr: lastWeekTotalPrmr,
           previousDaysWorked: lastWeekDaysWorked,
           showComparison: currentWeekDays <= lastWeekDaysWorked,
         };

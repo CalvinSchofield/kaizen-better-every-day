@@ -77,8 +77,8 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
   const efpValue = efpModeEnabled ? calculateEfp(summary.totals.prmr) : 0;
   
   // Calculate previous period EFP if in EFP mode and comparison exists
-  const previousPeriodEfp = efpModeEnabled && summary.comparison?.previousPeriodTotal 
-    ? calculateEfp((summary.comparison.previousPeriodTotal || 0) * 85) 
+  const previousPeriodEfp = efpModeEnabled && summary.comparison?.previousPeriodPrmr 
+    ? calculateEfp(summary.comparison.previousPeriodPrmr) 
     : 0;
   
   // Calculate day-aligned previous EFP for comparison
