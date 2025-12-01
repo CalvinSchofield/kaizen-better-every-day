@@ -229,6 +229,6 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
 
       return leaderboard;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Force fresh data on every mount
   });
 };
