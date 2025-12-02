@@ -241,6 +241,13 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
         }
       });
 
+      // Hide earliest/latest door if same person holds both (means only one person has timestamps)
+      if (leaderboard.earliestDoor && leaderboard.latestDoor && 
+          leaderboard.earliestDoor.userId === leaderboard.latestDoor.userId) {
+        leaderboard.earliestDoor = null;
+        leaderboard.latestDoor = null;
+      }
+
       return leaderboard;
     },
     staleTime: 0, // Force fresh data on every mount

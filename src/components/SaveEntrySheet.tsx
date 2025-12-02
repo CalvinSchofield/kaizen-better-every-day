@@ -86,8 +86,14 @@ export const SaveEntrySheet = ({
   const isVet = repData?.year === "Vet" || repData?.year === "Sophomore";
   const showHelp = true; // TEMPORARY: Always show for testing. Change back to: isRookie && totalFP < 10
 
-  // Auto-set newAccounts when fpPlus changes
+  // Auto-set newAccounts when fpPlus changes - but only if form hasn't been initialized with existing data
+  // This prevents overwriting the calculated newAccounts from saved upgrade_prmr
+  const hasInitializedNewAccounts = useRef(false);
+  
   useEffect(() => {
+    // Skip auto-calculation if we already initialized from saved data
+    if (hasInitializedNewAccounts.current) return;
+    
     const fpValue = parseFloat(fpPlus);
     if (fpValue > 0) {
       setNewAccounts(Math.floor(fpValue));
@@ -111,6 +117,16 @@ export const SaveEntrySheet = ({
       setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
       setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
       setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+      
+      // Calculate newAccounts from saved data to preserve original split
+      // upgradeFP = fpValue - newAccounts, so newAccounts = fpValue - upgradeFP
+      // upgradeFP = upgrade_prmr / 85
+      const fpValue = entry.fp_plus || 0;
+      const upgradePrmr = entry.upgrade_prmr || 0;
+      const upgradeFP = upgradePrmr / 85;
+      const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
+      setNewAccounts(Math.max(0, calculatedNewAccounts));
+      hasInitializedNewAccounts.current = true;
       
       // Pre-fill custom counters
       const customCounterData: Record<string, string> = {};
@@ -142,6 +158,7 @@ export const SaveEntrySheet = ({
     if (!open) {
       isSavingRef.current = false;
       formInitializedRef.current = false;
+      hasInitializedNewAccounts.current = false;
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
