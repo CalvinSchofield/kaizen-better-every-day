@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,48 +44,104 @@ export interface RepData {
   timezone: string | null;
 }
 
+// Helper to get user-specific cache key
+const getRepCacheKey = (userId: string) => `rep-data-cache-${userId}`;
+
+// Helper to clear all rep data caches (for logout)
+export const clearAllRepCaches = () => {
+  // Clear any rep-data-cache keys
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('rep-data-cache')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => localStorage.removeItem(key));
+};
+
 export const useRepData = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Get current user ID on mount
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+    };
+    getCurrentUser();
+
+    // Listen for auth changes to update currentUserId
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUserId = session?.user?.id ?? null;
+      
+      // If user changed, clear old user's cache
+      if (currentUserId && newUserId && currentUserId !== newUserId) {
+        console.log('User changed, clearing old cache');
+        clearAllRepCaches();
+        queryClient.clear();
+      }
+      
+      setCurrentUserId(newUserId);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [currentUserId, queryClient]);
 
   const { data: repData, isLoading: loading } = useQuery({
-    queryKey: ['rep-data'],
+    queryKey: ['rep-data', currentUserId],
+    enabled: !!currentUserId, // Only run when we have a user ID
     staleTime: 5 * 60 * 1000, // 5 minutes - consider data fresh
     gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
     refetchOnWindowFocus: false,
     retry: 1,
     queryFn: async () => {
-      // Try to load from cache first for instant display
-      const cachedRep = localStorage.getItem('rep-data-cache');
+      if (!currentUserId) return null;
+
+      // Try to load from user-specific cache first for instant display
+      const cacheKey = getRepCacheKey(currentUserId);
+      const cachedRep = localStorage.getItem(cacheKey);
       if (cachedRep) {
         try {
-          const { data: cached, timestamp } = JSON.parse(cachedRep);
+          const { data: cached, timestamp, userId: cachedUserId } = JSON.parse(cachedRep);
           const isRecent = Date.now() - timestamp < 5 * 60 * 1000; // 5 minutes
-          if (isRecent && cached) {
+          
+          // CRITICAL: Validate cached data belongs to current user
+          if (isRecent && cached && cachedUserId === currentUserId) {
             // Return cached data immediately and fetch in background
             setTimeout(() => {
-              queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+              queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
             }, 100);
             return cached;
+          } else if (cachedUserId !== currentUserId) {
+            // Cache belongs to different user - remove it
+            console.warn('Cache user mismatch, clearing stale cache');
+            localStorage.removeItem(cacheKey);
           }
         } catch (e) {
           console.error('Failed to parse cached rep data:', e);
+          localStorage.removeItem(cacheKey);
         }
       }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return null;
 
       const { data, error } = await supabase
         .from("reps")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUserId)
         .maybeSingle();
 
       if (error) throw error;
+
+      // CRITICAL: Validate fetched data belongs to current user
+      if (data && data.user_id !== currentUserId) {
+        console.error('SECURITY: Fetched rep data does not match current user!', {
+          fetchedUserId: data.user_id,
+          currentUserId
+        });
+        return null;
+      }
 
       // If no rep data exists, automatically sync from Notion
       if (!data) {
@@ -113,30 +169,38 @@ export const useRepData = () => {
         const { data: syncedData, error: refetchError } = await supabase
           .from("reps")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUserId)
           .maybeSingle();
 
         if (refetchError) throw refetchError;
+
+        // Validate synced data
+        if (syncedData && syncedData.user_id !== currentUserId) {
+          console.error('SECURITY: Synced rep data does not match current user!');
+          return null;
+        }
 
         if (syncedData) {
           toast({
             title: "Sync successful",
             description: "Your data has been loaded from Notion.",
           });
-          // Cache the synced data
-          localStorage.setItem('rep-data-cache', JSON.stringify({
+          // Cache the synced data with user ID
+          localStorage.setItem(cacheKey, JSON.stringify({
             data: syncedData,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            userId: currentUserId
           }));
         }
 
         return syncedData;
       }
 
-      // Cache the data for offline access
-      localStorage.setItem('rep-data-cache', JSON.stringify({
+      // Cache the data for offline access with user ID
+      localStorage.setItem(cacheKey, JSON.stringify({
         data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        userId: currentUserId
       }));
 
       return data;
@@ -144,39 +208,59 @@ export const useRepData = () => {
   });
 
   const refetch = async () => {
+    if (!currentUserId) return;
     // Trigger Notion sync
     await supabase.functions.invoke("sync-notion-reps");
     // Wait a moment for sync to complete
     await new Promise(resolve => setTimeout(resolve, 1000));
     // Refetch the data
-    await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+    await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
   };
 
   useEffect(() => {
+    if (!currentUserId) return;
+
     // Set up automatic periodic sync from Notion every 5 minutes
     const syncInterval = setInterval(async () => {
       console.log("Auto-syncing from Notion...");
       try {
         await supabase.functions.invoke("sync-notion-reps");
-        await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+        await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
       } catch (error) {
         console.error("Auto-sync error:", error);
       }
     }, 5 * 60 * 1000); // 5 minutes
 
     // Set up realtime subscription to instantly reflect database changes
+    // CRITICAL: Filter to only process changes for the CURRENT USER
     const channel = supabase
-      .channel("reps-changes")
+      .channel(`reps-changes-${currentUserId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "reps",
+          filter: `user_id=eq.${currentUserId}` // Only listen to current user's changes
         },
         (payload) => {
           if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
-            queryClient.setQueryData(['rep-data'], payload.new as RepData);
+            const newData = payload.new as RepData;
+            
+            // CRITICAL: Double-check the data belongs to current user
+            if (newData.user_id === currentUserId) {
+              queryClient.setQueryData(['rep-data', currentUserId], newData);
+              
+              // Update cache
+              const cacheKey = getRepCacheKey(currentUserId);
+              localStorage.setItem(cacheKey, JSON.stringify({
+                data: newData,
+                timestamp: Date.now(),
+                userId: currentUserId
+              }));
+            } else {
+              console.warn('Received realtime update for different user, ignoring');
+            }
           }
         }
       )
@@ -186,7 +270,7 @@ export const useRepData = () => {
       clearInterval(syncInterval);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast]);
+  }, [queryClient, toast, currentUserId]);
 
   return { repData: repData ?? null, loading, refetch };
 };

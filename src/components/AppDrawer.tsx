@@ -81,8 +81,30 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
   const confirmLogout = async () => {
     try {
-      // Clear all caches before signing out
-      localStorage.removeItem('rep-data-cache');
+      // Clear ALL caches before signing out
+      // Clear all rep-data caches (user-specific)
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('rep-data-cache') || 
+            key?.startsWith('competitors-cache') ||
+            key?.startsWith('blitzes-cache') ||
+            key?.startsWith('team-access-cache') ||
+            key?.startsWith('kaizen-')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Also clear the non-prefixed caches
+      localStorage.removeItem('competitors-cache');
+      localStorage.removeItem('blitzes-cache');
+      localStorage.removeItem('team-access-cache');
+      localStorage.removeItem('kaizen-setup-complete');
+      localStorage.removeItem('kaizen-setup-timestamp');
+      localStorage.removeItem('has-signed-up-before');
+      
+      // Clear React Query cache
       queryClient.clear();
       
       const { error } = await supabase.auth.signOut();
