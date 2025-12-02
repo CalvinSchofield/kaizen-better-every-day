@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getLocalDateString } from '@/lib/utils';
 
 interface LeaderboardEntry {
   userId: string;
@@ -28,7 +29,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
     queryFn: async () => {
       // Get start of current year
       const now = new Date();
-      const yearStart = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      const yearStart = getLocalDateString(new Date(now.getFullYear(), 0, 1));
 
       // Fetch all users
       const { data: reps, error: repsError } = await supabase

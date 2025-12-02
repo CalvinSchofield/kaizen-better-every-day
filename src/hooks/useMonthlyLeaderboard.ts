@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getLocalDateString } from "@/lib/utils";
 
 interface LeaderboardEntry {
   userId: string;
@@ -31,8 +32,8 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       
-      const startStr = monthStart.toISOString().split("T")[0];
-      const endStr = monthEnd.toISOString().split("T")[0];
+      const startStr = getLocalDateString(monthStart);
+      const endStr = getLocalDateString(monthEnd);
 
       // Fetch all reps data
       const { data: repsData, error: repsError } = await supabase
