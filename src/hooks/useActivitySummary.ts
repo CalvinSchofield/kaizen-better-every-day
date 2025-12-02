@@ -10,16 +10,20 @@ interface ActivitySummaryData {
   totals: {
     doors: number;
     pitches: number;
+    decisionMakers: number;
     transitions: number;
     presentations: number;
+    closes: number;
     fp: number;
     prmr: number;
   };
   dailyAverages: {
     doors: number;
     pitches: number;
+    decisionMakers: number;
     transitions: number;
     presentations: number;
+    closes: number;
     fp: number;
     prmr: number;
   };
@@ -129,12 +133,14 @@ export const useActivitySummary = (repData: any) => {
         (acc, entry) => ({
           doors: acc.doors + (entry.doors_knocked || 0),
           pitches: acc.pitches + (entry.pitches || 0),
+          decisionMakers: acc.decisionMakers + (entry.decision_makers || 0),
           transitions: acc.transitions + (entry.transitions || 0),
           presentations: acc.presentations + (entry.presentations || 0),
+          closes: acc.closes + (entry.closes || 0),
           fp: acc.fp + (Number(entry.fp_plus) || 0),
           prmr: acc.prmr + (Number(entry.prmr) || 0),
         }),
-        { doors: 0, pitches: 0, transitions: 0, presentations: 0, fp: 0, prmr: 0 }
+        { doors: 0, pitches: 0, decisionMakers: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 }
       );
 
       const daysWorked = workdayEntries.length;
@@ -143,8 +149,10 @@ export const useActivitySummary = (repData: any) => {
       const dailyAverages = {
         doors: daysWorked > 0 ? totals.doors / daysWorked : 0,
         pitches: daysWorked > 0 ? totals.pitches / daysWorked : 0,
+        decisionMakers: daysWorked > 0 ? totals.decisionMakers / daysWorked : 0,
         transitions: daysWorked > 0 ? totals.transitions / daysWorked : 0,
         presentations: daysWorked > 0 ? totals.presentations / daysWorked : 0,
+        closes: daysWorked > 0 ? totals.closes / daysWorked : 0,
         fp: daysWorked > 0 ? totals.fp / daysWorked : 0,
         prmr: daysWorked > 0 ? totals.prmr / daysWorked : 0,
       };

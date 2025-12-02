@@ -71,8 +71,6 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
   const isBlitzMode = summary.mode === "blitz";
   const previousBlitzFp = summary.comparison?.previousBlitzFp || 0;
   const hasNoBlitzEntries = isBlitzMode && summary.daysWorked === 0 && previousBlitzFp > 0;
-  const shouldShowActivityMetrics = isRookie && isBlitzMode && previousBlitzFp > 0 && previousBlitzFp < 2;
-
   // Calculate EFP for display
   const efpValue = efpModeEnabled ? calculateEfp(summary.totals.prmr) : 0;
   
@@ -82,13 +80,39 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
     : 0;
   
   // Calculate day-aligned previous EFP for comparison
-  const dayAlignedPreviousEfp = efpModeEnabled && summary.comparison?.fpChange !== undefined
-    ? calculateEfp((summary.totals.prmr || 0)) - calculateEfp(((summary.totals.prmr || 0) - (summary.comparison.fpChange * 85)))
+  // Previous period PRMR at same number of days = current PRMR - PRMR change
+  const previousPrmrAtSameDays = summary.comparison?.fpChange !== undefined
+    ? (summary.totals.prmr || 0) - (summary.comparison.fpChange * 85)
     : 0;
+  const previousEfpAtSameDays = efpModeEnabled ? calculateEfp(previousPrmrAtSameDays) : 0;
+  const dayAlignedPreviousEfp = efpModeEnabled ? efpValue - previousEfpAtSameDays : 0;
   
   const isImproving = efpModeEnabled 
     ? dayAlignedPreviousEfp >= 0
     : summary.comparison && summary.comparison.fpChange >= 0;
+
+  // Build dynamic metrics based on priority and non-zero values
+  const allMetrics = efpModeEnabled ? [
+    { key: 'efp', label: 'EFP', value: efpValue, displayValue: efpValue.toFixed(2), avgValue: summary.daysWorked > 1 ? (efpValue / summary.daysWorked).toFixed(2) : null },
+    { key: 'fp', label: 'FP+', value: summary.totals.fp, displayValue: summary.totals.fp.toFixed(1), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.fp.toFixed(1) : null },
+    { key: 'closes', label: 'Closes', value: summary.totals.closes || 0, displayValue: (summary.totals.closes || 0).toString(), avgValue: summary.daysWorked > 1 ? ((summary.totals.closes || 0) / summary.daysWorked).toFixed(1) : null },
+    { key: 'presentations', label: 'Presentations', value: summary.totals.presentations, displayValue: summary.totals.presentations.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.presentations.toFixed(1) : null },
+    { key: 'transitions', label: 'Transitions', value: summary.totals.transitions, displayValue: summary.totals.transitions.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.transitions.toFixed(1) : null },
+    { key: 'pitches', label: 'Pitches', value: summary.totals.pitches, displayValue: summary.totals.pitches.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.pitches.toFixed(1) : null },
+    { key: 'dms', label: 'Decision Makers', value: summary.totals.decisionMakers || 0, displayValue: (summary.totals.decisionMakers || 0).toString(), avgValue: summary.daysWorked > 1 ? ((summary.totals.decisionMakers || 0) / summary.daysWorked).toFixed(1) : null },
+    { key: 'doors', label: 'Doors', value: summary.totals.doors, displayValue: summary.totals.doors.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.doors.toFixed(0) : null },
+  ] : [
+    { key: 'fp', label: 'FP+', value: summary.totals.fp, displayValue: summary.totals.fp.toFixed(1), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.fp.toFixed(1) : null },
+    { key: 'prmr', label: 'PRMR', value: summary.totals.prmr, displayValue: `$${summary.totals.prmr}`, avgValue: summary.daysWorked > 1 ? `$${summary.dailyAverages.prmr.toFixed(0)}` : null },
+    { key: 'closes', label: 'Closes', value: summary.totals.closes || 0, displayValue: (summary.totals.closes || 0).toString(), avgValue: summary.daysWorked > 1 ? ((summary.totals.closes || 0) / summary.daysWorked).toFixed(1) : null },
+    { key: 'presentations', label: 'Presentations', value: summary.totals.presentations, displayValue: summary.totals.presentations.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.presentations.toFixed(1) : null },
+    { key: 'transitions', label: 'Transitions', value: summary.totals.transitions, displayValue: summary.totals.transitions.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.transitions.toFixed(1) : null },
+    { key: 'pitches', label: 'Pitches', value: summary.totals.pitches, displayValue: summary.totals.pitches.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.pitches.toFixed(1) : null },
+    { key: 'dms', label: 'Decision Makers', value: summary.totals.decisionMakers || 0, displayValue: (summary.totals.decisionMakers || 0).toString(), avgValue: summary.daysWorked > 1 ? ((summary.totals.decisionMakers || 0) / summary.daysWorked).toFixed(1) : null },
+    { key: 'doors', label: 'Doors', value: summary.totals.doors, displayValue: summary.totals.doors.toString(), avgValue: summary.daysWorked > 1 ? summary.dailyAverages.doors.toFixed(0) : null },
+  ];
+
+  const topMetrics = allMetrics.filter(m => m.value > 0).slice(0, 4);
 
   return (
     <Card>
@@ -124,107 +148,17 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
         {/* Metrics Grid */}
         {!hasNoBlitzEntries && (
           <div className="grid grid-cols-4 gap-3">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{summary.totals.doors}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">Doors</p>
-              {summary.daysWorked > 1 && (
-                <p className="text-xs text-muted-foreground/60 mt-0.5">
-                  {summary.dailyAverages.doors.toFixed(0)}/day
-                </p>
-              )}
-            </div>
-
-            {shouldShowActivityMetrics ? (
-              <>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.pitches}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Pitches</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.pitches.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.transitions.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.presentations}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Presentations</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.presentations.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : efpModeEnabled ? (
-              <>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{efpValue.toFixed(2)}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">EFP</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {(efpValue / summary.daysWorked).toFixed(2)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.fp.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.transitions.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.transitions.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {summary.dailyAverages.fp.toFixed(1)}/day
-                    </p>
-                  )}
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">${summary.totals.prmr}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">PRMR</p>
-                  {summary.daysWorked > 1 && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      ${summary.dailyAverages.prmr.toFixed(0)}/day
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
+            {topMetrics.map((metric) => (
+              <div key={metric.key} className="text-center">
+                <p className="text-2xl font-bold text-primary">{metric.displayValue}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{metric.label}</p>
+                {metric.avgValue && (
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    {metric.avgValue}/day
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
