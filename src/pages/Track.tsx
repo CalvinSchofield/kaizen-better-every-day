@@ -1,6 +1,7 @@
 import { Lock, BarChart3 } from "lucide-react";
 import { useRepData } from "@/hooks/useRepData";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
 import { DailyEntry } from "@/hooks/useDailyEntry";
@@ -55,8 +56,26 @@ const Track = ({
   
   // Get counter layout config
   const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
+
+  // Show skeleton loader while loading - prevents flash of wrong content
+  if (loadingRepData && !repData) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-shrink-0 p-4">
+          <Skeleton className="h-16 w-full rounded-xl" />
+        </div>
+        <div className="flex-1 px-4 pt-4 pb-4">
+          <div className="grid grid-cols-2 gap-3 h-full">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-full min-h-[100px] rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   
-  // Check if user is a pre-blitz rookie
+  // Check if user is a pre-blitz rookie - only after data is loaded
   const year = repData?.year || "Rookie";
   const isRookie = year === "Rookie";
   
@@ -71,10 +90,10 @@ const Track = ({
     
     // Check if today matches the blitz start date (unlock immediately on blitz day)
     // Use local date, not UTC, to avoid timezone conversion issues
-    const year = now.getFullYear();
+    const yearNum = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
+    const todayStr = `${yearNum}-${month}-${day}`;
     const blitzStartStr = blitz.date;
     const isStartingToday = todayStr === blitzStartStr;
     
@@ -90,13 +109,6 @@ const Track = ({
   });
 
   const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
-
-  // Show loading state while fetching rep data - render layout immediately to prevent flash
-  if (loadingRepData) {
-    return (
-      <div className="min-h-screen bg-background" />
-    );
-  }
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {

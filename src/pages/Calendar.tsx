@@ -5,46 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarIcon, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 
 const Calendar = () => {
   const { repData, loading: loadingRepData } = useRepData();
   const navigate = useNavigate();
-
-  // Check if user is a pre-blitz rookie
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
-  
-  // Check if rookie has attended a blitz OR is currently on an active blitz
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  
-  const now = new Date();
-  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    
-    // Check if today matches the blitz start date (unlock immediately on blitz day)
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    
-    // Check if blitz is currently active (between start and end date)
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    
-    // Check if blitz has ended (past)
-    const hasEnded = endDate < now;
-    
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
 
   // Fetch all daily entries for the logged-in user
   const { data: entries = [] } = useQuery({
@@ -90,10 +56,54 @@ const Calendar = () => {
     ? new Date(seasonConfig.personal_summer_end) 
     : undefined;
 
-  // Show loading state while fetching rep data
-  if (loadingRepData) {
-    return null;
+  // Show skeleton loader while loading - prevents flash of wrong content
+  if (loadingRepData && !repData) {
+    return (
+      <div className="min-h-screen bg-background p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <Skeleton className="h-[300px] w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
+    );
   }
+
+  // Check if user is a pre-blitz rookie - only after data is loaded
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  // Check if rookie has attended a blitz OR is currently on an active blitz
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  
+  const now = new Date();
+  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
+    if (!blitz.date || !blitz.endDate) return false;
+    
+    // Check if today matches the blitz start date (unlock immediately on blitz day)
+    // Use local date, not UTC, to avoid timezone conversion issues
+    const yearNum = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yearNum}-${month}-${day}`;
+    const blitzStartStr = blitz.date;
+    const isStartingToday = todayStr === blitzStartStr;
+    
+    // Check if blitz is currently active (between start and end date)
+    const startDate = new Date(blitz.date + 'T00:00:00');
+    const endDate = new Date(blitz.endDate + 'T23:59:59');
+    const isCurrentlyActive = now >= startDate && now <= endDate;
+    
+    // Check if blitz has ended (past)
+    const hasEnded = endDate < now;
+    
+    return isStartingToday || isCurrentlyActive || hasEnded;
+  });
+
+  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
