@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -47,6 +47,8 @@ interface SaveEntrySheetProps {
   counterLayoutConfig?: { order: string[] };
 }
 
+type OpenCardType = 'activity' | 'time' | 'results' | null;
+
 export const SaveEntrySheet = ({
   open,
   onOpenChange,
@@ -75,10 +77,10 @@ export const SaveEntrySheet = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
-  const [isDailyActivityOpen, setIsDailyActivityOpen] = useState(true);
+  const [openCard, setOpenCard] = useState<OpenCardType>(null);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
   const [showHighValueWarning, setShowHighValueWarning] = useState(false);
+  const [isFormReady, setIsFormReady] = useState(false);
   const isSavingRef = useRef(false);
 
   // Determine if user is a rookie with <10 FP+
@@ -105,53 +107,149 @@ export const SaveEntrySheet = ({
   // Track if form has been initialized to prevent repopulation during typing
   const formInitializedRef = useRef(false);
   
+  // Check if sections have data for summary display
+  const hasActivityData = useMemo(() => {
+    return (parseInt(doorsKnocked) || 0) > 0 ||
+           (parseInt(decisionMakers) || 0) > 0 ||
+           (parseInt(pitches) || 0) > 0 ||
+           (parseInt(transitions) || 0) > 0 ||
+           (parseInt(presentations) || 0) > 0 ||
+           (parseInt(closes) || 0) > 0;
+  }, [doorsKnocked, decisionMakers, pitches, transitions, presentations, closes]);
+
+  const hasTimeData = useMemo(() => {
+    return startTime !== "" || endTime !== "";
+  }, [startTime, endTime]);
+
+  const hasResultsData = useMemo(() => {
+    return (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
+  }, [fpPlus, prmr]);
+
+  // Build activity summary text
+  const activitySummary = useMemo(() => {
+    const parts: string[] = [];
+    if ((parseInt(doorsKnocked) || 0) > 0) parts.push(`${doorsKnocked} doors`);
+    if ((parseInt(presentations) || 0) > 0) parts.push(`${presentations} pres`);
+    if ((parseInt(closes) || 0) > 0) parts.push(`${closes} closes`);
+    if (parts.length === 0) {
+      // Try other metrics
+      if ((parseInt(pitches) || 0) > 0) parts.push(`${pitches} pitches`);
+      if ((parseInt(transitions) || 0) > 0) parts.push(`${transitions} trans`);
+    }
+    return parts.slice(0, 3).join(' · ') || 'No activity';
+  }, [doorsKnocked, pitches, transitions, presentations, closes]);
+
+  // Build time summary text
+  const timeSummary = useMemo(() => {
+    if (!startTime && !endTime) return 'No time logged';
+    if (startTime && endTime) {
+      return `${startTime} - ${endTime}`;
+    }
+    if (startTime) return `Started ${startTime}`;
+    return 'No time logged';
+  }, [startTime, endTime]);
+
+  // Build results summary text
+  const resultsSummary = useMemo(() => {
+    const parts: string[] = [];
+    const fp = parseFloat(fpPlus) || 0;
+    const prmrVal = parseFloat(prmr) || 0;
+    if (fp > 0) parts.push(`${fp} FP+`);
+    if (prmrVal > 0) parts.push(`$${Math.round(prmrVal)}`);
+    return parts.join(' · ') || 'No results';
+  }, [fpPlus, prmr]);
+
   useEffect(() => {
     // Only populate form when sheet first opens, not on every entry change
-    if (open && entry && !isSavingRef.current && !formInitializedRef.current) {
-      // Pre-fill with existing entry data if available, show empty for 0 values
-      setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
-      setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
-      setPitches(entry.pitches && entry.pitches > 0 ? entry.pitches.toString() : "");
-      setTransitions(entry.transitions && entry.transitions > 0 ? entry.transitions.toString() : "");
-      setPresentations(entry.presentations && entry.presentations > 0 ? entry.presentations.toString() : "");
-      setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
-      setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
-      setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
-      
-      // Calculate newAccounts from saved data to preserve original split
-      // upgradeFP = fpValue - newAccounts, so newAccounts = fpValue - upgradeFP
-      // upgradeFP = upgrade_prmr / 85
-      const fpValue = entry.fp_plus || 0;
-      const upgradePrmr = entry.upgrade_prmr || 0;
-      const upgradeFP = upgradePrmr / 85;
-      const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
-      setNewAccounts(Math.max(0, calculatedNewAccounts));
-      hasInitializedNewAccounts.current = true;
-      
-      // Pre-fill custom counters
-      const customCounterData: Record<string, string> = {};
-      customCounterConfig.forEach(config => {
-        const value = entry.custom_counters?.[config.id];
-        customCounterData[config.id] = value && value > 0 ? value.toString() : "";
+    if (open && !isSavingRef.current && !formInitializedRef.current) {
+      // Small delay to ensure entry data is available
+      const initializeForm = () => {
+        if (entry) {
+          // Pre-fill with existing entry data if available, show empty for 0 values
+          setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
+          setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
+          setPitches(entry.pitches && entry.pitches > 0 ? entry.pitches.toString() : "");
+          setTransitions(entry.transitions && entry.transitions > 0 ? entry.transitions.toString() : "");
+          setPresentations(entry.presentations && entry.presentations > 0 ? entry.presentations.toString() : "");
+          setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
+          setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
+          setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+          
+          // Calculate newAccounts from saved data to preserve original split
+          const fpValue = entry.fp_plus || 0;
+          const upgradePrmr = entry.upgrade_prmr || 0;
+          const upgradeFP = upgradePrmr / 85;
+          const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
+          setNewAccounts(Math.max(0, calculatedNewAccounts));
+          hasInitializedNewAccounts.current = true;
+          
+          // Pre-fill custom counters
+          const customCounterData: Record<string, string> = {};
+          customCounterConfig.forEach(config => {
+            const value = entry.custom_counters?.[config.id];
+            customCounterData[config.id] = value && value > 0 ? value.toString() : "";
+          });
+          setCustomCounters(customCounterData);
+          
+          // Pre-fill time data
+          if (entry.work_start_time) {
+            const startDate = parseISO(entry.work_start_time);
+            setStartTime(format(startDate, 'HH:mm'));
+          } else {
+            setStartTime("");
+          }
+          
+          if (entry.work_end_time) {
+            const endDate = parseISO(entry.work_end_time);
+            setEndTime(format(endDate, 'HH:mm'));
+          } else {
+            setEndTime("");
+          }
+
+          // Determine which card to open based on data availability
+          // If existing entry has data, keep all collapsed
+          // If no data anywhere, open activity card for new entry
+          const hasAnyActivity = (entry.doors_knocked || 0) > 0 || 
+                                 (entry.decision_makers || 0) > 0 ||
+                                 (entry.pitches || 0) > 0 ||
+                                 (entry.transitions || 0) > 0 ||
+                                 (entry.presentations || 0) > 0 ||
+                                 (entry.closes || 0) > 0;
+          const hasAnyTime = entry.work_start_time || entry.work_end_time;
+          const hasAnyResults = (entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0;
+          
+          if (!hasAnyActivity && !hasAnyTime && !hasAnyResults) {
+            // New empty entry - open activity card
+            setOpenCard('activity');
+          } else {
+            // Has existing data - keep all collapsed
+            setOpenCard(null);
+          }
+        } else {
+          // No entry - new day, open activity card
+          setDoorsKnocked("");
+          setDecisionMakers("");
+          setPitches("");
+          setTransitions("");
+          setPresentations("");
+          setCloses("");
+          setFpPlus("");
+          setPrmr("");
+          setNewAccounts(0);
+          setCustomCounters({});
+          setStartTime("");
+          setEndTime("");
+          setOpenCard('activity');
+        }
+        
+        formInitializedRef.current = true;
+        setIsFormReady(true);
+      };
+
+      // Use requestAnimationFrame to ensure entry data is settled
+      requestAnimationFrame(() => {
+        initializeForm();
       });
-      setCustomCounters(customCounterData);
-      
-      // Pre-fill time data
-      if (entry.work_start_time) {
-        const startDate = parseISO(entry.work_start_time);
-        setStartTime(format(startDate, 'HH:mm'));
-      } else {
-        setStartTime("");
-      }
-      
-      if (entry.work_end_time) {
-        const endDate = parseISO(entry.work_end_time);
-        setEndTime(format(endDate, 'HH:mm'));
-      } else {
-        setEndTime("");
-      }
-      
-      formInitializedRef.current = true;
     }
     
     // Reset flags when sheet closes
@@ -159,6 +257,8 @@ export const SaveEntrySheet = ({
       isSavingRef.current = false;
       formInitializedRef.current = false;
       hasInitializedNewAccounts.current = false;
+      setIsFormReady(false);
+      setOpenCard(null);
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
@@ -338,6 +438,10 @@ export const SaveEntrySheet = ({
     return `${mins}m`;
   };
 
+  const handleCardToggle = (card: OpenCardType) => {
+    setOpenCard(openCard === card ? null : card);
+  };
+
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
@@ -362,16 +466,23 @@ export const SaveEntrySheet = ({
           {/* Daily Activity Card - Collapsible */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <Collapsible open={isDailyActivityOpen} onOpenChange={(open) => {
-                setIsDailyActivityOpen(open);
-                if (open) setIsTimeTrackingOpen(false);
-              }}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
-                  <Label className="text-base cursor-pointer">Daily Activity</Label>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isDailyActivityOpen ? 'rotate-180' : ''}`} />
+              <Collapsible open={openCard === 'activity'} onOpenChange={() => handleCardToggle('activity')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base cursor-pointer">Daily Activity</Label>
+                    {openCard !== 'activity' && hasActivityData && (
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {openCard !== 'activity' && (
+                      <span className="text-sm text-muted-foreground">{activitySummary}</span>
+                    )}
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'activity' ? 'rotate-180' : ''}`} />
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 mt-3">
                     {(() => {
                       // Build counter definitions matching Track page order
                       const allCounters = [
@@ -439,16 +550,23 @@ export const SaveEntrySheet = ({
           {/* Time Tracking Card - Collapsible */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <Collapsible open={isTimeTrackingOpen} onOpenChange={(open) => {
-                setIsTimeTrackingOpen(open);
-                if (open) setIsDailyActivityOpen(false);
-              }}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full group mb-3">
-                  <Label className="text-base cursor-pointer">Time Tracking</Label>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTimeTrackingOpen ? 'rotate-180' : ''}`} />
+              <Collapsible open={openCard === 'time'} onOpenChange={() => handleCardToggle('time')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-base cursor-pointer">Time Tracking</Label>
+                    {openCard !== 'time' && hasTimeData && (
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {openCard !== 'time' && (
+                      <span className="text-sm text-muted-foreground">{timeSummary}</span>
+                    )}
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'time' ? 'rotate-180' : ''}`} />
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-3">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <Input
@@ -478,156 +596,173 @@ export const SaveEntrySheet = ({
             </CardContent>
           </Card>
 
-          {/* Results Card */}
+          {/* Results Card - Now Collapsible */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <Label className="text-base mb-3 block">Results</Label>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
+              <Collapsible open={openCard === 'results'} onOpenChange={() => handleCardToggle('results')}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full group">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
-                    {showHelp && (
-                      <button
-                        type="button"
-                        className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setOpenHelp(openHelp === 'fp' ? null : 'fp');
-                        }}
-                      >
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </button>
+                    <Label className="text-base cursor-pointer">Results</Label>
+                    {openCard !== 'results' && hasResultsData && (
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Input
-                      id="fp-plus"
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.1"
-                      placeholder=""
-                      value={fpPlus}
-                      onChange={(e) => setFpPlus(e.target.value)}
-                      enterKeyHint="next"
-                      className="flex-1"
-                    />
-                    {parseFloat(fpPlus) > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const maxFP = Math.floor(parseFloat(fpPlus));
-                          // Cycle: decrement until 0, then loop back to max
-                          setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted active:scale-95 animate-in fade-in slide-in-from-right-2 duration-200"
-                      >
-                        <span>{newAccounts} FP</span>
-                      </button>
+                    {openCard !== 'results' && (
+                      <span className="text-sm text-muted-foreground">{resultsSummary}</span>
                     )}
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'results' ? 'rotate-180' : ''}`} />
                   </div>
-                  {showHelp && openHelp === 'fp' && (
-                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground flex-1">
-                        FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs px-2 shrink-0"
-                        onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                        Ask GPT
-                      </Button>
-                    </div>
-                  )}
-                  {/* Upgrade indicator */}
-                  {(() => {
-                    const fpValue = parseFloat(fpPlus) || 0;
-                    const upgradeFP = fpValue - newAccounts;
-                    const upgradePrmr = upgradeFP > 0 ? Math.round(upgradeFP * 85) : 0;
-                    
-                    if (upgradeFP > 0) {
-                      return (
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          📊 Includes {upgradeFP.toFixed(1)} upgrade FP+ (${upgradePrmr})
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="prmr" className="text-sm">Total PRMR</Label>
-                    {showHelp && (
-                      <button
-                        type="button"
-                        className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setOpenHelp(openHelp === 'prmr' ? null : 'prmr');
-                        }}
-                      >
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      $
-                    </span>
-                    <Input
-                      id="prmr"
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.01"
-                      placeholder=""
-                      value={prmr}
-                      onChange={(e) => setPrmr(e.target.value)}
-                      className="pl-7"
-                      enterKeyHint="done"
-                    />
-                  </div>
-                  {showHelp && openHelp === 'prmr' && (
-                    <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground flex-1">
-                        What the customer pays monthly (plus adders/deductions)
-                      </p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs px-2"
-                          onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
-                        >
-                          <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                          Ask
-                        </Button>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-                          title="Download pay scale"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
-                            link.download = '2025_Sales_Rep_Payscale.pdf';
-                            link.click();
-                          }}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span className="text-xs">Payscale</span>
-                        </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-3 mt-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
+                        {showHelp && (
+                          <button
+                            type="button"
+                            className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setOpenHelp(openHelp === 'fp' ? null : 'fp');
+                            }}
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="fp-plus"
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.1"
+                          placeholder=""
+                          value={fpPlus}
+                          onChange={(e) => setFpPlus(e.target.value)}
+                          enterKeyHint="next"
+                          className="flex-1"
+                        />
+                        {parseFloat(fpPlus) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const maxFP = Math.floor(parseFloat(fpPlus));
+                              // Cycle: decrement until 0, then loop back to max
+                              setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted active:scale-95 animate-in fade-in slide-in-from-right-2 duration-200"
+                          >
+                            <span>{newAccounts} FP</span>
+                          </button>
+                        )}
+                      </div>
+                      {showHelp && openHelp === 'fp' && (
+                        <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
+                          <p className="text-xs text-muted-foreground flex-1">
+                            FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs px-2 shrink-0"
+                            onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                            Ask GPT
+                          </Button>
+                        </div>
+                      )}
+                      {/* Upgrade indicator */}
+                      {(() => {
+                        const fpValue = parseFloat(fpPlus) || 0;
+                        const upgradeFP = fpValue - newAccounts;
+                        const upgradePrmr = upgradeFP > 0 ? Math.round(upgradeFP * 85) : 0;
+                        
+                        if (upgradeFP > 0) {
+                          return (
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                              📊 Includes {upgradeFP.toFixed(1)} upgrade FP+ (${upgradePrmr})
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
-                  )}
-                </div>
-              </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="prmr" className="text-sm">Total PRMR</Label>
+                        {showHelp && (
+                          <button
+                            type="button"
+                            className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setOpenHelp(openHelp === 'prmr' ? null : 'prmr');
+                            }}
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                          $
+                        </span>
+                        <Input
+                          id="prmr"
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.01"
+                          placeholder=""
+                          value={prmr}
+                          onChange={(e) => setPrmr(e.target.value)}
+                          className="pl-7"
+                          enterKeyHint="done"
+                        />
+                      </div>
+                      {showHelp && openHelp === 'prmr' && (
+                        <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
+                          <p className="text-xs text-muted-foreground flex-1">
+                            What the customer pays monthly (plus adders/deductions)
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs px-2"
+                              onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                              Ask
+                            </Button>
+                            <button
+                              type="button"
+                              className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                              title="Download pay scale"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
+                                link.download = '2025_Sales_Rep_Payscale.pdf';
+                                link.click();
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span className="text-xs">Payscale</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
