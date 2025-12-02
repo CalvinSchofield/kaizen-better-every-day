@@ -60,14 +60,14 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
   // Find the best available callout based on hierarchy: YTD > Season > Month > Week > Yesterday
   const callout = useMemo(() => {
     const boards = [
-      { board: ytdBoard, timeframe: 'year to date' },
-      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason' },
-      { board: monthlyBoard, timeframe: 'this month' },
-      { board: weeklyBoard, timeframe: 'this week' },
-      { board: yesterdayBoard, timeframe: 'yesterday' },
+      { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
+      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason', filterKey: 'preseason' as const },
+      { board: monthlyBoard, timeframe: 'this month', filterKey: 'month' as const },
+      { board: weeklyBoard, timeframe: 'this week', filterKey: 'week' as const },
+      { board: yesterdayBoard, timeframe: 'yesterday', filterKey: 'yesterday' as const },
     ];
 
-    for (const { board, timeframe } of boards) {
+    for (const { board, timeframe, filterKey } of boards) {
       if (!board) continue;
 
       for (const metric of priorityMetrics) {
@@ -145,6 +145,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
               ? `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${closeBehindText}`
               : `${entry.name} is leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${gapText}`,
             isCurrentUser,
+            filterKey,
           };
         }
       }
@@ -155,9 +156,17 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
   if (!callout) return null;
 
+  const handleClick = () => {
+    // Dispatch custom event with timeframe
+    window.dispatchEvent(new CustomEvent('expandLeaderboard', { 
+      detail: { timeframe: callout.filterKey } 
+    }));
+    onLeaderboardClick?.();
+  };
+
   return (
     <button
-      onClick={onLeaderboardClick}
+      onClick={handleClick}
       className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
     >
       <span className="text-2xl flex-shrink-0">{callout.isCurrentUser ? '🎉' : '🏆'}</span>
