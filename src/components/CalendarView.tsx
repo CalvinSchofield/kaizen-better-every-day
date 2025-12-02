@@ -23,7 +23,7 @@ export const CalendarView = ({
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [viewMode, setViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
@@ -258,18 +258,18 @@ export const CalendarView = ({
         <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
         <div className="flex gap-2">
           <Button
-            variant={viewMode === "month" ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleViewModeChange("month")}
-          >
-            Month
-          </Button>
-          <Button
             variant={viewMode === "week" ? "default" : "outline"}
             size="sm"
             onClick={() => handleViewModeChange("week")}
           >
             Week
+          </Button>
+          <Button
+            variant={viewMode === "month" ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleViewModeChange("month")}
+          >
+            Month
           </Button>
         </div>
       </div>
@@ -422,7 +422,7 @@ export const CalendarView = ({
       </div>
 
       {/* Summary Card - Expandable (only show if there's data) */}
-      {viewTotals.daysWorked > 0 && viewTotals.doorsKnocked > 0 && (
+      {viewTotals.daysWorked > 0 && (
       <div className="mt-6 rounded-lg bg-card border border-border overflow-hidden">
         {/* Header - Always Visible */}
         <button
