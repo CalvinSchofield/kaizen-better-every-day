@@ -54,6 +54,7 @@ const Home = () => {
   const {
     repData,
     loading,
+    isInitializing,
     refetch
   } = useRepData();
   
@@ -678,8 +679,8 @@ const Home = () => {
       setIsNudging(false);
     }
   };
-  // Show loading only if we have no data at all (including no cached data)
-  if (loading && !repData) {
+  // Show loading while initializing auth OR loading data (prevents flash of wrong content)
+  if (isInitializing || (loading && !repData)) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>;

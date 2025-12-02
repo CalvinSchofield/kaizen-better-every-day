@@ -43,7 +43,7 @@ const Track = ({
   onUpdateTime,
   counterTimestamps,
 }: TrackProps) => {
-  const { repData, loading: loadingRepData } = useRepData();
+  const { repData, loading: loadingRepData, isInitializing } = useRepData();
 
   // Get custom counter config for Vets/Sophomores
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -57,8 +57,8 @@ const Track = ({
   // Get counter layout config
   const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
 
-  // Show skeleton loader while loading - prevents flash of wrong content
-  if (loadingRepData && !repData) {
+  // Show skeleton loader while initializing auth OR loading data - prevents flash of wrong content
+  if (isInitializing || (loadingRepData && !repData)) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-shrink-0 p-4">

@@ -268,5 +268,9 @@ export const useRepData = () => {
     };
   }, [queryClient, toast, currentUserId]);
 
-  return { repData: repData ?? null, loading, refetch };
+  // isInitializing: true when we're still waiting for auth to resolve
+  // This prevents flashing "locked" states before we know who the user is
+  const isInitializing = currentUserId === null;
+
+  return { repData: repData ?? null, loading, isInitializing, refetch };
 };
