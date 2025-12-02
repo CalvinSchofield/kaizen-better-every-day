@@ -9,11 +9,24 @@ interface SalesFunnelChartProps {
     presentations: { total: number; conversionToNext: number };
     closes: { total: number };
   };
+  groupViewMode?: "all" | "mgmt" | "team" | "individual";
+  teamInsightsData?: any;
 }
 
-export const SalesFunnelChart = ({ funnelData }: SalesFunnelChartProps) => {
-  // Calculate widths dynamically based on conversion rates
-  // Start at 100% for doors, then calculate each stage based on conversion
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
+
+export const SalesFunnelChart = ({ funnelData, groupViewMode = "all", teamInsightsData }: SalesFunnelChartProps) => {
+  const isGrouped = groupViewMode !== "all" && teamInsightsData;
+  const sourceData = isGrouped
+    ? (groupViewMode === "mgmt" ? teamInsightsData.byMgmtGroup : teamInsightsData.byTeam)
+    : null;
+
   const calculateWidths = () => {
     const minWidth = 30; // Minimum width to ensure text fits
     let currentWidth = 100;

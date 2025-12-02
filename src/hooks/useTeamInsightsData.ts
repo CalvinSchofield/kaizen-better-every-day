@@ -186,9 +186,84 @@ interface TeamInsightsData {
       fp: number;
     }>;
   }>;
+  byMgmtGroup?: Array<{
+    name: string;
+    totals: {
+      doors: number;
+      decisionMakers: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+      fp: number;
+      prmr: number;
+    };
+    dailyTrend: Array<{
+      date: string;
+      doors: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      fp: number;
+      prmr: number;
+    }>;
+    funnelData: {
+      doors: number;
+      decisionMakers: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+      doorsToDecisionMakers: number;
+      decisionMakersToPitches: number;
+      pitchesToTransitions: number;
+      transitionsToPresentations: number;
+      presentationsToCloses: number;
+    };
+  }>;
+  byTeam?: Array<{
+    name: string;
+    totals: {
+      doors: number;
+      decisionMakers: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+      fp: number;
+      prmr: number;
+    };
+    dailyTrend: Array<{
+      date: string;
+      doors: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      fp: number;
+      prmr: number;
+    }>;
+    funnelData: {
+      doors: number;
+      decisionMakers: number;
+      pitches: number;
+      transitions: number;
+      presentations: number;
+      closes: number;
+      doorsToDecisionMakers: number;
+      decisionMakersToPitches: number;
+      pitchesToTransitions: number;
+      transitionsToPresentations: number;
+      presentationsToCloses: number;
+    };
+  }>;
+  dataQuality?: {
+    totalEntries: number;
+    entriesWithActivity: number;
+    percentage: number;
+  };
 }
 
-interface UseTeamInsightsDataParams {
+export interface UseTeamInsightsDataParams {
   userIds: string[];
   dateRange: { start: string; end: string };
   excludeUserIds?: string[];
