@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getLocalDateString } from "@/lib/utils";
 
 interface LeaderboardEntry {
   userId: string;
@@ -45,8 +46,8 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
       const monday = getMondayOfWeek(today);
       const saturday = getSaturdayOfWeek(today);
       
-      const mondayStr = monday.toISOString().split('T')[0];
-      const saturdayStr = saturday.toISOString().split('T')[0];
+      const mondayStr = getLocalDateString(monday);
+      const saturdayStr = getLocalDateString(saturday);
 
       const { data: users, error: usersError } = await supabase
         .from("reps")
