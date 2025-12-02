@@ -60,16 +60,47 @@ export const clearAllRepCaches = () => {
   keysToRemove.forEach(key => localStorage.removeItem(key));
 };
 
+// Helper to get initial userId synchronously from localStorage
+const getStoredUserId = (): string | null => {
+  try {
+    return localStorage.getItem('kaizen-current-user-id');
+  } catch {
+    return null;
+  }
+};
+
+// Helper to store userId for synchronous access
+const storeUserId = (userId: string | null) => {
+  try {
+    if (userId) {
+      localStorage.setItem('kaizen-current-user-id', userId);
+    } else {
+      localStorage.removeItem('kaizen-current-user-id');
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export const useRepData = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Initialize with stored userId for instant access (prevents flicker)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(getStoredUserId);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Get current user ID on mount
+  // Get current user ID on mount and listen for auth changes
   useEffect(() => {
+    let isMounted = true;
+    
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
+      if (isMounted) {
+        const userId = user?.id ?? null;
+        setCurrentUserId(userId);
+        storeUserId(userId);
+        setAuthChecked(true);
+      }
     };
     getCurrentUser();
 
@@ -84,10 +115,17 @@ export const useRepData = () => {
         queryClient.clear();
       }
       
-      setCurrentUserId(newUserId);
+      if (isMounted) {
+        setCurrentUserId(newUserId);
+        storeUserId(newUserId);
+        setAuthChecked(true);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [currentUserId, queryClient]);
 
   // Get initial data from localStorage cache for instant display (prevents flicker)
@@ -268,9 +306,9 @@ export const useRepData = () => {
     };
   }, [queryClient, toast, currentUserId]);
 
-  // isInitializing: true when we're still waiting for auth to resolve
-  // This prevents flashing "locked" states before we know who the user is
-  const isInitializing = currentUserId === null;
+  // isInitializing: true when we don't have a stored userId AND auth hasn't been checked yet
+  // If we have a stored userId, we can render immediately with cached data
+  const isInitializing = !currentUserId && !authChecked;
 
   return { repData: repData ?? null, loading, isInitializing, refetch };
 };
