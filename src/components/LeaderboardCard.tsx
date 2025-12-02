@@ -18,7 +18,13 @@ export const LeaderboardCard = () => {
 
   // Listen for expand event from CTA
   useEffect(() => {
-    const handleExpand = () => setIsExpanded(true);
+    const handleExpand = (e: Event) => {
+      const customEvent = e as CustomEvent<{ timeframe: TimeFilter }>;
+      setIsExpanded(true);
+      if (customEvent.detail?.timeframe) {
+        setTimeFilter(customEvent.detail.timeframe);
+      }
+    };
     window.addEventListener('expandLeaderboard', handleExpand);
     return () => window.removeEventListener('expandLeaderboard', handleExpand);
   }, []);
