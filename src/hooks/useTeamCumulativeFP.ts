@@ -22,9 +22,14 @@ interface UseTeamCumulativeFPParams {
   userIds: string[];
   dateRange: { start: string; end: string };
   excludeUserIds?: string[];
+  groupBy?: "mgmt" | "team" | null;
 }
 
-export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseTeamCumulativeFPParams) => {
+export interface GroupedCumulativeData {
+  [groupName: string]: TeamCumulativeDataPoint[];
+}
+
+export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds, groupBy }: UseTeamCumulativeFPParams) => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { data: insightsData, isLoading } = useTeamInsightsData({
     userIds,
@@ -109,8 +114,90 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
     return dataPoints;
   }, [insightsData, efpModeEnabled, calculateEfp]);
 
+  const groupedData = useMemo((): GroupedCumulativeData | null => {
+    if (!groupBy || !insightsData) return null;
+
+    const sourceData = groupBy === "mgmt" ? insightsData.byMgmtGroup : insightsData.byTeam;
+    if (!sourceData || sourceData.length === 0) return null;
+
+    const result: GroupedCumulativeData = {};
+
+    sourceData.forEach(group => {
+      const dataPoints: TeamCumulativeDataPoint[] = [];
+      let cumulative = 0;
+      let cumulativePrmr = 0;
+      let cumulativeFp = 0;
+
+      group.dailyTrend.forEach((trend, index) => {
+        const value = efpModeEnabled 
+          ? calculateEfp(trend.prmr || 0)
+          : (trend.fp || 0);
+        
+        const prmrValue = trend.prmr || 0;
+        const fpValue = trend.fp || 0;
+        
+        cumulative += value;
+        cumulativePrmr += prmrValue;
+        cumulativeFp += fpValue;
+
+        const last6 = group.dailyTrend.slice(Math.max(0, index - 5), index + 1);
+        const movingAvg6 = last6.length >= 1
+          ? last6.reduce((sum, e) => {
+              const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp || 0);
+              return sum + v;
+            }, 0) / last6.length
+          : null;
+
+        const movingAvgPrmr6 = last6.length >= 1
+          ? last6.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6.length
+          : null;
+
+        const last12 = group.dailyTrend.slice(Math.max(0, index - 11), index + 1);
+        const movingAvg12 = last12.length >= 1
+          ? last12.reduce((sum, e) => {
+              const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp || 0);
+              return sum + v;
+            }, 0) / last12.length
+          : null;
+
+        const movingAvgPrmr12 = last12.length >= 1
+          ? last12.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12.length
+          : null;
+
+        const movingAvgFp6 = last6.length >= 1
+          ? last6.reduce((sum, e) => sum + (e.fp || 0), 0) / last6.length
+          : null;
+
+        const movingAvgFp12 = last12.length >= 1
+          ? last12.reduce((sum, e) => sum + (e.fp || 0), 0) / last12.length
+          : null;
+
+        dataPoints.push({
+          date: trend.date,
+          cumulative,
+          movingAvg6,
+          movingAvg12,
+          dailyValue: value,
+          cumulativePrmr,
+          movingAvgPrmr6,
+          movingAvgPrmr12,
+          dailyPrmr: prmrValue,
+          cumulativeFp,
+          movingAvgFp6,
+          movingAvgFp12,
+          dailyFp: fpValue,
+        });
+      });
+
+      result[group.name] = dataPoints;
+    });
+
+    return result;
+  }, [insightsData, groupBy, efpModeEnabled, calculateEfp]);
+
   return {
     data: cumulativeData,
+    groupedData,
     isLoading,
   };
 };
