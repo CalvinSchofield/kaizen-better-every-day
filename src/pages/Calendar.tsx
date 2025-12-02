@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 
 const Calendar = () => {
-  const { repData, loading: loadingRepData } = useRepData();
+  const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
 
   // Fetch all daily entries for the logged-in user
@@ -56,8 +56,8 @@ const Calendar = () => {
     ? new Date(seasonConfig.personal_summer_end) 
     : undefined;
 
-  // Show skeleton loader while loading - prevents flash of wrong content
-  if (loadingRepData && !repData) {
+  // Show skeleton loader while initializing auth OR loading data - prevents flash of wrong content
+  if (isInitializing || (loadingRepData && !repData)) {
     return (
       <div className="min-h-screen bg-background p-4 space-y-4">
         <div className="flex justify-between items-center">
