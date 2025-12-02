@@ -5,14 +5,15 @@ import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
+import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState as useReactState } from "react";
 
-type TimeFilter = 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
+type TimeFilter = 'today' | 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
 
 export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('ytd');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [currentUserId, setCurrentUserId] = useReactState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useReactState<string | null>(null);
 
@@ -32,6 +33,7 @@ export const LeaderboardCard = () => {
   // Rookies should only see rookie leaderboards
   const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
 
+  const { data: todayBoard } = useTodayLeaderboard(filterByYear);
   const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
   const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
   const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
@@ -61,6 +63,7 @@ export const LeaderboardCard = () => {
   }, []);
 
   const currentBoard = 
+    timeFilter === 'today' ? null : // Today uses different structure
     timeFilter === 'ytd' ? ytdBoard :
     timeFilter === 'yesterday' ? yesterdayBoard :
     timeFilter === 'week' ? weeklyBoard :
@@ -175,6 +178,16 @@ export const LeaderboardCard = () => {
         <div className="border-t border-border pt-4">
           {/* Filter Pills - Expanded State Only */}
           <div className="px-6 pb-4 flex gap-2 flex-wrap">
+            <button
+              onClick={() => setTimeFilter('today')}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                timeFilter === 'today'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
+            >
+              Today <span className="text-xs opacity-70">Live</span>
+            </button>
             {(['ytd', 'preseason', 'month', 'week', 'yesterday'] as TimeFilter[]).map((filter) => (
               <button
                 key={filter}
@@ -190,8 +203,52 @@ export const LeaderboardCard = () => {
             ))}
           </div>
           
-          <div className="px-6 pb-4 space-y-3">
-          {categories.map(({ key, label, format }) => {
+          {/* Today Leaderboard - Full Rankings */}
+          {timeFilter === 'today' && todayBoard && (
+            <div className="px-6 pb-4 space-y-4">
+              {[
+                { key: 'fp_plus', label: 'FP+', format: (v: number) => v.toFixed(1) },
+                { key: 'prmr', label: 'PRMR', format: (v: number) => `$${v.toFixed(0)}` },
+                { key: 'presentations', label: 'Presentations', format: (v: number) => v.toString() },
+                { key: 'transitions', label: 'Transitions', format: (v: number) => v.toString() },
+                { key: 'pitches', label: 'Pitches', format: (v: number) => v.toString() },
+                { key: 'doors_knocked', label: 'Doors Knocked', format: (v: number) => v.toString() },
+              ].map(({ key, label, format }) => {
+                const rankings = todayBoard.rankings[key as keyof typeof todayBoard.rankings];
+                if (rankings.length === 0) return null;
+
+                return (
+                  <div key={key} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+                    <div className="space-y-1">
+                      {rankings.map((entry, idx) => (
+                        <div 
+                          key={entry.userId}
+                          className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                            entry.userId === currentUserId ? 'bg-primary/10' : 'bg-secondary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
+                            {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
+                            <span className={`text-sm ${entry.userId === currentUserId ? 'font-bold' : 'font-medium'}`}>
+                              {entry.name}
+                            </span>
+                          </div>
+                          <span className="text-sm font-bold">{format(entry.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Standard Leaderboard Categories */}
+          {timeFilter !== 'today' && (
+            <div className="px-6 pb-4 space-y-3">
+              {categories.map(({ key, label, format }) => {
             const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
             
             if (!entry || entry.value <= 0) {
@@ -223,9 +280,10 @@ export const LeaderboardCard = () => {
                   </span>
                 </div>
               </div>
-            );
-          })}
-          </div>
+              );
+            })}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
+import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 
 interface LeaderboardCTAProps {
@@ -26,6 +27,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
   // Rookies should only see rookie leaderboards
   const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
 
+  const { data: todayBoard } = useTodayLeaderboard(filterByYear);
   const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
   const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
   const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
@@ -54,11 +56,124 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     fetchUser();
   }, []);
 
+  // Find competitive callout for Today leaderboard
+  const todayCallout = useMemo(() => {
+    if (!todayBoard || !currentUserId) return null;
+
+    // Get user's current stats from today's rankings
+    const userFP = todayBoard.rankings.fp_plus.find(e => e.userId === currentUserId);
+    const userPresentations = todayBoard.rankings.presentations.find(e => e.userId === currentUserId);
+    const userTransitions = todayBoard.rankings.transitions.find(e => e.userId === currentUserId);
+    const userPitches = todayBoard.rankings.pitches.find(e => e.userId === currentUserId);
+    const userDoors = todayBoard.rankings.doors_knocked.find(e => e.userId === currentUserId);
+
+    // Helper to find similar competitor (same value or slightly ahead)
+    const findCompetitor = (rankings: typeof todayBoard.rankings.fp_plus, userValue: number, nextMetricRankings?: typeof todayBoard.rankings.fp_plus) => {
+      // Find all with same value as user
+      const sameValueUsers = rankings.filter(e => e.value === userValue && e.userId !== currentUserId);
+      
+      if (sameValueUsers.length > 0 && nextMetricRankings) {
+        // Use next metric as tiebreaker
+        const userNextMetric = nextMetricRankings.find(e => e.userId === currentUserId);
+        const userNextValue = userNextMetric?.value || 0;
+        
+        // Find someone with same primary value but higher secondary value
+        const betterNextMetric = sameValueUsers.find(sameUser => {
+          const theirNextMetric = nextMetricRankings.find(e => e.userId === sameUser.userId);
+          return (theirNextMetric?.value || 0) > userNextValue;
+        });
+        
+        if (betterNextMetric) return betterNextMetric;
+      }
+      
+      // Find next person up (higher value)
+      const aheadUsers = rankings.filter(e => e.value > userValue);
+      return aheadUsers.length > 0 ? aheadUsers[aheadUsers.length - 1] : null;
+    };
+
+    // Tier 1: Has FP+ > 0
+    if (userFP && userFP.value > 0) {
+      const competitor = findCompetitor(todayBoard.rankings.fp_plus, userFP.value, todayBoard.rankings.presentations);
+      if (competitor) {
+        const diff = competitor.value - userFP.value;
+        const text = diff === 0 
+          ? `You and ${competitor.name} are tied at ${userFP.value.toFixed(1)} FP+ today! Race to pull ahead ⚡`
+          : `${competitor.name} has ${diff.toFixed(1)} more FP+ than you today! Can you catch up? 💪`;
+        return { text, isCurrentUser: false, filterKey: 'today' as const };
+      }
+      // User is leading
+      return { text: `You're leading with ${userFP.value.toFixed(1)} FP+ today! Keep that momentum 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+    }
+
+    // Tier 2: Has presentations > 0
+    if (userPresentations && userPresentations.value > 0) {
+      const competitor = findCompetitor(todayBoard.rankings.presentations, userPresentations.value, todayBoard.rankings.transitions);
+      if (competitor) {
+        const diff = competitor.value - userPresentations.value;
+        const text = diff === 0
+          ? `You and ${competitor.name} both have ${userPresentations.value} presentations today! Who closes first? ⚡`
+          : `${competitor.name} has ${diff} more presentation${diff > 1 ? 's' : ''} than you today! Catch up 💪`;
+        return { text, isCurrentUser: false, filterKey: 'today' as const };
+      }
+      return { text: `You're leading with ${userPresentations.value} presentation${userPresentations.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+    }
+
+    // Tier 3: Has transitions > 0
+    if (userTransitions && userTransitions.value > 0) {
+      const competitor = findCompetitor(todayBoard.rankings.transitions, userTransitions.value, todayBoard.rankings.pitches);
+      if (competitor) {
+        const diff = competitor.value - userTransitions.value;
+        const text = diff === 0
+          ? `You and ${competitor.name} both have ${userTransitions.value} transitions today! Push ahead ⚡`
+          : `${competitor.name} has ${diff} more transition${diff > 1 ? 's' : ''} than you! Keep going 💪`;
+        return { text, isCurrentUser: false, filterKey: 'today' as const };
+      }
+      return { text: `You're leading with ${userTransitions.value} transition${userTransitions.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+    }
+
+    // Tier 4: Has pitches > 0
+    if (userPitches && userPitches.value > 0) {
+      const competitor = findCompetitor(todayBoard.rankings.pitches, userPitches.value, todayBoard.rankings.doors_knocked);
+      if (competitor) {
+        const diff = competitor.value - userPitches.value;
+        const text = diff === 0
+          ? `You and ${competitor.name} both have ${userPitches.value} pitches today! Who transitions next? ⚡`
+          : `${competitor.name} has ${diff} more pitch${diff > 1 ? 'es' : ''} than you! Catch up 💪`;
+        return { text, isCurrentUser: false, filterKey: 'today' as const };
+      }
+      return { text: `You're leading with ${userPitches.value} pitch${userPitches.value > 1 ? 'es' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+    }
+
+    // Tier 5: Has doors > 0
+    if (userDoors && userDoors.value > 0) {
+      const competitor = findCompetitor(todayBoard.rankings.doors_knocked, userDoors.value);
+      if (competitor) {
+        const diff = competitor.value - userDoors.value;
+        const text = diff === 0
+          ? `You and ${competitor.name} both knocked ${userDoors.value} doors today! Pull ahead ⚡`
+          : `${competitor.name} knocked ${diff} more door${diff > 1 ? 's' : ''} than you! Keep knocking 💪`;
+        return { text, isCurrentUser: false, filterKey: 'today' as const };
+      }
+      return { text: `You're the only one knocking today! Set the pace 🏃`, isCurrentUser: true, filterKey: 'today' as const };
+    }
+
+    // Tier 6: No activity yet
+    const othersWorking = todayBoard.rankings.doors_knocked.length > 0;
+    if (othersWorking) {
+      const leader = todayBoard.rankings.doors_knocked[0];
+      return { text: `${leader.name} already has ${leader.value} doors today! Get out there 🚀`, isCurrentUser: false, filterKey: 'today' as const };
+    }
+
+    return null;
+  }, [todayBoard, currentUserId]);
+
   // Priority metrics (FP+ > PRMR > Upgrade FP+ > hours > presentations > transitions > latest > earliest > pitches > doors)
   const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
-  // Find the best available callout based on hierarchy: YTD > Season > Month > Week > Yesterday
+  // Find the best available callout based on hierarchy: Today > YTD > Season > Month > Week > Yesterday
   const callout = useMemo(() => {
+    // Priority 1: Show Today competitive callout if available
+    if (todayCallout) return todayCallout;
     const boards = [
       { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
       { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason', filterKey: 'preseason' as const },
@@ -152,7 +267,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     }
 
     return null;
-  }, [ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
+  }, [todayCallout, ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
 
   if (!callout) return null;
 

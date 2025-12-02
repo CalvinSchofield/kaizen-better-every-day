@@ -7,6 +7,7 @@ import { PreviousDayReviewSheet } from "./PreviousDayReviewSheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
+import confetti from "canvas-confetti";
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
@@ -233,6 +234,15 @@ const TrackWithLayout = () => {
         ...timestamps,
         [field]: fieldTimestamps.slice(0, -1)
       };
+    }
+    
+    // Trigger confetti on close (only when adding)
+    if (field === 'closes' && isAdding) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
     
     // Immediately call updateCounter for instant optimistic UI update
