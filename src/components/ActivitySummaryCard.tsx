@@ -79,16 +79,14 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
     ? calculateEfp(summary.comparison.previousPeriodPrmr) 
     : 0;
   
-  // Calculate day-aligned previous EFP for comparison
-  // Previous period PRMR at same number of days = current PRMR - PRMR change
-  const previousPrmrAtSameDays = summary.comparison?.fpChange !== undefined
-    ? (summary.totals.prmr || 0) - (summary.comparison.fpChange * 85)
+  // Calculate day-aligned previous EFP for comparison using actual PRMR change
+  const previousEfpAtSameDays = efpModeEnabled && summary.comparison?.previousDayAlignedPrmr !== undefined
+    ? calculateEfp(summary.comparison.previousDayAlignedPrmr)
     : 0;
-  const previousEfpAtSameDays = efpModeEnabled ? calculateEfp(previousPrmrAtSameDays) : 0;
-  const dayAlignedPreviousEfp = efpModeEnabled ? efpValue - previousEfpAtSameDays : 0;
+  const efpChange = efpModeEnabled ? efpValue - previousEfpAtSameDays : 0;
   
   const isImproving = efpModeEnabled 
-    ? dayAlignedPreviousEfp >= 0
+    ? efpChange >= 0
     : summary.comparison && summary.comparison.fpChange >= 0;
 
   // Build dynamic metrics based on priority and non-zero values
@@ -211,7 +209,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                       : "text-red-600 dark:text-red-400"
                   }`}>
                     {efpModeEnabled ? (
-                      <>{isImproving ? "+" : ""}{dayAlignedPreviousEfp.toFixed(2)} EFP</>
+                      <>{isImproving ? "+" : ""}{efpChange.toFixed(2)} EFP</>
                     ) : (
                       <>{isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+</>
                     )}

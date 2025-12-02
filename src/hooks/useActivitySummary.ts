@@ -30,10 +30,12 @@ interface ActivitySummaryData {
   upfrontPay: number;
   comparison?: {
     fpChange: number;
+    prmrChange: number;
     label: string;
     previousBlitzFp?: number;
     previousPeriodTotal?: number;
     previousPeriodPrmr?: number;
+    previousDayAlignedPrmr?: number;
     previousDaysWorked?: number;
     showComparison: boolean;
   };
@@ -200,13 +202,16 @@ export const useActivitySummary = (repData: any) => {
           const currentBlitzDays = daysWorked;
           const prevDayAlignedEntries = prevFullWorkdayEntries.slice(0, currentBlitzDays);
           const prevDayAlignedFp = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+          const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           
           comparison = {
             fpChange: totals.fp - prevDayAlignedFp,
+            prmrChange: totals.prmr - prevDayAlignedPrmr,
             label: `day ${currentBlitzDays} last blitz`,
             previousBlitzFp: prevBlitzTotalFp,
             previousPeriodTotal: prevBlitzTotalFp,
             previousPeriodPrmr: prevBlitzTotalPrmr,
+            previousDayAlignedPrmr: prevDayAlignedPrmr,
             previousDaysWorked: prevBlitzDaysWorked,
             showComparison: currentBlitzDays <= prevBlitzDaysWorked,
           };
@@ -238,12 +243,15 @@ export const useActivitySummary = (repData: any) => {
         const currentWeekDays = daysWorked;
         const lastWeekDayAlignedEntries = lastWeekFullWorkdayEntries.slice(0, currentWeekDays);
         const lastWeekDayAlignedFp = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        const lastWeekDayAlignedPrmr = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
         
         comparison = {
           fpChange: totals.fp - lastWeekDayAlignedFp,
+          prmrChange: totals.prmr - lastWeekDayAlignedPrmr,
           label: `day ${currentWeekDays} last week`,
           previousPeriodTotal: lastWeekTotalFp,
           previousPeriodPrmr: lastWeekTotalPrmr,
+          previousDayAlignedPrmr: lastWeekDayAlignedPrmr,
           previousDaysWorked: lastWeekDaysWorked,
           showComparison: currentWeekDays <= lastWeekDaysWorked,
         };
@@ -265,9 +273,12 @@ export const useActivitySummary = (repData: any) => {
 
         if (lastSameDayEntry) {
           const lastFp = Number(lastSameDayEntry.fp_plus) || 0;
+          const lastPrmr = Number(lastSameDayEntry.prmr) || 0;
           comparison = {
             fpChange: totals.fp - lastFp,
+            prmrChange: totals.prmr - lastPrmr,
             label: `vs last ${dayNames[todayDayOfWeek]}`,
+            previousDayAlignedPrmr: lastPrmr,
             showComparison: true,
           };
         }
