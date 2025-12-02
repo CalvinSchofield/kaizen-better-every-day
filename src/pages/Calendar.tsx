@@ -25,7 +25,11 @@ const Calendar = () => {
     if (!blitz.date || !blitz.endDate) return false;
     
     // Check if today matches the blitz start date (unlock immediately on blitz day)
-    const todayStr = now.toISOString().split('T')[0];
+    // Use local date, not UTC, to avoid timezone conversion issues
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
     const blitzStartStr = blitz.date;
     const isStartingToday = todayStr === blitzStartStr;
     
