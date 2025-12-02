@@ -19,7 +19,7 @@ import { DayOfWeekAnalysis } from "@/components/insights/DayOfWeekAnalysis";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useTeamCumulativeFP } from "@/hooks/useTeamCumulativeFP";
 
-type DatePreset = 'yesterday' | 'week' | 'month' | 'ytd' | 'preseason' | 'summer' | 'custom';
+type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
 type GroupViewMode = 'all' | 'mgmt-groups' | 'teams' | 'individuals';
 
@@ -41,36 +41,19 @@ const TeamReports = () => {
 
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
-    const nowStr = format(now, 'yyyy-MM-dd');
     const summerStartDate = new Date('2026-04-12');
     
     switch (preset) {
-      case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        return { start: yesterdayStr, end: yesterdayStr };
-      }
       case 'week':
-        return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: nowStr };
+        return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'month':
         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
-      case 'ytd':
-        return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: nowStr };
-      case 'preseason': {
-        const preseasonStart = new Date(2025, 8, 28); // Sept 28, 2025
-        const preseasonEnd = new Date(2026, 3, 11); // Apr 11, 2026
-        return { start: format(preseasonStart, 'yyyy-MM-dd'), end: format(preseasonEnd, 'yyyy-MM-dd') };
-      }
-      case 'summer': {
-        const summerStart = new Date(2026, 3, 12); // Apr 12, 2026
-        const summerEnd = new Date(2026, 8, 27); // Sept 27, 2026
-        return { start: format(summerStart, 'yyyy-MM-dd'), end: format(summerEnd, 'yyyy-MM-dd') };
-      }
+      case 'preseason':
+        return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now < summerStartDate ? now : summerStartDate, 'yyyy-MM-dd') };
       case 'custom':
         return { 
           start: customStartDate ? format(customStartDate, 'yyyy-MM-dd') : format(new Date('2025-01-01'), 'yyyy-MM-dd'), 
-          end: customEndDate ? format(customEndDate, 'yyyy-MM-dd') : nowStr
+          end: customEndDate ? format(customEndDate, 'yyyy-MM-dd') : format(now, 'yyyy-MM-dd')
         };
       default:
         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
@@ -113,11 +96,10 @@ const TeamReports = () => {
     excludeUserIds,
   });
 
-  const { data: teamCumulativeData, groupedData: groupedCumulativeData, isLoading: cumulativeLoading } = useTeamCumulativeFP({
+  const { data: teamCumulativeData, isLoading: cumulativeLoading } = useTeamCumulativeFP({
     userIds: effectiveUserIds,
     dateRange: getDateRange(datePreset),
     excludeUserIds,
-    groupBy: groupViewMode === 'mgmt-groups' ? 'mgmt' : groupViewMode === 'teams' ? 'team' : null,
   });
 
   // Calculate ratio comparisons
@@ -163,20 +145,12 @@ const TeamReports = () => {
           <div className="overflow-x-auto pb-2 scrollbar-hide">
             <div className="flex gap-2 pr-24 whitespace-nowrap">
               <Button
-                variant={datePreset === 'yesterday' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('yesterday')}
-                className="flex-shrink-0"
-              >
-                Yesterday
-              </Button>
-              <Button
                 variant={datePreset === 'week' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDatePreset('week')}
                 className="flex-shrink-0"
               >
-                Week
+                This Week
               </Button>
               <Button
                 variant={datePreset === 'month' ? 'default' : 'outline'}
@@ -184,15 +158,7 @@ const TeamReports = () => {
                 onClick={() => setDatePreset('month')}
                 className="flex-shrink-0"
               >
-                Month
-              </Button>
-              <Button
-                variant={datePreset === 'ytd' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('ytd')}
-                className="flex-shrink-0"
-              >
-                YTD
+                This Month
               </Button>
               <Button
                 variant={datePreset === 'preseason' ? 'default' : 'outline'}
@@ -201,14 +167,6 @@ const TeamReports = () => {
                 className="flex-shrink-0"
               >
                 Preseason
-              </Button>
-              <Button
-                variant={datePreset === 'summer' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('summer')}
-                className="flex-shrink-0"
-              >
-                Summer
               </Button>
               <Button
                 variant={datePreset === 'custom' ? 'default' : 'outline'}
@@ -346,14 +304,7 @@ const TeamReports = () => {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Team Summary</h2>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-sm text-primary font-medium">{insightsData.daysWorked} days worked</span>
-                  {insightsData.dataQuality && (
-                    <span className="text-xs text-muted-foreground">
-                      {insightsData.dataQuality.percentage.toFixed(0)}% with activity tracking
-                    </span>
-                  )}
-                </div>
+                <span className="text-sm text-primary font-medium">{insightsData.daysWorked} days worked</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -415,8 +366,6 @@ const TeamReports = () => {
             <FPCumulativeChart 
               teamData={teamCumulativeData}
               isTeamLoading={cumulativeLoading}
-              groupViewMode={groupViewMode}
-              groupedCumulativeData={groupedCumulativeData}
             />
 
             {/* Sales Funnel - Collapsible */}
@@ -438,11 +387,7 @@ const TeamReports = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-4 pb-4">
-                    <SalesFunnelChart 
-                      funnelData={insightsData.funnelData}
-                      groupViewMode={groupViewMode === 'mgmt-groups' ? 'mgmt' : groupViewMode === 'teams' ? 'team' : 'all'}
-                      teamInsightsData={insightsData}
-                    />
+                    <SalesFunnelChart funnelData={insightsData.funnelData} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>
