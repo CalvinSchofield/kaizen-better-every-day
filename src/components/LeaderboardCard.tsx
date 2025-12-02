@@ -221,7 +221,7 @@ export const LeaderboardCard = () => {
                   <div key={key} className="space-y-2">
                     <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
                     <div className="space-y-1">
-                      {rankings.map((entry, idx) => (
+                      {rankings.slice(0, 3).map((entry, idx) => (
                         <div 
                           key={entry.userId}
                           className={`flex items-center justify-between py-2 px-3 rounded-lg ${
