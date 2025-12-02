@@ -28,7 +28,11 @@ export interface DailyEntry {
 
 const getTodayDate = () => {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  // Use local timezone instead of UTC to prevent timezone-related date mismatches
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const useDailyEntry = (date?: string) => {
