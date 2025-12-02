@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, Pencil } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -470,9 +470,6 @@ export const SaveEntrySheet = ({
                 <CollapsibleTrigger className="flex items-center justify-between w-full group">
                   <div className="flex items-center gap-2">
                     <Label className="text-base cursor-pointer">Daily Activity</Label>
-                    {openCard !== 'activity' && hasActivityData && (
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {openCard !== 'activity' && (
@@ -554,9 +551,6 @@ export const SaveEntrySheet = ({
                 <CollapsibleTrigger className="flex items-center justify-between w-full group">
                   <div className="flex items-center gap-2">
                     <Label className="text-base cursor-pointer">Time Tracking</Label>
-                    {openCard !== 'time' && hasTimeData && (
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {openCard !== 'time' && (
@@ -603,9 +597,6 @@ export const SaveEntrySheet = ({
                 <CollapsibleTrigger className="flex items-center justify-between w-full group">
                   <div className="flex items-center gap-2">
                     <Label className="text-base cursor-pointer">Results</Label>
-                    {openCard !== 'results' && hasResultsData && (
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {openCard !== 'results' && (
