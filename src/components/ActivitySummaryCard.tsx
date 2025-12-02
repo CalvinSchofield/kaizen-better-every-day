@@ -81,34 +81,14 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
     ? calculateEfp(summary.comparison.previousPeriodPrmr) 
     : 0;
   
-  // Use the prmrChange for EFP comparison
-  const efpChange = efpModeEnabled && summary.comparison?.prmrChange !== undefined
-    ? calculateEfp(summary.comparison.prmrChange)
+  // Calculate day-aligned previous EFP for comparison
+  const dayAlignedPreviousEfp = efpModeEnabled && summary.comparison?.fpChange !== undefined
+    ? calculateEfp((summary.totals.prmr || 0)) - calculateEfp(((summary.totals.prmr || 0) - (summary.comparison.fpChange * 85)))
     : 0;
   
   const isImproving = efpModeEnabled 
-    ? efpChange >= 0
+    ? dayAlignedPreviousEfp >= 0
     : summary.comparison && summary.comparison.fpChange >= 0;
-
-  // Priority-based metric selection
-  const getDisplayMetrics = () => {
-    const metrics = [
-      { value: efpModeEnabled ? efpValue : summary.totals.fp, label: efpModeEnabled ? "EFP" : "FP+", decimals: efpModeEnabled ? 2 : 1 },
-      { value: summary.totals.presentations, label: "Presentations", decimals: 0 },
-      { value: summary.totals.transitions, label: "Transitions", decimals: 0 },
-      { value: summary.totals.pitches, label: "Pitches", decimals: 0 },
-      { value: summary.totals.doors, label: "Doors", decimals: 0 },
-    ];
-    
-    // Find first metric with value > 0, or default to first 3
-    const firstNonZero = metrics.findIndex(m => m.value > 0);
-    if (firstNonZero >= 0 && firstNonZero <= metrics.length - 3) {
-      return metrics.slice(firstNonZero, firstNonZero + 3);
-    }
-    return metrics.slice(0, 3);
-  };
-
-  const displayMetrics = getDisplayMetrics();
 
   return (
     <Card>
@@ -154,19 +134,97 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
               )}
             </div>
 
-            {displayMetrics.map((metric, idx) => (
-              <div key={idx} className="text-center">
-                <p className="text-2xl font-bold text-primary">
-                  {metric.decimals === 0 ? metric.value : metric.value.toFixed(metric.decimals)}
-                </p>
-                <p className="text-[10px] text-muted-foreground leading-tight">{metric.label}</p>
-                {summary.daysWorked > 1 && (
-                  <p className="text-xs text-muted-foreground/60 mt-0.5">
-                    {(metric.value / summary.daysWorked).toFixed(metric.decimals)}/day
-                  </p>
-                )}
-              </div>
-            ))}
+            {shouldShowActivityMetrics ? (
+              <>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.pitches}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Pitches</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.pitches.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.transitions.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.presentations}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Presentations</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.presentations.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : efpModeEnabled ? (
+              <>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{efpValue.toFixed(2)}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">EFP</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {(efpValue / summary.daysWorked).toFixed(2)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.fp.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.transitions.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.transitions}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Transitions</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.transitions.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{summary.totals.fp.toFixed(1)}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">FP+</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {summary.dailyAverages.fp.toFixed(1)}/day
+                    </p>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">${summary.totals.prmr}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">PRMR</p>
+                  {summary.daysWorked > 1 && (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      ${summary.dailyAverages.prmr.toFixed(0)}/day
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -219,7 +277,7 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
                       : "text-red-600 dark:text-red-400"
                   }`}>
                     {efpModeEnabled ? (
-                      <>{isImproving ? "+" : ""}{efpChange.toFixed(2)} EFP</>
+                      <>{isImproving ? "+" : ""}{dayAlignedPreviousEfp.toFixed(2)} EFP</>
                     ) : (
                       <>{isImproving ? "+" : ""}{summary.comparison.fpChange.toFixed(1)} FP+</>
                     )}
