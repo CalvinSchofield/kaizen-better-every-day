@@ -326,7 +326,7 @@ const Training = () => {
         )}
 
         {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
-        {!loading && !isVetOrSophomore && (
+        {!isVetOrSophomore && (
           <Card 
             className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
               animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'

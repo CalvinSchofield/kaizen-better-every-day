@@ -90,6 +90,25 @@ export const useRepData = () => {
     return () => subscription.unsubscribe();
   }, [currentUserId, queryClient]);
 
+  // Get initial data from localStorage cache for instant display (prevents flicker)
+  const getInitialData = (): RepData | null => {
+    if (!currentUserId) return null;
+    const cacheKey = getRepCacheKey(currentUserId);
+    const cachedRep = localStorage.getItem(cacheKey);
+    if (cachedRep) {
+      try {
+        const { data: cached, userId: cachedUserId } = JSON.parse(cachedRep);
+        // Only use cache if it belongs to current user
+        if (cached && cachedUserId === currentUserId) {
+          return cached;
+        }
+      } catch (e) {
+        // Invalid cache, ignore
+      }
+    }
+    return null;
+  };
+
   const { data: repData, isLoading: loading } = useQuery({
     queryKey: ['rep-data', currentUserId],
     enabled: !!currentUserId, // Only run when we have a user ID
@@ -97,34 +116,11 @@ export const useRepData = () => {
     gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
     refetchOnWindowFocus: false,
     retry: 1,
+    initialData: getInitialData() ?? undefined, // Use cached data immediately to prevent flicker
     queryFn: async () => {
       if (!currentUserId) return null;
 
-      // Try to load from user-specific cache first for instant display
       const cacheKey = getRepCacheKey(currentUserId);
-      const cachedRep = localStorage.getItem(cacheKey);
-      if (cachedRep) {
-        try {
-          const { data: cached, timestamp, userId: cachedUserId } = JSON.parse(cachedRep);
-          const isRecent = Date.now() - timestamp < 5 * 60 * 1000; // 5 minutes
-          
-          // CRITICAL: Validate cached data belongs to current user
-          if (isRecent && cached && cachedUserId === currentUserId) {
-            // Return cached data immediately and fetch in background
-            setTimeout(() => {
-              queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
-            }, 100);
-            return cached;
-          } else if (cachedUserId !== currentUserId) {
-            // Cache belongs to different user - remove it
-            console.warn('Cache user mismatch, clearing stale cache');
-            localStorage.removeItem(cacheKey);
-          }
-        } catch (e) {
-          console.error('Failed to parse cached rep data:', e);
-          localStorage.removeItem(cacheKey);
-        }
-      }
 
       const { data, error } = await supabase
         .from("reps")
