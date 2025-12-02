@@ -67,7 +67,9 @@ export const CalendarView = ({
 
   // Calculate previous period totals for comparison
   const prevPeriodTotals = prevPeriodStart && prevPeriodEnd ? entries.reduce((totals, entry) => {
-    const entryDate = new Date(entry.entry_date);
+    // Parse entry_date as local date to avoid timezone issues
+    const [year, month, day] = entry.entry_date.split('-').map(Number);
+    const entryDate = new Date(year, month - 1, day);
     const isInPrevPeriod = entryDate >= prevPeriodStart && entryDate <= prevPeriodEnd;
 
     if (isInPrevPeriod && entry.is_finalized) {
@@ -183,7 +185,9 @@ export const CalendarView = ({
 
   // Calculate totals for the current view
   const viewTotals = entries.reduce((totals, entry) => {
-    const entryDate = new Date(entry.entry_date);
+    // Parse entry_date as local date to avoid timezone issues
+    const [year, month, day] = entry.entry_date.split('-').map(Number);
+    const entryDate = new Date(year, month - 1, day);
     const isInView = viewMode === "month"
       ? isSameMonth(entryDate, currentDate)
       : entryDate >= weekStart && entryDate <= weekEnd;
