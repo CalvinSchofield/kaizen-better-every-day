@@ -37,12 +37,11 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
 
-      // Fetch UNFINALIZED entries for today (in-progress work)
+      // Fetch ALL entries for today (both finalized and unfinalized)
       const { data: entries, error } = await supabase
         .from("daily_entries")
         .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr")
-        .eq("entry_date", todayStr)
-        .eq("is_finalized", false);
+        .eq("entry_date", todayStr);
 
       if (error) throw error;
 

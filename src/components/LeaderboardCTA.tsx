@@ -56,9 +56,29 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     fetchUser();
   }, []);
 
-  // Find competitive callout for Today leaderboard
+  // Check if we're in knocking hours
+  const isKnockingHours = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const hour = now.getHours();
+    
+    // Monday-Friday: noon (12) to 9pm (21)
+    if (day >= 1 && day <= 5) {
+      return hour >= 12 && hour < 21;
+    }
+    
+    // Saturday: 9am (9) to 9pm (21)
+    if (day === 6) {
+      return hour >= 9 && hour < 21;
+    }
+    
+    // Sunday: not knocking hours
+    return false;
+  }, []);
+
+  // Find competitive callout for Today leaderboard (only during knocking hours)
   const todayCallout = useMemo(() => {
-    if (!todayBoard || !currentUserId) return null;
+    if (!isKnockingHours || !todayBoard || !currentUserId) return null;
 
     // Get user's current stats from today's rankings
     const userFP = todayBoard.rankings.fp_plus.find(e => e.userId === currentUserId);
@@ -165,14 +185,14 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     }
 
     return null;
-  }, [todayBoard, currentUserId]);
+  }, [isKnockingHours, todayBoard, currentUserId]);
 
   // Priority metrics (FP+ > PRMR > Upgrade FP+ > hours > presentations > transitions > latest > earliest > pitches > doors)
   const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
-  // Find the best available callout based on hierarchy: Today > YTD > Season > Month > Week > Yesterday
+  // Find the best available callout based on hierarchy
   const callout = useMemo(() => {
-    // Priority 1: Show Today competitive callout if available
+    // Priority 1: Show Today competitive callout if available (only during knocking hours)
     if (todayCallout) return todayCallout;
     const boards = [
       { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
