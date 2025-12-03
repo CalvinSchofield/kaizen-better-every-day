@@ -1,4 +1,3 @@
-import { Cloud } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -7,14 +6,61 @@ interface KnockingModeWeatherCardProps {
   isOnActiveBlitz: boolean;
 }
 
+const WEATHER_CACHE_KEY = 'kaizen-weather-cache';
+const WEATHER_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
+interface CachedWeather {
+  data: {
+    high: number;
+    low: number;
+    weatherCode: number;
+    location: string;
+  };
+  timestamp: number;
+  date: string;
+}
+
+const getCachedWeather = (): CachedWeather | null => {
+  try {
+    const cached = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as CachedWeather;
+    const today = new Date().toISOString().split("T")[0];
+    // Check if cache is valid (same day and not expired)
+    if (parsed.date === today && Date.now() - parsed.timestamp < WEATHER_CACHE_DURATION) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const setCachedWeather = (data: CachedWeather['data']) => {
+  try {
+    const cache: CachedWeather = {
+      data,
+      timestamp: Date.now(),
+      date: new Date().toISOString().split("T")[0],
+    };
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingModeWeatherCardProps) => {
   const [weather, setWeather] = useState<{
     high: number;
     low: number;
     weatherCode: number;
     location: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+  } | null>(() => {
+    // Initialize from cache immediately
+    const cached = getCachedWeather();
+    return cached?.data || null;
+  });
+  const [loading, setLoading] = useState(() => !getCachedWeather());
 
   // Check if weather should be visible (10:30 PM to 10:00 AM local time)
   const shouldShowWeather = useMemo(() => {
@@ -58,6 +104,14 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
 
   useEffect(() => {
     const fetchWeather = async () => {
+      // Skip fetch if we have valid cached data
+      const cached = getCachedWeather();
+      if (cached) {
+        setWeather(cached.data);
+        setLoading(false);
+        return;
+      }
+
       try {
         const today = new Date().toISOString().split("T")[0];
         let requestBody: any = {
@@ -69,18 +123,32 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
         if (activeBlitz?.location) {
           requestBody.location = activeBlitz.location;
         } else {
-          // Otherwise, use geolocation
+          // Use geolocation with timeout for PWA reliability
           if (!navigator.geolocation) {
             setLoading(false);
             return;
           }
 
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject);
-          });
-
-          requestBody.latitude = position.coords.latitude;
-          requestBody.longitude = position.coords.longitude;
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                timeout: 10000,
+                maximumAge: 300000, // Use cached position up to 5 min old
+                enableHighAccuracy: false,
+              });
+            });
+            requestBody.latitude = position.coords.latitude;
+            requestBody.longitude = position.coords.longitude;
+          } catch (geoError) {
+            console.warn("Geolocation failed, using default location:", geoError);
+            // Fallback to blitz location from rep data if available
+            if (repData?.blitz_trip_location) {
+              requestBody.location = repData.blitz_trip_location;
+            } else {
+              setLoading(false);
+              return;
+            }
+          }
         }
 
         const { data, error } = await supabase.functions.invoke("get-blitz-weather", {
@@ -91,12 +159,14 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
 
         if (data?.forecasts && data.forecasts.length > 0) {
           const todayForecast = data.forecasts[0];
-          setWeather({
+          const weatherData = {
             high: todayForecast.high,
             low: todayForecast.low,
             weatherCode: todayForecast.weatherCode,
-            location: data.location || "Your Current Location",
-          });
+            location: data.location || "Your Location",
+          };
+          setWeather(weatherData);
+          setCachedWeather(weatherData);
         }
       } catch (error) {
         console.error("Error fetching weather:", error);
@@ -106,7 +176,7 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
     };
 
     fetchWeather();
-  }, [activeBlitz, isOnActiveBlitz]);
+  }, [activeBlitz, isOnActiveBlitz, repData?.blitz_trip_location]);
 
   const getWeatherIcon = (code: number) => {
     if (code === 0) return "☀️";
