@@ -180,13 +180,13 @@ export const LeaderboardCard = () => {
           <div className="pb-4 overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 px-6 min-w-max">
               {[
-                { key: 'today' as TimeFilter, label: 'Live', sublabel: '●' },
+                { key: 'today' as TimeFilter, label: 'Live', isLive: true },
                 { key: 'yesterday' as TimeFilter, label: 'Yesterday' },
                 { key: 'week' as TimeFilter, label: 'Week' },
                 { key: 'month' as TimeFilter, label: 'Month' },
                 { key: 'preseason' as TimeFilter, label: 'Preseason' },
                 { key: 'ytd' as TimeFilter, label: 'YTD' },
-              ].map(({ key, label, sublabel }) => (
+              ].map(({ key, label, isLive }) => (
                 <button
                   key={key}
                   onClick={() => setTimeFilter(key)}
@@ -197,9 +197,10 @@ export const LeaderboardCard = () => {
                   }`}
                 >
                   {label}
-                  {sublabel && (
-                    <span className={`text-[10px] ${timeFilter === key ? 'text-green-300' : 'text-green-500'}`}>
-                      {sublabel}
+                  {isLive && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${timeFilter === key ? 'bg-green-300' : 'bg-green-500'}`}></span>
                     </span>
                   )}
                 </button>
@@ -207,7 +208,7 @@ export const LeaderboardCard = () => {
             </div>
           </div>
           
-          {/* Today Leaderboard - Full Rankings */}
+          {/* Today Leaderboard - Full Rankings with User Position */}
           {timeFilter === 'today' && todayBoard && (
             <div className="px-6 pb-4 space-y-4">
               {[
@@ -221,27 +222,63 @@ export const LeaderboardCard = () => {
                 const rankings = todayBoard.rankings[key as keyof typeof todayBoard.rankings];
                 if (rankings.length === 0) return null;
 
+                const userRank = rankings.findIndex(r => r.userId === currentUserId) + 1;
+                const userEntry = rankings.find(r => r.userId === currentUserId);
+                const isUserInTop3 = userRank > 0 && userRank <= 3;
+                const leader = rankings[0];
+                const gap = leader && userEntry ? leader.value - userEntry.value : 0;
+
+                // Encouraging messages based on rank
+                const getEncouragement = () => {
+                  if (userRank === 1) return "You're crushing it! 🔥";
+                  if (userRank === 2) return `${gap > 0 ? gap.toFixed(key === 'fp_plus' ? 1 : 0) : ''} behind — you got this!`;
+                  if (userRank === 3) return "Top 3! Keep pushing! 💪";
+                  if (userRank > 0) return `#${userRank} — every door counts!`;
+                  return null;
+                };
+
                 return (
                   <div key={key} className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+                      {userRank > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {getEncouragement()}
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-1">
                       {rankings.slice(0, 3).map((entry, idx) => (
                         <div 
                           key={entry.userId}
                           className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            entry.userId === currentUserId ? 'bg-primary/10' : 'bg-secondary/30'
+                            entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
                             {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                            <span className={`text-sm ${entry.userId === currentUserId ? 'font-bold' : 'font-medium'}`}>
-                              {entry.name}
+                            <span className={`text-sm ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                              {entry.userId === currentUserId ? 'You' : entry.name}
                             </span>
                           </div>
                           <span className="text-sm font-bold">{format(entry.value)}</span>
                         </div>
                       ))}
+                      {/* Show user's position if not in top 3 */}
+                      {userRank > 3 && userEntry && (
+                        <>
+                          <div className="text-center text-xs text-muted-foreground py-1">···</div>
+                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
+                              <span className="text-primary">⭐</span>
+                              <span className="text-sm font-bold text-primary">You</span>
+                            </div>
+                            <span className="text-sm font-bold">{format(userEntry.value)}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -253,39 +290,45 @@ export const LeaderboardCard = () => {
           {timeFilter !== 'today' && (
             <div className="px-6 pb-4 space-y-3">
               {categories.map(({ key, label, format }) => {
-            const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
-            
-            if (!entry || entry.value <= 0) {
-              return (
-                <div key={key} className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🥇</span>
-                    <span className="text-muted-foreground text-sm">{label}</span>
+                const entry = currentBoard?.[key as keyof typeof currentBoard] as any;
+                
+                if (!entry || entry.value <= 0) {
+                  return (
+                    <div key={key} className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🥇</span>
+                        <span className="text-muted-foreground text-sm">{label}</span>
+                      </div>
+                      <span className="text-muted-foreground text-sm">No data yet</span>
+                    </div>
+                  );
+                }
+
+                const isCurrentUser = currentUserId && entry.userId === currentUserId;
+
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🥇</span>
+                        <span className="text-foreground text-sm font-medium">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-semibold ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+                          {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
+                        </span>
+                        <span className="text-muted-foreground text-sm">
+                          {format(entry.value, entry.timeValue)}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Encouraging message */}
+                    {isCurrentUser && (
+                      <p className="ml-9 text-xs text-primary/80">You're leading! Keep it up! 🔥</p>
+                    )}
                   </div>
-                  <span className="text-muted-foreground text-sm">No data yet</span>
-                </div>
-              );
-            }
-
-            const isCurrentUser = currentUserId && entry.userId === currentUserId;
-
-            return (
-              <div key={key} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🥇</span>
-                  <span className="text-foreground text-sm font-medium">{label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
-                    {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
-                  </span>
-                  <span className="text-muted-foreground text-sm">
-                    {format(entry.value, entry.timeValue)}
-                  </span>
-                </div>
-              </div>
-              );
-            })}
+                );
+              })}
             </div>
           )}
         </div>
