@@ -198,94 +198,92 @@ export const UpgradePrmrCalculator = ({
       onOpenChange(isOpen);
       if (!isOpen) resetChat();
     }}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="pb-2 flex-shrink-0">
-          <DrawerTitle className="flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-primary" />
-            Upgrade PRMR Calculator
-          </DrawerTitle>
-        </DrawerHeader>
+      <DrawerContent className="h-[70vh] max-h-[70vh]">
+        <div className="flex flex-col h-full overflow-hidden">
+          <DrawerHeader className="pb-2 flex-shrink-0">
+            <DrawerTitle className="flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-primary" />
+              Upgrade PRMR Calculator
+            </DrawerTitle>
+          </DrawerHeader>
 
-        <div className="flex flex-col px-4 pb-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
-          {/* Messages area - scrollable */}
-          <div 
-            className="flex-1 overflow-y-auto min-h-[200px] max-h-[50vh] mb-3"
-            style={{ overscrollBehavior: 'contain' }}
-          >
-            <div className="space-y-3 py-2">
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+          <div className="flex flex-col flex-1 px-4 pb-4 overflow-hidden">
+            {/* Messages area - scrollable */}
+            <div 
+              className="flex-1 overflow-y-auto min-h-0"
+              style={{ overscrollBehavior: 'contain' }}
+            >
+              <div className="space-y-3 py-2">
+                {messages.map((msg, i) => (
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
+                    key={i}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {isLoading && messages[messages.length - 1]?.role === "user" && (
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-2xl px-4 py-3">
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                ))}
+                {isLoading && messages[messages.length - 1]?.role === "user" && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted rounded-2xl px-4 py-3">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    </div>
                   </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
+                )}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
-          </div>
 
-          {/* Use PRMR button */}
-          {detectedPrmr && !isLoading && (
-            <div className="py-3 border-t border-border flex-shrink-0">
+            {/* Use PRMR button */}
+            {detectedPrmr && !isLoading && (
+              <div className="py-3 border-t border-border flex-shrink-0">
+                <Button
+                  onClick={handleUsePrmr}
+                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Use ${detectedPrmr.toFixed(2)} PRMR
+                </Button>
+              </div>
+            )}
+
+            {/* Input area - always visible at bottom */}
+            <div 
+              className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}
+              onClick={() => inputRef.current?.focus()}
+            >
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="List your equipment..."
+                disabled={isLoading}
+                className="flex-1"
+                autoComplete="off"
+              />
               <Button
-                onClick={handleUsePrmr}
-                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sendMessage();
+                }}
+                disabled={!input.trim() || isLoading}
+                size="icon"
               >
-                <Check className="w-4 h-4 mr-2" />
-                Use ${detectedPrmr.toFixed(2)} PRMR
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
-          )}
-
-          {/* Input area - fixed at bottom */}
-          <div 
-            className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}
-            onClick={() => inputRef.current?.focus()}
-          >
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={(e) => {
-                // Prevent losing focus when clicking within the drawer
-                e.preventDefault();
-              }}
-              placeholder="List your equipment..."
-              disabled={isLoading}
-              className="flex-1"
-              autoComplete="off"
-            />
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                sendMessage();
-              }}
-              disabled={!input.trim() || isLoading}
-              size="icon"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
           </div>
         </div>
       </DrawerContent>
