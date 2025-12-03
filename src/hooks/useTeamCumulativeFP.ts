@@ -43,7 +43,7 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
     let cumulativeFp = 0;
 
     insightsData.dailyTrend.forEach((trend, index) => {
-      // Total PRMR - use prmr (which should already include upgrade in team insights)
+      // prmr field IS total PRMR (not additive with upgrade_prmr)
       const totalPrmr = trend.prmr || 0;
       const fpValue = trend.fp || 0;
       

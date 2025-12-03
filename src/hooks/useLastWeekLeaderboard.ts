@@ -222,9 +222,9 @@ export const useLastWeekLeaderboard = (filterByYear?: string) => {
           leaderboard.mostFP = { userId, name: userData.name, value: totals.fp };
         }
 
-        const totalPrmr = totals.prmr + totals.upgradePrmr;
-        if (totalPrmr > 0 && (!leaderboard.mostPRMR || totalPrmr > leaderboard.mostPRMR.value)) {
-          leaderboard.mostPRMR = { userId, name: userData.name, value: totalPrmr };
+        // prmr field IS total PRMR (upgradePrmr is a subset, not additive)
+        if (totals.prmr > 0 && (!leaderboard.mostPRMR || totals.prmr > leaderboard.mostPRMR.value)) {
+          leaderboard.mostPRMR = { userId, name: userData.name, value: totals.prmr };
         }
 
         if (totals.upgradeFp > 0 && (!leaderboard.mostUpgradeFP || totals.upgradeFp > leaderboard.mostUpgradeFP.value)) {
