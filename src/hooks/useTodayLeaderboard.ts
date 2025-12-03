@@ -110,10 +110,33 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           .sort((a, b) => b.value - a.value);
       };
 
+      // Special ranking for total PRMR (prmr + upgrade_prmr combined)
+      const createTotalPrmrRanking = (): RankingEntry[] => {
+        return filteredEntries
+          .map(entry => {
+            const repInfo = repsMap.get(entry.user_id);
+            if (!repInfo) return null;
+            const totalPrmr = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+            if (totalPrmr === 0) return null;
+            const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+            const isWorking = !entry.is_finalized && (
+              (entry.doors_knocked ?? 0) > 0 ||
+              (entry.decision_makers ?? 0) > 0 ||
+              (entry.pitches ?? 0) > 0 ||
+              (entry.transitions ?? 0) > 0 ||
+              (entry.presentations ?? 0) > 0 ||
+              (entry.fp_plus ?? 0) > 0
+            );
+            return { userId: entry.user_id, name: cleanName, value: totalPrmr, isWorking };
+          })
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+          .sort((a, b) => b.value - a.value);
+      };
+
       const leaderboard: TodayLeaderboard = {
         rankings: {
           fp_plus: createRanking('fp_plus'),
-          prmr: createRanking('prmr'),
+          prmr: createTotalPrmrRanking(),
           presentations: createRanking('presentations'),
           transitions: createRanking('transitions'),
           pitches: createRanking('pitches'),
