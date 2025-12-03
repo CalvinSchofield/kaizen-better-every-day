@@ -58,10 +58,10 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       }]) || []);
 
       // Fetch recent entries (RLS allows last 2 days for timezone coverage)
-      // Include is_finalized to prioritize finalized data
+      // Include is_finalized to prioritize finalized data, sales_log for running totals
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized");
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized, sales_log");
 
       if (error) throw error;
 
@@ -110,14 +110,47 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           .sort((a, b) => b.value - a.value);
       };
 
-      // Special ranking for total PRMR (prmr + upgrade_prmr combined)
-      const createTotalPrmrRanking = (): RankingEntry[] => {
+      // Helper to calculate running totals from sales_log for unfinalized entries
+      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
+        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+        
+        let fp = 0;
+        let prmr = 0;
+        
+        for (const sale of salesLog) {
+          const salePrmr = Number(sale.prmr) || 0;
+          prmr += salePrmr;
+          
+          if (sale.type === 'fp') {
+            fp += 1;
+          } else if (sale.type === 'upgrade') {
+            fp += 0.5;
+          }
+        }
+        
+        return { fp, prmr };
+      };
+
+      // Create FP+ ranking - use sales_log for unfinalized, columns for finalized
+      const createFpRanking = (): RankingEntry[] => {
         return filteredEntries
           .map(entry => {
             const repInfo = repsMap.get(entry.user_id);
             if (!repInfo) return null;
-            const totalPrmr = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
-            if (totalPrmr === 0) return null;
+            
+            let value: number;
+            if (entry.is_finalized) {
+              // Finalized: use the saved column value
+              value = Number(entry.fp_plus) || 0;
+            } else {
+              // Unfinalized: calculate from sales_log OR use column if manually entered
+              const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+              const fromColumn = Number(entry.fp_plus) || 0;
+              // Use whichever is higher (in case they manually entered something)
+              value = Math.max(fromLog.fp, fromColumn);
+            }
+            
+            if (value === 0) return null;
             const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
             const isWorking = !entry.is_finalized && (
               (entry.doors_knocked ?? 0) > 0 ||
@@ -125,9 +158,44 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               (entry.pitches ?? 0) > 0 ||
               (entry.transitions ?? 0) > 0 ||
               (entry.presentations ?? 0) > 0 ||
-              (entry.fp_plus ?? 0) > 0
+              value > 0
             );
-            return { userId: entry.user_id, name: cleanName, value: totalPrmr, isWorking };
+            return { userId: entry.user_id, name: cleanName, value, isWorking };
+          })
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+          .sort((a, b) => b.value - a.value);
+      };
+
+      // Create PRMR ranking - use sales_log for unfinalized, columns for finalized
+      const createPrmrRanking = (): RankingEntry[] => {
+        return filteredEntries
+          .map(entry => {
+            const repInfo = repsMap.get(entry.user_id);
+            if (!repInfo) return null;
+            
+            let value: number;
+            if (entry.is_finalized) {
+              // Finalized: use saved columns (prmr + upgrade_prmr)
+              value = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+            } else {
+              // Unfinalized: calculate from sales_log OR use columns if manually entered
+              const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+              const fromColumns = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+              // Use whichever is higher
+              value = Math.max(fromLog.prmr, fromColumns);
+            }
+            
+            if (value === 0) return null;
+            const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+            const isWorking = !entry.is_finalized && (
+              (entry.doors_knocked ?? 0) > 0 ||
+              (entry.decision_makers ?? 0) > 0 ||
+              (entry.pitches ?? 0) > 0 ||
+              (entry.transitions ?? 0) > 0 ||
+              (entry.presentations ?? 0) > 0 ||
+              value > 0
+            );
+            return { userId: entry.user_id, name: cleanName, value, isWorking };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
           .sort((a, b) => b.value - a.value);
@@ -135,8 +203,8 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
 
       const leaderboard: TodayLeaderboard = {
         rankings: {
-          fp_plus: createRanking('fp_plus'),
-          prmr: createTotalPrmrRanking(),
+          fp_plus: createFpRanking(),
+          prmr: createPrmrRanking(),
           presentations: createRanking('presentations'),
           transitions: createRanking('transitions'),
           pitches: createRanking('pitches'),
