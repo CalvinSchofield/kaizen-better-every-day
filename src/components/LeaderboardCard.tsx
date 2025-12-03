@@ -176,31 +176,35 @@ export const LeaderboardCard = () => {
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t border-border pt-4">
-          {/* Filter Pills - Expanded State Only */}
-          <div className="px-6 pb-4 flex gap-2 flex-wrap">
-            <button
-              onClick={() => setTimeFilter('today')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                timeFilter === 'today'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-              }`}
-            >
-              Today <span className="text-xs opacity-70">Live</span>
-            </button>
-            {(['ytd', 'preseason', 'month', 'week', 'yesterday'] as TimeFilter[]).map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setTimeFilter(filter)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  timeFilter === filter
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                }`}
-              >
-                {filter === 'ytd' ? 'YTD' : filter === 'yesterday' ? 'Yesterday' : filter === 'week' ? 'Week' : filter === 'month' ? 'Month' : 'Preseason'}
-              </button>
-            ))}
+          {/* Filter Pills - Horizontally Scrollable */}
+          <div className="pb-4 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 px-6 min-w-max">
+              {[
+                { key: 'today' as TimeFilter, label: 'Live', sublabel: '●' },
+                { key: 'yesterday' as TimeFilter, label: 'Yesterday' },
+                { key: 'week' as TimeFilter, label: 'Week' },
+                { key: 'month' as TimeFilter, label: 'Month' },
+                { key: 'preseason' as TimeFilter, label: 'Preseason' },
+                { key: 'ytd' as TimeFilter, label: 'YTD' },
+              ].map(({ key, label, sublabel }) => (
+                <button
+                  key={key}
+                  onClick={() => setTimeFilter(key)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                    timeFilter === key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {label}
+                  {sublabel && (
+                    <span className={`text-[10px] ${timeFilter === key ? 'text-green-300' : 'text-green-500'}`}>
+                      {sublabel}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
           
           {/* Today Leaderboard - Full Rankings */}
