@@ -178,8 +178,9 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         if (stats.fp > (leaderboard.mostFP?.value || 0)) {
           leaderboard.mostFP = { userId, name: cleanName, value: stats.fp };
         }
-        if (stats.prmr > (leaderboard.mostPRMR?.value || 0)) {
-          leaderboard.mostPRMR = { userId, name: cleanName, value: stats.prmr };
+        const totalPrmr = stats.prmr + stats.upgradePrmr;
+        if (totalPrmr > (leaderboard.mostPRMR?.value || 0)) {
+          leaderboard.mostPRMR = { userId, name: cleanName, value: totalPrmr };
         }
         const upgradeFp = stats.upgradePrmr / 85;
         if (upgradeFp > (leaderboard.mostUpgradeFP?.value || 0)) {

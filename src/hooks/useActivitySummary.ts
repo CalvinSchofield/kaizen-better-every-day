@@ -136,18 +136,59 @@ export const useActivitySummary = (repData: any) => {
         return getDay(entryDate) !== 0; // 0 = Sunday
       }) || [];
 
+      // Helper to calculate FP+ and PRMR from sales_log for unfinalized entries
+      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
+        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+        
+        let fp = 0;
+        let prmr = 0;
+        
+        for (const sale of salesLog) {
+          const salePrmr = Number(sale.prmr) || 0;
+          prmr += salePrmr;
+          
+          if (sale.type === 'fp') {
+            fp += 1;
+          } else if (sale.type === 'upgrade') {
+            fp += salePrmr / 85; // Upgrade FP+ = PRMR / 85
+          }
+        }
+        
+        return { fp, prmr };
+      };
+
       // Include all entries (finalized + today's unfinalized) for live totals
+      // For unfinalized entries, calculate FP+/PRMR from sales_log if available
       const totals = workdayEntries.reduce(
-        (acc, entry) => ({
-          doors: acc.doors + (entry.doors_knocked || 0),
-          pitches: acc.pitches + (entry.pitches || 0),
-          decisionMakers: acc.decisionMakers + (entry.decision_makers || 0),
-          transitions: acc.transitions + (entry.transitions || 0),
-          presentations: acc.presentations + (entry.presentations || 0),
-          closes: acc.closes + (entry.closes || 0),
-          fp: acc.fp + (Number(entry.fp_plus) || 0),
-          prmr: acc.prmr + (Number(entry.prmr) || 0),
-        }),
+        (acc, entry) => {
+          let fp: number;
+          let prmr: number;
+          
+          if (entry.is_finalized) {
+            // Finalized: use saved column values
+            fp = Number(entry.fp_plus) || 0;
+            prmr = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+          } else {
+            // Unfinalized: calculate from sales_log OR use columns if manually entered
+            const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+            const fromColumnFp = Number(entry.fp_plus) || 0;
+            const fromColumnPrmr = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+            // Use whichever is higher
+            fp = Math.max(fromLog.fp, fromColumnFp);
+            prmr = Math.max(fromLog.prmr, fromColumnPrmr);
+          }
+          
+          return {
+            doors: acc.doors + (entry.doors_knocked || 0),
+            pitches: acc.pitches + (entry.pitches || 0),
+            decisionMakers: acc.decisionMakers + (entry.decision_makers || 0),
+            transitions: acc.transitions + (entry.transitions || 0),
+            presentations: acc.presentations + (entry.presentations || 0),
+            closes: acc.closes + (entry.closes || 0),
+            fp: acc.fp + fp,
+            prmr: acc.prmr + prmr,
+          };
+        },
         { doors: 0, pitches: 0, decisionMakers: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 }
       );
 
@@ -208,7 +249,7 @@ export const useActivitySummary = (repData: any) => {
           }) || [];
 
           const prevBlitzTotalFp = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-          const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
+          const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
           const prevBlitzDaysWorked = prevFullWorkdayEntries.length;
           
           // Use actual dayNumber for cumulative comparison (day 1+2 vs day 1+2)
@@ -218,7 +259,7 @@ export const useActivitySummary = (repData: any) => {
             .sort((a, b) => a.entry_date.localeCompare(b.entry_date))
             .slice(0, currentBlitzDayNum);
           const prevDayAlignedFp = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-          const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
+          const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
           
           comparison = {
             fpChange: totals.fp - prevDayAlignedFp,
@@ -240,12 +281,12 @@ export const useActivitySummary = (repData: any) => {
             current: sortedCurrentEntries.map((e, i) => ({
               day: i + 1,
               value: Number(e.fp_plus) || 0,
-              prmr: Number(e.prmr) || 0,
+              prmr: (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0),
             })),
             previous: sortedPrevEntries.map((e, i) => ({
               day: i + 1,
               value: Number(e.fp_plus) || 0,
-              prmr: Number(e.prmr) || 0,
+              prmr: (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0),
             })),
             currentLabel: "This Blitz",
             previousLabel: "Last Blitz",
@@ -270,14 +311,14 @@ export const useActivitySummary = (repData: any) => {
         }) || [];
 
         const lastWeekTotalFp = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-        const lastWeekTotalPrmr = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
+        const lastWeekTotalPrmr = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
         const lastWeekDaysWorked = lastWeekFullWorkdayEntries.length;
         
         // Day-aligned comparison
         const currentWeekDays = daysWorked;
         const lastWeekDayAlignedEntries = lastWeekFullWorkdayEntries.slice(0, currentWeekDays);
         const lastWeekDayAlignedFp = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-        const lastWeekDayAlignedPrmr = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
+        const lastWeekDayAlignedPrmr = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
         
         comparison = {
           fpChange: totals.fp - lastWeekDayAlignedFp,
@@ -298,12 +339,12 @@ export const useActivitySummary = (repData: any) => {
           current: sortedCurrentEntries.map((e, i) => ({
             day: i + 1,
             value: Number(e.fp_plus) || 0,
-            prmr: Number(e.prmr) || 0,
+            prmr: (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0),
           })),
           previous: sortedPrevEntries.map((e, i) => ({
             day: i + 1,
             value: Number(e.fp_plus) || 0,
-            prmr: Number(e.prmr) || 0,
+            prmr: (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0),
           })),
           currentLabel: "This Week",
           previousLabel: "Last Week",
@@ -326,7 +367,7 @@ export const useActivitySummary = (repData: any) => {
 
         if (lastSameDayEntry) {
           const lastFp = Number(lastSameDayEntry.fp_plus) || 0;
-          const lastPrmr = Number(lastSameDayEntry.prmr) || 0;
+          const lastPrmr = (Number(lastSameDayEntry.prmr) || 0) + (Number(lastSameDayEntry.upgrade_prmr) || 0);
           comparison = {
             fpChange: totals.fp - lastFp,
             prmrChange: totals.prmr - lastPrmr,
