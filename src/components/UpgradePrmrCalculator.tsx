@@ -8,7 +8,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Send, Loader2, Calculator, Check } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
@@ -25,7 +24,6 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-up
 
 // Extract PRMR value from AI response
 const extractPrmrValue = (text: string): number | null => {
-  // Look for patterns like "$XX.XX PRMR", "PRMR: $XX.XX", "PRMR is $XX.XX", etc.
   const patterns = [
     /\$?([\d,]+(?:\.\d{1,2})?)\s*(?:PRMR|prmr)/i,
     /(?:PRMR|prmr)(?:\s*(?:is|:|=))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
@@ -45,6 +43,16 @@ const extractPrmrValue = (text: string): number | null => {
   return null;
 };
 
+// Clean up any stray markdown from AI response
+const cleanContent = (text: string): string => {
+  return text
+    .replace(/\*\*/g, '') // Remove bold markers
+    .replace(/\*/g, '')   // Remove italic markers
+    .replace(/#{1,6}\s/g, '') // Remove headers
+    .replace(/`/g, '')    // Remove code markers
+    .trim();
+};
+
 export const UpgradePrmrCalculator = ({
   open,
   onOpenChange,
@@ -59,7 +67,7 @@ export const UpgradePrmrCalculator = ({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [detectedPrmr, setDetectedPrmr] = useState<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,10 +76,9 @@ export const UpgradePrmrCalculator = ({
     }
   }, [open]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Check for PRMR values in assistant messages
@@ -137,12 +144,13 @@ export const UpgradePrmrCalculator = ({
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantContent += content;
+              const cleanedContent = cleanContent(assistantContent);
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant" && prev.length > 1 && prev[prev.length - 2]?.role === "user") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: cleanedContent } : m);
                 }
-                return [...prev, { role: "assistant", content: assistantContent }];
+                return [...prev, { role: "assistant", content: cleanedContent }];
               });
             }
           } catch {
@@ -190,24 +198,28 @@ export const UpgradePrmrCalculator = ({
       onOpenChange(isOpen);
       if (!isOpen) resetChat();
     }}>
-      <DrawerContent className="h-[85vh] pb-safe">
-        <DrawerHeader className="pb-2">
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="pb-2 flex-shrink-0">
           <DrawerTitle className="flex items-center gap-2">
             <Calculator className="w-5 h-5 text-primary" />
             Upgrade PRMR Calculator
           </DrawerTitle>
         </DrawerHeader>
 
-        <div className="flex flex-col flex-1 px-4 pb-4 min-h-0">
-          <ScrollArea className="flex-1 pr-2" ref={scrollRef}>
-            <div className="space-y-3 pb-2">
+        <div className="flex flex-col px-4 pb-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+          {/* Messages area - scrollable */}
+          <div 
+            className="flex-1 overflow-y-auto min-h-[200px] max-h-[50vh] mb-3"
+            style={{ overscrollBehavior: 'contain' }}
+          >
+            <div className="space-y-3 py-2">
               {messages.map((msg, i) => (
                 <div
                   key={i}
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-foreground"
@@ -219,17 +231,18 @@ export const UpgradePrmrCalculator = ({
               ))}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
-                  <div className="bg-muted rounded-2xl px-4 py-2.5">
+                  <div className="bg-muted rounded-2xl px-4 py-3">
                     <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Use PRMR button */}
           {detectedPrmr && !isLoading && (
-            <div className="py-3 border-t border-border">
+            <div className="py-3 border-t border-border flex-shrink-0">
               <Button
                 onClick={handleUsePrmr}
                 className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -240,7 +253,8 @@ export const UpgradePrmrCalculator = ({
             </div>
           )}
 
-          <div className={`flex gap-2 pt-3 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'} mt-auto`}>
+          {/* Input area - fixed at bottom */}
+          <div className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}>
             <Input
               ref={inputRef}
               value={input}

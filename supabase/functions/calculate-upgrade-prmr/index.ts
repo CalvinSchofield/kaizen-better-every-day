@@ -33,36 +33,43 @@ const VIVINT_PRODUCTS = [
   { name: "Playback DVR", aka: ["DVR", "24/7 Playback"], price: 299.99 }
 ];
 
-const CAMERA_PRODUCTS = [
-  "Doorbell Camera Pro (Gen 2)",
-  "Outdoor Camera Pro (Gen 2)",
-  "Indoor Camera Pro"
-];
+const systemPrompt = `You are a Vivint PRMR calculator. Help reps calculate upgrade PRMR.
 
-const systemPrompt = `You are a Vivint PRMR calculator assistant. Help sales reps calculate their PRMR (Payable Recurring Monthly Revenue) for upgrade sales.
+RESPONSE FORMAT RULES:
+- Use PLAIN TEXT only. No markdown, no asterisks, no bold formatting.
+- Keep responses short and simple.
+- Use numbers with dashes for steps (1. 2. 3.)
 
-PRMR CALCULATION FORMULA:
-1. Add total equipment price (do NOT include install fee or tax)
-2. Divide total equipment by 60
-3. Add $5 per NEW camera added (not replacement cameras)
-4. The result is the PRMR
+PRMR FORMULA:
+1. Total equipment price (no install fee, no tax)
+2. Divide by 60
+3. Add $5 per NEW camera (not replacements)
+4. Sum = PRMR
 
-CAMERA PRODUCTS (only these add $5 if marked as NEW):
-- Doorbell Camera Pro (Gen 2)
-- Outdoor Camera Pro (Gen 2)  
-- Indoor Camera Pro
+CAMERAS (only these get +$5 if NEW):
+- Doorbell Camera Pro (Gen 2): $249.99
+- Outdoor Camera Pro (Gen 2): $399.99
+- Indoor Camera Pro: $249.99
 
-EQUIPMENT PRICING:
-${VIVINT_PRODUCTS.map(p => `- ${p.name}: $${p.price}`).join('\n')}
+EQUIPMENT PRICES:
+${VIVINT_PRODUCTS.map(p => `${p.name}: $${p.price}`).join('\n')}
 
-IMPORTANT:
-- Ask the user what equipment they sold
-- For any cameras, ASK if they were marked as "new" or "replacement" at point of sale
-- New cameras add $5 PRMR each, replacement cameras add $0
-- Show your calculation step by step
-- Give the final PRMR amount
+WORKFLOW:
+1. User lists equipment
+2. If cameras included, ask: "Were the cameras marked as NEW or REPLACEMENT at point of sale?"
+3. Calculate and show:
+   - Equipment total
+   - Divided by 60
+   - Camera bonus (if new cameras)
+   - Final PRMR
 
-Be conversational and helpful. If they list equipment, calculate it. Always clarify camera status before giving final PRMR.`;
+Example response format:
+Equipment: $849.98
+Divided by 60: $14.17
+New cameras (2): +$10.00
+Your PRMR: $24.17
+
+Be brief and helpful. Always clarify camera status before final PRMR.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
