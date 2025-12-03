@@ -7,7 +7,37 @@ import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
+import { useWorkingStatus } from "@/hooks/useWorkingStatus";
 import { supabase } from "@/integrations/supabase/client";
+
+// Working status indicator component
+const WorkingIndicator = ({ isWorking, hasForgottenEntry, isCurrentUser }: { 
+  isWorking: boolean; 
+  hasForgottenEntry?: boolean;
+  isCurrentUser?: boolean;
+}) => {
+  // Don't show for current user
+  if (isCurrentUser) return null;
+  
+  if (isWorking) {
+    return (
+      <span className="relative flex h-2 w-2 ml-1" title="Currently working">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+      </span>
+    );
+  }
+  
+  if (hasForgottenEntry) {
+    return (
+      <span className="relative flex h-2 w-2 ml-1" title="Has unsaved work">
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+      </span>
+    );
+  }
+  
+  return null;
+};
 
 type TimeFilter = 'today' | 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
 
@@ -40,6 +70,7 @@ export const LeaderboardCard = () => {
   const { data: lastWeekBoard } = useLastWeekLeaderboard(filterByYear);
   const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
   const { data: seasonBoard } = useSeasonLeaderboard(filterByYear);
+  const { data: workingStatus } = useWorkingStatus();
 
   // Calculate weekly streaks - same person leads this week AND last week
   const weeklyStreaks = useMemo(() => {
@@ -278,8 +309,12 @@ export const LeaderboardCard = () => {
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
                             {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                            <span className={`text-sm ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                            <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
                               {entry.userId === currentUserId ? 'You' : entry.name}
+                              <WorkingIndicator 
+                                isWorking={entry.isWorking || false} 
+                                isCurrentUser={entry.userId === currentUserId}
+                              />
                             </span>
                           </div>
                           <span className="text-sm font-bold">{format(entry.value)}</span>
@@ -328,6 +363,9 @@ export const LeaderboardCard = () => {
                 
                 // Check if this leader has a weekly streak for this metric
                 const hasStreak = timeFilter === 'week' && weeklyStreaks.get(entry.userId)?.includes(key);
+                
+                // Check if this person is currently working TODAY (cross-reference)
+                const userWorkingStatus = workingStatus?.get(entry.userId);
 
                 return (
                   <div key={key} className="space-y-1">
@@ -343,8 +381,13 @@ export const LeaderboardCard = () => {
                             2 weeks
                           </span>
                         )}
-                        <span className={`text-sm font-semibold ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+                        <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
                           {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
+                          <WorkingIndicator 
+                            isWorking={userWorkingStatus?.isWorking || false}
+                            hasForgottenEntry={userWorkingStatus?.hasForgottenEntry}
+                            isCurrentUser={!!isCurrentUser}
+                          />
                         </span>
                         <span className="text-muted-foreground text-sm">
                           {format(entry.value, entry.timeValue)}

@@ -5,6 +5,7 @@ interface RankingEntry {
   userId: string;
   name: string;
   value: number;
+  isWorking?: boolean;
 }
 
 interface TodayLeaderboard {
@@ -94,9 +95,18 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             const value = Number(entry[field]) || 0;
             if (value === 0) return null;
             const cleanName = repInfo.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
-            return { userId: entry.user_id, name: cleanName, value };
+            // User is "working" if entry is unfinalized and has activity
+            const isWorking = !entry.is_finalized && (
+              (entry.doors_knocked ?? 0) > 0 ||
+              (entry.decision_makers ?? 0) > 0 ||
+              (entry.pitches ?? 0) > 0 ||
+              (entry.transitions ?? 0) > 0 ||
+              (entry.presentations ?? 0) > 0 ||
+              (entry.fp_plus ?? 0) > 0
+            );
+            return { userId: entry.user_id, name: cleanName, value, isWorking };
           })
-          .filter((e): e is RankingEntry => e !== null)
+          .filter((e): e is NonNullable<typeof e> => e !== null)
           .sort((a, b) => b.value - a.value);
       };
 
