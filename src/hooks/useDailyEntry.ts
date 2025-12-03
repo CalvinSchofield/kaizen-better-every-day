@@ -284,6 +284,8 @@ export const useDailyEntry = (date?: string) => {
           work_end_time: null,
           break_periods: [],
           counter_timestamps: {},
+          custom_counters: {},
+          sales_log: [],
         }, {
           onConflict: 'user_id,entry_date'
         })
