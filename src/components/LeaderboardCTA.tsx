@@ -13,6 +13,48 @@ interface LeaderboardCTAProps {
   onLeaderboardClick?: () => void;
 }
 
+// Metric labels for display
+const METRIC_LABELS: Record<string, string> = {
+  mostFP: 'FP+',
+  mostPRMR: 'PRMR',
+  mostUpgradeFP: 'upgrade FP+',
+  mostHoursWorked: 'hours worked',
+  mostDoors: 'doors knocked',
+  mostTransitions: 'transitions',
+  mostPresentations: 'presentations',
+  mostPitches: 'pitches',
+  earliestDoor: 'earliest door',
+  latestDoor: 'latest door',
+};
+
+// Format value based on metric type - always 1 decimal for FP/hours
+const formatMetricValue = (metric: string, value: number, timeValue?: string): string => {
+  if (metric === 'mostPRMR') {
+    return `$${Math.round(value)}`;
+  } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
+    return `${value.toFixed(1)} FP+`;
+  } else if (metric === 'mostHoursWorked') {
+    return `${value.toFixed(1)} hrs`;
+  } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
+    return timeValue || 'N/A';
+  } else {
+    return `${Math.round(value)}`;
+  }
+};
+
+// Format gap based on metric type - always 1 decimal for FP/hours
+const formatGap = (metric: string, gap: number): string => {
+  if (metric === 'mostPRMR') {
+    return `$${Math.round(gap)}`;
+  } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
+    return `${gap.toFixed(1)} FP+`;
+  } else if (metric === 'mostHoursWorked') {
+    return `${gap.toFixed(1)} hrs`;
+  } else {
+    return `${Math.round(gap)}`;
+  }
+};
+
 export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: LeaderboardCTAProps) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
@@ -131,11 +173,11 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       if (competitor) {
         const diff = competitor.value - userPresentations.value;
         const text = diff === 0
-          ? `You and ${competitor.name} both have ${userPresentations.value} presentations today! Who closes first? ⚡`
-          : `${competitor.name} has ${diff} more presentation${diff > 1 ? 's' : ''} than you today! Catch up 💪`;
+          ? `You and ${competitor.name} both have ${Math.round(userPresentations.value)} presentations today! Who closes first? ⚡`
+          : `${competitor.name} has ${Math.round(diff)} more presentation${diff > 1 ? 's' : ''} than you today! Catch up 💪`;
         return { text, isCurrentUser: false, filterKey: 'today' as const };
       }
-      return { text: `You're leading with ${userPresentations.value} presentation${userPresentations.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+      return { text: `You're leading with ${Math.round(userPresentations.value)} presentation${userPresentations.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
     }
 
     // Tier 3: Has transitions > 0
@@ -144,11 +186,11 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       if (competitor) {
         const diff = competitor.value - userTransitions.value;
         const text = diff === 0
-          ? `You and ${competitor.name} both have ${userTransitions.value} transitions today! Push ahead ⚡`
-          : `${competitor.name} has ${diff} more transition${diff > 1 ? 's' : ''} than you! Keep going 💪`;
+          ? `You and ${competitor.name} both have ${Math.round(userTransitions.value)} transitions today! Push ahead ⚡`
+          : `${competitor.name} has ${Math.round(diff)} more transition${diff > 1 ? 's' : ''} than you! Keep going 💪`;
         return { text, isCurrentUser: false, filterKey: 'today' as const };
       }
-      return { text: `You're leading with ${userTransitions.value} transition${userTransitions.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+      return { text: `You're leading with ${Math.round(userTransitions.value)} transition${userTransitions.value > 1 ? 's' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
     }
 
     // Tier 4: Has pitches > 0
@@ -157,11 +199,11 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       if (competitor) {
         const diff = competitor.value - userPitches.value;
         const text = diff === 0
-          ? `You and ${competitor.name} both have ${userPitches.value} pitches today! Who transitions next? ⚡`
-          : `${competitor.name} has ${diff} more pitch${diff > 1 ? 'es' : ''} than you! Catch up 💪`;
+          ? `You and ${competitor.name} both have ${Math.round(userPitches.value)} pitches today! Who transitions next? ⚡`
+          : `${competitor.name} has ${Math.round(diff)} more pitch${diff > 1 ? 'es' : ''} than you! Catch up 💪`;
         return { text, isCurrentUser: false, filterKey: 'today' as const };
       }
-      return { text: `You're leading with ${userPitches.value} pitch${userPitches.value > 1 ? 'es' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
+      return { text: `You're leading with ${Math.round(userPitches.value)} pitch${userPitches.value > 1 ? 'es' : ''} today! 🔥`, isCurrentUser: true, filterKey: 'today' as const };
     }
 
     // Tier 5: Has doors > 0
@@ -170,8 +212,8 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       if (competitor) {
         const diff = competitor.value - userDoors.value;
         const text = diff === 0
-          ? `You and ${competitor.name} both knocked ${userDoors.value} doors today! Pull ahead ⚡`
-          : `${competitor.name} knocked ${diff} more door${diff > 1 ? 's' : ''} than you! Keep knocking 💪`;
+          ? `You and ${competitor.name} both knocked ${Math.round(userDoors.value)} doors today! Pull ahead ⚡`
+          : `${competitor.name} knocked ${Math.round(diff)} more door${diff > 1 ? 's' : ''} than you! Keep knocking 💪`;
         return { text, isCurrentUser: false, filterKey: 'today' as const };
       }
       return { text: `You're the only one knocking today! Set the pace 🏃`, isCurrentUser: true, filterKey: 'today' as const };
@@ -181,19 +223,22 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     const othersWorking = todayBoard.rankings.doors_knocked.length > 0;
     if (othersWorking) {
       const leader = todayBoard.rankings.doors_knocked[0];
-      return { text: `${leader.name} already has ${leader.value} doors today! Get out there 🚀`, isCurrentUser: false, filterKey: 'today' as const };
+      return { text: `${leader.name} already has ${Math.round(leader.value)} doors today! Get out there 🚀`, isCurrentUser: false, filterKey: 'today' as const };
     }
 
     return null;
   }, [isKnockingHours, todayBoard, currentUserId]);
 
-  // Priority metrics (FP+ > PRMR > Upgrade FP+ > hours > presentations > transitions > latest > earliest > pitches > doors)
+  // Priority metrics in order of importance
   const priorityMetrics = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostHoursWorked', 'mostPresentations', 'mostTransitions', 'latestDoor', 'earliestDoor', 'mostPitches', 'mostDoors'];
 
-  // Find the best available callout based on hierarchy
+  // Find the best available callout - USER-FIRST SEARCH
   const callout = useMemo(() => {
     // Priority 1: Show Today competitive callout if available (only during knocking hours)
     if (todayCallout) return todayCallout;
+
+    if (!currentUserId) return null;
+
     const boards = [
       { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
       { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason', filterKey: 'preseason' as const },
@@ -202,84 +247,56 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
       { board: yesterdayBoard, timeframe: 'yesterday', filterKey: 'yesterday' as const },
     ];
 
+    // ======= PASS 1: Find where the USER is the leader =======
+    // Search through all boards and metrics to find user's achievements first
     for (const { board, timeframe, filterKey } of boards) {
       if (!board) continue;
 
       for (const metric of priorityMetrics) {
         const entry = board[metric as keyof typeof board] as any;
-        if (entry && entry.value > 0) {
-          const metricLabel = {
-            mostFP: 'FP+',
-            mostPRMR: 'PRMR',
-            mostUpgradeFP: 'upgrade FP+',
-            mostHoursWorked: 'hours worked',
-            mostDoors: 'doors knocked',
-            mostTransitions: 'transitions',
-            mostPresentations: 'presentations',
-            mostPitches: 'pitches',
-            earliestDoor: 'earliest door',
-            latestDoor: 'latest door',
-          }[metric];
-
-          const isCurrentUser = currentUserId && entry.userId === currentUserId;
-
-          // Format value based on metric type
-          let formattedValue = '';
-          if (metric === 'mostPRMR') {
-            formattedValue = `$${entry.value.toFixed(0)}`;
-          } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
-            formattedValue = `${entry.value.toFixed(1)} FP+`;
-          } else if (metric === 'mostHoursWorked') {
-            formattedValue = `${entry.value.toFixed(1)} hrs`;
-          } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
-            formattedValue = entry.timeValue || 'N/A';
-          } else {
-            formattedValue = `${Math.round(entry.value)}`;
-          }
-
-          // Calculate "close behind" count and gap if user is NOT leading
-          let closeBehindText = '';
-          let gapText = '';
+        
+        // Check if USER is the leader for this metric
+        if (entry && entry.value > 0 && entry.userId === currentUserId) {
+          const metricLabel = METRIC_LABELS[metric] || metric;
+          const formattedValue = formatMetricValue(metric, entry.value, entry.timeValue);
           
-          if (isCurrentUser) {
-            const allValues = Object.values(board)
-              .filter((e: any) => e && e.userId !== currentUserId && typeof e.value === 'number')
-              .map((e: any) => e.value);
-            
-            const threshold = entry.value * 0.9; // Within 10%
-            const closeBehindCount = allValues.filter((v: number) => v >= threshold).length;
-            
-            if (closeBehindCount > 0) {
-              closeBehindText = ` · ${closeBehindCount} ${closeBehindCount === 1 ? 'other' : 'others'} close behind`;
-            }
-          } else {
-            // User is not leading - check if they're close behind
-            const userEntry = Object.values(board)
-              .find((e: any) => e && e.userId === currentUserId && typeof e.value === 'number') as any;
-            
-            if (userEntry) {
-              const gap = entry.value - userEntry.value;
-              const percentBehind = (gap / entry.value) * 100;
-              
-              if (percentBehind <= 15) { // Within 15% of leader
-                if (metric === 'mostPRMR') {
-                  gapText = ` · You're $${gap.toFixed(0)} behind`;
-                } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
-                  gapText = ` · You're ${gap.toFixed(1)} FP+ behind`;
-                } else if (metric === 'mostHoursWorked') {
-                  gapText = ` · You're ${gap.toFixed(1)} hrs behind`;
-                } else {
-                  gapText = ` · You're ${Math.round(gap)} behind`;
-                }
-              }
-            }
+          return {
+            text: `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}!`,
+            isCurrentUser: true,
+            filterKey,
+          };
+        }
+      }
+    }
+
+    // ======= PASS 2: User isn't leading anywhere - show competitor motivation =======
+    // Find the highest priority metric where someone else is leading
+    for (const { board, timeframe, filterKey } of boards) {
+      if (!board) continue;
+
+      for (const metric of priorityMetrics) {
+        const leader = board[metric as keyof typeof board] as any;
+        
+        if (leader && leader.value > 0) {
+          const metricLabel = METRIC_LABELS[metric] || metric;
+          const formattedValue = formatMetricValue(metric, leader.value, leader.timeValue);
+          
+          // Skip time-based metrics for gap calculation (earliestDoor, latestDoor)
+          if (metric === 'earliestDoor' || metric === 'latestDoor') {
+            return {
+              text: `${leader.name} has the ${metricLabel} ${timeframe} at ${formattedValue}`,
+              isCurrentUser: false,
+              filterKey,
+            };
           }
 
+          // For numeric metrics, we need to find user's value to calculate gap
+          // Since leaderboard hooks only return the leader, we show simple motivation
+          const gap = formatGap(metric, leader.value);
+          
           return {
-            text: isCurrentUser 
-              ? `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${closeBehindText}`
-              : `${entry.name} is leading the office in ${metricLabel} ${timeframe} at ${formattedValue}${gapText}`,
-            isCurrentUser,
+            text: `${leader.name} is leading ${metricLabel} ${timeframe} at ${formattedValue}`,
+            isCurrentUser: false,
             filterKey,
           };
         }
