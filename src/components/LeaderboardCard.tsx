@@ -228,12 +228,10 @@ export const LeaderboardCard = () => {
                 const leader = rankings[0];
                 const gap = leader && userEntry ? leader.value - userEntry.value : 0;
 
-                // Encouraging messages based on rank
+                // Only show encouraging message when within striking distance (rank 2-3)
                 const getEncouragement = () => {
-                  if (userRank === 1) return "You're crushing it! 🔥";
-                  if (userRank === 2) return `${gap > 0 ? gap.toFixed(key === 'fp_plus' ? 1 : 0) : ''} behind — you got this!`;
+                  if (userRank === 2 && gap > 0) return `${gap.toFixed(key === 'fp_plus' ? 1 : 0)} behind — you got this!`;
                   if (userRank === 3) return "Top 3! Keep pushing! 💪";
-                  if (userRank > 0) return `#${userRank} — every door counts!`;
                   return null;
                 };
 
@@ -322,10 +320,6 @@ export const LeaderboardCard = () => {
                         </span>
                       </div>
                     </div>
-                    {/* Encouraging message */}
-                    {isCurrentUser && (
-                      <p className="ml-9 text-xs text-primary/80">You're leading! Keep it up! 🔥</p>
-                    )}
                   </div>
                 );
               })}

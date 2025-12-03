@@ -186,7 +186,7 @@ export const CalendarView = ({
   const today = new Date();
   const isViewingToday = viewMode === "month" 
     ? isSameMonth(currentDate, today)
-    : isSameDay(currentDate, today) || (currentDate >= weekStart && currentDate <= weekEnd);
+    : today >= weekStart && today <= weekEnd;
 
   // Calculate totals for the current view
   const viewTotals = entries.reduce((totals, entry) => {

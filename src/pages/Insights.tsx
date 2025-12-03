@@ -30,7 +30,7 @@ type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [datePreset, setDatePreset] = useState<DatePreset>('week');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
