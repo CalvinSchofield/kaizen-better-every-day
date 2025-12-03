@@ -273,14 +273,11 @@ export const useLastWeekLeaderboard = (filterByYear?: string) => {
         }
       });
 
-      // Hide earliest/latest door if same person holds both
-      if (leaderboard.earliestDoor && leaderboard.latestDoor && 
-          leaderboard.earliestDoor.userId === leaderboard.latestDoor.userId) {
-        leaderboard.earliestDoor = null;
-        leaderboard.latestDoor = null;
-      }
+      // Track if same person holds both earliest AND latest door (special achievement!)
+      const isSamePersonEarliestLatest = leaderboard.earliestDoor && leaderboard.latestDoor && 
+          leaderboard.earliestDoor.userId === leaderboard.latestDoor.userId;
 
-      return leaderboard;
+      return { ...leaderboard, isSamePersonEarliestLatest };
     },
     staleTime: 0,
   });

@@ -15,7 +15,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -82,7 +83,93 @@ export const SaveEntrySheet = ({
   const [showHighValueWarning, setShowHighValueWarning] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [isFormReady, setIsFormReady] = useState(false);
+  const [acknowledgedEarlyEnd, setAcknowledgedEarlyEnd] = useState(false);
+  const [startTimeWarning, setStartTimeWarning] = useState<string | null>(null);
+  const [endTimeWarning, setEndTimeWarning] = useState<string | null>(null);
   const isSavingRef = useRef(false);
+
+  // Calculate timestamp bounds from counter_timestamps
+  const timestampBounds = useMemo(() => {
+    const counterTimestamps = entry?.counter_timestamps;
+    if (!counterTimestamps) return { earliest: null, latest: null, earliestTime: '', latestTime: '' };
+    
+    let earliest: Date | null = null;
+    let latest: Date | null = null;
+    
+    Object.values(counterTimestamps).forEach((timestamps: any) => {
+      if (Array.isArray(timestamps)) {
+        timestamps.forEach((ts: string) => {
+          const date = new Date(ts);
+          if (!earliest || date < earliest) earliest = date;
+          if (!latest || date > latest) latest = date;
+        });
+      }
+    });
+    
+    const userTimezone = entry?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const earliestTime = earliest ? earliest.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      timeZone: userTimezone 
+    }) : '';
+    const latestTime = latest ? latest.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      timeZone: userTimezone 
+    }) : '';
+    
+    return { earliest, latest, earliestTime, latestTime };
+  }, [entry?.counter_timestamps, entry?.timezone]);
+
+  // Validate start time against earliest timestamp
+  const validateStartTime = (time: string) => {
+    if (!time || !timestampBounds.earliest) {
+      setStartTimeWarning(null);
+      return;
+    }
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    const inputDate = new Date(date);
+    inputDate.setHours(hours, minutes, 0, 0);
+    
+    if (inputDate > timestampBounds.earliest) {
+      setStartTimeWarning(`First tracked activity was at ${timestampBounds.earliestTime}`);
+    } else {
+      setStartTimeWarning(null);
+    }
+  };
+
+  // Validate end time against latest timestamp
+  const validateEndTime = (time: string) => {
+    if (!time || !timestampBounds.latest) {
+      setEndTimeWarning(null);
+      return;
+    }
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    const inputDate = new Date(date);
+    inputDate.setHours(hours, minutes, 0, 0);
+    
+    if (inputDate < timestampBounds.latest) {
+      setEndTimeWarning(`Last tracked activity was at ${timestampBounds.latestTime}`);
+    } else {
+      setEndTimeWarning(null);
+    }
+  };
+
+  // Handle start time change with validation
+  const handleStartTimeChange = (value: string) => {
+    setStartTime(value);
+    validateStartTime(value);
+  };
+
+  // Handle end time change with validation
+  const handleEndTimeChange = (value: string) => {
+    setEndTime(value);
+    validateEndTime(value);
+    // Reset acknowledgment when end time changes
+    if (acknowledgedEarlyEnd) setAcknowledgedEarlyEnd(false);
+  };
 
   // Determine if user is a rookie with <10 FP+
   const isRookie = repData?.year === "Rookie";
@@ -260,6 +347,9 @@ export const SaveEntrySheet = ({
       hasInitializedNewAccounts.current = false;
       setIsFormReady(false);
       setOpenCard(null);
+      setStartTimeWarning(null);
+      setEndTimeWarning(null);
+      setAcknowledgedEarlyEnd(false);
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
@@ -293,6 +383,13 @@ export const SaveEntrySheet = ({
     // Check if entry is already finalized (prevent accidental overwrite)
     if (entry?.is_finalized) {
       setShowOverwriteWarning(true);
+      return;
+    }
+    
+    // Check for unacknowledged end time warning
+    if (endTimeWarning && !acknowledgedEarlyEnd) {
+      // Open time card to show the warning
+      setOpenCard('time');
       return;
     }
     
@@ -567,24 +664,71 @@ export const SaveEntrySheet = ({
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="space-y-2 mt-3">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <Input
-                        id="start-time"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="h-9"
-                      />
-                      <span className="text-sm text-muted-foreground">-</span>
-                      <Input
-                        id="end-time"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="h-9"
-                      />
+                  <div className="space-y-3 mt-3">
+                    {/* Timestamp bounds display */}
+                    {timestampBounds.earliest && timestampBounds.latest ? (
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md text-xs">
+                        <span className="text-muted-foreground">Activity:</span>
+                        <span className="font-medium">{timestampBounds.earliestTime}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-medium">{timestampBounds.latestTime}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 rounded-md text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5" />
+                        <span>No real-time tracking data</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            id="start-time"
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => handleStartTimeChange(e.target.value)}
+                            className={`h-9 ${startTimeWarning ? 'border-amber-500' : ''}`}
+                          />
+                          {startTimeWarning && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {startTimeWarning}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-sm text-muted-foreground">-</span>
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            id="end-time"
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => handleEndTimeChange(e.target.value)}
+                            className={`h-9 ${endTimeWarning && !acknowledgedEarlyEnd ? 'border-amber-500' : ''}`}
+                          />
+                          {endTimeWarning && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {endTimeWarning}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Acknowledgment checkbox for early end time */}
+                      {endTimeWarning && (
+                        <div className="flex items-center gap-2 px-2 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
+                          <Checkbox
+                            id="acknowledge-early-end"
+                            checked={acknowledgedEarlyEnd}
+                            onCheckedChange={(checked) => setAcknowledgedEarlyEnd(checked === true)}
+                          />
+                          <label htmlFor="acknowledge-early-end" className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer">
+                            I finished earlier than my last tracked activity
+                          </label>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
