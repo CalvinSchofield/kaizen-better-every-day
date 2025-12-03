@@ -113,14 +113,13 @@ export const useActivitySummary = (repData: any) => {
         title = "Today";
       }
 
-      // Fetch entries for the period
+      // Fetch ALL entries for the period (finalized + unfinalized for live data)
       const { data: entries, error } = await supabase
         .from("daily_entries")
         .select("*")
         .eq("user_id", repData.user_id)
         .gte("entry_date", format(startDate, "yyyy-MM-dd"))
         .lte("entry_date", format(endDate, "yyyy-MM-dd"))
-        .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
 
       if (error) throw error;
@@ -131,6 +130,7 @@ export const useActivitySummary = (repData: any) => {
         return getDay(entryDate) !== 0; // 0 = Sunday
       }) || [];
 
+      // Include all entries (finalized + today's unfinalized) for live totals
       const totals = workdayEntries.reduce(
         (acc, entry) => ({
           doors: acc.doors + (entry.doors_knocked || 0),
@@ -145,8 +145,15 @@ export const useActivitySummary = (repData: any) => {
         { doors: 0, pitches: 0, decisionMakers: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0 }
       );
 
-      const daysWorked = workdayEntries.length;
-      const isEmpty = daysWorked === 0;
+      // Count entries with any activity as "days worked"
+      const daysWorked = workdayEntries.filter(entry => 
+        (entry.doors_knocked || 0) > 0 || 
+        (entry.pitches || 0) > 0 || 
+        (entry.transitions || 0) > 0 || 
+        (entry.presentations || 0) > 0 ||
+        (Number(entry.fp_plus) || 0) > 0
+      ).length;
+      const isEmpty = workdayEntries.length === 0;
 
       const dailyAverages = {
         doors: daysWorked > 0 ? totals.doors / daysWorked : 0,
@@ -171,7 +178,7 @@ export const useActivitySummary = (repData: any) => {
       let comparison: ActivitySummaryData["comparison"];
 
       if (mode === "blitz") {
-        // Compare to previous blitz (day-aligned)
+        // Compare to previous blitz (day-aligned using actual blitz day number)
         const previousBlitzes = committed_blitzes
           .filter((b: any) => b.endDate && isBefore(new Date(b.endDate + 'T00:00:00'), now))
           .sort((a: any, b: any) => new Date(b.endDate + 'T00:00:00').getTime() - new Date(a.endDate + 'T00:00:00').getTime());
@@ -186,8 +193,7 @@ export const useActivitySummary = (repData: any) => {
             .select("*")
             .eq("user_id", repData.user_id)
             .gte("entry_date", prevBlitz.date)
-            .lte("entry_date", prevBlitz.endDate)
-            .eq("is_finalized", true);
+            .lte("entry_date", prevBlitz.endDate);
 
           const prevFullWorkdayEntries = prevFullEntries?.filter(entry => {
             const entryDate = new Date(entry.entry_date + 'T00:00:00');
@@ -198,22 +204,25 @@ export const useActivitySummary = (repData: any) => {
           const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           const prevBlitzDaysWorked = prevFullWorkdayEntries.length;
           
-          // Calculate day-aligned comparison for same number of days
-          const currentBlitzDays = daysWorked;
-          const prevDayAlignedEntries = prevFullWorkdayEntries.slice(0, currentBlitzDays);
+          // Use actual dayNumber for cumulative comparison (day 1+2 vs day 1+2)
+          // dayNumber represents "which day of the blitz we're on" regardless of entries
+          const currentBlitzDayNum = dayNumber || 1;
+          const prevDayAlignedEntries = prevFullWorkdayEntries
+            .sort((a, b) => a.entry_date.localeCompare(b.entry_date))
+            .slice(0, currentBlitzDayNum);
           const prevDayAlignedFp = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
           const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           
           comparison = {
             fpChange: totals.fp - prevDayAlignedFp,
             prmrChange: totals.prmr - prevDayAlignedPrmr,
-            label: `day ${currentBlitzDays} last blitz`,
+            label: currentBlitzDayNum === 1 ? `day 1 last blitz` : `days 1-${currentBlitzDayNum} last blitz`,
             previousBlitzFp: prevBlitzTotalFp,
             previousPeriodTotal: prevBlitzTotalFp,
             previousPeriodPrmr: prevBlitzTotalPrmr,
             previousDayAlignedPrmr: prevDayAlignedPrmr,
             previousDaysWorked: prevBlitzDaysWorked,
-            showComparison: currentBlitzDays <= prevBlitzDaysWorked,
+            showComparison: currentBlitzDayNum <= prevBlitzDaysWorked,
           };
         }
       } else if (mode === "summer") {
@@ -221,14 +230,13 @@ export const useActivitySummary = (repData: any) => {
         const lastWeekStart = startOfWeek(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 0 });
         const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
         
-        // Get full last week data first
+        // Get full last week data (including unfinalized)
         const { data: lastWeekFullEntries } = await supabase
           .from("daily_entries")
           .select("*")
           .eq("user_id", repData.user_id)
           .gte("entry_date", format(lastWeekStart, "yyyy-MM-dd"))
-          .lte("entry_date", format(lastWeekEnd, "yyyy-MM-dd"))
-          .eq("is_finalized", true);
+          .lte("entry_date", format(lastWeekEnd, "yyyy-MM-dd"));
 
         const lastWeekFullWorkdayEntries = lastWeekFullEntries?.filter(entry => {
           const entryDate = new Date(entry.entry_date + 'T00:00:00');
@@ -255,7 +263,7 @@ export const useActivitySummary = (repData: any) => {
           previousDaysWorked: lastWeekDaysWorked,
           showComparison: currentWeekDays <= lastWeekDaysWorked,
         };
-      } else if (mode === "preseason" && daysWorked > 0) {
+      } else if (mode === "preseason" && workdayEntries.length > 0) {
         // Compare to last same day of week
         const todayDayOfWeek = getDay(now);
         const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
