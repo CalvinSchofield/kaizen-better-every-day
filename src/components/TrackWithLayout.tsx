@@ -5,6 +5,7 @@ import { SaveEntrySheet } from "./SaveEntrySheet";
 import { ResetConfirmSheet } from "./ResetConfirmSheet";
 import { PreviousDayReviewSheet } from "./PreviousDayReviewSheet";
 import { EarlySaveConfirmSheet } from "./EarlySaveConfirmSheet";
+import { EarlyEndConfirmSheet } from "./EarlyEndConfirmSheet";
 import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
 import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet, Sale } from "./LogSaleSheet";
@@ -56,6 +57,7 @@ const TrackWithLayout = () => {
   
   // New state for bulletproof features
   const [isEarlySaveConfirmOpen, setIsEarlySaveConfirmOpen] = useState(false);
+  const [isEarlyEndConfirmOpen, setIsEarlyEndConfirmOpen] = useState(false);
   const [isPostSaveSuccessOpen, setIsPostSaveSuccessOpen] = useState(false);
   const [lastSavedSummary, setLastSavedSummary] = useState({ doors: 0, presentations: 0, closes: 0, fpPlus: 0, prmr: 0 });
   const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'error'>('synced');
@@ -619,7 +621,21 @@ const TrackWithLayout = () => {
   };
 
   const handleEndWork = () => {
+    // Check if it's before sunset (7 PM)
+    if (isBeforeSunset()) {
+      setIsEarlyEndConfirmOpen(true);
+      return;
+    }
     updateCounter({ work_end_time: new Date().toISOString() });
+  };
+
+  const handleConfirmEndWork = () => {
+    updateCounter({ work_end_time: new Date().toISOString() });
+  };
+
+  const handleClearEndTime = () => {
+    updateCounter({ work_end_time: null });
+    toast.success("End time cleared — you can keep tracking!");
   };
 
   const handleStartBreak = () => {
@@ -675,6 +691,7 @@ const TrackWithLayout = () => {
           onStartBreak={handleStartBreak}
           onEndBreak={handleEndBreak}
           onUpdateTime={handleUpdateTime}
+          onClearEndTime={handleClearEndTime}
           counterTimestamps={entry.counter_timestamps}
           salesLog={entry.sales_log || []}
           salesLoggerEnabled={salesLoggerEnabled}
@@ -715,6 +732,15 @@ const TrackWithLayout = () => {
         onOpenChange={setIsEarlySaveConfirmOpen}
         currentTime={formatCurrentTime()}
         onConfirm={() => setIsSaveSheetOpen(true)}
+        onKeepWorking={() => {}}
+      />
+
+      {/* Early End Confirmation Sheet */}
+      <EarlyEndConfirmSheet
+        open={isEarlyEndConfirmOpen}
+        onOpenChange={setIsEarlyEndConfirmOpen}
+        currentTime={formatCurrentTime()}
+        onConfirm={handleConfirmEndWork}
         onKeepWorking={() => {}}
       />
 

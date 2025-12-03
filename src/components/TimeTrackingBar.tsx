@@ -16,6 +16,7 @@ interface TimeTrackingBarProps {
   onStartBreak: () => void;
   onEndBreak: () => void;
   onUpdateTime: (field: 'start' | 'end', time: string) => void;
+  onClearEndTime?: () => void;
 }
 
 export const TimeTrackingBar = ({
@@ -28,6 +29,7 @@ export const TimeTrackingBar = ({
   onStartBreak,
   onEndBreak,
   onUpdateTime,
+  onClearEndTime,
 }: TimeTrackingBarProps) => {
   const [isViewingTime, setIsViewingTime] = useState(false);
   const [viewField, setViewField] = useState<'start' | 'end'>('start');
@@ -189,7 +191,7 @@ export const TimeTrackingBar = ({
           <SheetHeader>
             <SheetTitle>{viewField === 'start' ? 'Start' : 'End'} Time</SheetTitle>
           </SheetHeader>
-          <div className="pt-6 pb-4">
+          <div className="pt-6 pb-4 space-y-4">
             <Card 
               className="p-6 cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => handleEditTimeInSheet(currentTimeValue)}
@@ -200,6 +202,20 @@ export const TimeTrackingBar = ({
                 <p className="text-xs text-muted-foreground mt-3">Tap to edit</p>
               </div>
             </Card>
+            
+            {/* Continue Working button - only show for end time */}
+            {viewField === 'end' && hasEnded && onClearEndTime && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  onClearEndTime();
+                  setIsViewingTime(false);
+                }}
+              >
+                Continue Working
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
