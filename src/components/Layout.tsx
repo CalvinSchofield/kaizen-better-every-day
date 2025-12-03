@@ -194,7 +194,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         {/* Right side - action buttons or spacer */}
         <div className="flex justify-end">
           {location.pathname === "/track" && onSave && onReset ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {syncIndicator}
               <Button
                 onClick={onSave}
