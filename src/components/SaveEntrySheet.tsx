@@ -699,56 +699,56 @@ export const SaveEntrySheet = ({
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 space-y-1">
-                          <Input
-                            id="start-time"
-                            type="time"
-                            value={startTime}
-                            onChange={(e) => handleStartTimeChange(e.target.value)}
-                            className={`h-9 ${startTimeWarning ? 'border-amber-500' : ''}`}
-                          />
-                          {startTimeWarning && (
-                            <p className="text-xs text-amber-600 flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              {startTimeWarning}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-sm text-muted-foreground">-</span>
-                        <div className="flex-1 space-y-1">
-                          <Input
-                            id="end-time"
-                            type="time"
-                            value={endTime}
-                            onChange={(e) => handleEndTimeChange(e.target.value)}
-                            className={`h-9 ${endTimeWarning && !acknowledgedEarlyEnd ? 'border-amber-500' : ''}`}
-                          />
-                          {endTimeWarning && (
-                            <p className="text-xs text-amber-600 flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              {endTimeWarning}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Acknowledgment checkbox for early end time */}
-                      {endTimeWarning && (
-                        <div className="flex items-center gap-2 px-2 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
-                          <Checkbox
-                            id="acknowledge-early-end"
-                            checked={acknowledgedEarlyEnd}
-                            onCheckedChange={(checked) => setAcknowledgedEarlyEnd(checked === true)}
-                          />
-                          <label htmlFor="acknowledge-early-end" className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer">
-                            I finished earlier than my last tracked activity
-                          </label>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Input
+                        id="start-time"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => handleStartTimeChange(e.target.value)}
+                        className={`flex-1 h-10 text-center ${startTimeWarning ? 'border-amber-500' : ''}`}
+                      />
+                      <span className="text-muted-foreground">-</span>
+                      <Input
+                        id="end-time"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => handleEndTimeChange(e.target.value)}
+                        className={`flex-1 h-10 text-center ${endTimeWarning && !acknowledgedEarlyEnd ? 'border-amber-500' : ''}`}
+                      />
                     </div>
+                    
+                    {/* Time warnings */}
+                    {(startTimeWarning || endTimeWarning) && (
+                      <div className="space-y-1.5">
+                        {startTimeWarning && (
+                          <p className="text-xs text-amber-600 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {startTimeWarning}
+                          </p>
+                        )}
+                        {endTimeWarning && (
+                          <p className="text-xs text-amber-600 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {endTimeWarning}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Acknowledgment checkbox for early end time */}
+                    {endTimeWarning && (
+                      <div className="flex items-center gap-2 px-2 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
+                        <Checkbox
+                          id="acknowledge-early-end"
+                          checked={acknowledgedEarlyEnd}
+                          onCheckedChange={(checked) => setAcknowledgedEarlyEnd(checked === true)}
+                        />
+                        <label htmlFor="acknowledge-early-end" className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer">
+                          I finished earlier than my last tracked activity
+                        </label>
+                      </div>
+                    )}
                     
                     <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
                       <span className="text-xs text-muted-foreground">Total:</span>
