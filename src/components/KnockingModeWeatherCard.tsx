@@ -238,7 +238,7 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   // Show skeleton while loading
   if (loading) {
     return (
-      <div className="w-full rounded-lg bg-card border border-border mb-6 p-6">
+      <div className="w-full rounded-lg bg-card border border-border p-6">
         <div className="flex items-start gap-6">
           <Skeleton className="w-16 h-16 rounded-lg flex-shrink-0" />
           <div className="flex-1 space-y-3">
@@ -263,7 +263,7 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   const suggestion = getWeatherSuggestion(weather.high, weather.low, weather.weatherCode);
 
   return (
-    <div className="w-full rounded-lg bg-card border border-border mb-6 p-6">
+    <div className="w-full rounded-lg bg-card border border-border p-6 animate-fade-in">
       <div className="flex items-start gap-6">
         <span className="text-6xl flex-shrink-0">{getWeatherIcon(weather.weatherCode)}</span>
         <div className="flex-1 space-y-3">
