@@ -269,12 +269,12 @@ export const SaveEntrySheet = ({
             const fpSales = salesLog.filter(s => s.type === 'fp');
             const upgradeSales = salesLog.filter(s => s.type === 'upgrade');
             const fpCount = fpSales.length;
+            const fpPrmrTotal = fpSales.reduce((sum, s) => sum + s.prmr, 0); // FP PRMR only
             const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
-            const totalPrmr = salesLog.reduce((sum, s) => sum + s.prmr, 0);
             const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
             
             setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
-            setPrmr(totalPrmr > 0 ? totalPrmr.toString() : "");
+            setPrmr(fpPrmrTotal > 0 ? fpPrmrTotal.toString() : ""); // Store only FP PRMR, not total
             setNewAccounts(fpCount);
             hasInitializedNewAccounts.current = true;
           } else {
