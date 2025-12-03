@@ -183,7 +183,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       // Calculate totals for the period (use ALL entries including results-only)
       const totals = rangeEntries.reduce((acc, entry) => {
         acc.fpPlus += entry.fp_plus || 0;
-        acc.prmr += entry.prmr || 0;
+        acc.prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         acc.doors += entry.doors_knocked || 0;
         acc.decisionMakers += entry.decision_makers || 0;
         acc.pitches += entry.pitches || 0;
@@ -440,7 +440,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         
         weeklyData[weekKey].entries.push(entry);
         weeklyData[weekKey].fpPlus += entry.fp_plus || 0;
-        weeklyData[weekKey].prmr += entry.prmr || 0;
+        weeklyData[weekKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         weeklyData[weekKey].doors += entry.doors_knocked || 0;
         weeklyData[weekKey].closes += entry.closes || 0;
       });
@@ -473,7 +473,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         }
         
         monthlyData[monthKey].fpPlus += entry.fp_plus || 0;
-        monthlyData[monthKey].prmr += entry.prmr || 0;
+        monthlyData[monthKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         monthlyData[monthKey].doors += entry.doors_knocked || 0;
         monthlyData[monthKey].closes += entry.closes || 0;
       });
@@ -528,7 +528,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         }
         
         dayOfWeekTotals[dayName].fpPlus += entry.fp_plus || 0;
-        dayOfWeekTotals[dayName].prmr += entry.prmr || 0;
+        dayOfWeekTotals[dayName].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         dayOfWeekTotals[dayName].doors += entry.doors_knocked || 0;
         dayOfWeekTotals[dayName].pitches += entry.pitches || 0;
         dayOfWeekTotals[dayName].transitions += entry.transitions || 0;

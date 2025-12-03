@@ -99,8 +99,9 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
           leaderboard.mostFP = { userId: entry.user_id, name: cleanName, value: entry.fp_plus };
         }
 
-        if (entry.prmr && entry.prmr > 0 && (!leaderboard.mostPRMR || entry.prmr > leaderboard.mostPRMR.value)) {
-          leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: entry.prmr };
+        const totalPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+        if (totalPrmr > 0 && (!leaderboard.mostPRMR || totalPrmr > leaderboard.mostPRMR.value)) {
+          leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: totalPrmr };
         }
 
         if (entry.upgrade_prmr && entry.upgrade_prmr > 0) {
