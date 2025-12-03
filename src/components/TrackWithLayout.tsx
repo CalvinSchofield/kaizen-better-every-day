@@ -8,6 +8,7 @@ import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
@@ -17,6 +18,8 @@ const TrackWithLayout = () => {
   const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
   const [isPreviousDayReviewOpen, setIsPreviousDayReviewOpen] = useState(false);
   const [isSaveInProgress, setIsSaveInProgress] = useState(false);
+  // PROTECTION LAYER 5: Track if entry was saved this session to block further changes
+  const [savedThisSession, setSavedThisSession] = useState(false);
 
   // Get custom counter config
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -115,6 +118,8 @@ const TrackWithLayout = () => {
     setIsSaveInProgress(true);
     try {
       await finalizeEntry(data);
+      // PROTECTION LAYER 6: Mark session as saved BEFORE clearing UI
+      setSavedThisSession(true);
       // Save succeeded - now safe to clear the UI
       clearLocalEntry();
     } catch (error) {
@@ -185,9 +190,21 @@ const TrackWithLayout = () => {
   };
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
-    // Prevent counter changes while save is in progress to avoid race conditions
+    // PROTECTION LAYER 7: Multiple checks to prevent counter changes after save
     if (isSaveInProgress) {
       console.log('Ignoring counter change - save in progress');
+      return;
+    }
+    
+    if (savedThisSession) {
+      console.log('Ignoring counter change - already saved this session');
+      toast.info("Today's work is already saved. Start fresh tomorrow!");
+      return;
+    }
+    
+    if (entry.is_finalized) {
+      console.log('Ignoring counter change - entry is finalized');
+      toast.info("Today's work is already saved. Start fresh tomorrow!");
       return;
     }
     
@@ -261,8 +278,16 @@ const TrackWithLayout = () => {
     }
     
     // Immediately call updateCounter for instant optimistic UI update
-    await updateCounter(updates);
-  }, [entry, updateCounter, isSaveInProgress]);
+    try {
+      await updateCounter(updates);
+    } catch (error: any) {
+      // PROTECTION: If entry was finalized between checks, show friendly message
+      if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
+        toast.info("Today's work is already saved. Start fresh tomorrow!");
+        setSavedThisSession(true); // Prevent further attempts
+      }
+    }
+  }, [entry, updateCounter, isSaveInProgress, savedThisSession]);
 
   const handleStartWork = () => {
     // If work already started but not ended, end it instead

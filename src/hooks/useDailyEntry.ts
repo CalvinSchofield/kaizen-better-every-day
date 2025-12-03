@@ -78,6 +78,19 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // PROTECTION LAYER 1: Check if entry is already finalized in database
+      // This prevents any accidental overwrites of finalized data
+      const { data: existingEntry } = await supabase
+        .from('daily_entries')
+        .select('is_finalized')
+        .eq('user_id', user.id)
+        .eq('entry_date', entryDate)
+        .maybeSingle();
+
+      if (existingEntry?.is_finalized) {
+        throw new Error('ENTRY_ALREADY_FINALIZED');
+      }
+
       const currentEntry = entry || {
         doors_knocked: 0,
         decision_makers: 0,
@@ -98,6 +111,8 @@ export const useDailyEntry = (date?: string) => {
           entry_date: entryDate,
           ...currentEntry,
           ...updates,
+          // PROTECTION LAYER 2: Never allow counter updates to change finalized status
+          is_finalized: existingEntry?.is_finalized || false,
         }, {
           onConflict: 'user_id,entry_date'
         })
@@ -208,6 +223,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
+      // PROTECTION LAYER 4: Update today leaderboard to show finalized data
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       toast.success('Entry saved successfully!');
     },
   });
@@ -289,6 +306,7 @@ export const useDailyEntry = (date?: string) => {
   });
 
   // Clear local cache only (no DB write) - used after successful save
+  // PROTECTION LAYER 3: Mark as finalized in cache to prevent accidental overwrites
   const clearLocalEntry = () => {
     queryClient.setQueryData(['daily-entry', entryDate], {
       doors_knocked: 0,
@@ -299,7 +317,8 @@ export const useDailyEntry = (date?: string) => {
       closes: 0,
       fp_plus: 0,
       prmr: 0,
-      is_finalized: false,
+      // CRITICAL: Mark as finalized so updateCounter will be blocked
+      is_finalized: true,
       work_start_time: null,
       work_end_time: null,
       break_periods: [],
