@@ -13,7 +13,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Trash2, HelpCircle, ExternalLink } from "lucide-react";
+import { Trash2, HelpCircle, Calculator } from "lucide-react";
+import { UpgradePrmrCalculator } from "./UpgradePrmrCalculator";
 
 export interface Sale {
   id: string;
@@ -33,9 +34,6 @@ interface LogSaleSheetProps {
   showPrmrHelper?: boolean; // Show helper for rookies or reps with <20 FP+
 }
 
-// GPT link for upgrade PRMR calculation
-const UPGRADE_GPT_URL = "https://chatgpt.com/g/g-6839cccc5b3c81919ab1bc0c6f11eb72-vivint-upgrade-prmr-calculator";
-
 export const LogSaleSheet = ({
   open,
   onOpenChange,
@@ -49,6 +47,7 @@ export const LogSaleSheet = ({
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
   const [showHelperContent, setShowHelperContent] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset form when opening, populate when editing
@@ -99,9 +98,8 @@ export const LogSaleSheet = ({
 
   const handleHelperClick = () => {
     if (saleType === 'upgrade') {
-      // Open GPT with prefilled message
-      const prefillMessage = encodeURIComponent("Help me calculate my PRMR on this upgrade. I'll give you a list of equipment I sold and then help me figure out the total when considering if the cameras were marked as \"new\" or \"replacements\"");
-      window.open(`${UPGRADE_GPT_URL}?q=${prefillMessage}`, '_blank');
+      // Open in-app AI calculator
+      setShowCalculator(true);
     } else {
       // Toggle FP helper content
       setShowHelperContent(!showHelperContent);
@@ -251,6 +249,12 @@ export const LogSaleSheet = ({
           </div>
         </div>
       </DrawerContent>
+
+      {/* Upgrade PRMR Calculator */}
+      <UpgradePrmrCalculator
+        open={showCalculator}
+        onOpenChange={setShowCalculator}
+      />
     </Drawer>
   );
 };
