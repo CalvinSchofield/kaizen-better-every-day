@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronDown, ChevronUp, Flame } from "lucide-react";
 import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { useLastWeekLeaderboard } from "@/hooks/useLastWeekLeaderboard";
 import { useMonthlyLeaderboard } from "@/hooks/useMonthlyLeaderboard";
 import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState as useReactState } from "react";
 
 type TimeFilter = 'today' | 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
 
 export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
-  const [currentUserId, setCurrentUserId] = useReactState<string | null>(null);
-  const [currentUserYear, setCurrentUserYear] = useReactState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
 
   // Listen for expand event from CTA
   useEffect(() => {
@@ -37,8 +37,30 @@ export const LeaderboardCard = () => {
   const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
   const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
   const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
+  const { data: lastWeekBoard } = useLastWeekLeaderboard(filterByYear);
   const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
   const { data: seasonBoard } = useSeasonLeaderboard(filterByYear);
+
+  // Calculate weekly streaks - same person leads this week AND last week
+  const weeklyStreaks = useMemo(() => {
+    if (!weeklyBoard || !lastWeekBoard) return new Map<string, string[]>();
+    
+    const streaks = new Map<string, string[]>();
+    const metricKeys = ['mostFP', 'mostPRMR', 'mostUpgradeFP', 'mostHoursWorked', 'mostDoors', 'mostTransitions', 'mostPresentations', 'mostPitches'];
+    
+    metricKeys.forEach(key => {
+      const thisWeekEntry = weeklyBoard[key as keyof typeof weeklyBoard] as any;
+      const lastWeekEntry = lastWeekBoard[key as keyof typeof lastWeekBoard] as any;
+      
+      if (thisWeekEntry?.userId && lastWeekEntry?.userId && thisWeekEntry.userId === lastWeekEntry.userId) {
+        const existing = streaks.get(thisWeekEntry.userId) || [];
+        existing.push(key);
+        streaks.set(thisWeekEntry.userId, existing);
+      }
+    });
+    
+    return streaks;
+  }, [weeklyBoard, lastWeekBoard]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -303,6 +325,9 @@ export const LeaderboardCard = () => {
                 }
 
                 const isCurrentUser = currentUserId && entry.userId === currentUserId;
+                
+                // Check if this leader has a weekly streak for this metric
+                const hasStreak = timeFilter === 'week' && weeklyStreaks.get(entry.userId)?.includes(key);
 
                 return (
                   <div key={key} className="space-y-1">
@@ -312,6 +337,12 @@ export const LeaderboardCard = () => {
                         <span className="text-foreground text-sm font-medium">{label}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {hasStreak && (
+                          <span className="flex items-center gap-0.5 text-xs text-orange-500 font-medium bg-orange-500/10 px-1.5 py-0.5 rounded-full">
+                            <Flame className="w-3 h-3" />
+                            2 weeks
+                          </span>
+                        )}
                         <span className={`text-sm font-semibold ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
                           {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
                         </span>
