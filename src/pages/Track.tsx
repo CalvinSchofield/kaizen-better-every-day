@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimeTrackingBar } from "@/components/TimeTrackingBar";
 import { QTallyGrid } from "@/components/QTallyGrid";
-import { DailyEntry } from "@/hooks/useDailyEntry";
+import { SalesLoggerCard } from "@/components/SalesLoggerCard";
+import { DailyEntry, Sale } from "@/hooks/useDailyEntry";
 
 interface TrackProps {
   entry: DailyEntry | {
@@ -31,6 +32,10 @@ interface TrackProps {
   onEndBreak: () => void;
   onUpdateTime: (field: 'start' | 'end', time: string) => void;
   counterTimestamps?: Record<string, string[]>;
+  salesLog?: Sale[];
+  salesLoggerEnabled?: boolean;
+  onEditSale?: (sale: Sale) => void;
+  onDeleteSale?: (saleId: string) => void;
 }
 
 const Track = ({
@@ -42,6 +47,10 @@ const Track = ({
   onEndBreak,
   onUpdateTime,
   counterTimestamps,
+  salesLog = [],
+  salesLoggerEnabled = false,
+  onEditSale,
+  onDeleteSale,
 }: TrackProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
 
@@ -159,9 +168,9 @@ const Track = ({
         />
       </div>
 
-      {/* Counter Grid - Fills all remaining space */}
-      <div className="flex-1 px-4 pt-4 pb-4 overflow-hidden">
-        <div className="h-full">
+      {/* Counter Grid - Fills remaining space */}
+      <div className="flex-1 px-4 pt-4 pb-4 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 min-h-0">
           <QTallyGrid
             entry={entry}
             onCounterChange={onCounterChange}
@@ -169,6 +178,17 @@ const Track = ({
             counterLayoutConfig={counterLayoutConfig}
           />
         </div>
+        
+        {/* Sales Logger Card - Only show when enabled and has sales */}
+        {salesLoggerEnabled && salesLog.length > 0 && onEditSale && onDeleteSale && (
+          <div className="flex-shrink-0">
+            <SalesLoggerCard
+              salesLog={salesLog}
+              onEditSale={onEditSale}
+              onDeleteSale={onDeleteSale}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
