@@ -1,14 +1,43 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
 import { SaveEntrySheet } from "./SaveEntrySheet";
 import { ResetConfirmSheet } from "./ResetConfirmSheet";
 import { PreviousDayReviewSheet } from "./PreviousDayReviewSheet";
+import { EarlySaveConfirmSheet } from "./EarlySaveConfirmSheet";
+import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
+import { SyncIndicator } from "./SyncIndicator";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
+
+// Helper to check if it's before typical end of work day (7 PM local)
+const isBeforeSunset = () => {
+  const now = new Date();
+  const hour = now.getHours();
+  return hour < 19; // Before 7 PM
+};
+
+// Helper to format current time
+const formatCurrentTime = () => {
+  return new Date().toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+};
+
+// Helper to get today's date in local timezone
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
@@ -20,6 +49,20 @@ const TrackWithLayout = () => {
   const [isSaveInProgress, setIsSaveInProgress] = useState(false);
   // PROTECTION LAYER 5: Track if entry was saved this session to block further changes
   const [savedThisSession, setSavedThisSession] = useState(false);
+  
+  // New state for bulletproof features
+  const [isEarlySaveConfirmOpen, setIsEarlySaveConfirmOpen] = useState(false);
+  const [isPostSaveSuccessOpen, setIsPostSaveSuccessOpen] = useState(false);
+  const [lastSavedSummary, setLastSavedSummary] = useState({ doors: 0, presentations: 0, closes: 0, fpPlus: 0, prmr: 0 });
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'error'>('synced');
+  
+  // Local backup for data recovery
+  const userId = getCurrentUserId();
+  const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
+  
+  // Debounce ref for batching rapid updates
+  const pendingUpdateRef = useRef<any>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get custom counter config
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -113,21 +156,70 @@ const TrackWithLayout = () => {
     return () => clearInterval(interval);
   }, [entry, finalizeEntry]);
 
+  // BULLETPROOF: Save backup to localStorage on every entry change
+  useEffect(() => {
+    if (!entry.is_finalized && userId) {
+      const hasActivity = entry.doors_knocked > 0 || 
+                         entry.decision_makers > 0 || 
+                         entry.pitches > 0 || 
+                         entry.transitions > 0 || 
+                         entry.presentations > 0 || 
+                         entry.closes > 0;
+      if (hasActivity) {
+        saveBackup(entry);
+      }
+    }
+  }, [entry, userId, saveBackup]);
+
+  // Handle save button click - check if before sunset
+  const handleSaveButtonClick = () => {
+    // Check if it's before typical end of work day
+    if (isBeforeSunset()) {
+      setIsEarlySaveConfirmOpen(true);
+    } else {
+      setIsSaveSheetOpen(true);
+    }
+  };
+
   // Handle save - reset local UI state ONLY after confirmed successful save
   const handleSave = async (data: any) => {
     setIsSaveInProgress(true);
+    setSyncStatus('pending');
     try {
       await finalizeEntry(data);
       // PROTECTION LAYER 6: Mark session as saved BEFORE clearing UI
       setSavedThisSession(true);
       // Save succeeded - now safe to clear the UI
       clearLocalEntry();
+      // Clear localStorage backup
+      clearBackup();
+      setSyncStatus('synced');
+      // Store summary for success sheet
+      setLastSavedSummary({
+        doors: data.doors_knocked || 0,
+        presentations: data.presentations || 0,
+        closes: data.closes || 0,
+        fpPlus: data.fp_plus || 0,
+        prmr: data.prmr || 0,
+      });
+      // Show success sheet
+      setIsPostSaveSuccessOpen(true);
     } catch (error) {
       console.error('Save failed:', error);
+      setSyncStatus('error');
+      toast.error('Failed to save. Your data is backed up locally.');
       // Don't clear - keep the data visible so user can try again
     } finally {
       setIsSaveInProgress(false);
     }
+  };
+
+  // Handle "keep working" after save - unfinalize the entry
+  const handleKeepWorkingAfterSave = async () => {
+    // Reset the saved state to allow new tracking
+    setSavedThisSession(false);
+    // The user can now continue tracking - their data will be added to today's entry
+    toast.info("You can continue tracking. Your previous data is saved in Calendar.");
   };
 
   // Handle previous day save
@@ -277,14 +369,21 @@ const TrackWithLayout = () => {
       });
     }
     
+    // Set sync status to pending
+    setSyncStatus('pending');
+    
     // Immediately call updateCounter for instant optimistic UI update
     try {
       await updateCounter(updates);
+      setSyncStatus('synced');
     } catch (error: any) {
       // PROTECTION: If entry was finalized between checks, show friendly message
       if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
         toast.info("Today's work is already saved. Start fresh tomorrow!");
         setSavedThisSession(true); // Prevent further attempts
+        setSyncStatus('synced');
+      } else {
+        setSyncStatus('error');
       }
     }
   }, [entry, updateCounter, isSaveInProgress, savedThisSession]);
@@ -347,10 +446,11 @@ const TrackWithLayout = () => {
   return (
     <>
       <Layout
-        onSave={() => setIsSaveSheetOpen(true)}
+        onSave={handleSaveButtonClick}
         onReset={() => setIsResetSheetOpen(true)}
         isSaving={isFinalizing}
         isResetting={isResetting}
+        syncIndicator={<SyncIndicator status={syncStatus} />}
       >
         <Track
           entry={entry}
@@ -365,6 +465,15 @@ const TrackWithLayout = () => {
         />
       </Layout>
 
+      {/* Early Save Confirmation Sheet */}
+      <EarlySaveConfirmSheet
+        open={isEarlySaveConfirmOpen}
+        onOpenChange={setIsEarlySaveConfirmOpen}
+        currentTime={formatCurrentTime()}
+        onConfirm={() => setIsSaveSheetOpen(true)}
+        onKeepWorking={() => {}}
+      />
+
       {/* Save Entry Sheet */}
       <SaveEntrySheet
         open={isSaveSheetOpen}
@@ -377,12 +486,28 @@ const TrackWithLayout = () => {
         counterLayoutConfig={counterLayoutConfig}
       />
 
+      {/* Post-Save Success Sheet */}
+      <PostSaveSuccessSheet
+        open={isPostSaveSuccessOpen}
+        onOpenChange={setIsPostSaveSuccessOpen}
+        summary={lastSavedSummary}
+        onKeepWorking={handleKeepWorkingAfterSave}
+      />
+
       {/* Reset Confirm Sheet */}
       <ResetConfirmSheet
         open={isResetSheetOpen}
         onOpenChange={setIsResetSheetOpen}
         onConfirm={resetEntry}
         isResetting={isResetting}
+        entrySummary={{
+          doors: entry.doors_knocked || 0,
+          decisionMakers: entry.decision_makers || 0,
+          pitches: entry.pitches || 0,
+          transitions: entry.transitions || 0,
+          presentations: entry.presentations || 0,
+          closes: entry.closes || 0,
+        }}
       />
 
       {/* Previous Day Review Sheet */}

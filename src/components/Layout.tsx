@@ -12,9 +12,10 @@ interface LayoutProps {
   onReset?: () => void;
   isSaving?: boolean;
   isResetting?: boolean;
+  syncIndicator?: ReactNode;
 }
 
-const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProps) => {
+const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator }: LayoutProps) => {
   const location = useLocation();
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
@@ -184,6 +185,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting }: LayoutProp
         </h1>
         {location.pathname === "/track" && onSave && onReset ? (
           <div className="flex items-center gap-2">
+            {syncIndicator}
             <Button
               onClick={onSave}
               disabled={isSaving}
