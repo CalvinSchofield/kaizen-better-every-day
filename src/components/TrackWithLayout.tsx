@@ -12,6 +12,7 @@ import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 
@@ -42,6 +43,7 @@ const getTodayDate = () => {
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
+  const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
@@ -287,8 +289,12 @@ const TrackWithLayout = () => {
     return latestTimestamp;
   };
 
-  // Check if sales logger is enabled
-  const salesLoggerEnabled = (repData as any)?.sales_logger_enabled || false;
+  // Sales logger is now enabled by default for all users
+  const salesLoggerEnabled = true;
+
+  // Show PRMR helper for all rookies or any rep with less than 20 FP+
+  const isRookie = repData?.year === "Rookie";
+  const showPrmrHelper = isRookie || preseasonFP < 20;
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
     // PROTECTION LAYER 7: Multiple checks to prevent counter changes after save
@@ -682,6 +688,7 @@ const TrackWithLayout = () => {
         editingSale={editingSale}
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
+        showPrmrHelper={showPrmrHelper}
       />
 
       {/* Early Save Confirmation Sheet */}
