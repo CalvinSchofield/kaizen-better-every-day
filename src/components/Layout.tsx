@@ -184,18 +184,18 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           />
         </div>
         
-        {/* Center - title with optional sync indicator */}
-        <div className="flex-1 flex items-center justify-center gap-2">
+        {/* Center - title */}
+        <div className="flex-1 flex items-center justify-center">
           <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
             {getPageTitle()}
           </h1>
-          {location.pathname === "/track" && syncIndicator}
         </div>
         
         {/* Right side - action buttons or spacer */}
-        <div className="w-10 flex justify-end">
+        <div className="flex justify-end">
           {location.pathname === "/track" && onSave && onReset ? (
             <div className="flex items-center gap-1">
+              {syncIndicator}
               <Button
                 onClick={onSave}
                 disabled={isSaving}
@@ -214,7 +214,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
-          ) : null}
+          ) : <div className="w-10" />}
         </div>
       </header>
 
