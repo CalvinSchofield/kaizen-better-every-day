@@ -34,6 +34,8 @@ interface VetBlitzCardProps {
   allBlitzes: any[];
   teamMembers: TeamMember[];
   isTeamLead: boolean;
+  isLoadingBlitzes?: boolean;
+  isLoadingTeam?: boolean;
   onTeamMemberUpdate?: (notionPageId: string, updates: Partial<TeamMember>) => void;
   onCommitmentChange?: () => void;
   accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
@@ -65,7 +67,7 @@ interface TeamMember {
   onboardingStatus: string | null;
 }
 
-export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, onTeamMemberUpdate, onCommitmentChange, accessLevel = 'none', mgmtGroups = [], teams = [] }: VetBlitzCardProps) => {
+export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, isLoadingBlitzes = false, isLoadingTeam = false, onTeamMemberUpdate, onCommitmentChange, accessLevel = 'none', mgmtGroups = [], teams = [] }: VetBlitzCardProps) => {
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
@@ -82,6 +84,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
+  
+  // Track pending updates to prevent stale data overwrites
+  const pendingCommitmentsRef = useRef<Set<string>>(new Set());
 
   // Fetch team members and contacted status based on attendance scope
   const fetchAttendanceData = useCallback(async () => {
@@ -151,11 +156,11 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     fetchAttendanceData();
   }, [attendanceScope]); // Removed fetchAttendanceData from deps to prevent constant refetching
 
-  // Load committed blitzes from repData - only update when actually different
+  // Load committed blitzes from repData - only update when actually different and no pending updates
   const lastCommittedBlitzesRef = useRef<string>("");
   useEffect(() => {
-    // Don't overwrite state while an update is in progress
-    if (isUpdating) return;
+    // Don't overwrite state while an update is in progress or while we have pending commitments
+    if (isUpdating || pendingCommitmentsRef.current.size > 0) return;
     
     const currentHash = JSON.stringify(repData?.committed_blitzes);
     if (currentHash === lastCommittedBlitzesRef.current) return; // Skip if no change
@@ -220,6 +225,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       return;
     }
 
+    // Track pending update to prevent stale data overwrite
+    pendingCommitmentsRef.current.add(blitzId);
+    
     // Optimistic update for commit
     setIsUpdating(true);
     const newCommittedIds = [...committedBlitzIds, blitzId];
@@ -245,15 +253,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         description: `You're now committed to ${blitzName}`,
       });
       
-      // Wait for both backend update AND state update to complete before clearing optimistic state
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Trigger parent refetch to update next blitz display
+      // Trigger parent refetch (delayed in parent)
       onCommitmentChange?.();
+      
+      // Clear pending update after grace period
+      setTimeout(() => {
+        pendingCommitmentsRef.current.delete(blitzId);
+      }, 5000);
     } catch (error) {
       console.error('Error updating commitment:', error);
       // Revert optimistic update on error
       setCommittedBlitzIds(committedBlitzIds.filter(id => id !== blitzId));
+      pendingCommitmentsRef.current.delete(blitzId);
       toast({
         title: "Update failed",
         description: "Could not update your commitment. Please try again.",
@@ -267,10 +278,20 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const confirmUncommit = async () => {
     if (!blitzToUncommit) return;
 
+    // Track pending update
+    pendingCommitmentsRef.current.add(blitzToUncommit.id);
+    
     // Optimistic update
     const originalCommittedIds = [...committedBlitzIds];
     const newCommittedIds = committedBlitzIds.filter(id => id !== blitzToUncommit.id);
     setCommittedBlitzIds(newCommittedIds);
+
+    const blitzIdToRemove = blitzToUncommit.id;
+    const blitzNameToRemove = blitzToUncommit.name;
+    
+    // Close dialog immediately for snappy UX
+    setUncommitDialogOpen(false);
+    setBlitzToUncommit(null);
 
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
@@ -284,26 +305,26 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
       toast({
         title: "Uncommitted",
-        description: `Removed from ${blitzToUncommit.name}`,
+        description: `Removed from ${blitzNameToRemove}`,
       });
       
-      // Wait for state to stabilize before triggering refetch
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Trigger parent refetch to update next blitz display
+      // Trigger parent refetch (delayed in parent)
       onCommitmentChange?.();
+      
+      // Clear pending update after grace period
+      setTimeout(() => {
+        pendingCommitmentsRef.current.delete(blitzIdToRemove);
+      }, 5000);
     } catch (error) {
       console.error('Error updating commitment:', error);
       // Revert on error
       setCommittedBlitzIds(originalCommittedIds);
+      pendingCommitmentsRef.current.delete(blitzIdToRemove);
       toast({
         title: "Update failed",
         description: "Could not update your commitment. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setUncommitDialogOpen(false);
-      setBlitzToUncommit(null);
     }
   };
 
@@ -507,6 +528,24 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
 
 
+  // Show skeleton loading state when blitzes are loading
+  if (isLoadingBlitzes) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Blitz Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (allBlitzes.length === 0) {
     return (
       <Card className="mb-6">
@@ -682,15 +721,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 relative">
+        {/* Subtle loading overlay during scope changes - keeps content visible */}
         {loadingAttendance && (
-          <div className="flex items-center justify-center gap-2 py-8">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            <span className="text-sm text-muted-foreground">Loading attendance data...</span>
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
+            <div className="flex items-center gap-2 bg-background/90 px-4 py-2 rounded-full shadow-sm">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-xs text-muted-foreground">Updating...</span>
+            </div>
           </div>
         )}
         
-        {!loadingAttendance && teamMembers.length === 0 && (
+        {teamMembers.length === 0 && !loadingAttendance && (
           <Alert className="bg-muted/50">
             <AlertDescription className="text-sm">
               {attendanceScope === 'team' && "No team members found. Make sure you have reps assigned to your team in Notion."}

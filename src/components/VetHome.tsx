@@ -1018,30 +1018,33 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </CardContent>
         </Card>
 
-        {/* Unified Blitz Management */}
-        {!blitzesLoading && !teamLoading && (
-          <div data-blitz-card>
-            <VetBlitzCard 
-              repData={repData} 
-              allBlitzes={allBlitzes}
-              teamMembers={teamMembers}
-              isTeamLead={isTeamLead}
-              accessLevel={teamAccessData?.accessLevel || 'none'}
-              mgmtGroups={teamAccessData?.mgmtGroups || []}
-              teams={teamAccessData?.teams || []}
-              onTeamMemberUpdate={(notionPageId, updates) => {
-                setTeamMembers(prev => 
-                  prev.map(m => 
-                    m.notionPageId === notionPageId 
-                      ? { ...m, ...updates }
-                      : m
-                  )
-                );
-              }}
-              onCommitmentChange={handleRefresh}
-            />
-          </div>
-        )}
+        {/* Unified Blitz Management - Always render, show skeleton when loading */}
+        <div data-blitz-card>
+          <VetBlitzCard 
+            repData={repData} 
+            allBlitzes={allBlitzes}
+            teamMembers={teamMembers}
+            isTeamLead={isTeamLead}
+            isLoadingBlitzes={blitzesLoading}
+            isLoadingTeam={teamLoading}
+            accessLevel={teamAccessData?.accessLevel || 'none'}
+            mgmtGroups={teamAccessData?.mgmtGroups || []}
+            teams={teamAccessData?.teams || []}
+            onTeamMemberUpdate={(notionPageId, updates) => {
+              setTeamMembers(prev => 
+                prev.map(m => 
+                  m.notionPageId === notionPageId 
+                    ? { ...m, ...updates }
+                    : m
+                )
+              );
+            }}
+            onCommitmentChange={() => {
+              // Delayed refresh to allow optimistic state to settle
+              setTimeout(() => handleRefresh(), 3000);
+            }}
+          />
+        </div>
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
