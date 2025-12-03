@@ -349,7 +349,7 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="text-xs text-primary font-semibold mt-1">
-                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
+                    {efpModeEnabled ? formatValue(calculateEfp((entry.prmr || 0) + (entry.upgrade_prmr || 0))) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
               </div>
@@ -393,7 +393,7 @@ export const CalendarView = ({
                     {efpModeEnabled ? (
                       <>
                         <div className="text-xs text-primary font-semibold">
-                          {formatValue(calculateEfp(entry.prmr || 0))} EFP
+                          {formatValue(calculateEfp((entry.prmr || 0) + (entry.upgrade_prmr || 0)))} EFP
                         </div>
                         <div className="text-xs text-muted-foreground font-medium">
                           {formatValue(entry.fp_plus || 0)} FP+
@@ -452,7 +452,7 @@ export const CalendarView = ({
                 <>
                   <div>
                     <span className="font-bold text-primary">
-                      {calculateEfp(viewTotals.prmr).toFixed(1)}
+                      {calculateEfp(viewTotals.prmr + viewTotals.upgradePrmr).toFixed(1)}
                     </span>
                     <span className="text-muted-foreground ml-1">EFP</span>
                   </div>
@@ -472,7 +472,7 @@ export const CalendarView = ({
                     <span className="text-muted-foreground ml-1">FP+</span>
                   </div>
                   <div>
-                    <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
+                    <span className="font-bold text-primary">${(viewTotals.prmr + viewTotals.upgradePrmr).toFixed(0)}</span>
                     <span className="text-muted-foreground ml-1">PRMR</span>
                   </div>
                 </>
@@ -700,7 +700,7 @@ export const CalendarView = ({
                   <div className="space-y-1">
                     <div className="text-sm text-muted-foreground">Avg PRMR per FP</div>
                     <div className="text-lg font-bold text-primary">
-                      ${viewTotals.fpPlus > 0 ? (viewTotals.prmr / viewTotals.fpPlus).toFixed(0) : "0"}
+                      ${viewTotals.fpPlus > 0 ? ((viewTotals.prmr + viewTotals.upgradePrmr) / viewTotals.fpPlus).toFixed(0) : "0"}
                     </div>
                   </div>
                 </div>
@@ -797,7 +797,7 @@ export const CalendarView = ({
                           <span className="text-muted-foreground">Hours per {efpModeEnabled ? 'EFP' : 'FP+'}</span>
                           <span className="font-semibold text-foreground text-base">
                             {(() => {
-                              const value = efpModeEnabled ? (viewTotals.prmr / 85) : viewTotals.fpPlus;
+                              const value = efpModeEnabled ? ((viewTotals.prmr + viewTotals.upgradePrmr) / 85) : viewTotals.fpPlus;
                               const minutesPerFp = viewTotals.totalWorkMinutes / value;
                               const hours = Math.floor(minutesPerFp / 60);
                               const minutes = Math.round(minutesPerFp % 60);

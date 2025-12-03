@@ -302,7 +302,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const presentationsPerHour = activityTotals.totalHours > 0 ? activityTotals.presentations / activityTotals.totalHours : 0;
       const hoursToFp = activityTotals.fpPlus > 0 ? activityTotals.totalHours / activityTotals.fpPlus : 0;
       
-      // EFP calculations (PRMR / 85)
+      // EFP calculations (total PRMR / 85) - includes both prmr and upgrade_prmr
       const totalEfp = totals.prmr / 85;
       const activityEfp = rangeEntries
         .filter(entry => 
@@ -313,9 +313,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           (entry.presentations || 0) > 0 ||
           (entry.closes || 0) > 0
         )
-        .reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+        .reduce((sum, entry) => sum + (entry.prmr || 0) + (entry.upgrade_prmr || 0), 0) / 85;
       
-      const overallEfp = allEntriesWithActivity.reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+      const overallEfp = allEntriesWithActivity.reduce((sum, entry) => sum + (entry.prmr || 0) + (entry.upgrade_prmr || 0), 0) / 85;
       
       const doorsToEfp = activityEfp > 0 ? activityTotals.doors / activityEfp : 0;
       const pitchesToEfp = activityEfp > 0 ? activityTotals.pitches / activityEfp : 0;

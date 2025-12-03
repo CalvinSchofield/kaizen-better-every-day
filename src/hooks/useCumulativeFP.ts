@@ -29,7 +29,7 @@ export const useCumulativeFP = () => {
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("entry_date, fp_plus, prmr, is_finalized")
+        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized")
         .eq("user_id", user.id)
         .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
@@ -45,41 +45,45 @@ export const useCumulativeFP = () => {
       let cumulativeFp = 0;
 
       entries.forEach((entry, index) => {
-        const value = efpModeEnabled 
-          ? calculateEfp(entry.prmr || 0)
-          : (entry.fp_plus || 0);
-        
-        const prmrValue = entry.prmr || 0;
+        // Total PRMR = regular prmr + upgrade_prmr
+        const totalPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         const fpValue = entry.fp_plus || 0;
         
+        // EFP = total PRMR / 85
+        const value = efpModeEnabled 
+          ? calculateEfp(totalPrmr)
+          : fpValue;
+        
         cumulative += value;
-        cumulativePrmr += prmrValue;
+        cumulativePrmr += totalPrmr;
         cumulativeFp += fpValue;
 
         // Calculate 6-day moving average (last 6 days including current)
         const last6 = entries.slice(Math.max(0, index - 5), index + 1);
         const movingAvg6 = last6.length >= 1
           ? last6.reduce((sum, e) => {
-              const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
+              const eTotalPrmr = (e.prmr || 0) + (e.upgrade_prmr || 0);
+              const v = efpModeEnabled ? calculateEfp(eTotalPrmr) : (e.fp_plus || 0);
               return sum + v;
             }, 0) / last6.length
           : null;
 
         const movingAvgPrmr6 = last6.length >= 1
-          ? last6.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6.length
+          ? last6.reduce((sum, e) => sum + (e.prmr || 0) + (e.upgrade_prmr || 0), 0) / last6.length
           : null;
 
         // Calculate 12-day moving average (last 12 days including current)
         const last12 = entries.slice(Math.max(0, index - 11), index + 1);
         const movingAvg12 = last12.length >= 1
           ? last12.reduce((sum, e) => {
-              const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
+              const eTotalPrmr = (e.prmr || 0) + (e.upgrade_prmr || 0);
+              const v = efpModeEnabled ? calculateEfp(eTotalPrmr) : (e.fp_plus || 0);
               return sum + v;
             }, 0) / last12.length
           : null;
 
         const movingAvgPrmr12 = last12.length >= 1
-          ? last12.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12.length
+          ? last12.reduce((sum, e) => sum + (e.prmr || 0) + (e.upgrade_prmr || 0), 0) / last12.length
           : null;
 
         // Calculate FP+ moving averages (always actual FP+, not EFP)
@@ -100,7 +104,7 @@ export const useCumulativeFP = () => {
           cumulativePrmr,
           movingAvgPrmr6,
           movingAvgPrmr12,
-          dailyPrmr: prmrValue,
+          dailyPrmr: totalPrmr,
           cumulativeFp,
           movingAvgFp6,
           movingAvgFp12,
