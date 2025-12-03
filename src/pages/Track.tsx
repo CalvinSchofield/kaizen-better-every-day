@@ -31,6 +31,7 @@ interface TrackProps {
   onStartBreak: () => void;
   onEndBreak: () => void;
   onUpdateTime: (field: 'start' | 'end', time: string) => void;
+  onClearEndTime?: () => void;
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Sale[];
   salesLoggerEnabled?: boolean;
@@ -46,6 +47,7 @@ const Track = ({
   onStartBreak,
   onEndBreak,
   onUpdateTime,
+  onClearEndTime,
   counterTimestamps,
   salesLog = [],
   salesLoggerEnabled = false,
@@ -165,6 +167,7 @@ const Track = ({
           onStartBreak={onStartBreak}
           onEndBreak={onEndBreak}
           onUpdateTime={onUpdateTime}
+          onClearEndTime={onClearEndTime}
         />
       </div>
 
