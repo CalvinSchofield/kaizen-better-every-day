@@ -8,6 +8,7 @@ import { EarlySaveConfirmSheet } from "./EarlySaveConfirmSheet";
 import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
 import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet, Sale } from "./LogSaleSheet";
+import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +64,7 @@ const TrackWithLayout = () => {
   const [isLogSaleSheetOpen, setIsLogSaleSheetOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [pendingCloseIncrement, setPendingCloseIncrement] = useState(false);
+  const [isDeleteSalePickerOpen, setIsDeleteSalePickerOpen] = useState(false);
   
   // Local backup for data recovery
   const userId = getCurrentUserId();
@@ -329,6 +331,14 @@ const TrackWithLayout = () => {
       setEditingSale(null);
       setIsLogSaleSheetOpen(true);
       return; // Don't increment closes yet - wait for sale to be logged
+    }
+    
+    // SALES LOGGER: Intercept closes counter when subtracting and there are logged sales
+    // Show picker to choose which sale to delete instead of just decrementing
+    const salesLog = entry.sales_log || [];
+    if (field === 'closes' && isSubtracting && salesLoggerEnabled && salesLog.length > 0) {
+      setIsDeleteSalePickerOpen(true);
+      return; // Don't decrement closes yet - wait for sale selection
     }
     
     // Immediately trigger optimistic update through mutation
@@ -689,6 +699,14 @@ const TrackWithLayout = () => {
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
         showPrmrHelper={showPrmrHelper}
+      />
+
+      {/* Delete Sale Picker Sheet */}
+      <DeleteSalePickerSheet
+        open={isDeleteSalePickerOpen}
+        onOpenChange={setIsDeleteSalePickerOpen}
+        salesLog={entry.sales_log || []}
+        onDeleteSale={handleDeleteSale}
       />
 
       {/* Early Save Confirmation Sheet */}
