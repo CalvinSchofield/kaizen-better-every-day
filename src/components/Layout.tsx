@@ -150,7 +150,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       case "/tools":
         return "Tools";
       case "/track":
-        return "Today's Values";
+        return "Track";
       case "/calendar":
         return "Calendar";
       case "/insights":
@@ -167,46 +167,55 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   return (
     <div className="min-h-screen bg-background flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))]">
       {/* Header with Hamburger Menu - uniform styling across pages */}
-      <header className={`sticky top-0 z-40 border-b px-4 py-2 flex items-center justify-between ${
+      <header className={`sticky top-0 z-40 border-b px-4 py-2 flex items-center ${
         isHomePage 
           ? "bg-primary text-primary-foreground border-primary-foreground/20" 
           : "bg-card text-foreground border-border"
       }`} style={{ paddingTop: `max(0.5rem, env(safe-area-inset-top))` }}>
-        <AppDrawer
-          trigger={
-            <Button variant="ghost" size="icon" className={isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}>
-              <Menu className="h-6 w-6" />
-            </Button>
-          }
-          firstName={firstName}
-        />
-        <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-          {getPageTitle()}
-        </h1>
-        {location.pathname === "/track" && onSave && onReset ? (
-          <div className="flex items-center gap-2">
-            {syncIndicator}
-            <Button
-              onClick={onSave}
-              disabled={isSaving}
-              size="sm"
-              className="h-9 px-3 bg-primary hover:bg-primary-dark text-primary-foreground font-semibold shadow-md"
-            >
-              <Save className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onReset}
-              disabled={isResetting}
-              className="h-9 w-9"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="w-10" />
-        )}
+        {/* Left side - menu button */}
+        <div className="w-10 flex justify-start">
+          <AppDrawer
+            trigger={
+              <Button variant="ghost" size="icon" className={isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            }
+            firstName={firstName}
+          />
+        </div>
+        
+        {/* Center - title with optional sync indicator */}
+        <div className="flex-1 flex items-center justify-center gap-2">
+          <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
+            {getPageTitle()}
+          </h1>
+          {location.pathname === "/track" && syncIndicator}
+        </div>
+        
+        {/* Right side - action buttons or spacer */}
+        <div className="w-10 flex justify-end">
+          {location.pathname === "/track" && onSave && onReset ? (
+            <div className="flex items-center gap-1">
+              <Button
+                onClick={onSave}
+                disabled={isSaving}
+                size="icon"
+                className="h-9 w-9 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onReset}
+                disabled={isResetting}
+                className="h-9 w-9"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <main className="flex-1 overflow-auto">

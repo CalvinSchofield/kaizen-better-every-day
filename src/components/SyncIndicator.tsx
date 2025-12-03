@@ -14,16 +14,7 @@ export const SyncIndicator = ({ status, className }: SyncIndicatorProps) => {
     error: 'bg-red-500',
   };
 
-  const labels = {
-    synced: 'Saved',
-    pending: 'Saving...',
-    error: 'Not saved',
-  };
-
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
-      <div className={cn("h-2 w-2 rounded-full", colors[status])} />
-      <span className="text-xs text-muted-foreground">{labels[status]}</span>
-    </div>
+    <div className={cn("h-2.5 w-2.5 rounded-full", colors[status], className)} />
   );
 };
