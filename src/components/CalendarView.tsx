@@ -37,9 +37,14 @@ export const CalendarView = ({
     }
   };
 
-  const { entry: selectedEntry, finalizeEntry, deleteEntry, isFinalizing, updateCounter } = useDailyEntry(
+  // Only use useDailyEntry for mutations, NOT for display data
+  // Display data comes from the entries prop (source of truth)
+  const { finalizeEntry, deleteEntry, isFinalizing } = useDailyEntry(
     selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined
   );
+  
+  // Get entry from entries prop (already fresh from all-daily-entries query)
+  const selectedEntry = selectedDate ? entries.find(e => e.entry_date === format(selectedDate, 'yyyy-MM-dd')) : null;
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);

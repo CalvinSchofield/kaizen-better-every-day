@@ -67,8 +67,8 @@ export const useDailyEntry = (date?: string) => {
       
       return null;
     },
-    staleTime: Infinity, // Don't auto-refetch during mutations
-    gcTime: Infinity,
+    staleTime: 1000, // Allow refetch when stale (1 second)
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Update counter mutation (auto-save)
@@ -305,9 +305,13 @@ export const useDailyEntry = (date?: string) => {
     },
   });
 
-  // Clear local cache only (no DB write) - used after successful save
-  // PROTECTION LAYER 3: Mark as finalized in cache to prevent accidental overwrites
+  // Clear local cache for Track UI reset (shows zeros after save)
+  // IMPORTANT: This only affects Track page display
+  // CalendarView uses entries prop (from all-daily-entries query) as source of truth
   const clearLocalEntry = () => {
+    // Set zeros with is_finalized: true to:
+    // 1. Reset Track UI to zeros (visual confirmation)
+    // 2. Block any accidental counter updates via updateCounter
     queryClient.setQueryData(['daily-entry', entryDate], {
       doors_knocked: 0,
       decision_makers: 0,
@@ -317,8 +321,7 @@ export const useDailyEntry = (date?: string) => {
       closes: 0,
       fp_plus: 0,
       prmr: 0,
-      // CRITICAL: Mark as finalized so updateCounter will be blocked
-      is_finalized: true,
+      is_finalized: true, // CRITICAL: Blocks updateCounter from overwriting
       work_start_time: null,
       work_end_time: null,
       break_periods: [],
@@ -326,6 +329,8 @@ export const useDailyEntry = (date?: string) => {
       timezone: null,
       custom_counters: {},
     });
+    // Invalidate all-daily-entries so Calendar/Insights show fresh data
+    queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
   };
 
   return {
