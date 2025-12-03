@@ -112,9 +112,7 @@ export const KnockingModeHome = ({
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
         {!hasStartedWorkToday && (
           <>
-            <div className="animate-fade-in">
-              <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-            </div>
+            <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
             <ActivitySummaryCard repData={repData} />
             <DailyFocusCard repData={repData} />
             <LeaderboardCard />
