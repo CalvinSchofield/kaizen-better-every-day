@@ -254,18 +254,29 @@ export const UpgradePrmrCalculator = ({
           )}
 
           {/* Input area - fixed at bottom */}
-          <div className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}>
+          <div 
+            className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}
+            onClick={() => inputRef.current?.focus()}
+          >
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onBlur={(e) => {
+                // Prevent losing focus when clicking within the drawer
+                e.preventDefault();
+              }}
               placeholder="List your equipment..."
               disabled={isLoading}
               className="flex-1"
+              autoComplete="off"
             />
             <Button
-              onClick={sendMessage}
+              onClick={(e) => {
+                e.stopPropagation();
+                sendMessage();
+              }}
               disabled={!input.trim() || isLoading}
               size="icon"
             >
