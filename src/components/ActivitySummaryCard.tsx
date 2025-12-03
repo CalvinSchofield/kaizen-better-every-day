@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useActivitySummary } from "@/hooks/useActivitySummary";
 import { useDailyFocus } from "@/hooks/useDailyFocus";
-import { FPSparkline } from "@/components/FPSparkline";
+import { ComparisonSparkline } from "@/components/ComparisonSparkline";
 import { useNavigate } from "react-router-dom";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useMemo } from "react";
 
 interface ActivitySummaryCardProps {
   repData: any;
@@ -163,11 +164,25 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
           </div>
         )}
 
-        {/* Sparkline Chart */}
-        {summary.chartData.length > 1 && (
+        {/* Comparison Chart for Blitz/Summer modes */}
+        {summary.comparisonChartData && (summary.mode === "blitz" || summary.mode === "summer") && (
           <div className="pt-2">
-            <p className="text-xs text-muted-foreground mb-2">FP+ trend</p>
-            <FPSparkline data={summary.chartData} />
+            <p className="text-xs text-muted-foreground mb-2">
+              {efpModeEnabled ? "EFP" : "FP+"} comparison
+            </p>
+            <ComparisonSparkline
+              currentData={summary.comparisonChartData.current.map(d => ({
+                day: d.day,
+                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0) : d.value,
+              }))}
+              previousData={summary.comparisonChartData.previous.map(d => ({
+                day: d.day,
+                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0) : d.value,
+              }))}
+              currentLabel={summary.comparisonChartData.currentLabel}
+              previousLabel={summary.comparisonChartData.previousLabel}
+              metric={efpModeEnabled ? "EFP" : "FP+"}
+            />
           </div>
         )}
 

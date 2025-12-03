@@ -40,6 +40,12 @@ interface ActivitySummaryData {
     showComparison: boolean;
   };
   chartData: Array<{ date: string; fp: number }>;
+  comparisonChartData?: {
+    current: Array<{ day: number; value: number }>;
+    previous: Array<{ day: number; value: number }>;
+    currentLabel: string;
+    previousLabel: string;
+  };
   daysWorked: number;
   isEmpty: boolean;
 }
@@ -176,6 +182,7 @@ export const useActivitySummary = (repData: any) => {
 
       // Comparison logic
       let comparison: ActivitySummaryData["comparison"];
+      let comparisonChartData: ActivitySummaryData["comparisonChartData"];
 
       if (mode === "blitz") {
         // Compare to previous blitz (day-aligned using actual blitz day number)
@@ -224,6 +231,25 @@ export const useActivitySummary = (repData: any) => {
             previousDaysWorked: prevBlitzDaysWorked,
             showComparison: currentBlitzDayNum <= prevBlitzDaysWorked,
           };
+
+          // Build comparison chart data for blitz (day-by-day FP+ or PRMR for EFP calc)
+          const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+          const sortedPrevEntries = prevFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+          
+          comparisonChartData = {
+            current: sortedCurrentEntries.map((e, i) => ({
+              day: i + 1,
+              value: Number(e.fp_plus) || 0,
+              prmr: Number(e.prmr) || 0,
+            })),
+            previous: sortedPrevEntries.map((e, i) => ({
+              day: i + 1,
+              value: Number(e.fp_plus) || 0,
+              prmr: Number(e.prmr) || 0,
+            })),
+            currentLabel: "This Blitz",
+            previousLabel: "Last Blitz",
+          };
         }
       } else if (mode === "summer") {
         // Compare to last week (day-aligned) - Summer weeks run Sunday to Saturday
@@ -262,6 +288,25 @@ export const useActivitySummary = (repData: any) => {
           previousDayAlignedPrmr: lastWeekDayAlignedPrmr,
           previousDaysWorked: lastWeekDaysWorked,
           showComparison: currentWeekDays <= lastWeekDaysWorked,
+        };
+
+        // Build comparison chart data for summer (day-by-day)
+        const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+        const sortedPrevEntries = lastWeekFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+        
+        comparisonChartData = {
+          current: sortedCurrentEntries.map((e, i) => ({
+            day: i + 1,
+            value: Number(e.fp_plus) || 0,
+            prmr: Number(e.prmr) || 0,
+          })),
+          previous: sortedPrevEntries.map((e, i) => ({
+            day: i + 1,
+            value: Number(e.fp_plus) || 0,
+            prmr: Number(e.prmr) || 0,
+          })),
+          currentLabel: "This Week",
+          previousLabel: "Last Week",
         };
       } else if (mode === "preseason" && workdayEntries.length > 0) {
         // Compare to last same day of week
@@ -302,6 +347,7 @@ export const useActivitySummary = (repData: any) => {
         upfrontPay,
         comparison,
         chartData,
+        comparisonChartData,
         daysWorked,
         isEmpty,
       };
