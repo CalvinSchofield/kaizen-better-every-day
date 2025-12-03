@@ -288,6 +288,27 @@ export const useDailyEntry = (date?: string) => {
     },
   });
 
+  // Clear local cache only (no DB write) - used after successful save
+  const clearLocalEntry = () => {
+    queryClient.setQueryData(['daily-entry', entryDate], {
+      doors_knocked: 0,
+      decision_makers: 0,
+      pitches: 0,
+      transitions: 0,
+      presentations: 0,
+      closes: 0,
+      fp_plus: 0,
+      prmr: 0,
+      is_finalized: false,
+      work_start_time: null,
+      work_end_time: null,
+      break_periods: [],
+      counter_timestamps: {},
+      timezone: null,
+      custom_counters: {},
+    });
+  };
+
   return {
     entry: entry || {
       doors_knocked: 0,
@@ -311,6 +332,7 @@ export const useDailyEntry = (date?: string) => {
     finalizeEntry: finalizeEntryMutation.mutate,
     deleteEntry: deleteEntryMutation.mutate,
     resetEntry: resetEntryMutation.mutate,
+    clearLocalEntry,
     isFinalizing: finalizeEntryMutation.isPending,
     isResetting: resetEntryMutation.isPending,
   };

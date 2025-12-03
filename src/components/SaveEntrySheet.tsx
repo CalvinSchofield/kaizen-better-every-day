@@ -80,6 +80,7 @@ export const SaveEntrySheet = ({
   const [openCard, setOpenCard] = useState<OpenCardType>(null);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
   const [showHighValueWarning, setShowHighValueWarning] = useState(false);
+  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [isFormReady, setIsFormReady] = useState(false);
   const isSavingRef = useRef(false);
 
@@ -289,6 +290,12 @@ export const SaveEntrySheet = ({
   };
 
   const handleSave = () => {
+    // Check if entry is already finalized (prevent accidental overwrite)
+    if (entry?.is_finalized) {
+      setShowOverwriteWarning(true);
+      return;
+    }
+    
     // Check for data quality issue first
     if (hasResultsWithoutActivity()) {
       setShowDataQualityWarning(true);
@@ -882,6 +889,47 @@ export const SaveEntrySheet = ({
             size="lg"
           >
             Yes, Numbers Are Correct
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
+
+    <Drawer open={showOverwriteWarning} onOpenChange={setShowOverwriteWarning}>
+      <DrawerContent className="pb-safe">
+        <DrawerHeader className="mb-6">
+          <DrawerTitle>Already Saved ⚠️</DrawerTitle>
+          <DrawerDescription>
+            This day's entry has already been saved. Saving again will overwrite your existing data.
+            Are you sure you want to continue?
+          </DrawerDescription>
+        </DrawerHeader>
+        
+        <div className="px-4 text-sm text-muted-foreground mb-6">
+          If you need to make changes, your existing data will be replaced with the current values shown.
+        </div>
+        
+        <div className="flex flex-col gap-3 mt-6 px-4">
+          <Button
+            onClick={() => {
+              setShowOverwriteWarning(false);
+            }}
+            variant="default"
+            className="w-full py-6 text-lg font-semibold"
+            size="lg"
+          >
+            Keep Existing Data
+          </Button>
+          <Button
+            onClick={() => {
+              setShowOverwriteWarning(false);
+              // Skip other validations since they already saved once
+              proceedWithSave();
+            }}
+            variant="outline"
+            className="w-full py-6 text-lg font-semibold text-destructive"
+            size="lg"
+          >
+            Overwrite Data
           </Button>
         </div>
       </DrawerContent>
