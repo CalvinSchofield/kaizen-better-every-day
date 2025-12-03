@@ -7,7 +7,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Send, Loader2, Calculator } from "lucide-react";
+import { Send, Loader2, Calculator, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
@@ -23,6 +23,28 @@ interface UpgradePrmrCalculatorProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-upgrade-prmr`;
 
+// Extract PRMR value from AI response
+const extractPrmrValue = (text: string): number | null => {
+  // Look for patterns like "$XX.XX PRMR", "PRMR: $XX.XX", "PRMR is $XX.XX", etc.
+  const patterns = [
+    /\$?([\d,]+(?:\.\d{1,2})?)\s*(?:PRMR|prmr)/i,
+    /(?:PRMR|prmr)(?:\s*(?:is|:|=))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:total|final)\s*(?:PRMR|prmr)(?:\s*(?:is|:|=))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:your|the)\s*(?:PRMR|prmr)(?:\s*(?:is|would be|comes to|equals))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const value = parseFloat(match[1].replace(/,/g, ''));
+      if (!isNaN(value) && value > 0 && value < 1000) {
+        return value;
+      }
+    }
+  }
+  return null;
+};
+
 export const UpgradePrmrCalculator = ({
   open,
   onOpenChange,
@@ -36,6 +58,7 @@ export const UpgradePrmrCalculator = ({
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [detectedPrmr, setDetectedPrmr] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -51,6 +74,15 @@ export const UpgradePrmrCalculator = ({
     }
   }, [messages]);
 
+  // Check for PRMR values in assistant messages
+  useEffect(() => {
+    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
+    if (lastAssistantMessage) {
+      const prmr = extractPrmrValue(lastAssistantMessage.content);
+      setDetectedPrmr(prmr);
+    }
+  }, [messages]);
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -58,6 +90,7 @@ export const UpgradePrmrCalculator = ({
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+    setDetectedPrmr(null);
 
     let assistantContent = "";
 
@@ -118,15 +151,6 @@ export const UpgradePrmrCalculator = ({
           }
         }
       }
-
-      // Try to extract PRMR from response
-      const prmrMatch = assistantContent.match(/\$?([\d.]+)\s*(?:PRMR|per month|monthly)/i);
-      if (prmrMatch && onPrmrCalculated) {
-        const prmr = parseFloat(prmrMatch[1]);
-        if (!isNaN(prmr) && prmr > 0) {
-          // Don't auto-apply, let user decide
-        }
-      }
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => [...prev, { 
@@ -145,12 +169,20 @@ export const UpgradePrmrCalculator = ({
     }
   };
 
+  const handleUsePrmr = () => {
+    if (detectedPrmr && onPrmrCalculated) {
+      onPrmrCalculated(detectedPrmr);
+      onOpenChange(false);
+    }
+  };
+
   const resetChat = () => {
     setMessages([{
       role: "assistant",
       content: "Hi! I'll help you calculate your PRMR for this upgrade. What equipment did you sell? (List each item and I'll add up the total)"
     }]);
     setInput("");
+    setDetectedPrmr(null);
   };
 
   return (
@@ -195,7 +227,20 @@ export const UpgradePrmrCalculator = ({
             </div>
           </ScrollArea>
 
-          <div className="flex gap-2 pt-3 border-t border-border mt-auto">
+          {/* Use PRMR button */}
+          {detectedPrmr && !isLoading && (
+            <div className="py-3 border-t border-border">
+              <Button
+                onClick={handleUsePrmr}
+                className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Use ${detectedPrmr.toFixed(2)} PRMR
+              </Button>
+            </div>
+          )}
+
+          <div className={`flex gap-2 pt-3 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'} mt-auto`}>
             <Input
               ref={inputRef}
               value={input}
