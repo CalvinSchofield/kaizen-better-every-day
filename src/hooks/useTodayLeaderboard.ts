@@ -19,35 +19,62 @@ interface TodayLeaderboard {
   };
 }
 
+// Get "today" date string for a given timezone
+const getTodayInTimezone = (timezone: string | null): string => {
+  try {
+    const tz = timezone || 'America/Los_Angeles'; // Default to Pacific
+    const now = new Date();
+    // Format the current time in the target timezone to get local date
+    const formatter = new Intl.DateTimeFormat('en-CA', { 
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(now); // Returns YYYY-MM-DD format
+  } catch {
+    // Fallback to local date if timezone is invalid
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+};
+
 export const useTodayLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["today-leaderboard", filterByYear],
     queryFn: async () => {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-
+      // Fetch reps with timezone info
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year");
+        .select("user_id, name, year, timezone");
 
       if (repsError) throw repsError;
 
-      const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
+      const repsMap = new Map(repsData?.map(r => [r.user_id, { 
+        name: r.name, 
+        year: r.year,
+        timezone: r.timezone 
+      }]) || []);
 
-      // Fetch ALL entries for today (both finalized and unfinalized)
+      // Fetch recent entries (RLS allows last 2 days for timezone coverage)
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr")
-        .eq("entry_date", todayStr);
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr");
 
       if (error) throw error;
 
+      // Filter entries to only include those where entry_date matches "today" in rep's timezone
+      const todayEntries = entries?.filter(entry => {
+        const repInfo = repsMap.get(entry.user_id);
+        if (!repInfo) return false;
+        
+        const repToday = getTodayInTimezone(repInfo.timezone);
+        return entry.entry_date === repToday;
+      }) || [];
+
       const filteredEntries = filterByYear 
-        ? entries?.filter(e => repsMap.get(e.user_id)?.year === filterByYear) || []
-        : entries || [];
+        ? todayEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
+        : todayEntries;
 
       // Create rankings arrays for each metric
       const createRanking = (field: keyof typeof filteredEntries[0]): RankingEntry[] => {
