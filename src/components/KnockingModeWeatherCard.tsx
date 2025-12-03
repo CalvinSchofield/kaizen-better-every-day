@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KnockingModeWeatherCardProps {
   repData: any;
@@ -234,8 +235,26 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   // Check time-based visibility
   if (!shouldShowWeather) return null;
 
+  // Show skeleton while loading
   if (loading) {
-    return null;
+    return (
+      <div className="w-full rounded-lg bg-card border border-border mb-6 p-6">
+        <div className="flex items-start gap-6">
+          <Skeleton className="w-16 h-16 rounded-lg flex-shrink-0" />
+          <div className="flex-1 space-y-3">
+            <div>
+              <Skeleton className="h-6 w-32 mb-2" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <div className="flex items-baseline gap-3">
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+            <Skeleton className="h-4 w-full mt-2" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!weather) return null;
