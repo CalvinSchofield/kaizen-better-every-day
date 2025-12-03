@@ -240,11 +240,11 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     if (!currentUserId) return null;
 
     const boards = [
-      { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
-      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason', filterKey: 'preseason' as const },
-      { board: monthlyBoard, timeframe: 'this month', filterKey: 'month' as const },
-      { board: weeklyBoard, timeframe: 'this week', filterKey: 'week' as const },
       { board: yesterdayBoard, timeframe: 'yesterday', filterKey: 'yesterday' as const },
+      { board: weeklyBoard, timeframe: 'this week', filterKey: 'week' as const },
+      { board: monthlyBoard, timeframe: 'this month', filterKey: 'month' as const },
+      { board: seasonBoard, timeframe: isSummer ? 'this summer' : 'preseason', filterKey: 'preseason' as const },
+      { board: ytdBoard, timeframe: 'year to date', filterKey: 'ytd' as const },
     ];
 
     // ======= PASS 1: Find where the USER is the leader =======
