@@ -67,8 +67,12 @@ export const useDailyEntry = (date?: string) => {
       
       return null;
     },
-    staleTime: 1000, // Allow refetch when stale (1 second)
+    // BULLETPROOF: Increased staleTime to 30 seconds to prevent
+    // refetch from overwriting optimistic updates during active tracking
+    staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
+    // Don't refetch on window focus during active session
+    refetchOnWindowFocus: false,
   });
 
   // Update counter mutation (auto-save)
@@ -157,10 +161,12 @@ export const useDailyEntry = (date?: string) => {
       toast.error('Failed to save counter');
     },
     onSettled: () => {
-      // Refetch to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey: ['daily-entry', entryDate] });
-      // Also invalidate activity summary to update real-time
+      // BULLETPROOF: DON'T invalidate daily-entry during active tracking
+      // This was causing race conditions where stale data overwrote optimistic updates
+      // Only invalidate activity summary for real-time leaderboard updates
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      // Invalidate today leaderboard for live rankings
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
     },
   });
 
