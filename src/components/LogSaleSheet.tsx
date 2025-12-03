@@ -254,6 +254,10 @@ export const LogSaleSheet = ({
       <UpgradePrmrCalculator
         open={showCalculator}
         onOpenChange={setShowCalculator}
+        onPrmrCalculated={(value) => {
+          setPrmr(value.toFixed(2));
+          setShowCalculator(false);
+        }}
       />
     </Drawer>
   );
