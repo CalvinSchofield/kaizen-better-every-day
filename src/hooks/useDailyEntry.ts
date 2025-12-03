@@ -329,7 +329,7 @@ export const useDailyEntry = (date?: string) => {
     },
     isLoading,
     updateCounter: updateCounterMutation.mutateAsync,
-    finalizeEntry: finalizeEntryMutation.mutate,
+    finalizeEntry: finalizeEntryMutation.mutateAsync, // Use mutateAsync so we can await it
     deleteEntry: deleteEntryMutation.mutate,
     resetEntry: resetEntryMutation.mutate,
     clearLocalEntry,

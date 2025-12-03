@@ -11,11 +11,12 @@ import confetti from "canvas-confetti";
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
-  const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
+  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
   const [isPreviousDayReviewOpen, setIsPreviousDayReviewOpen] = useState(false);
+  const [isSaveInProgress, setIsSaveInProgress] = useState(false);
 
   // Get custom counter config
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -109,13 +110,19 @@ const TrackWithLayout = () => {
     return () => clearInterval(interval);
   }, [entry, finalizeEntry]);
 
-  // Handle save - DO NOT reset local state, let the saved data remain visible
-  // Visual feedback comes from toast notification and sheet closing
+  // Handle save - reset local UI state ONLY after confirmed successful save
   const handleSave = async (data: any) => {
-    await finalizeEntry(data);
-    // IMPORTANT: Do NOT call clearLocalEntry() or resetEntry() here!
-    // Those would set cache to zeros which can trigger updateCounter to write zeros to DB
-    // The saved data should remain visible until user navigates away
+    setIsSaveInProgress(true);
+    try {
+      await finalizeEntry(data);
+      // Save succeeded - now safe to clear the UI
+      clearLocalEntry();
+    } catch (error) {
+      console.error('Save failed:', error);
+      // Don't clear - keep the data visible so user can try again
+    } finally {
+      setIsSaveInProgress(false);
+    }
   };
 
   // Handle previous day save
@@ -178,6 +185,12 @@ const TrackWithLayout = () => {
   };
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
+    // Prevent counter changes while save is in progress to avoid race conditions
+    if (isSaveInProgress) {
+      console.log('Ignoring counter change - save in progress');
+      return;
+    }
+    
     // Get current value to determine if adding or subtracting
     const currentValue = field.startsWith('custom_') 
       ? (entry.custom_counters?.[field.replace('custom_', '')] || 0)
@@ -249,7 +262,7 @@ const TrackWithLayout = () => {
     
     // Immediately call updateCounter for instant optimistic UI update
     await updateCounter(updates);
-  }, [entry, updateCounter]);
+  }, [entry, updateCounter, isSaveInProgress]);
 
   const handleStartWork = () => {
     // If work already started but not ended, end it instead
