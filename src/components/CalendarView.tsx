@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
@@ -46,45 +46,43 @@ export const CalendarView = ({
   // Get entry from entries prop (already fresh from all-daily-entries query)
   const selectedEntry = selectedDate ? entries.find(e => e.entry_date === format(selectedDate, 'yyyy-MM-dd')) : null;
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-  const weekStart = startOfWeek(currentDate);
-  const weekEnd = endOfWeek(currentDate);
+  const { monthStart, monthEnd, calendarStart, calendarEnd, weekStart, weekEnd, days } = useMemo(() => {
+    const ms = startOfMonth(currentDate);
+    const me = endOfMonth(currentDate);
+    const cs = startOfWeek(ms);
+    const ce = endOfWeek(me);
+    const ws = startOfWeek(currentDate);
+    const we = endOfWeek(currentDate);
+    const d = viewMode === "month" 
+      ? eachDayOfInterval({ start: cs, end: ce })
+      : eachDayOfInterval({ start: ws, end: we });
+    return { monthStart: ms, monthEnd: me, calendarStart: cs, calendarEnd: ce, weekStart: ws, weekEnd: we, days: d };
+  }, [currentDate, viewMode]);
 
-  const days = viewMode === "month" 
-    ? eachDayOfInterval({ start: calendarStart, end: calendarEnd })
-    : eachDayOfInterval({ start: weekStart, end: weekEnd });
+  // Calculate previous period totals for comparison (memoized)
+  const prevPeriodTotals = useMemo(() => {
+    const prevPeriodStart = viewMode === "week" 
+      ? subWeeks(weekStart, 1)
+      : subMonths(monthStart, 1);
+    
+    const prevPeriodEnd = viewMode === "week"
+      ? subWeeks(weekEnd, 1)
+      : subMonths(monthEnd, 1);
 
-  // Calculate previous period for comparison
-  const prevPeriodStart = viewMode === "week" 
-    ? subWeeks(weekStart, 1)
-    : viewMode === "month"
-    ? subMonths(monthStart, 1)
-    : null;
-  
-  const prevPeriodEnd = viewMode === "week"
-    ? subWeeks(weekEnd, 1)
-    : viewMode === "month"
-    ? subMonths(monthEnd, 1)
-    : null;
+    return entries.reduce((totals, entry) => {
+      const [year, month, day] = entry.entry_date.split('-').map(Number);
+      const entryDate = new Date(year, month - 1, day);
+      const isInPrevPeriod = entryDate >= prevPeriodStart && entryDate <= prevPeriodEnd;
 
-  // Calculate previous period totals for comparison
-  const prevPeriodTotals = prevPeriodStart && prevPeriodEnd ? entries.reduce((totals, entry) => {
-    // Parse entry_date as local date to avoid timezone issues
-    const [year, month, day] = entry.entry_date.split('-').map(Number);
-    const entryDate = new Date(year, month - 1, day);
-    const isInPrevPeriod = entryDate >= prevPeriodStart && entryDate <= prevPeriodEnd;
-
-    if (isInPrevPeriod && entry.is_finalized) {
-      totals.fpPlus += entry.fp_plus || 0;
-      totals.prmr += entry.prmr || 0;
-      totals.upgradePrmr += entry.upgrade_prmr || 0;
-      totals.daysWorked += 1;
-    }
-    return totals;
-  }, { fpPlus: 0, prmr: 0, upgradePrmr: 0, daysWorked: 0 }) : null;
+      if (isInPrevPeriod && entry.is_finalized) {
+        totals.fpPlus += entry.fp_plus || 0;
+        totals.prmr += entry.prmr || 0;
+        totals.upgradePrmr += entry.upgrade_prmr || 0;
+        totals.daysWorked += 1;
+      }
+      return totals;
+    }, { fpPlus: 0, prmr: 0, upgradePrmr: 0, daysWorked: 0 });
+  }, [entries, viewMode, weekStart, weekEnd, monthStart, monthEnd]);
 
   const isKnockingDay = (date: Date) => {
     const isSunday = getDay(date) === 0;
@@ -109,9 +107,16 @@ export const CalendarView = ({
     return hasData;
   };
 
+  // Create entry lookup map (memoized for fast access)
+  const entryMap = useMemo(() => {
+    const map = new Map<string, any>();
+    entries.forEach(e => map.set(e.entry_date, e));
+    return map;
+  }, [entries]);
+
   const getEntryForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return entries.find((e) => e.entry_date === dateStr);
+    return entryMap.get(dateStr);
   };
 
   const nextPeriod = () => {
@@ -188,8 +193,8 @@ export const CalendarView = ({
     ? isSameMonth(currentDate, today)
     : today >= weekStart && today <= weekEnd;
 
-  // Calculate totals for the current view
-  const viewTotals = entries.reduce((totals, entry) => {
+  // Calculate totals for the current view (memoized)
+  const viewTotals = useMemo(() => entries.reduce((totals, entry) => {
     // Parse entry_date as local date to avoid timezone issues
     const [year, month, day] = entry.entry_date.split('-').map(Number);
     const entryDate = new Date(year, month - 1, day);
@@ -244,7 +249,7 @@ export const CalendarView = ({
     closes: 0,
     daysWorked: 0,
     totalWorkMinutes: 0
-  });
+  }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
   // Calculate display values based on view mode
   const getDisplayValue = (value: number) => {
