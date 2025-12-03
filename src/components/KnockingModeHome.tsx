@@ -12,12 +12,13 @@ import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useQueryClient } from "@tanstack/react-query";
+import { useDailyEntry } from "@/hooks/useDailyEntry";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -42,6 +43,20 @@ export const KnockingModeHome = ({
   const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { isOnActiveBlitz } = useAppMode(repData);
+  const { entry } = useDailyEntry();
+
+  // Activity-based layout: has user started tracking today?
+  const hasStartedWorkToday = useMemo(() => {
+    if (!entry || entry.is_finalized) return false;
+    return (
+      (entry.doors_knocked ?? 0) > 0 ||
+      (entry.decision_makers ?? 0) > 0 ||
+      (entry.pitches ?? 0) > 0 ||
+      (entry.transitions ?? 0) > 0 ||
+      (entry.presentations ?? 0) > 0 ||
+      (entry.closes ?? 0) > 0
+    );
+  }, [entry]);
 
   const handleLogout = async () => {
     // Clear all caches before signing out
@@ -58,21 +73,6 @@ export const KnockingModeHome = ({
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   };
-
-  // Determine weather card position and section ordering based on time of day
-  const getTimeBasedLayout = () => {
-    const now = new Date();
-    const hours = now.getHours();
-    
-    // Night mode after 9pm: Special ordering
-    const isNightMode = hours >= 21;
-    // Morning before noon: Weather at position 2
-    const isWeatherAtTop = hours < 12;
-    
-    return { isNightMode, isWeatherAtTop };
-  };
-
-  const { isNightMode, isWeatherAtTop } = getTimeBasedLayout();
 
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   
@@ -109,17 +109,16 @@ export const KnockingModeHome = ({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
-        <DailyFocusCard repData={repData} />
-        
-        {/* Night mode (after 9pm): Today's focus, Leaderboard, Today's results, Weather, Pitches, Competitors */}
-        {isNightMode && (
+        {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
+        {!hasStartedWorkToday && (
           <>
-            <LeaderboardCard />
-            <FPCumulativeChart />
-            <ActivitySummaryCard repData={repData} />
             <div className="animate-fade-in">
               <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
             </div>
+            <ActivitySummaryCard repData={repData} />
+            <DailyFocusCard repData={repData} />
+            <LeaderboardCard />
+            <FPCumulativeChart />
             
             {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
@@ -139,17 +138,13 @@ export const KnockingModeHome = ({
           </>
         )}
         
-        {/* Day/Morning mode: Standard ordering */}
-        {!isNightMode && (
+        {/* Working layout: Focus first, then Activity, Leaderboard, YTD (no weather) */}
+        {hasStartedWorkToday && (
           <>
-            {/* Morning: Weather at position 2, otherwise at bottom */}
-            {isWeatherAtTop && (
-              <div className="animate-fade-in">
-                <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-              </div>
-            )}
-            
+            <DailyFocusCard repData={repData} />
             <ActivitySummaryCard repData={repData} />
+            <LeaderboardCard />
+            <FPCumulativeChart />
             
             {/* Blitz Management (Team Leads only, if blitz within 14 days) */}
             {isTeamLead && anyBlitzWithin14Days && (
@@ -165,16 +160,6 @@ export const KnockingModeHome = ({
                 <PitchPresentationQuickAccess />
                 <RookieCompetitorQuickAccess />
               </>
-            )}
-            
-            <LeaderboardCard />
-            <FPCumulativeChart />
-            
-            {/* Weather at bottom if not morning */}
-            {!isWeatherAtTop && (
-              <div className="animate-fade-in">
-                <KnockingModeWeatherCard repData={repData} isOnActiveBlitz={isOnActiveBlitz} />
-              </div>
             )}
           </>
         )}
