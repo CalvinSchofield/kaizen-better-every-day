@@ -264,9 +264,48 @@ export const LeaderboardCard = () => {
           {/* Today Leaderboard - Full Rankings with User Position */}
           {timeFilter === 'today' && todayBoard && (
             <div className="px-6 pb-4 space-y-4">
+              {/* Top FP+ and PRMR - Same format as other timeframes */}
+              {(() => {
+                const topFP = todayBoard.rankings.fp_plus[0];
+                const topPRMR = todayBoard.rankings.prmr[0];
+                const topCategories = [
+                  { entry: topFP, label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+                  { entry: topPRMR, label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
+                ].filter(c => c.entry && c.entry.value > 0);
+
+                if (topCategories.length === 0) return null;
+
+                return (
+                  <div className="space-y-3 border-b border-border pb-4 mb-2">
+                    {topCategories.map(({ entry, label, format }) => {
+                      const isCurrentUser = currentUserId && entry.userId === currentUserId;
+                      return (
+                        <div key={label} className="flex items-center justify-between py-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">🥇</span>
+                            <span className="text-foreground text-sm font-medium">{label}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-semibold flex items-center ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
+                              {isCurrentUser ? 'You' : entry.name} {isCurrentUser && '⭐'}
+                              <WorkingIndicator 
+                                isWorking={entry.isWorking || false}
+                                isCurrentUser={isCurrentUser || false}
+                              />
+                            </span>
+                            <span className={`text-sm font-bold ${label.includes('PRMR') ? 'text-green-700 dark:text-green-500' : ''}`}>
+                              {format(entry.value)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Activity Rankings */}
               {[
-                { key: 'fp_plus', label: 'FP+', format: (v: number) => v.toFixed(1) },
-                { key: 'prmr', label: 'PRMR', format: (v: number) => `$${v.toFixed(0)}` },
                 { key: 'presentations', label: 'Presentations', format: (v: number) => v.toString() },
                 { key: 'transitions', label: 'Transitions', format: (v: number) => v.toString() },
                 { key: 'pitches', label: 'Pitches', format: (v: number) => v.toString() },
@@ -277,13 +316,12 @@ export const LeaderboardCard = () => {
 
                 const userRank = rankings.findIndex(r => r.userId === currentUserId) + 1;
                 const userEntry = rankings.find(r => r.userId === currentUserId);
-                const isUserInTop3 = userRank > 0 && userRank <= 3;
                 const leader = rankings[0];
                 const gap = leader && userEntry ? leader.value - userEntry.value : 0;
 
                 // Only show encouraging message when within striking distance (rank 2-3)
                 const getEncouragement = () => {
-                  if (userRank === 2 && gap > 0) return `${gap.toFixed(key === 'fp_plus' ? 1 : 0)} behind — you got this!`;
+                  if (userRank === 2 && gap > 0) return `${gap.toFixed(0)} behind — you got this!`;
                   if (userRank === 3) return "Top 3! Keep pushing! 💪";
                   return null;
                 };
