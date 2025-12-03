@@ -178,8 +178,21 @@ All colors MUST be HSL.
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* Support for device notches and safe areas */
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Safe areas handled by Layout component - don't add padding here */
+  }
+  
+  /* Safe area CSS variables for consistent usage */
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+    
+    /* App layout constants - generous spacing like LinkedIn */
+    --header-height: 3.5rem;
+    --header-padding-top: max(0.75rem, var(--safe-area-top));
+    --nav-height: 4.5rem;
+    --nav-padding-bottom: max(0.5rem, var(--safe-area-bottom));
   }
   
   #root {
@@ -216,9 +229,13 @@ All colors MUST be HSL.
     transition: transform 700ms cubic-bezier(0.65, 0, 0.35, 1);
   }
   
-  /* Safe area padding helper */
+  /* Safe area padding helpers */
   .pb-safe {
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--nav-height) + var(--nav-padding-bottom));
+  }
+  
+  .pt-safe {
+    padding-top: calc(var(--header-height) + var(--header-padding-top));
   }
   
   /* Hide scrollbar while maintaining scroll functionality */

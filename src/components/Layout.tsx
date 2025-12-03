@@ -165,19 +165,26 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-background flex flex-col" style={{ paddingBottom: 'calc(var(--nav-height) + var(--nav-padding-bottom))' }}>
       {/* Header with Hamburger Menu - uniform styling across pages */}
-      <header className={`sticky top-0 z-40 border-b px-4 py-2 ${
-        isHomePage 
-          ? "bg-primary text-primary-foreground border-primary-foreground/20" 
-          : "bg-card text-foreground border-border"
-      }`} style={{ paddingTop: `max(0.5rem, env(safe-area-inset-top))` }}>
-        <div className="relative flex items-center justify-center">
+      <header 
+        className={`sticky top-0 z-40 border-b px-4 ${
+          isHomePage 
+            ? "bg-primary text-primary-foreground border-primary-foreground/20" 
+            : "bg-card text-foreground border-border"
+        }`} 
+        style={{ 
+          paddingTop: 'var(--header-padding-top)',
+          paddingBottom: '0.75rem',
+          minHeight: 'calc(var(--header-height) + var(--header-padding-top))'
+        }}
+      >
+        <div className="relative flex items-center justify-center h-10">
           {/* Left side - menu button (absolute positioned) */}
           <div className="absolute left-0 flex justify-start">
             <AppDrawer
               trigger={
-                <Button variant="ghost" size="icon" className={isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}>
+                <Button variant="ghost" size="icon" className={`h-10 w-10 ${isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}`}>
                   <Menu className="h-6 w-6" />
                 </Button>
               }
@@ -199,18 +206,18 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   onClick={onSave}
                   disabled={isSaving}
                   size="icon"
-                  className="h-9 w-9 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
+                  className="h-10 w-10 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
                 >
-                  <Save className="h-4 w-4" />
+                  <Save className="h-5 w-5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={onReset}
                   disabled={isResetting}
-                  className="h-9 w-9"
+                  className="h-10 w-10"
                 >
-                  <RotateCcw className="h-4 w-4" />
+                  <RotateCcw className="h-5 w-5" />
                 </Button>
               </div>
             ) : null}
@@ -222,9 +229,12 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         {children}
       </main>
       
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+      {/* Bottom Navigation - generous spacing for touch targets */}
+      <nav 
+        className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50"
+        style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
+      >
+        <div className="flex items-center justify-around max-w-lg mx-auto px-2" style={{ height: 'var(--nav-height)' }}>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -234,13 +244,13 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+                className={`flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors ${
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="relative mb-1">
+                <div className="relative mb-1.5">
                   <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
                   {isLocked && (
                     <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
