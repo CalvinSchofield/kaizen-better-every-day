@@ -124,7 +124,8 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           if (sale.type === 'fp') {
             fp += 1;
           } else if (sale.type === 'upgrade') {
-            fp += 0.5;
+            // Upgrade FP+ = PRMR / 85
+            fp += salePrmr / 85;
           }
         }
         
