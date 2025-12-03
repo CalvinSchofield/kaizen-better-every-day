@@ -7,6 +7,7 @@ import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface LeaderboardCTAProps {
   isOnActiveBlitz: boolean;
@@ -69,12 +70,14 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
   // Rookies should only see rookie leaderboards
   const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
 
-  const { data: todayBoard } = useTodayLeaderboard(filterByYear);
-  const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
-  const { data: yesterdayBoard } = useYesterdayLeaderboard(filterByYear);
-  const { data: weeklyBoard } = useWeeklyLeaderboard(filterByYear);
-  const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
-  const { data: seasonBoard } = useSeasonLeaderboard(filterByYear, isSummer);
+  const { data: todayBoard, isLoading: todayLoading } = useTodayLeaderboard(filterByYear);
+  const { data: ytdBoard, isLoading: ytdLoading } = useYTDLeaderboard(filterByYear);
+  const { data: yesterdayBoard, isLoading: yesterdayLoading } = useYesterdayLeaderboard(filterByYear);
+  const { data: weeklyBoard, isLoading: weeklyLoading } = useWeeklyLeaderboard(filterByYear);
+  const { data: monthlyBoard, isLoading: monthlyLoading } = useMonthlyLeaderboard(filterByYear);
+  const { data: seasonBoard, isLoading: seasonLoading } = useSeasonLeaderboard(filterByYear, isSummer);
+  
+  const isLoading = todayLoading || ytdLoading || yesterdayLoading || weeklyLoading || monthlyLoading || seasonLoading || !currentUserId;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -305,6 +308,17 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
     return null;
   }, [todayCallout, ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
+
+  // Show skeleton while loading
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 w-full px-6 py-3 rounded-lg bg-primary-foreground/10 mb-3">
+        <Skeleton className="w-8 h-8 rounded-full flex-shrink-0 bg-primary-foreground/20" />
+        <Skeleton className="h-5 flex-1 bg-primary-foreground/20" />
+        <Skeleton className="w-5 h-5 flex-shrink-0 bg-primary-foreground/20" />
+      </div>
+    );
+  }
 
   if (!callout) return null;
 
