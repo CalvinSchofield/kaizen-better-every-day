@@ -7,7 +7,13 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Trash2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Trash2, HelpCircle, ExternalLink } from "lucide-react";
 
 export interface Sale {
   id: string;
@@ -24,7 +30,11 @@ interface LogSaleSheetProps {
   editingSale?: Sale | null;
   onUpdateSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
+  showPrmrHelper?: boolean; // Show helper for rookies or reps with <20 FP+
 }
+
+// GPT link for upgrade PRMR calculation
+const UPGRADE_GPT_URL = "https://chatgpt.com/g/g-6839cccc5b3c81919ab1bc0c6f11eb72-vivint-upgrade-prmr-calculator";
 
 export const LogSaleSheet = ({
   open,
@@ -34,9 +44,11 @@ export const LogSaleSheet = ({
   editingSale,
   onUpdateSale,
   onDeleteSale,
+  showPrmrHelper = false,
 }: LogSaleSheetProps) => {
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
+  const [showHelperContent, setShowHelperContent] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset form when opening, populate when editing
@@ -49,6 +61,7 @@ export const LogSaleSheet = ({
         setSaleType('fp');
         setPrmr("");
       }
+      setShowHelperContent(false);
       // Auto-focus input after a short delay
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -84,6 +97,17 @@ export const LogSaleSheet = ({
     }
   };
 
+  const handleHelperClick = () => {
+    if (saleType === 'upgrade') {
+      // Open GPT with prefilled message
+      const prefillMessage = encodeURIComponent("Help me calculate my PRMR on this upgrade. I'll give you a list of equipment I sold and then help me figure out the total when considering if the cameras were marked as \"new\" or \"replacements\"");
+      window.open(`${UPGRADE_GPT_URL}?q=${prefillMessage}`, '_blank');
+    } else {
+      // Toggle FP helper content
+      setShowHelperContent(!showHelperContent);
+    }
+  };
+
   const isEditing = !!editingSale;
 
   return (
@@ -105,7 +129,10 @@ export const LogSaleSheet = ({
           <div className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
               type="button"
-              onClick={() => setSaleType('fp')}
+              onClick={() => {
+                setSaleType('fp');
+                setShowHelperContent(false);
+              }}
               className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
                 saleType === 'fp'
                   ? 'bg-primary text-primary-foreground shadow-md'
@@ -116,7 +143,10 @@ export const LogSaleSheet = ({
             </button>
             <button
               type="button"
-              onClick={() => setSaleType('upgrade')}
+              onClick={() => {
+                setSaleType('upgrade');
+                setShowHelperContent(false);
+              }}
               className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
                 saleType === 'upgrade'
                   ? 'bg-emerald-600 text-white shadow-md'
@@ -129,9 +159,49 @@ export const LogSaleSheet = ({
 
           {/* PRMR Input */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              PRMR Amount
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                PRMR Amount
+              </label>
+              {showPrmrHelper && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleHelperClick}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[250px]">
+                      <p className="text-xs">
+                        {saleType === 'upgrade' 
+                          ? "Tap to open the PRMR calculator for upgrades"
+                          : "Tap for help finding your PRMR"
+                        }
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+            
+            {/* FP Helper Content */}
+            {showPrmrHelper && showHelperContent && saleType === 'fp' && (
+              <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-2 border border-border">
+                <p className="font-medium text-foreground">How to find PRMR on Street Genie:</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>On the account in Street Genie, click the <span className="font-medium text-foreground">three dots</span> (top right)</li>
+                  <li>Select <span className="font-medium text-foreground">PRMR Estimator</span></li>
+                </ol>
+                <p className="text-xs text-muted-foreground italic mt-2">
+                  *Check Curator the next day to ensure accuracy—sometimes an item might be removed during install or rarely there's a glitch that should be corrected.
+                </p>
+              </div>
+            )}
+            
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">
                 $
