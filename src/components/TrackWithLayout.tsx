@@ -11,7 +11,7 @@ import confetti from "canvas-confetti";
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
-  const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
+  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
@@ -109,11 +109,12 @@ const TrackWithLayout = () => {
     return () => clearInterval(interval);
   }, [entry, finalizeEntry]);
 
-  // Handle save - only reset UI state, don't overwrite the finalized entry
+  // Handle save - reset local UI state after successful save (without DB write)
   const handleSave = async (data: any) => {
     await finalizeEntry(data);
-    // Note: Do NOT call resetEntry() here - it would overwrite the just-saved entry
-    // The UI will naturally reset when the user navigates away or the page refreshes
+    // Clear local cache to reset UI to zeros (does NOT write to DB)
+    // This gives the user visual feedback that save completed
+    clearLocalEntry();
   };
 
   // Handle previous day save
