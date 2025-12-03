@@ -57,9 +57,10 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       }]) || []);
 
       // Fetch recent entries (RLS allows last 2 days for timezone coverage)
+      // Include is_finalized to prioritize finalized data
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr");
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, is_finalized");
 
       if (error) throw error;
 
@@ -71,6 +72,14 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
         const repToday = getTodayInTimezone(repInfo.timezone);
         return entry.entry_date === repToday;
       }) || [];
+      
+      // PROTECTION LAYER: Sort so finalized entries appear first (finalized > unfinalized)
+      // This ensures when there's both finalized and unfinalized for same user, finalized wins
+      todayEntries.sort((a, b) => {
+        if (a.is_finalized && !b.is_finalized) return -1;
+        if (!a.is_finalized && b.is_finalized) return 1;
+        return 0;
+      });
 
       const filteredEntries = filterByYear 
         ? todayEntries.filter(e => repsMap.get(e.user_id)?.year === filterByYear)
