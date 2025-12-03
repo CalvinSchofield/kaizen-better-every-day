@@ -349,7 +349,7 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="text-xs text-primary font-semibold mt-1">
-                    {efpModeEnabled ? formatValue(calculateEfp((entry.prmr || 0) + (entry.upgrade_prmr || 0))) : formatValue(entry.fp_plus || 0)}
+                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
               </div>
@@ -393,7 +393,7 @@ export const CalendarView = ({
                     {efpModeEnabled ? (
                       <>
                         <div className="text-xs text-primary font-semibold">
-                          {formatValue(calculateEfp((entry.prmr || 0) + (entry.upgrade_prmr || 0)))} EFP
+                          {formatValue(calculateEfp(entry.prmr || 0))} EFP
                         </div>
                         <div className="text-xs text-muted-foreground font-medium">
                           {formatValue(entry.fp_plus || 0)} FP+
@@ -447,13 +447,13 @@ export const CalendarView = ({
             <div className="text-base font-semibold text-foreground">
               {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
             </div>
-            <div className="flex gap-4 text-sm">
-              {efpModeEnabled ? (
-                <>
-                  <div>
-                    <span className="font-bold text-primary">
-                      {calculateEfp(viewTotals.prmr + viewTotals.upgradePrmr).toFixed(1)}
-                    </span>
+              <div className="flex gap-4 text-sm">
+                {efpModeEnabled ? (
+                  <>
+                    <div>
+                      <span className="font-bold text-primary">
+                        {calculateEfp(viewTotals.prmr).toFixed(1)}
+                      </span>
                     <span className="text-muted-foreground ml-1">EFP</span>
                   </div>
                   <div>
