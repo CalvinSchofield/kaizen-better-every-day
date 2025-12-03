@@ -11,7 +11,7 @@ import confetti from "canvas-confetti";
 
 const TrackWithLayout = () => {
   const { repData } = useRepData();
-  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
+  const { entry, updateCounter, finalizeEntry, resetEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
@@ -109,12 +109,13 @@ const TrackWithLayout = () => {
     return () => clearInterval(interval);
   }, [entry, finalizeEntry]);
 
-  // Handle save - reset local UI state after successful save (without DB write)
+  // Handle save - DO NOT reset local state, let the saved data remain visible
+  // Visual feedback comes from toast notification and sheet closing
   const handleSave = async (data: any) => {
     await finalizeEntry(data);
-    // Clear local cache to reset UI to zeros (does NOT write to DB)
-    // This gives the user visual feedback that save completed
-    clearLocalEntry();
+    // IMPORTANT: Do NOT call clearLocalEntry() or resetEntry() here!
+    // Those would set cache to zeros which can trigger updateCounter to write zeros to DB
+    // The saved data should remain visible until user navigates away
   };
 
   // Handle previous day save
