@@ -109,11 +109,11 @@ const TrackWithLayout = () => {
     return () => clearInterval(interval);
   }, [entry, finalizeEntry]);
 
-  // Handle save with auto-reset
+  // Handle save - only reset UI state, don't overwrite the finalized entry
   const handleSave = async (data: any) => {
     await finalizeEntry(data);
-    // Reset counters and timers after successful save
-    await resetEntry();
+    // Note: Do NOT call resetEntry() here - it would overwrite the just-saved entry
+    // The UI will naturally reset when the user navigates away or the page refreshes
   };
 
   // Handle previous day save
