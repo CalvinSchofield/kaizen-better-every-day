@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+export interface Sale {
+  id: string;
+  type: 'fp' | 'upgrade';
+  prmr: number;
+  timestamp: string;
+}
+
 export interface DailyEntry {
   id: string;
   user_id: string;
@@ -24,6 +31,7 @@ export interface DailyEntry {
   counter_timestamps?: Record<string, string[]>;
   timezone?: string | null;
   custom_counters?: Record<string, number>;
+  sales_log?: Sale[];
 }
 
 const getTodayDate = () => {
@@ -62,6 +70,7 @@ export const useDailyEntry = (date?: string) => {
           break_periods: (data.break_periods as any) || [],
           counter_timestamps: (data.counter_timestamps as any) || {},
           custom_counters: (data.custom_counters as any) || {},
+          sales_log: (data.sales_log as any) || [],
         } as DailyEntry;
       }
       
@@ -104,20 +113,36 @@ export const useDailyEntry = (date?: string) => {
         closes: 0,
         fp_plus: 0,
         prmr: 0,
-        is_finalized: false,
         custom_counters: {},
+        sales_log: [],
+      };
+
+      // Build upsert payload with explicit fields to avoid type issues
+      const upsertPayload = {
+        user_id: user.id,
+        entry_date: entryDate,
+        doors_knocked: (updates.doors_knocked ?? currentEntry.doors_knocked) as number,
+        decision_makers: (updates.decision_makers ?? currentEntry.decision_makers) as number,
+        pitches: (updates.pitches ?? currentEntry.pitches) as number,
+        transitions: (updates.transitions ?? currentEntry.transitions) as number,
+        presentations: (updates.presentations ?? currentEntry.presentations) as number,
+        closes: (updates.closes ?? currentEntry.closes) as number,
+        fp_plus: (updates.fp_plus ?? currentEntry.fp_plus) as number,
+        prmr: (updates.prmr ?? currentEntry.prmr) as number,
+        custom_counters: (updates.custom_counters ?? currentEntry.custom_counters) as any,
+        sales_log: (updates.sales_log ?? currentEntry.sales_log) as any,
+        work_start_time: updates.work_start_time ?? entry?.work_start_time,
+        work_end_time: updates.work_end_time ?? entry?.work_end_time,
+        break_periods: (updates.break_periods ?? entry?.break_periods ?? []) as any,
+        counter_timestamps: (updates.counter_timestamps ?? entry?.counter_timestamps ?? {}) as any,
+        timezone: updates.timezone ?? entry?.timezone,
+        // PROTECTION LAYER 2: Never allow counter updates to change finalized status
+        is_finalized: existingEntry?.is_finalized || false,
       };
 
       const { data, error } = await supabase
         .from('daily_entries')
-        .upsert({
-          user_id: user.id,
-          entry_date: entryDate,
-          ...currentEntry,
-          ...updates,
-          // PROTECTION LAYER 2: Never allow counter updates to change finalized status
-          is_finalized: existingEntry?.is_finalized || false,
-        }, {
+        .upsert(upsertPayload, {
           onConflict: 'user_id,entry_date'
         })
         .select()
@@ -273,7 +298,8 @@ export const useDailyEntry = (date?: string) => {
         break_periods: (data.break_periods as any) || [],
         counter_timestamps: (data.counter_timestamps as any) || {},
         custom_counters: (data.custom_counters as any) || {},
-      } as DailyEntry;
+        sales_log: (data.sales_log as any) || [],
+      } as unknown as DailyEntry;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['daily-entry', entryDate], data);
@@ -356,6 +382,7 @@ export const useDailyEntry = (date?: string) => {
       counter_timestamps: {},
       timezone: null,
       custom_counters: {},
+      sales_log: [],
     },
     isLoading,
     updateCounter: updateCounterMutation.mutateAsync,

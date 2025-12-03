@@ -100,6 +100,7 @@ export type Database = {
           pitches: number | null
           presentations: number | null
           prmr: number | null
+          sales_log: Json | null
           timezone: string | null
           transitions: number | null
           updated_at: string | null
@@ -124,6 +125,7 @@ export type Database = {
           pitches?: number | null
           presentations?: number | null
           prmr?: number | null
+          sales_log?: Json | null
           timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           pitches?: number | null
           presentations?: number | null
           prmr?: number | null
+          sales_log?: Json | null
           timezone?: string | null
           transitions?: number | null
           updated_at?: string | null
@@ -284,6 +287,7 @@ export type Database = {
           recruiter: string | null
           reps_with_sale: number | null
           reps_with_sale_goal: number | null
+          sales_logger_enabled: boolean | null
           slack_joined: boolean | null
           stage: string | null
           team_leader: string | null
@@ -329,6 +333,7 @@ export type Database = {
           recruiter?: string | null
           reps_with_sale?: number | null
           reps_with_sale_goal?: number | null
+          sales_logger_enabled?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null
@@ -374,6 +379,7 @@ export type Database = {
           recruiter?: string | null
           reps_with_sale?: number | null
           reps_with_sale_goal?: number | null
+          sales_logger_enabled?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
           team_leader?: string | null

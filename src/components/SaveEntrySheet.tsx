@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
+import { Sale } from "@/hooks/useDailyEntry";
 
 interface SaveEntrySheetProps {
   open: boolean;
@@ -46,6 +47,7 @@ interface SaveEntrySheetProps {
   isSaving: boolean;
   customCounterConfig?: Array<{ id: string; name: string; emoji: string; hidden?: boolean }>;
   counterLayoutConfig?: { order: string[] };
+  salesLog?: Sale[];
 }
 
 type OpenCardType = 'activity' | 'time' | 'results' | null;
@@ -60,6 +62,7 @@ export const SaveEntrySheet = ({
   isSaving,
   customCounterConfig = [],
   counterLayoutConfig,
+  salesLog = [],
 }: SaveEntrySheetProps) => {
   const { repData } = useRepData();
   const { totalFP } = usePreseasonFP();
@@ -260,16 +263,32 @@ export const SaveEntrySheet = ({
           setTransitions(entry.transitions && entry.transitions > 0 ? entry.transitions.toString() : "");
           setPresentations(entry.presentations && entry.presentations > 0 ? entry.presentations.toString() : "");
           setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
-          setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
-          setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
           
-          // Calculate newAccounts from saved data to preserve original split
-          const fpValue = entry.fp_plus || 0;
-          const upgradePrmr = entry.upgrade_prmr || 0;
-          const upgradeFP = upgradePrmr / 85;
-          const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
-          setNewAccounts(Math.max(0, calculatedNewAccounts));
-          hasInitializedNewAccounts.current = true;
+          // AUTO-CALCULATE from sales log if available
+          if (salesLog && salesLog.length > 0) {
+            const fpSales = salesLog.filter(s => s.type === 'fp');
+            const upgradeSales = salesLog.filter(s => s.type === 'upgrade');
+            const fpCount = fpSales.length;
+            const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
+            const totalPrmr = salesLog.reduce((sum, s) => sum + s.prmr, 0);
+            const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+            
+            setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
+            setPrmr(totalPrmr > 0 ? totalPrmr.toString() : "");
+            setNewAccounts(fpCount);
+            hasInitializedNewAccounts.current = true;
+          } else {
+            setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
+            setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+            
+            // Calculate newAccounts from saved data to preserve original split
+            const fpValue = entry.fp_plus || 0;
+            const upgradePrmr = entry.upgrade_prmr || 0;
+            const upgradeFP = upgradePrmr / 85;
+            const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
+            setNewAccounts(Math.max(0, calculatedNewAccounts));
+            hasInitializedNewAccounts.current = true;
+          }
           
           // Pre-fill custom counters
           const customCounterData: Record<string, string> = {};

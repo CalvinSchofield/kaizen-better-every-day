@@ -75,6 +75,8 @@ export default function Settings() {
   const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
   const [isEfpModeOpen, setIsEfpModeOpen] = useState(false);
   const [isTrackCountersOpen, setIsTrackCountersOpen] = useState(false);
+  const [isSalesLoggerOpen, setIsSalesLoggerOpen] = useState(false);
+  const [isSavingSalesLogger, setIsSavingSalesLogger] = useState(false);
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -458,6 +460,66 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
+        {/* Sales Logger Toggle */}
+        <Card>
+          <Collapsible open={isSalesLoggerOpen} onOpenChange={setIsSalesLoggerOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle>Sales Logger</CardTitle>
+                    {!isSalesLoggerOpen && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {(repData as any)?.sales_logger_enabled ? "Enabled" : "Disabled"}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isSalesLoggerOpen && "rotate-180")} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Log sales when I close</Label>
+                    <p className="text-sm text-muted-foreground">
+                      When enabled, tapping Closes will prompt you to log the sale's PRMR. Your daily totals will auto-calculate at save time.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={(repData as any)?.sales_logger_enabled || false}
+                    onCheckedChange={async (enabled) => {
+                      setIsSavingSalesLogger(true);
+                      try {
+                        await supabase
+                          .from('reps')
+                          .update({ sales_logger_enabled: enabled })
+                          .eq('id', repData?.id);
+                        await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                        toast({
+                          title: enabled ? "Sales Logger enabled" : "Sales Logger disabled",
+                          description: enabled 
+                            ? "Tapping Closes will now prompt you to log sales details"
+                            : "Closes will count normally without prompting for PRMR",
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Failed to update",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSavingSalesLogger(false);
+                      }
+                    }}
+                    disabled={isSavingSalesLogger}
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
         {/* Summer Season Dates - Collapsible */}
         <Card>
           <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>
