@@ -120,7 +120,10 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
         {summary.mode === "preseason" && !summary.isEmpty && (
           <CardDescription>{summary.daysWorked} day{summary.daysWorked !== 1 ? "s" : ""} worked</CardDescription>
         )}
-        {summary.mode !== "preseason" && (
+        {summary.mode === "blitz" && summary.daysWorked > 0 && (
+          <CardDescription>{summary.daysWorked} day{summary.daysWorked !== 1 ? "s" : ""} with activity</CardDescription>
+        )}
+        {summary.mode === "summer" && (
           <CardDescription>{summary.daysWorked} day{summary.daysWorked !== 1 ? "s" : ""} worked</CardDescription>
         )}
       </CardHeader>
