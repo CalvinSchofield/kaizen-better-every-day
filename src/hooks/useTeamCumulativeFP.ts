@@ -43,15 +43,16 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
     let cumulativeFp = 0;
 
     insightsData.dailyTrend.forEach((trend, index) => {
-      const value = efpModeEnabled 
-        ? calculateEfp(trend.prmr || 0)
-        : (trend.fp || 0);
-      
-      const prmrValue = trend.prmr || 0;
+      // Total PRMR - use prmr (which should already include upgrade in team insights)
+      const totalPrmr = trend.prmr || 0;
       const fpValue = trend.fp || 0;
       
+      const value = efpModeEnabled 
+        ? calculateEfp(totalPrmr)
+        : fpValue;
+      
       cumulative += value;
-      cumulativePrmr += prmrValue;
+      cumulativePrmr += totalPrmr;
       cumulativeFp += fpValue;
 
       // Calculate 6-day moving average
@@ -98,7 +99,7 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
         cumulativePrmr,
         movingAvgPrmr6,
         movingAvgPrmr12,
-        dailyPrmr: prmrValue,
+        dailyPrmr: totalPrmr,
         cumulativeFp,
         movingAvgFp6,
         movingAvgFp12,
