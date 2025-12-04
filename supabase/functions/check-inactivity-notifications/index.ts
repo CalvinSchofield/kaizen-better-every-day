@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendWebPush, PushSubscription as WebPushSubscription } from '../_shared/web-push.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -121,7 +122,7 @@ function isOnBreak(breakPeriods: Array<{ start: string; end?: string }> | null):
   return breakPeriods.some(bp => bp.start && !bp.end);
 }
 
-// Send web push notification
+// Send web push notification using native implementation
 async function sendPushNotification(
   subscription: PushSubscription,
   title: string,
@@ -136,41 +137,21 @@ async function sendPushNotification(
     return false;
   }
 
-  try {
-    // Import web-push compatible library for Deno
-    const { default: webpush } = await import('https://esm.sh/web-push@3.6.7');
-    
-    webpush.setVapidDetails(
-      'mailto:support@kaizen-app.com',
-      vapidPublicKey,
-      vapidPrivateKey
-    );
-    
-    const pushSubscription = {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.p256dh,
-        auth: subscription.auth
-      }
-    };
-    
-    const payload = JSON.stringify({
-      title,
-      body,
-      url,
-      type: 'inactivity'
-    });
-    
-    await webpush.sendNotification(pushSubscription, payload);
+  const result = await sendWebPush(
+    { endpoint: subscription.endpoint, p256dh: subscription.p256dh, auth: subscription.auth },
+    { title, body, url, type: 'inactivity' },
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+  
+  if (result.success) {
     console.log(`Push notification sent to user ${subscription.user_id}`);
     return true;
-    
-  } catch (error: unknown) {
-    console.error('Error sending push notification:', error);
+  } else {
+    console.error('Error sending push notification:', result.error);
     
     // If subscription is expired/invalid, we should delete it
-    const err = error as { statusCode?: number };
-    if (err.statusCode === 410 || err.statusCode === 404) {
+    if (result.status === 410 || result.status === 404) {
       console.log('Subscription expired, should be cleaned up');
     }
     
