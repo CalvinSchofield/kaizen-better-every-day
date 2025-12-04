@@ -223,8 +223,8 @@ export const useActivitySummary = (repData: any) => {
         prmr: daysWorked > 0 ? totals.prmr / daysWorked : 0,
       };
 
-      // Upfront pay is based on TOTAL PRMR (prmr + upgradePrmr)
-      const upfrontPay = (totals.prmr + totals.upgradePrmr) * 4;
+      // Upfront pay is based on TOTAL PRMR (prmr field already IS total PRMR)
+      const upfrontPay = totals.prmr * 4;
 
       // Chart data (last 7 data points, excluding Sundays)
       const chartData = workdayEntries.slice(-7).map((entry) => ({
@@ -286,22 +286,43 @@ export const useActivitySummary = (repData: any) => {
           };
 
           // Build comparison chart data for blitz (day-by-day FP+ or PRMR for EFP calc)
+          // Use actual blitz day number based on entry date, not sequential index
           const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
           const sortedPrevEntries = prevFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
           
+          // Calculate day 1 date for current blitz
+          let currentDayOne = new Date(activeBlitz.date + 'T00:00:00');
+          if (getDay(currentDayOne) === 0) {
+            currentDayOne.setDate(currentDayOne.getDate() + 1); // Move to Monday if Sunday
+          }
+          
+          // Calculate day 1 date for previous blitz
+          let prevDayOne = new Date(prevBlitz.date + 'T00:00:00');
+          if (getDay(prevDayOne) === 0) {
+            prevDayOne.setDate(prevDayOne.getDate() + 1);
+          }
+          
           comparisonChartData = {
-            current: sortedCurrentEntries.map((e, i) => ({
-              day: i + 1,
-              value: Number(e.fp_plus) || 0,
-              prmr: Number(e.prmr) || 0,
-              upgradePrmr: Number(e.upgrade_prmr) || 0,
-            })),
-            previous: sortedPrevEntries.map((e, i) => ({
-              day: i + 1,
-              value: Number(e.fp_plus) || 0,
-              prmr: Number(e.prmr) || 0,
-              upgradePrmr: Number(e.upgrade_prmr) || 0,
-            })),
+            current: sortedCurrentEntries.map((e) => {
+              const entryDate = new Date(e.entry_date + 'T00:00:00');
+              const dayNum = Math.floor((entryDate.getTime() - currentDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              return {
+                day: dayNum,
+                value: Number(e.fp_plus) || 0,
+                prmr: Number(e.prmr) || 0,
+                upgradePrmr: Number(e.upgrade_prmr) || 0,
+              };
+            }),
+            previous: sortedPrevEntries.map((e) => {
+              const entryDate = new Date(e.entry_date + 'T00:00:00');
+              const dayNum = Math.floor((entryDate.getTime() - prevDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              return {
+                day: dayNum,
+                value: Number(e.fp_plus) || 0,
+                prmr: Number(e.prmr) || 0,
+                upgradePrmr: Number(e.upgrade_prmr) || 0,
+              };
+            }),
             currentLabel: "This Blitz",
             previousLabel: "Last Blitz",
           };
@@ -346,23 +367,32 @@ export const useActivitySummary = (repData: any) => {
           showComparison: currentWeekDays <= lastWeekDaysWorked,
         };
 
-        // Build comparison chart data for summer (day-by-day)
+        // Build comparison chart data for summer (day-by-day using actual week day number)
         const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
         const sortedPrevEntries = lastWeekFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
         
+        // Week starts Sunday = 0, so Monday = 1, Saturday = 6
         comparisonChartData = {
-          current: sortedCurrentEntries.map((e, i) => ({
-            day: i + 1,
-            value: Number(e.fp_plus) || 0,
-            prmr: Number(e.prmr) || 0,
-            upgradePrmr: Number(e.upgrade_prmr) || 0,
-          })),
-          previous: sortedPrevEntries.map((e, i) => ({
-            day: i + 1,
-            value: Number(e.fp_plus) || 0,
-            prmr: Number(e.prmr) || 0,
-            upgradePrmr: Number(e.upgrade_prmr) || 0,
-          })),
+          current: sortedCurrentEntries.map((e) => {
+            const entryDate = new Date(e.entry_date + 'T00:00:00');
+            const dayOfWeek = getDay(entryDate); // 0=Sun, 1=Mon, ..., 6=Sat
+            return {
+              day: dayOfWeek === 0 ? 7 : dayOfWeek, // Treat Sunday as 7 for sorting
+              value: Number(e.fp_plus) || 0,
+              prmr: Number(e.prmr) || 0,
+              upgradePrmr: Number(e.upgrade_prmr) || 0,
+            };
+          }),
+          previous: sortedPrevEntries.map((e) => {
+            const entryDate = new Date(e.entry_date + 'T00:00:00');
+            const dayOfWeek = getDay(entryDate);
+            return {
+              day: dayOfWeek === 0 ? 7 : dayOfWeek,
+              value: Number(e.fp_plus) || 0,
+              prmr: Number(e.prmr) || 0,
+              upgradePrmr: Number(e.upgrade_prmr) || 0,
+            };
+          }),
           currentLabel: "This Week",
           previousLabel: "Last Week",
         };
