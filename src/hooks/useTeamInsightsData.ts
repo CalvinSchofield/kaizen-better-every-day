@@ -287,7 +287,8 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         acc.presentations += entry.presentations || 0;
         acc.closes += entry.closes || 0;
         acc.fp += entry.fp_plus || 0;
-        acc.prmr += entry.prmr || 0;
+        // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
+        acc.prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         acc.upgradePRMR += entry.upgrade_prmr || 0;
         acc.daysWorked += 1;
         
@@ -510,8 +511,9 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           day.transitions += entry.transitions || 0;
           day.presentations += entry.presentations || 0;
           day.fp += entry.fp_plus || 0;
-          day.prmr += entry.prmr || 0;
-          day.efp += (entry.prmr || 0) / 85;
+          const entryTotalPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+          day.prmr += entryTotalPrmr;
+          day.efp += entryTotalPrmr / 85;
           return acc;
         }, new Map())
       ).map(([_, value]) => value).sort((a, b) => a.date.localeCompare(b.date));
@@ -541,7 +543,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         
         const day = dayOfWeekData[dayName];
         day.totalFp += entry.fp_plus || 0;
-        day.totalEfp += (entry.prmr || 0) / 85;
+        day.totalEfp += ((entry.prmr || 0) + (entry.upgrade_prmr || 0)) / 85;
         day.totalDoors += entry.doors_knocked || 0;
         day.totalPitches += entry.pitches || 0;
         day.totalTransitions += entry.transitions || 0;
@@ -599,7 +601,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           acc[date] = { fp: 0, prmr: 0, doors: 0, closes: 0, userId: entry.user_id };
         }
         acc[date].fp += entry.fp_plus || 0;
-        acc[date].prmr += entry.prmr || 0;
+        acc[date].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         acc[date].doors += entry.doors_knocked || 0;
         acc[date].closes += entry.closes || 0;
         return acc;
@@ -630,7 +632,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         }
         
         weeklyData[weekKey].fp += entry.fp_plus || 0;
-        weeklyData[weekKey].prmr += entry.prmr || 0;
+        weeklyData[weekKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         weeklyData[weekKey].doors += entry.doors_knocked || 0;
         weeklyData[weekKey].closes += entry.closes || 0;
       });
@@ -655,7 +657,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         }
         
         monthlyData[monthKey].fp += entry.fp_plus || 0;
-        monthlyData[monthKey].prmr += entry.prmr || 0;
+        monthlyData[monthKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         monthlyData[monthKey].doors += entry.doors_knocked || 0;
         monthlyData[monthKey].closes += entry.closes || 0;
       });
@@ -677,7 +679,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         date: format(parseISO(bestTransitionsEntry.entry_date), 'MMM d, yyyy'),
         transitions: bestTransitionsEntry.transitions || 0,
         fp: bestTransitionsEntry.fp_plus || 0,
-        efp: (bestTransitionsEntry.prmr || 0) / 85,
+        efp: ((bestTransitionsEntry.prmr || 0) + (bestTransitionsEntry.upgrade_prmr || 0)) / 85,
         repName: reps.find(r => r.user_id === bestTransitionsEntry.user_id)?.name || 'Team',
       } : null;
 
@@ -692,7 +694,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           presentations: acc.presentations + (e.presentations || 0),
           closes: acc.closes + (e.closes || 0),
           fp: acc.fp + (e.fp_plus || 0),
-          prmr: acc.prmr + (e.prmr || 0),
+          prmr: acc.prmr + (e.prmr || 0) + (e.upgrade_prmr || 0),
           upgradePRMR: acc.upgradePRMR + (e.upgrade_prmr || 0),
         }), { doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePRMR: 0 });
 
