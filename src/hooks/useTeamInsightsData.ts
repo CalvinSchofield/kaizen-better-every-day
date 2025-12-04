@@ -43,6 +43,7 @@ interface TeamInsightsData {
   totalUpgradePRMR: number;
   totalWorkMinutes: number;
   daysWorked: number;
+  uniqueRepsWorked: number;
   
   // Ratios
   doorsToFp: number;
@@ -798,6 +799,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         totalUpgradePRMR: totals.upgradePRMR,
         totalWorkMinutes: totals.totalMinutes,
         daysWorked: totals.daysWorked,
+        uniqueRepsWorked: new Set(entries.map(e => e.user_id)).size,
         doorsToFp,
         doorsToPresentation,
         pitchesToFp,
