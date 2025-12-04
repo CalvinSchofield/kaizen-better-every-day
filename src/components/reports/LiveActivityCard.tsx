@@ -79,12 +79,19 @@ export const LiveActivityCard = ({
         <div className="flex items-center gap-2">
           <div className="relative">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-75" />
+            {workingCount > 0 && (
+              <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-75" />
+            )}
           </div>
-          <h3 className="font-semibold">Live Activity</h3>
+          <h3 className="font-semibold">Today's Activity</h3>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-green-600 dark:text-green-400 font-medium">{workingCount} working</span>
+          <span className={cn(
+            "font-medium",
+            workingCount > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+          )}>
+            {workingCount > 0 ? `${workingCount} working` : 'No one working'}
+          </span>
           {forgottenCount > 0 && (
             <>
               <span>·</span>
