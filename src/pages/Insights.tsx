@@ -4,8 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
-import { useRepCoaching } from '@/hooks/useRepCoaching';
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon, Sparkles } from 'lucide-react';
+
+import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
 import {
   Sheet,
@@ -26,7 +26,7 @@ import { AICoachCard } from '@/components/insights/AICoachCard';
 
 type DatePreset = 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 
-type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
+type ExpandedSection = 'aiCoach' | 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
 export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
@@ -97,48 +97,6 @@ export default function Insights() {
   };
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset));
-  
-  // Prepare data for AI coaching (only for standard timeframes, not custom)
-  const coachingParams = insights && insights.daysWorked > 0 && datePreset !== 'custom' ? {
-    timeframe: datePreset as 'yesterday' | 'week' | 'month' | 'preseason',
-    currentPeriod: {
-      doors: insights.totalDoors,
-      dms: insights.totalDecisionMakers,
-      pitches: insights.totalPitches,
-      transitions: insights.totalTransitions,
-      presentations: insights.totalPresentations,
-      closes: insights.totalCloses,
-      fp: insights.totalFp,
-      prmr: insights.totalPrmr,
-      avgStartTime: insights.avgStartTime,
-      avgEndTime: insights.avgEndTime,
-      totalHours: insights.avgHoursWorked * insights.daysWorked,
-      daysWorked: insights.daysWorked
-    },
-    repAverages: {
-      avgDoors: insights.totalDoors / insights.daysWorked,
-      avgDMs: insights.totalDecisionMakers / insights.daysWorked,
-      avgPitches: insights.totalPitches / insights.daysWorked,
-      avgTransitions: insights.totalTransitions / insights.daysWorked,
-      avgPresentations: insights.totalPresentations / insights.daysWorked,
-      avgCloses: insights.totalCloses / insights.daysWorked,
-      avgFp: insights.totalFp / insights.daysWorked,
-      avgPrmr: insights.totalPrmr / insights.daysWorked,
-      avgHoursWorked: insights.avgHoursWorked
-    },
-    funnelConversions: {
-      doorsToFp: insights.doorsToFp,
-      pitchesToFp: insights.pitchesToFp,
-      transitionsToFp: insights.transitionsToFp,
-      presentationsToClose: insights.presentationsToClose,
-      overallDoorsToFp: insights.overallDoorsToFp,
-      overallPitchesToFp: insights.overallPitchesToFp,
-      overallTransitionsToFp: insights.overallTransitionsToFp,
-      overallPresentationsToClose: insights.overallPresentationsToClose
-    }
-  } : null;
-
-  const { data: coaching, isLoading: coachingLoading } = useRepCoaching(coachingParams);
   
   const handleCustomDateApply = () => {
     if (customStartDate && customEndDate) {
@@ -289,14 +247,11 @@ export default function Insights() {
           </div>
         ) : (
           <>
-            {/* AI Coach Card - Show for standard timeframes */}
-            {datePreset !== 'custom' && (
-              <AICoachCard 
-                coaching={coaching || null}
-                isLoading={coachingLoading}
-                timeframe={datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
-              />
-            )}
+            {/* AI Coach Card */}
+            <AICoachCard 
+              isOpen={expandedSection === 'aiCoach'}
+              onToggle={() => handleSectionToggle('aiCoach')}
+            />
 
             {/* Period Summary */}
             <Card className="p-4">
