@@ -17,29 +17,25 @@ interface NotionPage {
 }
 
 // Retry helper for Notion API with exponential backoff
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
       
-      // If rate limited (429), retry with exponential backoff
       if (response.status === 429) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000); // Max 32 seconds
-        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
       
-      // Return response for other status codes (caller will handle errors)
       return response;
     } catch (error: any) {
       lastError = error;
-      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
-      
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -47,6 +43,87 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
   
   throw lastError || new Error(`Failed after ${maxRetries} attempts`);
 }
+
+// Batch fetch multiple Notion pages in parallel with concurrency limit
+async function batchFetchNotionPages(
+  pageIds: string[], 
+  notionApiKey: string, 
+  concurrency = 5
+): Promise<Map<string, any>> {
+  const results = new Map<string, any>();
+  
+  for (let i = 0; i < pageIds.length; i += concurrency) {
+    const batch = pageIds.slice(i, i + concurrency);
+    const promises = batch.map(async (pageId) => {
+      try {
+        const response = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/pages/${pageId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${notionApiKey}`,
+              'Notion-Version': '2022-06-28',
+            },
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          return { pageId, data };
+        }
+        return { pageId, data: null };
+      } catch (error) {
+        console.error(`Error fetching page ${pageId}:`, error);
+        return { pageId, data: null };
+      }
+    });
+    
+    const batchResults = await Promise.all(promises);
+    for (const { pageId, data } of batchResults) {
+      if (data) results.set(pageId, data);
+    }
+  }
+  
+  return results;
+}
+
+// Helper functions for extracting Notion property values
+const getTitle = (prop: NotionProperty) => {
+  if (prop?.type === "title" && prop.title?.length > 0) {
+    return prop.title[0].plain_text;
+  }
+  return null;
+};
+
+const getRichText = (prop: NotionProperty) => {
+  if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
+    return prop.rich_text[0].plain_text;
+  }
+  return null;
+};
+
+const getEmail = (prop: NotionProperty) => {
+  if (prop?.type === "email") return prop.email;
+  return null;
+};
+
+const getPhone = (prop: NotionProperty) => {
+  if (prop?.type === "phone_number") return prop.phone_number;
+  return null;
+};
+
+const getSelect = (prop: NotionProperty) => {
+  if (prop?.type === "select" && prop.select) return prop.select.name;
+  return null;
+};
+
+const getStatus = (prop: NotionProperty) => {
+  if (prop?.type === "status" && prop.status) return prop.status.name;
+  return null;
+};
+
+const getCheckbox = (prop: NotionProperty) => {
+  if (prop?.type === "checkbox") return prop.checkbox || false;
+  return false;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,13 +140,11 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Notion database ID for reps
     const databaseId = "99130d187a8c4bbda60c77a230ddc364";
 
-    console.log("Fetching pages from Notion database:", databaseId);
+    console.log("Starting optimized Notion sync...");
 
-    // Fetch ALL pages from the Notion database with pagination support
+    // STEP 1: Fetch ALL pages from Notion (paginated)
     const allPages: NotionPage[] = [];
     let hasMore = true;
     let startCursor: string | undefined = undefined;
@@ -92,8 +167,6 @@ Deno.serve(async (req) => {
       );
 
       if (!notionResponse.ok) {
-        const errorText = await notionResponse.text();
-        console.error("Notion API error:", errorText);
         throw new Error(`Notion API error: ${notionResponse.status}`);
       }
 
@@ -101,467 +174,244 @@ Deno.serve(async (req) => {
       allPages.push(...notionData.results);
       hasMore = notionData.has_more;
       startCursor = notionData.next_cursor;
-      
-      console.log(`Fetched ${notionData.results.length} pages (total: ${allPages.length}, has_more: ${hasMore})`);
     }
     
-    console.log(`Found ${allPages.length} total pages in Notion`);
+    console.log(`Fetched ${allPages.length} pages from Notion`);
 
-    const syncedReps = [];
-    const errors = [];
+    // STEP 2: Fetch ALL auth users ONCE
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
+    if (authError) throw new Error(`Error fetching users: ${authError.message}`);
+    
+    const usersByEmail = new Map<string, any>();
+    for (const user of authData.users) {
+      if (user.email) {
+        usersByEmail.set(user.email.toLowerCase(), user);
+      }
+    }
+    console.log(`Loaded ${usersByEmail.size} auth users`);
 
-    // Process each page
+    // STEP 3: Collect all unique relation IDs to batch-fetch
+    const teamIds = new Set<string>();
+    const blitzTripIds = new Set<string>();
+    
+    for (const page of allPages) {
+      const props = page.properties;
+      
+      // Collect team IDs
+      if (props.Teams?.relation) {
+        for (const rel of props.Teams.relation) {
+          teamIds.add(rel.id);
+        }
+      }
+      
+      // Collect blitz trip IDs
+      if (props["Preseason trips"]?.relation) {
+        for (const rel of props["Preseason trips"].relation) {
+          blitzTripIds.add(rel.id);
+        }
+      }
+    }
+    
+    console.log(`Found ${teamIds.size} unique teams, ${blitzTripIds.size} unique blitz trips`);
+
+    // STEP 4: Batch-fetch teams and blitz trips in parallel
+    const [teamsData, blitzTripsData] = await Promise.all([
+      batchFetchNotionPages(Array.from(teamIds), notionApiKey, 10),
+      batchFetchNotionPages(Array.from(blitzTripIds), notionApiKey, 10),
+    ]);
+    
+    console.log(`Fetched ${teamsData.size} teams, ${blitzTripsData.size} blitz trips`);
+
+    // STEP 5: Collect leader IDs from teams and batch-fetch
+    const leaderIds = new Set<string>();
+    for (const teamData of teamsData.values()) {
+      const groupLeadProp = teamData.properties['Group lead'] || teamData.properties['Group Lead'];
+      if (groupLeadProp?.relation) {
+        for (const rel of groupLeadProp.relation) {
+          leaderIds.add(rel.id);
+        }
+      }
+    }
+    
+    const leadersData = await batchFetchNotionPages(Array.from(leaderIds), notionApiKey, 10);
+    console.log(`Fetched ${leadersData.size} leaders`);
+
+    // Leader phone map for fallback
+    const leaderPhoneMap: Record<string, string> = {
+      'Calvin': '469-715-7056',
+      'Christian': '209-519-3176',
+      'Javier': '831-673-9285',
+      'Adam': '972-369-6386',
+      'Ammon': '714-510-1154',
+      'Levi': '469-715-7056',
+      'Ansel': '925-788-0112',
+      'Quinn': '206-422-4462',
+      'Misael': '484-664-0518',
+    };
+
+    // STEP 6: Process all reps using pre-fetched data
+    const syncedReps: string[] = [];
+    const errors: any[] = [];
+
     for (const page of allPages) {
       try {
-        // Extract properties from Notion page
         const props = page.properties;
-
-        // Helper to safely extract property values
-        const getTitle = (prop: NotionProperty) => {
-          if (prop?.type === "title" && prop.title?.length > 0) {
-            return prop.title[0].plain_text;
-          }
-          return null;
-        };
-
-        const getRichText = (prop: NotionProperty) => {
-          if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
-            return prop.rich_text[0].plain_text;
-          }
-          return null;
-        };
-
-        const getEmail = (prop: NotionProperty) => {
-          if (prop?.type === "email") {
-            return prop.email;
-          }
-          return null;
-        };
-
-        const getPhone = (prop: NotionProperty) => {
-          if (prop?.type === "phone_number") {
-            return prop.phone_number;
-          }
-          return null;
-        };
-
-        const getTextProperty = (prop: NotionProperty) => {
-          if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
-            return prop.rich_text[0].plain_text;
-          }
-          return null;
-        };
-
-    const getSelect = (prop: NotionProperty) => {
-      if (prop?.type === "select" && prop.select) {
-        return prop.select.name;
-      }
-      return null;
-    };
-
-    const getDate = (prop: NotionProperty) => {
-      if (prop?.type === "date" && prop.date) {
-        return { start: prop.date.start, end: prop.date.end };
-      }
-      return { start: null, end: null };
-    };
-
-        const getStatus = (prop: NotionProperty) => {
-          if (prop?.type === "status" && prop.status) {
-            return prop.status.name;
-          }
-          return null;
-        };
-
-        const getCheckbox = (prop: NotionProperty) => {
-          if (prop?.type === "checkbox") {
-            return prop.checkbox || false;
-          }
-          return false;
-        };
-
-        const getPlace = (prop: NotionProperty) => {
-          // Notion "location" type returns place data with address
-          if (prop?.type === "location" && prop.location) {
-            return prop.location.address || prop.location.name || null;
-          }
-          return null;
-        };
-
-        // Map Notion properties to our database fields
         const name = getTitle(props.Name) || getRichText(props.Name) || "Unknown";
         const email = getEmail(props.Email) || getRichText(props.Email);
-        const phone = getPhone(props.Phone) || getRichText(props.Phone);
-        const ipadAssigned = getCheckbox(props["iPad Assigned"]);
 
-        if (!email) {
-          console.log(`Skipping page ${page.id} - no email found`);
-          continue;
-        }
+        if (!email) continue;
 
-        // Find user by email
-        const { data: authUser, error: authError } = await supabase.auth.admin.listUsers();
-        
-        if (authError) {
-          throw new Error(`Error fetching users: ${authError.message}`);
-        }
+        const user = usersByEmail.get(email.toLowerCase());
+        if (!user) continue;
 
-        const user = authUser.users.find(u => u.email?.toLowerCase() === email?.toLowerCase());
-        
-        if (!user) {
-          console.log(`No user found for email ${email}, skipping`);
-          continue;
-        }
-
-        // Get Onboarding Step Completed - SINGLE SOURCE OF TRUTH for ALL journey progression
-        console.log("Notion properties available:", Object.keys(props));
-        console.log("Looking for 'Onboarding Step Completed' property...");
-        
-        // Debug: Log the actual property object
-        const rampProp = props["Onboarding Step Completed"];
-        console.log("Raw property object:", JSON.stringify(rampProp, null, 2));
-        console.log("Property type:", rampProp?.type);
-        console.log("Property select:", rampProp?.select);
-        
-        const rampPhase = getStatus(props["Onboarding Step Completed"]) || getSelect(props["Onboarding Step Completed"]) || "not started";
-        console.log("Found ramp phase value:", rampPhase);
+        // Get ramp phase
+        const rampPhase = getStatus(props["Onboarding Step Completed"]) || 
+                          getSelect(props["Onboarding Step Completed"]) || "not started";
         const rampLower = rampPhase.toLowerCase();
         
-        // Derive all step completions from the single Ramp to Blitz Phase property
-        const onboardingComplete = rampLower.includes("onboarding") || rampLower.includes("trainings") || rampLower.includes("slack") || rampLower.includes("phase");
-        const trainingsComplete = rampLower.includes("trainings") || rampLower.includes("slack") || rampLower.includes("phase");
+        const onboardingComplete = rampLower.includes("onboarding") || rampLower.includes("trainings") || 
+                                   rampLower.includes("slack") || rampLower.includes("phase");
+        const trainingsComplete = rampLower.includes("trainings") || rampLower.includes("slack") || 
+                                  rampLower.includes("phase");
         const slackJoined = rampLower.includes("slack") || rampLower.includes("phase");
-        
-        // Map phase to boolean completions for backward compatibility
-        const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
-        const rampPhase2Complete = rampLower.includes("phase 2") || rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || 
+                                   rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        const rampPhase2Complete = rampLower.includes("phase 2") || rampLower.includes("phase 3") || 
+                                   rampLower.includes("phase 4");
         const rampPhase3Complete = rampLower.includes("phase 3") || rampLower.includes("phase 4");
         const rampPhase4Complete = rampLower.includes("phase 4");
 
-        // Fetch team leader info from Teams relation
+        // Get team leader from pre-fetched data
         let teamLeaderName = '';
         let teamLeaderPhone = '';
         
-        console.log(`Processing team leader for ${name}...`);
-        console.log('Teams property:', JSON.stringify(props.Teams, null, 2));
-        
-        if (props.Teams?.relation && props.Teams.relation.length > 0) {
-          try {
-            const teamId = props.Teams.relation[0].id;
-            console.log(`Fetching team with ID: ${teamId}`);
-            
-            const teamResponse = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${teamId}`, {
-              headers: {
-                'Authorization': `Bearer ${notionApiKey}`,
-                'Notion-Version': '2022-06-28',
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (teamResponse.ok) {
-              const teamData = await teamResponse.json();
-              console.log('Team data properties:', Object.keys(teamData.properties));
-              console.log('Team name:', getTitle(teamData.properties.Name));
-              
-              // Try both "Group lead" and "Group Lead" (case sensitive)
-              const groupLeadProperty = teamData.properties['Group lead'] || teamData.properties['Group Lead'];
-              console.log('Group lead property:', JSON.stringify(groupLeadProperty, null, 2));
-              
-              if (groupLeadProperty?.relation && groupLeadProperty.relation.length > 0) {
-                const leaderId = groupLeadProperty.relation[0].id;
-                console.log(`Fetching leader with ID: ${leaderId}`);
-                
-                const leaderResponse = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${leaderId}`, {
-                  headers: {
-                    'Authorization': `Bearer ${notionApiKey}`,
-                    'Notion-Version': '2022-06-28',
-                    'Content-Type': 'application/json',
-                  },
-                });
-                
-                if (leaderResponse.ok) {
-                  const leaderData = await leaderResponse.json();
-                  console.log('Leader data properties:', Object.keys(leaderData.properties));
-                  
-                  const leaderFullName = getTitle(leaderData.properties.Name);
-                  const leaderPhone = getPhone(leaderData.properties.Phone) || getRichText(leaderData.properties.Phone);
-                  
-                  console.log(`Leader full name: ${leaderFullName}`);
-                  console.log(`Leader phone from Notion: ${leaderPhone}`);
-                  
-                  // Extract first name only (remove emojis and extra text)
-                  const firstName = leaderFullName
-                    .replace(/[^\w\s]/g, '') // Remove emojis and special chars
-                    .trim()
-                    .split(' ')[0];
-                  
-                  console.log(`Extracted first name: ${firstName}`);
-                  
-                  // Map leader names to phone numbers
-                  const leaderPhoneMap: Record<string, string> = {
-                    'Calvin': '469-715-7056',
-                    'Christian': '209-519-3176',
-                    'Javier': '831-673-9285',
-                    'Adam': '972-369-6386',
-                    'Ammon': '714-510-1154',
-                    'Levi': '469-715-7056', // Forward to Calvin
-                    'Ansel': '925-788-0112',
-                    'Quinn': '206-422-4462',
-                    'Misael': '484-664-0518',
-                  };
-                  
-                  // For Levi, always use Calvin's name
-                  teamLeaderName = firstName === 'Levi' ? 'Calvin' : firstName;
-                  teamLeaderPhone = leaderPhoneMap[firstName] || leaderPhone || '';
-                  
-                  console.log(`Final team leader name: ${teamLeaderName}`);
-                  console.log(`Final team leader phone: ${teamLeaderPhone}`);
-                } else {
-                  console.error(`Failed to fetch leader: ${leaderResponse.status}`);
-                }
-              } else {
-                console.log('No Group lead relation found');
+        if (props.Teams?.relation?.length > 0) {
+          const teamData = teamsData.get(props.Teams.relation[0].id);
+          if (teamData) {
+            const groupLeadProp = teamData.properties['Group lead'] || teamData.properties['Group Lead'];
+            if (groupLeadProp?.relation?.length > 0) {
+              const leaderData = leadersData.get(groupLeadProp.relation[0].id);
+              if (leaderData) {
+                const leaderFullName = getTitle(leaderData.properties.Name) || '';
+                const leaderPhone = getPhone(leaderData.properties.Phone) || getRichText(leaderData.properties.Phone);
+                const firstName = leaderFullName.replace(/[^\w\s]/g, '').trim().split(' ')[0];
+                teamLeaderName = firstName === 'Levi' ? 'Calvin' : firstName;
+                teamLeaderPhone = leaderPhoneMap[firstName] || leaderPhone || '';
               }
-            } else {
-              console.error(`Failed to fetch team: ${teamResponse.status}`);
             }
-          } catch (error) {
-            console.error('Error fetching team leader info:', error);
           }
-        } else {
-          console.log('No Teams relation found');
         }
 
-        // Fetch blitz trip details from Preseason trips relation
+        // Get blitz trips from pre-fetched data
         let blitzTripName: string | null = null;
         let blitzTripDate: string | null = null;
         let blitzTripEndDate: string | null = null;
         let blitzTripLocation: string | null = null;
-        const committedBlitzes: Array<{
-          id: string, 
-          name: string, 
-          date: string, 
-          endDate: string | null, 
-          location: string | null,
-          address1?: string | null,
-          address2?: string | null,
-          code1?: string | null,
-          code2?: string | null,
-          wifi1?: string | null,
-          wifi2?: string | null
-        }> = [];
+        const committedBlitzes: any[] = [];
 
-        console.log(`Processing blitz trips for ${name}...`);
-        console.log('Preseason trips property:', JSON.stringify(props["Preseason trips"], null, 2));
-
-        if (props["Preseason trips"]?.relation && props["Preseason trips"].relation.length > 0) {
-          try {
-            // Fetch ALL committed blitzes with full details
-            for (const tripRelation of props["Preseason trips"].relation) {
-              const tripId = tripRelation.id;
-              console.log(`Fetching trip with ID: ${tripId}`);
-
-              const tripResponse = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${tripId}`, {
-                headers: {
-                  'Authorization': `Bearer ${notionApiKey}`,
-                  'Notion-Version': '2022-06-28',
-                  'Content-Type': 'application/json',
-                },
-              });
-
-              if (tripResponse.ok) {
-                const tripData = await tripResponse.json();
+        if (props["Preseason trips"]?.relation) {
+          for (const tripRelation of props["Preseason trips"].relation) {
+            const tripData = blitzTripsData.get(tripRelation.id);
+            if (tripData) {
+              const tripName = getTitle(tripData.properties.Name);
+              if (tripName) {
+                const dateProp = tripData.properties.Date;
+                const tripDate = dateProp?.date?.start || null;
+                const tripEndDate = dateProp?.date?.end || null;
+                const tripLocation = getRichText(tripData.properties.Location) || 
+                                     getSelect(tripData.properties.Location);
                 
-                // Log all available properties for debugging
-                console.log(`Trip properties available: ${JSON.stringify(Object.keys(tripData.properties))}`);
-                
-                // Debug ALL Airbnb-related property structures with full details
-                console.log(`Airbnb 1 property:`, JSON.stringify(tripData.properties["Airbnb 1"]));
-                console.log(`Airbnb 2 property:`, JSON.stringify(tripData.properties["Airbnb 2"]));
-                console.log(`Address 1 property FULL:`, JSON.stringify(tripData.properties["Address 1"]));
-                console.log(`Address 2 property FULL:`, JSON.stringify(tripData.properties["Address 2"]));
-                console.log(`Code 1 property:`, JSON.stringify(tripData.properties["Code 1"]));
-                console.log(`WiFi 1 property:`, JSON.stringify(tripData.properties["WiFi 1"]));
-                
-                const tripName = getTitle(tripData.properties.Name);
-                
-                if (tripName) {
-                  const dateProperty = tripData.properties.Date;
-                  let tripDate = null;
-                  let tripEndDate = null;
-                  
-                  if (dateProperty?.type === 'date' && dateProperty.date) {
-                    tripDate = dateProperty.date.start;
-                    tripEndDate = dateProperty.date.end;
-                    console.log(`Trip dates: ${tripDate} to ${tripEndDate}`);
-                  }
+                committedBlitzes.push({
+                  id: tripRelation.id,
+                  name: tripName,
+                  date: tripDate || '',
+                  endDate: tripEndDate,
+                  location: tripLocation,
+                  address1: getRichText(tripData.properties["Address 1"]),
+                  address2: getRichText(tripData.properties["Address 2"]),
+                  code1: getRichText(tripData.properties["Code 1"]),
+                  code2: getRichText(tripData.properties["Code 2"]),
+                  wifi1: getRichText(tripData.properties["WiFi 1"]),
+                  wifi2: getRichText(tripData.properties["WiFi 2"]),
+                });
 
-                  const tripLocation = getRichText(tripData.properties.Location) || getSelect(tripData.properties.Location);
-                  console.log(`Trip location: ${tripLocation}`);
-                  
-            // Extract Airbnb details (all text properties now)
-            const address1 = getTextProperty(tripData.properties["Address 1"]);
-            const address2 = getTextProperty(tripData.properties["Address 2"]);
-            const code1 = getTextProperty(tripData.properties["Code 1"]);
-            const code2 = getTextProperty(tripData.properties["Code 2"]);
-            const wifi1 = getTextProperty(tripData.properties["WiFi 1"]);
-            const wifi2 = getTextProperty(tripData.properties["WiFi 2"]);
-            
-            console.log(`Airbnb details for ${tripName}:`, { address1, address2, code1, code2, wifi1, wifi2 });
-                  
-                  // Store full blitz details INCLUDING the ID for comparison
-                  committedBlitzes.push({
-                    id: tripId,
-                    name: tripName,
-                    date: tripDate || '',
-                    endDate: tripEndDate,
-                    location: tripLocation,
-                    address1,
-                    address2,
-                    code1,
-                    code2,
-                    wifi1,
-                    wifi2,
-                  });
-                  console.log(`Added committed blitz: ${tripName} (ID: ${tripId})`);
-                  
-                  // For the first trip, also set the legacy fields for backward compatibility
-                  if (!blitzTripName) {
-                    blitzTripName = tripName;
-                    blitzTripDate = tripDate;
-                    blitzTripEndDate = tripEndDate;
-                    blitzTripLocation = tripLocation;
-                  }
+                if (!blitzTripName) {
+                  blitzTripName = tripName;
+                  blitzTripDate = tripDate;
+                  blitzTripEndDate = tripEndDate;
+                  blitzTripLocation = tripLocation;
                 }
-              } else {
-                console.error(`Failed to fetch trip: ${tripResponse.status}`);
               }
             }
-            
-            console.log(`Total committed blitzes: ${committedBlitzes.length}`, committedBlitzes);
-          } catch (error) {
-            console.error('Error fetching blitz trip info:', error);
           }
-        } else {
-          console.log('No Preseason trips relation found');
         }
 
         const repData = {
           user_id: user.id,
           notion_page_id: page.id,
           name,
-          phone,
+          phone: getPhone(props.Phone) || getRichText(props.Phone),
           email,
           recruiter: getRichText(props.Recruiter) || getSelect(props.Recruiter),
           team_leader: teamLeaderName,
           team_leader_phone: teamLeaderPhone,
-          stage: (() => {
-            const stageValue = getSelect(props.Stage);
-            console.log(`Stage for ${name}:`, JSON.stringify(props.Stage, null, 2), '-> Result:', stageValue);
-            return stageValue;
-          })(),
-          year: getSelect(props.Year), // "Rookie", "Sophomore", or "Vet"
-          
-          // Blitz trip details
+          stage: getSelect(props.Stage),
+          year: getSelect(props.Year),
           blitz_trip_name: blitzTripName,
           blitz_trip_date: blitzTripDate,
           blitz_trip_end_date: blitzTripEndDate,
           blitz_trip_location: blitzTripLocation,
           committed_blitzes: committedBlitzes,
-          
-          // Journey progress - from Journey Step property
           onboarding_complete: onboardingComplete,
           trainings_complete: trainingsComplete,
           slack_joined: slackJoined,
-          
-          // Ramp to Blitz Phase - raw value from Notion
           ramp_to_blitz_phase: rampPhase,
-          
-          // Ramp to Blitz phases - from Ramp To Blitz Phase property (backward compatibility)
           ramp_phase_1_complete: rampPhase1Complete,
           ramp_phase_2_complete: rampPhase2Complete,
           ramp_phase_3_complete: rampPhase3Complete,
           ramp_phase_4_complete: rampPhase4Complete,
-          
-          // Post-blitz
           blitz_ready: getCheckbox(props["Blitz Ready"]),
           path_to_pro_started: getCheckbox(props["Path to Pro Started"]),
           path_to_pro_progress: 0,
-          
-          // iPad assignment
-          ipad_assigned: ipadAssigned,
-          
-          // Nudge leader
+          ipad_assigned: getCheckbox(props["iPad Assigned"]),
           nudge_leader: getCheckbox(props["Nudge leader"]),
         };
 
-        // Upsert rep data
         const { error: upsertError } = await supabase
           .from("reps")
           .upsert(repData, { onConflict: "user_id" });
 
         if (upsertError) {
-          console.error(`Error upserting rep ${name}:`, upsertError);
           errors.push({ name, error: upsertError.message });
         } else {
-          console.log(`Successfully synced rep: ${name}`);
           syncedReps.push(name);
         }
       } catch (error: any) {
-        console.error(`Error processing page ${page.id}:`, error);
         errors.push({ pageId: page.id, error: error.message });
       }
     }
 
-    // Cleanup: Remove rep records where the user's email doesn't match any Notion email
-    console.log("Starting cleanup of orphaned rep records...");
+    // STEP 7: Cleanup orphaned records
     const notionEmails = new Set(
       allPages
-        .map((page: NotionPage) => {
-          const props = page.properties;
-          const getEmail = (prop: NotionProperty) => {
-            if (prop?.type === "email") return prop.email;
-            return null;
-          };
-          const getRichText = (prop: NotionProperty) => {
-            if (prop?.type === "rich_text" && prop.rich_text?.length > 0) {
-              return prop.rich_text[0].plain_text;
-            }
-            return null;
-          };
-          const email = getEmail(props.Email) || getRichText(props.Email);
+        .map((page) => {
+          const email = getEmail(page.properties.Email) || getRichText(page.properties.Email);
           return email?.toLowerCase();
         })
         .filter(Boolean)
     );
 
-    // Get all existing rep records
-    const { data: allReps, error: fetchError } = await supabase
-      .from("reps")
-      .select("id, user_id, email, name");
-
-    if (fetchError) {
-      console.error("Error fetching reps for cleanup:", fetchError);
-    } else if (allReps) {
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      
+    const { data: allReps } = await supabase.from("reps").select("id, user_id, name");
+    if (allReps) {
       for (const rep of allReps) {
-        // Find the Supabase user for this rep
-        const user = authUsers?.users.find(u => u.id === rep.user_id);
-        
-        if (!user) {
-          console.log(`Deleting rep ${rep.name} - user no longer exists`);
-          await supabase.from("reps").delete().eq("id", rep.id);
-          continue;
-        }
-        
-        // Check if the user's email matches any Notion email (case-insensitive)
-        if (!notionEmails.has(user.email?.toLowerCase())) {
-          console.log(`Deleting rep ${rep.name} - email ${user.email} not found in Notion`);
+        const user = authData.users.find(u => u.id === rep.user_id);
+        if (!user || !notionEmails.has(user.email?.toLowerCase())) {
           await supabase.from("reps").delete().eq("id", rep.id);
         }
       }
     }
+
+    console.log(`Sync complete: ${syncedReps.length} reps synced`);
 
     return new Response(
       JSON.stringify({
@@ -571,22 +421,13 @@ Deno.serve(async (req) => {
         errors: errors.length > 0 ? errors : undefined,
         message: `Successfully synced ${syncedReps.length} reps from Notion`,
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error: any) {
     console.error("Error in sync-notion-reps:", error);
     return new Response(
-      JSON.stringify({
-        error: error.message,
-        details: "Check function logs for more information",
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
