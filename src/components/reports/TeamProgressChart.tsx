@@ -111,7 +111,14 @@ export const TeamProgressChart = ({
   };
 
   const availableViewModes = getAvailableViewModes();
-  const [viewMode, setViewMode] = useState<ViewMode>(availableViewModes[0]?.value || 'individual');
+  // Default to largest scope based on access level
+  const getDefaultViewMode = (): ViewMode => {
+    if (accessLevel === 'area_director') return 'office';
+    if (accessLevel === 'mgmt_group_lead') return 'mgmt';
+    if (accessLevel === 'team_lead') return 'team';
+    return 'individual';
+  };
+  const [viewMode, setViewMode] = useState<ViewMode>(getDefaultViewMode());
 
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
