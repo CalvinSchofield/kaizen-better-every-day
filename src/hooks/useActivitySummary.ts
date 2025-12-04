@@ -104,7 +104,11 @@ export const useActivitySummary = (repData: any) => {
           dayOneDate.setDate(dayOneDate.getDate() + 1); // Move to Monday
         }
         
-        const daysIntoBlitz = Math.floor((now.getTime() - dayOneDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        // Calculate day number based on calendar dates, not time elapsed
+        // This prevents evening times from showing as the next day
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dayOneMidnight = new Date(dayOneDate.getFullYear(), dayOneDate.getMonth(), dayOneDate.getDate());
+        const daysIntoBlitz = Math.floor((todayMidnight.getTime() - dayOneMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         dayNumber = daysIntoBlitz;
         title = `This Blitz — Day ${daysIntoBlitz}`;
         subtitle = activeBlitz.name || activeBlitz.location;
