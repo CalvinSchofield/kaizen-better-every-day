@@ -302,6 +302,9 @@ export const useActivitySummary = (repData: any) => {
             prevDayOne.setDate(prevDayOne.getDate() + 1);
           }
           
+          // Only show data up to the current blitz day number
+          const maxDayToShow = currentBlitzDayNum;
+          
           comparisonChartData = {
             current: sortedCurrentEntries.map((e) => {
               const entryDate = new Date(e.entry_date + 'T00:00:00');
@@ -312,7 +315,7 @@ export const useActivitySummary = (repData: any) => {
                 prmr: Number(e.prmr) || 0,
                 upgradePrmr: Number(e.upgrade_prmr) || 0,
               };
-            }),
+            }).filter(d => d.day <= maxDayToShow),
             previous: sortedPrevEntries.map((e) => {
               const entryDate = new Date(e.entry_date + 'T00:00:00');
               const dayNum = Math.floor((entryDate.getTime() - prevDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -322,7 +325,7 @@ export const useActivitySummary = (repData: any) => {
                 prmr: Number(e.prmr) || 0,
                 upgradePrmr: Number(e.upgrade_prmr) || 0,
               };
-            }),
+            }).filter(d => d.day <= maxDayToShow),
             currentLabel: "This Blitz",
             previousLabel: "Last Blitz",
           };
