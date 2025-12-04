@@ -78,41 +78,35 @@ serve(async (req) => {
       presentationsToClose: funnelConversions.overallPresentationsToClose > 0 ? ((funnelConversions.overallPresentationsToClose - funnelConversions.presentationsToClose) / funnelConversions.overallPresentationsToClose) * 100 : 0,
     };
 
-    const systemPrompt = `You are an expert door-to-door sales coach for Vivint home security. Your job is to analyze a rep's performance data and provide actionable coaching.
+    const systemPrompt = `You are a direct, no-fluff sales coach for Vivint door-to-door reps. Be brief and specific.
 
-IMPORTANT CONTEXT:
-- You're coaching a door-to-door sales rep
-- The sales funnel goes: Doors Knocked → Decision Makers → Pitches → Transitions → Presentations → Closes
-- Lower ratios are BETTER (e.g., 40 doors per FP+ is better than 60 doors per FP+)
-- FP+ = sales (first positions plus upgrades)
-- PRMR = monthly recurring revenue
-- Compare the rep to THEIR OWN averages, not absolute numbers
-- Consider the full story: fewer doors but more closes means better efficiency, not laziness
+CONTEXT:
+- Sales funnel: Doors → DMs → Pitches → Transitions → Presentations → Closes
+- Lower ratios = better (40 doors/FP+ beats 60 doors/FP+)
+- Compare to THEIR averages, not absolutes
+- Fewer doors + more closes = efficiency, not laziness
 
 TIMEFRAME: ${timeframe}
 
-You must use the provide_coaching function to return your analysis.`;
+Use provide_coaching function. Keep everything SHORT.`;
 
-    const userPrompt = `Analyze this rep's ${timeframe} performance:
+    const userPrompt = `${timeframe} performance (${currentPeriod.daysWorked} days):
 
-CURRENT PERIOD (${currentPeriod.daysWorked} days):
-- Doors: ${currentPeriod.doors} (${vsAverage.doors >= 0 ? '+' : ''}${vsAverage.doors.toFixed(0)}% vs avg)
-- Decision Makers: ${currentPeriod.dms} (${vsAverage.dms >= 0 ? '+' : ''}${vsAverage.dms.toFixed(0)}% vs avg)
-- Pitches: ${currentPeriod.pitches} (${vsAverage.pitches >= 0 ? '+' : ''}${vsAverage.pitches.toFixed(0)}% vs avg)
-- Transitions: ${currentPeriod.transitions} (${vsAverage.transitions >= 0 ? '+' : ''}${vsAverage.transitions.toFixed(0)}% vs avg)
-- Presentations: ${currentPeriod.presentations} (${vsAverage.presentations >= 0 ? '+' : ''}${vsAverage.presentations.toFixed(0)}% vs avg)
-- Closes: ${currentPeriod.closes} (${vsAverage.closes >= 0 ? '+' : ''}${vsAverage.closes.toFixed(0)}% vs avg)
-- FP+: ${currentPeriod.fp.toFixed(1)} (${vsAverage.fp >= 0 ? '+' : ''}${vsAverage.fp.toFixed(0)}% vs avg)
-- Hours Worked: ${currentPeriod.totalHours.toFixed(1)} (${vsAverage.hours >= 0 ? '+' : ''}${vsAverage.hours.toFixed(0)}% vs avg)
-- Work Times: ${currentPeriod.avgStartTime} - ${currentPeriod.avgEndTime}
+Doors: ${currentPeriod.doors} (${vsAverage.doors >= 0 ? '+' : ''}${vsAverage.doors.toFixed(0)}% vs avg)
+DMs: ${currentPeriod.dms} (${vsAverage.dms >= 0 ? '+' : ''}${vsAverage.dms.toFixed(0)}%)
+Pitches: ${currentPeriod.pitches} (${vsAverage.pitches >= 0 ? '+' : ''}${vsAverage.pitches.toFixed(0)}%)
+Transitions: ${currentPeriod.transitions} (${vsAverage.transitions >= 0 ? '+' : ''}${vsAverage.transitions.toFixed(0)}%)
+Presentations: ${currentPeriod.presentations} (${vsAverage.presentations >= 0 ? '+' : ''}${vsAverage.presentations.toFixed(0)}%)
+Closes: ${currentPeriod.closes} (${vsAverage.closes >= 0 ? '+' : ''}${vsAverage.closes.toFixed(0)}%)
+FP+: ${currentPeriod.fp.toFixed(1)} (${vsAverage.fp >= 0 ? '+' : ''}${vsAverage.fp.toFixed(0)}%)
+Hours: ${currentPeriod.totalHours.toFixed(1)} (${vsAverage.hours >= 0 ? '+' : ''}${vsAverage.hours.toFixed(0)}%)
 
-FUNNEL EFFICIENCY (lower is better):
-- Doors to FP+: ${funnelConversions.doorsToFp.toFixed(1)} (${funnelVsOverall.doorsToFp >= 0 ? '+' : ''}${funnelVsOverall.doorsToFp.toFixed(0)}% vs overall)
-- Pitches to FP+: ${funnelConversions.pitchesToFp.toFixed(1)} (${funnelVsOverall.pitchesToFp >= 0 ? '+' : ''}${funnelVsOverall.pitchesToFp.toFixed(0)}% vs overall)
-- Transitions to FP+: ${funnelConversions.transitionsToFp.toFixed(1)} (${funnelVsOverall.transitionsToFp >= 0 ? '+' : ''}${funnelVsOverall.transitionsToFp.toFixed(0)}% vs overall)
-- Presentations to Close: ${funnelConversions.presentationsToClose.toFixed(1)} (${funnelVsOverall.presentationsToClose >= 0 ? '+' : ''}${funnelVsOverall.presentationsToClose.toFixed(0)}% vs overall)
+Funnel ratios (lower=better):
+Doors/FP+: ${funnelConversions.doorsToFp.toFixed(1)} (${funnelVsOverall.doorsToFp >= 0 ? '+' : ''}${funnelVsOverall.doorsToFp.toFixed(0)}% vs overall)
+Pitches/FP+: ${funnelConversions.pitchesToFp.toFixed(1)} (${funnelVsOverall.pitchesToFp >= 0 ? '+' : ''}${funnelVsOverall.pitchesToFp.toFixed(0)}%)
+Pres/Close: ${funnelConversions.presentationsToClose.toFixed(1)} (${funnelVsOverall.presentationsToClose >= 0 ? '+' : ''}${funnelVsOverall.presentationsToClose.toFixed(0)}%)
 
-Provide 2 specific things they did excellent (based on improvements vs their average or strong funnel efficiency), 1 thing to work on (the biggest bottleneck in their funnel or area below their average), and a thought-provoking homework question about their prospects or process.`;
+Give 2 wins, 1 focus area, 1 homework question.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -131,24 +125,24 @@ Provide 2 specific things they did excellent (based on improvements vs their ave
             type: "function",
             function: {
               name: "provide_coaching",
-              description: "Return structured coaching feedback for the sales rep",
+              description: "Return brief coaching feedback",
               parameters: {
                 type: "object",
                 properties: {
                   strengths: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Exactly 2 specific things the rep did excellent, each 1-2 sentences. Reference specific numbers.",
+                    description: "2 wins, each ONE sentence max. Reference specific numbers.",
                     minItems: 2,
                     maxItems: 2
                   },
                   improvement: {
                     type: "string",
-                    description: "1 specific area to work on with actionable advice, 2-3 sentences max. Reference the bottleneck."
+                    description: "1 focus area in ONE sentence. Name the bottleneck and what to do."
                   },
                   homework: {
                     type: "string",
-                    description: "A thought-provoking question about their prospects or process, followed by a specific action (e.g., 'Text your leader one sentence for each'). Should make them reflect."
+                    description: "A short reflection question + action (e.g., 'Think about your 2 best prospects who didn't close—what stopped them? Text your leader.')"
                   }
                 },
                 required: ["strengths", "improvement", "homework"],

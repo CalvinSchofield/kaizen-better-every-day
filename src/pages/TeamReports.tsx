@@ -461,6 +461,16 @@ const TeamReports = () => {
           </Card>
         ) : (
           <>
+            {/* AI Coach Card - Only show for week, month, preseason views with enough data */}
+            {(datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason') && insightsData.daysWorked >= 3 && (
+              <LeaderAICoachCard
+                coaching={leaderCoaching || null}
+                isLoading={coachingLoading}
+                timeframe={datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
+                scopeLabel={getScopeLabel()}
+              />
+            )}
+
             {/* Summary Card */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
@@ -526,16 +536,6 @@ const TeamReports = () => {
                 </div>
               )}
             </Card>
-
-            {/* AI Coach Card - Only show for week, month, preseason views with enough data */}
-            {(datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason') && insightsData.daysWorked >= 3 && (
-              <LeaderAICoachCard
-                coaching={leaderCoaching || null}
-                isLoading={coachingLoading}
-                timeframe={datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
-                scopeLabel={getScopeLabel()}
-              />
-            )}
 
             {/* Progress Over Time Chart */}
             <TeamProgressChart 
