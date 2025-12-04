@@ -349,7 +349,7 @@ export const CalendarView = ({
                 </div>
                 {entry && entry.is_finalized && (
                   <div className="text-xs text-primary font-semibold mt-1">
-                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0, entry.upgrade_prmr || 0)) : formatValue(entry.fp_plus || 0)}
+                    {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
               </div>
@@ -393,7 +393,7 @@ export const CalendarView = ({
                     {efpModeEnabled ? (
                       <>
                         <div className="text-xs text-primary font-semibold">
-                          {formatValue(calculateEfp(entry.prmr || 0, entry.upgrade_prmr || 0))} EFP
+                          {formatValue(calculateEfp(entry.prmr || 0))} EFP
                         </div>
                         <div className="text-xs text-muted-foreground font-medium">
                           {formatValue(entry.fp_plus || 0)} FP+
@@ -404,9 +404,9 @@ export const CalendarView = ({
                         <div className="text-xs text-primary font-semibold">
                           {formatValue(entry.fp_plus || 0)} FP+
                         </div>
-                        {(entry.prmr > 0 || entry.upgrade_prmr > 0) && (
+                        {entry.prmr > 0 && (
                           <div className="text-xs text-muted-foreground font-medium">
-                            ${Math.round((entry.prmr || 0) + (entry.upgrade_prmr || 0))}
+                            ${Math.round(entry.prmr || 0)}
                           </div>
                         )}
                       </>
@@ -450,9 +450,9 @@ export const CalendarView = ({
               <div className="flex gap-4 text-sm">
                 {efpModeEnabled ? (
                   <>
-                    <div>
+                  <div>
                       <span className="font-bold text-primary">
-                        {calculateEfp(viewTotals.prmr, viewTotals.upgradePrmr).toFixed(1)}
+                        {calculateEfp(viewTotals.prmr).toFixed(1)}
                       </span>
                     <span className="text-muted-foreground ml-1">EFP</span>
                   </div>

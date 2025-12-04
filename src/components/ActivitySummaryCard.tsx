@@ -72,18 +72,18 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
   const isBlitzMode = summary.mode === "blitz";
   const previousBlitzFp = summary.comparison?.previousBlitzFp || 0;
   const hasNoBlitzEntries = isBlitzMode && summary.daysWorked === 0 && previousBlitzFp > 0;
-  // Calculate EFP for display - total PRMR = prmr (FP sales) + upgradePrmr (upgrade sales)
-  const totalPrmr = summary.totals.prmr + (summary.totals.upgradePrmr || 0);
-  const efpValue = efpModeEnabled ? calculateEfp(summary.totals.prmr, summary.totals.upgradePrmr || 0) : 0;
+  // Calculate EFP for display - prmr field IS total PRMR (already includes upgrade)
+  const totalPrmr = summary.totals.prmr;
+  const efpValue = efpModeEnabled ? calculateEfp(summary.totals.prmr) : 0;
   
   // Calculate previous period EFP if in EFP mode and comparison exists
   const previousPeriodEfp = efpModeEnabled && summary.comparison?.previousPeriodPrmr 
-    ? calculateEfp(summary.comparison.previousPeriodPrmr, 0) 
+    ? calculateEfp(summary.comparison.previousPeriodPrmr) 
     : 0;
   
   // Calculate day-aligned previous EFP for comparison using actual PRMR change
   const previousEfpAtSameDays = efpModeEnabled && summary.comparison?.previousDayAlignedPrmr !== undefined
-    ? calculateEfp(summary.comparison.previousDayAlignedPrmr, 0)
+    ? calculateEfp(summary.comparison.previousDayAlignedPrmr)
     : 0;
   const efpChange = efpModeEnabled ? efpValue - previousEfpAtSameDays : 0;
   
@@ -174,11 +174,11 @@ export const ActivitySummaryCard = ({ repData }: ActivitySummaryCardProps) => {
             <ComparisonSparkline
               currentData={summary.comparisonChartData.current.map(d => ({
                 day: d.day,
-                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0, (d as any).upgradePrmr || 0) : d.value,
+                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0) : d.value,
               }))}
               previousData={summary.comparisonChartData.previous.map(d => ({
                 day: d.day,
-                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0, (d as any).upgradePrmr || 0) : d.value,
+                value: efpModeEnabled ? calculateEfp((d as any).prmr || 0) : d.value,
               }))}
               currentLabel={summary.comparisonChartData.currentLabel}
               previousLabel={summary.comparisonChartData.previousLabel}
