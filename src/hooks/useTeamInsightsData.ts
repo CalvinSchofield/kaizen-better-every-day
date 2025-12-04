@@ -717,13 +717,14 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         }, 0);
 
         const upgradeFP = repTotals.upgradePRMR / 85;
+        const daysWorked = repEntries.length;
 
         return {
           userId: rep.user_id,
           name: rep.name,
           year: rep.year,
-          teamName: rep.teamName || 'Unknown Team',
-          mgmtGroupName: rep.mgmtGroupName || 'Unknown Group',
+          teamName: rep.teamName || 'No Team',
+          mgmtGroupName: rep.mgmtGroupName || 'No Group',
           doors: repTotals.doors,
           dms: repTotals.dms,
           pitches: repTotals.pitches,
@@ -734,8 +735,9 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           upgradeFP,
           prmr: repTotals.prmr,
           upgradePRMR: repTotals.upgradePRMR,
-          doorsToFpRatio: repTotals.doors > 0 ? repTotals.doors / repTotals.fp : 0,
+          doorsToFpRatio: repTotals.fp > 0 ? repTotals.doors / repTotals.fp : 0,
           hoursWorked: repHours,
+          daysWorked,
         };
       });
 
