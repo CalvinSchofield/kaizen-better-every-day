@@ -306,9 +306,9 @@ export const AdminDataReviewCard = () => {
       <Drawer open={confirmDrawerOpen} onOpenChange={setConfirmDrawerOpen}>
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Mark as OK?</DrawerTitle>
+            <DrawerTitle>Review & Approve</DrawerTitle>
             <DrawerDescription>
-              Confirm that this data is correct and doesn't need changes.
+              Confirm you've reviewed this entry and the data is accurate.
             </DrawerDescription>
           </DrawerHeader>
           
@@ -321,33 +321,36 @@ export const AdminDataReviewCard = () => {
                 <p className="font-semibold">{confirmIssue.repName}</p>
                 <p className="text-sm text-muted-foreground mt-1">{confirmIssue.description}</p>
                 
-                {/* Show key data points */}
-                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Doors:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.doors_knocked}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Pitches:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.pitches}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Presentations:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.presentations}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Closes:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.closes}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">FP+:</span>{' '}
-                    <span className="font-medium">
-                      {(confirmIssue.entryData.fp_plus + (confirmIssue.entryData.upgrade_prmr / 85)).toFixed(1)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">PRMR:</span>{' '}
-                    <span className="font-medium">${confirmIssue.entryData.prmr}</span>
+                {/* Show key data points for review */}
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Entry Summary:</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Doors:</span>{' '}
+                      <span className="font-medium">{confirmIssue.entryData.doors_knocked}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Pitches:</span>{' '}
+                      <span className="font-medium">{confirmIssue.entryData.pitches}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Presentations:</span>{' '}
+                      <span className="font-medium">{confirmIssue.entryData.presentations}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Closes:</span>{' '}
+                      <span className="font-medium">{confirmIssue.entryData.closes}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">FP+:</span>{' '}
+                      <span className="font-medium">
+                        {(confirmIssue.entryData.fp_plus + (confirmIssue.entryData.upgrade_prmr / 85)).toFixed(1)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">PRMR:</span>{' '}
+                      <span className="font-medium">${confirmIssue.entryData.prmr}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -357,7 +360,7 @@ export const AdminDataReviewCard = () => {
           <DrawerFooter>
             <Button onClick={handleConfirmDismiss} className="bg-green-600 hover:bg-green-700">
               <Check className="w-4 h-4 mr-2" />
-              Yes, Data is OK
+              Approve Data
             </Button>
             <Button variant="outline" onClick={() => setConfirmDrawerOpen(false)}>
               Cancel
