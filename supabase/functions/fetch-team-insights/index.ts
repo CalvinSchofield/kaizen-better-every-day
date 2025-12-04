@@ -5,6 +5,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Retry helper for Notion API with exponential backoff
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -74,74 +104,107 @@ Deno.serve(async (req) => {
     const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
     const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
     
-    let teamMappings: Record<string, { teamName: string; mgmtGroupName: string }> = {};
+    let enrichedReps = reps || [];
     
-    if (notionApiKey) {
+    if (notionApiKey && reps && reps.length > 0) {
       try {
-        // Fetch all teams
-        const teamsResponse = await fetch(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${notionApiKey}`,
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        });
+        const notionHeaders = {
+          'Authorization': `Bearer ${notionApiKey}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+        };
+
+        // First, fetch all teams and build a mapping of team ID -> { teamName, mgmtGroupId }
+        const teamsResponse = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`,
+          { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
+        );
         const teamsData = await teamsResponse.json();
         
-        // Fetch all MGMT groups
-        const mgmtResponse = await fetch(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${notionApiKey}`,
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        });
-        const mgmtData = await mgmtResponse.json();
-        
-        // Build mappings
-        const mgmtGroupsById: Record<string, string> = {};
-        for (const group of mgmtData.results || []) {
-          const nameProperty = group.properties['Name'];
-          const groupName = nameProperty?.title?.[0]?.plain_text || 'Unknown Group';
-          mgmtGroupsById[group.id] = groupName;
-        }
-        
-        // Map reps to teams and MGMT groups
+        const teamById: Record<string, { teamName: string; mgmtGroupId: string | null }> = {};
         for (const team of teamsData.results || []) {
-          const teamProps = team.properties;
-          const nameProperty = teamProps['Name'];
-          const teamName = nameProperty?.title?.[0]?.plain_text || 'Unknown Team';
-          
-          const repsProperty = teamProps['Reps'];
-          const repRelations = repsProperty?.relation || [];
-          
-          const mgmtGroupProperty = teamProps['MGMT Group'];
-          const mgmtGroupId = mgmtGroupProperty?.relation?.[0]?.id;
-          const mgmtGroupName = mgmtGroupId ? (mgmtGroupsById[mgmtGroupId] || 'Unknown Group') : 'No Group';
-          
-          for (const repRelation of repRelations) {
-            const repNotionId = repRelation.id;
-            teamMappings[repNotionId] = { teamName, mgmtGroupName };
+          const teamName = team.properties['Name']?.title?.[0]?.plain_text || null;
+          // Try both "MTMT Groups" and "MGMT Group" property names
+          const mgmtGroupProp = team.properties['MTMT Groups'] || team.properties['MGMT Group'];
+          const mgmtGroupId = mgmtGroupProp?.relation?.[0]?.id || null;
+          if (teamName) {
+            teamById[team.id] = { teamName, mgmtGroupId };
           }
         }
+        console.log('Teams loaded:', Object.keys(teamById).length);
+
+        // Fetch all MGMT groups
+        const mgmtResponse = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`,
+          { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
+        );
+        const mgmtData = await mgmtResponse.json();
+        
+        const mgmtGroupById: Record<string, string> = {};
+        for (const group of mgmtData.results || []) {
+          const groupName = group.properties['Name']?.title?.[0]?.plain_text || null;
+          if (groupName) {
+            mgmtGroupById[group.id] = groupName;
+          }
+        }
+        console.log('MGMT groups loaded:', Object.keys(mgmtGroupById).length);
+
+        // Now fetch each rep's Notion page to get their Teams relation
+        const repMappings: Record<string, { teamName: string | null; mgmtGroupName: string | null }> = {};
+        
+        const repsWithNotion = reps.filter(r => r.notion_page_id);
+        console.log('Reps with notion_page_id:', repsWithNotion.length);
+
+        // Process in batches to avoid rate limits
+        for (const rep of repsWithNotion) {
+          try {
+            const repResponse = await fetchNotionWithRetry(
+              `https://api.notion.com/v1/pages/${rep.notion_page_id}`,
+              { method: 'GET', headers: notionHeaders }
+            );
+            
+            if (repResponse.ok) {
+              const repData = await repResponse.json();
+              const teamsRelation = repData.properties['Teams']?.relation || [];
+              
+              if (teamsRelation.length > 0) {
+                const teamId = teamsRelation[0].id;
+                const teamInfo = teamById[teamId];
+                
+                if (teamInfo) {
+                  const mgmtGroupName = teamInfo.mgmtGroupId ? mgmtGroupById[teamInfo.mgmtGroupId] : null;
+                  repMappings[rep.notion_page_id] = {
+                    teamName: teamInfo.teamName,
+                    mgmtGroupName: mgmtGroupName,
+                  };
+                  console.log(`Mapped ${rep.name} -> Team: ${teamInfo.teamName}, MGMT: ${mgmtGroupName}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching rep ${rep.name}:`, error);
+          }
+        }
+        
+        console.log('Rep mappings created:', Object.keys(repMappings).length);
+
+        // Enrich rep data with team/MGMT group info
+        enrichedReps = reps.map(rep => ({
+          ...rep,
+          teamName: rep.notion_page_id ? (repMappings[rep.notion_page_id]?.teamName || null) : null,
+          mgmtGroupName: rep.notion_page_id ? (repMappings[rep.notion_page_id]?.mgmtGroupName || null) : null,
+        }));
+        
       } catch (error) {
         console.error('Error fetching team/MGMT info:', error);
+        // Return reps without enrichment on error
+        enrichedReps = reps.map(rep => ({
+          ...rep,
+          teamName: null,
+          mgmtGroupName: null,
+        }));
       }
     }
-    
-    // Enrich rep data with team/MGMT group info
-    const enrichedReps = (reps || []).map(rep => ({
-      ...rep,
-      teamName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.teamName || null) : null,
-      mgmtGroupName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.mgmtGroupName || null) : null,
-    }));
-    
-    console.log('Team mappings found:', Object.keys(teamMappings).length);
-    console.log('Reps with notion_page_id:', (reps || []).filter(r => r.notion_page_id).length);
 
     console.log(`Fetched ${entries?.length || 0} entries for ${filteredUserIds.length} users`);
 
