@@ -99,8 +99,8 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
           leaderboard.mostFP = { userId: entry.user_id, name: cleanName, value: entry.fp_plus };
         }
 
-        // prmr field IS total PRMR (upgrade_prmr is a subset, not additive)
-        const totalPrmr = entry.prmr || 0;
+        // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
+        const totalPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         if (totalPrmr > 0 && (!leaderboard.mostPRMR || totalPrmr > leaderboard.mostPRMR.value)) {
           leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: totalPrmr };
         }

@@ -176,7 +176,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
                 presentations: todayEntry.presentations || 0,
                 closes: todayEntry.closes || 0,
                 fp: todayEntry.fp_plus || 0,
-                prmr: todayEntry.prmr || 0,
+                prmr: (todayEntry.prmr || 0) + (todayEntry.upgrade_prmr || 0),
                 isFinalized: todayEntry.is_finalized || false,
               },
               workStartTime: todayEntry.work_start_time || undefined,

@@ -168,7 +168,7 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       };
 
       // Create PRMR ranking - use sales_log for unfinalized, columns for finalized
-      // Note: prmr field IS total PRMR (upgrade_prmr is a subset, not additive)
+      // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
       const createPrmrRanking = (): RankingEntry[] => {
         return filteredEntries
           .map(entry => {
@@ -177,12 +177,12 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             
             let value: number;
             if (entry.is_finalized) {
-              // Finalized: use saved prmr column (already total PRMR)
-              value = Number(entry.prmr) || 0;
+              // Finalized: Total PRMR = prmr + upgrade_prmr
+              value = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
             } else {
               // Unfinalized: calculate from sales_log OR use columns if manually entered
               const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
-              const fromColumns = Number(entry.prmr) || 0;
+              const fromColumns = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
               // Use whichever is higher
               value = Math.max(fromLog.prmr, fromColumns);
             }

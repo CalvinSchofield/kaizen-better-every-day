@@ -181,11 +181,11 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       );
 
       // Calculate totals for the period (use ALL entries including results-only)
-      // Calculate totals for the period (use ALL entries including results-only)
-      // Note: prmr field IS total PRMR (upgrade_prmr is a subset, not additive)
+      // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
       const totals = rangeEntries.reduce((acc, entry) => {
         acc.fpPlus += entry.fp_plus || 0;
-        acc.prmr += entry.prmr || 0;
+        acc.prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+        acc.upgradePrmr += entry.upgrade_prmr || 0;
         acc.doors += entry.doors_knocked || 0;
         acc.decisionMakers += entry.decision_makers || 0;
         acc.pitches += entry.pitches || 0;
@@ -224,6 +224,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       }, { 
         fpPlus: 0, 
         prmr: 0, 
+        upgradePrmr: 0,
         doors: 0, 
         decisionMakers: 0, 
         pitches: 0, 
@@ -304,8 +305,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const presentationsPerHour = activityTotals.totalHours > 0 ? activityTotals.presentations / activityTotals.totalHours : 0;
       const hoursToFp = activityTotals.fpPlus > 0 ? activityTotals.totalHours / activityTotals.fpPlus : 0;
       
-      // EFP calculations (total PRMR / 85) - prmr field IS total PRMR
-      const totalEfp = totals.prmr / 85;
+      // EFP calculations: EFP = (prmr + upgrade_prmr) / 85
+      const totalEfp = totals.prmr / 85; // totals.prmr already includes upgrade_prmr
       const activityEfp = rangeEntries
         .filter(entry => 
           (entry.doors_knocked || 0) > 0 ||
@@ -315,9 +316,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           (entry.presentations || 0) > 0 ||
           (entry.closes || 0) > 0
         )
-        .reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+        .reduce((sum, entry) => sum + (entry.prmr || 0) + (entry.upgrade_prmr || 0), 0) / 85;
       
-      const overallEfp = allEntriesWithActivity.reduce((sum, entry) => sum + (entry.prmr || 0), 0) / 85;
+      const overallEfp = allEntriesWithActivity.reduce((sum, entry) => sum + (entry.prmr || 0) + (entry.upgrade_prmr || 0), 0) / 85;
       
       const doorsToEfp = activityEfp > 0 ? activityTotals.doors / activityEfp : 0;
       const pitchesToEfp = activityEfp > 0 ? activityTotals.pitches / activityEfp : 0;
@@ -329,7 +330,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const overallTransitionsToEfp = overallEfp > 0 ? overallTotals.transitions / overallEfp : 0;
 
       // Upgrade calculations
-      const totalUpgradePrmr = rangeEntries.reduce((sum, entry) => sum + (entry.upgrade_prmr || 0), 0);
+      const totalUpgradePrmr = totals.upgradePrmr;
       const totalUpgradeFp = totalUpgradePrmr / 85;
       const totalNewFp = totals.fpPlus - totalUpgradeFp;
       const totalNewPrmr = totals.prmr - totalUpgradePrmr;
@@ -347,7 +348,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         ? {
             date: format(parseISO(bestDay.entry_date), 'MMM d, yyyy'),
             fpPlus: bestDay.fp_plus || 0,
-            efp: (bestDay.prmr || 0) / 85,
+            efp: ((bestDay.prmr || 0) + (bestDay.upgrade_prmr || 0)) / 85,
             stats: `${bestDay.doors_knocked} doors · ${bestDay.closes} closes`,
           }
         : null;
@@ -370,7 +371,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
             date: format(parseISO(bestTransitionsDay.entry.entry_date), 'MMM d, yyyy'),
             transitions: bestTransitionsDay.transitions,
             fpPlus: bestTransitionsDay.entry.fp_plus || 0,
-            efp: (bestTransitionsDay.entry.prmr || 0) / 85,
+            efp: ((bestTransitionsDay.entry.prmr || 0) + (bestTransitionsDay.entry.upgrade_prmr || 0)) / 85,
           }
         : null;
 
@@ -442,7 +443,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         
         weeklyData[weekKey].entries.push(entry);
         weeklyData[weekKey].fpPlus += entry.fp_plus || 0;
-        weeklyData[weekKey].prmr += entry.prmr || 0;
+        weeklyData[weekKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         weeklyData[weekKey].doors += entry.doors_knocked || 0;
         weeklyData[weekKey].closes += entry.closes || 0;
       });
@@ -475,7 +476,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         }
         
         monthlyData[monthKey].fpPlus += entry.fp_plus || 0;
-        monthlyData[monthKey].prmr += entry.prmr || 0;
+        monthlyData[monthKey].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         monthlyData[monthKey].doors += entry.doors_knocked || 0;
         monthlyData[monthKey].closes += entry.closes || 0;
       });
@@ -530,7 +531,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         }
         
         dayOfWeekTotals[dayName].fpPlus += entry.fp_plus || 0;
-        dayOfWeekTotals[dayName].prmr += entry.prmr || 0;
+        dayOfWeekTotals[dayName].prmr += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         dayOfWeekTotals[dayName].doors += entry.doors_knocked || 0;
         dayOfWeekTotals[dayName].pitches += entry.pitches || 0;
         dayOfWeekTotals[dayName].transitions += entry.transitions || 0;
@@ -667,16 +668,20 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       };
 
       // Daily Trend Data (for line charts)
-      const dailyTrend = rangeEntries.map(entry => ({
-        date: entry.entry_date,
-        doors: entry.doors_knocked || 0,
-        pitches: entry.pitches || 0,
-        transitions: entry.transitions || 0,
-        presentations: entry.presentations || 0,
-        fp: entry.fp_plus || 0,
-        efp: (entry.prmr || 0) / 85,
-        prmr: entry.prmr || 0,
-      })).sort((a, b) => a.date.localeCompare(b.date));
+      // Total PRMR = prmr + upgrade_prmr, EFP = total PRMR / 85
+      const dailyTrend = rangeEntries.map(entry => {
+        const totalPrmr = (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+        return {
+          date: entry.entry_date,
+          doors: entry.doors_knocked || 0,
+          pitches: entry.pitches || 0,
+          transitions: entry.transitions || 0,
+          presentations: entry.presentations || 0,
+          fp: entry.fp_plus || 0,
+          efp: totalPrmr / 85,
+          prmr: totalPrmr,
+        };
+      }).sort((a, b) => a.date.localeCompare(b.date));
 
       return {
         doorsToFp,
