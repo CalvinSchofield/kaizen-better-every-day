@@ -216,6 +216,74 @@ const TeamReports = () => {
     return `${selectedCount} members`;
   };
 
+  // Build leader coaching params (after getScopeLabel is defined)
+  const leaderCoachingParams = useMemo(() => {
+    if (!insightsData || insightsData.daysWorked < 3 || !insightsData.repBreakdown?.length) return null;
+    
+    const timeframeLabel = datePreset === 'week' ? 'This Week' 
+      : datePreset === 'month' ? 'This Month' 
+      : datePreset === 'preseason' ? 'Preseason'
+      : datePreset === 'yesterday' ? 'Yesterday'
+      : 'Selected Period';
+    
+    return {
+      timeframe: timeframeLabel,
+      scopeLabel: getScopeLabel(),
+      teamTotals: {
+        doors: insightsData.totalDoors,
+        pitches: insightsData.totalPitches,
+        transitions: insightsData.totalTransitions,
+        presentations: insightsData.totalPresentations,
+        closes: insightsData.totalCloses,
+        fp: insightsData.totalFP,
+        prmr: insightsData.totalPRMR,
+        daysWorked: insightsData.daysWorked,
+        uniqueReps: insightsData.uniqueRepsWorked || 0,
+      },
+      teamFunnel: {
+        doorsToFp: insightsData.doorsToFp,
+        pitchesToFp: insightsData.pitchesToFp,
+        transitionsToFp: insightsData.transitionsToFp,
+        presentationsToClose: insightsData.presentationsToClose,
+        overallDoorsToFp: insightsData.overallDoorsToFp,
+        overallPitchesToFp: insightsData.overallPitchesToFp,
+        overallTransitionsToFp: insightsData.overallTransitionsToFp,
+        overallPresentationsToClose: insightsData.overallPresentationsToClose,
+      },
+      repBreakdown: insightsData.repBreakdown?.map((rep: any) => ({
+        name: rep.name,
+        year: rep.year || 'Unknown',
+        currentPeriod: {
+          doors: rep.doors,
+          pitches: rep.pitches,
+          transitions: rep.transitions,
+          presentations: rep.presentations,
+          closes: rep.closes,
+          fp: rep.fp,
+        },
+        repAverage: {
+          avgDoors: rep.avgDoors || rep.doors / (rep.daysWorked || 1),
+          avgPitches: rep.avgPitches || rep.pitches / (rep.daysWorked || 1),
+          avgTransitions: rep.avgTransitions || rep.transitions / (rep.daysWorked || 1),
+          avgPresentations: rep.avgPresentations || rep.presentations / (rep.daysWorked || 1),
+          avgCloses: rep.avgCloses || rep.closes / (rep.daysWorked || 1),
+          avgFp: rep.avgFp || rep.fp / (rep.daysWorked || 1),
+        },
+        vsAverage: {
+          doors: rep.avgDoors ? ((rep.doors / (rep.daysWorked || 1)) - rep.avgDoors) / rep.avgDoors * 100 : 0,
+          pitches: rep.avgPitches ? ((rep.pitches / (rep.daysWorked || 1)) - rep.avgPitches) / rep.avgPitches * 100 : 0,
+          transitions: rep.avgTransitions ? ((rep.transitions / (rep.daysWorked || 1)) - rep.avgTransitions) / rep.avgTransitions * 100 : 0,
+          presentations: rep.avgPresentations ? ((rep.presentations / (rep.daysWorked || 1)) - rep.avgPresentations) / rep.avgPresentations * 100 : 0,
+          closes: rep.avgCloses ? ((rep.closes / (rep.daysWorked || 1)) - rep.avgCloses) / rep.avgCloses * 100 : 0,
+          fp: rep.avgFp ? ((rep.fp / (rep.daysWorked || 1)) - rep.avgFp) / rep.avgFp * 100 : 0,
+        },
+      })) || [],
+    };
+  }, [insightsData, datePreset, accessData, effectiveUserIds, excludeUserIds]);
+
+  // Leader AI coaching
+  const { data: leaderCoaching, isLoading: coachingLoading } = useLeaderCoaching(leaderCoachingParams);
+
   // Calculate ratio comparisons
   const doorsComparison = insightsData ? getRatioComparison(insightsData.doorsToFp, insightsData.overallDoorsToFp) : null;
   const pitchesComparison = insightsData ? getRatioComparison(insightsData.pitchesToFp, insightsData.overallPitchesToFp) : null;
@@ -458,6 +526,16 @@ const TeamReports = () => {
                 </div>
               )}
             </Card>
+
+            {/* AI Coach Card - Only show for week, month, preseason views with enough data */}
+            {(datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason') && insightsData.daysWorked >= 3 && (
+              <LeaderAICoachCard
+                coaching={leaderCoaching || null}
+                isLoading={coachingLoading}
+                timeframe={datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
+                scopeLabel={getScopeLabel()}
+              />
+            )}
 
             {/* Progress Over Time Chart */}
             <TeamProgressChart 
