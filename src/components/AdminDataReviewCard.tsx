@@ -4,14 +4,6 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Check, X, Clock, Loader2 } from 'lucide-react';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerFooter,
-} from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -47,9 +39,12 @@ interface IssueRowProps {
   issue: DataIssue;
   onOkay: () => void;
   onEdit: () => void;
+  onFixEndTime: (issue: DataIssue) => void;
+  isFixing: boolean;
+  fixingIssueId: string | null;
 }
 
-const IssueRow = ({ issue, onOkay, onEdit }: IssueRowProps) => {
+const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, isFixing, fixingIssueId }: IssueRowProps) => {
   const getSeverityColor = () => {
     return issue.severity === 'error' 
       ? 'border-l-destructive' 
@@ -71,6 +66,10 @@ const IssueRow = ({ issue, onOkay, onEdit }: IssueRowProps) => {
     }
   };
 
+  const showFixButton = issue.issueType === 'late_end_time' || issue.issueType === 'unsaved';
+  const suggested = showFixButton ? getSuggestedEndTime(issue) : null;
+  const isThisFixing = isFixing && fixingIssueId === issue.id;
+
   return (
     <div
       className={cn(
@@ -79,21 +78,49 @@ const IssueRow = ({ issue, onOkay, onEdit }: IssueRowProps) => {
       )}
       onClick={onEdit}
     >
-      <div className="flex items-center gap-3">
-        {getIssueIcon()}
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5">{getIssueIcon()}</div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{issue.repName}</p>
-          <p className="text-xs text-muted-foreground truncate">{issue.description}</p>
+          <p className="text-xs text-muted-foreground">{issue.description}</p>
+          {suggested && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <Clock className="w-3 h-3 text-blue-500" />
+              <span className="text-xs text-blue-600 font-medium">
+                Suggest {suggested.formatted}
+              </span>
+            </div>
+          )}
         </div>
-        <button
-          className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOkay();
-          }}
-        >
-          <Check className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {showFixButton && suggested && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFixEndTime(issue);
+              }}
+              disabled={isThisFixing}
+            >
+              {isThisFixing ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                'Fix'
+              )}
+            </Button>
+          )}
+          <button
+            className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOkay();
+            }}
+          >
+            <Check className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -103,9 +130,8 @@ export const AdminDataReviewCard = () => {
   const { issues, shouldShowCard, dismissIssue, refetch } = useAdminDataReview();
   const [selectedIssue, setSelectedIssue] = useState<DataIssue | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [confirmIssue, setConfirmIssue] = useState<DataIssue | null>(null);
-  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [isFixingEndTime, setIsFixingEndTime] = useState(false);
+  const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
 
   if (!shouldShowCard || issues.length === 0) {
     return null;
@@ -117,32 +143,23 @@ export const AdminDataReviewCard = () => {
   };
 
   const handleOkayClick = (issue: DataIssue) => {
-    setConfirmIssue(issue);
-    setConfirmDrawerOpen(true);
+    // Directly dismiss the issue - checkmark means "I'm okay with this data"
+    dismissIssue(issue.id);
   };
 
-  const handleConfirmDismiss = () => {
-    if (confirmIssue) {
-      dismissIssue(confirmIssue.id);
-      setConfirmDrawerOpen(false);
-      setConfirmIssue(null);
-    }
-  };
-
-  const handleFixEndTime = async () => {
-    if (!confirmIssue) return;
-    
-    const suggested = getSuggestedEndTime(confirmIssue);
+  const handleFixEndTime = async (issue: DataIssue) => {
+    const suggested = getSuggestedEndTime(issue);
     if (!suggested) return;
 
     setIsFixingEndTime(true);
+    setFixingIssueId(issue.id);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase.functions.invoke('update-rep-entry', {
         body: {
-          entryId: confirmIssue.entryId,
+          entryId: issue.entryId,
           adminEmail: user.email,
           updates: {
             work_end_time: suggested.time,
@@ -155,12 +172,10 @@ export const AdminDataReviewCard = () => {
 
       toast({
         title: 'End time fixed',
-        description: `Updated ${confirmIssue.repName}'s end time to ${suggested.formatted}`,
+        description: `Updated ${issue.repName}'s end time to ${suggested.formatted}`,
       });
 
-      dismissIssue(confirmIssue.id);
-      setConfirmDrawerOpen(false);
-      setConfirmIssue(null);
+      dismissIssue(issue.id);
       refetch();
     } catch (error) {
       console.error('Error fixing end time:', error);
@@ -171,6 +186,7 @@ export const AdminDataReviewCard = () => {
       });
     } finally {
       setIsFixingEndTime(false);
+      setFixingIssueId(null);
     }
   };
 
@@ -187,7 +203,6 @@ export const AdminDataReviewCard = () => {
   const getRepDetailData = (issue: DataIssue) => {
     const entry = issue.entryData;
     const fp = entry.fp_plus + (entry.upgrade_prmr / 85);
-    const prmr = entry.prmr;
     
     let hoursWorked = 0;
     if (entry.work_start_time && entry.work_end_time) {
@@ -250,6 +265,9 @@ export const AdminDataReviewCard = () => {
                 issue={issue}
                 onOkay={() => handleOkayClick(issue)}
                 onEdit={() => handleEditIssue(issue)}
+                onFixEndTime={handleFixEndTime}
+                isFixing={isFixingEndTime}
+                fixingIssueId={fixingIssueId}
               />
             ))}
           </div>
@@ -265,104 +283,6 @@ export const AdminDataReviewCard = () => {
           entryDate={selectedIssue.entryDate}
         />
       )}
-
-      {/* Confirm Dismiss Drawer */}
-      <Drawer open={confirmDrawerOpen} onOpenChange={setConfirmDrawerOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Mark as OK?</DrawerTitle>
-            <DrawerDescription>
-              Confirm that this data is correct and doesn't need review.
-            </DrawerDescription>
-          </DrawerHeader>
-          
-          {confirmIssue && (
-            <div className="px-4 pb-4">
-              <div className={cn(
-                "bg-muted/50 border-l-4 p-4 rounded-lg",
-                confirmIssue.severity === 'error' ? 'border-l-destructive' : 'border-l-amber-500'
-              )}>
-                <p className="font-semibold">{confirmIssue.repName}</p>
-                <p className="text-sm text-muted-foreground mt-1">{confirmIssue.description}</p>
-                
-                {/* Suggested end time for late_end_time or unsaved issues */}
-                {(confirmIssue.issueType === 'late_end_time' || confirmIssue.issueType === 'unsaved') && (() => {
-                  const suggested = getSuggestedEndTime(confirmIssue);
-                  if (suggested) {
-                    return (
-                      <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 text-blue-600">
-                              <Clock className="w-4 h-4" />
-                              <span className="text-sm font-medium">Suggested end time</span>
-                            </div>
-                            <p className="text-lg font-semibold text-blue-600 mt-1">{suggested.formatted}</p>
-                            <p className="text-xs text-muted-foreground mt-1">Based on last tracked activity</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={handleFixEndTime}
-                            disabled={isFixingEndTime}
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            {isFixingEndTime ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              'Fix End Time'
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                
-                {/* Show key data points */}
-                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Doors:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.doors_knocked}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Pitches:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.pitches}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Presentations:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.presentations}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Closes:</span>{' '}
-                    <span className="font-medium">{confirmIssue.entryData.closes}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">FP+:</span>{' '}
-                    <span className="font-medium">
-                      {(confirmIssue.entryData.fp_plus + (confirmIssue.entryData.upgrade_prmr / 85)).toFixed(1)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">PRMR:</span>{' '}
-                    <span className="font-medium">${confirmIssue.entryData.prmr}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DrawerFooter>
-            <Button onClick={handleConfirmDismiss} className="bg-green-600 hover:bg-green-700">
-              <Check className="w-4 h-4 mr-2" />
-              Yes, Data is OK
-            </Button>
-            <Button variant="outline" onClick={() => setConfirmDrawerOpen(false)}>
-              Cancel
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
     </>
   );
 };
