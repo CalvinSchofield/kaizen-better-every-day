@@ -64,11 +64,15 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1 }: Re
         <DrawerHeader className="text-left pb-2">
           <DrawerTitle className="text-xl">{rep.name}</DrawerTitle>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{rep.teamName}</span>
+            <span>{rep.teamName || 'No Team'}</span>
             <span>·</span>
-            <span>{rep.mgmtGroupName}</span>
-            <span>·</span>
-            <span className="capitalize">{rep.year}</span>
+            <span>{rep.mgmtGroupName || 'No Group'}</span>
+            {rep.year && rep.year !== 'Unknown' && (
+              <>
+                <span>·</span>
+                <span className="capitalize">{rep.year}</span>
+              </>
+            )}
           </div>
         </DrawerHeader>
 
