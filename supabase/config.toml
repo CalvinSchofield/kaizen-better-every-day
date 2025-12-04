@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.check-inactivity-notifications]
 verify_jwt = false
+
+[functions.test-push-notification]
+verify_jwt = false
