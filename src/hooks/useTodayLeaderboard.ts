@@ -177,12 +177,12 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             
             let value: number;
             if (entry.is_finalized) {
-              // Finalized: Total PRMR = prmr + upgrade_prmr
-              value = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+              // Finalized: prmr field IS total PRMR
+              value = Number(entry.prmr) || 0;
             } else {
               // Unfinalized: calculate from sales_log OR use columns if manually entered
               const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
-              const fromColumns = (Number(entry.prmr) || 0) + (Number(entry.upgrade_prmr) || 0);
+              const fromColumns = Number(entry.prmr) || 0;
               // Use whichever is higher
               value = Math.max(fromLog.prmr, fromColumns);
             }

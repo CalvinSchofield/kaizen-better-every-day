@@ -256,8 +256,8 @@ export const useActivitySummary = (repData: any) => {
           }) || [];
 
           const prevBlitzTotalFp = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-          // Total PRMR = prmr + upgrade_prmr
-          const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
+          // prmr field IS total PRMR (already includes upgrade_prmr as subset)
+          const prevBlitzTotalPrmr = prevFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           const prevBlitzDaysWorked = prevFullWorkdayEntries.length;
           
           // Use actual dayNumber for cumulative comparison (day 1+2 vs day 1+2)
@@ -267,7 +267,7 @@ export const useActivitySummary = (repData: any) => {
             .sort((a, b) => a.entry_date.localeCompare(b.entry_date))
             .slice(0, currentBlitzDayNum);
           const prevDayAlignedFp = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-          const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
+          const prevDayAlignedPrmr = prevDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
           
           comparison = {
             fpChange: totals.fp - prevDayAlignedFp,
@@ -321,15 +321,15 @@ export const useActivitySummary = (repData: any) => {
         }) || [];
 
         const lastWeekTotalFp = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-        // Total PRMR = prmr + upgrade_prmr
-        const lastWeekTotalPrmr = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
+        // prmr field IS total PRMR (already includes upgrade_prmr as subset)
+        const lastWeekTotalPrmr = lastWeekFullWorkdayEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
         const lastWeekDaysWorked = lastWeekFullWorkdayEntries.length;
         
         // Day-aligned comparison
         const currentWeekDays = daysWorked;
         const lastWeekDayAlignedEntries = lastWeekFullWorkdayEntries.slice(0, currentWeekDays);
         const lastWeekDayAlignedFp = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
-        const lastWeekDayAlignedPrmr = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0) + (Number(e.upgrade_prmr) || 0), 0);
+        const lastWeekDayAlignedPrmr = lastWeekDayAlignedEntries.reduce((sum, e) => sum + (Number(e.prmr) || 0), 0);
         
         comparison = {
           fpChange: totals.fp - lastWeekDayAlignedFp,
