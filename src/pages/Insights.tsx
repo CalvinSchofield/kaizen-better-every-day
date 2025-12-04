@@ -289,6 +289,15 @@ export default function Insights() {
           </div>
         ) : (
           <>
+            {/* AI Coach Card - Show for standard timeframes */}
+            {datePreset !== 'custom' && (
+              <AICoachCard 
+                coaching={coaching || null}
+                isLoading={coachingLoading}
+                timeframe={datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
+              />
+            )}
+
             {/* Period Summary */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
@@ -350,11 +359,11 @@ export default function Insights() {
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-medium text-muted-foreground">FP+ Breakdown</div>
-                    <div className="text-xs text-primary font-semibold">{insights.upgradeRate.toFixed(0)}% upgrades</div>
+                    <div className="text-xs text-primary font-semibold">{((insights.totalUpgradeFp / insights.totalFp) * 100).toFixed(0)}% upgrades</div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{insights.totalNewFp.toFixed(1)}</div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{(insights.totalFp - insights.totalUpgradeFp).toFixed(1)}</div>
                       <div className="text-xs text-muted-foreground">FP</div>
                     </div>
                     <div>
@@ -364,17 +373,7 @@ export default function Insights() {
                   </div>
                 </div>
               )}
-
             </Card>
-
-            {/* AI Coach Card - Show for standard timeframes */}
-            {datePreset !== 'custom' && (
-              <AICoachCard 
-                coaching={coaching || null}
-                isLoading={coachingLoading}
-                timeframe={datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
-              />
-            )}
 
             {/* Progress Over Time Chart */}
             <FPCumulativeChart />

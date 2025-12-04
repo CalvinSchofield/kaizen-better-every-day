@@ -111,54 +111,35 @@ serve(async (req) => {
       .sort((a, b) => b.vsAverage.fp - a.vsAverage.fp)
       .slice(0, 2);
 
-    const systemPrompt = `You are an expert sales leadership coach for Vivint door-to-door sales teams. Your job is to help leaders identify coaching opportunities and training focus areas based on team data.
+    const systemPrompt = `You are a direct sales leadership coach. Help leaders identify what to train on. Be brief.
 
-IMPORTANT CONTEXT:
-- You're coaching a sales LEADER about their TEAM's performance
-- The sales funnel goes: Doors Knocked → Decision Makers → Pitches → Transitions → Presentations → Closes
-- Lower ratios are BETTER (e.g., 40 doors per FP+ is better than 60 doors per FP+)
-- Compare reps to THEIR OWN individual averages - this accounts for different rep compositions on different days
-- A rep being 30% below THEIR average is concerning, even if their absolute numbers are okay
-- Bottlenecks in the funnel reveal what the team needs training on
+CONTEXT:
+- Funnel: Doors → DMs → Pitches → Transitions → Presentations → Closes
+- Lower ratios = better
+- Compare reps to THEIR OWN averages
+- Bottlenecks reveal training needs
 
-SCOPE: ${scopeLabel}
-TIMEFRAME: ${timeframe}
+SCOPE: ${scopeLabel} | TIMEFRAME: ${timeframe}
 
-You must use the provide_leader_coaching function to return your analysis.`;
+Use provide_leader_coaching function. Keep everything SHORT.`;
 
-    // Build rep breakdown summary
     const repSummary = repBreakdown.map(rep => 
-      `${rep.name} (${rep.year}): ${rep.currentPeriod.fp.toFixed(1)} FP+ (${rep.vsAverage.fp >= 0 ? '+' : ''}${rep.vsAverage.fp.toFixed(0)}% vs their avg), ${rep.currentPeriod.presentations} pres (${rep.vsAverage.presentations >= 0 ? '+' : ''}${rep.vsAverage.presentations.toFixed(0)}% vs avg)`
-    ).join('\n');
+      `${rep.name}: ${rep.currentPeriod.fp.toFixed(1)} FP+ (${rep.vsAverage.fp >= 0 ? '+' : ''}${rep.vsAverage.fp.toFixed(0)}% vs avg)`
+    ).join(', ');
 
-    const userPrompt = `Analyze this team's ${timeframe} performance:
+    const userPrompt = `Team ${timeframe} (${teamTotals.uniqueReps} reps, ${teamTotals.daysWorked} days):
 
-TEAM TOTALS (${teamTotals.uniqueReps} reps, ${teamTotals.daysWorked} total work days):
-- Doors: ${teamTotals.doors}
-- Pitches: ${teamTotals.pitches}
-- Transitions: ${teamTotals.transitions}
-- Presentations: ${teamTotals.presentations}
-- Closes: ${teamTotals.closes}
-- FP+: ${teamTotals.fp.toFixed(1)}
-- PRMR: $${teamTotals.prmr.toFixed(0)}
+Totals: ${teamTotals.fp.toFixed(1)} FP+, $${teamTotals.prmr.toFixed(0)} PRMR, ${teamTotals.presentations} pres, ${teamTotals.closes} closes
 
-TEAM FUNNEL EFFICIENCY (lower is better):
-- Doors to FP+: ${teamFunnel.doorsToFp.toFixed(1)} (${funnelVsOverall.doorsToFp >= 0 ? '+' : ''}${funnelVsOverall.doorsToFp.toFixed(0)}% vs overall avg)
-- Pitches to FP+: ${teamFunnel.pitchesToFp.toFixed(1)} (${funnelVsOverall.pitchesToFp >= 0 ? '+' : ''}${funnelVsOverall.pitchesToFp.toFixed(0)}% vs overall avg)
-- Transitions to FP+: ${teamFunnel.transitionsToFp.toFixed(1)} (${funnelVsOverall.transitionsToFp >= 0 ? '+' : ''}${funnelVsOverall.transitionsToFp.toFixed(0)}% vs overall avg)
-- Presentations to Close: ${teamFunnel.presentationsToClose.toFixed(1)} (${funnelVsOverall.presentationsToClose >= 0 ? '+' : ''}${funnelVsOverall.presentationsToClose.toFixed(0)}% vs overall avg)
+Funnel: Doors/FP+ ${teamFunnel.doorsToFp.toFixed(1)} (${funnelVsOverall.doorsToFp >= 0 ? '+' : ''}${funnelVsOverall.doorsToFp.toFixed(0)}%), Pres/Close ${teamFunnel.presentationsToClose.toFixed(1)} (${funnelVsOverall.presentationsToClose >= 0 ? '+' : ''}${funnelVsOverall.presentationsToClose.toFixed(0)}%)
 
-BOTTLENECK ANALYSIS:
-- Weakest Stage: ${weakestStage.stage} (${weakestStage.value.toFixed(0)}% vs overall, ratio: ${weakestStage.ratio.toFixed(1)})
-- Strongest Stage: ${strongestStage.stage} (${strongestStage.value.toFixed(0)}% vs overall, ratio: ${strongestStage.ratio.toFixed(1)})
+Weakest: ${weakestStage.stage} | Strongest: ${strongestStage.stage}
 
-INDIVIDUAL REP BREAKDOWN (vs their own averages):
-${repSummary}
+Reps: ${repSummary}
 
-${underperformers.length > 0 ? `UNDERPERFORMERS (significantly below their average): ${underperformers.map(r => `${r.name} (${r.vsAverage.fp.toFixed(0)}% FP+)`).join(', ')}` : ''}
-${overperformers.length > 0 ? `TOP PERFORMERS (above their average): ${overperformers.map(r => `${r.name} (+${r.vsAverage.fp.toFixed(0)}% FP+)`).join(', ')}` : ''}
+${underperformers.length > 0 ? `Below avg: ${underperformers.map(r => r.name).join(', ')}` : ''}
 
-Provide coaching insights for this leader.`;
+Give team strength, training focus, action item, and who to check in with.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -177,21 +158,21 @@ Provide coaching insights for this leader.`;
             type: "function",
             function: {
               name: "provide_leader_coaching",
-              description: "Return structured coaching insights for the sales leader",
+              description: "Return brief coaching insights",
               parameters: {
                 type: "object",
                 properties: {
                   teamStrength: {
                     type: "string",
-                    description: "What the team collectively did well this period, 1-2 sentences. Be specific about numbers or funnel stage."
+                    description: "What went well, ONE sentence. Reference a specific number or funnel stage."
                   },
                   bottleneck: {
                     type: "string",
-                    description: "The specific funnel stage to focus training on, with context about why. 2-3 sentences."
+                    description: "Training focus area, ONE sentence. Name the weak funnel stage."
                   },
                   trainingRecommendation: {
                     type: "string",
-                    description: "A specific training or coaching activity to address the bottleneck. Be actionable and specific (e.g., 'Role-play pitch-to-transition handoffs' not just 'work on transitions')."
+                    description: "Specific action to address bottleneck, ONE sentence. (e.g., 'Role-play transition handoffs at morning huddle')"
                   },
                   checkInWith: {
                     type: "array",
@@ -199,11 +180,11 @@ Provide coaching insights for this leader.`;
                       type: "object",
                       properties: {
                         name: { type: "string" },
-                        reason: { type: "string", description: "Brief reason why leader should check in, 1 sentence" }
+                        reason: { type: "string", description: "Brief reason, 5-8 words max" }
                       },
                       required: ["name", "reason"]
                     },
-                    description: "0-3 reps the leader should specifically check in with, based on performance vs their average"
+                    description: "0-2 reps to check in with"
                   }
                 },
                 required: ["teamStrength", "bottleneck", "trainingRecommendation", "checkInWith"],
