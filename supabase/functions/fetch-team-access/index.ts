@@ -5,20 +5,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface NotionProperty {
-  id: string;
-  type: string;
-  [key: string]: any;
-}
-
-interface NotionPage {
-  id: string;
-  properties: Record<string, NotionProperty>;
-}
-
 const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
 const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
 const AREA_DIRECTOR_EMAIL = 'calvinjschofield@gmail.com';
+
+// Retry helper for Notion API
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  throw new Error('Failed after retries');
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -69,37 +77,34 @@ Deno.serve(async (req) => {
 
     const userNotionPageId = repData.notion_page_id;
     const userEmail = user.email?.toLowerCase();
-
-    // Check if Area Director
     const isAreaDirector = userEmail === AREA_DIRECTOR_EMAIL;
 
-    // Fetch MGMT Groups from Notion
-    const mgmtGroupsResponse = await fetch(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${notionApiKey}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    const notionHeaders = {
+      'Authorization': `Bearer ${notionApiKey}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+    };
 
-    const mgmtGroupsData = await mgmtGroupsResponse.json();
-    console.log('Fetched MGMT Groups:', mgmtGroupsData.results?.length);
+    // Fetch MGMT Groups and Teams in parallel
+    const [mgmtGroupsResponse, teamsResponse] = await Promise.all([
+      fetchWithRetry(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
+        method: 'POST',
+        headers: notionHeaders,
+        body: JSON.stringify({}),
+      }),
+      fetchWithRetry(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
+        method: 'POST',
+        headers: notionHeaders,
+        body: JSON.stringify({}),
+      }),
+    ]);
 
-    // Fetch Teams from Notion
-    const teamsResponse = await fetch(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${notionApiKey}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    const [mgmtGroupsData, teamsData] = await Promise.all([
+      mgmtGroupsResponse.json(),
+      teamsResponse.json(),
+    ]);
 
-    const teamsData = await teamsResponse.json();
-    console.log('Fetched Teams:', teamsData.results?.length);
+    console.log(`Fetched ${mgmtGroupsData.results?.length || 0} MGMT groups, ${teamsData.results?.length || 0} teams`);
 
     const mgmtGroups: any[] = [];
     const teams: any[] = [];
@@ -108,42 +113,29 @@ Deno.serve(async (req) => {
     // Process MGMT Groups
     for (const group of mgmtGroupsData.results || []) {
       const groupProps = group.properties;
-      const nameProperty = groupProps['Name'];
-      const groupName = nameProperty?.title?.[0]?.plain_text || 'Unnamed Group';
-      
-      const groupLeadProperty = groupProps['Group Lead'];
-      const groupLeadId = groupLeadProperty?.relation?.[0]?.id;
+      const groupName = groupProps['Name']?.title?.[0]?.plain_text || 'Unnamed Group';
+      const groupLeadId = groupProps['Group Lead']?.relation?.[0]?.id;
+      const teamIds = (groupProps['Teams']?.relation || []).map((t: any) => t.id);
 
-      const teamsProperty = groupProps['Teams'];
-      const teamRelations = teamsProperty?.relation || [];
-      const teamIds = teamRelations.map((t: any) => t.id);
-
-      const mgmtGroup = {
+      mgmtGroups.push({
         id: group.id,
         name: groupName,
         teamIds,
         groupLeadId,
-      };
+      });
 
-      mgmtGroups.push(mgmtGroup);
-
-      // Check if user is MGMT Group Lead
       if (groupLeadId === userNotionPageId) {
         accessLevel = 'mgmt_group_lead';
       }
     }
 
-    // Process Teams and build a map of team lead -> team name
+    // Process Teams
     const teamLeadToTeamMap = new Map<string, string>();
     
     for (const team of teamsData.results || []) {
       const teamProps = team.properties;
-      const nameProperty = teamProps['Name'];
-      const teamName = nameProperty?.title?.[0]?.plain_text || 'Unnamed Team';
-      
-      const groupLeadProperty = teamProps['Group Lead'];
-      const teamLeadRelation = groupLeadProperty?.relation?.[0];
-      const teamLeadId = teamLeadRelation?.id;
+      const teamName = teamProps['Name']?.title?.[0]?.plain_text || 'Unnamed Team';
+      const teamLeadId = teamProps['Group Lead']?.relation?.[0]?.id;
 
       teams.push({
         id: team.id,
@@ -151,58 +143,46 @@ Deno.serve(async (req) => {
         groupLeadId: teamLeadId,
       });
 
-      // Map team lead to team name
       if (teamLeadId) {
         teamLeadToTeamMap.set(teamLeadId, teamName);
       }
 
-      // Check if user is Team Lead
       if (teamLeadId === userNotionPageId && accessLevel === 'none') {
         accessLevel = 'team_lead';
       }
     }
 
-    // Override with Area Director if applicable
     if (isAreaDirector) {
       accessLevel = 'area_director';
     }
 
-    // Helper function to determine if a rep is a team lead and get their team info
+    // Helper function to determine rep's team info
     const getRepTeamInfo = (repNotionId: string, repTeamLeaderName?: string) => {
-      // First check if rep IS a team lead
       const repAsLeadTeam = teams.find(t => t.groupLeadId === repNotionId);
       if (repAsLeadTeam) {
+        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id));
         return {
           isTeamLead: true,
           teamId: repAsLeadTeam.id,
           teamName: repAsLeadTeam.name,
-          mgmtGroupId: mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id))?.id || null,
-          mgmtGroupName: mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id))?.name || null
+          mgmtGroupId: mgmtGroup?.id || null,
+          mgmtGroupName: mgmtGroup?.name || null
         };
       }
       
-      // If not a team lead, try to find their team by matching team leader name
       if (repTeamLeaderName) {
-        const matchingTeam = teams.find(t => {
-          const teamLeadId = t.groupLeadId;
-          // We need to check if this team's lead name matches repTeamLeaderName
-          // Since we don't have lead names cached, we'll check via teamLeadToTeamMap
-          return teamLeadToTeamMap.has(teamLeadId);
-        });
-        
-        // Find team where the team name contains the leader name or vice versa
         for (const team of teams) {
-          // Get team name and compare
           const teamName = team.name;
           if (teamName && repTeamLeaderName && 
               (teamName.toLowerCase().includes(repTeamLeaderName.toLowerCase()) ||
                repTeamLeaderName.toLowerCase().includes(teamName.toLowerCase().replace('team ', '')))) {
+            const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
             return {
               isTeamLead: false,
               teamId: team.id,
               teamName: team.name,
-              mgmtGroupId: mgmtGroups.find(g => g.teamIds.includes(team.id))?.id || null,
-              mgmtGroupName: mgmtGroups.find(g => g.teamIds.includes(team.id))?.name || null
+              mgmtGroupId: mgmtGroup?.id || null,
+              mgmtGroupName: mgmtGroup?.name || null
             };
           }
         }
@@ -217,12 +197,11 @@ Deno.serve(async (req) => {
       };
     };
 
-    // Get all accessible reps based on access level
+    // Get accessible reps based on access level
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
     if (accessLevel === 'area_director') {
-      // Get all reps with team_leader
       const { data: allReps } = await supabase
         .from('reps')
         .select('user_id, name, notion_page_id, team_leader');
@@ -244,20 +223,16 @@ Deno.serve(async (req) => {
         });
       }
     } else if (accessLevel === 'mgmt_group_lead') {
-      // Get reps from teams in user's MGMT groups
       const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === userNotionPageId);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
 
-      // Get reps in those teams
       const { data: teamReps } = await supabase
         .from('reps')
         .select('user_id, name, notion_page_id, team_leader')
         .not('notion_page_id', 'is', null);
 
       if (teamReps) {
-        // Filter reps by checking if their team is in accessibleTeamIds
         for (const rep of teamReps) {
-          // Check if rep's team is in accessibleTeamIds
           const repTeam = teams.find(t => t.groupLeadId === rep.notion_page_id || 
             accessibleTeamIds.includes(t.id));
           
@@ -278,7 +253,6 @@ Deno.serve(async (req) => {
         }
       }
     } else if (accessLevel === 'team_lead') {
-      // Get reps from user's team
       const userTeam = teams.find(t => t.groupLeadId === userNotionPageId);
       
       if (userTeam) {
@@ -287,7 +261,6 @@ Deno.serve(async (req) => {
           .select('user_id, name, notion_page_id, team_leader');
 
         if (teamReps) {
-          // This is simplified - in reality would need to query reps table's Teams relation
           accessibleUserIds = teamReps.map(r => r.user_id);
           accessibleReps = teamReps.map(r => {
             const teamInfo = getRepTeamInfo(r.notion_page_id, r.team_leader);

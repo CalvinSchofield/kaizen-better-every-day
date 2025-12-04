@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Retry helper for Notion API with exponential backoff
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -14,8 +14,8 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       const response = await fetch(url, options);
       
       if (response.status === 429) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
-        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        console.log(`Rate limited. Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -23,16 +23,48 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       return response;
     } catch (error: any) {
       lastError = error;
-      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
-      
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   
   throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+}
+
+// Batch fetch multiple Notion pages in parallel with concurrency limit
+async function batchFetchNotionPages(
+  pageIds: string[], 
+  notionHeaders: Record<string, string>, 
+  concurrency = 10
+): Promise<Map<string, any>> {
+  const results = new Map<string, any>();
+  
+  for (let i = 0; i < pageIds.length; i += concurrency) {
+    const batch = pageIds.slice(i, i + concurrency);
+    const promises = batch.map(async (pageId) => {
+      try {
+        const response = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/pages/${pageId}`,
+          { method: 'GET', headers: notionHeaders }
+        );
+        if (response.ok) {
+          return { pageId, data: await response.json() };
+        }
+        return { pageId, data: null };
+      } catch (error) {
+        return { pageId, data: null };
+      }
+    });
+    
+    const batchResults = await Promise.all(promises);
+    for (const { pageId, data } of batchResults) {
+      if (data) results.set(pageId, data);
+    }
+  }
+  
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -72,41 +104,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build query for daily entries
-    let query = supabase
-      .from('daily_entries')
-      .select('*')
-      .in('user_id', filteredUserIds)
-      .eq('is_finalized', true);
+    // Fetch entries and reps in parallel
+    const [entriesResult, repsResult] = await Promise.all([
+      (async () => {
+        let query = supabase
+          .from('daily_entries')
+          .select('*')
+          .in('user_id', filteredUserIds)
+          .eq('is_finalized', true);
 
-    // Apply date range filters if provided
-    if (dateRange?.start) {
-      query = query.gte('entry_date', dateRange.start);
+        if (dateRange?.start) {
+          query = query.gte('entry_date', dateRange.start);
+        }
+        if (dateRange?.end) {
+          query = query.lte('entry_date', dateRange.end);
+        }
+
+        return query;
+      })(),
+      supabase
+        .from('reps')
+        .select('user_id, name, year, notion_page_id')
+        .in('user_id', filteredUserIds),
+    ]);
+
+    const entries = entriesResult.data || [];
+    const reps = repsResult.data || [];
+
+    if (entriesResult.error) {
+      throw entriesResult.error;
     }
-    if (dateRange?.end) {
-      query = query.lte('entry_date', dateRange.end);
-    }
-
-    const { data: entries, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    // Get rep information for the user IDs
-    const { data: reps } = await supabase
-      .from('reps')
-      .select('user_id, name, year, notion_page_id')
-      .in('user_id', filteredUserIds);
 
     // Fetch team and MGMT group information from Notion
     const notionApiKey = Deno.env.get('NOTION_API_KEY');
     const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
     const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
     
-    let enrichedReps = reps || [];
+    let enrichedReps = reps;
     
-    if (notionApiKey && reps && reps.length > 0) {
+    if (notionApiKey && reps.length > 0) {
       try {
         const notionHeaders = {
           'Authorization': `Bearer ${notionApiKey}`,
@@ -114,32 +150,33 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         };
 
-        // First, fetch all teams and build a mapping of team ID -> { teamName, mgmtGroupId }
-        const teamsResponse = await fetchNotionWithRetry(
-          `https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`,
-          { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
-        );
+        // Fetch teams and MGMT groups in parallel
+        const [teamsResponse, mgmtResponse] = await Promise.all([
+          fetchNotionWithRetry(
+            `https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`,
+            { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
+          ),
+          fetchNotionWithRetry(
+            `https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`,
+            { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
+          ),
+        ]);
+
         const teamsData = await teamsResponse.json();
+        const mgmtData = await mgmtResponse.json();
         
+        // Build team mapping
         const teamById: Record<string, { teamName: string; mgmtGroupId: string | null }> = {};
         for (const team of teamsData.results || []) {
           const teamName = team.properties['Name']?.title?.[0]?.plain_text || null;
-          // Try both "MTMT Groups" and "MGMT Group" property names
           const mgmtGroupProp = team.properties['MTMT Groups'] || team.properties['MGMT Group'];
           const mgmtGroupId = mgmtGroupProp?.relation?.[0]?.id || null;
           if (teamName) {
             teamById[team.id] = { teamName, mgmtGroupId };
           }
         }
-        console.log('Teams loaded:', Object.keys(teamById).length);
 
-        // Fetch all MGMT groups
-        const mgmtResponse = await fetchNotionWithRetry(
-          `https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`,
-          { method: 'POST', headers: notionHeaders, body: JSON.stringify({}) }
-        );
-        const mgmtData = await mgmtResponse.json();
-        
+        // Build MGMT group mapping
         const mgmtGroupById: Record<string, string> = {};
         for (const group of mgmtData.results || []) {
           const groupName = group.properties['Name']?.title?.[0]?.plain_text || null;
@@ -147,46 +184,34 @@ Deno.serve(async (req) => {
             mgmtGroupById[group.id] = groupName;
           }
         }
-        console.log('MGMT groups loaded:', Object.keys(mgmtGroupById).length);
 
-        // Now fetch each rep's Notion page to get their Teams relation
+        console.log(`Loaded ${Object.keys(teamById).length} teams, ${Object.keys(mgmtGroupById).length} MGMT groups`);
+
+        // Batch-fetch all rep Notion pages in parallel
+        const repsWithNotion = reps.filter(r => r.notion_page_id);
+        const notionPageIds = repsWithNotion.map(r => r.notion_page_id!);
+        
+        const repPagesData = await batchFetchNotionPages(notionPageIds, notionHeaders, 10);
+        console.log(`Batch-fetched ${repPagesData.size} rep pages`);
+
+        // Build rep mappings from batch-fetched data
         const repMappings: Record<string, { teamName: string | null; mgmtGroupName: string | null }> = {};
         
-        const repsWithNotion = reps.filter(r => r.notion_page_id);
-        console.log('Reps with notion_page_id:', repsWithNotion.length);
-
-        // Process in batches to avoid rate limits
         for (const rep of repsWithNotion) {
-          try {
-            const repResponse = await fetchNotionWithRetry(
-              `https://api.notion.com/v1/pages/${rep.notion_page_id}`,
-              { method: 'GET', headers: notionHeaders }
-            );
-            
-            if (repResponse.ok) {
-              const repData = await repResponse.json();
-              const teamsRelation = repData.properties['Teams']?.relation || [];
-              
-              if (teamsRelation.length > 0) {
-                const teamId = teamsRelation[0].id;
-                const teamInfo = teamById[teamId];
-                
-                if (teamInfo) {
-                  const mgmtGroupName = teamInfo.mgmtGroupId ? mgmtGroupById[teamInfo.mgmtGroupId] : null;
-                  repMappings[rep.notion_page_id] = {
-                    teamName: teamInfo.teamName,
-                    mgmtGroupName: mgmtGroupName,
-                  };
-                  console.log(`Mapped ${rep.name} -> Team: ${teamInfo.teamName}, MGMT: ${mgmtGroupName}`);
-                }
+          const repData = repPagesData.get(rep.notion_page_id!);
+          if (repData) {
+            const teamsRelation = repData.properties['Teams']?.relation || [];
+            if (teamsRelation.length > 0) {
+              const teamInfo = teamById[teamsRelation[0].id];
+              if (teamInfo) {
+                repMappings[rep.notion_page_id!] = {
+                  teamName: teamInfo.teamName,
+                  mgmtGroupName: teamInfo.mgmtGroupId ? mgmtGroupById[teamInfo.mgmtGroupId] : null,
+                };
               }
             }
-          } catch (error) {
-            console.error(`Error fetching rep ${rep.name}:`, error);
           }
         }
-        
-        console.log('Rep mappings created:', Object.keys(repMappings).length);
 
         // Enrich rep data with team/MGMT group info
         enrichedReps = reps.map(rep => ({
@@ -197,7 +222,6 @@ Deno.serve(async (req) => {
         
       } catch (error) {
         console.error('Error fetching team/MGMT info:', error);
-        // Return reps without enrichment on error
         enrichedReps = reps.map(rep => ({
           ...rep,
           teamName: null,
@@ -206,10 +230,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Fetched ${entries?.length || 0} entries for ${filteredUserIds.length} users`);
+    console.log(`Returning ${entries.length} entries for ${filteredUserIds.length} users`);
 
     return new Response(JSON.stringify({
-      entries: entries || [],
+      entries,
       reps: enrichedReps,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
