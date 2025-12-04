@@ -221,7 +221,8 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       return {
         liveReps,
         workingCount: liveReps.filter(r => r.isWorking).length,
-        forgottenCount: liveReps.filter(r => r.hasForgottenEntry).length,
+        // Only count forgotten entries for reps NOT currently working (to match what's displayed)
+        forgottenCount: liveReps.filter(r => r.hasForgottenEntry && !r.isWorking).length,
       };
     },
     staleTime: 30000,
