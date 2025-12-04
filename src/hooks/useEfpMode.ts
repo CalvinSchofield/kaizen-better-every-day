@@ -7,10 +7,10 @@ export const useEfpMode = () => {
   const efpModeEnabled = isVet && (repData?.efp_mode_enabled || false);
   
   // EFP = Total PRMR / 85
-  // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
-  const calculateEfp = (prmr: number, upgradePrmr?: number): number => {
-    const totalPrmr = prmr + (upgradePrmr || 0);
-    return Number((totalPrmr / 85).toFixed(2));
+  // NOTE: prmr field IS total PRMR (already includes upgrade PRMR)
+  // upgrade_prmr is a SUBSET for tracking purposes, NOT additive
+  const calculateEfp = (prmr: number): number => {
+    return Number((prmr / 85).toFixed(2));
   };
   
   return {

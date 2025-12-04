@@ -48,7 +48,7 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
       const fpValue = trend.fp || 0;
       
       const value = efpModeEnabled 
-        ? calculateEfp(totalPrmr, 0)
+        ? calculateEfp(totalPrmr)
         : fpValue;
       
       cumulative += value;
@@ -59,7 +59,7 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
       const last6 = insightsData.dailyTrend.slice(Math.max(0, index - 5), index + 1);
       const movingAvg6 = last6.length >= 1
         ? last6.reduce((sum, e) => {
-            const v = efpModeEnabled ? calculateEfp(e.prmr || 0, 0) : (e.fp || 0);
+            const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp || 0);
             return sum + v;
           }, 0) / last6.length
         : null;
@@ -72,7 +72,7 @@ export const useTeamCumulativeFP = ({ userIds, dateRange, excludeUserIds }: UseT
       const last12 = insightsData.dailyTrend.slice(Math.max(0, index - 11), index + 1);
       const movingAvg12 = last12.length >= 1
         ? last12.reduce((sum, e) => {
-            const v = efpModeEnabled ? calculateEfp(e.prmr || 0, 0) : (e.fp || 0);
+            const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp || 0);
             return sum + v;
           }, 0) / last12.length
         : null;
