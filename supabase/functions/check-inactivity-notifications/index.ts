@@ -235,7 +235,7 @@ serve(async (req) => {
     let notifiedCount = 0;
     
     for (const entry of activeEntries as ActiveEntry[]) {
-      // Skip if already has end time
+      // Skip if already has end time (they've ended their session)
       if (entry.work_end_time) {
         console.log(`User ${entry.user_id}: Already has end time, skipping`);
         continue;
@@ -244,6 +244,19 @@ serve(async (req) => {
       // Skip if on break
       if (isOnBreak(entry.break_periods)) {
         console.log(`User ${entry.user_id}: On break, skipping`);
+        continue;
+      }
+      
+      // Skip if counters were reset (no meaningful activity - likely not actually working)
+      const hasAnyActivity = (entry as any).doors_knocked > 0 || 
+        (entry as any).decision_makers > 0 || 
+        (entry as any).pitches > 0 || 
+        (entry as any).transitions > 0 || 
+        (entry as any).presentations > 0 || 
+        (entry as any).closes > 0;
+      
+      if (!hasAnyActivity) {
+        console.log(`User ${entry.user_id}: No activity counts (possibly reset), skipping`);
         continue;
       }
       
