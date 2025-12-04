@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "./Layout";
 import Track from "@/pages/Track";
 import { SaveEntrySheet } from "./SaveEntrySheet";
@@ -10,6 +11,7 @@ import { PostSaveSuccessSheet } from "./PostSaveSuccessSheet";
 import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet, Sale } from "./LogSaleSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
+import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +46,7 @@ const getTodayDate = () => {
 };
 
 const TrackWithLayout = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
@@ -76,6 +79,25 @@ const TrackWithLayout = () => {
   // Debounce ref for batching rapid updates
   const pendingUpdateRef = useRef<any>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Handle ?prompt=save URL parameter (from push notification)
+  useEffect(() => {
+    if (searchParams.get('prompt') === 'save') {
+      // Wait a short moment for entry data to load, then open save sheet
+      const timer = setTimeout(() => {
+        if (entry.work_start_time && !entry.is_finalized) {
+          setIsSaveSheetOpen(true);
+        }
+        // Clear the URL parameter
+        searchParams.delete('prompt');
+        setSearchParams(searchParams, { replace: true });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams, entry.work_start_time, entry.is_finalized]);
+  
+  // Track if user has started tracking (for notification prompt)
+  const hasStartedTracking = entry.work_start_time !== null && !entry.is_finalized;
 
   // Get custom counter config
   const customCounterConfig = Array.isArray(repData?.custom_counter_config)
@@ -701,6 +723,9 @@ const TrackWithLayout = () => {
         isResetting={isResetting}
         syncIndicator={<SyncIndicator status={syncStatus} />}
       >
+        {/* Notification Permission Prompt */}
+        <NotificationPermissionPrompt hasStartedTracking={hasStartedTracking} />
+        
         <Track
           entry={entry}
           updateCounter={updateCounter}
