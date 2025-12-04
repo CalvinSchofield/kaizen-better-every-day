@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-// Helper to get the suggested end time from counter timestamps
+// Helper to get the suggested end time from counter timestamps (in rep's timezone)
 const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: string } | null => {
   const timestamps = issue.entryData.counter_timestamps;
   if (!timestamps) return null;
@@ -30,11 +30,15 @@ const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: strin
 
   const latestTimestamp = new Date(Math.max(...allTimestamps.map(t => new Date(t).getTime())));
   
-  // Format the time
+  // Get rep's timezone, default to America/Los_Angeles
+  const repTimezone = issue.entryData.timezone || 'America/Los_Angeles';
+  
+  // Format the time in the rep's timezone
   const formatted = latestTimestamp.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: repTimezone,
   });
 
   return {
