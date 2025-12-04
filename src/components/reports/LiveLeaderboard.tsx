@@ -22,11 +22,14 @@ interface LiveRepData {
   workStartTime?: string;
   workEndTime?: string;
   breakMinutes?: number;
+  durationMinutes?: number;
 }
 
 interface LiveLeaderboardProps {
   liveReps: LiveRepData[];
   isLoading?: boolean;
+  hasWorkingReps?: boolean;
+  title?: string;
 }
 
 const stripEmojis = (text: string) => {
@@ -50,7 +53,7 @@ const formatDuration = (minutes: number) => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) => {
+export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Rankings" }: LiveLeaderboardProps) => {
   const [isRankingsOpen, setIsRankingsOpen] = useState(false);
 
   if (isLoading) {
@@ -73,8 +76,8 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
 
   // Calculate work duration for each rep
   const repsWithDuration = workingReps.map(rep => {
-    let durationMinutes = 0;
-    if (rep.workStartTime) {
+    let durationMinutes = rep.durationMinutes || 0;
+    if (!durationMinutes && rep.workStartTime) {
       const start = new Date(rep.workStartTime);
       const end = rep.workEndTime ? new Date(rep.workEndTime) : new Date();
       durationMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
@@ -88,6 +91,7 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
   // Sort by different metrics
   const byFP = [...repsWithDuration].sort((a, b) => b.todayStats.fp - a.todayStats.fp).slice(0, 5);
   const byPRMR = [...repsWithDuration].sort((a, b) => b.todayStats.prmr - a.todayStats.prmr).slice(0, 5);
+  const byDuration = [...repsWithDuration].filter(r => r.durationMinutes > 0).sort((a, b) => b.durationMinutes - a.durationMinutes).slice(0, 5);
   const byDoors = [...repsWithDuration].sort((a, b) => b.todayStats.doors - a.todayStats.doors).slice(0, 5);
   const byDMs = [...repsWithDuration].sort((a, b) => b.todayStats.dms - a.todayStats.dms).slice(0, 5);
   const byPitches = [...repsWithDuration].sort((a, b) => b.todayStats.pitches - a.todayStats.pitches).slice(0, 5);
@@ -95,22 +99,22 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
   const byPresentations = [...repsWithDuration].sort((a, b) => b.todayStats.presentations - a.todayStats.presentations).slice(0, 5);
   const byCloses = [...repsWithDuration].sort((a, b) => b.todayStats.closes - a.todayStats.closes).slice(0, 5);
 
-  // Earliest and latest doors (by work start time)
+  // Earliest start time
   const repsWithStartTime = repsWithDuration.filter(r => r.workStartTime);
   const earliestDoor = repsWithStartTime.length > 0 
     ? repsWithStartTime.sort((a, b) => new Date(a.workStartTime!).getTime() - new Date(b.workStartTime!).getTime())[0]
     : null;
-  const latestDoor = repsWithStartTime.length > 0
-    ? repsWithStartTime.sort((a, b) => new Date(b.workStartTime!).getTime() - new Date(a.workStartTime!).getTime())[0]
-    : null;
-
-  // Longest duration
-  const longestDuration = repsWithDuration.length > 0
-    ? repsWithDuration.sort((a, b) => b.durationMinutes - a.durationMinutes)[0]
-    : null;
 
   if (workingReps.length === 0) {
-    return null;
+    return (
+      <Card className="p-4">
+        <h3 className="font-semibold mb-4">{title}</h3>
+        <div className="text-center py-6 text-muted-foreground text-sm">
+          <Trophy className="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p>No activity recorded yet</p>
+        </div>
+      </Card>
+    );
   }
 
   const LeaderboardSection = ({ 
@@ -209,17 +213,19 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Today's Rankings</h3>
-        <div className="flex items-center gap-1.5">
-          <div className="relative">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
+        <h3 className="font-semibold">{title}</h3>
+        {hasWorkingReps && (
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
+            </div>
+            <span className="text-xs text-muted-foreground">Live</span>
           </div>
-          <span className="text-xs text-muted-foreground">Live</span>
-        </div>
+        )}
       </div>
 
-      {/* Key Highlights - Always visible */}
+      {/* Key Highlights - FP+, PRMR, Work Duration */}
       <div className="space-y-2 mb-4">
         {/* FP+ Leader */}
         {byFP[0] && byFP[0].todayStats.fp > 0 && (
@@ -243,42 +249,13 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
           />
         )}
 
-        {/* Earliest Door */}
-        {earliestDoor && (
-          <HighlightStat
-            label="First Out"
-            name={earliestDoor.name}
-            teamName={earliestDoor.teamName}
-            value={formatTime(earliestDoor.workStartTime) || ''}
-            icon={Clock}
-          />
-        )}
-
-        {/* Latest Door / Still Out */}
-        {latestDoor && earliestDoor && latestDoor.userId !== earliestDoor.userId && (
-          <HighlightStat
-            label={latestDoor.workEndTime ? "Latest Start" : "Still Going"}
-            name={latestDoor.name}
-            teamName={latestDoor.teamName}
-            value={formatTime(latestDoor.workStartTime) || ''}
-            icon={Clock}
-          />
-        )}
-
-        {/* Both earliest and latest same person */}
-        {earliestDoor && latestDoor && earliestDoor.userId === latestDoor.userId && repsWithStartTime.length > 1 && (
-          <div className="flex items-center gap-2 py-2 px-3 bg-primary/10 rounded-lg">
-            <span className="text-sm">🔥 {stripEmojis(earliestDoor.name)} was first out AND still going!</span>
-          </div>
-        )}
-
-        {/* Longest Duration */}
-        {longestDuration && longestDuration.durationMinutes > 0 && (
+        {/* Longest Work Duration */}
+        {byDuration[0] && byDuration[0].durationMinutes > 0 && (
           <HighlightStat
             label="Longest Work Session"
-            name={longestDuration.name}
-            teamName={longestDuration.teamName}
-            value={formatDuration(longestDuration.durationMinutes)}
+            name={byDuration[0].name}
+            teamName={byDuration[0].teamName}
+            value={formatDuration(byDuration[0].durationMinutes)}
             icon={Clock}
           />
         )}
@@ -310,6 +287,28 @@ export const LiveLeaderboard = ({ liveReps, isLoading }: LiveLeaderboardProps) =
               getValue={(r) => r.todayStats.prmr}
               formatValue={(v) => `$${v.toLocaleString()}`}
             />
+
+            {/* Earliest Start */}
+            {earliestDoor && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">First Out</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-md text-sm bg-primary/5">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-primary" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{stripEmojis(earliestDoor.name)}</span>
+                      {earliestDoor.teamName && earliestDoor.teamName !== 'Unknown Team' && (
+                        <span className="text-xs text-muted-foreground">{earliestDoor.teamName}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-semibold text-primary">{formatTime(earliestDoor.workStartTime)}</span>
+                </div>
+              </div>
+            )}
             
             <LeaderboardSection
               title="Presentations"

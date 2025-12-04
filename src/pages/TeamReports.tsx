@@ -21,13 +21,14 @@ import { ScopeBadge } from "@/components/reports/ScopeBadge";
 import { LiveActivityCard } from "@/components/reports/LiveActivityCard";
 import { LiveLeaderboard } from "@/components/reports/LiveLeaderboard";
 import { TeamProgressChart } from "@/components/reports/TeamProgressChart";
+import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
 
-type DatePreset = 'live' | 'week' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
 
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
-  const [datePreset, setDatePreset] = useState<DatePreset>('live');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
@@ -71,9 +72,11 @@ const TeamReports = () => {
     const summerStartDate = new Date('2026-04-12');
     
     switch (preset) {
-      case 'live':
-        // For live view, still need a date range for any background data
+      case 'today':
+        // For today view, still need a date range for any background data
         return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+      case 'yesterday':
+        return { start: format(subDays(now, 1), 'yyyy-MM-dd'), end: format(subDays(now, 1), 'yyyy-MM-dd') };
       case 'week':
         return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'month':
@@ -120,8 +123,14 @@ const TeamReports = () => {
     ? selectedUserIds 
     : (accessData?.accessibleUserIds || []);
 
-  // Live data hook
+  // Today data hook
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
+    userIds: effectiveUserIds,
+    excludeUserIds,
+  });
+
+  // Yesterday data hook
+  const { data: yesterdayData, isLoading: yesterdayLoading } = useTeamYesterdayData({
     userIds: effectiveUserIds,
     excludeUserIds,
   });
@@ -224,7 +233,8 @@ const TeamReports = () => {
     );
   }
 
-  const isLiveView = datePreset === 'live';
+  const isTodayView = datePreset === 'today';
+  const isYesterdayView = datePreset === 'yesterday';
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
@@ -253,18 +263,26 @@ const TeamReports = () => {
         <div className="overflow-x-auto pb-1 scrollbar-hide">
           <div className="flex gap-2 whitespace-nowrap">
             <Button
-              variant={datePreset === 'live' ? 'default' : 'outline'}
+              variant={datePreset === 'today' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setDatePreset('live')}
+              onClick={() => setDatePreset('today')}
               className="flex-shrink-0 gap-1.5"
             >
               <div className="relative">
                 <div className="w-2 h-2 rounded-full bg-current" />
-                {datePreset === 'live' && (
+                {datePreset === 'today' && (liveData?.workingCount || 0) > 0 && (
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-current animate-ping opacity-75" />
                 )}
               </div>
-              Live
+              Today
+            </Button>
+            <Button
+              variant={datePreset === 'yesterday' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDatePreset('yesterday')}
+              className="flex-shrink-0"
+            >
+              Yesterday
             </Button>
             <Button
               variant={datePreset === 'week' ? 'default' : 'outline'}
@@ -304,8 +322,8 @@ const TeamReports = () => {
           </div>
         </div>
 
-        {/* Live View Content */}
-        {isLiveView ? (
+        {/* Today View Content */}
+        {isTodayView ? (
           <div className="space-y-4">
             <LiveActivityCard
               liveReps={liveData?.liveReps || []}
@@ -314,8 +332,24 @@ const TeamReports = () => {
               isLoading={liveLoading}
             />
             <LiveLeaderboard
-              liveReps={liveData?.liveReps.filter(r => r.isWorking) || []}
+              liveReps={liveData?.liveReps || []}
               isLoading={liveLoading}
+              hasWorkingReps={(liveData?.workingCount || 0) > 0}
+            />
+          </div>
+        ) : isYesterdayView ? (
+          <div className="space-y-4">
+            <LiveLeaderboard
+              liveReps={yesterdayData?.reps?.map(r => ({
+                ...r,
+                isWorking: false,
+                hasForgottenEntry: false,
+                todayStats: r.stats,
+                durationMinutes: r.durationMinutes,
+              })) || []}
+              isLoading={yesterdayLoading}
+              hasWorkingReps={false}
+              title="Yesterday's Rankings"
             />
           </div>
         ) : insightsLoading ? (
