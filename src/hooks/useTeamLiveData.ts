@@ -18,8 +18,11 @@ interface LiveRepData {
     closes: number;
     fp: number;
     prmr: number;
+    isFinalized?: boolean;
   };
   workStartTime?: string;
+  workEndTime?: string;
+  breakMinutes?: number;
 }
 
 interface UseTeamLiveDataParams {
@@ -45,6 +48,21 @@ const getTodayInTimezone = (timezone: string | null): string => {
   }
 };
 
+// Calculate break minutes from break_periods JSON
+const calculateBreakMinutes = (breakPeriods: any): number => {
+  if (!breakPeriods || !Array.isArray(breakPeriods)) return 0;
+  
+  let totalMinutes = 0;
+  for (const period of breakPeriods) {
+    if (period.start && period.end) {
+      const start = new Date(period.start);
+      const end = new Date(period.end);
+      totalMinutes += Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+    }
+  }
+  return totalMinutes;
+};
+
 export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDataParams) => {
   return useQuery({
     queryKey: ['team-live-data', userIds, excludeUserIds],
@@ -55,17 +73,17 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         return { liveReps: [], workingCount: 0, forgottenCount: 0 };
       }
 
-      // Fetch reps with their info
+      // Fetch reps with their info including team_leader
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, timezone")
+        .select("user_id, name, timezone, team_leader")
         .in("user_id", filteredUserIds);
 
       if (repsError) throw repsError;
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, r]) || []);
 
-      // Fetch recent unfinalized entries (last 3 days to catch forgotten entries)
+      // Fetch recent entries (last 3 days) - include BOTH finalized and unfinalized
       const threeDaysAgo = new Date();
       threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
@@ -74,8 +92,8 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         .from("daily_entries")
         .select("*")
         .in("user_id", filteredUserIds)
-        .eq("is_finalized", false)
-        .gte("entry_date", threeDaysAgoStr);
+        .gte("entry_date", threeDaysAgoStr)
+        .order("entry_date", { ascending: false });
 
       if (error) throw error;
 
@@ -96,71 +114,99 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       const liveReps: LiveRepData[] = [];
       const processedUsers = new Set<string>();
 
+      // Group entries by user
+      const entriesByUser = new Map<string, typeof entries>();
       entries?.forEach(entry => {
-        if (processedUsers.has(entry.user_id)) return;
-        
-        const repInfo = repsMap.get(entry.user_id);
-        const teamInfo = repInfoMap.get(entry.user_id);
+        if (!entriesByUser.has(entry.user_id)) {
+          entriesByUser.set(entry.user_id, []);
+        }
+        entriesByUser.get(entry.user_id)!.push(entry);
+      });
+
+      // Process each user's entries
+      entriesByUser.forEach((userEntries, userId) => {
+        const repInfo = repsMap.get(userId);
+        const teamInfo = repInfoMap.get(userId);
         const timezone = repInfo?.timezone;
         const repToday = getTodayInTimezone(timezone);
         
-        const hasActivity = 
-          (entry.doors_knocked ?? 0) > 0 ||
-          (entry.decision_makers ?? 0) > 0 ||
-          (entry.pitches ?? 0) > 0 ||
-          (entry.transitions ?? 0) > 0 ||
-          (entry.presentations ?? 0) > 0 ||
-          (entry.closes ?? 0) > 0 ||
-          entry.work_start_time !== null;
+        // Use teamName from cache, or fallback to "Team [leader name]"
+        const teamName = teamInfo?.teamName || (repInfo?.team_leader ? `Team ${repInfo.team_leader}` : 'Unknown Team');
+        const mgmtGroupName = teamInfo?.mgmtGroupName || 'Unknown Group';
 
-        const isToday = entry.entry_date === repToday;
+        // Find today's entry - prioritize finalized if both exist
+        const todayEntries = userEntries.filter(e => e.entry_date === repToday);
+        const todayFinalized = todayEntries.find(e => e.is_finalized);
+        const todayUnfinalized = todayEntries.find(e => !e.is_finalized);
+        const todayEntry = todayFinalized || todayUnfinalized;
 
-        if (isToday && hasActivity) {
-          processedUsers.add(entry.user_id);
-          liveReps.push({
-            userId: entry.user_id,
-            name: repInfo?.name || 'Unknown',
-            teamName: teamInfo?.teamName || 'Unknown Team',
-            mgmtGroupName: teamInfo?.mgmtGroupName || 'Unknown Group',
-            isWorking: true,
-            hasForgottenEntry: false,
-            todayStats: {
-              doors: entry.doors_knocked || 0,
-              dms: entry.decision_makers || 0,
-              pitches: entry.pitches || 0,
-              transitions: entry.transitions || 0,
-              presentations: entry.presentations || 0,
-              closes: entry.closes || 0,
-              fp: entry.fp_plus || 0,
-              prmr: entry.prmr || 0,
-            },
-            workStartTime: entry.work_start_time || undefined,
-          });
-        } else if (!isToday && hasActivity && !entry.is_finalized) {
-          // Forgot to log a previous day - only add if not already working today
-          const existingRep = liveReps.find(r => r.userId === entry.user_id);
-          if (!existingRep) {
+        // Find forgotten entries (past unfinalized with activity)
+        const forgottenEntry = userEntries.find(e => 
+          e.entry_date !== repToday && 
+          !e.is_finalized && 
+          ((e.doors_knocked ?? 0) > 0 || (e.fp_plus ?? 0) > 0)
+        );
+
+        if (todayEntry) {
+          const hasActivity = 
+            (todayEntry.doors_knocked ?? 0) > 0 ||
+            (todayEntry.decision_makers ?? 0) > 0 ||
+            (todayEntry.pitches ?? 0) > 0 ||
+            (todayEntry.transitions ?? 0) > 0 ||
+            (todayEntry.presentations ?? 0) > 0 ||
+            (todayEntry.closes ?? 0) > 0 ||
+            (todayEntry.fp_plus ?? 0) > 0 ||
+            todayEntry.work_start_time !== null;
+
+          if (hasActivity) {
+            processedUsers.add(userId);
             liveReps.push({
-              userId: entry.user_id,
+              userId,
               name: repInfo?.name || 'Unknown',
-              teamName: teamInfo?.teamName || 'Unknown Team',
-              mgmtGroupName: teamInfo?.mgmtGroupName || 'Unknown Group',
-              isWorking: false,
-              hasForgottenEntry: true,
-              forgottenDate: entry.entry_date,
+              teamName,
+              mgmtGroupName,
+              isWorking: !todayEntry.is_finalized,
+              hasForgottenEntry: !!forgottenEntry,
+              forgottenDate: forgottenEntry?.entry_date,
               todayStats: {
-                doors: 0,
-                dms: 0,
-                pitches: 0,
-                transitions: 0,
-                presentations: 0,
-                closes: 0,
-                fp: 0,
-                prmr: 0,
+                doors: todayEntry.doors_knocked || 0,
+                dms: todayEntry.decision_makers || 0,
+                pitches: todayEntry.pitches || 0,
+                transitions: todayEntry.transitions || 0,
+                presentations: todayEntry.presentations || 0,
+                closes: todayEntry.closes || 0,
+                fp: todayEntry.fp_plus || 0,
+                prmr: todayEntry.prmr || 0,
+                isFinalized: todayEntry.is_finalized || false,
               },
+              workStartTime: todayEntry.work_start_time || undefined,
+              workEndTime: todayEntry.work_end_time || undefined,
+              breakMinutes: calculateBreakMinutes(todayEntry.break_periods),
             });
-            processedUsers.add(entry.user_id);
           }
+        } else if (forgottenEntry && !processedUsers.has(userId)) {
+          // Only has forgotten entry
+          processedUsers.add(userId);
+          liveReps.push({
+            userId,
+            name: repInfo?.name || 'Unknown',
+            teamName,
+            mgmtGroupName,
+            isWorking: false,
+            hasForgottenEntry: true,
+            forgottenDate: forgottenEntry.entry_date,
+            todayStats: {
+              doors: 0,
+              dms: 0,
+              pitches: 0,
+              transitions: 0,
+              presentations: 0,
+              closes: 0,
+              fp: 0,
+              prmr: 0,
+              isFinalized: false,
+            },
+          });
         }
       });
 
@@ -178,8 +224,8 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         forgottenCount: liveReps.filter(r => r.hasForgottenEntry).length,
       };
     },
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000,
+    refetchInterval: 60000,
     enabled: userIds.length > 0,
   });
 };
