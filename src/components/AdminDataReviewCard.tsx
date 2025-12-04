@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Check, X, Clock, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
 import {
@@ -93,7 +94,12 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, isFixing, fixingIssueId
       <div className="flex items-start gap-3">
         <div className="mt-0.5">{getIssueIcon()}</div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{issue.repName}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">{issue.repName}</p>
+            <span className="text-xs text-muted-foreground shrink-0">
+              {format(new Date(issue.entryDate + 'T12:00:00'), 'MMM d')}
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">{issue.description}</p>
           {suggested && (
             <div className="flex items-center gap-1.5 mt-1">
