@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X, Clock, Loader2, Eraser } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // Helper to get the suggested end time from counter timestamps (in rep's timezone)
 const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: string } | null => {
@@ -48,6 +49,23 @@ const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: strin
   };
 };
 
+// Format timestamp in rep's timezone for timeline view
+const formatTimestampForTimeline = (timestamp: string, timezone: string | null): string => {
+  const tz = timezone || 'America/Los_Angeles';
+  return new Date(timestamp).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+    timeZone: tz,
+  });
+};
+
+// Calculate gap between timestamps in seconds
+const getGapSeconds = (t1: string, t2: string): number => {
+  return (new Date(t2).getTime() - new Date(t1).getTime()) / 1000;
+};
+
 interface IssueRowProps {
   issue: DataIssue;
   onOkay: () => void;
@@ -59,7 +77,10 @@ interface IssueRowProps {
 }
 
 const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixing, fixingIssueId }: IssueRowProps) => {
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  
   const getSeverityColor = () => {
+    if (issue.issueType === 'rapid_tapping') return 'border-l-purple-500';
     return issue.severity === 'error' 
       ? 'border-l-destructive' 
       : 'border-l-amber-500';
@@ -75,6 +96,8 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixi
       case 'abnormal_metric':
       case 'impossible_ratio':
         return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+      case 'rapid_tapping':
+        return <Zap className="w-4 h-4 text-purple-500" />;
       default:
         return <AlertTriangle className="w-4 h-4" />;
     }
@@ -88,80 +111,132 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixi
   const hasResults = (issue.entryData.fp_plus || 0) > 0 || (issue.entryData.prmr || 0) > 0;
   const hasActivity = issue.entryData.doors_knocked > 0 || issue.entryData.pitches > 0;
   const showClearActivity = hasResults && hasActivity;
+  
+  // For rapid tapping, show timeline toggle
+  const isRapidTapping = issue.issueType === 'rapid_tapping' && issue.rapidTapInfo;
 
   return (
-    <div
-      className={cn(
-        "bg-muted/50 border-l-4 p-3 rounded-lg cursor-pointer active:bg-muted/70 transition-colors",
-        getSeverityColor()
-      )}
-      onClick={onEdit}
-    >
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">{getIssueIcon()}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-sm truncate">{issue.repName}</p>
-            <span className="text-xs text-muted-foreground shrink-0">
-              {format(new Date(issue.entryDate + 'T12:00:00'), 'MMM d')}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">{issue.description}</p>
-          {suggested && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <Clock className="w-3 h-3 text-blue-500" />
-              <span className="text-xs text-blue-600 font-medium">
-                Suggest {suggested.formatted}
+    <Collapsible open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
+      <div
+        className={cn(
+          "bg-muted/50 border-l-4 p-3 rounded-lg transition-colors",
+          getSeverityColor()
+        )}
+      >
+        <div 
+          className="flex items-start gap-3 cursor-pointer active:bg-muted/70"
+          onClick={onEdit}
+        >
+          <div className="mt-0.5">{getIssueIcon()}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm truncate">{issue.repName}</p>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {format(new Date(issue.entryDate + 'T12:00:00'), 'MMM d')}
               </span>
             </div>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {showClearActivity && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-100"
+            <p className="text-xs text-muted-foreground">{issue.description}</p>
+            {suggested && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <Clock className="w-3 h-3 text-blue-500" />
+                <span className="text-xs text-blue-600 font-medium">
+                  Suggest {suggested.formatted}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {isRapidTapping && (
+              <CollapsibleTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isTimelineOpen ? (
+                    <ChevronUp className="w-3 h-3" />
+                  ) : (
+                    <ChevronDown className="w-3 h-3" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            )}
+            {showClearActivity && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearActivity(issue);
+                }}
+                disabled={isThisFixing}
+                title="Clear activity, keep FP+ & PRMR"
+              >
+                <Eraser className="w-3 h-3" />
+              </Button>
+            )}
+            {showFixButton && suggested && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFixEndTime(issue);
+                }}
+                disabled={isThisFixing}
+              >
+                {isThisFixing ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  'Fix'
+                )}
+              </Button>
+            )}
+            <button
+              className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
               onClick={(e) => {
                 e.stopPropagation();
-                onClearActivity(issue);
+                onOkay();
               }}
-              disabled={isThisFixing}
-              title="Clear activity, keep FP+ & PRMR"
             >
-              <Eraser className="w-3 h-3" />
-            </Button>
-          )}
-          {showFixButton && suggested && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                onFixEndTime(issue);
-              }}
-              disabled={isThisFixing}
-            >
-              {isThisFixing ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                'Fix'
-              )}
-            </Button>
-          )}
-          <button
-            className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOkay();
-            }}
-          >
-            <Check className="w-5 h-5" />
-          </button>
+              <Check className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+        
+        {/* Rapid tapping timeline */}
+        {isRapidTapping && (
+          <CollapsibleContent>
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Tap Timeline ({issue.rapidTapInfo?.field}):
+              </p>
+              <div className="space-y-1">
+                {issue.rapidTapInfo?.timestamps.map((ts, idx) => {
+                  const prevTs = idx > 0 ? issue.rapidTapInfo?.timestamps[idx - 1] : null;
+                  const gap = prevTs ? getGapSeconds(prevTs, ts) : null;
+                  return (
+                    <div key={idx} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-muted-foreground">
+                        {formatTimestampForTimeline(ts, issue.entryData.timezone)}
+                      </span>
+                      {gap !== null && gap < 5 && (
+                        <span className="text-amber-600 font-medium">
+                          ⚠️ {gap.toFixed(1)}s gap
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CollapsibleContent>
+        )}
       </div>
-    </div>
+    </Collapsible>
   );
 };
 

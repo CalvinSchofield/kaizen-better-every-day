@@ -4,12 +4,20 @@ import { supabase } from '@/integrations/supabase/client';
 
 const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
 
+export interface RapidTapInfo {
+  field: string;
+  count: number;
+  seconds: number;
+  timestamps: string[];
+}
+
 export interface DataIssue {
   id: string;
   entryId: string;
   repName: string;
   repId: string;
-  issueType: 'unsaved' | 'late_end_time' | 'late_save' | 'abnormal_metric' | 'impossible_ratio';
+  issueType: 'unsaved' | 'late_end_time' | 'late_save' | 'abnormal_metric' | 'impossible_ratio' | 'rapid_tapping';
+  rapidTapInfo?: RapidTapInfo;
   description: string;
   severity: 'warning' | 'error';
   entryDate: string;
@@ -88,6 +96,40 @@ export const useAdminDataReview = () => {
       today: today.toISOString().split('T')[0],
       threeDaysAgo: threeDaysAgo.toISOString().split('T')[0],
     };
+  };
+
+  // Detect rapid tapping patterns in counter timestamps
+  const detectRapidTapping = (timestamps: Record<string, string[]>): RapidTapInfo | null => {
+    const fieldNames: Record<string, string> = {
+      doors_knocked: 'Doors',
+      decision_makers: 'DMs',
+      pitches: 'Pitches',
+      transitions: 'Transitions',
+      presentations: 'Presentations',
+      closes: 'Closes',
+    };
+
+    for (const [field, times] of Object.entries(timestamps)) {
+      if (!times || times.length < 5) continue;
+      
+      // Look for bursts: 5+ taps within 30 seconds
+      for (let i = 0; i <= times.length - 5; i++) {
+        const windowTimes = times.slice(i, i + 5).map(t => new Date(t).getTime());
+        const windowStart = windowTimes[0];
+        const windowEnd = windowTimes[4];
+        const windowSeconds = (windowEnd - windowStart) / 1000;
+        
+        if (windowSeconds < 30) {
+          return { 
+            field: fieldNames[field] || field,
+            count: 5, 
+            seconds: Math.round(windowSeconds * 10) / 10,
+            timestamps: times.slice(i, i + 5),
+          };
+        }
+      }
+    }
+    return null;
   };
 
   // Fetch recent entries and analyze for issues
@@ -255,6 +297,25 @@ export const useAdminDataReview = () => {
             entryDate: entry.entry_date,
             entryData,
           });
+        }
+
+        // Issue 5: Rapid tapping detection (5+ taps in <30 seconds)
+        if (entryData.counter_timestamps) {
+          const rapidTapInfo = detectRapidTapping(entryData.counter_timestamps);
+          if (rapidTapInfo) {
+            detectedIssues.push({
+              id: `rapid-tapping-${entry.id}`,
+              entryId: entry.id,
+              repName: rep.name,
+              repId: entry.user_id,
+              issueType: 'rapid_tapping',
+              description: `⚡ ${rapidTapInfo.count} ${rapidTapInfo.field} in ${rapidTapInfo.seconds}s`,
+              severity: 'warning',
+              entryDate: entry.entry_date,
+              entryData,
+              rapidTapInfo,
+            });
+          }
         }
       }
 

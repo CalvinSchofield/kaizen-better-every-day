@@ -80,6 +80,10 @@ const TrackWithLayout = () => {
   const pendingUpdateRef = useRef<any>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Rapid-tap detection: track recent taps per field
+  const recentTapsRef = useRef<Record<string, number[]>>({});
+  const rapidTapWarningShownRef = useRef(false);
+  
   // Handle ?prompt=save or ?save=true URL parameter (from push notification or home alert)
   useEffect(() => {
     const shouldOpenSave = searchParams.get('prompt') === 'save' || searchParams.get('save') === 'true';
@@ -369,6 +373,30 @@ const TrackWithLayout = () => {
     
     const isAdding = value > currentValue;
     const isSubtracting = value < currentValue;
+    
+    // RAPID-TAP DETECTION: Track taps and warn if 5+ taps in 30 seconds
+    if (isAdding && !field.startsWith('custom_')) {
+      const now = Date.now();
+      const fieldTaps = recentTapsRef.current[field] || [];
+      
+      // Keep only taps from last 60 seconds
+      const recentFieldTaps = [...fieldTaps.filter(t => now - t < 60000), now];
+      recentTapsRef.current[field] = recentFieldTaps;
+      
+      // Check if 5+ taps in last 30 seconds
+      const last30SecondsTaps = recentFieldTaps.filter(t => now - t < 30000);
+      if (last30SecondsTaps.length >= 5 && !rapidTapWarningShownRef.current) {
+        rapidTapWarningShownRef.current = true;
+        toast.warning("Slow down! 🐢", {
+          description: "If you're catching up on data, consider using Calendar to log previous days.",
+          duration: 6000,
+        });
+        // Reset warning flag after 2 minutes
+        setTimeout(() => {
+          rapidTapWarningShownRef.current = false;
+        }, 120000);
+      }
+    }
     
     // SALES LOGGER: Intercept closes counter when adding and sales logger is enabled
     if (field === 'closes' && isAdding && salesLoggerEnabled) {

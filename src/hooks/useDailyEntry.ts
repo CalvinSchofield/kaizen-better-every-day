@@ -115,6 +115,13 @@ export const useDailyEntry = (date?: string) => {
       
       if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
         console.log('[DailyEntry] Recovering from backup - backup has more data:', backupTotal, 'vs server:', serverTotal);
+        
+        // Show recovery notification to reassure user
+        toast.success('Data recovered from local backup', {
+          description: `Your ${backupTotal} taps were protected and restored.`,
+          duration: 5000,
+        });
+        
         // Merge backup data with server entry (backup wins for counters)
         return {
           id: serverEntry?.id || '',
