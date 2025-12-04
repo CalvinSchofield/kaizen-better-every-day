@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock } from 'lucide-react';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
 import {
@@ -13,6 +13,33 @@ import {
   DrawerFooter,
 } from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
+
+// Helper to get the suggested end time from counter timestamps
+const getSuggestedEndTime = (issue: DataIssue): { time: string; formatted: string } | null => {
+  const timestamps = issue.entryData.counter_timestamps;
+  if (!timestamps) return null;
+
+  const allTimestamps: string[] = [];
+  Object.values(timestamps).forEach((arr) => {
+    if (Array.isArray(arr)) allTimestamps.push(...arr);
+  });
+
+  if (allTimestamps.length === 0) return null;
+
+  const latestTimestamp = new Date(Math.max(...allTimestamps.map(t => new Date(t).getTime())));
+  
+  // Format the time
+  const formatted = latestTimestamp.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return {
+    time: latestTimestamp.toISOString(),
+    formatted,
+  };
+};
 
 interface IssueRowProps {
   issue: DataIssue;
@@ -209,6 +236,24 @@ export const AdminDataReviewCard = () => {
               )}>
                 <p className="font-semibold">{confirmIssue.repName}</p>
                 <p className="text-sm text-muted-foreground mt-1">{confirmIssue.description}</p>
+                
+                {/* Suggested end time for late_end_time or unsaved issues */}
+                {(confirmIssue.issueType === 'late_end_time' || confirmIssue.issueType === 'unsaved') && (() => {
+                  const suggested = getSuggestedEndTime(confirmIssue);
+                  if (suggested) {
+                    return (
+                      <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-sm font-medium">Suggested end time</span>
+                        </div>
+                        <p className="text-lg font-semibold text-blue-600 mt-1">{suggested.formatted}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Based on last tracked activity</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 
                 {/* Show key data points */}
                 <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
