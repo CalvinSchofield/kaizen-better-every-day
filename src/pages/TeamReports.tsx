@@ -1,39 +1,66 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
+import { useTeamLiveData } from "@/hooks/useTeamLiveData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Users, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
+import { Filter, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, subDays, startOfMonth, endOfMonth, startOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SalesFunnelChart } from "@/components/insights/SalesFunnelChart";
 import { ActivityTrendChart } from "@/components/insights/ActivityTrendChart";
 import { HourlyActivityHeatmap } from "@/components/insights/HourlyActivityHeatmap";
 import { DayOfWeekAnalysis } from "@/components/insights/DayOfWeekAnalysis";
-import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useTeamCumulativeFP } from "@/hooks/useTeamCumulativeFP";
+import { ScopeBadge } from "@/components/reports/ScopeBadge";
+import { LiveActivityCard } from "@/components/reports/LiveActivityCard";
+import { LiveLeaderboard } from "@/components/reports/LiveLeaderboard";
+import { TeamProgressChart } from "@/components/reports/TeamProgressChart";
 
-type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'live' | 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
-type GroupViewMode = 'all' | 'mgmt-groups' | 'teams' | 'individuals';
 
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
-  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [datePreset, setDatePreset] = useState<DatePreset>('live');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [excludeUserIds, setExcludeUserIds] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [groupViewMode, setGroupViewMode] = useState<GroupViewMode>('all');
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Initialize with smart defaults based on access level
+  useEffect(() => {
+    if (accessData && !hasInitialized) {
+      // Load saved filter from localStorage or use defaults
+      const savedFilter = localStorage.getItem('team-reports-filter');
+      if (savedFilter) {
+        try {
+          const { selectedUserIds: saved, excludeUserIds: savedExclude } = JSON.parse(savedFilter);
+          if (saved?.length > 0) {
+            setSelectedUserIds(saved);
+            setExcludeUserIds(savedExclude || []);
+          } else {
+            setSelectedUserIds(accessData.accessibleUserIds || []);
+          }
+        } catch (e) {
+          setSelectedUserIds(accessData.accessibleUserIds || []);
+        }
+      } else {
+        // Default to all accessible users
+        setSelectedUserIds(accessData.accessibleUserIds || []);
+      }
+      setHasInitialized(true);
+    }
+  }, [accessData, hasInitialized]);
 
   const stripEmojis = (text: string) => {
     return text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
@@ -44,6 +71,9 @@ const TeamReports = () => {
     const summerStartDate = new Date('2026-04-12');
     
     switch (preset) {
+      case 'live':
+        // For live view, still need a date range for any background data
+        return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'week':
         return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'month':
@@ -74,22 +104,29 @@ const TeamReports = () => {
   const getRatioComparison = (current: number, overall: number) => {
     if (current === 0 || overall === 0) return null;
     const percentDiff = ((overall - current) / overall) * 100;
-    const isBetter = current < overall; // Lower ratios are better
+    const isBetter = current < overall;
     return { percentDiff: Math.abs(percentDiff), isBetter };
   };
 
   const getCloseRatioComparison = (current: number, overall: number) => {
     if (current === 0 || overall === 0) return null;
     const percentDiff = ((current - overall) / overall) * 100;
-    const isBetter = current < overall; // Lower is better
+    const isBetter = current < overall;
     return { percentDiff: Math.abs(percentDiff), isBetter };
   };
 
-  // Initialize selected users when access data loads
+  // Effective user IDs for queries
   const effectiveUserIds = selectedUserIds.length > 0 
     ? selectedUserIds 
     : (accessData?.accessibleUserIds || []);
 
+  // Live data hook
+  const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
+    userIds: effectiveUserIds,
+    excludeUserIds,
+  });
+
+  // Insights data (for non-live views)
   const { data: insightsData, isLoading: insightsLoading } = useTeamInsightsData({
     userIds: effectiveUserIds,
     dateRange: getDateRange(datePreset),
@@ -101,6 +138,54 @@ const TeamReports = () => {
     dateRange: getDateRange(datePreset),
     excludeUserIds,
   });
+
+  // Determine scope label
+  const getScopeLabel = () => {
+    if (!accessData) return "Loading...";
+    
+    const totalCount = accessData.accessibleUserIds?.length || 0;
+    const selectedCount = effectiveUserIds.filter(id => !excludeUserIds.includes(id)).length;
+    
+    if (selectedCount === totalCount) {
+      switch (accessData.accessLevel) {
+        case 'area_director':
+          return "Your Office";
+        case 'mgmt_group_lead':
+          return accessData.mgmtGroups?.[0]?.name || "Your MGMT Group";
+        case 'team_lead':
+          return accessData.teams?.[0]?.name || "Your Team";
+        default:
+          return "All Members";
+      }
+    }
+    
+    // Check if filtered to a specific team or MGMT group
+    if (accessData.accessLevel === 'area_director') {
+      // Check if all selected are from one MGMT group
+      for (const mgmt of accessData.mgmtGroups || []) {
+        const mgmtUserIds = accessData.accessibleReps
+          ?.filter((r: any) => r.mgmtGroupName === mgmt.name)
+          .map((r: any) => r.userId) || [];
+        if (mgmtUserIds.length > 0 && mgmtUserIds.every((id: string) => effectiveUserIds.includes(id)) && 
+            effectiveUserIds.every((id: string) => mgmtUserIds.includes(id) || excludeUserIds.includes(id))) {
+          return mgmt.name;
+        }
+      }
+    }
+    
+    // Check if filtered to a specific team
+    for (const team of accessData.teams || []) {
+      const teamUserIds = accessData.accessibleReps
+        ?.filter((r: any) => r.teamName === team.name)
+        .map((r: any) => r.userId) || [];
+      if (teamUserIds.length > 0 && teamUserIds.every((id: string) => effectiveUserIds.includes(id)) && 
+          effectiveUserIds.every((id: string) => teamUserIds.includes(id) || excludeUserIds.includes(id))) {
+        return team.name;
+      }
+    }
+    
+    return `${selectedCount} members`;
+  };
 
   // Calculate ratio comparisons
   const doorsComparison = insightsData ? getRatioComparison(insightsData.doorsToFp, insightsData.overallDoorsToFp) : null;
@@ -124,155 +209,124 @@ const TeamReports = () => {
       <div className="min-h-screen bg-background p-4 pb-24">
         <div className="max-w-lg mx-auto">
           <Card>
-            <CardHeader>
-              <CardTitle>Access Denied</CardTitle>
-              <CardDescription>
-                You don't have access to team reporting features.
-              </CardDescription>
-            </CardHeader>
+            <CardContent className="pt-8 pb-8 text-center space-y-4">
+              <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground/40" />
+              <div>
+                <h2 className="text-xl font-bold">Access Denied</h2>
+                <p className="text-muted-foreground mt-2">
+                  You don't have access to team reporting features.
+                </p>
+              </div>
+            </CardContent>
           </Card>
         </div>
       </div>
     );
   }
 
+  const isLiveView = datePreset === 'live';
+
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
-      <div className="max-w-lg mx-auto space-y-6">
-        {/* Date Range Selector with Fade and Fixed Filter */}
-        <div className="relative">
-          {/* Scrollable date buttons */}
-          <div className="overflow-x-auto pb-2 scrollbar-hide">
-            <div className="flex gap-2 pr-24 whitespace-nowrap">
-              <Button
-                variant={datePreset === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('week')}
-                className="flex-shrink-0"
-              >
-                This Week
-              </Button>
-              <Button
-                variant={datePreset === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('month')}
-                className="flex-shrink-0"
-              >
-                This Month
-              </Button>
-              <Button
-                variant={datePreset === 'preseason' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDatePreset('preseason')}
-                className="flex-shrink-0"
-              >
-                Preseason
-              </Button>
-              <Button
-                variant={datePreset === 'custom' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setShowCustomDialog(true)}
-                className="flex-shrink-0"
-              >
-                <CalendarIcon className="w-4 h-4 mr-1" />
-                {datePreset === 'custom' && customStartDate && customEndDate
-                  ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
-                  : 'Custom'}
-              </Button>
-            </div>
-          </div>
-          
-          {/* Fixed Filter button with fade gradient */}
-          <div className="absolute right-0 top-0 bottom-2 flex items-start pointer-events-none">
-            <div className="w-20 h-full bg-gradient-to-l from-background from-60% to-transparent" />
-            <Button 
-              variant="outline" 
+      <div className="max-w-lg mx-auto space-y-4">
+        {/* Scope Badge & Filter */}
+        <div className="flex items-center justify-between">
+          <ScopeBadge
+            accessLevel={accessData?.accessLevel || 'none'}
+            selectedCount={effectiveUserIds.filter(id => !excludeUserIds.includes(id)).length}
+            totalCount={accessData?.accessibleUserIds?.length || 0}
+            scopeLabel={getScopeLabel()}
+            onClick={() => setIsFilterOpen(true)}
+          />
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setIsFilterOpen(true)}
+            className="gap-1.5 text-muted-foreground"
+          >
+            <Filter className="h-4 w-4" />
+            Filter
+          </Button>
+        </div>
+
+        {/* Date Range Selector */}
+        <div className="overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-2 whitespace-nowrap">
+            <Button
+              variant={datePreset === 'live' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setIsFilterOpen(true)}
-              className="gap-2 pointer-events-auto flex-shrink-0 bg-background"
+              onClick={() => setDatePreset('live')}
+              className="flex-shrink-0 gap-1.5"
             >
-              <Filter className="h-4 w-4" />
-              Filter
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-current" />
+                {datePreset === 'live' && (
+                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-current animate-ping opacity-75" />
+                )}
+              </div>
+              Live
+            </Button>
+            <Button
+              variant={datePreset === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDatePreset('week')}
+              className="flex-shrink-0"
+            >
+              This Week
+            </Button>
+            <Button
+              variant={datePreset === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDatePreset('month')}
+              className="flex-shrink-0"
+            >
+              This Month
+            </Button>
+            <Button
+              variant={datePreset === 'preseason' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDatePreset('preseason')}
+              className="flex-shrink-0"
+            >
+              Preseason
+            </Button>
+            <Button
+              variant={datePreset === 'custom' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowCustomDialog(true)}
+              className="flex-shrink-0"
+            >
+              <CalendarIcon className="w-4 h-4 mr-1" />
+              {datePreset === 'custom' && customStartDate && customEndDate
+                ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+                : 'Custom'}
             </Button>
           </div>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-2 whitespace-nowrap">
-            {(accessData?.accessLevel === 'area_director' || accessData?.accessLevel === 'mgmt_group_lead') && (
-              <>
-                <Button
-                  variant={groupViewMode === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGroupViewMode('all')}
-                  className="flex-shrink-0"
-                >
-                  All
-                </Button>
-                {accessData?.accessLevel === 'area_director' && (
-                  <Button
-                    variant={groupViewMode === 'mgmt-groups' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setGroupViewMode('mgmt-groups')}
-                    className="flex-shrink-0"
-                  >
-                    By MGMT
-                  </Button>
-                )}
-                <Button
-                  variant={groupViewMode === 'teams' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGroupViewMode('teams')}
-                  className="flex-shrink-0"
-                >
-                  By Team
-                </Button>
-                <Button
-                  variant={groupViewMode === 'individuals' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGroupViewMode('individuals')}
-                  className="flex-shrink-0"
-                >
-                  Individual
-                </Button>
-              </>
-            )}
-            {accessData?.accessLevel === 'team_lead' && (
-              <>
-                <Button
-                  variant={groupViewMode === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGroupViewMode('all')}
-                  className="flex-shrink-0"
-                >
-                  All
-                </Button>
-                <Button
-                  variant={groupViewMode === 'individuals' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setGroupViewMode('individuals')}
-                  className="flex-shrink-0"
-                >
-                  Individual
-                </Button>
-              </>
-            )}
+        {/* Live View Content */}
+        {isLiveView ? (
+          <div className="space-y-4">
+            <LiveActivityCard
+              liveReps={liveData?.liveReps || []}
+              workingCount={liveData?.workingCount || 0}
+              forgottenCount={liveData?.forgottenCount || 0}
+              isLoading={liveLoading}
+            />
+            <LiveLeaderboard
+              liveReps={liveData?.liveReps.filter(r => r.isWorking) || []}
+              isLoading={liveLoading}
+            />
           </div>
-        </div>
-
-
-        {insightsLoading ? (
-          <>
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-card border border-border rounded-xl p-4">
-                  <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
-                  <div className="h-8 w-20 bg-muted rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          </>
+        ) : insightsLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-4">
+                <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+                <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
         ) : !insightsData || insightsData.totalFP === 0 ? (
           <Card className="border-border/40">
             <CardContent className="pt-8 pb-8 text-center space-y-6">
@@ -287,20 +341,14 @@ const TeamReports = () => {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">No Data Yet</h2>
                 <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                  Encourage your team to track their daily activity so you can pull insights into what they need and how to help them level up. 
-                  No more guessing — get the data you need to lead effectively.
-                </p>
-              </div>
-              <div className="pt-2">
-                <p className="text-sm text-primary font-medium">
-                  Let's get tracking! 📊
+                  No finalized entries found for this period. Try selecting a different date range or check the Live view for current activity.
                 </p>
               </div>
             </CardContent>
           </Card>
         ) : (
           <>
-            {/* Summary Card - Not Collapsible */}
+            {/* Summary Card */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Team Summary</h2>
@@ -363,9 +411,13 @@ const TeamReports = () => {
             </Card>
 
             {/* Progress Over Time Chart */}
-            <FPCumulativeChart 
+            <TeamProgressChart 
               teamData={teamCumulativeData}
-              isTeamLoading={cumulativeLoading}
+              repBreakdown={insightsData.repBreakdown}
+              groupedByTeam={insightsData.groupedByTeam}
+              groupedByMgmt={insightsData.groupedByMgmt}
+              accessLevel={accessData?.accessLevel || 'none'}
+              isLoading={cumulativeLoading}
             />
 
             {/* Sales Funnel - Collapsible */}
@@ -689,7 +741,7 @@ const TeamReports = () => {
                       </div>
                       {insightsData.mostProductiveHour !== null && (
                         <div>
-                          <div className="text-sm text-muted-foreground">Most Productive Hour</div>
+                          <div className="text-sm text-muted-foreground">Peak Hour</div>
                           <div className="text-xl font-bold">
                             {insightsData.mostProductiveHour === 0 ? '12' : insightsData.mostProductiveHour > 12 ? insightsData.mostProductiveHour - 12 : insightsData.mostProductiveHour}
                             {insightsData.mostProductiveHour >= 12 ? 'PM' : 'AM'}
@@ -702,180 +754,54 @@ const TeamReports = () => {
               </Collapsible>
             </Card>
 
-            {/* Individual/Group Breakdown - Collapsible */}
-            {groupViewMode !== 'all' && (
+            {/* Individual Breakdown - Collapsible */}
+            {insightsData.repBreakdown && insightsData.repBreakdown.length > 0 && (
               <Card>
                 <Collapsible open={expandedSection === 'individuals'} onOpenChange={() => handleSectionToggle('individuals')}>
                   <CollapsibleTrigger className="w-full p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5" />
-                        <h2 className="text-lg font-semibold">
-                          {groupViewMode === 'mgmt-groups' ? 'MGMT Group Performance' : 
-                           groupViewMode === 'teams' ? 'Team Performance' : 
-                           'Individual Performance'}
-                        </h2>
+                        <Target className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Individual Breakdown</h2>
                       </div>
                       <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'individuals' && "rotate-180")} />
                     </div>
                     {expandedSection !== 'individuals' && (
                       <div className="mt-2 text-left text-sm text-muted-foreground">
-                        {groupViewMode === 'individuals' && `${insightsData.repBreakdown.length} team members`}
-                        {groupViewMode === 'mgmt-groups' && `${insightsData.groupedByMgmt?.length || 0} groups`}
-                        {groupViewMode === 'teams' && `${insightsData.groupedByTeam?.length || 0} teams`}
+                        {insightsData.repBreakdown.length} reps with activity
                       </div>
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="px-4 pb-4">
-                      <div className="space-y-4">
-                        {groupViewMode === 'individuals' && (() => {
-                          // Sort based on access level
-                          const accessLevel = accessData?.accessLevel || 'none';
-                          let sortedReps = [...insightsData.repBreakdown];
-                          
-                          if (accessLevel === 'area_director') {
-                            // Sort by: MGMT Group → Team → Name
-                            sortedReps.sort((a, b) => {
-                              if (a.mgmtGroupName !== b.mgmtGroupName) {
-                                return a.mgmtGroupName.localeCompare(b.mgmtGroupName);
-                              }
-                              if (a.teamName !== b.teamName) {
-                                return a.teamName.localeCompare(b.teamName);
-                              }
-                              return stripEmojis(a.name).localeCompare(stripEmojis(b.name));
-                            });
-                          } else if (accessLevel === 'mgmt_group_lead') {
-                            // Sort by: Team → Name
-                            sortedReps.sort((a, b) => {
-                              if (a.teamName !== b.teamName) {
-                                return a.teamName.localeCompare(b.teamName);
-                              }
-                              return stripEmojis(a.name).localeCompare(stripEmojis(b.name));
-                            });
-                          } else {
-                            // Team Lead: Sort by Name only
-                            sortedReps.sort((a, b) => stripEmojis(a.name).localeCompare(stripEmojis(b.name)));
-                          }
-                          
-                          return sortedReps.map((rep, index, arr) => {
-                            // Determine if we should show group/team headers
-                            const showMgmtHeader = accessLevel === 'area_director' && 
-                              (index === 0 || arr[index - 1].mgmtGroupName !== rep.mgmtGroupName);
-                            const showTeamHeader = (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') &&
-                              (index === 0 || arr[index - 1].teamName !== rep.teamName);
-                            
-                            return (
-                              <div key={rep.userId}>
-                                {showMgmtHeader && (
-                                  <div className="pt-4 pb-2 -mx-4 px-4 bg-muted/30 border-t border-b border-border">
-                                    <p className="text-sm font-semibold text-primary">{rep.mgmtGroupName}</p>
-                                  </div>
-                                )}
-                                {showTeamHeader && !showMgmtHeader && (
-                                  <div className="pt-3 pb-2 -mx-4 px-4 bg-muted/20 border-t border-border">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{rep.teamName}</p>
-                                  </div>
-                                )}
-                                {showTeamHeader && showMgmtHeader && (
-                                  <div className="pt-1 pb-2 -mx-4 px-4 bg-muted/20">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{rep.teamName}</p>
-                                  </div>
-                                )}
-                                <div className="border-b pb-4 last:border-0">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div>
-                                      <p className="font-semibold">{stripEmojis(rep.name)}</p>
-                                      <p className="text-sm text-muted-foreground">{rep.year}</p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-lg font-bold">{rep.fp.toFixed(1)} FP</p>
-                                      <p className="text-sm text-muted-foreground">${rep.prmr.toFixed(0)}</p>
-                                    </div>
-                                  </div>
-                                  <div className="grid grid-cols-4 gap-2 text-sm">
-                                    <div>
-                                      <p className="text-muted-foreground">Doors</p>
-                                      <p className="font-semibold">{rep.doors}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Pitches</p>
-                                      <p className="font-semibold">{rep.pitches}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Presentations</p>
-                                      <p className="font-semibold">{rep.presentations}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Closes</p>
-                                      <p className="font-semibold">{rep.closes}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          });
-                        })()}
-
-                        {groupViewMode === 'mgmt-groups' && insightsData.groupedByMgmt?.map((group) => (
-                          <Card key={group.mgmtGroupName} className="p-4">
-                            <div className="mb-3">
-                              <p className="font-semibold text-lg">{group.mgmtGroupName}</p>
+                    <div className="px-4 pb-4 space-y-3">
+                      {insightsData.repBreakdown
+                        .sort((a: any, b: any) => b.fp - a.fp)
+                        .map((rep: any, idx: number) => (
+                        <div 
+                          key={rep.userId} 
+                          className={cn(
+                            "p-3 rounded-lg border border-border",
+                            idx === 0 && "bg-primary/5 border-primary/20"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="font-semibold">{stripEmojis(rep.name)}</div>
+                              <div className="text-xs text-muted-foreground">{rep.teamName}</div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 mb-3">
-                              <div>
-                                <div className="text-2xl font-bold text-primary">{group.totals.fp.toFixed(1)}</div>
-                                <div className="text-xs text-muted-foreground">FP+</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold text-primary">${group.totals.prmr.toFixed(0)}</div>
-                                <div className="text-xs text-muted-foreground">PRMR</div>
-                              </div>
-                              <div>
-                                <div className="text-lg font-bold">{group.totals.doors}</div>
-                                <div className="text-xs text-muted-foreground">Doors</div>
-                              </div>
-                              <div>
-                                <div className="text-lg font-bold">{group.totals.pitches}</div>
-                                <div className="text-xs text-muted-foreground">Pitches</div>
-                              </div>
+                            <div className="text-right">
+                              <div className="font-bold text-primary">{rep.fp.toFixed(1)} FP+</div>
+                              <div className="text-xs text-muted-foreground">${rep.prmr.toFixed(0)} PRMR</div>
                             </div>
-                            <div className="pt-3 border-t border-border">
-                              <p className="text-xs text-muted-foreground">{group.members.length} members</p>
-                            </div>
-                          </Card>
-                        ))}
-
-                        {groupViewMode === 'teams' && insightsData.groupedByTeam?.map((team) => (
-                          <Card key={team.teamName} className="p-4">
-                            <div className="mb-3">
-                              <p className="font-semibold text-lg">{team.teamName}</p>
-                              <p className="text-xs text-muted-foreground">{team.mgmtGroupName}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 mb-3">
-                              <div>
-                                <div className="text-2xl font-bold text-primary">{team.totals.fp.toFixed(1)}</div>
-                                <div className="text-xs text-muted-foreground">FP+</div>
-                              </div>
-                              <div>
-                                <div className="text-2xl font-bold text-primary">${team.totals.prmr.toFixed(0)}</div>
-                                <div className="text-xs text-muted-foreground">PRMR</div>
-                              </div>
-                              <div>
-                                <div className="text-lg font-bold">{team.totals.doors}</div>
-                                <div className="text-xs text-muted-foreground">Doors</div>
-                              </div>
-                              <div>
-                                <div className="text-lg font-bold">{team.totals.pitches}</div>
-                                <div className="text-xs text-muted-foreground">Pitches</div>
-                              </div>
-                            </div>
-                            <div className="pt-3 border-t border-border">
-                              <p className="text-xs text-muted-foreground">{team.members.length} members</p>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+                            <div>{rep.doors} doors</div>
+                            <div>{rep.pitches} pitches</div>
+                            <div>{rep.transitions} trans</div>
+                            <div>{rep.presentations} pres</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -884,96 +810,74 @@ const TeamReports = () => {
           </>
         )}
 
-        <TeamFilterSheet
-          open={isFilterOpen}
-          onOpenChange={setIsFilterOpen}
-          accessData={accessData}
-          selectedUserIds={selectedUserIds}
-          onUserIdsChange={setSelectedUserIds}
-          excludeUserIds={excludeUserIds}
-          onExcludeUserIdsChange={setExcludeUserIds}
-        />
+        {/* Custom Date Dialog */}
+        {showCustomDialog && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <Card className="w-full max-w-sm p-4 space-y-4">
+              <h3 className="text-lg font-semibold">Select Date Range</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Start Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customStartDate ? format(customStartDate, 'PPP') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={customStartDate}
+                        onSelect={setCustomStartDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">End Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customEndDate ? format(customEndDate, 'PPP') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={customEndDate}
+                        onSelect={setCustomEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowCustomDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleCustomDateApply} className="flex-1" disabled={!customStartDate || !customEndDate}>
+                  Apply
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
 
-      {/* Custom Date Range Sheet */}
-      <Sheet open={showCustomDialog} onOpenChange={setShowCustomDialog}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>Select Custom Date Range</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 py-4">
-            <div className={cn("transition-all duration-300", customStartDate && "animate-scale-in")}>
-              <label className="text-sm font-medium mb-2 block">Start Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStartDate ? format(customStartDate, 'PPP') : 'Pick start date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={(date) => {
-                      setCustomStartDate(date);
-                      // Auto-open end date picker if end date is empty
-                      if (date && !customEndDate) {
-                        setTimeout(() => {
-                          const endDateButton = document.querySelector('[data-end-date-trigger]') as HTMLButtonElement;
-                          endDateButton?.click();
-                        }, 200);
-                      }
-                    }}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className={cn("transition-all duration-300", customStartDate && !customEndDate && "animate-pulse")}>
-              <label className="text-sm font-medium mb-2 block">End Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left font-normal"
-                    data-end-date-trigger
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={(date) => {
-                      setCustomEndDate(date);
-                      if (date) {
-                        // Auto-close after selecting end date
-                        setTimeout(() => setShowCustomDialog(false), 150);
-                      }
-                    }}
-                    disabled={(date) => customStartDate ? date < customStartDate : false}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <Button 
-              onClick={handleCustomDateApply} 
-              className="w-full"
-              disabled={!customStartDate || !customEndDate}
-            >
-              Apply Date Range
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Filter Sheet */}
+      <TeamFilterSheet
+        open={isFilterOpen}
+        onOpenChange={setIsFilterOpen}
+        accessData={accessData}
+        selectedUserIds={selectedUserIds}
+        onUserIdsChange={setSelectedUserIds}
+        excludeUserIds={excludeUserIds}
+        onExcludeUserIdsChange={setExcludeUserIds}
+      />
     </div>
   );
 };
