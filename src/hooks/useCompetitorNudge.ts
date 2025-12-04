@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 interface CompetitorNudge {
   name: string;
-  metric: 'presentations' | 'fp_plus' | 'prmr' | 'doors_knocked';
+  metric: 'presentations' | 'pitches' | 'fp_plus' | 'prmr' | 'decision_makers' | 'doors_knocked';
   metricLabel: string;
   timeframe: 'today' | 'this week';
   gap: number;
@@ -67,7 +67,7 @@ export const useCompetitorNudge = () => {
       return null;
     };
 
-    // Priority order: presentations, FP+, PRMR, doors
+    // Priority order: presentations, pitches, FP+, PRMR, decision makers, doors
     // Use different max gaps for different metrics
     const checks: Array<{
       ranking: Array<{ userId: string; name: string; value: number; isWorking?: boolean }>;
@@ -75,10 +75,12 @@ export const useCompetitorNudge = () => {
       label: string;
       maxGap: number;
     }> = [
-      { ranking: rankings.presentations, metric: 'presentations', label: 'presentation', maxGap: 3 },
-      { ranking: rankings.fp_plus, metric: 'fp_plus', label: 'FP+', maxGap: 1.5 },
-      { ranking: rankings.prmr, metric: 'prmr', label: 'PRMR', maxGap: 200 },
-      { ranking: rankings.doors_knocked, metric: 'doors_knocked', label: 'door', maxGap: 10 },
+      { ranking: rankings.presentations, metric: 'presentations', label: 'presentation', maxGap: 1 },
+      { ranking: rankings.pitches, metric: 'pitches', label: 'pitch', maxGap: 3 },
+      { ranking: rankings.fp_plus, metric: 'fp_plus', label: 'FP+', maxGap: 1 },
+      { ranking: rankings.prmr, metric: 'prmr', label: 'PRMR', maxGap: 50 },
+      { ranking: rankings.decision_makers, metric: 'decision_makers', label: 'decision maker', maxGap: 3 },
+      { ranking: rankings.doors_knocked, metric: 'doors_knocked', label: 'door', maxGap: 3 },
     ];
 
     // Try to find catchable competitor in today's data first
