@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock, Loader2, Eraser } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
@@ -53,11 +53,12 @@ interface IssueRowProps {
   onOkay: () => void;
   onEdit: () => void;
   onFixEndTime: (issue: DataIssue) => void;
+  onClearActivity: (issue: DataIssue) => void;
   isFixing: boolean;
   fixingIssueId: string | null;
 }
 
-const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, isFixing, fixingIssueId }: IssueRowProps) => {
+const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixing, fixingIssueId }: IssueRowProps) => {
   const getSeverityColor = () => {
     return issue.severity === 'error' 
       ? 'border-l-destructive' 
@@ -82,6 +83,11 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, isFixing, fixingIssueId
   const showFixButton = issue.issueType === 'late_end_time' || issue.issueType === 'unsaved';
   const suggested = showFixButton ? getSuggestedEndTime(issue) : null;
   const isThisFixing = isFixing && fixingIssueId === issue.id;
+  
+  // Show clear activity button if entry has FP+ or PRMR but also has activity data
+  const hasResults = (issue.entryData.fp_plus || 0) > 0 || (issue.entryData.prmr || 0) > 0;
+  const hasActivity = issue.entryData.doors_knocked > 0 || issue.entryData.pitches > 0;
+  const showClearActivity = hasResults && hasActivity;
 
   return (
     <div
@@ -111,6 +117,21 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, isFixing, fixingIssueId
           )}
         </div>
         <div className="flex items-center gap-1">
+          {showClearActivity && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClearActivity(issue);
+              }}
+              disabled={isThisFixing}
+              title="Clear activity, keep FP+ & PRMR"
+            >
+              <Eraser className="w-3 h-3" />
+            </Button>
+          )}
           {showFixButton && suggested && (
             <Button
               size="sm"
@@ -218,6 +239,56 @@ export const AdminDataReviewCard = () => {
     }
   };
 
+  const handleClearActivity = async (issue: DataIssue) => {
+    setIsFixingEndTime(true);
+    setFixingIssueId(issue.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase.functions.invoke('update-rep-entry', {
+        body: {
+          entryId: issue.entryId,
+          adminEmail: user.email,
+          updates: {
+            doors_knocked: 0,
+            decision_makers: 0,
+            pitches: 0,
+            transitions: 0,
+            presentations: 0,
+            closes: 0,
+            counter_timestamps: {},
+            work_start_time: null,
+            work_end_time: null,
+            break_periods: [],
+            is_finalized: true,
+            // FP+ and PRMR are preserved (not included in updates)
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Activity cleared',
+        description: `Cleared ${issue.repName}'s activity inputs, kept FP+ & PRMR`,
+      });
+
+      dismissIssue(issue.id);
+      refetch();
+    } catch (error) {
+      console.error('Error clearing activity:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to clear activity',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFixingEndTime(false);
+      setFixingIssueId(null);
+    }
+  };
+
   const handleDrawerClose = (open: boolean) => {
     setDrawerOpen(open);
     if (!open) {
@@ -294,6 +365,7 @@ export const AdminDataReviewCard = () => {
                 onOkay={() => handleOkayClick(issue)}
                 onEdit={() => handleEditIssue(issue)}
                 onFixEndTime={handleFixEndTime}
+                onClearActivity={handleClearActivity}
                 isFixing={isFixingEndTime}
                 fixingIssueId={fixingIssueId}
               />
