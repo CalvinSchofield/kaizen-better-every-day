@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Check, X, Clock, Loader2 } from 'lucide-react';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -130,6 +138,8 @@ export const AdminDataReviewCard = () => {
   const { issues, shouldShowCard, dismissIssue, refetch } = useAdminDataReview();
   const [selectedIssue, setSelectedIssue] = useState<DataIssue | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmIssue, setConfirmIssue] = useState<DataIssue | null>(null);
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [isFixingEndTime, setIsFixingEndTime] = useState(false);
   const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
 
@@ -143,8 +153,16 @@ export const AdminDataReviewCard = () => {
   };
 
   const handleOkayClick = (issue: DataIssue) => {
-    // Directly dismiss the issue - checkmark means "I'm okay with this data"
-    dismissIssue(issue.id);
+    setConfirmIssue(issue);
+    setConfirmDrawerOpen(true);
+  };
+
+  const handleConfirmDismiss = () => {
+    if (confirmIssue) {
+      dismissIssue(confirmIssue.id);
+      setConfirmDrawerOpen(false);
+      setConfirmIssue(null);
+    }
   };
 
   const handleFixEndTime = async (issue: DataIssue) => {
@@ -283,6 +301,70 @@ export const AdminDataReviewCard = () => {
           entryDate={selectedIssue.entryDate}
         />
       )}
+
+      {/* Confirm Dismiss Drawer */}
+      <Drawer open={confirmDrawerOpen} onOpenChange={setConfirmDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Mark as OK?</DrawerTitle>
+            <DrawerDescription>
+              Confirm that this data is correct and doesn't need changes.
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          {confirmIssue && (
+            <div className="px-4 pb-4">
+              <div className={cn(
+                "bg-muted/50 border-l-4 p-4 rounded-lg",
+                confirmIssue.severity === 'error' ? 'border-l-destructive' : 'border-l-amber-500'
+              )}>
+                <p className="font-semibold">{confirmIssue.repName}</p>
+                <p className="text-sm text-muted-foreground mt-1">{confirmIssue.description}</p>
+                
+                {/* Show key data points */}
+                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Doors:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.doors_knocked}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Pitches:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.pitches}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Presentations:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.presentations}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Closes:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.closes}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">FP+:</span>{' '}
+                    <span className="font-medium">
+                      {(confirmIssue.entryData.fp_plus + (confirmIssue.entryData.upgrade_prmr / 85)).toFixed(1)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">PRMR:</span>{' '}
+                    <span className="font-medium">${confirmIssue.entryData.prmr}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DrawerFooter>
+            <Button onClick={handleConfirmDismiss} className="bg-green-600 hover:bg-green-700">
+              <Check className="w-4 h-4 mr-2" />
+              Yes, Data is OK
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmDrawerOpen(false)}>
+              Cancel
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
