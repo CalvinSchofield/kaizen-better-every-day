@@ -136,9 +136,12 @@ Deno.serve(async (req) => {
     // Enrich rep data with team/MGMT group info
     const enrichedReps = (reps || []).map(rep => ({
       ...rep,
-      teamName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.teamName || 'Unknown Team') : 'Unknown Team',
-      mgmtGroupName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.mgmtGroupName || 'Unknown Group') : 'Unknown Group',
+      teamName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.teamName || null) : null,
+      mgmtGroupName: rep.notion_page_id ? (teamMappings[rep.notion_page_id]?.mgmtGroupName || null) : null,
     }));
+    
+    console.log('Team mappings found:', Object.keys(teamMappings).length);
+    console.log('Reps with notion_page_id:', (reps || []).filter(r => r.notion_page_id).length);
 
     console.log(`Fetched ${entries?.length || 0} entries for ${filteredUserIds.length} users`);
 

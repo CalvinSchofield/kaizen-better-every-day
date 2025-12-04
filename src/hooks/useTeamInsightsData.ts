@@ -840,8 +840,9 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         }
 
         // Per team
+        const teamName = rep.teamName || 'No Team';
         if (!dailyTrendByTeam[teamKey]) {
-          dailyTrendByTeam[teamKey] = { name: rep.teamName || 'No Team', dailyData: [] };
+          dailyTrendByTeam[teamKey] = { name: teamName, dailyData: [] };
         }
         const existingTeamDay = dailyTrendByTeam[teamKey].dailyData.find(d => d.date === date);
         if (existingTeamDay) {
