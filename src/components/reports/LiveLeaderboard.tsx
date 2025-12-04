@@ -89,6 +89,8 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       doorsToFpRatio: rep.todayStats.fp > 0 ? rep.todayStats.doors / rep.todayStats.fp : 0,
       hoursWorked: (rep.durationMinutes || 0) / 60,
       daysWorked: 1,
+      workStartTime: rep.workStartTime,
+      workEndTime: rep.workEndTime,
     };
   };
 
