@@ -258,7 +258,7 @@ const TeamReports = () => {
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
       <div className="max-w-lg mx-auto space-y-4">
         {/* Scope Badge */}
-        <div className="flex items-center">
+        <div className="flex items-center justify-end">
           <ScopeBadge
             accessLevel={accessData?.accessLevel || 'none'}
             selectedCount={effectiveUserIds.filter(id => !excludeUserIds.includes(id)).length}
@@ -771,7 +771,7 @@ const TeamReports = () => {
                     </div>
                     {expandedSection !== 'individuals' && (
                       <div className="mt-2 text-left text-sm text-muted-foreground">
-                        {insightsData.repBreakdown.length} reps with activity
+                        {insightsData.repBreakdown.filter((rep: any) => rep.doors > 0 || rep.fp > 0).length} reps with activity
                       </div>
                     )}
                   </CollapsibleTrigger>
