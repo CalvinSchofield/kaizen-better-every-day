@@ -79,26 +79,31 @@ export const useAdminDataReview = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Get yesterday's date
-  const getYesterdayDate = () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+  // Get date range for checking (last 3 days to catch all forgotten entries)
+  const getDateRange = () => {
+    const today = new Date();
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    return {
+      today: today.toISOString().split('T')[0],
+      threeDaysAgo: threeDaysAgo.toISOString().split('T')[0],
+    };
   };
 
-  // Fetch yesterday's entries and analyze
+  // Fetch recent entries and analyze for issues
   const { data: issues = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-data-review', isAdmin],
     queryFn: async () => {
       if (!isAdmin) return [];
 
-      const yesterday = getYesterdayDate();
+      const { today, threeDaysAgo } = getDateRange();
 
-      // Fetch all entries from yesterday
+      // Fetch all entries from last 3 days (excluding today)
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('*')
-        .eq('entry_date', yesterday);
+        .gte('entry_date', threeDaysAgo)
+        .lt('entry_date', today);
 
       if (error) {
         console.error('Error fetching entries for review:', error);
@@ -117,7 +122,7 @@ export const useAdminDataReview = () => {
         .from('daily_entries')
         .select('user_id, pitches, doors_knocked, presentations, closes')
         .gte('entry_date', thirtyDaysAgo.toISOString().split('T')[0])
-        .lt('entry_date', yesterday)
+        .lt('entry_date', threeDaysAgo)
         .eq('is_finalized', true);
 
       // Calculate averages per user
