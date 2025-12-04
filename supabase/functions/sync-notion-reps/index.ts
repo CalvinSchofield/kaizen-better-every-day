@@ -69,34 +69,49 @@ Deno.serve(async (req) => {
 
     console.log("Fetching pages from Notion database:", databaseId);
 
-    // Fetch all pages from the Notion database with retry logic
-    const notionResponse = await fetchNotionWithRetry(
-      `https://api.notion.com/v1/databases/${databaseId}/query`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${notionApiKey}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
+    // Fetch ALL pages from the Notion database with pagination support
+    const allPages: NotionPage[] = [];
+    let hasMore = true;
+    let startCursor: string | undefined = undefined;
+    
+    while (hasMore) {
+      const notionResponse = await fetchNotionWithRetry(
+        `https://api.notion.com/v1/databases/${databaseId}/query`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${notionApiKey}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            page_size: 100,
+            ...(startCursor ? { start_cursor: startCursor } : {}),
+          }),
+        }
+      );
+
+      if (!notionResponse.ok) {
+        const errorText = await notionResponse.text();
+        console.error("Notion API error:", errorText);
+        throw new Error(`Notion API error: ${notionResponse.status}`);
       }
-    );
 
-    if (!notionResponse.ok) {
-      const errorText = await notionResponse.text();
-      console.error("Notion API error:", errorText);
-      throw new Error(`Notion API error: ${notionResponse.status}`);
+      const notionData = await notionResponse.json();
+      allPages.push(...notionData.results);
+      hasMore = notionData.has_more;
+      startCursor = notionData.next_cursor;
+      
+      console.log(`Fetched ${notionData.results.length} pages (total: ${allPages.length}, has_more: ${hasMore})`);
     }
-
-    const notionData = await notionResponse.json();
-    console.log(`Found ${notionData.results.length} pages in Notion`);
+    
+    console.log(`Found ${allPages.length} total pages in Notion`);
 
     const syncedReps = [];
     const errors = [];
 
     // Process each page
-    for (const page of notionData.results as NotionPage[]) {
+    for (const page of allPages) {
       try {
         // Extract properties from Notion page
         const props = page.properties;
@@ -501,7 +516,7 @@ Deno.serve(async (req) => {
     // Cleanup: Remove rep records where the user's email doesn't match any Notion email
     console.log("Starting cleanup of orphaned rep records...");
     const notionEmails = new Set(
-      notionData.results
+      allPages
         .map((page: NotionPage) => {
           const props = page.properties;
           const getEmail = (prop: NotionProperty) => {
