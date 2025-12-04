@@ -105,7 +105,7 @@ export const EarlySaveConfirmSheet = ({
             <>
               <DrawerTitle>{competitor.name} is still working!</DrawerTitle>
               <DrawerDescription>
-                They've got you beat by just {formatGap(competitor.metric, competitor.gap)} on the day.
+                They've got you beat by just {formatGap(competitor.metric, competitor.gap)} {competitor.timeframe}.
               </DrawerDescription>
             </>
           ) : (
