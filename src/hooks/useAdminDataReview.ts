@@ -27,6 +27,7 @@ export interface DataIssue {
     work_end_time: string | null;
     counter_timestamps: Record<string, string[]> | null;
     is_finalized: boolean;
+    timezone: string | null;
   };
 }
 
@@ -164,6 +165,7 @@ export const useAdminDataReview = () => {
           work_end_time: entry.work_end_time,
           counter_timestamps: entry.counter_timestamps as Record<string, string[]> | null,
           is_finalized: entry.is_finalized || false,
+          timezone: rep.timezone || entry.timezone || null,
         };
 
         const hasActivity = entryData.doors_knocked > 0 || entryData.pitches > 0 || 
