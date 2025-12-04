@@ -376,20 +376,23 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           }
         : null;
 
-      // Average start/end times (timezone-relative) - use user's timezone or default to 'America/Denver'
+      // Average start/end times (timezone-relative) - use user's timezone from their rep profile
       const { data: repData } = await supabase
         .from('reps')
-        .select('*')
+        .select('timezone')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       
-      const userTimezone = 'America/Denver'; // Default timezone for all users
+      // Use the rep's timezone, fall back to entry timezone, then default
+      const userTimezone = repData?.timezone || 'America/Los_Angeles';
       
       const timesData = rangeEntries
         .filter(entry => entry.work_start_time && entry.work_end_time)
         .map(entry => {
-          const startLocal = calculateLocalTime(entry.work_start_time!, userTimezone);
-          const endLocal = calculateLocalTime(entry.work_end_time!, userTimezone);
+          // Use entry's timezone if available, otherwise user's timezone
+          const entryTimezone = entry.timezone || userTimezone;
+          const startLocal = calculateLocalTime(entry.work_start_time!, entryTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time!, entryTimezone);
           return {
             startDecimal: timeToDecimal(startLocal.hour, startLocal.minute),
             endDecimal: timeToDecimal(endLocal.hour, endLocal.minute),
@@ -406,14 +409,15 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
 
       const avgHoursWorked = totals.daysWorked > 0 ? totals.totalHours / totals.daysWorked : 0;
 
-      // Most productive hour (hour with most pitches)
+      // Most productive hour (hour with most pitches) - use each entry's timezone
       const hourlyPitches: Record<number, number> = {};
       rangeEntries.forEach(entry => {
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
           const pitchTimestamps = timestamps.pitches || [];
+          const entryTimezone = entry.timezone || userTimezone;
           pitchTimestamps.forEach((timestamp: string) => {
-            const local = calculateLocalTime(timestamp, userTimezone);
+            const local = calculateLocalTime(timestamp, entryTimezone);
             hourlyPitches[local.hour] = (hourlyPitches[local.hour] || 0) + 1;
           });
         }
