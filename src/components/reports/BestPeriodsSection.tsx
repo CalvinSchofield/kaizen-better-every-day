@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Award, Users, User, Trophy, Clock, Target, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Users, User, Trophy, Clock, Target, TrendingUp, Calendar } from "lucide-react";
+import { DayOfWeekBestPeriods } from "./DayOfWeekBestPeriods";
 
 interface GroupRecord {
   date: string;
@@ -52,14 +52,28 @@ interface BestPeriodsData {
   individualBestDoors: IndividualRecord | null;
 }
 
+interface DailyTrendItem {
+  date: string;
+  fp: number;
+  prmr: number;
+  doors: number;
+  dms?: number;
+  pitches?: number;
+  transitions?: number;
+  presentations?: number;
+  closes?: number;
+  repsWorked?: number;
+}
+
 interface BestPeriodsSectionProps {
   data: BestPeriodsData | null;
+  dailyTrend?: DailyTrendItem[];
 }
 
 type ViewMode = 'group' | 'individual';
 type RookieFilter = 'all' | 'rookie';
 
-export const BestPeriodsSection = ({ data }: BestPeriodsSectionProps) => {
+export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('group');
   const [rookieFilter, setRookieFilter] = useState<RookieFilter>('all');
 
@@ -366,6 +380,13 @@ export const BestPeriodsSection = ({ data }: BestPeriodsSectionProps) => {
 
       {/* Content based on view mode */}
       {viewMode === 'group' ? renderGroupRecords() : renderIndividualRecords()}
+
+      {/* Day of Week Analysis */}
+      {dailyTrend && dailyTrend.length > 1 && (
+        <div className="mt-6 pt-4 border-t border-border">
+          <DayOfWeekBestPeriods dailyTrend={dailyTrend} />
+        </div>
+      )}
     </div>
   );
 };

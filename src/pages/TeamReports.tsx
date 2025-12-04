@@ -36,6 +36,7 @@ const TeamReports = () => {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [excludeUserIds, setExcludeUserIds] = useState<string[]>([]);
+  const [yearFilter, setYearFilter] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -49,10 +50,11 @@ const TeamReports = () => {
       const savedFilter = localStorage.getItem('team-reports-filter');
       if (savedFilter) {
         try {
-          const { selectedUserIds: saved, excludeUserIds: savedExclude } = JSON.parse(savedFilter);
+          const { selectedUserIds: saved, excludeUserIds: savedExclude, yearFilter: savedYear } = JSON.parse(savedFilter);
           if (saved?.length > 0) {
             setSelectedUserIds(saved);
             setExcludeUserIds(savedExclude || []);
+            setYearFilter(savedYear || []);
           } else {
             setSelectedUserIds(accessData.accessibleUserIds || []);
           }
@@ -122,10 +124,22 @@ const TeamReports = () => {
     return { percentDiff: Math.abs(percentDiff), isBetter };
   };
 
-  // Effective user IDs for queries
-  const effectiveUserIds = selectedUserIds.length > 0 
-    ? selectedUserIds 
-    : (accessData?.accessibleUserIds || []);
+  // Effective user IDs for queries (with year filter applied)
+  const effectiveUserIds = useMemo(() => {
+    let userIds = selectedUserIds.length > 0 
+      ? selectedUserIds 
+      : (accessData?.accessibleUserIds || []);
+    
+    // Apply year filter if set
+    if (yearFilter.length > 0 && accessData?.accessibleReps) {
+      const repsMatchingYear = accessData.accessibleReps
+        .filter((rep: any) => yearFilter.includes(rep.year?.toLowerCase()))
+        .map((rep: any) => rep.userId);
+      userIds = userIds.filter((id: string) => repsMatchingYear.includes(id));
+    }
+    
+    return userIds;
+  }, [selectedUserIds, accessData?.accessibleUserIds, accessData?.accessibleReps, yearFilter]);
 
   // Today data hook
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
@@ -689,7 +703,7 @@ const TeamReports = () => {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="px-4 pb-4">
-                      <BestPeriodsSection data={insightsData.bestPeriods} />
+                      <BestPeriodsSection data={insightsData.bestPeriods} dailyTrend={insightsData.dailyTrend} />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -871,6 +885,8 @@ const TeamReports = () => {
         onUserIdsChange={setSelectedUserIds}
         excludeUserIds={excludeUserIds}
         onExcludeUserIdsChange={setExcludeUserIds}
+        yearFilter={yearFilter}
+        onYearFilterChange={setYearFilter}
       />
 
       {/* Rep Detail Drawer */}

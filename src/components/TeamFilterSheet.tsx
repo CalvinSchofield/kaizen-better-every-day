@@ -15,6 +15,8 @@ interface TeamFilterSheetProps {
   onUserIdsChange: (ids: string[]) => void;
   excludeUserIds: string[];
   onExcludeUserIdsChange: (ids: string[]) => void;
+  yearFilter?: string[];
+  onYearFilterChange?: (years: string[]) => void;
 }
 
 export const TeamFilterSheet = ({
@@ -25,27 +27,43 @@ export const TeamFilterSheet = ({
   onUserIdsChange,
   excludeUserIds,
   onExcludeUserIdsChange,
+  yearFilter = [],
+  onYearFilterChange,
 }: TeamFilterSheetProps) => {
   const [localSelected, setLocalSelected] = useState<string[]>(selectedUserIds);
   const [localExcluded, setLocalExcluded] = useState<string[]>(excludeUserIds);
+  const [localYearFilter, setLocalYearFilter] = useState<string[]>(yearFilter);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setLocalSelected(selectedUserIds);
     setLocalExcluded(excludeUserIds);
-  }, [selectedUserIds, excludeUserIds]);
+    setLocalYearFilter(yearFilter);
+  }, [selectedUserIds, excludeUserIds, yearFilter]);
 
   const handleApply = () => {
     onUserIdsChange(localSelected);
     onExcludeUserIdsChange(localExcluded);
+    if (onYearFilterChange) {
+      onYearFilterChange(localYearFilter);
+    }
     
     // Save to localStorage
     localStorage.setItem('team-reports-filter', JSON.stringify({
       selectedUserIds: localSelected,
       excludeUserIds: localExcluded,
+      yearFilter: localYearFilter,
     }));
     
     onOpenChange(false);
+  };
+
+  const toggleYearFilter = (year: string) => {
+    if (localYearFilter.includes(year)) {
+      setLocalYearFilter(localYearFilter.filter(y => y !== year));
+    } else {
+      setLocalYearFilter([...localYearFilter, year]);
+    }
   };
 
   const stripEmojis = (text: string) => {
@@ -139,7 +157,7 @@ export const TeamFilterSheet = ({
       const partiallySelected = isGroupPartiallySelected(mgmtUserIds);
 
       return (
-        <div key={mgmtGroup.id} className="space-y-2">
+        <Collapsible key={mgmtGroup.id} open={isExpanded} onOpenChange={() => toggleGroupExpanded(`mgmt-${mgmtGroup.id}`)}>
           <div className="flex items-center gap-2">
             <Checkbox
               id={`mgmt-${mgmtGroup.id}`}
@@ -147,21 +165,19 @@ export const TeamFilterSheet = ({
               onCheckedChange={() => toggleMgmtGroup(mgmtGroup)}
               className={cn(partiallySelected && !fullySelected && "opacity-50")}
             />
-            <Collapsible open={isExpanded} onOpenChange={() => toggleGroupExpanded(`mgmt-${mgmtGroup.id}`)}>
-              <CollapsibleTrigger className="flex items-center gap-2 flex-1 py-1">
-                <Building2 className="w-4 h-4 text-primary" />
-                <span className="font-semibold text-sm">{mgmtGroup.name}</span>
-                <span className="text-xs text-muted-foreground">({mgmtUserIds.length})</span>
-                {isExpanded ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-              </CollapsibleTrigger>
-              <CollapsibleContent className="ml-6 mt-2 space-y-2">
-                {accessData?.teams
-                  ?.filter((team: any) => mgmtGroup.teamIds?.includes(team.id))
-                  .map((team: any) => renderTeamSection(team))}
-              </CollapsibleContent>
-            </Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-2 flex-1 py-1">
+              <Building2 className="w-4 h-4 text-primary" />
+              <span className="font-semibold text-sm">{mgmtGroup.name}</span>
+              <span className="text-xs text-muted-foreground">({mgmtUserIds.length})</span>
+              {isExpanded ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
+            </CollapsibleTrigger>
           </div>
-        </div>
+          <CollapsibleContent className="ml-6 mt-2 space-y-2">
+            {accessData?.teams
+              ?.filter((team: any) => mgmtGroup.teamIds?.includes(team.id))
+              .map((team: any) => renderTeamSection(team))}
+          </CollapsibleContent>
+        </Collapsible>
       );
     });
   };
@@ -194,7 +210,7 @@ export const TeamFilterSheet = ({
       }) || [];
 
     return (
-      <div key={team.id} className="space-y-2">
+      <Collapsible key={team.id} open={isExpanded} onOpenChange={() => toggleGroupExpanded(`team-${team.id}`)}>
         <div className="flex items-center gap-2">
           <Checkbox
             id={`team-${team.id}`}
@@ -202,30 +218,28 @@ export const TeamFilterSheet = ({
             onCheckedChange={() => toggleTeam(team.id)}
             className={cn(partiallySelected && !fullySelected && "opacity-50")}
           />
-          <Collapsible open={isExpanded} onOpenChange={() => toggleGroupExpanded(`team-${team.id}`)}>
-            <CollapsibleTrigger className="flex items-center gap-2 flex-1 py-1">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm">{team.name}</span>
-              <span className="text-xs text-muted-foreground">({teamUserIds.length})</span>
-              {isExpanded ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="ml-6 mt-2 space-y-1">
-              {teamReps.map((rep: any) => (
-                <div key={rep.userId} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={rep.userId}
-                    checked={localSelected.includes(rep.userId)}
-                    onCheckedChange={() => toggleRep(rep.userId)}
-                  />
-                  <Label htmlFor={rep.userId} className="font-normal cursor-pointer text-sm">
-                    {stripEmojis(rep.name)}
-                  </Label>
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 flex-1 py-1">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium text-sm">{team.name}</span>
+            <span className="text-xs text-muted-foreground">({teamUserIds.length})</span>
+            {isExpanded ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
+          </CollapsibleTrigger>
         </div>
-      </div>
+        <CollapsibleContent className="ml-6 mt-2 space-y-1">
+          {teamReps.map((rep: any) => (
+            <div key={rep.userId} className="flex items-center space-x-2">
+              <Checkbox
+                id={rep.userId}
+                checked={localSelected.includes(rep.userId)}
+                onCheckedChange={() => toggleRep(rep.userId)}
+              />
+              <Label htmlFor={rep.userId} className="font-normal cursor-pointer text-sm">
+                {stripEmojis(rep.name)}
+              </Label>
+            </div>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
     );
   };
 
@@ -262,6 +276,36 @@ export const TeamFilterSheet = ({
         </DrawerHeader>
 
         <div className="px-4 pb-6 space-y-4 overflow-y-auto">
+          {/* Year Filter */}
+          {onYearFilterChange && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Filter by Year</div>
+              <div className="flex gap-2 flex-wrap">
+                {['rookie', 'sophomore', 'vet'].map((year) => (
+                  <Button
+                    key={year}
+                    variant={localYearFilter.includes(year) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleYearFilter(year)}
+                    className="capitalize"
+                  >
+                    {year === 'vet' ? 'Vet' : year.charAt(0).toUpperCase() + year.slice(1)}
+                  </Button>
+                ))}
+              </div>
+              {localYearFilter.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLocalYearFilter([])}
+                  className="text-xs"
+                >
+                  Clear Year Filter
+                </Button>
+              )}
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleSelectAll}>
@@ -273,7 +317,7 @@ export const TeamFilterSheet = ({
           </div>
 
           {/* Team Members List with Hierarchy */}
-          <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
             {accessData?.accessLevel === 'area_director' && renderAreaDirectorView()}
             {accessData?.accessLevel === 'mgmt_group_lead' && renderMgmtGroupLeadView()}
             {accessData?.accessLevel === 'team_lead' && renderTeamLeadView()}
