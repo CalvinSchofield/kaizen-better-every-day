@@ -133,7 +133,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Process Teams
+    // Process Teams and build a map of team lead -> team name
+    const teamLeadToTeamMap = new Map<string, string>();
+    
     for (const team of teamsData.results || []) {
       const teamProps = team.properties;
       const nameProperty = teamProps['Name'];
@@ -149,6 +151,11 @@ Deno.serve(async (req) => {
         groupLeadId: teamLeadId,
       });
 
+      // Map team lead to team name
+      if (teamLeadId) {
+        teamLeadToTeamMap.set(teamLeadId, teamName);
+      }
+
       // Check if user is Team Lead
       if (teamLeadId === userNotionPageId && accessLevel === 'none') {
         accessLevel = 'team_lead';
@@ -160,13 +167,53 @@ Deno.serve(async (req) => {
       accessLevel = 'area_director';
     }
 
-    // Helper function to determine if a rep is a team lead
-    const getRepTeamInfo = (repNotionId: string) => {
-      const repTeam = teams.find(t => t.groupLeadId === repNotionId);
+    // Helper function to determine if a rep is a team lead and get their team info
+    const getRepTeamInfo = (repNotionId: string, repTeamLeaderName?: string) => {
+      // First check if rep IS a team lead
+      const repAsLeadTeam = teams.find(t => t.groupLeadId === repNotionId);
+      if (repAsLeadTeam) {
+        return {
+          isTeamLead: true,
+          teamId: repAsLeadTeam.id,
+          teamName: repAsLeadTeam.name,
+          mgmtGroupId: mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id))?.id || null,
+          mgmtGroupName: mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id))?.name || null
+        };
+      }
+      
+      // If not a team lead, try to find their team by matching team leader name
+      if (repTeamLeaderName) {
+        const matchingTeam = teams.find(t => {
+          const teamLeadId = t.groupLeadId;
+          // We need to check if this team's lead name matches repTeamLeaderName
+          // Since we don't have lead names cached, we'll check via teamLeadToTeamMap
+          return teamLeadToTeamMap.has(teamLeadId);
+        });
+        
+        // Find team where the team name contains the leader name or vice versa
+        for (const team of teams) {
+          // Get team name and compare
+          const teamName = team.name;
+          if (teamName && repTeamLeaderName && 
+              (teamName.toLowerCase().includes(repTeamLeaderName.toLowerCase()) ||
+               repTeamLeaderName.toLowerCase().includes(teamName.toLowerCase().replace('team ', '')))) {
+            return {
+              isTeamLead: false,
+              teamId: team.id,
+              teamName: team.name,
+              mgmtGroupId: mgmtGroups.find(g => g.teamIds.includes(team.id))?.id || null,
+              mgmtGroupName: mgmtGroups.find(g => g.teamIds.includes(team.id))?.name || null
+            };
+          }
+        }
+      }
+      
       return {
-        isTeamLead: !!repTeam,
-        teamId: repTeam?.id || null,
-        mgmtGroupId: repTeam ? mgmtGroups.find(g => g.teamIds.includes(repTeam.id))?.id || null : null
+        isTeamLead: false,
+        teamId: null,
+        teamName: null,
+        mgmtGroupId: null,
+        mgmtGroupName: null
       };
     };
 
@@ -175,22 +222,24 @@ Deno.serve(async (req) => {
     let accessibleReps: any[] = [];
 
     if (accessLevel === 'area_director') {
-      // Get all reps
+      // Get all reps with team_leader
       const { data: allReps } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id');
+        .select('user_id, name, notion_page_id, team_leader');
       
       if (allReps) {
         accessibleUserIds = allReps.map(r => r.user_id);
         accessibleReps = allReps.map(r => {
-          const teamInfo = getRepTeamInfo(r.notion_page_id);
+          const teamInfo = getRepTeamInfo(r.notion_page_id, r.team_leader);
           return {
             userId: r.user_id,
             name: r.name,
             notionPageId: r.notion_page_id,
             isTeamLead: teamInfo.isTeamLead,
             teamId: teamInfo.teamId,
+            teamName: teamInfo.teamName || (r.team_leader ? `Team ${r.team_leader}` : null),
             mgmtGroupId: teamInfo.mgmtGroupId,
+            mgmtGroupName: teamInfo.mgmtGroupName,
           };
         });
       }
@@ -202,7 +251,7 @@ Deno.serve(async (req) => {
       // Get reps in those teams
       const { data: teamReps } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id')
+        .select('user_id, name, notion_page_id, team_leader')
         .not('notion_page_id', 'is', null);
 
       if (teamReps) {
@@ -213,7 +262,7 @@ Deno.serve(async (req) => {
             accessibleTeamIds.includes(t.id));
           
           if (repTeam) {
-            const teamInfo = getRepTeamInfo(rep.notion_page_id);
+            const teamInfo = getRepTeamInfo(rep.notion_page_id, rep.team_leader);
             accessibleUserIds.push(rep.user_id);
             accessibleReps.push({
               userId: rep.user_id,
@@ -221,7 +270,9 @@ Deno.serve(async (req) => {
               notionPageId: rep.notion_page_id,
               isTeamLead: teamInfo.isTeamLead,
               teamId: teamInfo.teamId,
+              teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null),
               mgmtGroupId: teamInfo.mgmtGroupId,
+              mgmtGroupName: teamInfo.mgmtGroupName,
             });
           }
         }
@@ -233,20 +284,22 @@ Deno.serve(async (req) => {
       if (userTeam) {
         const { data: teamReps } = await supabase
           .from('reps')
-          .select('user_id, name, notion_page_id');
+          .select('user_id, name, notion_page_id, team_leader');
 
         if (teamReps) {
           // This is simplified - in reality would need to query reps table's Teams relation
           accessibleUserIds = teamReps.map(r => r.user_id);
           accessibleReps = teamReps.map(r => {
-            const teamInfo = getRepTeamInfo(r.notion_page_id);
+            const teamInfo = getRepTeamInfo(r.notion_page_id, r.team_leader);
             return {
               userId: r.user_id,
               name: r.name,
               notionPageId: r.notion_page_id,
               isTeamLead: teamInfo.isTeamLead,
               teamId: teamInfo.teamId,
+              teamName: teamInfo.teamName || (r.team_leader ? `Team ${r.team_leader}` : null),
               mgmtGroupId: teamInfo.mgmtGroupId,
+              mgmtGroupName: teamInfo.mgmtGroupName,
             };
           });
         }
