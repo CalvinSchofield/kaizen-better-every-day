@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,11 @@ export default function Settings() {
   });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [draggedCounter, setDraggedCounter] = useState<string | null>(null);
+  
+  // Push notifications
+  const { isSupported: notificationsSupported, isSubscribed, permission, subscribe, unsubscribe, isLoading: notificationsLoading } = usePushNotifications();
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   
   // Collapsible states
   const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
@@ -442,6 +448,45 @@ export default function Settings() {
 
   const commonEmojis = ["📊", "📈", "📞", "🎯", "✅", "💰", "📝", "🔥", "⭐", "💪"];
 
+  // Handle notification toggle
+  const handleToggleNotifications = async (enabled: boolean) => {
+    setIsSavingNotifications(true);
+    try {
+      if (enabled) {
+        const success = await subscribe();
+        if (success) {
+          toast({
+            title: "Notifications enabled",
+            description: "You'll receive reminders to save your work after sunset.",
+          });
+        } else {
+          toast({
+            title: "Could not enable notifications",
+            description: "Check your browser settings and try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        const success = await unsubscribe();
+        if (success) {
+          toast({
+            title: "Notifications disabled",
+            description: "You won't receive save reminders anymore.",
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error toggling notifications:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingNotifications(false);
+    }
+  };
+
   // Build ordered list combining core and custom counters
   const orderedCounters = [
     ...counterLayout.order.map(id => {
@@ -656,7 +701,55 @@ export default function Settings() {
           </Collapsible>
         </Card>
 
-        {/* Track Counters - Collapsible */}
+        {/* Notifications - Collapsible */}
+        {notificationsSupported && (
+          <Card>
+            <Collapsible open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Bell className="h-4 w-4" />
+                        Notifications
+                      </CardTitle>
+                      {!isNotificationsOpen && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {isSubscribed ? "Enabled" : permission === 'denied' ? "Blocked" : "Disabled"}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isNotificationsOpen && "rotate-180")} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  {permission === 'denied' ? (
+                    <p className="text-sm text-muted-foreground">
+                      Notifications are blocked by your browser. Enable them in your browser settings to receive save reminders.
+                    </p>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-base">Save Reminders</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Get reminded to save your work if you've been idle after sunset
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isSubscribed}
+                        onCheckedChange={handleToggleNotifications}
+                        disabled={isSavingNotifications || notificationsLoading}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        )}
+
         {canAddCustomCounters && (
           <Card>
             <Collapsible open={isTrackCountersOpen} onOpenChange={setIsTrackCountersOpen}>
