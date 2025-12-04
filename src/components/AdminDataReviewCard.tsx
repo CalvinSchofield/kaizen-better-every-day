@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ChevronRight, Check, X } from 'lucide-react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
 import {
@@ -45,35 +45,26 @@ const IssueRow = ({ issue, onOkay, onEdit }: IssueRowProps) => {
   return (
     <div
       className={cn(
-        "bg-muted/50 border-l-4 p-3 rounded-lg",
+        "bg-muted/50 border-l-4 p-3 rounded-lg cursor-pointer active:bg-muted/70 transition-colors",
         getSeverityColor()
       )}
+      onClick={onEdit}
     >
       <div className="flex items-center gap-3">
         {getIssueIcon()}
-        <div 
-          className="flex-1 min-w-0 cursor-pointer"
-          onClick={onEdit}
-        >
+        <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{issue.repName}</p>
           <p className="text-xs text-muted-foreground truncate">{issue.description}</p>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-100"
+        <button
+          className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onOkay();
           }}
         >
-          <Check className="w-4 h-4 mr-1" />
-          OK
-        </Button>
-        <ChevronRight 
-          className="w-4 h-4 text-muted-foreground flex-shrink-0 cursor-pointer" 
-          onClick={onEdit}
-        />
+          <Check className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );
