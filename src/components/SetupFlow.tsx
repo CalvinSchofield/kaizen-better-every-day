@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface SetupStep {
   name: string;
@@ -22,6 +23,8 @@ const SetupFlow = () => {
   ]);
   const [currentStep, setCurrentStep] = useState(0);
   const [canContinue, setCanContinue] = useState(false);
+  const [notInNotion, setNotInNotion] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     runSetup();
@@ -33,6 +36,11 @@ const SetupFlow = () => {
     ));
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
+  };
+
   const runSetup = async () => {
     try {
       // Step 1: Sync rep data from Notion
@@ -41,8 +49,10 @@ const SetupFlow = () => {
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      
+      setUserEmail(user.email || null);
 
-      // Check if rep data exists, if not sync from Notion
+      // Check if rep data exists
       const { data: existingRep } = await supabase
         .from('reps')
         .select('*')
@@ -50,8 +60,24 @@ const SetupFlow = () => {
         .maybeSingle();
 
       if (!existingRep) {
+        // Try syncing from Notion
         await supabase.functions.invoke('sync-notion-reps');
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait for sync
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for sync
+        
+        // Check again if rep was created after sync
+        const { data: repAfterSync } = await supabase
+          .from('reps')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (!repAfterSync) {
+          // User is not in Notion database - show request access screen
+          console.log('User not found in Notion after sync');
+          setNotInNotion(true);
+          updateStep(0, 'error');
+          return; // Stop setup flow
+        }
       }
       
       updateStep(0, 'success');
@@ -254,6 +280,61 @@ const SetupFlow = () => {
         return <div className="w-5 h-5 rounded-full border-2 border-muted" />;
     }
   };
+
+  // Show "Not in Notion" request access screen
+  if (notInNotion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+                <UserX className="w-8 h-8 text-orange-500" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Account Not Found</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Your account isn't set up in our system yet. Please contact your team leader to get added.
+              </p>
+              {userEmail && (
+                <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-muted-foreground mb-1">Signed in as:</p>
+                  <p className="text-sm font-medium">{userEmail}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-medium text-sm mb-2">What to do:</h3>
+                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Contact your team leader or recruiter</li>
+                  <li>Ask them to add your email to Notion</li>
+                  <li>Once added, come back and try again</li>
+                </ol>
+              </div>
+
+              <a
+                href="mailto:?subject=Kaizen%20App%20Access%20Request&body=Hi%2C%0A%0AI'm%20trying%20to%20access%20the%20Kaizen%20app%20but%20my%20account%20isn't%20set%20up%20yet.%0A%0AMy%20email%3A%20" 
+                className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                Request Access
+              </a>
+
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="w-full"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out & Try Different Account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
