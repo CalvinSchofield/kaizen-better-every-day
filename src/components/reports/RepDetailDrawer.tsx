@@ -43,8 +43,9 @@ interface RepDetailData {
 interface RepDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  rep: RepDetailData | null;
+  rep: (RepDetailData & { entryDate?: string }) | null;
   daysInRange?: number;
+  entryDate?: string; // For editing entries from specific dates
 }
 
 const formatTime = (timestamp: string | undefined) => {
@@ -67,7 +68,7 @@ const formatTimeForInput = (timestamp: string | undefined) => {
   }
 };
 
-export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1 }: RepDetailDrawerProps) => {
+export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entryDate }: RepDetailDrawerProps) => {
   const { efpModeEnabled } = useEfpMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -209,19 +210,19 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1 }: Re
       if (editedValues.fp_plus !== rep.fp) updates.fp_plus = editedValues.fp_plus;
       if (editedValues.prmr !== rep.prmr) updates.prmr = editedValues.prmr;
       
-      // Handle time fields - need to convert to full timestamp
+      // Handle time fields - need to convert to full timestamp using the entry's actual date
+      const dateToUse = entryDate || rep.entryDate || new Date().toISOString().split('T')[0];
+      
       if (editedValues.work_start_time !== formatTimeForInput(rep.workStartTime)) {
         if (editedValues.work_start_time) {
-          const today = new Date().toISOString().split('T')[0];
-          updates.work_start_time = `${today}T${editedValues.work_start_time}:00`;
+          updates.work_start_time = `${dateToUse}T${editedValues.work_start_time}:00`;
         } else {
           updates.work_start_time = null;
         }
       }
       if (editedValues.work_end_time !== formatTimeForInput(rep.workEndTime)) {
         if (editedValues.work_end_time) {
-          const today = new Date().toISOString().split('T')[0];
-          updates.work_end_time = `${today}T${editedValues.work_end_time}:00`;
+          updates.work_end_time = `${dateToUse}T${editedValues.work_end_time}:00`;
         } else {
           updates.work_end_time = null;
         }

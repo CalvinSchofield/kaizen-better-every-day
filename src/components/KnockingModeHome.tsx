@@ -11,6 +11,7 @@ import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { SaveDayAlertCard } from "@/components/SaveDayAlertCard";
+import { AdminDataReviewCard } from "@/components/AdminDataReviewCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useState, useMemo } from "react";
@@ -200,6 +201,9 @@ export const KnockingModeHome = ({
                 <RookieCompetitorQuickAccess />
               </>
             )}
+            
+            {/* Admin Data Review Card - at bottom */}
+            <AdminDataReviewCard />
           </>
         )}
         
@@ -226,6 +230,9 @@ export const KnockingModeHome = ({
                 <RookieCompetitorQuickAccess />
               </>
             )}
+            
+            {/* Admin Data Review Card - at bottom */}
+            <AdminDataReviewCard />
           </>
         )}
       </div>
