@@ -45,13 +45,16 @@ export const useCumulativeFP = () => {
       let cumulativeFp = 0;
 
       entries.forEach((entry, index) => {
-        // prmr field IS total PRMR (upgrade_prmr is a subset, not additive)
-        const totalPrmr = entry.prmr || 0;
+        // prmr = FP sales PRMR, upgrade_prmr = upgrade sales PRMR
+        // Total PRMR = prmr + upgrade_prmr
+        const fpPrmr = entry.prmr || 0;
+        const upgradePrmr = entry.upgrade_prmr || 0;
+        const totalPrmr = fpPrmr + upgradePrmr;
         const fpValue = entry.fp_plus || 0;
         
         // EFP = total PRMR / 85
         const value = efpModeEnabled 
-          ? calculateEfp(totalPrmr)
+          ? calculateEfp(fpPrmr, upgradePrmr)
           : fpValue;
         
         cumulative += value;
@@ -62,8 +65,7 @@ export const useCumulativeFP = () => {
         const last6 = entries.slice(Math.max(0, index - 5), index + 1);
         const movingAvg6 = last6.length >= 1
           ? last6.reduce((sum, e) => {
-              const eTotalPrmr = e.prmr || 0;
-              const v = efpModeEnabled ? calculateEfp(eTotalPrmr) : (e.fp_plus || 0);
+              const v = efpModeEnabled ? calculateEfp(e.prmr || 0, e.upgrade_prmr || 0) : (e.fp_plus || 0);
               return sum + v;
             }, 0) / last6.length
           : null;
@@ -76,8 +78,7 @@ export const useCumulativeFP = () => {
         const last12 = entries.slice(Math.max(0, index - 11), index + 1);
         const movingAvg12 = last12.length >= 1
           ? last12.reduce((sum, e) => {
-              const eTotalPrmr = e.prmr || 0;
-              const v = efpModeEnabled ? calculateEfp(eTotalPrmr) : (e.fp_plus || 0);
+              const v = efpModeEnabled ? calculateEfp(e.prmr || 0, e.upgrade_prmr || 0) : (e.fp_plus || 0);
               return sum + v;
             }, 0) / last12.length
           : null;
