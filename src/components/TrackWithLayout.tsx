@@ -14,17 +14,18 @@ import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
+import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 
-// Helper to check if it's before typical end of work day (7 PM local)
+// Helper to check if it's before typical end of work day (9 PM local - summer hours)
 const isBeforeSunset = () => {
   const now = new Date();
   const hour = now.getHours();
-  return hour < 19; // Before 7 PM
+  return hour < 21; // Before 9 PM (summer hours)
 };
 
 // Helper to format current time
@@ -75,6 +76,9 @@ const TrackWithLayout = () => {
   // Local backup for data recovery
   const userId = getCurrentUserId();
   const { saveBackup, loadBackup, clearBackup, hasUnsavedBackup } = useTrackBackup(userId, getTodayDate());
+  
+  // Competitor nudge for early save motivation
+  const { competitor: competitorNudge, loading: competitorLoading } = useCompetitorNudge();
   
   // Debounce ref for batching rapid updates
   const pendingUpdateRef = useRef<any>(null);
@@ -805,6 +809,8 @@ const TrackWithLayout = () => {
         open={isEarlySaveConfirmOpen}
         onOpenChange={setIsEarlySaveConfirmOpen}
         currentTime={formatCurrentTime()}
+        competitor={competitorNudge}
+        loading={competitorLoading}
         onConfirm={() => setIsSaveSheetOpen(true)}
         onKeepWorking={() => {}}
       />
