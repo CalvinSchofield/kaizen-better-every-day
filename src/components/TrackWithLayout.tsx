@@ -80,16 +80,18 @@ const TrackWithLayout = () => {
   const pendingUpdateRef = useRef<any>(null);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Handle ?prompt=save URL parameter (from push notification)
+  // Handle ?prompt=save or ?save=true URL parameter (from push notification or home alert)
   useEffect(() => {
-    if (searchParams.get('prompt') === 'save') {
+    const shouldOpenSave = searchParams.get('prompt') === 'save' || searchParams.get('save') === 'true';
+    if (shouldOpenSave) {
       // Wait a short moment for entry data to load, then open save sheet
       const timer = setTimeout(() => {
         if (entry.work_start_time && !entry.is_finalized) {
           setIsSaveSheetOpen(true);
         }
-        // Clear the URL parameter
+        // Clear the URL parameters
         searchParams.delete('prompt');
+        searchParams.delete('save');
         setSearchParams(searchParams, { replace: true });
       }, 500);
       return () => clearTimeout(timer);

@@ -10,6 +10,7 @@ import { LeaderboardCard } from "./LeaderboardCard";
 import { KnockingWeatherWidget } from "@/components/KnockingWeatherWidget";
 import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
+import { SaveDayAlertCard } from "@/components/SaveDayAlertCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useState, useMemo } from "react";
@@ -18,7 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { useDailyEntry, DailyEntry } from "@/hooks/useDailyEntry";
+import { useToast } from "@/hooks/use-toast";
 
 interface KnockingModeHomeProps {
   variant: "vet" | "rookie";
@@ -41,9 +43,15 @@ export const KnockingModeHome = ({
 }: KnockingModeHomeProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { isOnActiveBlitz } = useAppMode(repData);
-  const { entry } = useDailyEntry();
+  const { entry, deleteEntry } = useDailyEntry();
+
+  // Check if entry is a real database entry (has id)
+  const isRealEntry = (e: typeof entry): e is DailyEntry => {
+    return e !== null && 'id' in e && typeof e.id === 'string';
+  };
 
   // Activity-based layout: has user started tracking today?
   const hasStartedWorkToday = useMemo(() => {
@@ -57,6 +65,40 @@ export const KnockingModeHome = ({
       (entry.closes ?? 0) > 0
     );
   }, [entry]);
+
+  // Check if save alert should show
+  const shouldShowSaveAlert = useMemo(() => {
+    if (!entry || entry.is_finalized || !hasStartedWorkToday) return false;
+    if (!isRealEntry(entry)) return false; // Must be a real database entry
+
+    // Check if after 7 PM local time
+    const now = new Date();
+    const localHour = now.getHours();
+    if (localHour < 19) return false; // Before 7 PM
+
+    // Check if 15+ minutes since last tap
+    const timestamps = entry.counter_timestamps as Record<string, string[]> | null;
+    if (!timestamps) return false;
+
+    const allTimestamps: number[] = [];
+    Object.values(timestamps).forEach((arr) => {
+      if (Array.isArray(arr)) {
+        arr.forEach((ts) => {
+          const date = new Date(ts);
+          if (!isNaN(date.getTime())) {
+            allTimestamps.push(date.getTime());
+          }
+        });
+      }
+    });
+
+    if (allTimestamps.length === 0) return false;
+
+    const latestTimestamp = Math.max(...allTimestamps);
+    const minutesSinceLastTap = (Date.now() - latestTimestamp) / (1000 * 60);
+
+    return minutesSinceLastTap >= 15;
+  }, [entry, hasStartedWorkToday]);
 
   const handleLogout = async () => {
     // Clear all caches before signing out
@@ -86,6 +128,23 @@ export const KnockingModeHome = ({
     }
   };
 
+  const handleSaveAlertSave = () => {
+    // Navigate to Track page which has the save flow
+    navigate('/track?save=true');
+  };
+
+  const handleSaveAlertDiscard = async () => {
+    if (!entry || !isRealEntry(entry)) return;
+    
+    try {
+      await deleteEntry(entry.id);
+      toast({ title: "Entry discarded", description: "Today's incomplete entry has been removed" });
+      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to discard entry", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header with colored background */}
@@ -100,11 +159,19 @@ export const KnockingModeHome = ({
             {/* Auto-refresh on mount, no manual button needed */}
           </div>
 
-          {/* Leaderboard CTA */}
-          <LeaderboardCTA 
-            isOnActiveBlitz={isOnActiveBlitz} 
-            onLeaderboardClick={handleLeaderboardClick}
-          />
+          {/* Show Save Alert OR Leaderboard CTA */}
+          {shouldShowSaveAlert && entry && isRealEntry(entry) ? (
+            <SaveDayAlertCard 
+              entry={entry}
+              onSave={handleSaveAlertSave}
+              onDiscard={handleSaveAlertDiscard}
+            />
+          ) : (
+            <LeaderboardCTA 
+              isOnActiveBlitz={isOnActiveBlitz} 
+              onLeaderboardClick={handleLeaderboardClick}
+            />
+          )}
         </div>
       </div>
 
