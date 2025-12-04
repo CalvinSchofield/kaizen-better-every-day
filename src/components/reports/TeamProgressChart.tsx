@@ -158,14 +158,29 @@ export const TeamProgressChart = ({
         };
     }
 
-    // Build multi-line data
-    const entityList = Object.entries(entityTrends)
+    // Build multi-line data - calculate totals first for sorting
+    const entityTotals = Object.entries(entityTrends)
       .filter(([_, data]) => data.dailyData.length > 0)
-      .map(([id, data], idx) => ({
-        id,
-        name: data.name,
-        color: LINE_COLORS[idx % LINE_COLORS.length],
-      }));
+      .map(([id, data]) => {
+        const totalValue = data.dailyData.reduce((sum, d) => {
+          return sum + (metricType === 'primary' 
+            ? (efpModeEnabled ? d.efp : d.fp) 
+            : (efpModeEnabled ? d.fp : d.prmr));
+        }, 0);
+        return { id, name: data.name, total: totalValue };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    // For individual view, limit to top 10 performers to keep chart readable
+    const limitedEntities = viewMode === 'individual' 
+      ? entityTotals.slice(0, 10) 
+      : entityTotals;
+
+    const entityList = limitedEntities.map((entity, idx) => ({
+      id: entity.id,
+      name: entity.name,
+      color: LINE_COLORS[idx % LINE_COLORS.length],
+    }));
 
     // Create cumulative data for each entity
     const cumulatives: Record<string, number> = {};
