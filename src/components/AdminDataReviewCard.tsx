@@ -1,48 +1,26 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ChevronRight, Check, X } from 'lucide-react';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
 
-interface SwipeableIssueRowProps {
+interface IssueRowProps {
   issue: DataIssue;
-  onDismiss: () => void;
+  onOkay: () => void;
   onEdit: () => void;
 }
 
-const SwipeableIssueRow = ({ issue, onDismiss, onEdit }: SwipeableIssueRowProps) => {
-  const [translateX, setTranslateX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startX = useRef(0);
-  const threshold = -80;
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const diff = e.touches[0].clientX - startX.current;
-    // Only allow left swipe
-    if (diff < 0) {
-      setTranslateX(Math.max(diff, -100));
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    if (translateX < threshold) {
-      // Dismiss the issue
-      setTranslateX(-100);
-      setTimeout(onDismiss, 200);
-    } else {
-      setTranslateX(0);
-    }
-  };
-
+const IssueRow = ({ issue, onOkay, onEdit }: IssueRowProps) => {
   const getSeverityColor = () => {
     return issue.severity === 'error' 
       ? 'border-l-destructive' 
@@ -65,34 +43,37 @@ const SwipeableIssueRow = ({ issue, onDismiss, onEdit }: SwipeableIssueRowProps)
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg">
-      {/* Dismiss background */}
-      <div className="absolute inset-y-0 right-0 w-24 bg-green-600 flex items-center justify-center">
-        <Check className="w-5 h-5 text-white" />
-        <span className="text-white text-xs ml-1">OK</span>
-      </div>
-      
-      {/* Issue row */}
-      <div
-        className={cn(
-          "relative bg-muted/50 border-l-4 p-3 transition-transform",
-          getSeverityColor(),
-          isDragging ? '' : 'duration-200'
-        )}
-        style={{ transform: `translateX(${translateX}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={() => translateX === 0 && onEdit()}
-      >
-        <div className="flex items-center gap-3">
-          {getIssueIcon()}
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm truncate">{issue.repName}</p>
-            <p className="text-xs text-muted-foreground truncate">{issue.description}</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+    <div
+      className={cn(
+        "bg-muted/50 border-l-4 p-3 rounded-lg",
+        getSeverityColor()
+      )}
+    >
+      <div className="flex items-center gap-3">
+        {getIssueIcon()}
+        <div 
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={onEdit}
+        >
+          <p className="font-medium text-sm truncate">{issue.repName}</p>
+          <p className="text-xs text-muted-foreground truncate">{issue.description}</p>
         </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOkay();
+          }}
+        >
+          <Check className="w-4 h-4 mr-1" />
+          OK
+        </Button>
+        <ChevronRight 
+          className="w-4 h-4 text-muted-foreground flex-shrink-0 cursor-pointer" 
+          onClick={onEdit}
+        />
       </div>
     </div>
   );
@@ -102,6 +83,8 @@ export const AdminDataReviewCard = () => {
   const { issues, shouldShowCard, dismissIssue, refetch } = useAdminDataReview();
   const [selectedIssue, setSelectedIssue] = useState<DataIssue | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmIssue, setConfirmIssue] = useState<DataIssue | null>(null);
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
 
   if (!shouldShowCard || issues.length === 0) {
     return null;
@@ -110,6 +93,19 @@ export const AdminDataReviewCard = () => {
   const handleEditIssue = (issue: DataIssue) => {
     setSelectedIssue(issue);
     setDrawerOpen(true);
+  };
+
+  const handleOkayClick = (issue: DataIssue) => {
+    setConfirmIssue(issue);
+    setConfirmDrawerOpen(true);
+  };
+
+  const handleConfirmDismiss = () => {
+    if (confirmIssue) {
+      dismissIssue(confirmIssue.id);
+      setConfirmDrawerOpen(false);
+      setConfirmIssue(null);
+    }
   };
 
   const handleDrawerClose = (open: boolean) => {
@@ -178,15 +174,15 @@ export const AdminDataReviewCard = () => {
                 {warningCount > 0 && `${warningCount} warning${warningCount !== 1 ? 's' : ''}`}
               </p>
             </div>
-            <span className="text-xs text-muted-foreground">Swipe to dismiss</span>
+            <span className="text-xs text-muted-foreground">Tap to edit</span>
           </div>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {issues.map(issue => (
-              <SwipeableIssueRow
+              <IssueRow
                 key={issue.id}
                 issue={issue}
-                onDismiss={() => dismissIssue(issue.id)}
+                onOkay={() => handleOkayClick(issue)}
                 onEdit={() => handleEditIssue(issue)}
               />
             ))}
@@ -194,6 +190,7 @@ export const AdminDataReviewCard = () => {
         </CardContent>
       </Card>
 
+      {/* Edit Drawer */}
       {selectedIssue && (
         <RepDetailDrawer
           open={drawerOpen}
@@ -202,6 +199,70 @@ export const AdminDataReviewCard = () => {
           entryDate={selectedIssue.entryDate}
         />
       )}
+
+      {/* Confirm Dismiss Drawer */}
+      <Drawer open={confirmDrawerOpen} onOpenChange={setConfirmDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Mark as OK?</DrawerTitle>
+            <DrawerDescription>
+              Confirm that this data is correct and doesn't need review.
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          {confirmIssue && (
+            <div className="px-4 pb-4">
+              <div className={cn(
+                "bg-muted/50 border-l-4 p-4 rounded-lg",
+                confirmIssue.severity === 'error' ? 'border-l-destructive' : 'border-l-amber-500'
+              )}>
+                <p className="font-semibold">{confirmIssue.repName}</p>
+                <p className="text-sm text-muted-foreground mt-1">{confirmIssue.description}</p>
+                
+                {/* Show key data points */}
+                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Doors:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.doors_knocked}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Pitches:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.pitches}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Presentations:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.presentations}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Closes:</span>{' '}
+                    <span className="font-medium">{confirmIssue.entryData.closes}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">FP+:</span>{' '}
+                    <span className="font-medium">
+                      {(confirmIssue.entryData.fp_plus + (confirmIssue.entryData.upgrade_prmr / 85)).toFixed(1)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">PRMR:</span>{' '}
+                    <span className="font-medium">${confirmIssue.entryData.prmr}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DrawerFooter>
+            <Button onClick={handleConfirmDismiss} className="bg-green-600 hover:bg-green-700">
+              <Check className="w-4 h-4 mr-2" />
+              Yes, Data is OK
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmDrawerOpen(false)}>
+              Cancel
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
