@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { TrendingUp, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type ViewMode = 'individual' | 'team' | 'mgmt' | 'office';
@@ -119,10 +120,18 @@ export const TeamProgressChart = ({
     return 'individual';
   };
   const [viewMode, setViewMode] = useState<ViewMode>(getDefaultViewMode());
+  const [selectedTeam, setSelectedTeam] = useState<string>('all');
 
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
   const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
+
+  // Get available teams for individual filter
+  const availableTeams = useMemo(() => {
+    if (!repBreakdown) return [];
+    const teams = new Set(repBreakdown.map(r => r.teamName).filter(t => t && t !== 'No Team'));
+    return Array.from(teams).sort();
+  }, [repBreakdown]);
 
   // Build multi-line chart data based on view mode
   const { chartData, entities } = useMemo(() => {
@@ -159,7 +168,7 @@ export const TeamProgressChart = ({
     }
 
     // Build multi-line data - calculate totals first for sorting
-    const entityTotals = Object.entries(entityTrends)
+    let entityTotals = Object.entries(entityTrends)
       .filter(([_, data]) => data.dailyData.length > 0)
       .map(([id, data]) => {
         const totalValue = data.dailyData.reduce((sum, d) => {
@@ -171,12 +180,15 @@ export const TeamProgressChart = ({
       })
       .sort((a, b) => b.total - a.total);
 
-    // For individual view, limit to top 10 performers to keep chart readable
-    const limitedEntities = viewMode === 'individual' 
-      ? entityTotals.slice(0, 10) 
-      : entityTotals;
+    // For individual view, filter by selected team
+    if (viewMode === 'individual' && selectedTeam !== 'all' && repBreakdown) {
+      const teamUserIds = new Set(
+        repBreakdown.filter(r => r.teamName === selectedTeam).map(r => r.userId)
+      );
+      entityTotals = entityTotals.filter(e => teamUserIds.has(e.id));
+    }
 
-    const entityList = limitedEntities.map((entity, idx) => ({
+    const entityList = entityTotals.map((entity, idx) => ({
       id: entity.id,
       name: entity.name,
       color: LINE_COLORS[idx % LINE_COLORS.length],
@@ -210,7 +222,7 @@ export const TeamProgressChart = ({
     });
 
     return { chartData: data, entities: entityList };
-  }, [teamData, viewMode, metricType, efpModeEnabled, dailyTrendByRep, dailyTrendByTeam, dailyTrendByMgmt]);
+  }, [teamData, viewMode, metricType, efpModeEnabled, dailyTrendByRep, dailyTrendByTeam, dailyTrendByMgmt, selectedTeam, repBreakdown]);
 
   if (isLoading) {
     return (
@@ -334,6 +346,21 @@ export const TeamProgressChart = ({
                     {secondaryLabel}
                   </Button>
                 </div>
+
+                {/* Team Selector - only show in individual view */}
+                {viewMode === 'individual' && availableTeams.length > 0 && (
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="w-[140px] h-7 text-xs">
+                      <SelectValue placeholder="Select team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Teams</SelectItem>
+                      {availableTeams.map(team => (
+                        <SelectItem key={team} value={team}>{team}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           </CollapsibleContent>
