@@ -5,11 +5,11 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } f
 import { ChartContainer } from "@/components/ui/chart";
 import { format, parseISO } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { TrendingUp, ChevronDown, Users, User, Building, Building2 } from "lucide-react";
+import { TrendingUp, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
-type ViewMode = 'total' | 'individual' | 'team' | 'mgmt';
+type ViewMode = 'individual' | 'team' | 'mgmt' | 'office';
 type MetricType = 'primary' | 'secondary';
 
 interface TeamProgressChartProps {
@@ -44,9 +44,35 @@ export const TeamProgressChart = ({
   isLoading 
 }: TeamProgressChartProps) => {
   const [isOpen, setIsOpen] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('total');
   const [metricType, setMetricType] = useState<MetricType>('primary');
   const { efpModeEnabled } = useEfpMode();
+
+  // Available view modes based on access level - order: Individual, Team, MGMT, Office
+  const getAvailableViewModes = (): { value: ViewMode; label: string }[] => {
+    const modes: { value: ViewMode; label: string }[] = [
+      { value: 'individual', label: 'Individual' },
+    ];
+
+    // Team leads and above can view by team
+    if (accessLevel === 'team_lead' || accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director') {
+      modes.push({ value: 'team', label: 'Team' });
+    }
+
+    // MGMT group leads and above can view by MGMT
+    if (accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director') {
+      modes.push({ value: 'mgmt', label: 'MGMT' });
+    }
+
+    // Only area directors can view office-wide
+    if (accessLevel === 'area_director') {
+      modes.push({ value: 'office', label: 'Office' });
+    }
+
+    return modes;
+  };
+
+  const availableViewModes = getAvailableViewModes();
+  const [viewMode, setViewMode] = useState<ViewMode>(availableViewModes[0]?.value || 'individual');
 
   const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
@@ -66,19 +92,6 @@ export const TeamProgressChart = ({
 
   if (!teamData || teamData.length === 0) {
     return null;
-  }
-
-  // Available view modes based on access level
-  const availableViewModes: { value: ViewMode; label: string; icon: any }[] = [
-    { value: 'total', label: 'Total', icon: TrendingUp },
-    { value: 'individual', label: 'Individual', icon: User },
-  ];
-
-  if (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') {
-    availableViewModes.splice(2, 0, { value: 'team', label: 'By Team', icon: Users });
-  }
-  if (accessLevel === 'area_director') {
-    availableViewModes.splice(3, 0, { value: 'mgmt', label: 'By MGMT', icon: Building2 });
   }
 
   // Prepare chart data based on view mode
@@ -153,20 +166,22 @@ export const TeamProgressChart = ({
             <div className="pt-3 space-y-3">
               {/* Controls */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* View Mode */}
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                  {availableViewModes.map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      variant={viewMode === value ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode(value)}
-                      className="text-xs h-7 px-2"
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+                {/* View Mode - only show if more than one option */}
+                {availableViewModes.length > 1 && (
+                  <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+                    {availableViewModes.map(({ value, label }) => (
+                      <Button
+                        key={value}
+                        variant={viewMode === value ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode(value)}
+                        className="text-xs h-7 px-2"
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Metric Toggle */}
                 <div className="flex items-center gap-1 border border-border rounded-lg p-1">

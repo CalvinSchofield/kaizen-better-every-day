@@ -5,7 +5,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
 import { useTeamLiveData } from "@/hooks/useTeamLiveData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -239,8 +239,8 @@ const TeamReports = () => {
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
       <div className="max-w-lg mx-auto space-y-4">
-        {/* Scope Badge & Filter */}
-        <div className="flex items-center justify-between">
+        {/* Scope Badge */}
+        <div className="flex items-center">
           <ScopeBadge
             accessLevel={accessData?.accessLevel || 'none'}
             selectedCount={effectiveUserIds.filter(id => !excludeUserIds.includes(id)).length}
@@ -248,15 +248,6 @@ const TeamReports = () => {
             scopeLabel={getScopeLabel()}
             onClick={() => setIsFilterOpen(true)}
           />
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setIsFilterOpen(true)}
-            className="gap-1.5 text-muted-foreground"
-          >
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
         </div>
 
         {/* Date Range Selector */}
@@ -386,7 +377,11 @@ const TeamReports = () => {
             <Card className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Team Summary</h2>
-                <span className="text-sm text-primary font-medium">{insightsData.daysWorked} days worked</span>
+                {insightsData.uniqueRepsWorked && insightsData.uniqueRepsWorked > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {insightsData.uniqueRepsWorked} rep{insightsData.uniqueRepsWorked !== 1 ? 's' : ''} · {insightsData.daysWorked} day{insightsData.daysWorked !== 1 ? 's' : ''} total
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
