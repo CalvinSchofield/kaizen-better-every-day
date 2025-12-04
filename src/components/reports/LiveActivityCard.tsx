@@ -44,6 +44,45 @@ const formatStartTime = (timestamp: string) => {
   }
 };
 
+// Sort reps by importance matrix: FP+ → PRMR → closes → presentations → transitions → pitches → dms → doors
+const sortByImportanceMatrix = (reps: LiveRepData[]): LiveRepData[] => {
+  return [...reps].sort((a, b) => {
+    // FP+ (highest priority)
+    if (a.todayStats.fp !== b.todayStats.fp) return b.todayStats.fp - a.todayStats.fp;
+    // PRMR
+    if (a.todayStats.prmr !== b.todayStats.prmr) return b.todayStats.prmr - a.todayStats.prmr;
+    // Closes
+    if (a.todayStats.closes !== b.todayStats.closes) return b.todayStats.closes - a.todayStats.closes;
+    // Presentations
+    if (a.todayStats.presentations !== b.todayStats.presentations) return b.todayStats.presentations - a.todayStats.presentations;
+    // Transitions
+    if (a.todayStats.transitions !== b.todayStats.transitions) return b.todayStats.transitions - a.todayStats.transitions;
+    // Pitches
+    if (a.todayStats.pitches !== b.todayStats.pitches) return b.todayStats.pitches - a.todayStats.pitches;
+    // Decision makers
+    if (a.todayStats.dms !== b.todayStats.dms) return b.todayStats.dms - a.todayStats.dms;
+    // Doors (lowest priority)
+    return b.todayStats.doors - a.todayStats.doors;
+  });
+};
+
+// Build stats display in order of importance (only show non-zero values)
+const getOrderedStats = (stats: LiveRepData['todayStats']) => {
+  const orderedMetrics: { key: string; value: number; label: string; highlight?: boolean }[] = [];
+  
+  // Order: FP+ → PRMR → closes → presentations → transitions → pitches → dms → doors
+  if (stats.fp > 0) orderedMetrics.push({ key: 'fp', value: stats.fp, label: 'FP+', highlight: true });
+  if (stats.prmr > 0) orderedMetrics.push({ key: 'prmr', value: stats.prmr, label: 'PRMR', highlight: true });
+  if (stats.closes > 0) orderedMetrics.push({ key: 'closes', value: stats.closes, label: 'closes' });
+  if (stats.presentations > 0) orderedMetrics.push({ key: 'pres', value: stats.presentations, label: 'pres' });
+  if (stats.transitions > 0) orderedMetrics.push({ key: 'trans', value: stats.transitions, label: 'trans' });
+  if (stats.pitches > 0) orderedMetrics.push({ key: 'pitches', value: stats.pitches, label: 'pitches' });
+  if (stats.dms > 0) orderedMetrics.push({ key: 'dms', value: stats.dms, label: 'DMs' });
+  if (stats.doors > 0) orderedMetrics.push({ key: 'doors', value: stats.doors, label: 'doors' });
+  
+  return orderedMetrics;
+};
+
 export const LiveActivityCard = ({ 
   liveReps, 
   workingCount, 
@@ -69,7 +108,7 @@ export const LiveActivityCard = ({
     );
   }
 
-  const workingReps = liveReps.filter(r => r.isWorking);
+  const workingReps = sortByImportanceMatrix(liveReps.filter(r => r.isWorking));
   const forgottenReps = liveReps.filter(r => r.hasForgottenEntry && !r.isWorking);
 
   return (
@@ -101,47 +140,55 @@ export const LiveActivityCard = ({
         </div>
       </div>
 
-      {/* Working Reps */}
+      {/* Working Reps - Sorted by importance matrix */}
       {workingReps.length > 0 ? (
         <div className="space-y-3">
-          {workingReps.map((rep) => (
-            <div 
-              key={rep.userId} 
-              className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-            >
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
-                </div>
-                <div>
-                  <div className="font-medium text-sm">{stripEmojis(rep.name)}</div>
-                  <div className="text-xs text-muted-foreground">{rep.teamName}</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 text-xs">
-                  {rep.todayStats.fp > 0 && (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400 border-0">
-                      {rep.todayStats.fp.toFixed(1)} FP+
-                    </Badge>
-                  )}
-                  {rep.todayStats.presentations > 0 && (
-                    <span className="text-muted-foreground">{rep.todayStats.presentations} pres</span>
-                  )}
-                  {rep.todayStats.doors > 0 && (
-                    <span className="text-muted-foreground">{rep.todayStats.doors} doors</span>
-                  )}
-                </div>
-                {rep.workStartTime && (
-                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 justify-end">
-                    <Clock className="w-3 h-3" />
-                    Started {formatStartTime(rep.workStartTime)}
+          {workingReps.map((rep) => {
+            const orderedStats = getOrderedStats(rep.todayStats);
+            
+            return (
+              <div 
+                key={rep.userId} 
+                className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
                   </div>
-                )}
+                  <div>
+                    <div className="font-medium text-sm">{stripEmojis(rep.name)}</div>
+                    <div className="text-xs text-muted-foreground">{rep.teamName}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap justify-end">
+                    {orderedStats.map((stat) => (
+                      stat.highlight ? (
+                        <Badge 
+                          key={stat.key}
+                          variant="secondary" 
+                          className="bg-green-500/10 text-green-600 dark:text-green-400 border-0 text-xs px-1.5 py-0"
+                        >
+                          {stat.key === 'fp' ? stat.value.toFixed(1) : `$${stat.value}`} {stat.label}
+                        </Badge>
+                      ) : (
+                        <span key={stat.key} className="text-muted-foreground">
+                          {stat.value} {stat.label}
+                        </span>
+                      )
+                    ))}
+                  </div>
+                  {rep.workStartTime && (
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 justify-end">
+                      <Clock className="w-3 h-3" />
+                      Started {formatStartTime(rep.workStartTime)}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-6 text-muted-foreground text-sm">
