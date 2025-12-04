@@ -66,18 +66,22 @@ export const useActivitySummary = (repData: any) => {
       const now = new Date();
       const committed_blitzes = repData.committed_blitzes || [];
 
-      // Find active blitz (4 PM start on startDate, 10 AM end on endDate)
+      // Find active blitz - check if today falls within blitz date range
       const activeBlitz = committed_blitzes.find((blitz: any) => {
         if (!blitz.date || !blitz.endDate) return false;
         
-        // Parse dates in local timezone
-        const startDate = new Date(blitz.date + 'T00:00:00');
-        startDate.setHours(16, 0, 0, 0); // 4pm start
+        // Parse dates robustly - handle both "2025-12-04" and ISO strings
+        const dateStr = typeof blitz.date === 'string' ? blitz.date.split('T')[0] : blitz.date;
+        const endDateStr = typeof blitz.endDate === 'string' ? blitz.endDate.split('T')[0] : blitz.endDate;
         
-        const endDate = new Date(blitz.endDate + 'T00:00:00');
-        endDate.setHours(10, 0, 0, 0); // 10am end
+        // Create dates at midnight for comparison (full day inclusion)
+        const blitzStartDate = new Date(dateStr + 'T00:00:00');
+        const blitzEndDate = new Date(endDateStr + 'T23:59:59');
         
-        return now >= startDate && now <= endDate;
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // User is on blitz if today falls within the blitz date range (inclusive)
+        return todayMidnight >= blitzStartDate && todayMidnight <= blitzEndDate;
       });
 
       // Determine mode
