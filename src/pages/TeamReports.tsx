@@ -23,6 +23,7 @@ import { LiveLeaderboard } from "@/components/reports/LiveLeaderboard";
 import { TeamProgressChart } from "@/components/reports/TeamProgressChart";
 import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
+import { BestPeriodsSection } from "@/components/reports/BestPeriodsSection";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
@@ -669,7 +670,7 @@ const TeamReports = () => {
             )}
 
             {/* Best Periods - Collapsible */}
-            {(insightsData.bestDay || insightsData.bestWeek || insightsData.bestDayOfWeek) && (
+            {insightsData.bestPeriods && (
               <Card>
                 <Collapsible open={expandedSection === 'bestPeriods'} onOpenChange={() => handleSectionToggle('bestPeriods')}>
                   <CollapsibleTrigger className="w-full p-4">
@@ -680,62 +681,15 @@ const TeamReports = () => {
                       </div>
                       <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'bestPeriods' && "rotate-180")} />
                     </div>
-                    {expandedSection !== 'bestPeriods' && insightsData.bestDay && (
+                    {expandedSection !== 'bestPeriods' && insightsData.bestPeriods.highestFpDay && (
                       <div className="mt-2 text-left text-sm text-muted-foreground">
-                        Best day: {insightsData.bestDay.date} · {insightsData.bestDay.fp.toFixed(1)} FP
+                        Best day: {insightsData.bestPeriods.highestFpDay.date} · {insightsData.bestPeriods.highestFpDay.value.toFixed(1)} FP+
                       </div>
                     )}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="px-4 pb-4 space-y-4">
-                      {insightsData.bestDay && (
-                        <Card className="p-4 bg-accent/20">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Award className="w-4 h-4 text-primary" />
-                            <div className="text-sm font-semibold">Best Day</div>
-                          </div>
-                          <div className="text-lg font-bold">{insightsData.bestDay.date}</div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {insightsData.bestDay.fp.toFixed(1)} FP+ · {insightsData.bestDay.repName}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestDay.stats}</div>
-                        </Card>
-                      )}
-
-                      {insightsData.bestWeek && (
-                        <Card className="p-4">
-                          <div className="text-sm font-semibold text-muted-foreground mb-2">Best Week</div>
-                          <div className="text-lg font-bold">{insightsData.bestWeek.weekStart} — {insightsData.bestWeek.weekEnd}</div>
-                          <div className="text-sm text-muted-foreground mt-1">{insightsData.bestWeek.fp.toFixed(1)} FP+</div>
-                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestWeek.stats}</div>
-                        </Card>
-                      )}
-
-                      {insightsData.bestMonth && (
-                        <Card className="p-4">
-                          <div className="text-sm font-semibold text-muted-foreground mb-2">Best Month</div>
-                          <div className="text-lg font-bold">{insightsData.bestMonth.month}</div>
-                          <div className="text-sm text-muted-foreground mt-1">{insightsData.bestMonth.fp.toFixed(1)} FP+</div>
-                          <div className="text-xs text-muted-foreground mt-1">{insightsData.bestMonth.stats}</div>
-                        </Card>
-                      )}
-
-                      {insightsData.bestTransitionsDay && (
-                        <Card className="p-4">
-                          <div className="text-sm font-semibold text-muted-foreground mb-2">Most Transitions</div>
-                          <div className="text-lg font-bold">{insightsData.bestTransitionsDay.date} · {insightsData.bestTransitionsDay.repName}</div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {insightsData.bestTransitionsDay.transitions} transitions · {insightsData.bestTransitionsDay.fp.toFixed(1)} FP+
-                          </div>
-                        </Card>
-                      )}
-
-                      {insightsData.bestDayOfWeek && (
-                        <DayOfWeekAnalysis 
-                          dayOfWeekData={insightsData.dayOfWeekData}
-                          bestDayOfWeek={insightsData.bestDayOfWeek}
-                        />
-                      )}
+                    <div className="px-4 pb-4">
+                      <BestPeriodsSection data={insightsData.bestPeriods} />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

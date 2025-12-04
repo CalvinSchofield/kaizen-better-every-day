@@ -71,12 +71,35 @@ interface TeamInsightsData {
   avgHoursWorked: number;
   mostProductiveHour: number | null;
   
-  // Best periods
+  // Best periods (legacy)
   bestDay: { date: string; fp: number; efp: number; repName: string; stats: string } | null;
   bestWeek: { weekStart: string; weekEnd: string; fp: number; efp: number; stats: string } | null;
   bestMonth: { month: string; fp: number; efp: number; stats: string } | null;
   bestTransitionsDay: { date: string; transitions: number; fp: number; efp: number; repName: string } | null;
   bestDayOfWeek: { day: string; avgFp: number; avgEfp: number; daysWorked: number } | null;
+  
+  // New Best Periods data
+  bestPeriods: {
+    // Group records (per day totals/averages)
+    highestFpDay: { date: string; value: number; repsWorked: number } | null;
+    highestPrmrDay: { date: string; value: number; repsWorked: number } | null;
+    mostPresentationsPerRepDay: { date: string; value: number; repsWorked: number } | null;
+    mostTransitionsPerRepDay: { date: string; value: number; repsWorked: number } | null;
+    mostPitchesPerRepDay: { date: string; value: number; repsWorked: number } | null;
+    mostDMsPerRepDay: { date: string; value: number; repsWorked: number } | null;
+    mostDoorsPerRepDay: { date: string; value: number; repsWorked: number } | null;
+    earliestStartDay: { date: string; value: string; repsWorked: number } | null;
+    latestEndDay: { date: string; value: string; repsWorked: number } | null;
+    longestDurationDay: { date: string; avgMinutes: number; repsWorked: number } | null;
+    // Individual records
+    individualBestFp: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestPrmr: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestPresentations: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestTransitions: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestPitches: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestDMs: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    individualBestDoors: { date: string; value: number; repName: string; isRookie: boolean } | null;
+  };
   
   // Visualizations data
   dailyTrend: Array<{
@@ -872,6 +895,277 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
       Object.values(dailyTrendByTeam).forEach(t => t.dailyData.sort((a, b) => a.date.localeCompare(b.date)));
       Object.values(dailyTrendByMgmt).forEach(m => m.dailyData.sort((a, b) => a.date.localeCompare(b.date)));
 
+      // ==================== NEW BEST PERIODS CALCULATIONS ====================
+      // Group data by date for group records
+      const dailyGroupData: Record<string, {
+        date: string;
+        totalFp: number;
+        totalPrmr: number;
+        totalPresentations: number;
+        totalTransitions: number;
+        totalPitches: number;
+        totalDMs: number;
+        totalDoors: number;
+        repsWorked: number;
+        startTimes: number[];
+        endTimes: number[];
+        durations: number[];
+      }> = {};
+
+      entries.forEach(entry => {
+        const date = entry.entry_date;
+        if (!dailyGroupData[date]) {
+          dailyGroupData[date] = {
+            date,
+            totalFp: 0,
+            totalPrmr: 0,
+            totalPresentations: 0,
+            totalTransitions: 0,
+            totalPitches: 0,
+            totalDMs: 0,
+            totalDoors: 0,
+            repsWorked: 0,
+            startTimes: [],
+            endTimes: [],
+            durations: [],
+          };
+        }
+        const day = dailyGroupData[date];
+        day.totalFp += entry.fp_plus || 0;
+        day.totalPrmr += entry.prmr || 0;
+        day.totalPresentations += entry.presentations || 0;
+        day.totalTransitions += entry.transitions || 0;
+        day.totalPitches += entry.pitches || 0;
+        day.totalDMs += entry.decision_makers || 0;
+        day.totalDoors += entry.doors_knocked || 0;
+        day.repsWorked += 1;
+
+        // Timing data
+        if (entry.work_start_time && entry.work_end_time) {
+          const startLocal = calculateLocalTime(entry.work_start_time, userTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time, userTimezone);
+          day.startTimes.push(timeToDecimal(startLocal.hour, startLocal.minute));
+          day.endTimes.push(timeToDecimal(endLocal.hour, endLocal.minute));
+          
+          const start = new Date(entry.work_start_time);
+          const end = new Date(entry.work_end_time);
+          let minutes = differenceInMinutes(end, start);
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((bp: any) => {
+              minutes -= differenceInMinutes(new Date(bp.end), new Date(bp.start));
+            });
+          }
+          day.durations.push(minutes);
+        }
+      });
+
+      const dailyGroupArray = Object.values(dailyGroupData);
+
+      // Group records
+      const highestFpDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => day.totalFp > best.totalFp ? day : best)
+        : null;
+
+      const highestPrmrDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => day.totalPrmr > best.totalPrmr ? day : best)
+        : null;
+
+      // Per-rep averages
+      const mostPresentationsPerRepDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => {
+            const avg = day.repsWorked > 0 ? day.totalPresentations / day.repsWorked : 0;
+            const bestAvg = best.repsWorked > 0 ? best.totalPresentations / best.repsWorked : 0;
+            return avg > bestAvg ? day : best;
+          })
+        : null;
+
+      const mostTransitionsPerRepDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => {
+            const avg = day.repsWorked > 0 ? day.totalTransitions / day.repsWorked : 0;
+            const bestAvg = best.repsWorked > 0 ? best.totalTransitions / best.repsWorked : 0;
+            return avg > bestAvg ? day : best;
+          })
+        : null;
+
+      const mostPitchesPerRepDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => {
+            const avg = day.repsWorked > 0 ? day.totalPitches / day.repsWorked : 0;
+            const bestAvg = best.repsWorked > 0 ? best.totalPitches / best.repsWorked : 0;
+            return avg > bestAvg ? day : best;
+          })
+        : null;
+
+      const mostDMsPerRepDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => {
+            const avg = day.repsWorked > 0 ? day.totalDMs / day.repsWorked : 0;
+            const bestAvg = best.repsWorked > 0 ? best.totalDMs / best.repsWorked : 0;
+            return avg > bestAvg ? day : best;
+          })
+        : null;
+
+      const mostDoorsPerRepDay = dailyGroupArray.length > 0
+        ? dailyGroupArray.reduce((best, day) => {
+            const avg = day.repsWorked > 0 ? day.totalDoors / day.repsWorked : 0;
+            const bestAvg = best.repsWorked > 0 ? best.totalDoors / best.repsWorked : 0;
+            return avg > bestAvg ? day : best;
+          })
+        : null;
+
+      // Timing records
+      const daysWithTiming = dailyGroupArray.filter(d => d.startTimes.length > 0);
+      
+      const earliestStartDay = daysWithTiming.length > 0
+        ? daysWithTiming.reduce((best, day) => {
+            const avgStart = day.startTimes.reduce((s, t) => s + t, 0) / day.startTimes.length;
+            const bestAvgStart = best.startTimes.reduce((s, t) => s + t, 0) / best.startTimes.length;
+            return avgStart < bestAvgStart ? day : best;
+          })
+        : null;
+
+      const latestEndDay = daysWithTiming.length > 0
+        ? daysWithTiming.reduce((best, day) => {
+            const avgEnd = day.endTimes.reduce((s, t) => s + t, 0) / day.endTimes.length;
+            const bestAvgEnd = best.endTimes.reduce((s, t) => s + t, 0) / best.endTimes.length;
+            return avgEnd > bestAvgEnd ? day : best;
+          })
+        : null;
+
+      const longestDurationDay = daysWithTiming.length > 0
+        ? daysWithTiming.reduce((best, day) => {
+            const avgDur = day.durations.reduce((s, t) => s + t, 0) / day.durations.length;
+            const bestAvgDur = best.durations.reduce((s, t) => s + t, 0) / best.durations.length;
+            return avgDur > bestAvgDur ? day : best;
+          })
+        : null;
+
+      // Individual records
+      const individualBestFpEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.fp_plus || 0) > (best.fp_plus || 0) ? e : best)
+        : null;
+
+      const individualBestPrmrEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.prmr || 0) > (best.prmr || 0) ? e : best)
+        : null;
+
+      const individualBestPresEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.presentations || 0) > (best.presentations || 0) ? e : best)
+        : null;
+
+      const individualBestTransEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.transitions || 0) > (best.transitions || 0) ? e : best)
+        : null;
+
+      const individualBestPitchesEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.pitches || 0) > (best.pitches || 0) ? e : best)
+        : null;
+
+      const individualBestDMsEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.decision_makers || 0) > (best.decision_makers || 0) ? e : best)
+        : null;
+
+      const individualBestDoorsEntry = entries.length > 0
+        ? entries.reduce((best, e) => (e.doors_knocked || 0) > (best.doors_knocked || 0) ? e : best)
+        : null;
+
+      const getRepInfo = (userId: string) => {
+        const rep = reps.find(r => r.user_id === userId);
+        return {
+          repName: rep?.name || 'Unknown',
+          isRookie: rep?.year === 'Rookie',
+        };
+      };
+
+      const formatDateStr = (dateStr: string) => format(parseISO(dateStr), 'MMM d, yyyy');
+
+      const bestPeriods = {
+        highestFpDay: highestFpDay && highestFpDay.totalFp > 0 ? {
+          date: formatDateStr(highestFpDay.date),
+          value: highestFpDay.totalFp,
+          repsWorked: highestFpDay.repsWorked,
+        } : null,
+        highestPrmrDay: highestPrmrDay && highestPrmrDay.totalPrmr > 0 ? {
+          date: formatDateStr(highestPrmrDay.date),
+          value: highestPrmrDay.totalPrmr,
+          repsWorked: highestPrmrDay.repsWorked,
+        } : null,
+        mostPresentationsPerRepDay: mostPresentationsPerRepDay && mostPresentationsPerRepDay.totalPresentations > 0 ? {
+          date: formatDateStr(mostPresentationsPerRepDay.date),
+          value: mostPresentationsPerRepDay.repsWorked > 0 ? mostPresentationsPerRepDay.totalPresentations / mostPresentationsPerRepDay.repsWorked : 0,
+          repsWorked: mostPresentationsPerRepDay.repsWorked,
+        } : null,
+        mostTransitionsPerRepDay: mostTransitionsPerRepDay && mostTransitionsPerRepDay.totalTransitions > 0 ? {
+          date: formatDateStr(mostTransitionsPerRepDay.date),
+          value: mostTransitionsPerRepDay.repsWorked > 0 ? mostTransitionsPerRepDay.totalTransitions / mostTransitionsPerRepDay.repsWorked : 0,
+          repsWorked: mostTransitionsPerRepDay.repsWorked,
+        } : null,
+        mostPitchesPerRepDay: mostPitchesPerRepDay && mostPitchesPerRepDay.totalPitches > 0 ? {
+          date: formatDateStr(mostPitchesPerRepDay.date),
+          value: mostPitchesPerRepDay.repsWorked > 0 ? mostPitchesPerRepDay.totalPitches / mostPitchesPerRepDay.repsWorked : 0,
+          repsWorked: mostPitchesPerRepDay.repsWorked,
+        } : null,
+        mostDMsPerRepDay: mostDMsPerRepDay && mostDMsPerRepDay.totalDMs > 0 ? {
+          date: formatDateStr(mostDMsPerRepDay.date),
+          value: mostDMsPerRepDay.repsWorked > 0 ? mostDMsPerRepDay.totalDMs / mostDMsPerRepDay.repsWorked : 0,
+          repsWorked: mostDMsPerRepDay.repsWorked,
+        } : null,
+        mostDoorsPerRepDay: mostDoorsPerRepDay && mostDoorsPerRepDay.totalDoors > 0 ? {
+          date: formatDateStr(mostDoorsPerRepDay.date),
+          value: mostDoorsPerRepDay.repsWorked > 0 ? mostDoorsPerRepDay.totalDoors / mostDoorsPerRepDay.repsWorked : 0,
+          repsWorked: mostDoorsPerRepDay.repsWorked,
+        } : null,
+        earliestStartDay: earliestStartDay ? {
+          date: formatDateStr(earliestStartDay.date),
+          value: decimalToTime(earliestStartDay.startTimes.reduce((s, t) => s + t, 0) / earliestStartDay.startTimes.length),
+          repsWorked: earliestStartDay.startTimes.length,
+        } : null,
+        latestEndDay: latestEndDay ? {
+          date: formatDateStr(latestEndDay.date),
+          value: decimalToTime(latestEndDay.endTimes.reduce((s, t) => s + t, 0) / latestEndDay.endTimes.length),
+          repsWorked: latestEndDay.endTimes.length,
+        } : null,
+        longestDurationDay: longestDurationDay ? {
+          date: formatDateStr(longestDurationDay.date),
+          avgMinutes: longestDurationDay.durations.reduce((s, t) => s + t, 0) / longestDurationDay.durations.length,
+          repsWorked: longestDurationDay.durations.length,
+        } : null,
+        individualBestFp: individualBestFpEntry && (individualBestFpEntry.fp_plus || 0) > 0 ? {
+          date: formatDateStr(individualBestFpEntry.entry_date),
+          value: individualBestFpEntry.fp_plus || 0,
+          ...getRepInfo(individualBestFpEntry.user_id),
+        } : null,
+        individualBestPrmr: individualBestPrmrEntry && (individualBestPrmrEntry.prmr || 0) > 0 ? {
+          date: formatDateStr(individualBestPrmrEntry.entry_date),
+          value: individualBestPrmrEntry.prmr || 0,
+          ...getRepInfo(individualBestPrmrEntry.user_id),
+        } : null,
+        individualBestPresentations: individualBestPresEntry && (individualBestPresEntry.presentations || 0) > 0 ? {
+          date: formatDateStr(individualBestPresEntry.entry_date),
+          value: individualBestPresEntry.presentations || 0,
+          ...getRepInfo(individualBestPresEntry.user_id),
+        } : null,
+        individualBestTransitions: individualBestTransEntry && (individualBestTransEntry.transitions || 0) > 0 ? {
+          date: formatDateStr(individualBestTransEntry.entry_date),
+          value: individualBestTransEntry.transitions || 0,
+          ...getRepInfo(individualBestTransEntry.user_id),
+        } : null,
+        individualBestPitches: individualBestPitchesEntry && (individualBestPitchesEntry.pitches || 0) > 0 ? {
+          date: formatDateStr(individualBestPitchesEntry.entry_date),
+          value: individualBestPitchesEntry.pitches || 0,
+          ...getRepInfo(individualBestPitchesEntry.user_id),
+        } : null,
+        individualBestDMs: individualBestDMsEntry && (individualBestDMsEntry.decision_makers || 0) > 0 ? {
+          date: formatDateStr(individualBestDMsEntry.entry_date),
+          value: individualBestDMsEntry.decision_makers || 0,
+          ...getRepInfo(individualBestDMsEntry.user_id),
+        } : null,
+        individualBestDoors: individualBestDoorsEntry && (individualBestDoorsEntry.doors_knocked || 0) > 0 ? {
+          date: formatDateStr(individualBestDoorsEntry.entry_date),
+          value: individualBestDoorsEntry.doors_knocked || 0,
+          ...getRepInfo(individualBestDoorsEntry.user_id),
+        } : null,
+      };
+      // ==================== END BEST PERIODS CALCULATIONS ====================
+
       return {
         totalDoors: totals.doors,
         totalDMs: totals.dms,
@@ -921,6 +1215,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         dailyTrendByRep,
         dailyTrendByTeam,
         dailyTrendByMgmt,
+        bestPeriods,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,
