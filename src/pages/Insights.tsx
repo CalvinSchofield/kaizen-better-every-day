@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
-import { useInsightsFeedback } from '@/hooks/useInsightsFeedback';
+import { useRepCoaching } from '@/hooks/useRepCoaching';
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, ChevronDown, Lock, BarChart3, TrendingUpIcon, Sparkles } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
 import {
@@ -22,8 +22,9 @@ import { HourlyActivityHeatmap } from '@/components/insights/HourlyActivityHeatm
 import { ActivityTrendChart } from '@/components/insights/ActivityTrendChart';
 import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
 import { FPCumulativeChart } from '@/components/FPCumulativeChart';
+import { AICoachCard } from '@/components/insights/AICoachCard';
 
-type DatePreset = 'week' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
@@ -76,6 +77,9 @@ export default function Insights() {
     const summerStartDate = new Date('2026-04-12'); // Official summer start
     
     switch (preset) {
+      case 'yesterday':
+        const yesterday = subDays(now, 1);
+        return { start: yesterday, end: yesterday };
       case 'week':
         return { start: subDays(now, 7), end: now };
       case 'month':
@@ -94,40 +98,47 @@ export default function Insights() {
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset));
   
-  // Prepare data for AI feedback
-  const feedbackParams = insights && insights.daysWorked > 0 ? {
-    funnel: insights.funnelData,
-    ratios: {
-      doorsToFp: { 
-        current: efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp, 
-        overall: efpModeEnabled ? insights.overallDoorsToEfp : insights.overallDoorsToFp 
-      },
-      pitchesToFp: { 
-        current: efpModeEnabled ? insights.pitchesToEfp : insights.pitchesToFp,
-        overall: efpModeEnabled ? insights.overallPitchesToEfp : insights.overallPitchesToFp
-      },
-      transitionsToFp: { 
-        current: efpModeEnabled ? insights.transitionsToEfp : insights.transitionsToFp,
-        overall: efpModeEnabled ? insights.overallTransitionsToEfp : insights.overallTransitionsToFp
-      },
-      presentationsToClose: { 
-        current: insights.presentationsToClose, 
-        overall: insights.overallPresentationsToClose 
-      }
-    },
-    totals: {
-      fp: insights.totalFp,
+  // Prepare data for AI coaching (only for standard timeframes, not custom)
+  const coachingParams = insights && insights.daysWorked > 0 && datePreset !== 'custom' ? {
+    timeframe: datePreset as 'yesterday' | 'week' | 'month' | 'preseason',
+    currentPeriod: {
       doors: insights.totalDoors,
+      dms: insights.totalDecisionMakers,
       pitches: insights.totalPitches,
       transitions: insights.totalTransitions,
       presentations: insights.totalPresentations,
-      closes: insights.totalCloses
+      closes: insights.totalCloses,
+      fp: insights.totalFp,
+      prmr: insights.totalPrmr,
+      avgStartTime: insights.avgStartTime,
+      avgEndTime: insights.avgEndTime,
+      totalHours: insights.avgHoursWorked * insights.daysWorked,
+      daysWorked: insights.daysWorked
     },
-    timeframe: datePreset === 'week' ? 'week' : datePreset === 'month' ? 'month' : datePreset === 'preseason' ? 'preseason' : 'custom period',
-    daysWorked: insights.daysWorked
+    repAverages: {
+      avgDoors: insights.totalDoors / insights.daysWorked,
+      avgDMs: insights.totalDecisionMakers / insights.daysWorked,
+      avgPitches: insights.totalPitches / insights.daysWorked,
+      avgTransitions: insights.totalTransitions / insights.daysWorked,
+      avgPresentations: insights.totalPresentations / insights.daysWorked,
+      avgCloses: insights.totalCloses / insights.daysWorked,
+      avgFp: insights.totalFp / insights.daysWorked,
+      avgPrmr: insights.totalPrmr / insights.daysWorked,
+      avgHoursWorked: insights.avgHoursWorked
+    },
+    funnelConversions: {
+      doorsToFp: insights.doorsToFp,
+      pitchesToFp: insights.pitchesToFp,
+      transitionsToFp: insights.transitionsToFp,
+      presentationsToClose: insights.presentationsToClose,
+      overallDoorsToFp: insights.overallDoorsToFp,
+      overallPitchesToFp: insights.overallPitchesToFp,
+      overallTransitionsToFp: insights.overallTransitionsToFp,
+      overallPresentationsToClose: insights.overallPresentationsToClose
+    }
   } : null;
 
-  const { data: aiFeedback, isLoading: feedbackLoading } = useInsightsFeedback(feedbackParams, repData?.year);
+  const { data: coaching, isLoading: coachingLoading } = useRepCoaching(coachingParams);
   
   const handleCustomDateApply = () => {
     if (customStartDate && customEndDate) {
@@ -203,6 +214,13 @@ export default function Insights() {
       <div className="max-w-lg mx-auto space-y-6">
         {/* Date Range Selector - Always visible */}
         <div className="flex gap-2 overflow-x-auto pb-2">
+          <Button
+            variant={datePreset === 'yesterday' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('yesterday')}
+          >
+            Yesterday
+          </Button>
           <Button
             variant={datePreset === 'week' ? 'default' : 'outline'}
             size="sm"
@@ -347,29 +365,16 @@ export default function Insights() {
                 </div>
               )}
 
-              {/* AI Coaching Feedback */}
-              {aiFeedback && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                    <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-                    <p className="text-sm text-foreground/90 leading-relaxed flex-1">
-                      {aiFeedback}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {feedbackLoading && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30">
-                    <Sparkles className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
-                    </div>
-                  </div>
-                </div>
-              )}
             </Card>
+
+            {/* AI Coach Card - Show for standard timeframes */}
+            {datePreset !== 'custom' && (
+              <AICoachCard 
+                coaching={coaching || null}
+                isLoading={coachingLoading}
+                timeframe={datePreset === 'yesterday' ? 'Yesterday' : datePreset === 'week' ? 'This Week' : datePreset === 'month' ? 'This Month' : 'Preseason'}
+              />
+            )}
 
             {/* Progress Over Time Chart */}
             <FPCumulativeChart />

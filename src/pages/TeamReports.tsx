@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useTeamInsightsData } from "@/hooks/useTeamInsightsData";
 import { useTeamLiveData } from "@/hooks/useTeamLiveData";
+import { useLeaderCoaching } from "@/hooks/useLeaderCoaching";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarIcon, ChevronDown, TrendingUpIcon, BarChart3, Clock, Target, Award, TrendingUp, TrendingDown } from "lucide-react";
 import { TeamFilterSheet } from "@/components/TeamFilterSheet";
@@ -24,6 +25,7 @@ import { TeamProgressChart } from "@/components/reports/TeamProgressChart";
 import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
 import { BestPeriodsSection } from "@/components/reports/BestPeriodsSection";
+import { LeaderAICoachCard } from "@/components/reports/LeaderAICoachCard";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
