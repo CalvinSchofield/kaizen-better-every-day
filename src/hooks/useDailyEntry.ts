@@ -1,7 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+// Helper to get backup from localStorage
+const getBackupFromStorage = (userId: string, entryDate: string): Partial<DailyEntry> | null => {
+  try {
+    const key = `track-backup-${userId}-${entryDate}`;
+    const stored = localStorage.getItem(key);
+    if (!stored) return null;
+    
+    const backup = JSON.parse(stored);
+    if (backup.userId !== userId) return null;
+    
+    // Check if backup is recent (within 24 hours)
+    const backupTime = new Date(backup.timestamp);
+    const hoursDiff = (Date.now() - backupTime.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 24) return null;
+    
+    return backup.entry;
+  } catch {
+    return null;
+  }
+};
+
+// Calculate total activity from entry
+const getActivityTotal = (entry: Partial<DailyEntry> | null): number => {
+  if (!entry) return 0;
+  return (entry.doors_knocked || 0) + 
+         (entry.decision_makers || 0) + 
+         (entry.pitches || 0) + 
+         (entry.transitions || 0) + 
+         (entry.presentations || 0) + 
+         (entry.closes || 0);
+};
 
 export interface Sale {
   id: string;
@@ -47,7 +79,7 @@ export const useDailyEntry = (date?: string) => {
   const queryClient = useQueryClient();
   const entryDate = date || getTodayDate();
 
-  // Fetch entry for specific date
+  // Fetch entry for specific date with backup recovery
   const { data: entry, isLoading } = useQuery({
     queryKey: ['daily-entry', entryDate],
     queryFn: async () => {
@@ -64,8 +96,9 @@ export const useDailyEntry = (date?: string) => {
       if (error) throw error;
       
       // Transform the data to match our interface
+      let serverEntry: DailyEntry | null = null;
       if (data) {
-        return {
+        serverEntry = {
           ...data,
           break_periods: (data.break_periods as any) || [],
           counter_timestamps: (data.counter_timestamps as any) || {},
@@ -74,7 +107,40 @@ export const useDailyEntry = (date?: string) => {
         } as DailyEntry;
       }
       
-      return null;
+      // BACKUP RECOVERY: Check if localStorage backup has more data than server
+      // This prevents display resets on multi-device scenarios
+      const backup = getBackupFromStorage(user.id, entryDate);
+      const serverTotal = getActivityTotal(serverEntry);
+      const backupTotal = getActivityTotal(backup);
+      
+      if (backup && backupTotal > serverTotal && !serverEntry?.is_finalized) {
+        console.log('[DailyEntry] Recovering from backup - backup has more data:', backupTotal, 'vs server:', serverTotal);
+        // Merge backup data with server entry (backup wins for counters)
+        return {
+          id: serverEntry?.id || '',
+          user_id: user.id,
+          entry_date: entryDate,
+          doors_knocked: backup.doors_knocked || 0,
+          decision_makers: backup.decision_makers || 0,
+          pitches: backup.pitches || 0,
+          transitions: backup.transitions || 0,
+          presentations: backup.presentations || 0,
+          closes: backup.closes || 0,
+          fp_plus: serverEntry?.fp_plus || backup.fp_plus || 0,
+          prmr: serverEntry?.prmr || backup.prmr || 0,
+          is_finalized: false,
+          notes: serverEntry?.notes || null,
+          work_start_time: backup.work_start_time || serverEntry?.work_start_time,
+          work_end_time: backup.work_end_time || serverEntry?.work_end_time,
+          break_periods: backup.break_periods || serverEntry?.break_periods || [],
+          counter_timestamps: backup.counter_timestamps || serverEntry?.counter_timestamps || {},
+          timezone: backup.timezone || serverEntry?.timezone,
+          custom_counters: backup.custom_counters || serverEntry?.custom_counters || {},
+          sales_log: backup.sales_log || serverEntry?.sales_log || [],
+        } as DailyEntry;
+      }
+      
+      return serverEntry;
     },
     // BULLETPROOF: Increased staleTime to 30 seconds to prevent
     // refetch from overwriting optimistic updates during active tracking
