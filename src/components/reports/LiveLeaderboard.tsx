@@ -3,11 +3,14 @@ import { Trophy, Target, DoorOpen, Presentation, Clock, Users, MessageSquare, Ha
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
+import { RepDetailDrawer } from "./RepDetailDrawer";
 
 interface LiveRepData {
   userId: string;
   name: string;
   teamName: string;
+  mgmtGroupName?: string;
+  year?: string;
   todayStats: {
     doors: number;
     dms: number;
@@ -17,6 +20,7 @@ interface LiveRepData {
     closes: number;
     fp: number;
     prmr: number;
+    upgradePrmr?: number;
     isFinalized?: boolean;
   };
   workStartTime?: string;
@@ -55,6 +59,38 @@ const formatDuration = (minutes: number) => {
 
 export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Rankings" }: LiveLeaderboardProps) => {
   const [isRankingsOpen, setIsRankingsOpen] = useState(false);
+  const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
+  const [repDrawerOpen, setRepDrawerOpen] = useState(false);
+
+  const handleRepClick = (rep: LiveRepData) => {
+    setSelectedRep(rep);
+    setRepDrawerOpen(true);
+  };
+
+  // Convert LiveRepData to RepDetailData format
+  const getRepDetailData = (rep: LiveRepData) => {
+    if (!rep) return null;
+    return {
+      userId: rep.userId,
+      name: rep.name,
+      year: rep.year || 'unknown',
+      teamName: rep.teamName || 'No Team',
+      mgmtGroupName: rep.mgmtGroupName || 'No Group',
+      doors: rep.todayStats.doors,
+      dms: rep.todayStats.dms,
+      pitches: rep.todayStats.pitches,
+      transitions: rep.todayStats.transitions,
+      presentations: rep.todayStats.presentations,
+      closes: rep.todayStats.closes,
+      fp: rep.todayStats.fp,
+      upgradeFP: (rep.todayStats.upgradePrmr || 0) / 85,
+      prmr: rep.todayStats.prmr,
+      upgradePRMR: rep.todayStats.upgradePrmr || 0,
+      doorsToFpRatio: rep.todayStats.fp > 0 ? rep.todayStats.doors / rep.todayStats.fp : 0,
+      hoursWorked: (rep.durationMinutes || 0) / 60,
+      daysWorked: 1,
+    };
+  };
 
   if (isLoading) {
     return (
@@ -141,10 +177,11 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
         </div>
         <div className="space-y-1.5">
           {filteredData.map((rep, idx) => (
-            <div 
-              key={rep.userId} 
+            <button 
+              key={rep.userId}
+              onClick={() => handleRepClick(rep)}
               className={cn(
-                "flex items-center justify-between py-1.5 px-2 rounded-md text-sm",
+                "flex items-center justify-between py-1.5 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
                 idx === 0 && "bg-primary/5"
               )}
             >
@@ -159,7 +196,7 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
                   <span className={cn("truncate", idx === 0 && "font-medium")}>
                     {stripEmojis(rep.name)}
                   </span>
-                  {rep.teamName && rep.teamName !== 'Unknown Team' && (
+                  {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
                     <span className="text-xs text-muted-foreground truncate">{rep.teamName}</span>
                   )}
                 </div>
@@ -175,7 +212,7 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
                   <span className="text-xs text-muted-foreground">(final)</span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -184,182 +221,192 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
 
   const HighlightStat = ({ 
     label, 
-    name, 
-    teamName,
+    rep,
     value, 
     icon: Icon 
   }: { 
     label: string; 
-    name: string; 
-    teamName?: string;
+    rep: LiveRepData;
     value: string; 
     icon: any;
   }) => (
-    <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+    <button 
+      onClick={() => handleRepClick(rep)}
+      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg w-full text-left transition-colors hover:bg-muted/70"
+    >
       <div className="flex items-center gap-2">
         <Icon className="w-4 h-4 text-primary" />
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">{label}</span>
-          <span className="text-sm font-medium">{stripEmojis(name)}</span>
-          {teamName && teamName !== 'Unknown Team' && (
-            <span className="text-xs text-muted-foreground">{teamName}</span>
+          <span className="text-sm font-medium">{stripEmojis(rep.name)}</span>
+          {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
+            <span className="text-xs text-muted-foreground">{rep.teamName}</span>
           )}
         </div>
       </div>
       <span className="text-sm font-semibold text-primary">{value}</span>
-    </div>
+    </button>
   );
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">{title}</h3>
-        {hasWorkingReps && (
-          <div className="flex items-center gap-1.5">
-            <div className="relative">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
-            </div>
-            <span className="text-xs text-muted-foreground">Live</span>
-          </div>
-        )}
-      </div>
-
-      {/* Key Highlights - FP+, PRMR, Work Duration */}
-      <div className="space-y-2 mb-4">
-        {/* FP+ Leader */}
-        {byFP[0] && byFP[0].todayStats.fp > 0 && (
-          <HighlightStat
-            label="Leading in FP+"
-            name={byFP[0].name}
-            teamName={byFP[0].teamName}
-            value={`${byFP[0].todayStats.fp.toFixed(1)} FP+`}
-            icon={Target}
-          />
-        )}
-
-        {/* PRMR Leader */}
-        {byPRMR[0] && byPRMR[0].todayStats.prmr > 0 && (
-          <HighlightStat
-            label="Leading in PRMR"
-            name={byPRMR[0].name}
-            teamName={byPRMR[0].teamName}
-            value={`$${byPRMR[0].todayStats.prmr.toLocaleString()}`}
-            icon={Target}
-          />
-        )}
-
-        {/* Longest Work Duration */}
-        {byDuration[0] && byDuration[0].durationMinutes > 0 && (
-          <HighlightStat
-            label="Longest Work Session"
-            name={byDuration[0].name}
-            teamName={byDuration[0].teamName}
-            value={formatDuration(byDuration[0].durationMinutes)}
-            icon={Clock}
-          />
-        )}
-      </div>
-
-      {/* Collapsible Full Rankings */}
-      <Collapsible open={isRankingsOpen} onOpenChange={setIsRankingsOpen}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-          <span className="text-sm font-medium">All Rankings</span>
-          <ChevronDown className={cn(
-            "w-4 h-4 transition-transform",
-            isRankingsOpen && "rotate-180"
-          )} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">
-          <div className="space-y-5">
-            <LeaderboardSection
-              title="FP+"
-              icon={Target}
-              data={byFP}
-              getValue={(r) => r.todayStats.fp}
-              formatValue={(v) => v.toFixed(1)}
-            />
-
-            <LeaderboardSection
-              title="PRMR"
-              icon={Target}
-              data={byPRMR}
-              getValue={(r) => r.todayStats.prmr}
-              formatValue={(v) => `$${v.toLocaleString()}`}
-            />
-
-            {/* Earliest Start */}
-            {earliestDoor && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">First Out</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 px-2 rounded-md text-sm bg-primary/5">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-primary" />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{stripEmojis(earliestDoor.name)}</span>
-                      {earliestDoor.teamName && earliestDoor.teamName !== 'Unknown Team' && (
-                        <span className="text-xs text-muted-foreground">{earliestDoor.teamName}</span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="font-semibold text-primary">{formatTime(earliestDoor.workStartTime)}</span>
-                </div>
+    <>
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">{title}</h3>
+          {hasWorkingReps && (
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
               </div>
-            )}
-            
-            <LeaderboardSection
-              title="Presentations"
-              icon={Presentation}
-              data={byPresentations}
-              getValue={(r) => r.todayStats.presentations}
-              formatValue={(v) => v.toString()}
-            />
+              <span className="text-xs text-muted-foreground">Live</span>
+            </div>
+          )}
+        </div>
 
-            <LeaderboardSection
-              title="Closes"
-              icon={Handshake}
-              data={byCloses}
-              getValue={(r) => r.todayStats.closes}
-              formatValue={(v) => v.toString()}
+        {/* Key Highlights - FP+, PRMR, Work Duration */}
+        <div className="space-y-2 mb-4">
+          {/* FP+ Leader */}
+          {byFP[0] && byFP[0].todayStats.fp > 0 && (
+            <HighlightStat
+              label="Leading in FP+"
+              rep={byFP[0]}
+              value={`${byFP[0].todayStats.fp.toFixed(1)} FP+`}
+              icon={Target}
             />
+          )}
 
-            <LeaderboardSection
-              title="Transitions"
-              icon={ArrowRightLeft}
-              data={byTransitions}
-              getValue={(r) => r.todayStats.transitions}
-              formatValue={(v) => v.toString()}
+          {/* PRMR Leader */}
+          {byPRMR[0] && byPRMR[0].todayStats.prmr > 0 && (
+            <HighlightStat
+              label="Leading in PRMR"
+              rep={byPRMR[0]}
+              value={`$${byPRMR[0].todayStats.prmr.toLocaleString()}`}
+              icon={Target}
             />
+          )}
 
-            <LeaderboardSection
-              title="Pitches"
-              icon={MessageSquare}
-              data={byPitches}
-              getValue={(r) => r.todayStats.pitches}
-              formatValue={(v) => v.toString()}
+          {/* Longest Work Duration */}
+          {byDuration[0] && byDuration[0].durationMinutes > 0 && (
+            <HighlightStat
+              label="Longest Work Session"
+              rep={byDuration[0]}
+              value={formatDuration(byDuration[0].durationMinutes)}
+              icon={Clock}
             />
+          )}
+        </div>
 
-            <LeaderboardSection
-              title="Decision Makers"
-              icon={Users}
-              data={byDMs}
-              getValue={(r) => r.todayStats.dms}
-              formatValue={(v) => v.toString()}
-            />
+        {/* Collapsible Full Rankings */}
+        <Collapsible open={isRankingsOpen} onOpenChange={setIsRankingsOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+            <span className="text-sm font-medium">All Rankings</span>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform",
+              isRankingsOpen && "rotate-180"
+            )} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-4">
+            <div className="space-y-5">
+              <LeaderboardSection
+                title="FP+"
+                icon={Target}
+                data={byFP}
+                getValue={(r) => r.todayStats.fp}
+                formatValue={(v) => v.toFixed(1)}
+              />
 
-            <LeaderboardSection
-              title="Doors"
-              icon={DoorOpen}
-              data={byDoors}
-              getValue={(r) => r.todayStats.doors}
-              formatValue={(v) => v.toString()}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+              <LeaderboardSection
+                title="PRMR"
+                icon={Target}
+                data={byPRMR}
+                getValue={(r) => r.todayStats.prmr}
+                formatValue={(v) => `$${v.toLocaleString()}`}
+              />
+
+              {/* Earliest Start */}
+              {earliestDoor && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">First Out</span>
+                  </div>
+                  <button 
+                    onClick={() => handleRepClick(earliestDoor)}
+                    className="flex items-center justify-between py-1.5 px-2 rounded-md text-sm bg-primary/5 w-full text-left hover:bg-primary/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-primary" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">{stripEmojis(earliestDoor.name)}</span>
+                        {earliestDoor.teamName && earliestDoor.teamName !== 'No Team' && earliestDoor.teamName !== 'Unknown Team' && (
+                          <span className="text-xs text-muted-foreground">{earliestDoor.teamName}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-semibold text-primary">{formatTime(earliestDoor.workStartTime)}</span>
+                  </button>
+                </div>
+              )}
+              
+              <LeaderboardSection
+                title="Presentations"
+                icon={Presentation}
+                data={byPresentations}
+                getValue={(r) => r.todayStats.presentations}
+                formatValue={(v) => v.toString()}
+              />
+
+              <LeaderboardSection
+                title="Closes"
+                icon={Handshake}
+                data={byCloses}
+                getValue={(r) => r.todayStats.closes}
+                formatValue={(v) => v.toString()}
+              />
+
+              <LeaderboardSection
+                title="Transitions"
+                icon={ArrowRightLeft}
+                data={byTransitions}
+                getValue={(r) => r.todayStats.transitions}
+                formatValue={(v) => v.toString()}
+              />
+
+              <LeaderboardSection
+                title="Pitches"
+                icon={MessageSquare}
+                data={byPitches}
+                getValue={(r) => r.todayStats.pitches}
+                formatValue={(v) => v.toString()}
+              />
+
+              <LeaderboardSection
+                title="Decision Makers"
+                icon={Users}
+                data={byDMs}
+                getValue={(r) => r.todayStats.dms}
+                formatValue={(v) => v.toString()}
+              />
+
+              <LeaderboardSection
+                title="Doors"
+                icon={DoorOpen}
+                data={byDoors}
+                getValue={(r) => r.todayStats.doors}
+                formatValue={(v) => v.toString()}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+
+      <RepDetailDrawer
+        open={repDrawerOpen}
+        onOpenChange={setRepDrawerOpen}
+        rep={getRepDetailData(selectedRep!)}
+        daysInRange={1}
+      />
+    </>
   );
 };

@@ -21,6 +21,7 @@ import { ScopeBadge } from "@/components/reports/ScopeBadge";
 import { LiveActivityCard } from "@/components/reports/LiveActivityCard";
 import { LiveLeaderboard } from "@/components/reports/LiveLeaderboard";
 import { TeamProgressChart } from "@/components/reports/TeamProgressChart";
+import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
@@ -37,6 +38,8 @@ const TeamReports = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [selectedRep, setSelectedRep] = useState<any>(null);
+  const [repDrawerOpen, setRepDrawerOpen] = useState(false);
 
   // Initialize with smart defaults based on access level
   useEffect(() => {
@@ -445,6 +448,9 @@ const TeamReports = () => {
               repBreakdown={insightsData.repBreakdown}
               groupedByTeam={insightsData.groupedByTeam}
               groupedByMgmt={insightsData.groupedByMgmt}
+              dailyTrendByRep={insightsData.dailyTrendByRep}
+              dailyTrendByTeam={insightsData.dailyTrendByTeam}
+              dailyTrendByMgmt={insightsData.dailyTrendByMgmt}
               accessLevel={accessData?.accessLevel || 'none'}
               isLoading={cumulativeLoading}
             />
@@ -804,19 +810,24 @@ const TeamReports = () => {
                   <CollapsibleContent>
                     <div className="px-4 pb-4 space-y-3">
                       {insightsData.repBreakdown
+                        .filter((rep: any) => rep.doors > 0 || rep.fp > 0)
                         .sort((a: any, b: any) => b.fp - a.fp)
                         .map((rep: any, idx: number) => (
-                        <div 
-                          key={rep.userId} 
+                        <button 
+                          key={rep.userId}
+                          onClick={() => {
+                            setSelectedRep(rep);
+                            setRepDrawerOpen(true);
+                          }}
                           className={cn(
-                            "p-3 rounded-lg border border-border",
+                            "p-3 rounded-lg border border-border w-full text-left transition-colors hover:bg-muted/50",
                             idx === 0 && "bg-primary/5 border-primary/20"
                           )}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <div className="font-semibold">{stripEmojis(rep.name)}</div>
-                              <div className="text-xs text-muted-foreground">{rep.teamName}</div>
+                              <div className="text-xs text-muted-foreground">{rep.teamName !== 'No Team' ? rep.teamName : rep.mgmtGroupName}</div>
                             </div>
                             <div className="text-right">
                               <div className="font-bold text-primary">{rep.fp.toFixed(1)} FP+</div>
@@ -829,7 +840,7 @@ const TeamReports = () => {
                             <div>{rep.transitions} trans</div>
                             <div>{rep.presentations} pres</div>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </CollapsibleContent>
@@ -906,6 +917,13 @@ const TeamReports = () => {
         onUserIdsChange={setSelectedUserIds}
         excludeUserIds={excludeUserIds}
         onExcludeUserIdsChange={setExcludeUserIds}
+      />
+
+      {/* Rep Detail Drawer */}
+      <RepDetailDrawer
+        open={repDrawerOpen}
+        onOpenChange={setRepDrawerOpen}
+        rep={selectedRep}
       />
     </div>
   );

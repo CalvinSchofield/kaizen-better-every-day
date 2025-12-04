@@ -187,6 +187,26 @@ interface TeamInsightsData {
       fp: number;
     }>;
   }>;
+
+  // Daily trends per entity for multi-line charts
+  dailyTrendByRep?: {
+    [userId: string]: {
+      name: string;
+      dailyData: Array<{ date: string; fp: number; prmr: number; efp: number }>;
+    };
+  };
+  dailyTrendByTeam?: {
+    [teamKey: string]: {
+      name: string;
+      dailyData: Array<{ date: string; fp: number; prmr: number; efp: number }>;
+    };
+  };
+  dailyTrendByMgmt?: {
+    [mgmtKey: string]: {
+      name: string;
+      dailyData: Array<{ date: string; fp: number; prmr: number; efp: number }>;
+    };
+  };
 }
 
 interface UseTeamInsightsDataParams {
@@ -788,6 +808,69 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         }, new Map())
       ).map(([_, team]) => team);
 
+      // Calculate daily trends per entity for multi-line charts
+      const dailyTrendByRep: TeamInsightsData['dailyTrendByRep'] = {};
+      const dailyTrendByTeam: TeamInsightsData['dailyTrendByTeam'] = {};
+      const dailyTrendByMgmt: TeamInsightsData['dailyTrendByMgmt'] = {};
+
+      // Build per-rep daily data
+      entries.forEach(entry => {
+        const rep = reps.find(r => r.user_id === entry.user_id);
+        if (!rep) return;
+
+        const userId = entry.user_id;
+        const teamKey = `${rep.teamName || 'No Team'}|${rep.mgmtGroupName || 'No Group'}`;
+        const mgmtKey = rep.mgmtGroupName || 'No Group';
+        const date = entry.entry_date;
+        const fp = entry.fp_plus || 0;
+        const prmr = entry.prmr || 0;
+        const efp = prmr / 85;
+
+        // Per rep
+        if (!dailyTrendByRep[userId]) {
+          dailyTrendByRep[userId] = { name: rep.name, dailyData: [] };
+        }
+        const existingRepDay = dailyTrendByRep[userId].dailyData.find(d => d.date === date);
+        if (existingRepDay) {
+          existingRepDay.fp += fp;
+          existingRepDay.prmr += prmr;
+          existingRepDay.efp += efp;
+        } else {
+          dailyTrendByRep[userId].dailyData.push({ date, fp, prmr, efp });
+        }
+
+        // Per team
+        if (!dailyTrendByTeam[teamKey]) {
+          dailyTrendByTeam[teamKey] = { name: rep.teamName || 'No Team', dailyData: [] };
+        }
+        const existingTeamDay = dailyTrendByTeam[teamKey].dailyData.find(d => d.date === date);
+        if (existingTeamDay) {
+          existingTeamDay.fp += fp;
+          existingTeamDay.prmr += prmr;
+          existingTeamDay.efp += efp;
+        } else {
+          dailyTrendByTeam[teamKey].dailyData.push({ date, fp, prmr, efp });
+        }
+
+        // Per MGMT
+        if (!dailyTrendByMgmt[mgmtKey]) {
+          dailyTrendByMgmt[mgmtKey] = { name: mgmtKey, dailyData: [] };
+        }
+        const existingMgmtDay = dailyTrendByMgmt[mgmtKey].dailyData.find(d => d.date === date);
+        if (existingMgmtDay) {
+          existingMgmtDay.fp += fp;
+          existingMgmtDay.prmr += prmr;
+          existingMgmtDay.efp += efp;
+        } else {
+          dailyTrendByMgmt[mgmtKey].dailyData.push({ date, fp, prmr, efp });
+        }
+      });
+
+      // Sort daily data for each entity
+      Object.values(dailyTrendByRep).forEach(r => r.dailyData.sort((a, b) => a.date.localeCompare(b.date)));
+      Object.values(dailyTrendByTeam).forEach(t => t.dailyData.sort((a, b) => a.date.localeCompare(b.date)));
+      Object.values(dailyTrendByMgmt).forEach(m => m.dailyData.sort((a, b) => a.date.localeCompare(b.date)));
+
       return {
         totalDoors: totals.doors,
         totalDMs: totals.dms,
@@ -834,6 +917,9 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         repBreakdown,
         groupedByMgmt,
         groupedByTeam,
+        dailyTrendByRep,
+        dailyTrendByTeam,
+        dailyTrendByMgmt,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,
