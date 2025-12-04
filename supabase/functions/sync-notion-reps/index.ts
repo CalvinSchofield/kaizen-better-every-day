@@ -17,7 +17,7 @@ interface NotionPage {
 }
 
 // Retry helper for Notion API with exponential backoff
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 6): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -25,8 +25,9 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       const response = await fetch(url, options);
       
       if (response.status === 429) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
-        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        // Longer delays: 2s, 4s, 8s, 16s, 32s, 64s
+        const delay = Math.min(2000 * Math.pow(2, attempt), 64000);
+        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -34,8 +35,9 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       return response;
     } catch (error: any) {
       lastError = error;
+      console.log(`Fetch error: ${error.message}. Retrying... (attempt ${attempt + 1}/${maxRetries})`);
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        const delay = Math.min(2000 * Math.pow(2, attempt), 64000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -48,7 +50,7 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
 async function batchFetchNotionPages(
   pageIds: string[], 
   notionApiKey: string, 
-  concurrency = 5
+  concurrency = 3 // Reduced from 10 to avoid rate limits
 ): Promise<Map<string, any>> {
   const results = new Map<string, any>();
   
@@ -79,6 +81,11 @@ async function batchFetchNotionPages(
     const batchResults = await Promise.all(promises);
     for (const { pageId, data } of batchResults) {
       if (data) results.set(pageId, data);
+    }
+    
+    // Add delay between batches to avoid rate limiting
+    if (i + concurrency < pageIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
   
@@ -214,11 +221,10 @@ Deno.serve(async (req) => {
     
     console.log(`Found ${teamIds.size} unique teams, ${blitzTripIds.size} unique blitz trips`);
 
-    // STEP 4: Batch-fetch teams and blitz trips in parallel
-    const [teamsData, blitzTripsData] = await Promise.all([
-      batchFetchNotionPages(Array.from(teamIds), notionApiKey, 10),
-      batchFetchNotionPages(Array.from(blitzTripIds), notionApiKey, 10),
-    ]);
+    // STEP 4: Batch-fetch teams and blitz trips sequentially to avoid rate limits
+    const teamsData = await batchFetchNotionPages(Array.from(teamIds), notionApiKey, 3);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pause between batches
+    const blitzTripsData = await batchFetchNotionPages(Array.from(blitzTripIds), notionApiKey, 3);
     
     console.log(`Fetched ${teamsData.size} teams, ${blitzTripsData.size} blitz trips`);
 
@@ -233,7 +239,8 @@ Deno.serve(async (req) => {
       }
     }
     
-    const leadersData = await batchFetchNotionPages(Array.from(leaderIds), notionApiKey, 10);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pause before leaders fetch
+    const leadersData = await batchFetchNotionPages(Array.from(leaderIds), notionApiKey, 3);
     console.log(`Fetched ${leadersData.size} leaders`);
 
     // Leader phone map for fallback
