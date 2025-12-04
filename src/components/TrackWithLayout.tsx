@@ -49,7 +49,8 @@ const TrackWithLayout = () => {
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
-  const [previousDayEntry, setPreviousDayEntry] = useState<any>(null);
+  const [unfinalizedEntries, setUnfinalizedEntries] = useState<any[]>([]);
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [isPreviousDayReviewOpen, setIsPreviousDayReviewOpen] = useState(false);
   const [isSaveInProgress, setIsSaveInProgress] = useState(false);
   // PROTECTION LAYER 5: Track if entry was saved this session to block further changes
@@ -89,7 +90,7 @@ const TrackWithLayout = () => {
   // Get counter layout config
   const counterLayoutConfig = (repData as any)?.counter_layout_config || undefined;
 
-  // Check for unsaved work from previous days on mount
+  // Check for ALL unsaved work from previous days on mount
   useEffect(() => {
     const checkPreviousDayWork = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -102,28 +103,29 @@ const TrackWithLayout = () => {
       const day = String(now.getDate()).padStart(2, '0');
       const today = `${year}-${month}-${day}`;
       
-      // Query for unfinalized entries before today
+      // Query for ALL unfinalized entries before today (no limit)
       const { data: entries } = await supabase
         .from('daily_entries')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_finalized', false)
         .lt('entry_date', today)
-        .order('entry_date', { ascending: false })
-        .limit(1);
+        .order('entry_date', { ascending: true }); // Show oldest first
 
       if (entries && entries.length > 0) {
-        const entry = entries[0];
-        // Only show if there's actual activity
-        const hasActivity = entry.doors_knocked > 0 || 
-                          entry.decision_makers > 0 || 
-                          entry.pitches > 0 || 
-                          entry.transitions > 0 || 
-                          entry.presentations > 0 || 
-                          entry.closes > 0;
+        // Filter to only entries with actual activity
+        const entriesWithActivity = entries.filter(entry => 
+          entry.doors_knocked > 0 || 
+          entry.decision_makers > 0 || 
+          entry.pitches > 0 || 
+          entry.transitions > 0 || 
+          entry.presentations > 0 || 
+          entry.closes > 0
+        );
         
-        if (hasActivity) {
-          setPreviousDayEntry(entry);
+        if (entriesWithActivity.length > 0) {
+          setUnfinalizedEntries(entriesWithActivity);
+          setCurrentReviewIndex(0);
           setIsPreviousDayReviewOpen(true);
         }
       }
@@ -234,6 +236,23 @@ const TrackWithLayout = () => {
     toast.info("You can continue tracking. Your previous data is saved in Calendar.");
   };
 
+  // Get current entry being reviewed from the queue
+  const currentReviewEntry = unfinalizedEntries[currentReviewIndex] || null;
+  const totalUnfinalizedCount = unfinalizedEntries.length;
+  const remainingCount = totalUnfinalizedCount - currentReviewIndex;
+
+  // Move to next entry in queue or close if done
+  const advanceToNextEntry = () => {
+    if (currentReviewIndex < unfinalizedEntries.length - 1) {
+      setCurrentReviewIndex(prev => prev + 1);
+    } else {
+      // All entries processed
+      setUnfinalizedEntries([]);
+      setCurrentReviewIndex(0);
+      setIsPreviousDayReviewOpen(false);
+    }
+  };
+
   // Handle previous day save
   const handlePreviousDaySave = async (data: { 
     fp_plus: number; 
@@ -242,37 +261,37 @@ const TrackWithLayout = () => {
     saveDate: string;
     upgrade_prmr?: number | null;
   }) => {
-    if (!previousDayEntry) return;
+    if (!currentReviewEntry) return;
     
     await finalizeEntry({
-      doors_knocked: previousDayEntry.doors_knocked,
-      decision_makers: previousDayEntry.decision_makers,
-      pitches: previousDayEntry.pitches,
-      transitions: previousDayEntry.transitions,
-      presentations: previousDayEntry.presentations,
-      closes: previousDayEntry.closes,
+      doors_knocked: currentReviewEntry.doors_knocked,
+      decision_makers: currentReviewEntry.decision_makers,
+      pitches: currentReviewEntry.pitches,
+      transitions: currentReviewEntry.transitions,
+      presentations: currentReviewEntry.presentations,
+      closes: currentReviewEntry.closes,
       fp_plus: data.fp_plus,
       prmr: data.prmr,
       upgrade_prmr: data.upgrade_prmr,
-      work_start_time: previousDayEntry.work_start_time,
+      work_start_time: currentReviewEntry.work_start_time,
       work_end_time: data.work_end_time,
       saveDate: data.saveDate,
     });
     
-    setPreviousDayEntry(null);
+    advanceToNextEntry();
   };
 
   // Handle previous day discard
   const handlePreviousDayDiscard = async () => {
-    if (!previousDayEntry) return;
+    if (!currentReviewEntry) return;
     
     const { error } = await supabase
       .from('daily_entries')
       .delete()
-      .eq('id', previousDayEntry.id);
+      .eq('id', currentReviewEntry.id);
     
     if (!error) {
-      setPreviousDayEntry(null);
+      advanceToNextEntry();
     }
   };
 
@@ -781,17 +800,19 @@ const TrackWithLayout = () => {
         }}
       />
 
-      {/* Previous Day Review Sheet */}
-      {previousDayEntry && (
+      {/* Previous Day Review Sheet - handles multi-day queue */}
+      {currentReviewEntry && (
         <PreviousDayReviewSheet
           open={isPreviousDayReviewOpen}
           onOpenChange={setIsPreviousDayReviewOpen}
-          entry={previousDayEntry}
-          entryDate={previousDayEntry.entry_date}
-          latestCounterTimestamp={getLatestCounterTimestamp(previousDayEntry)}
+          entry={currentReviewEntry}
+          entryDate={currentReviewEntry.entry_date}
+          latestCounterTimestamp={getLatestCounterTimestamp(currentReviewEntry)}
           onSave={handlePreviousDaySave}
           onDiscard={handlePreviousDayDiscard}
           isSaving={isFinalizing}
+          queuePosition={currentReviewIndex + 1}
+          queueTotal={totalUnfinalizedCount}
         />
       )}
     </>

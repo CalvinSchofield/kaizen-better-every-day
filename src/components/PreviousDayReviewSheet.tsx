@@ -21,6 +21,8 @@ interface PreviousDayReviewSheetProps {
   }) => Promise<void>;
   onDiscard: () => Promise<void>;
   isSaving: boolean;
+  queuePosition?: number;
+  queueTotal?: number;
 }
 
 export const PreviousDayReviewSheet = ({
@@ -32,6 +34,8 @@ export const PreviousDayReviewSheet = ({
   onSave,
   onDiscard,
   isSaving,
+  queuePosition = 1,
+  queueTotal = 1,
 }: PreviousDayReviewSheetProps) => {
   const [fpPlus, setFpPlus] = useState<string>("");
   const [prmr, setPrmr] = useState<string>("");
@@ -90,20 +94,21 @@ export const PreviousDayReviewSheet = ({
       saveDate: entryDate,
     });
 
-    // Reset form
+    // Reset form for next entry
     setFpPlus("");
     setPrmr("");
     setEndTime("");
-    onOpenChange(false);
+    // Don't close the sheet - let parent handle advancing to next entry
   };
 
   const handleDiscardConfirm = async () => {
     setShowDiscardConfirm(false);
     await onDiscard();
+    // Reset form for next entry
     setFpPlus("");
     setPrmr("");
     setEndTime("");
-    onOpenChange(false);
+    // Don't close the sheet - let parent handle advancing to next entry
   };
 
   const hasActivity = entry.doors_knocked > 0 || 
@@ -122,6 +127,11 @@ export const PreviousDayReviewSheet = ({
               <SheetTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" />
                 Review Previous Day
+                {queueTotal > 1 && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({queuePosition} of {queueTotal})
+                  </span>
+                )}
               </SheetTitle>
               <Button
                 variant="ghost"
@@ -134,6 +144,11 @@ export const PreviousDayReviewSheet = ({
             </div>
             <SheetDescription>
               You have unsaved work from {formatDate(entryDate)}
+              {queueTotal > 1 && (
+                <span className="block mt-1 text-primary font-medium">
+                  {queueTotal - queuePosition} more day{queueTotal - queuePosition !== 1 ? 's' : ''} to review after this
+                </span>
+              )}
             </SheetDescription>
           </SheetHeader>
 
