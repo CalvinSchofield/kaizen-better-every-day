@@ -193,30 +193,49 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
   const getWeatherSuggestion = (high: number, low: number, weatherCode: number) => {
     const dayOfWeek = new Date().getDay();
     const isSaturday = dayOfWeek === 6;
-    const isRainy = weatherCode >= 51 && weatherCode <= 82;
     
-    // Priority: Rain > Extreme heat > Cold > Time context
+    // Weather conditions during work hours (Mon-Fri 12-8pm, Sat 9am-9pm)
+    const isRainy = weatherCode >= 51 && weatherCode <= 82;
+    const isThunderstorms = weatherCode >= 95;
+    const isSnowy = (weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86);
+    
+    // Priority: Severe weather > Rain > Extreme heat > Cold > Motivational
+    if (isThunderstorms) {
+      return "Storms expected — check radar before heading out";
+    }
+    
+    if (isSnowy) {
+      return "Snow in the forecast — dress warm and watch your step";
+    }
+    
     if (isRainy) {
-      return "Bring an umbrella or rain jacket";
+      return "Rain expected — grab an umbrella before you head out";
+    }
+    
+    // Heat check - high temp matters most for afternoon work
+    if (high >= 95) {
+      return "It's gonna be hot — bring lots of water and take shade breaks";
     }
     
     if (high >= 85) {
-      return "Stay hydrated — bring extra water";
+      return "Warm afternoon ahead — stay hydrated out there";
     }
     
-    if (low < 50) {
-      return "Bring layers — cool mornings ahead";
+    // Cold check - use high temp since that's what they'll feel during work hours
+    if (high < 50) {
+      return "Bundle up — it's cold during work hours today";
     }
     
     if (high < 60) {
-      return "Pack warm — it's chilly out there";
+      return "Bring a jacket — it'll be cool this afternoon";
     }
     
+    // Saturday-specific motivational
     if (isSaturday) {
-      return "Sunrise to sunset — pace yourself and stay strong";
+      return "Long day ahead — pace yourself and finish strong";
     }
     
-    return "Perfect weather to knock — let's get after it!";
+    return "Great weather to knock — let's get after it!";
   };
 
   // Show skeleton while loading
