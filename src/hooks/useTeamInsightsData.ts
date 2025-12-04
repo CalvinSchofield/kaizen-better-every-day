@@ -419,13 +419,15 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
       const presentationsPerHour = activityHours > 0 ? activityTotals.presentations / activityHours : 0;
       const hoursToFp = activityTotals.fp > 0 ? activityHours / activityTotals.fp : 0;
 
-      // Timing metrics
-      const userTimezone = 'America/Denver';
+      // Timing metrics - use each entry's timezone for accurate rep-local time
+      const defaultTimezone = 'America/Los_Angeles';
       const timesData = entries
         .filter(entry => entry.work_start_time && entry.work_end_time)
         .map(entry => {
-          const startLocal = calculateLocalTime(entry.work_start_time!, userTimezone);
-          const endLocal = calculateLocalTime(entry.work_end_time!, userTimezone);
+          // Use the entry's timezone (rep's local timezone when they worked)
+          const entryTimezone = entry.timezone || defaultTimezone;
+          const startLocal = calculateLocalTime(entry.work_start_time!, entryTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time!, entryTimezone);
           return {
             startDecimal: timeToDecimal(startLocal.hour, startLocal.minute),
             endDecimal: timeToDecimal(endLocal.hour, endLocal.minute),
@@ -451,14 +453,17 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         closes: {} as Record<number, number>,
       };
 
+      // Hourly activity breakdown - use EACH entry's timezone for rep-local time
       entries.forEach(entry => {
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
+          // Use the entry's timezone (rep's local timezone when they worked)
+          const entryTimezone = entry.timezone || defaultTimezone;
           
           Object.entries(timestamps).forEach(([activity, stamps]) => {
             if (Array.isArray(stamps)) {
               stamps.forEach((timestamp: string) => {
-                const local = calculateLocalTime(timestamp, userTimezone);
+                const local = calculateLocalTime(timestamp, entryTimezone);
                 if (activity === 'doorsKnocked') {
                   hourlyActivity.doors[local.hour] = (hourlyActivity.doors[local.hour] || 0) + 1;
                 } else if (activity === 'pitches') {
@@ -940,10 +945,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         day.totalDoors += entry.doors_knocked || 0;
         day.repsWorked += 1;
 
-        // Timing data
+        // Timing data - use entry's timezone for rep-local time
         if (entry.work_start_time && entry.work_end_time) {
-          const startLocal = calculateLocalTime(entry.work_start_time, userTimezone);
-          const endLocal = calculateLocalTime(entry.work_end_time, userTimezone);
+          const entryTimezone = entry.timezone || defaultTimezone;
+          const startLocal = calculateLocalTime(entry.work_start_time, entryTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time, entryTimezone);
           day.startTimes.push(timeToDecimal(startLocal.hour, startLocal.minute));
           day.endTimes.push(timeToDecimal(endLocal.hour, endLocal.minute));
           
