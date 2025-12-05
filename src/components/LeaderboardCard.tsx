@@ -255,6 +255,31 @@ export const LeaderboardCard = () => {
     const accessibleRep = teamAccess?.accessibleReps?.find(r => r.userId === userId);
     const team = teamAccess?.teams?.find(t => t.id === repInfo?.team_leader);
 
+    // For unfinalized entries, calculate FP+ and PRMR from sales_log
+    const salesLog = entry?.sales_log as Array<{ type: string; prmr: number; timestamp?: string }> | undefined;
+    const isFinalized = entry?.is_finalized || false;
+    
+    let fpValue = 0;
+    let prmrValue = 0;
+    let upgradePrmrValue = 0;
+    
+    if (isFinalized) {
+      // Use finalized column values
+      fpValue = entry?.fp_plus || 0;
+      prmrValue = entry?.prmr || 0;
+      upgradePrmrValue = entry?.upgrade_prmr || 0;
+    } else if (salesLog && salesLog.length > 0) {
+      // Calculate from sales_log for unfinalized entries
+      salesLog.forEach(sale => {
+        if (sale.type === 'FP') {
+          fpValue += 1;
+          prmrValue += sale.prmr || 0;
+        } else if (sale.type === 'Upgrade') {
+          upgradePrmrValue += sale.prmr || 0;
+        }
+      });
+    }
+
     const repData: SelectedRepData = {
       userId,
       name,
@@ -267,17 +292,17 @@ export const LeaderboardCard = () => {
       transitions: entry?.transitions || 0,
       presentations: entry?.presentations || 0,
       closes: entry?.closes || 0,
-      fp: entry?.fp_plus || 0,
-      upgradeFP: (entry?.upgrade_prmr || 0) / 85,
-      prmr: entry?.prmr || 0,
-      upgradePRMR: entry?.upgrade_prmr || 0,
+      fp: fpValue + (upgradePrmrValue / 85), // FP+ = FP count + upgrade_prmr/85
+      upgradeFP: upgradePrmrValue / 85,
+      prmr: prmrValue,
+      upgradePRMR: upgradePrmrValue,
       doorsToFpRatio: 0,
       hoursWorked: 0,
       workStartTime: entry?.work_start_time || undefined,
       workEndTime: entry?.work_end_time || undefined,
-      isFinalized: entry?.is_finalized || false,
+      isFinalized,
       counterTimestamps: entry?.counter_timestamps as Record<string, string[]> | undefined,
-      salesLog: entry?.sales_log as Array<{ type: string; prmr: number; timestamp?: string }> | undefined,
+      salesLog,
       entryId: entry?.id,
     };
 
@@ -291,10 +316,9 @@ export const LeaderboardCard = () => {
       repData.hoursWorked = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60) - breakMinutes / 60);
     }
 
-    // Calculate doors to FP ratio
-    const totalFP = repData.fp + repData.upgradeFP;
-    if (totalFP > 0) {
-      repData.doorsToFpRatio = repData.doors / totalFP;
+    // Calculate doors to FP ratio (fp already includes upgrade FP)
+    if (repData.fp > 0) {
+      repData.doorsToFpRatio = repData.doors / repData.fp;
     }
 
     setSelectedRep(repData);
