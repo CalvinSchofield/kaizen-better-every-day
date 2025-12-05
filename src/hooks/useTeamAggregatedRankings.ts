@@ -133,15 +133,52 @@ export const useTeamAggregatedRankings = ({
 
       if (entriesError) throw entriesError;
 
-      // Fetch ALL historical entries (before current period) to calculate personal averages
+      // Determine current season for season-aware comparisons
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentDay = now.getDate();
+      
+      // Summer: April 12 - Sept 27, Preseason: Sept 28 - April 11
+      const isCurrentlySummer = (currentMonth > 3 || (currentMonth === 3 && currentDay >= 12)) && 
+                                 (currentMonth < 8 || (currentMonth === 8 && currentDay <= 27));
+      
+      // Calculate season date boundaries for filtering historical entries
+      let seasonStart: string;
+      let seasonEnd: string;
+      
+      if (isCurrentlySummer) {
+        // Summer season - compare only to summer data
+        const summerStartYear = currentMonth >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+        seasonStart = `${summerStartYear}-04-12`;
+        seasonEnd = `${summerStartYear}-09-27`;
+      } else {
+        // Preseason - compare only to preseason data
+        const preseasonStartYear = currentMonth >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        seasonStart = `${preseasonStartYear}-09-28`;
+        seasonEnd = `${preseasonStartYear + 1}-04-11`;
+      }
+      
+      // Calculate rolling 2-week window for rookies
+      const twoWeeksAgo = new Date(now);
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+      const twoWeeksAgoStr = getLocalDateString(twoWeeksAgo);
+
+      // Fetch historical entries - season-aware (before current period, within same season)
       const { data: historicalEntries, error: historicalError } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, pitches, transitions, work_start_time, work_end_time, break_periods")
+        .select("user_id, entry_date, doors_knocked, pitches, transitions, work_start_time, work_end_time, break_periods")
         .eq("is_finalized", true)
         .in("user_id", effectiveUserIds)
-        .lt("entry_date", start);
+        .lt("entry_date", start)
+        .gte("entry_date", seasonStart)
+        .lte("entry_date", seasonEnd);
 
       if (historicalError) throw historicalError;
+      
+      // Get rookie user IDs for rolling average calculation
+      const rookieUserIds = new Set(
+        repsData?.filter(r => r.year === 'Rookie').map(r => r.user_id) || []
+      );
 
       // Helper to calculate FP+ and PRMR from sales_log for unfinalized entries
       const calcFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradePrmr: number } => {
@@ -170,9 +207,17 @@ export const useTeamAggregatedRankings = ({
       };
 
       // Calculate historical averages per user
+      // For rookies: use rolling 2-week window; for others: use all season history
       const historicalTotals = new Map<string, { pitches: number; transitions: number; doors: number; hours: number }>();
       
       historicalEntries?.forEach(entry => {
+        const isRookie = rookieUserIds.has(entry.user_id);
+        
+        // For rookies, only include entries from last 2 weeks
+        if (isRookie && entry.entry_date < twoWeeksAgoStr) {
+          return; // Skip entries older than 2 weeks for rookies
+        }
+        
         const current = historicalTotals.get(entry.user_id) || { pitches: 0, transitions: 0, doors: 0, hours: 0 };
         
         let entryHours = 0;
