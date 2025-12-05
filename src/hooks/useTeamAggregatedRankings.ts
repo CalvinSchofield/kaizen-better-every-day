@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getLocalDateString } from "@/lib/utils";
 
-interface RepRankingData {
+export interface RepRankingData {
   userId: string;
   name: string;
   teamName?: string;
@@ -22,6 +22,8 @@ interface RepRankingData {
   hoursWorked: number;
   daysWorked: number;
   workStartTime?: string;
+  avgStartMinutes?: number;
+  avgEndMinutes?: number;
 }
 
 interface UseTeamAggregatedRankingsProps {
@@ -138,9 +140,33 @@ export const useTeamAggregatedRankings = ({
         hoursWorked: number;
         daysWorked: number;
         earliestStart?: string;
+        startTimeMinutesSum: number;
+        startTimeCount: number;
+        endTimeMinutesSum: number;
+        endTimeCount: number;
       }>();
 
+      // Helper to get local minutes of day from timestamp in rep's timezone
+      const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
+        try {
+          const date = new Date(timestamp);
+          const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
+          });
+          const parts = formatter.formatToParts(date);
+          const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+          const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+          return hour * 60 + minute;
+        } catch {
+          return 0;
+        }
+      };
+
       entries?.forEach(entry => {
+        const repTimezone = repsMap.get(entry.user_id)?.timezone || entry.timezone || 'America/Los_Angeles';
         const current = userTotals.get(entry.user_id) || {
           doors: 0,
           dms: 0,
@@ -154,6 +180,10 @@ export const useTeamAggregatedRankings = ({
           hoursWorked: 0,
           daysWorked: 0,
           earliestStart: undefined,
+          startTimeMinutesSum: 0,
+          startTimeCount: 0,
+          endTimeMinutesSum: 0,
+          endTimeCount: 0,
         };
 
         let entryHours = 0;
@@ -175,12 +205,26 @@ export const useTeamAggregatedRankings = ({
           entryHours = Math.max(0, totalMinutes) / 60;
         }
 
-        // Track earliest start time
+        // Track earliest start time and average times
         let earliestStart = current.earliestStart;
+        let startTimeMinutesSum = current.startTimeMinutesSum;
+        let startTimeCount = current.startTimeCount;
+        let endTimeMinutesSum = current.endTimeMinutesSum;
+        let endTimeCount = current.endTimeCount;
+
         if (entry.work_start_time) {
           if (!earliestStart || entry.work_start_time < earliestStart) {
             earliestStart = entry.work_start_time;
           }
+          const startMinutes = getLocalMinutesOfDay(entry.work_start_time, repTimezone);
+          startTimeMinutesSum += startMinutes;
+          startTimeCount += 1;
+        }
+
+        if (entry.work_end_time) {
+          const endMinutes = getLocalMinutesOfDay(entry.work_end_time, repTimezone);
+          endTimeMinutesSum += endMinutes;
+          endTimeCount += 1;
         }
 
         userTotals.set(entry.user_id, {
@@ -196,6 +240,10 @@ export const useTeamAggregatedRankings = ({
           hoursWorked: current.hoursWorked + entryHours,
           daysWorked: current.daysWorked + 1,
           earliestStart,
+          startTimeMinutesSum,
+          startTimeCount,
+          endTimeMinutesSum,
+          endTimeCount,
         });
       });
 
@@ -204,6 +252,13 @@ export const useTeamAggregatedRankings = ({
       userTotals.forEach((totals, userId) => {
         const repInfo = repsMap.get(userId);
         if (!repInfo) return;
+
+        const avgStartMinutes = totals.startTimeCount > 0 
+          ? Math.round(totals.startTimeMinutesSum / totals.startTimeCount) 
+          : undefined;
+        const avgEndMinutes = totals.endTimeCount > 0 
+          ? Math.round(totals.endTimeMinutesSum / totals.endTimeCount) 
+          : undefined;
 
         reps.push({
           userId,
@@ -224,6 +279,8 @@ export const useTeamAggregatedRankings = ({
           hoursWorked: totals.hoursWorked,
           daysWorked: totals.daysWorked,
           workStartTime: totals.earliestStart,
+          avgStartMinutes,
+          avgEndMinutes,
         });
       });
 
