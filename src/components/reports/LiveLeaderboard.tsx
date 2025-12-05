@@ -316,21 +316,60 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-4">
             <div className="space-y-5">
-              <LeaderboardSection
-                title="FP+"
-                icon={Target}
-                data={byFP}
-                getValue={(r) => r.todayStats.fp}
-                formatValue={(v) => v.toFixed(1)}
-              />
-
-              <LeaderboardSection
-                title="PRMR"
-                icon={Target}
-                data={byPRMR}
-                getValue={(r) => r.todayStats.prmr}
-                formatValue={(v) => `$${v.toLocaleString()}`}
-              />
+              {/* Combined Sales Section - FP+ & PRMR together */}
+              {byFP.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Sales</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {byFP.map((rep, idx) => (
+                      <button 
+                        key={rep.userId}
+                        onClick={() => handleRepClick(rep)}
+                        className={cn(
+                          "flex items-center justify-between py-1.5 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
+                          idx === 0 && "bg-primary/5"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={cn(
+                            "w-5 text-center font-medium flex-shrink-0",
+                            idx === 0 && "text-primary"
+                          )}>
+                            {idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
+                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <span className={cn("truncate", idx === 0 && "font-medium")}>
+                              {stripEmojis(rep.name)}
+                            </span>
+                            {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
+                              <span className="text-xs text-muted-foreground truncate">{rep.teamName}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={cn(
+                            "font-semibold",
+                            idx === 0 && "text-primary"
+                          )}>
+                            {rep.todayStats.fp.toFixed(1)} FP+
+                          </span>
+                          {rep.todayStats.prmr > 0 && (
+                            <span className="font-semibold text-green-700 dark:text-green-500">
+                              ${rep.todayStats.prmr.toLocaleString()}
+                            </span>
+                          )}
+                          {rep.todayStats.isFinalized && (
+                            <span className="text-xs text-muted-foreground">(final)</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Earliest Start */}
               {earliestDoor && (
