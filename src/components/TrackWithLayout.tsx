@@ -50,7 +50,7 @@ const TrackWithLayout = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
-  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting } = useDailyEntry();
+  const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [unfinalizedEntries, setUnfinalizedEntries] = useState<any[]>([]);
@@ -352,6 +352,14 @@ const TrackWithLayout = () => {
   const showPrmrHelper = isRookie || preseasonFP < 20;
 
   const handleCounterChange = useCallback(async (field: string, value: number) => {
+    // CRITICAL PROTECTION: Block counter changes while data is still loading
+    // This prevents overwriting existing data with zeros + new tap
+    if (isLoadingEntry) {
+      console.log('BLOCKED: Counter change while data is loading - this would overwrite existing data');
+      toast.error('Please wait for your data to load before tracking', { duration: 3000 });
+      return;
+    }
+    
     // PROTECTION LAYER 7: Multiple checks to prevent counter changes after save
     if (isSaveInProgress) {
       console.log('Ignoring counter change - save in progress');
@@ -496,7 +504,7 @@ const TrackWithLayout = () => {
         setSyncStatus('error');
       }
     }
-  }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled]);
+  }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isLoadingEntry]);
 
   // Sales logger handlers
   const handleLogSale = useCallback(async (saleData: { type: 'fp' | 'upgrade'; prmr: number }) => {
