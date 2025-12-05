@@ -24,6 +24,13 @@ export interface RepRankingData {
   workStartTime?: string;
   avgStartMinutes?: number;
   avgEndMinutes?: number;
+  // Historical averages for comparison
+  historicalAvg?: {
+    pitchesPerHour: number;
+    transitionsPerHour: number;
+    doorsPerHour: number;
+    totalHours: number;
+  };
 }
 
 interface UseTeamAggregatedRankingsProps {
@@ -125,6 +132,58 @@ export const useTeamAggregatedRankings = ({
         .lte("entry_date", end);
 
       if (entriesError) throw entriesError;
+
+      // Fetch ALL historical entries (before current period) to calculate personal averages
+      const { data: historicalEntries, error: historicalError } = await supabase
+        .from("daily_entries")
+        .select("user_id, doors_knocked, pitches, transitions, work_start_time, work_end_time, break_periods")
+        .eq("is_finalized", true)
+        .in("user_id", effectiveUserIds)
+        .lt("entry_date", start);
+
+      if (historicalError) throw historicalError;
+
+      // Calculate historical averages per user
+      const historicalTotals = new Map<string, { pitches: number; transitions: number; doors: number; hours: number }>();
+      
+      historicalEntries?.forEach(entry => {
+        const current = historicalTotals.get(entry.user_id) || { pitches: 0, transitions: 0, doors: 0, hours: 0 };
+        
+        let entryHours = 0;
+        if (entry.work_start_time && entry.work_end_time) {
+          const startTime = new Date(entry.work_start_time);
+          const endTime = new Date(entry.work_end_time);
+          let totalMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((p: any) => {
+              if (p.start && p.end) {
+                totalMinutes -= (new Date(p.end).getTime() - new Date(p.start).getTime()) / (1000 * 60);
+              }
+            });
+          }
+          entryHours = Math.max(0, totalMinutes) / 60;
+        }
+
+        historicalTotals.set(entry.user_id, {
+          pitches: current.pitches + (entry.pitches || 0),
+          transitions: current.transitions + (entry.transitions || 0),
+          doors: current.doors + (entry.doors_knocked || 0),
+          hours: current.hours + entryHours,
+        });
+      });
+
+      // Convert to averages per hour
+      const historicalAvgMap = new Map<string, { pitchesPerHour: number; transitionsPerHour: number; doorsPerHour: number; totalHours: number }>();
+      historicalTotals.forEach((totals, userId) => {
+        if (totals.hours > 0) {
+          historicalAvgMap.set(userId, {
+            pitchesPerHour: totals.pitches / totals.hours,
+            transitionsPerHour: totals.transitions / totals.hours,
+            doorsPerHour: totals.doors / totals.hours,
+            totalHours: totals.hours,
+          });
+        }
+      });
 
       // Aggregate by user
       const userTotals = new Map<string, {
@@ -281,6 +340,7 @@ export const useTeamAggregatedRankings = ({
           workStartTime: totals.earliestStart,
           avgStartMinutes,
           avgEndMinutes,
+          historicalAvg: historicalAvgMap.get(userId),
         });
       });
 

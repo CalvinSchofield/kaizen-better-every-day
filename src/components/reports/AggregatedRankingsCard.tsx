@@ -209,12 +209,12 @@ export const AggregatedRankingsCard = ({
 
   const outstanding = sortBy === 'default' ? outstandingDefaultSorted : sortReps(outstandingBase);
 
-  // Calculate team average pace for comparison
+  // Calculate team average pace as fallback for reps without historical data
   const teamAvgPitchesPerHour = reps.reduce((sum, r) => sum + r.stats.pitches, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
   const teamAvgTransitionsPerHour = reps.reduce((sum, r) => sum + r.stats.transitions, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
 
-  // Needs Attention: Reps with activity but performing below 50% of team average in BOTH pitches/hour AND transitions/hour
-  // Or reps with 30+ minutes worked but under 5 doors (fallback)
+  // Needs Attention: Reps performing below 50% of THEIR OWN historical average
+  // Fallback to team average if no historical data, or low door count
   const needsAttentionBase = reps.filter(r => {
     if (r.hoursWorked < 0.5) return false; // Skip if less than 30 min
     if (r.stats.fp > 0 || r.stats.presentations > 0) return false; // Exclude outstanding reps
@@ -222,20 +222,31 @@ export const AggregatedRankingsCard = ({
     const pitchesPerHour = r.hoursWorked > 0 ? r.stats.pitches / r.hoursWorked : 0;
     const transitionsPerHour = r.hoursWorked > 0 ? r.stats.transitions / r.hoursWorked : 0;
     
-    const isBelowPitchAvg = pitchesPerHour < teamAvgPitchesPerHour * 0.5;
-    const isBelowTransAvg = transitionsPerHour < teamAvgTransitionsPerHour * 0.5;
+    // Use individual historical averages if available, otherwise fall back to team avg
+    const hasHistory = r.historicalAvg && r.historicalAvg.totalHours >= 2; // At least 2 hours of history
+    const comparePitchAvg = hasHistory ? r.historicalAvg!.pitchesPerHour : teamAvgPitchesPerHour;
+    const compareTransAvg = hasHistory ? r.historicalAvg!.transitionsPerHour : teamAvgTransitionsPerHour;
     
-    // Below 50% in BOTH metrics OR low door count fallback
-    return (isBelowPitchAvg && isBelowTransAvg) || (r.hoursWorked >= 0.5 && r.stats.doors < 5);
+    const isBelowPitchAvg = comparePitchAvg > 0 && pitchesPerHour < comparePitchAvg * 0.5;
+    const isBelowTransAvg = compareTransAvg > 0 && transitionsPerHour < compareTransAvg * 0.5;
+    
+    // Below 50% in BOTH metrics OR low door count fallback (for new reps)
+    return (isBelowPitchAvg && isBelowTransAvg) || (r.hoursWorked >= 0.5 && r.stats.doors < 5 && !hasHistory);
   });
 
-  // Add performance percentage for display
+  // Add performance percentage for display (vs their own historical avg)
   const needsAttentionWithPct = needsAttentionBase.map(r => {
     const pitchesPerHour = r.hoursWorked > 0 ? r.stats.pitches / r.hoursWorked : 0;
     const transitionsPerHour = r.hoursWorked > 0 ? r.stats.transitions / r.hoursWorked : 0;
-    const pitchPct = teamAvgPitchesPerHour > 0 ? Math.round((pitchesPerHour / teamAvgPitchesPerHour) * 100) : 0;
-    const transPct = teamAvgTransitionsPerHour > 0 ? Math.round((transitionsPerHour / teamAvgTransitionsPerHour) * 100) : 0;
-    return { ...r, pitchPct, transPct };
+    
+    const hasHistory = r.historicalAvg && r.historicalAvg.totalHours >= 2;
+    const comparePitchAvg = hasHistory ? r.historicalAvg!.pitchesPerHour : teamAvgPitchesPerHour;
+    const compareTransAvg = hasHistory ? r.historicalAvg!.transitionsPerHour : teamAvgTransitionsPerHour;
+    
+    const pitchPct = comparePitchAvg > 0 ? Math.round((pitchesPerHour / comparePitchAvg) * 100) : 0;
+    const transPct = compareTransAvg > 0 ? Math.round((transitionsPerHour / compareTransAvg) * 100) : 0;
+    
+    return { ...r, pitchPct, transPct, hasHistory };
   });
 
   const needsAttentionDefaultSorted = [...needsAttentionWithPct].sort((a, b) => {
@@ -475,7 +486,10 @@ export const AggregatedRankingsCard = ({
                       <div className="flex flex-col min-w-0">
                         <span className="truncate font-medium">{rep.name}</span>
                         <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                          {rep.pitchPct}% pitch pace · {rep.transPct}% trans pace
+                          {rep.pitchPct}% pitch · {rep.transPct}% trans
+                          <span className="text-muted-foreground ml-1">
+                            (vs {rep.hasHistory ? 'own avg' : 'team'})
+                          </span>
                         </span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 text-right">
