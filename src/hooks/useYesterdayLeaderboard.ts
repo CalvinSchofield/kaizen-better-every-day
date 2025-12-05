@@ -42,11 +42,12 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, { name: r.name, year: r.year }]) || []);
 
+      // Include both finalized AND unfinalized entries for yesterday
+      // This ensures accurate leaderboards even when reps forget to save
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
-        .eq("entry_date", yesterdayStr)
-        .eq("is_finalized", true);
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone, is_finalized, sales_log")
+        .eq("entry_date", yesterdayStr);
 
       if (error) throw error;
 

@@ -87,11 +87,12 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
 
+      // Include both finalized AND unfinalized entries for yesterday
+      // This ensures accurate team reports even when reps forget to save
       const { data: entries, error } = await supabase
         .from("daily_entries")
         .select("*")
         .in("user_id", filteredUserIds)
-        .eq("is_finalized", true)
         .gte("entry_date", yesterdayStr)
         .lte("entry_date", yesterdayStr);
 

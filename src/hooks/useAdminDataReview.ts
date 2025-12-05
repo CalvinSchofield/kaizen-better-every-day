@@ -44,7 +44,7 @@ const DISMISSED_KEY = 'admin-data-review-dismissed';
 export const useAdminDataReview = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [dismissedIssues, setDismissedIssues] = useState<string[]>([]);
-  const [isAfter10PM, setIsAfter10PM] = useState(false);
+  const [isAfter9PM, setIsAfter9PM] = useState(false);
 
   // Check if admin
   useEffect(() => {
@@ -75,12 +75,12 @@ export const useAdminDataReview = () => {
     }
   }, []);
 
-  // Check time
+  // Check time - show admin review card at 9 PM so admin can review at night
   useEffect(() => {
     const checkTime = () => {
       const now = new Date();
       const hour = now.getHours();
-      setIsAfter10PM(hour >= 22 || hour < 6); // 10 PM to 6 AM
+      setIsAfter9PM(hour >= 21 || hour < 6); // 9 PM to 6 AM
     };
     checkTime();
     const interval = setInterval(checkTime, 60000);
@@ -345,13 +345,13 @@ export const useAdminDataReview = () => {
     });
   }, []);
 
-  const shouldShowCard = isAdmin && (isAfter10PM || activeIssues.length > 0) && activeIssues.length > 0;
+  const shouldShowCard = isAdmin && (isAfter9PM || activeIssues.length > 0) && activeIssues.length > 0;
 
   return {
     issues: activeIssues,
     isLoading,
     isAdmin,
-    isAfter10PM,
+    isAfter9PM,
     shouldShowCard,
     dismissIssue,
     refetch,
