@@ -72,11 +72,12 @@ interface IssueRowProps {
   onEdit: () => void;
   onFixEndTime: (issue: DataIssue) => void;
   onClearActivity: (issue: DataIssue) => void;
+  onRemoveRapidTaps: (issue: DataIssue) => void;
   isFixing: boolean;
   fixingIssueId: string | null;
 }
 
-const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixing, fixingIssueId }: IssueRowProps) => {
+const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemoveRapidTaps, isFixing, fixingIssueId }: IssueRowProps) => {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   
   const getSeverityColor = () => {
@@ -147,18 +148,37 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixi
           </div>
           <div className="flex items-center gap-1">
             {isRapidTapping && (
-              <CollapsibleTrigger asChild>
+              <>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isTimelineOpen ? 'Hide' : 'Times'}
+                  </Button>
+                </CollapsibleTrigger>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
-                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveRapidTaps(issue);
+                  }}
+                  disabled={isThisFixing}
+                  title={`Remove ${issue.rapidTapInfo?.count} rapid taps and their timestamps`}
                 >
-                  {isTimelineOpen ? 'Hide' : 'Times'}
+                  {isThisFixing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    `-${issue.rapidTapInfo?.count} ${issue.rapidTapInfo?.field?.toLowerCase()}`
+                  )}
                 </Button>
-              </CollapsibleTrigger>
+              </>
             )}
-            {showClearActivity && (
+            {showClearActivity && !isRapidTapping && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -362,6 +382,80 @@ export const AdminDataReviewCard = () => {
     }
   };
 
+  // Map display field names back to database field names
+  const fieldNameToDbField: Record<string, string> = {
+    'Doors': 'doors_knocked',
+    'DMs': 'decision_makers',
+    'Pitches': 'pitches',
+    'Transitions': 'transitions',
+    'Presentations': 'presentations',
+    'Closes': 'closes',
+  };
+
+  const handleRemoveRapidTaps = async (issue: DataIssue) => {
+    if (!issue.rapidTapInfo) return;
+
+    setIsFixingEndTime(true);
+    setFixingIssueId(issue.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { field, count, timestamps: rapidTimestamps } = issue.rapidTapInfo;
+      const dbField = fieldNameToDbField[field];
+      if (!dbField) throw new Error(`Unknown field: ${field}`);
+
+      // Calculate new counter value
+      const entryDataAny = issue.entryData as unknown as Record<string, number | string | boolean | null | Record<string, string[]>>;
+      const currentValue = (typeof entryDataAny[dbField] === 'number' ? entryDataAny[dbField] : 0) as number;
+      const newValue = Math.max(0, currentValue - count);
+
+      // Remove rapid tap timestamps from the counter_timestamps
+      const currentTimestamps = issue.entryData.counter_timestamps || {};
+      const fieldTimestamps = currentTimestamps[dbField] || [];
+      
+      // Filter out the rapid tap timestamps
+      const rapidTimestampSet = new Set(rapidTimestamps);
+      const newTimestamps = fieldTimestamps.filter((ts: string) => !rapidTimestampSet.has(ts));
+
+      const updatedCounterTimestamps = {
+        ...currentTimestamps,
+        [dbField]: newTimestamps,
+      };
+
+      const { error } = await supabase.functions.invoke('update-rep-entry', {
+        body: {
+          entryId: issue.entryId,
+          adminEmail: user.email,
+          updates: {
+            [dbField]: newValue,
+            counter_timestamps: updatedCounterTimestamps,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Rapid taps removed',
+        description: `Removed ${count} ${field.toLowerCase()} from ${issue.repName} (${currentValue} → ${newValue}) + cleaned timestamps`,
+      });
+
+      dismissIssue(issue.id);
+      refetch();
+    } catch (error) {
+      console.error('Error removing rapid taps:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove rapid taps',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFixingEndTime(false);
+      setFixingIssueId(null);
+    }
+  };
+
   const handleDrawerClose = (open: boolean) => {
     setDrawerOpen(open);
     if (!open) {
@@ -455,6 +549,7 @@ export const AdminDataReviewCard = () => {
                 onEdit={() => handleEditIssue(issue)}
                 onFixEndTime={handleFixEndTime}
                 onClearActivity={handleClearActivity}
+                onRemoveRapidTaps={handleRemoveRapidTaps}
                 isFixing={isFixingEndTime}
                 fixingIssueId={fixingIssueId}
               />
@@ -483,6 +578,7 @@ export const AdminDataReviewCard = () => {
                           onEdit={() => handleEditIssue(issue)}
                           onFixEndTime={handleFixEndTime}
                           onClearActivity={handleClearActivity}
+                          onRemoveRapidTaps={handleRemoveRapidTaps}
                           isFixing={isFixingEndTime}
                           fixingIssueId={fixingIssueId}
                         />
