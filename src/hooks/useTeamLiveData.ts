@@ -210,11 +210,31 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         }
       });
 
-      // Sort: working first, then by FP+, then by doors
+      // Sort: working first, then by funnel priority: FP+ → PRMR → presentations → transitions → pitches → DMs → doors
       liveReps.sort((a, b) => {
+        // Working reps first
         if (a.isWorking && !b.isWorking) return -1;
         if (!a.isWorking && b.isWorking) return 1;
+        
+        // FP+ (highest priority output metric)
         if (a.todayStats.fp !== b.todayStats.fp) return b.todayStats.fp - a.todayStats.fp;
+        
+        // PRMR
+        if (a.todayStats.prmr !== b.todayStats.prmr) return b.todayStats.prmr - a.todayStats.prmr;
+        
+        // Presentations (bottom of funnel)
+        if (a.todayStats.presentations !== b.todayStats.presentations) return b.todayStats.presentations - a.todayStats.presentations;
+        
+        // Transitions
+        if (a.todayStats.transitions !== b.todayStats.transitions) return b.todayStats.transitions - a.todayStats.transitions;
+        
+        // Pitches
+        if (a.todayStats.pitches !== b.todayStats.pitches) return b.todayStats.pitches - a.todayStats.pitches;
+        
+        // Decision makers
+        if (a.todayStats.dms !== b.todayStats.dms) return b.todayStats.dms - a.todayStats.dms;
+        
+        // Doors (top of funnel - lowest priority)
         return b.todayStats.doors - a.todayStats.doors;
       });
 
