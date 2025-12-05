@@ -26,8 +26,10 @@ import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
 import { BestPeriodsSection } from "@/components/reports/BestPeriodsSection";
 import { LeaderAICoachCard } from "@/components/reports/LeaderAICoachCard";
+import { AggregatedRankingsCard } from "@/components/reports/AggregatedRankingsCard";
+import { useTeamAggregatedRankings } from "@/hooks/useTeamAggregatedRankings";
 
-type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 type ExpandedSection = 'aiCoach' | 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
 
 const TeamReports = () => {
@@ -91,6 +93,8 @@ const TeamReports = () => {
         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
       case 'preseason':
         return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now < summerStartDate ? now : summerStartDate, 'yyyy-MM-dd') };
+      case 'ytd':
+        return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'custom':
         return { 
           start: customStartDate ? format(customStartDate, 'yyyy-MM-dd') : format(new Date('2025-01-01'), 'yyyy-MM-dd'), 
@@ -167,6 +171,20 @@ const TeamReports = () => {
     dateRange: getDateRange(datePreset),
     excludeUserIds,
   });
+
+  // Aggregated rankings for week/month/season/ytd views
+  const aggregatedPeriod = datePreset === 'week' ? 'week' : 
+                          datePreset === 'month' ? 'month' : 
+                          datePreset === 'preseason' ? 'season' : 
+                          datePreset === 'ytd' ? 'ytd' : null;
+
+  const { data: aggregatedRankings, isLoading: aggregatedLoading } = useTeamAggregatedRankings({
+    userIds: effectiveUserIds,
+    excludeUserIds,
+    period: aggregatedPeriod || 'week',
+  });
+
+  const isAggregatedView = datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason' || datePreset === 'ytd';
 
   // Determine scope label
   const getScopeLabel = () => {
@@ -317,7 +335,15 @@ const TeamReports = () => {
               onClick={() => setDatePreset('preseason')}
               className="flex-shrink-0"
             >
-              Preseason
+              Season
+            </Button>
+            <Button
+              variant={datePreset === 'ytd' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDatePreset('ytd')}
+              className="flex-shrink-0"
+            >
+              YTD
             </Button>
             <Button
               variant={datePreset === 'custom' ? 'default' : 'outline'}
@@ -361,6 +387,20 @@ const TeamReports = () => {
               isLoading={yesterdayLoading}
               hasWorkingReps={false}
               title="Yesterday's Rankings"
+            />
+          </div>
+        ) : isAggregatedView ? (
+          <div className="space-y-4">
+            <AggregatedRankingsCard
+              reps={aggregatedRankings?.reps || []}
+              totalFP={aggregatedRankings?.totalFP || 0}
+              totalPRMR={aggregatedRankings?.totalPRMR || 0}
+              repCount={aggregatedRankings?.repCount || 0}
+              isLoading={aggregatedLoading}
+              title={datePreset === 'week' ? "This Week's Rankings" : 
+                     datePreset === 'month' ? "This Month's Rankings" : 
+                     datePreset === 'ytd' ? "YTD Rankings" :
+                     "Season Rankings"}
             />
           </div>
         ) : insightsLoading ? (
