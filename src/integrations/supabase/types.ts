@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_dismissed_issues: {
+        Row: {
+          admin_user_id: string
+          dismissed_at: string
+          entry_id: string
+          id: string
+          issue_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          dismissed_at?: string
+          entry_id: string
+          id?: string
+          issue_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          dismissed_at?: string
+          entry_id?: string
+          id?: string
+          issue_id?: string
+        }
+        Relationships: []
+      }
       blitz_invites: {
         Row: {
           blitz_id: string

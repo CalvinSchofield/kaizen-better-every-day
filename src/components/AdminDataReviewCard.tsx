@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
@@ -259,7 +259,7 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, onRemo
 };
 
 export const AdminDataReviewCard = () => {
-  const { issues, shouldShowCard, dismissIssue, refetch } = useAdminDataReview();
+  const { issues, shouldShowCard, dismissIssue, undoLastDismiss, lastDismissed, refetch } = useAdminDataReview();
   const [selectedIssue, setSelectedIssue] = useState<DataIssue | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmIssue, setConfirmIssue] = useState<DataIssue | null>(null);
@@ -283,7 +283,7 @@ export const AdminDataReviewCard = () => {
 
   const handleConfirmDismiss = () => {
     if (confirmIssue) {
-      dismissIssue(confirmIssue.id);
+      dismissIssue(confirmIssue.id, confirmIssue.entryId);
       setConfirmDrawerOpen(false);
       setConfirmIssue(null);
     }
@@ -317,7 +317,7 @@ export const AdminDataReviewCard = () => {
         description: `Updated ${issue.repName}'s end time to ${suggested.formatted}`,
       });
 
-      dismissIssue(issue.id);
+      dismissIssue(issue.id, issue.entryId);
       refetch();
     } catch (error) {
       console.error('Error fixing end time:', error);
@@ -367,7 +367,7 @@ export const AdminDataReviewCard = () => {
         description: `Cleared ${issue.repName}'s activity inputs, kept FP+ & PRMR`,
       });
 
-      dismissIssue(issue.id);
+      dismissIssue(issue.id, issue.entryId);
       refetch();
     } catch (error) {
       console.error('Error clearing activity:', error);
@@ -441,7 +441,7 @@ export const AdminDataReviewCard = () => {
         description: `Removed ${count} ${field.toLowerCase()} from ${issue.repName} (${currentValue} → ${newValue}) + cleaned timestamps`,
       });
 
-      dismissIssue(issue.id);
+      dismissIssue(issue.id, issue.entryId);
       refetch();
     } catch (error) {
       console.error('Error removing rapid taps:', error);
@@ -536,6 +536,17 @@ export const AdminDataReviewCard = () => {
                 {warningCount > 0 && `${warningCount} warning${warningCount !== 1 ? 's' : ''}`}
               </p>
             </div>
+            {lastDismissed && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                onClick={undoLastDismiss}
+              >
+                <Undo2 className="w-3.5 h-3.5 mr-1" />
+                Undo
+              </Button>
+            )}
             <span className="text-xs text-muted-foreground">Tap to edit</span>
           </div>
 
