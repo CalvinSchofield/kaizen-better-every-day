@@ -181,13 +181,14 @@ export const useActivitySummary = (repData: any) => {
             prmr = Number(entry.prmr) || 0;
             upgradePrmr = Number(entry.upgrade_prmr) || 0;
           } else {
-            // Unfinalized: calculate from sales_log OR use columns if manually entered
-            const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+            // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
+            const salesLog = entry.sales_log as any[];
+            const fromLog = calculateFromSalesLog(salesLog);
             const fromColumnFp = Number(entry.fp_plus) || 0;
             const fromColumnPrmr = Number(entry.prmr) || 0;
-            // Use whichever is higher
-            fp = Math.max(fromLog.fp, fromColumnFp);
-            prmr = Math.max(fromLog.prmr, fromColumnPrmr);
+            // Use sales_log calculation if there are sales, otherwise use column
+            fp = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumnFp;
+            prmr = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumnPrmr;
             upgradePrmr = 0; // Not yet saved for unfinalized entries
           }
           
