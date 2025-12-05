@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
@@ -19,7 +19,13 @@ type SortOption =
   | 'closes' 
   | 'hours' 
   | 'avgStart' 
-  | 'avgEnd';
+  | 'avgEnd'
+  | 'fpPerDay'
+  | 'doorsPerDay'
+  | 'hoursPerDay'
+  | 'prmrPerDay'
+  | 'pitchesPerDay'
+  | 'transitionsPerDay';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'default', label: 'Default' },
@@ -34,6 +40,12 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'hours', label: 'Hours Worked' },
   { value: 'avgStart', label: 'Avg Start Time' },
   { value: 'avgEnd', label: 'Avg End Time' },
+  { value: 'fpPerDay', label: 'FP+ / Day' },
+  { value: 'doorsPerDay', label: 'Doors / Day' },
+  { value: 'hoursPerDay', label: 'Hours / Day' },
+  { value: 'prmrPerDay', label: 'PRMR / Day' },
+  { value: 'pitchesPerDay', label: 'Pitches / Day' },
+  { value: 'transitionsPerDay', label: 'Trans / Day' },
 ];
 
 const formatMinutesToTime = (minutes: number): string => {
@@ -72,7 +84,11 @@ export const AggregatedRankingsCard = ({
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
   const [workingOpen, setWorkingOpen] = useState(true);
+  const [needsAttentionOpen, setNeedsAttentionOpen] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>('default');
+
+  // Helper to get per-day value
+  const getPerDay = (value: number, days: number) => days > 0 ? value / days : 0;
 
   // Sort function
   const sortReps = (repsToSort: RepRankingData[]): RepRankingData[] => {
@@ -90,15 +106,19 @@ export const AggregatedRankingsCard = ({
         case 'closes': return b.stats.closes - a.stats.closes;
         case 'hours': return b.hoursWorked - a.hoursWorked;
         case 'avgStart': 
-          // Earlier start = better (lower minutes)
           if (a.avgStartMinutes === undefined) return 1;
           if (b.avgStartMinutes === undefined) return -1;
           return a.avgStartMinutes - b.avgStartMinutes;
         case 'avgEnd': 
-          // Later end = better (higher minutes)
           if (a.avgEndMinutes === undefined) return 1;
           if (b.avgEndMinutes === undefined) return -1;
           return b.avgEndMinutes - a.avgEndMinutes;
+        case 'fpPerDay': return getPerDay(b.stats.fp, b.daysWorked) - getPerDay(a.stats.fp, a.daysWorked);
+        case 'doorsPerDay': return getPerDay(b.stats.doors, b.daysWorked) - getPerDay(a.stats.doors, a.daysWorked);
+        case 'hoursPerDay': return getPerDay(b.hoursWorked, b.daysWorked) - getPerDay(a.hoursWorked, a.daysWorked);
+        case 'prmrPerDay': return getPerDay(b.stats.prmr, b.daysWorked) - getPerDay(a.stats.prmr, a.daysWorked);
+        case 'pitchesPerDay': return getPerDay(b.stats.pitches, b.daysWorked) - getPerDay(a.stats.pitches, a.daysWorked);
+        case 'transitionsPerDay': return getPerDay(b.stats.transitions, b.daysWorked) - getPerDay(a.stats.transitions, a.daysWorked);
         default: return 0;
       }
     });
@@ -107,6 +127,7 @@ export const AggregatedRankingsCard = ({
   // Get display value for current sort metric
   const getSortMetricDisplay = (rep: RepRankingData): string | null => {
     if (sortBy === 'default') return null;
+    const perDay = (val: number) => rep.daysWorked > 0 ? val / rep.daysWorked : 0;
     switch (sortBy) {
       case 'fp': return `${rep.stats.fp.toFixed(1)} FP+`;
       case 'prmr': return `$${rep.stats.prmr.toLocaleString()}`;
@@ -119,6 +140,12 @@ export const AggregatedRankingsCard = ({
       case 'hours': return formatDuration(rep.hoursWorked);
       case 'avgStart': return rep.avgStartMinutes !== undefined ? formatMinutesToTime(rep.avgStartMinutes) : '—';
       case 'avgEnd': return rep.avgEndMinutes !== undefined ? formatMinutesToTime(rep.avgEndMinutes) : '—';
+      case 'fpPerDay': return `${perDay(rep.stats.fp).toFixed(2)} FP+/d`;
+      case 'doorsPerDay': return `${perDay(rep.stats.doors).toFixed(1)} doors/d`;
+      case 'hoursPerDay': return `${perDay(rep.hoursWorked).toFixed(1)} hrs/d`;
+      case 'prmrPerDay': return `$${perDay(rep.stats.prmr).toFixed(0)}/d`;
+      case 'pitchesPerDay': return `${perDay(rep.stats.pitches).toFixed(1)} pitch/d`;
+      case 'transitionsPerDay': return `${perDay(rep.stats.transitions).toFixed(1)} trans/d`;
       default: return null;
     }
   };
@@ -182,9 +209,46 @@ export const AggregatedRankingsCard = ({
 
   const outstanding = sortBy === 'default' ? outstandingDefaultSorted : sortReps(outstandingBase);
 
-  // Working: Has activity but no FP+ or presentations
+  // Calculate team average pace for comparison
+  const teamAvgPitchesPerHour = reps.reduce((sum, r) => sum + r.stats.pitches, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
+  const teamAvgTransitionsPerHour = reps.reduce((sum, r) => sum + r.stats.transitions, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
+
+  // Needs Attention: Reps with activity but performing below 50% of team average in BOTH pitches/hour AND transitions/hour
+  // Or reps with 30+ minutes worked but under 5 doors (fallback)
+  const needsAttentionBase = reps.filter(r => {
+    if (r.hoursWorked < 0.5) return false; // Skip if less than 30 min
+    if (r.stats.fp > 0 || r.stats.presentations > 0) return false; // Exclude outstanding reps
+    
+    const pitchesPerHour = r.hoursWorked > 0 ? r.stats.pitches / r.hoursWorked : 0;
+    const transitionsPerHour = r.hoursWorked > 0 ? r.stats.transitions / r.hoursWorked : 0;
+    
+    const isBelowPitchAvg = pitchesPerHour < teamAvgPitchesPerHour * 0.5;
+    const isBelowTransAvg = transitionsPerHour < teamAvgTransitionsPerHour * 0.5;
+    
+    // Below 50% in BOTH metrics OR low door count fallback
+    return (isBelowPitchAvg && isBelowTransAvg) || (r.hoursWorked >= 0.5 && r.stats.doors < 5);
+  });
+
+  // Add performance percentage for display
+  const needsAttentionWithPct = needsAttentionBase.map(r => {
+    const pitchesPerHour = r.hoursWorked > 0 ? r.stats.pitches / r.hoursWorked : 0;
+    const transitionsPerHour = r.hoursWorked > 0 ? r.stats.transitions / r.hoursWorked : 0;
+    const pitchPct = teamAvgPitchesPerHour > 0 ? Math.round((pitchesPerHour / teamAvgPitchesPerHour) * 100) : 0;
+    const transPct = teamAvgTransitionsPerHour > 0 ? Math.round((transitionsPerHour / teamAvgTransitionsPerHour) * 100) : 0;
+    return { ...r, pitchPct, transPct };
+  });
+
+  const needsAttentionDefaultSorted = [...needsAttentionWithPct].sort((a, b) => {
+    const aWorst = Math.min(a.pitchPct, a.transPct);
+    const bWorst = Math.min(b.pitchPct, b.transPct);
+    return aWorst - bWorst; // Worst performers first
+  });
+  const needsAttention = sortBy === 'default' ? needsAttentionDefaultSorted : sortReps(needsAttentionWithPct as RepRankingData[]);
+
+  // Working: Has activity but no FP+/presentations and not in needs attention
   const outstandingIds = new Set(outstandingBase.map(r => r.userId));
-  const workingBase = reps.filter(r => !outstandingIds.has(r.userId) && r.stats.doors > 0);
+  const needsAttentionIds = new Set(needsAttentionBase.map(r => r.userId));
+  const workingBase = reps.filter(r => !outstandingIds.has(r.userId) && !needsAttentionIds.has(r.userId) && r.stats.doors > 0);
   const workingDefaultSorted = [...workingBase].sort((a, b) => b.stats.doors - a.stats.doors);
   const working = sortBy === 'default' ? workingDefaultSorted : sortReps(workingBase);
 
@@ -383,6 +447,43 @@ export const AggregatedRankingsCard = ({
                 <div className="space-y-0.5 pl-1">
                   {working.map((rep) => (
                     <RepRow key={rep.userId} rep={rep} />
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {/* Needs Attention */}
+          {needsAttention.length > 0 && (
+            <Collapsible open={needsAttentionOpen} onOpenChange={setNeedsAttentionOpen}>
+              <SectionHeader
+                icon={AlertTriangle}
+                title="Needs Attention"
+                count={needsAttention.length}
+                color="bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                isOpen={needsAttentionOpen}
+                onToggle={() => setNeedsAttentionOpen(!needsAttentionOpen)}
+              />
+              <CollapsibleContent className="pt-1">
+                <div className="space-y-0.5 pl-1">
+                  {needsAttention.map((rep: any) => (
+                    <button 
+                      key={rep.userId}
+                      onClick={() => handleRepClick(rep)}
+                      className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-medium">{rep.name}</span>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                          {rep.pitchPct}% pitch pace · {rep.transPct}% trans pace
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 text-right">
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {rep.stats.doors} doors · {formatDuration(rep.hoursWorked)}
+                        </span>
+                      </div>
+                    </button>
                   ))}
                 </div>
               </CollapsibleContent>
