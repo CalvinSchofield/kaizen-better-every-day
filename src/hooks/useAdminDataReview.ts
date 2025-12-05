@@ -55,19 +55,20 @@ export const useAdminDataReview = () => {
     checkAdmin();
   }, []);
 
-  // Load dismissed issues from localStorage
+  // Load dismissed issues from localStorage - persist indefinitely by entry ID
   useEffect(() => {
     const stored = localStorage.getItem(DISMISSED_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Only keep dismissals from today
-        const today = new Date().toISOString().split('T')[0];
-        if (parsed.date === today) {
-          setDismissedIssues(parsed.issues || []);
-        } else {
-          // Clear old dismissals
-          localStorage.removeItem(DISMISSED_KEY);
+        // Support both old format (with date) and new format (just array)
+        if (Array.isArray(parsed)) {
+          setDismissedIssues(parsed);
+        } else if (parsed.issues) {
+          // Migrate old format - keep all issues, ignore date
+          setDismissedIssues(parsed.issues);
+          // Save in new format
+          localStorage.setItem(DISMISSED_KEY, JSON.stringify(parsed.issues));
         }
       } catch {
         localStorage.removeItem(DISMISSED_KEY);
@@ -336,11 +337,8 @@ export const useAdminDataReview = () => {
   const dismissIssue = useCallback((issueId: string) => {
     setDismissedIssues(prev => {
       const updated = [...prev, issueId];
-      // Save to localStorage with today's date
-      localStorage.setItem(DISMISSED_KEY, JSON.stringify({
-        date: new Date().toISOString().split('T')[0],
-        issues: updated,
-      }));
+      // Save to localStorage - persist indefinitely
+      localStorage.setItem(DISMISSED_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
