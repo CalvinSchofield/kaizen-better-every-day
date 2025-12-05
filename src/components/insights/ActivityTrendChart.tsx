@@ -28,26 +28,31 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   const [compareMode, setCompareMode] = useState(false);
   const [compareMetric, setCompareMetric] = useState<MetricKey>('fp');
 
+  // Primary metric color (solid orange)
+  const primaryColor = 'hsl(var(--primary))';
+  // Comparison metric color (distinct teal/blue)
+  const compareColor = '#0ea5e9'; // Sky blue for clear visual distinction
+
   const metrics = [
-    { key: 'doors' as MetricKey, label: 'Doors', color: 'hsl(var(--chart-1))' },
-    { key: 'pitches' as MetricKey, label: 'Pitches', color: 'hsl(var(--chart-2))' },
-    { key: 'transitions' as MetricKey, label: 'Transitions', color: 'hsl(var(--chart-3))' },
-    { key: 'presentations' as MetricKey, label: 'Presentations', color: 'hsl(var(--chart-4))' },
+    { key: 'doors' as MetricKey, label: 'Doors' },
+    { key: 'pitches' as MetricKey, label: 'Pitches' },
+    { key: 'transitions' as MetricKey, label: 'Transitions' },
+    { key: 'presentations' as MetricKey, label: 'Presentations' },
     ...(efpModeEnabled 
       ? [
-          { key: 'fp' as MetricKey, label: 'EFP', color: 'hsl(var(--primary))' },
-          { key: 'prmr' as MetricKey, label: 'FP+', color: 'hsl(var(--chart-5))' },
+          { key: 'fp' as MetricKey, label: 'EFP' },
+          { key: 'prmr' as MetricKey, label: 'FP+' },
         ]
       : [
-          { key: 'fp' as MetricKey, label: 'FP+', color: 'hsl(var(--primary))' },
-          { key: 'prmr' as MetricKey, label: 'PRMR', color: 'hsl(var(--chart-5))' },
+          { key: 'fp' as MetricKey, label: 'FP+' },
+          { key: 'prmr' as MetricKey, label: 'PRMR' },
         ]
     ),
-    { key: 'hoursWorked' as MetricKey, label: 'Hours', color: 'hsl(var(--muted-foreground))' },
+    { key: 'hoursWorked' as MetricKey, label: 'Hours' },
   ];
 
-  const currentMetric = metrics.find(m => m.key === selectedMetric)!;
-  const currentCompareMetric = metrics.find(m => m.key === compareMetric)!;
+  const currentMetricConfig = metrics.find(m => m.key === selectedMetric)!;
+  const currentCompareMetricConfig = metrics.find(m => m.key === compareMetric)!;
 
   const getMetricValue = (day: typeof dailyTrend[0], metric: MetricKey): number => {
     if (metric === 'fp' && efpModeEnabled) {
@@ -72,13 +77,13 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
 
   const chartConfig = {
     displayValue: {
-      label: currentMetric.label,
-      color: currentMetric.color,
+      label: currentMetricConfig.label,
+      color: primaryColor,
     },
     ...(compareMode && {
       compareValue: {
-        label: currentCompareMetric.label,
-        color: currentCompareMetric.color,
+        label: currentCompareMetricConfig.label,
+        color: compareColor,
       },
     }),
   };
@@ -121,56 +126,50 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
           </Button>
         </div>
 
-        {/* Primary Metric Selector */}
-        <div className="space-y-2">
-          <div className="text-xs text-muted-foreground font-medium">
-            {compareMode ? 'Primary Metric' : 'Select Metric'}
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {metrics.map(metric => (
-              <Button
-                key={metric.key}
-                variant={selectedMetric === metric.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setSelectedMetric(metric.key);
-                  // If switching to same as compare, swap them
-                  if (compareMode && metric.key === compareMetric) {
-                    setCompareMetric(selectedMetric);
-                  }
-                }}
-                className="whitespace-nowrap"
-              >
-                {metric.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Compare Metric Selector (only shown in compare mode) */}
-        {compareMode && (
-          <div className="space-y-2">
-            <div className="text-xs text-muted-foreground font-medium">Compare With</div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {metrics.filter(m => m.key !== selectedMetric).map(metric => (
-                <Button
-                  key={metric.key}
-                  variant={compareMetric === metric.key ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setCompareMetric(metric.key)}
-                  className="whitespace-nowrap"
-                  style={{
-                    borderWidth: compareMetric === metric.key ? '2px' : '1px',
-                    borderColor: compareMetric === metric.key ? metric.color : undefined,
-                    borderStyle: 'dashed',
-                  }}
-                >
-                  {metric.label}
-                </Button>
+        {/* Metric Selectors - Horizontal with colored indicators */}
+        <div className="flex gap-4 overflow-x-auto pb-1">
+          {/* Primary Metric */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: primaryColor }} />
+            <select
+              value={selectedMetric}
+              onChange={(e) => {
+                const newMetric = e.target.value as MetricKey;
+                setSelectedMetric(newMetric);
+                if (compareMode && newMetric === compareMetric) {
+                  setCompareMetric(selectedMetric);
+                }
+              }}
+              className="text-sm font-medium bg-transparent border-none focus:outline-none cursor-pointer"
+            >
+              {metrics.map(m => (
+                <option key={m.key} value={m.key}>{m.label}</option>
               ))}
-            </div>
+            </select>
           </div>
-        )}
+
+          {/* Compare Metric (only in compare mode) */}
+          {compareMode && (
+            <>
+              <span className="text-muted-foreground text-sm">vs</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div 
+                  className="w-3 h-3 rounded-full flex-shrink-0 border-2 border-dashed" 
+                  style={{ borderColor: compareColor }} 
+                />
+                <select
+                  value={compareMetric}
+                  onChange={(e) => setCompareMetric(e.target.value as MetricKey)}
+                  className="text-sm font-medium bg-transparent border-none focus:outline-none cursor-pointer"
+                >
+                  {metrics.filter(m => m.key !== selectedMetric).map(m => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Chart */}
         <ChartContainer config={chartConfig} className="h-64 w-full">
@@ -185,7 +184,7 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                 yAxisId="left"
                 tick={{ fontSize: 12 }}
                 tickMargin={8}
-                stroke={currentMetric.color}
+                stroke={primaryColor}
               />
               {compareMode && (
                 <YAxis 
@@ -193,14 +192,14 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                   orientation="right"
                   tick={{ fontSize: 12 }}
                   tickMargin={8}
-                  stroke={currentCompareMetric.color}
+                  stroke={compareColor}
                 />
               )}
               <ChartTooltip
                 content={<ChartTooltipContent />}
                 formatter={(value: any, name: string) => {
                   const metric = name === 'displayValue' ? selectedMetric : compareMetric;
-                  const label = name === 'displayValue' ? currentMetric.label : currentCompareMetric.label;
+                  const label = name === 'displayValue' ? currentMetricConfig.label : currentCompareMetricConfig.label;
                   return [
                     formatValue(Number(value), metric),
                     label
@@ -212,9 +211,9 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                 type="monotone"
                 dataKey="displayValue"
                 name="displayValue"
-                stroke={currentMetric.color}
-                strokeWidth={2}
-                dot={{ fill: currentMetric.color, r: 4 }}
+                stroke={primaryColor}
+                strokeWidth={2.5}
+                dot={{ fill: primaryColor, r: 4 }}
                 activeDot={{ r: 6 }}
               />
               {compareMode && (
@@ -223,10 +222,10 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                   type="monotone"
                   dataKey="compareValue"
                   name="compareValue"
-                  stroke={currentCompareMetric.color}
+                  stroke={compareColor}
                   strokeWidth={2}
-                  strokeDasharray="5 5"
-                  dot={{ fill: currentCompareMetric.color, r: 3 }}
+                  strokeDasharray="6 4"
+                  dot={{ fill: compareColor, r: 3 }}
                   activeDot={{ r: 5 }}
                 />
               )}
@@ -234,34 +233,34 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
           </ResponsiveContainer>
         </ChartContainer>
 
-        {/* Legend (only in compare mode) */}
-        {compareMode && (
-          <div className="flex items-center justify-center gap-6 text-xs">
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-6 h-0.5" 
-                style={{ backgroundColor: currentMetric.color }}
-              />
-              <span className="text-muted-foreground">{currentMetric.label}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-6 h-0.5 border-t-2 border-dashed" 
-                style={{ borderColor: currentCompareMetric.color }}
-              />
-              <span className="text-muted-foreground">{currentCompareMetric.label}</span>
-            </div>
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-6 text-xs">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-5 h-1 rounded-full" 
+              style={{ backgroundColor: primaryColor }}
+            />
+            <span className="font-medium">{currentMetricConfig.label}</span>
           </div>
-        )}
+          {compareMode && (
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-5 h-0 border-t-2 border-dashed" 
+                style={{ borderColor: compareColor }}
+              />
+              <span className="font-medium" style={{ color: compareColor }}>{currentCompareMetricConfig.label}</span>
+            </div>
+          )}
+        </div>
 
         {/* Summary Stats */}
         <div className={`grid gap-2 text-xs ${compareMode ? 'grid-cols-2' : 'grid-cols-3'}`}>
           {compareMode ? (
             <>
               {/* Primary metric stats */}
-              <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                <div className="font-medium text-center" style={{ color: currentMetric.color }}>
-                  {currentMetric.label}
+              <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${primaryColor}15` }}>
+                <div className="font-medium text-center" style={{ color: primaryColor }}>
+                  {currentMetricConfig.label}
                 </div>
                 <div className="grid grid-cols-3 gap-1 text-center">
                   <div>
@@ -279,9 +278,9 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                 </div>
               </div>
               {/* Compare metric stats */}
-              <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                <div className="font-medium text-center" style={{ color: currentCompareMetric.color }}>
-                  {currentCompareMetric.label}
+              <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${compareColor}15` }}>
+                <div className="font-medium text-center" style={{ color: compareColor }}>
+                  {currentCompareMetricConfig.label}
                 </div>
                 <div className="grid grid-cols-3 gap-1 text-center">
                   <div>
