@@ -122,11 +122,10 @@ export const useTeamAggregatedRankings = ({
         }
       ]) || []);
 
-      // Fetch finalized entries for the period
+      // Fetch ALL entries for the period (including unfinalized)
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, entry_date, timezone")
-        .eq("is_finalized", true)
+        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, entry_date, timezone, is_finalized, sales_log")
         .in("user_id", effectiveUserIds)
         .gte("entry_date", start)
         .lte("entry_date", end);
@@ -142,6 +141,32 @@ export const useTeamAggregatedRankings = ({
         .lt("entry_date", start);
 
       if (historicalError) throw historicalError;
+
+      // Helper to calculate FP+ and PRMR from sales_log for unfinalized entries
+      const calcFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradePrmr: number } => {
+        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradePrmr: 0 };
+        
+        let fpCount = 0;
+        let totalPrmr = 0;
+        let upgradePrmr = 0;
+        
+        salesLog.forEach((sale: any) => {
+          const saleType = sale.type || sale.saleType;
+          const salePrmr = Number(sale.prmr) || 0;
+          
+          if (saleType === 'FP' || saleType === 'fp') {
+            fpCount += 1;
+            totalPrmr += salePrmr;
+          } else if (saleType === 'Upgrade' || saleType === 'upgrade' || saleType === 'UP') {
+            upgradePrmr += salePrmr;
+            totalPrmr += salePrmr;
+          }
+        });
+        
+        // FP+ = FP count + (upgrade_prmr / 85)
+        const fpPlus = fpCount + (upgradePrmr / 85);
+        return { fp: fpPlus, prmr: totalPrmr, upgradePrmr };
+      };
 
       // Calculate historical averages per user
       const historicalTotals = new Map<string, { pitches: number; transitions: number; doors: number; hours: number }>();
@@ -286,6 +311,22 @@ export const useTeamAggregatedRankings = ({
           endTimeCount += 1;
         }
 
+        // For unfinalized entries, calculate FP+/PRMR from sales_log
+        let entryFp = 0;
+        let entryPrmr = 0;
+        let entryUpgradePrmr = 0;
+        
+        if (entry.is_finalized) {
+          entryFp = entry.fp_plus || 0;
+          entryPrmr = entry.prmr || 0;
+          entryUpgradePrmr = entry.upgrade_prmr || 0;
+        } else {
+          const salesCalc = calcFromSalesLog(entry.sales_log as any[]);
+          entryFp = salesCalc.fp;
+          entryPrmr = salesCalc.prmr;
+          entryUpgradePrmr = salesCalc.upgradePrmr;
+        }
+
         userTotals.set(entry.user_id, {
           doors: current.doors + (entry.doors_knocked || 0),
           dms: current.dms + (entry.decision_makers || 0),
@@ -293,9 +334,9 @@ export const useTeamAggregatedRankings = ({
           transitions: current.transitions + (entry.transitions || 0),
           presentations: current.presentations + (entry.presentations || 0),
           closes: current.closes + (entry.closes || 0),
-          fp: current.fp + (entry.fp_plus || 0),
-          prmr: current.prmr + (entry.prmr || 0),
-          upgradePrmr: current.upgradePrmr + (entry.upgrade_prmr || 0),
+          fp: current.fp + entryFp,
+          prmr: current.prmr + entryPrmr,
+          upgradePrmr: current.upgradePrmr + entryUpgradePrmr,
           hoursWorked: current.hoursWorked + entryHours,
           daysWorked: current.daysWorked + 1,
           earliestStart,
