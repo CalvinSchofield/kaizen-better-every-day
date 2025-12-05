@@ -120,10 +120,10 @@ const Calendar = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Calendar Unlocks on Your Blitz!</h2>
+              <h2 className="text-2xl font-bold text-foreground">Your Sales Calendar Unlocks on Your Blitz!</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Get ready to track your progress! Once you hit the doors on your first blitz, 
-                you'll be able to log your daily numbers and watch your stats grow.
+                This is where you'll track your daily sales numbers and watch your stats grow.
+                It unlocks once you hit the doors on your first blitz!
               </p>
             </div>
             <div className="pt-4 space-y-3">
@@ -135,10 +135,10 @@ const Calendar = () => {
                 variant="outline"
                 className="w-full"
               >
-                View Team Calendar
+                View Team Blitz Calendar
               </Button>
               <p className="text-sm text-primary font-medium pt-2">
-                Can't wait to see you out there crushing it! 🚀
+                Can't wait to see you out there crushing it!
               </p>
             </div>
           </CardContent>
