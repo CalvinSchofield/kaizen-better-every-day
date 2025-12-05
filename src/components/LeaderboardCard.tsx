@@ -271,10 +271,10 @@ export const LeaderboardCard = () => {
     } else if (salesLog && salesLog.length > 0) {
       // Calculate from sales_log for unfinalized entries
       salesLog.forEach(sale => {
-        if (sale.type === 'FP') {
+        if (sale.type === 'fp') {
           fpValue += 1;
           prmrValue += sale.prmr || 0;
-        } else if (sale.type === 'Upgrade') {
+        } else if (sale.type === 'upgrade') {
           upgradePrmrValue += sale.prmr || 0;
         }
       });
