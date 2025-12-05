@@ -27,7 +27,6 @@ interface LogSaleSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLogSale: (sale: Omit<Sale, 'id' | 'timestamp'>) => void;
-  onSkip: () => void;
   editingSale?: Sale | null;
   onUpdateSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
@@ -38,7 +37,6 @@ export const LogSaleSheet = ({
   open,
   onOpenChange,
   onLogSale,
-  onSkip,
   editingSale,
   onUpdateSale,
   onDeleteSale,
@@ -84,10 +82,6 @@ export const LogSaleSheet = ({
     onOpenChange(false);
   };
 
-  const handleSkip = () => {
-    onSkip();
-    onOpenChange(false);
-  };
 
   const handleDelete = () => {
     if (editingSale && onDeleteSale) {
@@ -226,15 +220,6 @@ export const LogSaleSheet = ({
               {isEditing ? "Update Sale" : "Log Sale"}
             </Button>
             
-            {!isEditing && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-              >
-                Skip (just count the close)
-              </button>
-            )}
 
             {isEditing && onDeleteSale && (
               <Button

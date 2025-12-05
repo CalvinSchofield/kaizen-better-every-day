@@ -411,7 +411,12 @@ const TrackWithLayout = () => {
     }
     
     // SALES LOGGER: Intercept closes counter when adding and sales logger is enabled
+    // Block if LogSaleSheet is already open to prevent orphaned closes
     if (field === 'closes' && isAdding && salesLoggerEnabled) {
+      if (isLogSaleSheetOpen || pendingCloseIncrement) {
+        // Already logging a sale - ignore this tap
+        return;
+      }
       setPendingCloseIncrement(true);
       setEditingSale(null);
       setIsLogSaleSheetOpen(true);
@@ -524,64 +529,6 @@ const TrackWithLayout = () => {
     const updates: any = {
       closes: (entry.closes || 0) + 1,
       sales_log: updatedSalesLog,
-    };
-    
-    // Handle timestamps
-    const timestamps = entry.counter_timestamps || {};
-    const closesTimestamps = timestamps['closes'] || [];
-    updates.counter_timestamps = {
-      ...timestamps,
-      closes: [...closesTimestamps, new Date().toISOString()]
-    };
-    
-    // Auto-start work if not started
-    if (!entry.work_start_time) {
-      const now = new Date();
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      updates.work_start_time = now.toISOString();
-      updates.timezone = timezone;
-    }
-    
-    // Auto-end break if active
-    const breakPeriods = entry.break_periods || [];
-    const currentBreak = breakPeriods.find(bp => !bp.end);
-    if (currentBreak) {
-      const updatedBreaks = breakPeriods.map(bp => 
-        bp === currentBreak ? { ...bp, end: new Date().toISOString() } : bp
-      );
-      updates.break_periods = updatedBreaks;
-    }
-    
-    // Fire confetti
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-    
-    setSyncStatus('pending');
-    try {
-      await updateCounter(updates);
-      setSyncStatus('synced');
-    } catch (error: any) {
-      if (error?.message === 'ENTRY_ALREADY_FINALIZED') {
-        toast.info("Today's work is already saved. Start fresh tomorrow!");
-        setSavedThisSession(true);
-        setSyncStatus('synced');
-      } else {
-        setSyncStatus('error');
-      }
-    }
-    
-    setPendingCloseIncrement(false);
-  }, [entry, updateCounter, pendingCloseIncrement]);
-
-  const handleSkipSaleLog = useCallback(async () => {
-    if (!pendingCloseIncrement) return;
-    
-    // Just increment closes without logging sale
-    const updates: any = {
-      closes: (entry.closes || 0) + 1,
     };
     
     // Handle timestamps
@@ -797,7 +744,6 @@ const TrackWithLayout = () => {
           }
         }}
         onLogSale={handleLogSale}
-        onSkip={handleSkipSaleLog}
         editingSale={editingSale}
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
