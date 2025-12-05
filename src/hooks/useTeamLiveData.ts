@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface LiveRepData {
   userId: string;
   name: string;
+  year?: string;
   teamName: string;
   mgmtGroupName: string;
   isWorking: boolean;
@@ -28,6 +29,10 @@ interface LiveRepData {
   workStartTime?: string;
   workEndTime?: string;
   breakMinutes?: number;
+  // Timeline data for detailed view
+  entryId?: string;
+  counterTimestamps?: Record<string, string[]>;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
 }
 
 interface UseTeamLiveDataParams {
@@ -102,10 +107,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         return { liveReps: [], workingCount: 0, forgottenCount: 0 };
       }
 
-      // Fetch reps with their info including team_leader
+      // Fetch reps with their info including team_leader and year
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, timezone, team_leader")
+        .select("user_id, name, timezone, team_leader, year")
         .in("user_id", filteredUserIds);
 
       if (repsError) throw repsError;
@@ -119,7 +124,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("*, sales_log")
+        .select("*, sales_log, counter_timestamps")
         .in("user_id", filteredUserIds)
         .gte("entry_date", fourteenDaysAgoStr)
         .order("entry_date", { ascending: false });
@@ -251,6 +256,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             liveReps.push({
               userId,
               name: repInfo?.name || 'Unknown',
+              year: repInfo?.year || undefined,
               teamName,
               mgmtGroupName,
               isWorking: !todayEntry.is_finalized,
@@ -274,6 +280,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               workStartTime: todayEntry.work_start_time || undefined,
               workEndTime: todayEntry.work_end_time || undefined,
               breakMinutes: calculateBreakMinutes(todayEntry.break_periods),
+              // Timeline data
+              entryId: todayEntry.id,
+              counterTimestamps: todayEntry.counter_timestamps as Record<string, string[]> || undefined,
+              salesLog: todayEntry.sales_log as Array<{ type: string; prmr: number; timestamp?: string }> || undefined,
             });
           }
         } else if (forgottenEntry && !processedUsers.has(userId)) {

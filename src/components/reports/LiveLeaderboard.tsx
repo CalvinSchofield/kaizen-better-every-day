@@ -32,6 +32,10 @@ interface LiveRepData {
   workEndTime?: string;
   breakMinutes?: number;
   durationMinutes?: number;
+  // Timeline data
+  entryId?: string;
+  counterTimestamps?: Record<string, string[]>;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
 }
 
 interface LiveLeaderboardProps {
@@ -98,6 +102,11 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       daysWorked: 1,
       workStartTime: rep.workStartTime,
       workEndTime: rep.workEndTime,
+      // Timeline data
+      entryId: rep.entryId,
+      counterTimestamps: rep.counterTimestamps,
+      salesLog: rep.salesLog,
+      isFinalized: rep.todayStats.isFinalized,
     };
   };
 
