@@ -23,6 +23,9 @@ interface LiveRepData {
     upgradePrmr?: number;
     isFinalized?: boolean;
   };
+  avgPitchesPerHour?: number;
+  avgTransitionsPerHour?: number;
+  avgDoorsPerHour?: number;
   workStartTime?: string;
   workEndTime?: string;
   breakMinutes?: number;
@@ -136,15 +139,48 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       return b.todayStats.presentations - a.todayStats.presentations;
     });
 
-  // Need Attention: Under 5 doors after 30+ minutes worked, no sales/presentations
+  // Need Attention: Working significantly below their historical average (pitches/transitions per hour)
+  // Or if no history, under 5 doors after 30+ minutes
   const needAttention = repsWithDuration
-    .filter(r => 
-      r.todayStats.fp === 0 && 
-      r.todayStats.presentations === 0 &&
-      r.todayStats.doors < 5 &&
-      r.durationMinutes >= 30
-    )
-    .sort((a, b) => b.durationMinutes - a.durationMinutes); // Most time worked first (worst)
+    .filter(r => {
+      // Skip if they have sales/presentations (they're doing fine)
+      if (r.todayStats.fp > 0 || r.todayStats.presentations > 0) return false;
+      
+      const hoursWorked = r.durationMinutes / 60;
+      if (hoursWorked < 0.5) return false; // Need at least 30 min to judge
+      
+      // Calculate current pace
+      const currentPitchesPerHour = r.todayStats.pitches / hoursWorked;
+      const currentTransitionsPerHour = r.todayStats.transitions / hoursWorked;
+      
+      // If they have historical data, compare to their average
+      const hasHistory = (r.avgPitchesPerHour || 0) > 0 || (r.avgTransitionsPerHour || 0) > 0;
+      
+      if (hasHistory) {
+        // Below 50% of their average on BOTH pitches AND transitions
+        const pitchRatio = r.avgPitchesPerHour ? currentPitchesPerHour / r.avgPitchesPerHour : 1;
+        const transRatio = r.avgTransitionsPerHour ? currentTransitionsPerHour / r.avgTransitionsPerHour : 1;
+        return pitchRatio < 0.5 && transRatio < 0.5;
+      } else {
+        // No history: fallback to absolute threshold (under 5 doors after 30+ min)
+        return r.todayStats.doors < 5 && r.durationMinutes >= 30;
+      }
+    })
+    .map(r => {
+      // Calculate how far below average they are
+      const hoursWorked = r.durationMinutes / 60;
+      const currentPitchesPerHour = hoursWorked > 0 ? r.todayStats.pitches / hoursWorked : 0;
+      const currentTransitionsPerHour = hoursWorked > 0 ? r.todayStats.transitions / hoursWorked : 0;
+      const pitchPct = r.avgPitchesPerHour ? Math.round((currentPitchesPerHour / r.avgPitchesPerHour) * 100) : null;
+      const transPct = r.avgTransitionsPerHour ? Math.round((currentTransitionsPerHour / r.avgTransitionsPerHour) * 100) : null;
+      return { ...r, pitchPct, transPct };
+    })
+    .sort((a, b) => {
+      // Sort by worst performance first (lowest percentage of average)
+      const aWorst = Math.min(a.pitchPct ?? 100, a.transPct ?? 100);
+      const bWorst = Math.min(b.pitchPct ?? 100, b.transPct ?? 100);
+      return aWorst - bWorst;
+    });
 
   // Working: Everyone else with activity but not in outstanding or need attention
   const outstandingIds = new Set(outstanding.map(r => r.userId));
@@ -169,7 +205,12 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     );
   }
 
-  const RepRow = ({ rep, showRank, rank }: { rep: LiveRepData & { durationMinutes: number }; showRank?: boolean; rank?: number }) => {
+  const RepRow = ({ rep, showRank, rank, paceInfo }: { 
+    rep: LiveRepData & { durationMinutes: number }; 
+    showRank?: boolean; 
+    rank?: number;
+    paceInfo?: { pitchPct: number | null; transPct: number | null };
+  }) => {
     const hasSales = rep.todayStats.fp > 0;
     return (
       <button 
@@ -217,6 +258,12 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
           ) : rep.todayStats.presentations > 0 ? (
             <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
               {rep.todayStats.presentations} pres
+            </span>
+          ) : paceInfo && (paceInfo.pitchPct !== null || paceInfo.transPct !== null) ? (
+            <span className="text-amber-600 dark:text-amber-500 text-xs">
+              {paceInfo.pitchPct !== null && `${paceInfo.pitchPct}% pitch pace`}
+              {paceInfo.pitchPct !== null && paceInfo.transPct !== null && ' · '}
+              {paceInfo.transPct !== null && `${paceInfo.transPct}% trans pace`}
             </span>
           ) : (
             <span className="text-muted-foreground tabular-nums text-xs">
@@ -352,7 +399,11 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {needAttention.map((rep) => (
-                    <RepRow key={rep.userId} rep={rep} />
+                    <RepRow 
+                      key={rep.userId} 
+                      rep={rep} 
+                      paceInfo={{ pitchPct: rep.pitchPct, transPct: rep.transPct }}
+                    />
                   ))}
                 </div>
               </CollapsibleContent>
