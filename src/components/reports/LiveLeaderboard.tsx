@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Target, DoorOpen, Presentation, Clock, Users, MessageSquare, Handshake, ArrowRightLeft, ChevronDown } from "lucide-react";
+import { Trophy, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 
@@ -57,8 +56,7 @@ const formatDuration = (minutes: number) => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Rankings" }: LiveLeaderboardProps) => {
-  const [isRankingsOpen, setIsRankingsOpen] = useState(false);
+export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Activity" }: LiveLeaderboardProps) => {
   const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
 
@@ -68,7 +66,7 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
   };
 
   // Convert LiveRepData to RepDetailData format
-  const getRepDetailData = (rep: LiveRepData) => {
+  const getRepDetailData = (rep: LiveRepData & { durationMinutes?: number }) => {
     if (!rep) return null;
     return {
       userId: rep.userId,
@@ -119,35 +117,24 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       const start = new Date(rep.workStartTime);
       const end = rep.workEndTime ? new Date(rep.workEndTime) : new Date();
       durationMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
-      // Subtract break time
       durationMinutes -= (rep.breakMinutes || 0);
       durationMinutes = Math.max(0, durationMinutes);
     }
     return { ...rep, durationMinutes };
   });
 
-  // Sort by different metrics
-  // FP+ shows ALL reps with FP+, sorted by FP+ desc then PRMR as tiebreaker
-  const byFP = [...repsWithDuration]
-    .filter(r => r.todayStats.fp > 0)
-    .sort((a, b) => b.todayStats.fp - a.todayStats.fp || b.todayStats.prmr - a.todayStats.prmr);
-  // PRMR shows ALL reps with PRMR, sorted by PRMR desc
-  const byPRMR = [...repsWithDuration]
-    .filter(r => r.todayStats.prmr > 0)
-    .sort((a, b) => b.todayStats.prmr - a.todayStats.prmr);
-  const byDuration = [...repsWithDuration].filter(r => r.durationMinutes > 0).sort((a, b) => b.durationMinutes - a.durationMinutes).slice(0, 5);
-  const byDoors = [...repsWithDuration].sort((a, b) => b.todayStats.doors - a.todayStats.doors).slice(0, 5);
-  const byDMs = [...repsWithDuration].sort((a, b) => b.todayStats.dms - a.todayStats.dms).slice(0, 5);
-  const byPitches = [...repsWithDuration].sort((a, b) => b.todayStats.pitches - a.todayStats.pitches).slice(0, 5);
-  const byTransitions = [...repsWithDuration].sort((a, b) => b.todayStats.transitions - a.todayStats.transitions).slice(0, 5);
-  const byPresentations = [...repsWithDuration].sort((a, b) => b.todayStats.presentations - a.todayStats.presentations).slice(0, 5);
-  const byCloses = [...repsWithDuration].sort((a, b) => b.todayStats.closes - a.todayStats.closes).slice(0, 5);
+  // Sort by FP+ desc, then PRMR as tiebreaker, then doors as secondary tiebreaker
+  const sortedReps = [...repsWithDuration].sort((a, b) => {
+    if (b.todayStats.fp !== a.todayStats.fp) return b.todayStats.fp - a.todayStats.fp;
+    if (b.todayStats.prmr !== a.todayStats.prmr) return b.todayStats.prmr - a.todayStats.prmr;
+    return b.todayStats.doors - a.todayStats.doors;
+  });
 
-  // Earliest start time
-  const repsWithStartTime = repsWithDuration.filter(r => r.workStartTime);
-  const earliestDoor = repsWithStartTime.length > 0 
-    ? repsWithStartTime.sort((a, b) => new Date(a.workStartTime!).getTime() - new Date(b.workStartTime!).getTime())[0]
-    : null;
+  // Calculate team totals
+  const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
+  const totalPRMR = repsWithDuration.reduce((sum, r) => sum + r.todayStats.prmr, 0);
+  const totalDoors = repsWithDuration.reduce((sum, r) => sum + r.todayStats.doors, 0);
+  const totalPresentations = repsWithDuration.reduce((sum, r) => sum + r.todayStats.presentations, 0);
 
   if (workingReps.length === 0) {
     return (
@@ -161,109 +148,11 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     );
   }
 
-  const LeaderboardSection = ({ 
-    title, 
-    icon: Icon, 
-    data, 
-    getValue, 
-    formatValue 
-  }: { 
-    title: string; 
-    icon: any; 
-    data: (LiveRepData & { durationMinutes: number })[]; 
-    getValue: (r: LiveRepData) => number;
-    formatValue: (v: number) => string;
-  }) => {
-    const filteredData = data.filter(r => getValue(r) > 0);
-    if (filteredData.length === 0) return null;
-
-    return (
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Icon className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium">{title}</span>
-        </div>
-        <div className="space-y-1.5">
-          {filteredData.map((rep, idx) => (
-            <button 
-              key={rep.userId}
-              onClick={() => handleRepClick(rep)}
-              className={cn(
-                "flex items-center justify-between py-1.5 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
-                idx === 0 && "bg-primary/5"
-              )}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={cn(
-                  "w-5 text-center font-medium flex-shrink-0",
-                  idx === 0 && "text-primary"
-                )}>
-                  {idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
-                </span>
-                <div className="flex flex-col min-w-0">
-                  <span className={cn("truncate", idx === 0 && "font-medium")}>
-                    {stripEmojis(rep.name)}
-                  </span>
-                  {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
-                    <span className="text-xs text-muted-foreground truncate">{rep.teamName}</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span className={cn(
-                  "font-semibold",
-                  idx === 0 && "text-primary"
-                )}>
-                  {formatValue(getValue(rep))}
-                </span>
-                {rep.todayStats.isFinalized && (
-                  <span className="text-xs text-muted-foreground">(final)</span>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const HighlightStat = ({ 
-    label, 
-    rep,
-    value, 
-    icon: Icon 
-  }: { 
-    label: string; 
-    rep: LiveRepData;
-    value: string; 
-    icon: any;
-  }) => (
-    <button 
-      onClick={() => handleRepClick(rep)}
-      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg w-full text-left transition-colors hover:bg-muted/70"
-    >
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-primary" />
-        <div className="flex flex-col">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <span className="text-sm font-medium">{stripEmojis(rep.name)}</span>
-          {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
-            <span className="text-xs text-muted-foreground">{rep.teamName}</span>
-          )}
-        </div>
-      </div>
-      <span className="text-sm font-semibold text-primary">{value}</span>
-    </button>
-  );
-
-  // Calculate team totals
-  const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
-  const totalPRMR = repsWithDuration.reduce((sum, r) => sum + r.todayStats.prmr, 0);
-
   return (
     <>
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -276,206 +165,119 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
           <span className="text-xs text-muted-foreground">{workingReps.length} working</span>
         </div>
 
-        {/* Team Totals */}
-        {(totalFP > 0 || totalPRMR > 0) && (
-          <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-muted/50 rounded-lg">
-            {totalFP > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm text-muted-foreground">Team FP+:</span>
-                <span className="text-sm font-bold text-primary">{totalFP.toFixed(1)}</span>
-              </div>
-            )}
-            {totalPRMR > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm text-muted-foreground">Team PRMR:</span>
-                <span className="text-sm font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
-              </div>
-            )}
+        {/* Team Totals - compact row */}
+        <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-primary/5 rounded-lg text-sm">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">FP+:</span>
+            <span className="font-bold text-primary">{totalFP.toFixed(1)}</span>
           </div>
-        )}
-
-        {/* Key Highlights - FP+, PRMR, Work Duration */}
-        <div className="space-y-2 mb-4">
-          {/* FP+ Leader */}
-          {byFP[0] && byFP[0].todayStats.fp > 0 && (
-            <HighlightStat
-              label="Leading in FP+"
-              rep={byFP[0]}
-              value={`${byFP[0].todayStats.fp.toFixed(1)} FP+`}
-              icon={Target}
-            />
-          )}
-
-          {/* PRMR Leader */}
-          {byPRMR[0] && byPRMR[0].todayStats.prmr > 0 && (
-            <HighlightStat
-              label="Leading in PRMR"
-              rep={byPRMR[0]}
-              value={`$${byPRMR[0].todayStats.prmr.toLocaleString()}`}
-              icon={Target}
-            />
-          )}
-
-          {/* Longest Work Duration */}
-          {byDuration[0] && byDuration[0].durationMinutes > 0 && (
-            <HighlightStat
-              label="Longest Work Session"
-              rep={byDuration[0]}
-              value={formatDuration(byDuration[0].durationMinutes)}
-              icon={Clock}
-            />
-          )}
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">PRMR:</span>
+            <span className="font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Doors:</span>
+            <span className="font-semibold">{totalDoors}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Pres:</span>
+            <span className="font-semibold">{totalPresentations}</span>
+          </div>
         </div>
 
-        {/* Collapsible Full Rankings */}
-        <Collapsible open={isRankingsOpen} onOpenChange={setIsRankingsOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-            <span className="text-sm font-medium">All Rankings</span>
-            <ChevronDown className={cn(
-              "w-4 h-4 transition-transform",
-              isRankingsOpen && "rotate-180"
-            )} />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-4">
-            <div className="space-y-5">
-              {/* Combined Sales Section - FP+ & PRMR together */}
-              {byFP.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">Sales</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {byFP.map((rep, idx) => (
-                      <button 
-                        key={rep.userId}
-                        onClick={() => handleRepClick(rep)}
-                        className={cn(
-                          "flex items-center justify-between py-1.5 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
-                          idx === 0 && "bg-primary/5"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={cn(
-                            "w-5 text-center font-medium flex-shrink-0",
-                            idx === 0 && "text-primary"
-                          )}>
-                            {idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
-                          </span>
-                          <div className="flex flex-col min-w-0">
-                            <span className={cn("truncate", idx === 0 && "font-medium")}>
-                              {stripEmojis(rep.name)}
-                            </span>
-                            {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
-                              <span className="text-xs text-muted-foreground truncate">{rep.teamName}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className={cn(
-                            "font-semibold",
-                            idx === 0 && "text-primary"
-                          )}>
-                            {rep.todayStats.fp.toFixed(1)} FP+
-                          </span>
-                          {rep.todayStats.prmr > 0 && (
-                            <span className="font-semibold text-green-700 dark:text-green-500">
-                              ${rep.todayStats.prmr.toLocaleString()}
-                            </span>
-                          )}
-                          {rep.todayStats.isFinalized && (
-                            <span className="text-xs text-muted-foreground">(final)</span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
+        {/* Simple Table Header */}
+        <div className="grid grid-cols-[1fr_60px_70px_50px_50px] gap-2 px-2 py-1 text-xs text-muted-foreground font-medium border-b border-border/50 mb-1">
+          <span>Rep</span>
+          <span className="text-right">FP+</span>
+          <span className="text-right">PRMR</span>
+          <span className="text-right">Pres</span>
+          <span className="text-right">Doors</span>
+        </div>
+
+        {/* Rep Rows - sorted by production */}
+        <div className="space-y-0.5 max-h-[400px] overflow-y-auto">
+          {sortedReps.map((rep, idx) => {
+            const hasSales = rep.todayStats.fp > 0;
+            return (
+              <button 
+                key={rep.userId}
+                onClick={() => handleRepClick(rep)}
+                className={cn(
+                  "grid grid-cols-[1fr_60px_70px_50px_50px] gap-2 px-2 py-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
+                  hasSales && "bg-primary/5"
+                )}
+              >
+                {/* Name + Team */}
+                <div className="flex items-center gap-2 min-w-0">
+                  {hasSales && idx < 3 ? (
+                    <span className={cn(
+                      "w-5 flex-shrink-0 text-center",
+                      idx === 0 && "text-primary"
+                    )}>
+                      {idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
+                    </span>
+                  ) : (
+                    <span className="w-5 flex-shrink-0" />
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className={cn("truncate text-sm", hasSales && idx === 0 && "font-medium")}>
+                      {stripEmojis(rep.name)}
+                    </span>
+                    {rep.workStartTime && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <Clock className="w-2.5 h-2.5" />
+                        {formatTime(rep.workStartTime)}
+                        {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* Earliest Start */}
-              {earliestDoor && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">First Out</span>
-                  </div>
-                  <button 
-                    onClick={() => handleRepClick(earliestDoor)}
-                    className="flex items-center justify-between py-1.5 px-2 rounded-md text-sm bg-primary/5 w-full text-left hover:bg-primary/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-primary" />
-                      <div className="flex flex-col">
-                        <span className="font-medium">{stripEmojis(earliestDoor.name)}</span>
-                        {earliestDoor.teamName && earliestDoor.teamName !== 'No Team' && earliestDoor.teamName !== 'Unknown Team' && (
-                          <span className="text-xs text-muted-foreground">{earliestDoor.teamName}</span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="font-semibold text-primary">{formatTime(earliestDoor.workStartTime)}</span>
-                  </button>
-                </div>
-              )}
-              
-              <LeaderboardSection
-                title="Presentations"
-                icon={Presentation}
-                data={byPresentations}
-                getValue={(r) => r.todayStats.presentations}
-                formatValue={(v) => v.toString()}
-              />
+                {/* FP+ */}
+                <span className={cn(
+                  "text-right font-semibold tabular-nums",
+                  rep.todayStats.fp > 0 ? "text-primary" : "text-muted-foreground/50"
+                )}>
+                  {rep.todayStats.fp > 0 ? rep.todayStats.fp.toFixed(1) : "–"}
+                </span>
 
-              <LeaderboardSection
-                title="Closes"
-                icon={Handshake}
-                data={byCloses}
-                getValue={(r) => r.todayStats.closes}
-                formatValue={(v) => v.toString()}
-              />
+                {/* PRMR */}
+                <span className={cn(
+                  "text-right font-semibold tabular-nums",
+                  rep.todayStats.prmr > 0 ? "text-green-700 dark:text-green-500" : "text-muted-foreground/50"
+                )}>
+                  {rep.todayStats.prmr > 0 ? `$${rep.todayStats.prmr.toLocaleString()}` : "–"}
+                </span>
 
-              <LeaderboardSection
-                title="Transitions"
-                icon={ArrowRightLeft}
-                data={byTransitions}
-                getValue={(r) => r.todayStats.transitions}
-                formatValue={(v) => v.toString()}
-              />
+                {/* Presentations */}
+                <span className={cn(
+                  "text-right tabular-nums",
+                  rep.todayStats.presentations > 0 ? "font-medium" : "text-muted-foreground/50"
+                )}>
+                  {rep.todayStats.presentations || "–"}
+                </span>
 
-              <LeaderboardSection
-                title="Pitches"
-                icon={MessageSquare}
-                data={byPitches}
-                getValue={(r) => r.todayStats.pitches}
-                formatValue={(v) => v.toString()}
-              />
-
-              <LeaderboardSection
-                title="Decision Makers"
-                icon={Users}
-                data={byDMs}
-                getValue={(r) => r.todayStats.dms}
-                formatValue={(v) => v.toString()}
-              />
-
-              <LeaderboardSection
-                title="Doors"
-                icon={DoorOpen}
-                data={byDoors}
-                getValue={(r) => r.todayStats.doors}
-                formatValue={(v) => v.toString()}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+                {/* Doors */}
+                <span className={cn(
+                  "text-right tabular-nums",
+                  rep.todayStats.doors > 0 ? "" : "text-muted-foreground/50"
+                )}>
+                  {rep.todayStats.doors || "–"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </Card>
 
-      <RepDetailDrawer
-        open={repDrawerOpen}
-        onOpenChange={setRepDrawerOpen}
-        rep={getRepDetailData(selectedRep!)}
-        daysInRange={1}
-      />
+      {/* Rep Detail Drawer */}
+      {selectedRep && (
+        <RepDetailDrawer
+          open={repDrawerOpen}
+          onOpenChange={setRepDrawerOpen}
+          rep={getRepDetailData(selectedRep)}
+        />
+      )}
     </>
   );
 };
