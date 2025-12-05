@@ -115,6 +115,7 @@ export interface InsightsData {
     fp: number;
     efp: number;
     prmr: number;
+    hoursWorked: number;
   }>;
 }
 
@@ -676,6 +677,25 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       // prmr field IS total PRMR, EFP = prmr / 85
       const dailyTrend = rangeEntries.map(entry => {
         const totalPrmr = entry.prmr || 0;
+        
+        // Calculate hours worked for this entry
+        let hoursWorked = 0;
+        if (entry.work_start_time && entry.work_end_time) {
+          const start = new Date(entry.work_start_time);
+          const end = new Date(entry.work_end_time);
+          let minutes = differenceInMinutes(end, start);
+          
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((breakPeriod: any) => {
+              const breakStart = new Date(breakPeriod.start);
+              const breakEnd = new Date(breakPeriod.end);
+              minutes -= differenceInMinutes(breakEnd, breakStart);
+            });
+          }
+          
+          hoursWorked = minutes / 60;
+        }
+        
         return {
           date: entry.entry_date,
           doors: entry.doors_knocked || 0,
@@ -685,6 +705,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
           fp: entry.fp_plus || 0,
           efp: totalPrmr / 85,
           prmr: totalPrmr,
+          hoursWorked,
         };
       }).sort((a, b) => a.date.localeCompare(b.date));
 

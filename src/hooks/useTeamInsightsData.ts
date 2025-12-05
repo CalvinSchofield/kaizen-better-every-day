@@ -111,6 +111,7 @@ interface TeamInsightsData {
     fp: number;
     efp: number;
     prmr: number;
+    hoursWorked: number;
   }>;
   dayOfWeekData: {
     [key: string]: {
@@ -552,6 +553,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
               fp: 0,
               prmr: 0,
               efp: 0,
+              hoursWorked: 0,
             });
           }
           const day = acc.get(date)!;
@@ -563,6 +565,22 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           const entryTotalPrmr = entry.prmr || 0;
           day.prmr += entryTotalPrmr;
           day.efp += entryTotalPrmr / 85;
+          
+          // Calculate hours worked for this entry
+          if (entry.work_start_time && entry.work_end_time) {
+            const start = new Date(entry.work_start_time);
+            const end = new Date(entry.work_end_time);
+            let minutes = differenceInMinutes(end, start);
+            
+            if (entry.break_periods && Array.isArray(entry.break_periods)) {
+              entry.break_periods.forEach((bp: any) => {
+                minutes -= differenceInMinutes(new Date(bp.end), new Date(bp.start));
+              });
+            }
+            
+            day.hoursWorked += minutes / 60;
+          }
+          
           return acc;
         }, new Map())
       ).map(([_, value]) => value).sort((a, b) => a.date.localeCompare(b.date));
