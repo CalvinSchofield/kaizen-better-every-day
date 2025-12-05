@@ -304,39 +304,50 @@ export const LeaderboardCard = () => {
                 );
               })()}
 
-              {/* FP+ Rankings - Show everyone with FP+ */}
+              {/* Combined FP+ & PRMR Rankings */}
               {(() => {
                 const fpRankings = todayBoard.rankings.fp_plus.filter(r => r.value > 0);
+                const prmrMap = new Map(todayBoard.rankings.prmr.map(r => [r.userId, r.value]));
+                
                 if (fpRankings.length === 0) return null;
                 
                 const userRank = fpRankings.findIndex(r => r.userId === currentUserId) + 1;
                 const userEntry = fpRankings.find(r => r.userId === currentUserId);
+                const userPrmr = userEntry ? prmrMap.get(userEntry.userId) || 0 : 0;
                 
                 return (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">FP+</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">Sales</h3>
                     <div className="space-y-1">
-                      {fpRankings.slice(0, 5).map((entry, idx) => (
-                        <div 
-                          key={entry.userId}
-                          className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
-                            {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                            <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
-                              {entry.userId === currentUserId ? 'You' : entry.name}
-                              <WorkingIndicator 
-                                isWorking={entry.isWorking || false} 
-                                isCurrentUser={entry.userId === currentUserId}
-                              />
-                            </span>
+                      {fpRankings.slice(0, 5).map((entry, idx) => {
+                        const prmr = prmrMap.get(entry.userId) || 0;
+                        return (
+                          <div 
+                            key={entry.userId}
+                            className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                              entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
+                              {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
+                              <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                                {entry.userId === currentUserId ? 'You' : entry.name}
+                                <WorkingIndicator 
+                                  isWorking={entry.isWorking || false} 
+                                  isCurrentUser={entry.userId === currentUserId}
+                                />
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold">{entry.value.toFixed(1)} FP+</span>
+                              {prmr > 0 && (
+                                <span className="text-sm font-bold text-green-700 dark:text-green-500">${prmr.toFixed(0)}</span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-sm font-bold">{entry.value.toFixed(1)}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {userRank > 5 && userEntry && (
                         <>
                           <div className="text-center text-xs text-muted-foreground py-1">···</div>
@@ -346,58 +357,12 @@ export const LeaderboardCard = () => {
                               <span className="text-primary">⭐</span>
                               <span className="text-sm font-bold text-primary">You</span>
                             </div>
-                            <span className="text-sm font-bold">{userEntry.value.toFixed(1)}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* PRMR Rankings - Show everyone with PRMR */}
-              {(() => {
-                const prmrRankings = todayBoard.rankings.prmr.filter(r => r.value > 0);
-                if (prmrRankings.length === 0) return null;
-                
-                const userRank = prmrRankings.findIndex(r => r.userId === currentUserId) + 1;
-                const userEntry = prmrRankings.find(r => r.userId === currentUserId);
-                
-                return (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground">PRMR</h3>
-                    <div className="space-y-1">
-                      {prmrRankings.slice(0, 5).map((entry, idx) => (
-                        <div 
-                          key={entry.userId}
-                          className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
-                            {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                            <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
-                              {entry.userId === currentUserId ? 'You' : entry.name}
-                              <WorkingIndicator 
-                                isWorking={entry.isWorking || false} 
-                                isCurrentUser={entry.userId === currentUserId}
-                              />
-                            </span>
-                          </div>
-                          <span className="text-sm font-bold text-green-700 dark:text-green-500">${entry.value.toFixed(0)}</span>
-                        </div>
-                      ))}
-                      {userRank > 5 && userEntry && (
-                        <>
-                          <div className="text-center text-xs text-muted-foreground py-1">···</div>
-                          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-muted-foreground w-6">#{userRank}</span>
-                              <span className="text-primary">⭐</span>
-                              <span className="text-sm font-bold text-primary">You</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold">{userEntry.value.toFixed(1)} FP+</span>
+                              {userPrmr > 0 && (
+                                <span className="text-sm font-bold text-green-700 dark:text-green-500">${userPrmr.toFixed(0)}</span>
+                              )}
                             </div>
-                            <span className="text-sm font-bold text-green-700 dark:text-green-500">${userEntry.value.toFixed(0)}</span>
                           </div>
                         </>
                       )}
