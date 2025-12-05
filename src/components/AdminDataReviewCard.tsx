@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Check, X, Clock, Loader2, Eraser, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAdminDataReview, DataIssue } from '@/hooks/useAdminDataReview';
 import { RepDetailDrawer } from '@/components/reports/RepDetailDrawer';
@@ -154,11 +154,7 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixi
                   className="h-8 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-100"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {isTimelineOpen ? (
-                    <ChevronUp className="w-3 h-3" />
-                  ) : (
-                    <ChevronDown className="w-3 h-3" />
-                  )}
+                  {isTimelineOpen ? 'Hide' : 'Times'}
                 </Button>
               </CollapsibleTrigger>
             )}
@@ -195,15 +191,17 @@ const IssueRow = ({ issue, onOkay, onEdit, onFixEndTime, onClearActivity, isFixi
                 )}
               </Button>
             )}
-            <button
-              className="p-2 rounded-full text-green-600 hover:bg-green-100 active:bg-green-200 transition-colors"
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-100"
               onClick={(e) => {
                 e.stopPropagation();
                 onOkay();
               }}
             >
-              <Check className="w-5 h-5" />
-            </button>
+              {isRapidTapping ? 'OK' : <Check className="w-4 h-4" />}
+            </Button>
           </div>
         </div>
         

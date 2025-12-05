@@ -88,13 +88,18 @@ export const useAdminDataReview = () => {
   }, []);
 
   // Get date range for checking (last 3 days to catch all forgotten entries)
+  // Use LOCAL dates, not UTC, to match how entry_date is stored
   const getDateRange = () => {
-    const today = new Date();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const threeDaysAgoStr = `${threeDaysAgo.getFullYear()}-${String(threeDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(threeDaysAgo.getDate()).padStart(2, '0')}`;
+    
     return {
-      today: today.toISOString().split('T')[0],
-      threeDaysAgo: threeDaysAgo.toISOString().split('T')[0],
+      today,
+      threeDaysAgo: threeDaysAgoStr,
     };
   };
 
