@@ -62,6 +62,28 @@ const calculateBreakMinutes = (breakPeriods: any): number => {
   return totalMinutes;
 };
 
+// Calculate running totals from sales_log for unfinalized entries
+const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number } => {
+  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0 };
+  
+  let fp = 0;
+  let prmr = 0;
+  
+  for (const sale of salesLog) {
+    const salePrmr = Number(sale.prmr) || 0;
+    prmr += salePrmr;
+    
+    if (sale.type === 'fp') {
+      fp += 1;
+    } else if (sale.type === 'upgrade') {
+      // Upgrade FP+ = PRMR / 85
+      fp += salePrmr / 85;
+    }
+  }
+  
+  return { fp, prmr };
+};
+
 export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYesterdayDataParams) => {
   return useQuery({
     queryKey: ['team-yesterday-data', userIds, excludeUserIds],
@@ -126,9 +148,25 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
         const teamName = teamInfo?.teamName || (repInfo?.team_leader ? `Team ${repInfo.team_leader}` : 'Unknown Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || 'Unknown Group';
 
+        // Calculate FP+ and PRMR - use sales_log for unfinalized entries
+        let fpValue: number;
+        let prmrValue: number;
+        
+        if (entry.is_finalized) {
+          fpValue = entry.fp_plus || 0;
+          prmrValue = entry.prmr || 0;
+        } else {
+          const salesLog = entry.sales_log as any[];
+          const fromLog = calculateFromSalesLog(salesLog);
+          const fpFromColumn = entry.fp_plus || 0;
+          const prmrFromColumn = entry.prmr || 0;
+          fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : fpFromColumn;
+          prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : prmrFromColumn;
+        }
+
         const hasActivity = 
           (entry.doors_knocked ?? 0) > 0 ||
-          (entry.fp_plus ?? 0) > 0;
+          fpValue > 0;
 
         if (!hasActivity) return;
 
@@ -154,8 +192,8 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
             transitions: entry.transitions || 0,
             presentations: entry.presentations || 0,
             closes: entry.closes || 0,
-            fp: entry.fp_plus || 0,
-            prmr: entry.prmr || 0,
+            fp: fpValue,
+            prmr: prmrValue,
           },
           workStartTime: entry.work_start_time || undefined,
           workEndTime: entry.work_end_time || undefined,
