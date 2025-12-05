@@ -136,25 +136,22 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       return b.todayStats.presentations - a.todayStats.presentations;
     });
 
-  // Working: Has activity but no presentations/FP+ yet, and decent door count (10+) or recent start
-  const working = repsWithDuration
-    .filter(r => 
-      r.todayStats.fp === 0 && 
-      r.todayStats.presentations === 0 &&
-      (r.todayStats.doors >= 10 || r.todayStats.transitions > 0 || r.durationMinutes < 60)
-    )
-    .sort((a, b) => b.todayStats.doors - a.todayStats.doors);
-
-  // Need Attention: Low activity relative to time worked (under 10 doors and worked 1+ hour), or no recent activity
+  // Need Attention: Under 5 doors after 30+ minutes worked, no sales/presentations
   const needAttention = repsWithDuration
     .filter(r => 
       r.todayStats.fp === 0 && 
       r.todayStats.presentations === 0 &&
-      r.todayStats.doors < 10 &&
-      r.todayStats.transitions === 0 &&
-      r.durationMinutes >= 60
+      r.todayStats.doors < 5 &&
+      r.durationMinutes >= 30
     )
-    .sort((a, b) => a.todayStats.doors - b.todayStats.doors);
+    .sort((a, b) => b.durationMinutes - a.durationMinutes); // Most time worked first (worst)
+
+  // Working: Everyone else with activity but not in outstanding or need attention
+  const outstandingIds = new Set(outstanding.map(r => r.userId));
+  const attentionIds = new Set(needAttention.map(r => r.userId));
+  const working = repsWithDuration
+    .filter(r => !outstandingIds.has(r.userId) && !attentionIds.has(r.userId))
+    .sort((a, b) => b.todayStats.doors - a.todayStats.doors);
 
   // Calculate team totals
   const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
