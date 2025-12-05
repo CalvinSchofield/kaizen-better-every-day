@@ -21,6 +21,10 @@ interface LiveRepData {
     upgradePrmr?: number;
     isFinalized?: boolean;
   };
+  // Historical averages for pace comparison
+  avgPitchesPerHour?: number;
+  avgTransitionsPerHour?: number;
+  avgDoorsPerHour?: number;
   workStartTime?: string;
   workEndTime?: string;
   breakMinutes?: number;
@@ -108,16 +112,16 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
 
       const repsMap = new Map(repsData?.map(r => [r.user_id, r]) || []);
 
-      // Fetch recent entries (last 3 days) - include BOTH finalized and unfinalized
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-      const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
+      // Fetch recent entries (last 14 days for historical averages) - include BOTH finalized and unfinalized
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().split('T')[0];
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
         .select("*, sales_log")
         .in("user_id", filteredUserIds)
-        .gte("entry_date", threeDaysAgoStr)
+        .gte("entry_date", fourteenDaysAgoStr)
         .order("entry_date", { ascending: false });
 
       if (error) throw error;
@@ -158,6 +162,45 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         // Use teamName from cache, or fallback to "Team [leader name]"
         const teamName = teamInfo?.teamName || (repInfo?.team_leader ? `Team ${repInfo.team_leader}` : 'Unknown Team');
         const mgmtGroupName = teamInfo?.mgmtGroupName || 'Unknown Group';
+
+        // Calculate historical averages from past finalized entries
+        const pastEntries = userEntries.filter(e => 
+          e.entry_date !== repToday && 
+          e.is_finalized && 
+          e.work_start_time && 
+          e.work_end_time
+        );
+        
+        let avgPitchesPerHour = 0;
+        let avgTransitionsPerHour = 0;
+        let avgDoorsPerHour = 0;
+        
+        if (pastEntries.length > 0) {
+          let totalPitches = 0;
+          let totalTransitions = 0;
+          let totalDoors = 0;
+          let totalHours = 0;
+          
+          for (const entry of pastEntries) {
+            const start = new Date(entry.work_start_time);
+            const end = new Date(entry.work_end_time);
+            const breakMins = calculateBreakMinutes(entry.break_periods);
+            const hours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60) - breakMins / 60);
+            
+            if (hours > 0.5) { // Only count entries with at least 30 min of work
+              totalPitches += entry.pitches || 0;
+              totalTransitions += entry.transitions || 0;
+              totalDoors += entry.doors_knocked || 0;
+              totalHours += hours;
+            }
+          }
+          
+          if (totalHours > 0) {
+            avgPitchesPerHour = totalPitches / totalHours;
+            avgTransitionsPerHour = totalTransitions / totalHours;
+            avgDoorsPerHour = totalDoors / totalHours;
+          }
+        }
 
         // Find today's entry - prioritize finalized if both exist
         const todayEntries = userEntries.filter(e => e.entry_date === repToday);
@@ -224,6 +267,9 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
                 upgradePrmr: upgradePrmrValue,
                 isFinalized: todayEntry.is_finalized || false,
               },
+              avgPitchesPerHour,
+              avgTransitionsPerHour,
+              avgDoorsPerHour,
               workStartTime: todayEntry.work_start_time || undefined,
               workEndTime: todayEntry.work_end_time || undefined,
               breakMinutes: calculateBreakMinutes(todayEntry.break_periods),
