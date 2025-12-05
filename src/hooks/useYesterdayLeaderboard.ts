@@ -55,6 +55,30 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
         ? entries?.filter(e => repsMap.get(e.user_id)?.year === filterByYear) || []
         : entries || [];
 
+      // Helper to calculate running totals from sales_log for unfinalized entries
+      const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradePrmr: number } => {
+        if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradePrmr: 0 };
+        
+        let fp = 0;
+        let prmr = 0;
+        let upgradePrmr = 0;
+        
+        for (const sale of salesLog) {
+          const salePrmr = Number(sale.prmr) || 0;
+          prmr += salePrmr;
+          
+          if (sale.type === 'fp') {
+            fp += 1;
+          } else if (sale.type === 'upgrade') {
+            // Upgrade FP+ = PRMR / 85
+            fp += salePrmr / 85;
+            upgradePrmr += salePrmr;
+          }
+        }
+        
+        return { fp, prmr, upgradePrmr };
+      };
+
       const leaderboard: YesterdayLeaderboard = {
         mostDoors: null,
         mostDecisionMakers: null,
@@ -96,23 +120,54 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
           leaderboard.mostPresentations = { userId: entry.user_id, name: cleanName, value: entry.presentations };
         }
 
-        if (entry.fp_plus && entry.fp_plus > 0 && (!leaderboard.mostFP || entry.fp_plus > leaderboard.mostFP.value)) {
-          leaderboard.mostFP = { userId: entry.user_id, name: cleanName, value: entry.fp_plus };
+        // Calculate FP+ - use sales_log for unfinalized, columns for finalized
+        let fpValue: number;
+        if (entry.is_finalized) {
+          fpValue = entry.fp_plus || 0;
+        } else {
+          const salesLog = entry.sales_log as any[];
+          const fromLog = calculateFromSalesLog(salesLog);
+          const fromColumn = entry.fp_plus || 0;
+          fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
+        }
+        
+        if (fpValue > 0 && (!leaderboard.mostFP || fpValue > leaderboard.mostFP.value)) {
+          leaderboard.mostFP = { userId: entry.user_id, name: cleanName, value: fpValue };
         }
 
-        // prmr field IS total PRMR (already includes upgrade_prmr as subset)
-        const totalPrmr = entry.prmr || 0;
-        if (totalPrmr > 0 && (!leaderboard.mostPRMR || totalPrmr > leaderboard.mostPRMR.value)) {
-          leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: totalPrmr };
+        // Calculate PRMR - use sales_log for unfinalized, columns for finalized
+        let prmrValue: number;
+        if (entry.is_finalized) {
+          prmrValue = entry.prmr || 0;
+        } else {
+          const salesLog = entry.sales_log as any[];
+          const fromLog = calculateFromSalesLog(salesLog);
+          const fromColumn = entry.prmr || 0;
+          prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumn;
+        }
+        
+        if (prmrValue > 0 && (!leaderboard.mostPRMR || prmrValue > leaderboard.mostPRMR.value)) {
+          leaderboard.mostPRMR = { userId: entry.user_id, name: cleanName, value: prmrValue };
         }
 
-        if (entry.upgrade_prmr && entry.upgrade_prmr > 0) {
-          const upgradeFp = entry.upgrade_prmr / 85;
+        // Calculate upgrade PRMR - use sales_log for unfinalized, columns for finalized
+        let upgradePrmrValue: number;
+        if (entry.is_finalized) {
+          upgradePrmrValue = entry.upgrade_prmr || 0;
+        } else {
+          const salesLog = entry.sales_log as any[];
+          const fromLog = calculateFromSalesLog(salesLog);
+          const fromColumn = entry.upgrade_prmr || 0;
+          upgradePrmrValue = (salesLog && salesLog.length > 0) ? fromLog.upgradePrmr : fromColumn;
+        }
+
+        if (upgradePrmrValue > 0) {
+          const upgradeFp = upgradePrmrValue / 85;
           if (!leaderboard.mostUpgradeFP || upgradeFp > leaderboard.mostUpgradeFP.value) {
             leaderboard.mostUpgradeFP = { userId: entry.user_id, name: cleanName, value: upgradeFp };
           }
-          if (!leaderboard.mostUpgradePRMR || entry.upgrade_prmr > leaderboard.mostUpgradePRMR.value) {
-            leaderboard.mostUpgradePRMR = { userId: entry.user_id, name: cleanName, value: entry.upgrade_prmr };
+          if (!leaderboard.mostUpgradePRMR || upgradePrmrValue > leaderboard.mostUpgradePRMR.value) {
+            leaderboard.mostUpgradePRMR = { userId: entry.user_id, name: cleanName, value: upgradePrmrValue };
           }
         }
 
