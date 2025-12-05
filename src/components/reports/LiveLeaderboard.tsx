@@ -127,8 +127,14 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
   });
 
   // Sort by different metrics
-  const byFP = [...repsWithDuration].sort((a, b) => b.todayStats.fp - a.todayStats.fp || b.todayStats.prmr - a.todayStats.prmr).slice(0, 5);
-  const byPRMR = [...repsWithDuration].sort((a, b) => b.todayStats.prmr - a.todayStats.prmr).slice(0, 5);
+  // FP+ shows ALL reps with FP+, sorted by FP+ desc then PRMR as tiebreaker
+  const byFP = [...repsWithDuration]
+    .filter(r => r.todayStats.fp > 0)
+    .sort((a, b) => b.todayStats.fp - a.todayStats.fp || b.todayStats.prmr - a.todayStats.prmr);
+  // PRMR shows ALL reps with PRMR, sorted by PRMR desc
+  const byPRMR = [...repsWithDuration]
+    .filter(r => r.todayStats.prmr > 0)
+    .sort((a, b) => b.todayStats.prmr - a.todayStats.prmr);
   const byDuration = [...repsWithDuration].filter(r => r.durationMinutes > 0).sort((a, b) => b.durationMinutes - a.durationMinutes).slice(0, 5);
   const byDoors = [...repsWithDuration].sort((a, b) => b.todayStats.doors - a.todayStats.doors).slice(0, 5);
   const byDMs = [...repsWithDuration].sort((a, b) => b.todayStats.dms - a.todayStats.dms).slice(0, 5);
