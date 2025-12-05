@@ -23,6 +23,23 @@ interface YesterdayLeaderboard {
   latestDoor: LeaderboardEntry | null;
 }
 
+// Extract local time-of-day as minutes since midnight
+const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
+  try {
+    const date = new Date(timestamp);
+    const localTime = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    }).format(date);
+    const [hours, minutes] = localTime.split(':').map(Number);
+    return hours * 60 + minutes;
+  } catch {
+    return 0;
+  }
+};
+
 export const useYesterdayLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["yesterday-leaderboard", filterByYear],
@@ -195,39 +212,61 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
 
         if (entry.counter_timestamps) {
           const timestamps = entry.counter_timestamps as any;
+          const userTimezone = entry.timezone || 'America/Los_Angeles';
+          
           if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
-            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts));
-            const earliest = new Date(Math.min(...doorTimestamps.map(d => d.getTime())));
-            const latest = new Date(Math.max(...doorTimestamps.map(d => d.getTime())));
-
-            const userTimezone = entry.timezone || 'America/Denver';
-            const earliestTime = earliest.toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
-              minute: '2-digit',
-              timeZone: userTimezone 
+            // Find earliest and latest by LOCAL time-of-day
+            let earliestMins = Infinity;
+            let latestMins = -1;
+            let earliestTs = '';
+            let latestTs = '';
+            
+            timestamps.doors_knocked.forEach((ts: string) => {
+              const mins = getLocalMinutesOfDay(ts, userTimezone);
+              if (mins < earliestMins) {
+                earliestMins = mins;
+                earliestTs = ts;
+              }
+              if (mins > latestMins) {
+                latestMins = mins;
+                latestTs = ts;
+              }
             });
-            const latestTime = latest.toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
-              minute: '2-digit',
-              timeZone: userTimezone 
-            });
 
-            if (!leaderboard.earliestDoor || earliest.getTime() < (leaderboard.earliestDoor.value || Infinity)) {
-              leaderboard.earliestDoor = { 
-                userId: entry.user_id, 
-                name: cleanName, 
-                value: earliest.getTime(),
-                timeValue: earliestTime
-              };
+            if (earliestTs) {
+              const earliestTime = new Date(earliestTs).toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                timeZone: userTimezone 
+              });
+              
+              const currentEarliestMins = leaderboard.earliestDoor?.value || Infinity;
+              if (earliestMins < currentEarliestMins) {
+                leaderboard.earliestDoor = { 
+                  userId: entry.user_id, 
+                  name: cleanName, 
+                  value: earliestMins,
+                  timeValue: earliestTime
+                };
+              }
             }
 
-            if (!leaderboard.latestDoor || latest.getTime() > (leaderboard.latestDoor.value || 0)) {
-              leaderboard.latestDoor = { 
-                userId: entry.user_id, 
-                name: cleanName, 
-                value: latest.getTime(),
-                timeValue: latestTime
-              };
+            if (latestTs) {
+              const latestTime = new Date(latestTs).toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                timeZone: userTimezone 
+              });
+              
+              const currentLatestMins = leaderboard.latestDoor?.value || -1;
+              if (latestMins > currentLatestMins) {
+                leaderboard.latestDoor = { 
+                  userId: entry.user_id, 
+                  name: cleanName, 
+                  value: latestMins,
+                  timeValue: latestTime
+                };
+              }
             }
           }
         }
