@@ -256,21 +256,43 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     </button>
   );
 
+  // Calculate team totals
+  const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
+  const totalPRMR = repsWithDuration.reduce((sum, r) => sum + r.todayStats.prmr, 0);
+
   return (
     <>
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">{title}</h3>
-          {hasWorkingReps && (
-            <div className="flex items-center gap-1.5">
-              <div className="relative">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              {hasWorkingReps && (
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
-              </div>
-              <span className="text-xs text-muted-foreground">Live</span>
+              )}
             </div>
-          )}
+            <h3 className="font-semibold">{title}</h3>
+          </div>
+          <span className="text-xs text-muted-foreground">{workingReps.length} working</span>
         </div>
+
+        {/* Team Totals */}
+        {(totalFP > 0 || totalPRMR > 0) && (
+          <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-muted/50 rounded-lg">
+            {totalFP > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm text-muted-foreground">Team FP+:</span>
+                <span className="text-sm font-bold text-primary">{totalFP.toFixed(1)}</span>
+              </div>
+            )}
+            {totalPRMR > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm text-muted-foreground">Team PRMR:</span>
+                <span className="text-sm font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Key Highlights - FP+, PRMR, Work Duration */}
         <div className="space-y-2 mb-4">
