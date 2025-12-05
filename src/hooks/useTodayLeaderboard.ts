@@ -133,7 +133,22 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
       };
 
       // Create FP+ ranking - use sales_log for unfinalized, columns for finalized
+      // Include PRMR as tiebreaker
       const createFpRanking = (): RankingEntry[] => {
+        // First, build a map of user_id to their PRMR for tiebreaker
+        const prmrByUser = new Map<string, number>();
+        filteredEntries.forEach(entry => {
+          let prmrValue: number;
+          if (entry.is_finalized) {
+            prmrValue = Number(entry.prmr) || 0;
+          } else {
+            const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+            const fromColumns = Number(entry.prmr) || 0;
+            prmrValue = Math.max(fromLog.prmr, fromColumns);
+          }
+          prmrByUser.set(entry.user_id, prmrValue);
+        });
+
         return filteredEntries
           .map(entry => {
             const repInfo = repsMap.get(entry.user_id);
@@ -164,7 +179,13 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
             return { userId: entry.user_id, name: cleanName, value, isWorking };
           })
           .filter((e): e is NonNullable<typeof e> => e !== null)
-          .sort((a, b) => b.value - a.value);
+          .sort((a, b) => {
+            // Sort by FP+ first, then PRMR as tiebreaker
+            if (b.value !== a.value) return b.value - a.value;
+            const aPrmr = prmrByUser.get(a.userId) || 0;
+            const bPrmr = prmrByUser.get(b.userId) || 0;
+            return bPrmr - aPrmr;
+          });
       };
 
       // Create PRMR ranking - use sales_log for unfinalized, columns for finalized
