@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
@@ -39,42 +39,42 @@ export interface DataIssue {
   };
 }
 
-const DISMISSED_KEY = 'admin-data-review-dismissed';
-
 export const useAdminDataReview = () => {
+  const queryClient = useQueryClient();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [dismissedIssues, setDismissedIssues] = useState<string[]>([]);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const [isAfter9PM, setIsAfter9PM] = useState(false);
+  const [lastDismissed, setLastDismissed] = useState<{ issueId: string; entryId: string } | null>(null);
 
   // Check if admin
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setIsAdmin(user?.email === ADMIN_EMAIL);
+      if (user?.email === ADMIN_EMAIL) {
+        setAdminUserId(user.id);
+      }
     };
     checkAdmin();
   }, []);
 
-  // Load dismissed issues from localStorage - persist indefinitely by entry ID
-  useEffect(() => {
-    const stored = localStorage.getItem(DISMISSED_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Support both old format (with date) and new format (just array)
-        if (Array.isArray(parsed)) {
-          setDismissedIssues(parsed);
-        } else if (parsed.issues) {
-          // Migrate old format - keep all issues, ignore date
-          setDismissedIssues(parsed.issues);
-          // Save in new format
-          localStorage.setItem(DISMISSED_KEY, JSON.stringify(parsed.issues));
-        }
-      } catch {
-        localStorage.removeItem(DISMISSED_KEY);
+  // Fetch dismissed issues from database
+  const { data: dismissedIssues = [] } = useQuery({
+    queryKey: ['admin-dismissed-issues', adminUserId],
+    queryFn: async () => {
+      if (!adminUserId) return [];
+      const { data, error } = await supabase
+        .from('admin_dismissed_issues')
+        .select('issue_id')
+        .eq('admin_user_id', adminUserId);
+      if (error) {
+        console.error('Error fetching dismissed issues:', error);
+        return [];
       }
-    }
-  }, []);
+      return data.map(d => d.issue_id);
+    },
+    enabled: !!adminUserId,
+  });
 
   // Check time - show admin review card at 9 PM so admin can review at night
   useEffect(() => {
@@ -334,14 +334,51 @@ export const useAdminDataReview = () => {
   // Filter out dismissed issues
   const activeIssues = issues.filter(issue => !dismissedIssues.includes(issue.id));
 
-  const dismissIssue = useCallback((issueId: string) => {
-    setDismissedIssues(prev => {
-      const updated = [...prev, issueId];
-      // Save to localStorage - persist indefinitely
-      localStorage.setItem(DISMISSED_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+  // Mutation to dismiss an issue
+  const dismissMutation = useMutation({
+    mutationFn: async ({ issueId, entryId }: { issueId: string; entryId: string }) => {
+      if (!adminUserId) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('admin_dismissed_issues')
+        .upsert({
+          admin_user_id: adminUserId,
+          issue_id: issueId,
+          entry_id: entryId,
+        }, { onConflict: 'admin_user_id,issue_id' });
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      setLastDismissed({ issueId: variables.issueId, entryId: variables.entryId });
+      queryClient.invalidateQueries({ queryKey: ['admin-dismissed-issues'] });
+    },
+  });
+
+  // Mutation to undo a dismissal
+  const undoMutation = useMutation({
+    mutationFn: async (issueId: string) => {
+      if (!adminUserId) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('admin_dismissed_issues')
+        .delete()
+        .eq('admin_user_id', adminUserId)
+        .eq('issue_id', issueId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setLastDismissed(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-dismissed-issues'] });
+    },
+  });
+
+  const dismissIssue = useCallback((issueId: string, entryId: string) => {
+    dismissMutation.mutate({ issueId, entryId });
+  }, [dismissMutation]);
+
+  const undoLastDismiss = useCallback(() => {
+    if (lastDismissed) {
+      undoMutation.mutate(lastDismissed.issueId);
+    }
+  }, [lastDismissed, undoMutation]);
 
   const shouldShowCard = isAdmin && (isAfter9PM || activeIssues.length > 0) && activeIssues.length > 0;
 
@@ -352,6 +389,8 @@ export const useAdminDataReview = () => {
     isAfter9PM,
     shouldShowCard,
     dismissIssue,
+    undoLastDismiss,
+    lastDismissed,
     refetch,
   };
 };
