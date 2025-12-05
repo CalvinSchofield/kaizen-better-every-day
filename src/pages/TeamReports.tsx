@@ -787,7 +787,7 @@ const TeamReports = () => {
                     <div className="px-4 pb-4 space-y-3">
                       {insightsData.repBreakdown
                         .filter((rep: any) => rep.doors > 0 || rep.fp > 0)
-                        .sort((a: any, b: any) => b.fp - a.fp)
+                        .sort((a: any, b: any) => b.fp - a.fp || b.prmr - a.prmr)
                         .map((rep: any, idx: number) => (
                         <button 
                           key={rep.userId}

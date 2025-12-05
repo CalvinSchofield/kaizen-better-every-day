@@ -163,9 +163,10 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
         });
       });
 
-      // Sort by FP+ then doors
+      // Sort by FP+ then PRMR then doors
       reps.sort((a, b) => {
         if (a.stats.fp !== b.stats.fp) return b.stats.fp - a.stats.fp;
+        if (a.stats.prmr !== b.stats.prmr) return b.stats.prmr - a.stats.prmr;
         return b.stats.doors - a.stats.doors;
       });
 

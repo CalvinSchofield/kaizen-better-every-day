@@ -112,7 +112,7 @@ export const DayOfWeekBestPeriods = ({ dailyTrend }: DayOfWeekBestPeriodsProps) 
       <div className="grid grid-cols-3 gap-2 text-center">
         {chartData
           .filter(d => d.count > 0)
-          .sort((a, b) => b.avgFp - a.avgFp)
+          .sort((a, b) => b.avgFp - a.avgFp || b.avgPrmr - a.avgPrmr)
           .slice(0, 3)
           .map((day, idx) => (
             <Card key={day.day} className="p-2">

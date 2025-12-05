@@ -634,7 +634,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
       // Best day of week
       const bestDayOfWeek = Object.entries(dayOfWeekData)
         .filter(([_, data]) => data.daysWorked > 0)
-        .sort(([, a], [, b]) => b.avgFp - a.avgFp)[0];
+        .sort(([, a], [, b]) => b.avgFp - a.avgFp || b.avgPrmr - a.avgPrmr)[0];
 
       const bestDayOfWeekData = bestDayOfWeek ? {
         day: bestDayOfWeek[0].charAt(0).toUpperCase() + bestDayOfWeek[0].slice(1),
@@ -656,7 +656,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         return acc;
       }, {} as Record<string, { fp: number; prmr: number; doors: number; closes: number; userId: string }>);
 
-      const bestDayEntry = Object.entries(dayTotals).sort(([, a], [, b]) => b.fp - a.fp)[0];
+      const bestDayEntry = Object.entries(dayTotals).sort(([, a], [, b]) => b.fp - a.fp || b.prmr - a.prmr)[0];
       const bestDay = bestDayEntry ? {
         date: format(parseISO(bestDayEntry[0]), 'MMM d, yyyy'),
         fp: bestDayEntry[1].fp,
@@ -686,7 +686,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         weeklyData[weekKey].closes += entry.closes || 0;
       });
 
-      const bestWeekEntry = Object.entries(weeklyData).sort(([, a], [, b]) => b.fp - a.fp)[0];
+      const bestWeekEntry = Object.entries(weeklyData).sort(([, a], [, b]) => b.fp - a.fp || b.prmr - a.prmr)[0];
       const bestWeek = bestWeekEntry ? {
         weekStart: format(parseISO(bestWeekEntry[0]), 'MMM d'),
         weekEnd: format(endOfWeek(parseISO(bestWeekEntry[0]), { weekStartsOn: 1 }), 'MMM d, yyyy'),
@@ -711,7 +711,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         monthlyData[monthKey].closes += entry.closes || 0;
       });
 
-      const bestMonthEntry = Object.entries(monthlyData).sort(([, a], [, b]) => b.fp - a.fp)[0];
+      const bestMonthEntry = Object.entries(monthlyData).sort(([, a], [, b]) => b.fp - a.fp || b.prmr - a.prmr)[0];
       const bestMonth = bestMonthEntry ? {
         month: format(parseISO(bestMonthEntry[0] + '-01'), 'MMMM yyyy'),
         fp: bestMonthEntry[1].fp,
