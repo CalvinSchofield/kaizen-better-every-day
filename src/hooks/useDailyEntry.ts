@@ -265,6 +265,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
       // Invalidate today leaderboard for live rankings
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      // Invalidate team live data for Team Reports real-time updates
+      queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
     },
   });
 
