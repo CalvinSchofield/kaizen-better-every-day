@@ -1,31 +1,48 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 
-interface RepRankingData {
-  userId: string;
-  name: string;
-  teamName?: string;
-  mgmtGroupName?: string;
-  year?: string;
-  stats: {
-    doors: number;
-    dms: number;
-    pitches: number;
-    transitions: number;
-    presentations: number;
-    closes: number;
-    fp: number;
-    prmr: number;
-    upgradePrmr: number;
-  };
-  hoursWorked: number;
-  daysWorked: number;
-  workStartTime?: string;
-}
+type SortOption = 
+  | 'default' 
+  | 'fp' 
+  | 'prmr' 
+  | 'doors' 
+  | 'dms' 
+  | 'pitches' 
+  | 'transitions' 
+  | 'presentations' 
+  | 'closes' 
+  | 'hours' 
+  | 'avgStart' 
+  | 'avgEnd';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'fp', label: 'FP+' },
+  { value: 'prmr', label: 'PRMR' },
+  { value: 'doors', label: 'Doors' },
+  { value: 'dms', label: 'Decision Makers' },
+  { value: 'pitches', label: 'Pitches' },
+  { value: 'transitions', label: 'Transitions' },
+  { value: 'presentations', label: 'Presentations' },
+  { value: 'closes', label: 'Closes' },
+  { value: 'hours', label: 'Hours Worked' },
+  { value: 'avgStart', label: 'Avg Start Time' },
+  { value: 'avgEnd', label: 'Avg End Time' },
+];
+
+const formatMinutesToTime = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const period = h >= 12 ? 'PM' : 'AM';
+  const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayHour}:${m.toString().padStart(2, '0')} ${period}`;
+};
 
 interface AggregatedRankingsCardProps {
   reps: RepRankingData[];
@@ -55,6 +72,56 @@ export const AggregatedRankingsCard = ({
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
   const [workingOpen, setWorkingOpen] = useState(true);
+  const [sortBy, setSortBy] = useState<SortOption>('default');
+
+  // Sort function
+  const sortReps = (repsToSort: RepRankingData[]): RepRankingData[] => {
+    if (sortBy === 'default') return repsToSort;
+    
+    return [...repsToSort].sort((a, b) => {
+      switch (sortBy) {
+        case 'fp': return b.stats.fp - a.stats.fp;
+        case 'prmr': return b.stats.prmr - a.stats.prmr;
+        case 'doors': return b.stats.doors - a.stats.doors;
+        case 'dms': return b.stats.dms - a.stats.dms;
+        case 'pitches': return b.stats.pitches - a.stats.pitches;
+        case 'transitions': return b.stats.transitions - a.stats.transitions;
+        case 'presentations': return b.stats.presentations - a.stats.presentations;
+        case 'closes': return b.stats.closes - a.stats.closes;
+        case 'hours': return b.hoursWorked - a.hoursWorked;
+        case 'avgStart': 
+          // Earlier start = better (lower minutes)
+          if (a.avgStartMinutes === undefined) return 1;
+          if (b.avgStartMinutes === undefined) return -1;
+          return a.avgStartMinutes - b.avgStartMinutes;
+        case 'avgEnd': 
+          // Later end = better (higher minutes)
+          if (a.avgEndMinutes === undefined) return 1;
+          if (b.avgEndMinutes === undefined) return -1;
+          return b.avgEndMinutes - a.avgEndMinutes;
+        default: return 0;
+      }
+    });
+  };
+
+  // Get display value for current sort metric
+  const getSortMetricDisplay = (rep: RepRankingData): string | null => {
+    if (sortBy === 'default') return null;
+    switch (sortBy) {
+      case 'fp': return `${rep.stats.fp.toFixed(1)} FP+`;
+      case 'prmr': return `$${rep.stats.prmr.toLocaleString()}`;
+      case 'doors': return `${rep.stats.doors} doors`;
+      case 'dms': return `${rep.stats.dms} DMs`;
+      case 'pitches': return `${rep.stats.pitches} pitches`;
+      case 'transitions': return `${rep.stats.transitions} trans`;
+      case 'presentations': return `${rep.stats.presentations} pres`;
+      case 'closes': return `${rep.stats.closes} closes`;
+      case 'hours': return formatDuration(rep.hoursWorked);
+      case 'avgStart': return rep.avgStartMinutes !== undefined ? formatMinutesToTime(rep.avgStartMinutes) : '—';
+      case 'avgEnd': return rep.avgEndMinutes !== undefined ? formatMinutesToTime(rep.avgEndMinutes) : '—';
+      default: return null;
+    }
+  };
 
   const handleRepClick = (rep: RepRankingData) => {
     setSelectedRep(rep);
@@ -104,19 +171,22 @@ export const AggregatedRankingsCard = ({
 
   // Categorize reps
   // Outstanding: Has FP+ OR has presentations
-  const outstanding = reps
-    .filter(r => r.stats.fp > 0 || r.stats.presentations > 0)
-    .sort((a, b) => {
-      if (b.stats.fp !== a.stats.fp) return b.stats.fp - a.stats.fp;
-      if (b.stats.prmr !== a.stats.prmr) return b.stats.prmr - a.stats.prmr;
-      return b.stats.presentations - a.stats.presentations;
-    });
+  const outstandingBase = reps
+    .filter(r => r.stats.fp > 0 || r.stats.presentations > 0);
+  
+  const outstandingDefaultSorted = outstandingBase.sort((a, b) => {
+    if (b.stats.fp !== a.stats.fp) return b.stats.fp - a.stats.fp;
+    if (b.stats.prmr !== a.stats.prmr) return b.stats.prmr - a.stats.prmr;
+    return b.stats.presentations - a.stats.presentations;
+  });
+
+  const outstanding = sortBy === 'default' ? outstandingDefaultSorted : sortReps(outstandingBase);
 
   // Working: Has activity but no FP+ or presentations
-  const outstandingIds = new Set(outstanding.map(r => r.userId));
-  const working = reps
-    .filter(r => !outstandingIds.has(r.userId) && r.stats.doors > 0)
-    .sort((a, b) => b.stats.doors - a.stats.doors);
+  const outstandingIds = new Set(outstandingBase.map(r => r.userId));
+  const workingBase = reps.filter(r => !outstandingIds.has(r.userId) && r.stats.doors > 0);
+  const workingDefaultSorted = [...workingBase].sort((a, b) => b.stats.doors - a.stats.doors);
+  const working = sortBy === 'default' ? workingDefaultSorted : sortReps(workingBase);
 
   if (reps.length === 0) {
     return (
@@ -141,6 +211,8 @@ export const AggregatedRankingsCard = ({
     rank?: number;
   }) => {
     const hasSales = rep.stats.fp > 0;
+    const sortMetric = getSortMetricDisplay(rep);
+    
     return (
       <button 
         onClick={() => handleRepClick(rep)}
@@ -168,7 +240,12 @@ export const AggregatedRankingsCard = ({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 text-right">
-          {hasSales ? (
+          {/* Show sort metric when sorting, otherwise show default display */}
+          {sortBy !== 'default' && sortMetric ? (
+            <span className="font-semibold text-primary tabular-nums">
+              {sortMetric}
+            </span>
+          ) : hasSales ? (
             <>
               <span className="font-semibold text-primary tabular-nums">
                 {rep.stats.fp.toFixed(1)} FP+
@@ -237,7 +314,21 @@ export const AggregatedRankingsCard = ({
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <h3 className="font-semibold">{title}</h3>
           </div>
-          <span className="text-xs text-muted-foreground">{repCount} reps</span>
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="h-7 text-xs w-auto gap-1 border-muted-foreground/20">
+                <ArrowUpDown className="w-3 h-3" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Team Totals */}
