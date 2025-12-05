@@ -1,11 +1,12 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown, AlertTriangle } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type SortOption = 
   | 'default' 
@@ -86,6 +87,12 @@ export const AggregatedRankingsCard = ({
   const [workingOpen, setWorkingOpen] = useState(true);
   const [needsAttentionOpen, setNeedsAttentionOpen] = useState(true);
   const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [filterRookiesOnly, setFilterRookiesOnly] = useState(false);
+
+  // Filter reps based on toggle
+  const filteredReps = filterRookiesOnly 
+    ? reps.filter(r => r.year === 'Rookie') 
+    : reps;
 
   // Helper to get per-day value
   const getPerDay = (value: number, days: number) => days > 0 ? value / days : 0;
@@ -198,7 +205,7 @@ export const AggregatedRankingsCard = ({
 
   // Categorize reps
   // Outstanding: Has FP+ OR has presentations
-  const outstandingBase = reps
+  const outstandingBase = filteredReps
     .filter(r => r.stats.fp > 0 || r.stats.presentations > 0);
   
   const outstandingDefaultSorted = outstandingBase.sort((a, b) => {
@@ -210,12 +217,12 @@ export const AggregatedRankingsCard = ({
   const outstanding = sortBy === 'default' ? outstandingDefaultSorted : sortReps(outstandingBase);
 
   // Calculate team average pace as fallback for reps without historical data
-  const teamAvgPitchesPerHour = reps.reduce((sum, r) => sum + r.stats.pitches, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
-  const teamAvgTransitionsPerHour = reps.reduce((sum, r) => sum + r.stats.transitions, 0) / Math.max(1, reps.reduce((sum, r) => sum + r.hoursWorked, 0));
+  const teamAvgPitchesPerHour = filteredReps.reduce((sum, r) => sum + r.stats.pitches, 0) / Math.max(1, filteredReps.reduce((sum, r) => sum + r.hoursWorked, 0));
+  const teamAvgTransitionsPerHour = filteredReps.reduce((sum, r) => sum + r.stats.transitions, 0) / Math.max(1, filteredReps.reduce((sum, r) => sum + r.hoursWorked, 0));
 
   // Needs Attention: Reps performing below 50% of THEIR OWN historical average
   // Fallback to team average if no historical data, or low door count
-  const needsAttentionBase = reps.filter(r => {
+  const needsAttentionBase = filteredReps.filter(r => {
     if (r.hoursWorked < 0.5) return false; // Skip if less than 30 min
     if (r.stats.fp > 0 || r.stats.presentations > 0) return false; // Exclude outstanding reps
     
@@ -259,11 +266,15 @@ export const AggregatedRankingsCard = ({
   // Working: Has activity but no FP+/presentations and not in needs attention
   const outstandingIds = new Set(outstandingBase.map(r => r.userId));
   const needsAttentionIds = new Set(needsAttentionBase.map(r => r.userId));
-  const workingBase = reps.filter(r => !outstandingIds.has(r.userId) && !needsAttentionIds.has(r.userId) && r.stats.doors > 0);
+  const workingBase = filteredReps.filter(r => !outstandingIds.has(r.userId) && !needsAttentionIds.has(r.userId) && r.stats.doors > 0);
   const workingDefaultSorted = [...workingBase].sort((a, b) => b.stats.doors - a.stats.doors);
   const working = sortBy === 'default' ? workingDefaultSorted : sortReps(workingBase);
 
-  if (reps.length === 0) {
+  // Recalculate totals based on filtered reps
+  const displayTotalFP = filteredReps.reduce((sum, r) => sum + r.stats.fp, 0);
+  const displayTotalPRMR = filteredReps.reduce((sum, r) => sum + r.stats.prmr, 0);
+
+  if (filteredReps.length === 0) {
     return (
       <Card className="p-4">
         <h3 className="font-semibold mb-4">{title}</h3>
@@ -391,8 +402,36 @@ export const AggregatedRankingsCard = ({
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <h3 className="font-semibold">{title}</h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                  <p className="font-medium mb-1">How comparisons work:</p>
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Rookies</span> are compared to their rolling 2-week average due to steep learning curves.
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    <span className="font-medium text-foreground">Vets</span> are compared to their season average (summer vs summer, preseason vs preseason).
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex items-center gap-2">
+            {/* All vs Rookies Only toggle */}
+            <button
+              onClick={() => setFilterRookiesOnly(!filterRookiesOnly)}
+              className={cn(
+                "h-7 px-3 text-xs rounded-full border transition-colors",
+                filterRookiesOnly 
+                  ? "bg-primary text-primary-foreground border-primary" 
+                  : "bg-background border-muted-foreground/20 hover:bg-muted"
+              )}
+            >
+              {filterRookiesOnly ? "Rookies" : "All"}
+            </button>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
               <SelectTrigger className="h-7 text-xs w-auto gap-1 border-muted-foreground/20">
                 <ArrowUpDown className="w-3 h-3" />
@@ -410,15 +449,15 @@ export const AggregatedRankingsCard = ({
         </div>
 
         {/* Team Totals */}
-        {(totalFP > 0 || totalPRMR > 0) && (
+        {(displayTotalFP > 0 || displayTotalPRMR > 0) && (
           <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-primary/5 rounded-lg text-sm">
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">FP+:</span>
-              <span className="font-bold text-primary">{totalFP.toFixed(1)}</span>
+              <span className="font-bold text-primary">{displayTotalFP.toFixed(1)}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">PRMR:</span>
-              <span className="font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
+              <span className="font-bold text-green-700 dark:text-green-500">${displayTotalPRMR.toLocaleString()}</span>
             </div>
           </div>
         )}
