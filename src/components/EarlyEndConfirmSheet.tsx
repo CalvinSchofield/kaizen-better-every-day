@@ -1,6 +1,6 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Sun } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface EarlyEndConfirmSheetProps {
   open: boolean;
@@ -22,11 +22,11 @@ export const EarlyEndConfirmSheet = ({
       <DrawerContent className="pb-safe">
         <DrawerHeader className="mb-4">
           <div className="flex items-center gap-2 justify-center mb-2">
-            <Sun className="h-6 w-6 text-amber-500" />
+            <Clock className="h-6 w-6 text-amber-500" />
           </div>
-          <DrawerTitle>End work already?</DrawerTitle>
+          <DrawerTitle>Calling it early?</DrawerTitle>
           <DrawerDescription>
-            It's only {currentTime} — sun's still out! Are you sure you're done for the day?
+            It's only {currentTime} — still time before 9! Are you sure you want to wrap up?
           </DrawerDescription>
         </DrawerHeader>
         
