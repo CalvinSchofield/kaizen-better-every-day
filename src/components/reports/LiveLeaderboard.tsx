@@ -1,7 +1,9 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -61,6 +63,7 @@ const formatDuration = (minutes: number) => {
 };
 
 export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Activity" }: LiveLeaderboardProps) => {
+  const navigate = useNavigate();
   const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
@@ -197,9 +200,21 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     return (
       <Card className="p-4">
         <h3 className="font-semibold mb-4">{title}</h3>
-        <div className="text-center py-6 text-muted-foreground text-sm">
-          <Trophy className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          <p>No activity recorded yet</p>
+        <div className="text-center py-8">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-primary" />
+          </div>
+          <p className="font-medium mb-1">No activity yet today</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Time to get out there and make it happen!
+          </p>
+          <Button 
+            onClick={() => navigate('/track')}
+            className="gap-2"
+          >
+            <Activity className="w-4 h-4" />
+            Start Your Day
+          </Button>
         </div>
       </Card>
     );
