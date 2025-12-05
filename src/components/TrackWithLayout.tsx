@@ -809,7 +809,38 @@ const TrackWithLayout = () => {
         open={isDeleteSalePickerOpen}
         onOpenChange={setIsDeleteSalePickerOpen}
         salesLog={entry.sales_log || []}
+        closesCount={entry.closes || 0}
         onDeleteSale={handleDeleteSale}
+        onDecrementOrphanedClose={async () => {
+          // Decrement closes counter without deleting a sale
+          // This handles the case where closes > sales_log.length
+          const newClosesCount = Math.max(0, (entry.closes || 0) - 1);
+          const timestamps = entry.counter_timestamps || {} as Record<string, string[]>;
+          const closesTimestamps: string[] = (timestamps as any).closes || [];
+          
+          // Find and remove the orphaned timestamp (one that doesn't match any sale)
+          const salesLog = entry.sales_log || [];
+          const saleTimestamps = salesLog.map(s => s.timestamp);
+          const orphanedTimestamps = closesTimestamps.filter(t => !saleTimestamps.includes(t));
+          
+          // Remove the most recent orphaned timestamp, or just the most recent if none found
+          let updatedTimestamps = [...closesTimestamps];
+          if (orphanedTimestamps.length > 0) {
+            const timestampToRemove = orphanedTimestamps[orphanedTimestamps.length - 1];
+            updatedTimestamps = closesTimestamps.filter(t => t !== timestampToRemove);
+          } else {
+            updatedTimestamps = closesTimestamps.slice(0, -1);
+          }
+          
+          await updateCounter({
+            closes: newClosesCount,
+            counter_timestamps: {
+              ...timestamps,
+              closes: updatedTimestamps
+            }
+          });
+          toast.success("Removed extra close");
+        }}
       />
 
       {/* Early Save Confirmation Sheet */}
