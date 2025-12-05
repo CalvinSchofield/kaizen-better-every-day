@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, User, Trophy, Clock, Target, TrendingUp, Calendar } from "lucide-react";
+import { Users, User, Trophy, Clock, Target, TrendingUp, Calendar, ChevronDown } from "lucide-react";
 import { DayOfWeekBestPeriods } from "./DayOfWeekBestPeriods";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface GroupRecord {
   date: string;
@@ -76,6 +78,7 @@ type RookieFilter = 'all' | 'rookie';
 export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('group');
   const [rookieFilter, setRookieFilter] = useState<RookieFilter>('all');
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!data) return null;
 
@@ -91,6 +94,15 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
     if (!record) return null;
     if (rookieFilter === 'all') return record;
     return record.isRookie ? record : null;
+  };
+
+  // Build collapsed summary
+  const getCollapsedSummary = () => {
+    const highlights: string[] = [];
+    if (data.highestFpDay) highlights.push(`${formatAvgValue(data.highestFpDay.value)} FP+`);
+    if (data.highestPrmrDay) highlights.push(`$${formatAvgValue(data.highestPrmrDay.value, 0)} PRMR`);
+    if (data.individualBestFp) highlights.push(stripEmojis(data.individualBestFp.repName));
+    return highlights.slice(0, 3).join(' · ') || 'View records';
   };
 
   const renderGroupRecords = () => (
@@ -333,60 +345,81 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
   };
 
   return (
-    <div className="space-y-4">
-      {/* View Mode Toggle */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant={viewMode === 'group' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setViewMode('group')}
-          className="gap-1.5"
-        >
-          <Users className="w-3.5 h-3.5" />
-          Group
-        </Button>
-        <Button
-          variant={viewMode === 'individual' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setViewMode('individual')}
-          className="gap-1.5"
-        >
-          <User className="w-3.5 h-3.5" />
-          Individual
-        </Button>
-
-        {/* Rookie Filter (only shown in individual mode) */}
-        {viewMode === 'individual' && (
-          <div className="ml-auto flex gap-1">
-            <Button
-              variant={rookieFilter === 'all' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setRookieFilter('all')}
-              className="text-xs h-7 px-2"
-            >
-              All
-            </Button>
-            <Button
-              variant={rookieFilter === 'rookie' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setRookieFilter('rookie')}
-              className="text-xs h-7 px-2"
-            >
-              Rookies
-            </Button>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-primary" />
+            <span className="font-semibold">Best Periods</span>
           </div>
-        )}
-      </div>
-
-      {/* Content based on view mode */}
-      {viewMode === 'group' ? renderGroupRecords() : renderIndividualRecords()}
-
-      {/* Day of Week Analysis */}
-      {dailyTrend && dailyTrend.length > 1 && (
-        <div className="mt-6 pt-4 border-t border-border">
-          <DayOfWeekBestPeriods dailyTrend={dailyTrend} />
+          <div className="flex items-center gap-2">
+            {!isOpen && (
+              <span className="text-xs text-muted-foreground">{getCollapsedSummary()}</span>
+            )}
+            <ChevronDown className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform",
+              isOpen && "rotate-180"
+            )} />
+          </div>
         </div>
-      )}
-    </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="px-4 pb-4 space-y-4">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'group' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('group')}
+              className="gap-1.5"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Group
+            </Button>
+            <Button
+              variant={viewMode === 'individual' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('individual')}
+              className="gap-1.5"
+            >
+              <User className="w-3.5 h-3.5" />
+              Individual
+            </Button>
+
+            {/* Rookie Filter (only shown in individual mode) */}
+            {viewMode === 'individual' && (
+              <div className="ml-auto flex gap-1">
+                <Button
+                  variant={rookieFilter === 'all' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRookieFilter('all')}
+                  className="text-xs h-7 px-2"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={rookieFilter === 'rookie' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRookieFilter('rookie')}
+                  className="text-xs h-7 px-2"
+                >
+                  Rookies
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Content based on view mode */}
+          {viewMode === 'group' ? renderGroupRecords() : renderIndividualRecords()}
+
+          {/* Day of Week Analysis */}
+          {dailyTrend && dailyTrend.length > 1 && (
+            <div className="mt-6 pt-4 border-t border-border">
+              <DayOfWeekBestPeriods dailyTrend={dailyTrend} />
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
