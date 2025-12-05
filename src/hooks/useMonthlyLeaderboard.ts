@@ -23,6 +23,23 @@ interface MonthlyLeaderboard {
   latestDoor: LeaderboardEntry | null;
 }
 
+// Extract local time-of-day as minutes since midnight
+const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
+  try {
+    const date = new Date(timestamp);
+    const localTime = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    }).format(date);
+    const [hours, minutes] = localTime.split(':').map(Number);
+    return hours * 60 + minutes;
+  } catch {
+    return 0;
+  }
+};
+
 export const useMonthlyLeaderboard = (filterByYear?: string) => {
   return useQuery({
     queryKey: ["monthly-leaderboard", filterByYear],
@@ -70,12 +87,15 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
         upgradePrmr: number;
         upgradeFp: number;
         hoursWorked: number;
-        earliestDoorTime: number | null;
-        latestDoorTime: number | null;
+        earliestDoorMins: number | null;
+        earliestDoorTs: string | null;
+        latestDoorMins: number | null;
+        latestDoorTs: string | null;
         timezone: string;
       }>();
 
       filteredEntries.forEach(entry => {
+        const userTimezone = entry.timezone || 'America/Los_Angeles';
         const current = userTotals.get(entry.user_id) || {
           doors: 0,
           pitches: 0,
@@ -86,9 +106,11 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           upgradePrmr: 0,
           upgradeFp: 0,
           hoursWorked: 0,
-          earliestDoorTime: null,
-          latestDoorTime: null,
-          timezone: entry.timezone || 'America/Denver',
+          earliestDoorMins: null,
+          earliestDoorTs: null,
+          latestDoorMins: null,
+          latestDoorTs: null,
+          timezone: userTimezone,
         };
 
         let entryHours = 0;
@@ -111,22 +133,25 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           entryHours = totalMinutes / 60;
         }
 
-        let entryEarliest = current.earliestDoorTime;
-        let entryLatest = current.latestDoorTime;
+        let entryEarliestMins = current.earliestDoorMins;
+        let entryEarliestTs = current.earliestDoorTs;
+        let entryLatestMins = current.latestDoorMins;
+        let entryLatestTs = current.latestDoorTs;
 
         if (entry.counter_timestamps) {
           const timestamps = entry.counter_timestamps as any;
           if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
-            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts).getTime());
-            const earliest = Math.min(...doorTimestamps);
-            const latest = Math.max(...doorTimestamps);
-
-            if (entryEarliest === null || earliest < entryEarliest) {
-              entryEarliest = earliest;
-            }
-            if (entryLatest === null || latest > entryLatest) {
-              entryLatest = latest;
-            }
+            timestamps.doors_knocked.forEach((ts: string) => {
+              const mins = getLocalMinutesOfDay(ts, userTimezone);
+              if (entryEarliestMins === null || mins < entryEarliestMins) {
+                entryEarliestMins = mins;
+                entryEarliestTs = ts;
+              }
+              if (entryLatestMins === null || mins > entryLatestMins) {
+                entryLatestMins = mins;
+                entryLatestTs = ts;
+              }
+            });
           }
         }
 
@@ -143,9 +168,11 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           upgradePrmr: current.upgradePrmr + upgradePrmr,
           upgradeFp: current.upgradeFp + upgradeFp,
           hoursWorked: current.hoursWorked + entryHours,
-          earliestDoorTime: entryEarliest,
-          latestDoorTime: entryLatest,
-          timezone: entry.timezone || current.timezone,
+          earliestDoorMins: entryEarliestMins,
+          earliestDoorTs: entryEarliestTs,
+          latestDoorMins: entryLatestMins,
+          latestDoorTs: entryLatestTs,
+          timezone: userTimezone,
         });
       });
 
@@ -208,35 +235,35 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           leaderboard.mostHoursWorked = { userId, name: cleanName, value: totals.hoursWorked };
         }
 
-        if (totals.earliestDoorTime !== null) {
-          const earliestTime = new Date(totals.earliestDoorTime).toLocaleTimeString('en-US', {
+        if (totals.earliestDoorMins !== null && totals.earliestDoorTs) {
+          const earliestTime = new Date(totals.earliestDoorTs).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             timeZone: totals.timezone
           });
 
-          if (!leaderboard.earliestDoor || totals.earliestDoorTime < (leaderboard.earliestDoor.value || Infinity)) {
+          if (!leaderboard.earliestDoor || totals.earliestDoorMins < (leaderboard.earliestDoor.value || Infinity)) {
             leaderboard.earliestDoor = {
               userId,
               name: cleanName,
-              value: totals.earliestDoorTime,
+              value: totals.earliestDoorMins,
               timeValue: earliestTime
             };
           }
         }
 
-        if (totals.latestDoorTime !== null) {
-          const latestTime = new Date(totals.latestDoorTime).toLocaleTimeString('en-US', {
+        if (totals.latestDoorMins !== null && totals.latestDoorTs) {
+          const latestTime = new Date(totals.latestDoorTs).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             timeZone: totals.timezone
           });
 
-          if (!leaderboard.latestDoor || totals.latestDoorTime > (leaderboard.latestDoor.value || 0)) {
+          if (!leaderboard.latestDoor || totals.latestDoorMins > (leaderboard.latestDoor.value || -1)) {
             leaderboard.latestDoor = {
               userId,
               name: cleanName,
-              value: totals.latestDoorTime,
+              value: totals.latestDoorMins,
               timeValue: latestTime
             };
           }
