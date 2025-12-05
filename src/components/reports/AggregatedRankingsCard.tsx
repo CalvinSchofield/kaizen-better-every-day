@@ -303,8 +303,11 @@ export const AggregatedRankingsCard = ({
             </span>
           )}
           <div className="flex flex-col min-w-0">
-            <span className="truncate font-medium">
+            <span className="truncate font-medium flex items-center gap-1.5">
               {rep.name}
+              {rep.hasUnfinalizedEntry && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Has unsaved entry" />
+              )}
             </span>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Clock className="w-2.5 h-2.5" />
@@ -484,7 +487,12 @@ export const AggregatedRankingsCard = ({
                       className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
                     >
                       <div className="flex flex-col min-w-0">
-                        <span className="truncate font-medium">{rep.name}</span>
+                        <span className="truncate font-medium flex items-center gap-1.5">
+                          {rep.name}
+                          {rep.hasUnfinalizedEntry && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Has unsaved entry" />
+                          )}
+                        </span>
                         <span className="text-[10px] text-amber-600 dark:text-amber-400">
                           {rep.pitchPct}% pitch · {rep.transPct}% trans
                           <span className="text-muted-foreground ml-1">

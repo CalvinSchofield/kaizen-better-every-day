@@ -695,10 +695,13 @@ const TeamReports = () => {
 
               {/* Best Periods */}
               {insightsData?.bestPeriods && (
-                <BestPeriodsSection
-                  data={insightsData.bestPeriods}
-                  dailyTrend={insightsData.dailyTrend}
-                />
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-4">Best Periods</h3>
+                  <BestPeriodsSection
+                    data={insightsData.bestPeriods}
+                    dailyTrend={insightsData.dailyTrend}
+                  />
+                </Card>
               )}
             </>
           )
