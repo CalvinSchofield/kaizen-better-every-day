@@ -390,19 +390,318 @@ const TeamReports = () => {
             />
           </div>
         ) : isAggregatedView ? (
-          <div className="space-y-4">
-            <AggregatedRankingsCard
-              reps={aggregatedRankings?.reps || []}
-              totalFP={aggregatedRankings?.totalFP || 0}
-              totalPRMR={aggregatedRankings?.totalPRMR || 0}
-              repCount={aggregatedRankings?.repCount || 0}
-              isLoading={aggregatedLoading}
-              title={datePreset === 'week' ? "This Week's Rankings" : 
-                     datePreset === 'month' ? "This Month's Rankings" : 
-                     datePreset === 'ytd' ? "YTD Rankings" :
-                     "Season Rankings"}
-            />
-          </div>
+          (insightsLoading || aggregatedLoading) ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-card border border-border rounded-xl p-4">
+                  <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-8 w-20 bg-muted rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : !insightsData || (insightsData.totalFP === 0 && (aggregatedRankings?.repCount || 0) === 0) ? (
+            <Card className="border-border/40">
+              <CardContent className="pt-8 pb-8 text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <BarChart3 className="h-16 w-16 text-muted-foreground/40" />
+                    <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1">
+                      <Target className="h-6 w-6 text-primary" />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">No Data Yet</h2>
+                  <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                    No finalized entries found for this period. Try selecting a different date range.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Rankings Card */}
+              <AggregatedRankingsCard
+                reps={aggregatedRankings?.reps || []}
+                totalFP={aggregatedRankings?.totalFP || 0}
+                totalPRMR={aggregatedRankings?.totalPRMR || 0}
+                repCount={aggregatedRankings?.repCount || 0}
+                isLoading={aggregatedLoading}
+                title={datePreset === 'week' ? "This Week's Rankings" : 
+                       datePreset === 'month' ? "This Month's Rankings" : 
+                       datePreset === 'ytd' ? "YTD Rankings" :
+                       "Season Rankings"}
+              />
+
+              {/* AI Coach Card */}
+              <LeaderAICoachCard
+                isOpen={expandedSection === 'aiCoach'}
+                onToggle={() => handleSectionToggle('aiCoach')}
+              />
+
+              {/* Progress Over Time Chart */}
+              <TeamProgressChart 
+                teamData={teamCumulativeData}
+                repBreakdown={insightsData?.repBreakdown}
+                groupedByTeam={insightsData?.groupedByTeam}
+                groupedByMgmt={insightsData?.groupedByMgmt}
+                dailyTrendByRep={insightsData?.dailyTrendByRep}
+                dailyTrendByTeam={insightsData?.dailyTrendByTeam}
+                dailyTrendByMgmt={insightsData?.dailyTrendByMgmt}
+                accessLevel={accessData?.accessLevel || 'none'}
+                isLoading={cumulativeLoading}
+              />
+
+              {/* Sales Funnel - Collapsible */}
+              {insightsData?.funnelData && (
+                <Card>
+                  <Collapsible open={expandedSection === 'funnel'} onOpenChange={() => handleSectionToggle('funnel')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <TrendingUpIcon className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Sales Funnel</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'funnel' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'funnel' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          {insightsData.funnelData.doors.total} doors → {insightsData.funnelData.closes.total} closes · {insightsData.funnelData.doors.conversionToNext.toFixed(1)}% DM rate
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <SalesFunnelChart funnelData={insightsData.funnelData} />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Key Ratios - Collapsible */}
+              {insightsData && (
+                <Card>
+                  <Collapsible open={expandedSection === 'ratios'} onOpenChange={() => handleSectionToggle('ratios')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Key Ratios</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'ratios' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'ratios' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          {insightsData.doorsToFp.toFixed(1)} doors/FP · {insightsData.pitchesToFp.toFixed(1)} pitches/FP
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 space-y-4">
+                        <div className="p-4 bg-card rounded-lg border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm text-muted-foreground">Doors → FP</div>
+                            {doorsComparison && (
+                              <div className={cn("flex items-center gap-1 text-xs", doorsComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                                {doorsComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                                {doorsComparison.percentDiff.toFixed(0)}% vs overall
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-3xl font-bold">{insightsData.doorsToFp.toFixed(1)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallDoorsToFp.toFixed(1)}</div>
+                        </div>
+                        <div className="p-4 bg-card rounded-lg border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm text-muted-foreground">Pitches → FP</div>
+                            {pitchesComparison && (
+                              <div className={cn("flex items-center gap-1 text-xs", pitchesComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                                {pitchesComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                                {pitchesComparison.percentDiff.toFixed(0)}% vs overall
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-3xl font-bold">{insightsData.pitchesToFp.toFixed(1)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallPitchesToFp.toFixed(1)}</div>
+                        </div>
+                        <div className="p-4 bg-card rounded-lg border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm text-muted-foreground">Transitions → FP</div>
+                            {transitionsComparison && (
+                              <div className={cn("flex items-center gap-1 text-xs", transitionsComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                                {transitionsComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                                {transitionsComparison.percentDiff.toFixed(0)}% vs overall
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-3xl font-bold">{insightsData.transitionsToFp.toFixed(1)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallTransitionsToFp.toFixed(1)}</div>
+                        </div>
+                        <div className="p-4 bg-card rounded-lg border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm text-muted-foreground">Presentations → Close</div>
+                            {closeComparison && (
+                              <div className={cn("flex items-center gap-1 text-xs", closeComparison.isBetter ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400")}>
+                                {closeComparison.isBetter ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                                {closeComparison.percentDiff.toFixed(0)}% vs overall
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-3xl font-bold">{insightsData.presentationsToClose.toFixed(1)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Overall avg: {insightsData.overallPresentationsToClose.toFixed(1)}</div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Productivity - Collapsible */}
+              {insightsData && (
+                <Card>
+                  <Collapsible open={expandedSection === 'productivity'} onOpenChange={() => handleSectionToggle('productivity')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Productivity per Hour</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'productivity' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'productivity' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          {insightsData.doorsPerHour.toFixed(1)} doors/hr · {insightsData.hoursToFp.toFixed(1)} hrs to FP
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">Doors per Hour</div>
+                            <div className="text-2xl font-bold">{insightsData.doorsPerHour.toFixed(1)}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">Hours to FP</div>
+                            <div className="text-2xl font-bold">{insightsData.hoursToFp.toFixed(1)}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">Pitches per Hour</div>
+                            <div className="text-2xl font-bold">{insightsData.pitchesPerHour.toFixed(1)}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">Transitions per Hour</div>
+                            <div className="text-2xl font-bold">{insightsData.transitionsPerHour.toFixed(1)}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">Presentations per Hour</div>
+                            <div className="text-2xl font-bold">{insightsData.presentationsPerHour.toFixed(1)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Activity Trends - Collapsible */}
+              {insightsData?.dailyTrend && insightsData.dailyTrend.length > 0 && (
+                <Card>
+                  <Collapsible open={expandedSection === 'trends'} onOpenChange={() => handleSectionToggle('trends')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <TrendingUpIcon className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Activity Trends</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'trends' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'trends' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          Daily trends · {insightsData.dailyTrend.length} days tracked
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <ActivityTrendChart dailyTrend={insightsData.dailyTrend} />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Hourly Patterns - Collapsible */}
+              {insightsData?.hourlyActivity && insightsData?.peakHours && insightsData?.hourRange && (
+                <Card>
+                  <Collapsible open={expandedSection === 'hourly'} onOpenChange={() => handleSectionToggle('hourly')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Hourly Patterns</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'hourly' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'hourly' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          Activity by hour of day
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <HourlyActivityHeatmap 
+                          hourlyActivity={insightsData.hourlyActivity}
+                          peakHours={insightsData.peakHours}
+                          hourRange={insightsData.hourRange}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Day of Week Analysis - Collapsible */}
+              {insightsData?.dayOfWeekData && Object.keys(insightsData.dayOfWeekData).length > 0 && (
+                <Card>
+                  <Collapsible open={expandedSection === 'bestPeriods'} onOpenChange={() => handleSectionToggle('bestPeriods')}>
+                    <CollapsibleTrigger className="w-full p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-5 h-5" />
+                          <h2 className="text-lg font-semibold">Day of Week Analysis</h2>
+                        </div>
+                        <ChevronDown className={cn("w-5 h-5 transition-transform text-muted-foreground", expandedSection === 'bestPeriods' && "rotate-180")} />
+                      </div>
+                      {expandedSection !== 'bestPeriods' && (
+                        <div className="mt-2 text-left text-sm text-muted-foreground">
+                          Performance by day
+                        </div>
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4">
+                        <DayOfWeekAnalysis 
+                          dayOfWeekData={insightsData.dayOfWeekData} 
+                          bestDayOfWeek={insightsData.bestDayOfWeek}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
+              )}
+
+              {/* Best Periods */}
+              {insightsData?.bestPeriods && (
+                <BestPeriodsSection
+                  data={insightsData.bestPeriods}
+                  dailyTrend={insightsData.dailyTrend}
+                />
+              )}
+            </>
+          )
         ) : insightsLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
