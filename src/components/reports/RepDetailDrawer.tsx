@@ -11,13 +11,19 @@ import { Input } from "@/components/ui/input";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, Target, TrendingUp, Pencil } from "lucide-react";
+import { Clock, Target, TrendingUp, Pencil, Activity, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RepActivityTimeline } from "./RepActivityTimeline";
+import { HourlyActivityChart } from "./HourlyActivityChart";
+import { cn } from "@/lib/utils";
 
 const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
 
 interface RepDetailData {
   id?: string; // Entry ID for admin edits
+  entryId?: string; // Alternative entry ID field
   userId: string;
   name: string;
   year: string;
@@ -38,6 +44,10 @@ interface RepDetailData {
   daysWorked?: number;
   workStartTime?: string;
   workEndTime?: string;
+  // Timeline data
+  counterTimestamps?: Record<string, string[]>;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
+  isFinalized?: boolean;
 }
 
 interface RepDetailDrawerProps {
@@ -72,11 +82,18 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
   const { efpModeEnabled } = useEfpMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [confirmSheetOpen, setConfirmSheetOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(true);
+  const [hourlyOpen, setHourlyOpen] = useState(false);
+  
+  // Check if user has access to view this rep's timeline
+  const canViewTimeline = teamAccess?.accessibleUserIds?.includes(rep?.userId || '') || false;
+  const hasTimelineData = rep?.counterTimestamps && Object.keys(rep.counterTimestamps).length > 0;
   
   // Editable fields state
   const [editedValues, setEditedValues] = useState({
@@ -119,10 +136,12 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
     }
   }, [rep]);
 
-  // Reset edit mode when drawer closes
+  // Reset edit mode and timeline states when drawer closes
   useEffect(() => {
     if (!open) {
       setIsEditMode(false);
+      setTimelineOpen(true);
+      setHourlyOpen(false);
     }
   }, [open]);
 
@@ -190,7 +209,8 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
   };
 
   const handleConfirmSave = async () => {
-    if (!rep.id) {
+    const entryIdToUse = rep.id || rep.entryId;
+    if (!entryIdToUse) {
       toast({ title: "Error", description: "Entry ID not available", variant: "destructive" });
       return;
     }
@@ -229,7 +249,7 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
       }
 
       const { data, error } = await supabase.functions.invoke('update-rep-entry', {
-        body: { entryId: rep.id, updates }
+        body: { entryId: entryIdToUse, updates }
       });
 
       if (error) throw error;
@@ -315,7 +335,7 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
                   )}
                 </div>
               </div>
-              {isAdmin && rep.id && !isEditMode && (
+              {isAdmin && (rep.id || rep.entryId) && !isEditMode && (
                 <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
                   <Pencil className="h-4 w-4 mr-1.5" />
                   Edit
@@ -440,6 +460,54 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entr
                 )}
               </div>
             </div>
+
+            {/* Activity Timeline Section - Only for leaders viewing their downline */}
+            {canViewTimeline && hasTimelineData && !isEditMode && (
+              <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Activity className="w-4 h-4" />
+                    <span>Activity Timeline</span>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    timelineOpen && "rotate-180"
+                  )} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <RepActivityTimeline
+                    counterTimestamps={rep.counterTimestamps}
+                    salesLog={rep.salesLog}
+                    workStartTime={rep.workStartTime}
+                    workEndTime={rep.workEndTime}
+                    isFinalized={rep.isFinalized}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Hourly Activity Chart - Only for leaders viewing their downline */}
+            {canViewTimeline && hasTimelineData && !isEditMode && (
+              <Collapsible open={hourlyOpen} onOpenChange={setHourlyOpen}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Hourly Activity</span>
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    hourlyOpen && "rotate-180"
+                  )} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3">
+                  <HourlyActivityChart
+                    counterTimestamps={rep.counterTimestamps}
+                    workStartTime={rep.workStartTime}
+                    workEndTime={rep.workEndTime}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         </DrawerContent>
       </Drawer>
