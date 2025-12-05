@@ -411,6 +411,21 @@ export const AdminDataReviewCard = () => {
   const errorCount = issues.filter(i => i.severity === 'error').length;
   const warningCount = issues.filter(i => i.severity === 'warning').length;
 
+  // Separate rapid tap issues from other issues
+  const rapidTapIssues = issues.filter(i => i.issueType === 'rapid_tapping');
+  const otherIssues = issues.filter(i => i.issueType !== 'rapid_tapping');
+  
+  // Group rapid tap issues by rep
+  const rapidTapByRep = rapidTapIssues.reduce((acc, issue) => {
+    const key = issue.repName;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(issue);
+    return acc;
+  }, {} as Record<string, DataIssue[]>);
+  
+  // Sort reps by number of rapid tap incidents (most first)
+  const sortedRapidTapReps = Object.entries(rapidTapByRep).sort((a, b) => b[1].length - a[1].length);
+
   return (
     <>
       <Card className="border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/10">
@@ -430,8 +445,9 @@ export const AdminDataReviewCard = () => {
             <span className="text-xs text-muted-foreground">Tap to edit</span>
           </div>
 
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {issues.map(issue => (
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {/* Other issues first */}
+            {otherIssues.map(issue => (
               <IssueRow
                 key={issue.id}
                 issue={issue}
@@ -443,6 +459,39 @@ export const AdminDataReviewCard = () => {
                 fixingIssueId={fixingIssueId}
               />
             ))}
+            
+            {/* Rapid tap issues grouped by rep */}
+            {sortedRapidTapReps.length > 0 && (
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  Rapid Tapping ({rapidTapIssues.length})
+                </p>
+                {sortedRapidTapReps.map(([repName, repIssues]) => (
+                  <div key={repName} className="mb-2 last:mb-0">
+                    {repIssues.length > 1 && (
+                      <p className="text-xs text-muted-foreground mb-1 font-medium">
+                        {repName} ({repIssues.length} incidents)
+                      </p>
+                    )}
+                    <div className="space-y-1">
+                      {repIssues.map(issue => (
+                        <IssueRow
+                          key={issue.id}
+                          issue={issue}
+                          onOkay={() => handleOkayClick(issue)}
+                          onEdit={() => handleEditIssue(issue)}
+                          onFixEndTime={handleFixEndTime}
+                          onClearActivity={handleClearActivity}
+                          isFixing={isFixingEndTime}
+                          fixingIssueId={fixingIssueId}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
