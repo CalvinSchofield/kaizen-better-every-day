@@ -380,6 +380,18 @@ export const useDailyEntry = (date?: string) => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['daily-entry', entryDate], data);
+      // Invalidate all leaderboard and activity queries
+      queryClient.invalidateQueries({ queryKey: ['daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['yesterday-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['weekly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['ytd-leaderboard'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['competitor-nudge'] });
+      queryClient.invalidateQueries({ queryKey: ['week-summary'] });
     },
   });
 
