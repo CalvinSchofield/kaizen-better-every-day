@@ -8,7 +8,35 @@ import { useSeasonLeaderboard } from "@/hooks/useSeasonLeaderboard";
 import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { useWorkingStatus } from "@/hooks/useWorkingStatus";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { supabase } from "@/integrations/supabase/client";
+import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
+
+interface SelectedRepData {
+  userId: string;
+  name: string;
+  year: string;
+  teamName: string;
+  mgmtGroupName: string;
+  doors: number;
+  dms: number;
+  pitches: number;
+  transitions: number;
+  presentations: number;
+  closes: number;
+  fp: number;
+  upgradeFP: number;
+  prmr: number;
+  upgradePRMR: number;
+  doorsToFpRatio: number;
+  hoursWorked: number;
+  workStartTime?: string;
+  workEndTime?: string;
+  counterTimestamps?: Record<string, string[]>;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
+  isFinalized?: boolean;
+  entryId?: string;
+}
 
 // Working status indicator component
 const WorkingIndicator = ({ isWorking, hasForgottenEntry, isCurrentUser }: { 
@@ -46,6 +74,14 @@ export const LeaderboardCard = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
+  const [selectedRep, setSelectedRep] = useState<SelectedRepData | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const { data: teamAccess } = useTeamAccess();
+  
+  // Check if current user is a leader with downline access
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  const accessibleUserIds = teamAccess?.accessibleUserIds || [];
 
   // Listen for expand event from CTA
   useEffect(() => {
@@ -188,6 +224,88 @@ export const LeaderboardCard = () => {
 
   const highlight = findUserHighlight();
 
+  // Handler to open rep detail drawer
+  const handleRepClick = async (userId: string, name: string) => {
+    // Only allow if leader and rep is in their downline
+    if (!isLeader || !accessibleUserIds.includes(userId) || userId === currentUserId) return;
+
+    // Get today's date in user's local timezone
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Fetch today's entry and rep info in parallel
+    const [entryResult, repInfoResult] = await Promise.all([
+      supabase
+        .from('daily_entries')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('entry_date', todayStr)
+        .maybeSingle(),
+      supabase
+        .from('reps')
+        .select('year, team_leader')
+        .eq('user_id', userId)
+        .maybeSingle()
+    ]);
+
+    const entry = entryResult.data;
+    const repInfo = repInfoResult.data;
+    
+    // Find team/mgmt group from teamAccess data
+    const accessibleRep = teamAccess?.accessibleReps?.find(r => r.userId === userId);
+    const team = teamAccess?.teams?.find(t => t.id === repInfo?.team_leader);
+
+    const repData: SelectedRepData = {
+      userId,
+      name,
+      year: repInfo?.year || 'Unknown',
+      teamName: team?.name || 'Unknown Team',
+      mgmtGroupName: teamAccess?.mgmtGroups?.find(g => g.teamIds.includes(team?.id || ''))?.name || '',
+      doors: entry?.doors_knocked || 0,
+      dms: entry?.decision_makers || 0,
+      pitches: entry?.pitches || 0,
+      transitions: entry?.transitions || 0,
+      presentations: entry?.presentations || 0,
+      closes: entry?.closes || 0,
+      fp: entry?.fp_plus || 0,
+      upgradeFP: (entry?.upgrade_prmr || 0) / 85,
+      prmr: entry?.prmr || 0,
+      upgradePRMR: entry?.upgrade_prmr || 0,
+      doorsToFpRatio: 0,
+      hoursWorked: 0,
+      workStartTime: entry?.work_start_time || undefined,
+      workEndTime: entry?.work_end_time || undefined,
+      isFinalized: entry?.is_finalized || false,
+      counterTimestamps: entry?.counter_timestamps as Record<string, string[]> | undefined,
+      salesLog: entry?.sales_log as Array<{ type: string; prmr: number; timestamp?: string }> | undefined,
+      entryId: entry?.id,
+    };
+
+    // Calculate hours worked
+    if (entry?.work_start_time && entry?.work_end_time) {
+      const start = new Date(entry.work_start_time);
+      const end = new Date(entry.work_end_time);
+      const breakMinutes = Array.isArray(entry.break_periods) 
+        ? entry.break_periods.reduce((sum: number, bp: any) => sum + (bp.duration || 0), 0)
+        : 0;
+      repData.hoursWorked = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60) - breakMinutes / 60);
+    }
+
+    // Calculate doors to FP ratio
+    const totalFP = repData.fp + repData.upgradeFP;
+    if (totalFP > 0) {
+      repData.doorsToFpRatio = repData.doors / totalFP;
+    }
+
+    setSelectedRep(repData);
+    setIsDrawerOpen(true);
+  };
+
+  // Check if a user can be clicked (leader with access to that rep)
+  const canClickRep = (userId: string) => {
+    return isLeader && accessibleUserIds.includes(userId) && userId !== currentUserId;
+  };
+
   return (
     <div className="w-full rounded-lg bg-card border border-border mb-6" data-leaderboard-card>
       {/* Header - Always Visible */}
@@ -321,12 +439,14 @@ export const LeaderboardCard = () => {
                     <div className="space-y-1">
                       {fpRankings.slice(0, 5).map((entry, idx) => {
                         const prmr = prmrMap.get(entry.userId) || 0;
+                        const clickable = canClickRep(entry.userId);
                         return (
                           <div 
                             key={entry.userId}
-                            className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                            onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
+                            className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
                               entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                            }`}
+                            } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
                           >
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
@@ -404,27 +524,31 @@ export const LeaderboardCard = () => {
                       )}
                     </div>
                     <div className="space-y-1">
-                      {rankings.slice(0, 3).map((entry, idx) => (
-                        <div 
-                          key={entry.userId}
-                          className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
-                            {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
-                            <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
-                              {entry.userId === currentUserId ? 'You' : entry.name}
-                              <WorkingIndicator 
-                                isWorking={entry.isWorking || false} 
-                                isCurrentUser={entry.userId === currentUserId}
-                              />
-                            </span>
+                      {rankings.slice(0, 3).map((entry, idx) => {
+                        const clickable = canClickRep(entry.userId);
+                        return (
+                          <div 
+                            key={entry.userId}
+                            onClick={() => clickable && handleRepClick(entry.userId, entry.name)}
+                            className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
+                              entry.userId === currentUserId ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/30'
+                            } ${clickable ? 'cursor-pointer hover:bg-accent/20' : ''}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-muted-foreground w-6">#{idx + 1}</span>
+                              {entry.userId === currentUserId && <span className="text-primary">⭐</span>}
+                              <span className={`text-sm flex items-center ${entry.userId === currentUserId ? 'font-bold text-primary' : 'font-medium'}`}>
+                                {entry.userId === currentUserId ? 'You' : entry.name}
+                                <WorkingIndicator 
+                                  isWorking={entry.isWorking || false} 
+                                  isCurrentUser={entry.userId === currentUserId}
+                                />
+                              </span>
+                            </div>
+                            <span className="text-sm font-bold">{format(entry.value)}</span>
                           </div>
-                          <span className="text-sm font-bold">{format(entry.value)}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {/* Show user's position if not in top 3 */}
                       {userRank > 3 && userEntry && (
                         <>
@@ -505,6 +629,18 @@ export const LeaderboardCard = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Rep Detail Drawer */}
+      {selectedRep && (
+        <RepDetailDrawer
+          open={isDrawerOpen}
+          onOpenChange={(open) => {
+            setIsDrawerOpen(open);
+            if (!open) setSelectedRep(null);
+          }}
+          rep={selectedRep}
+        />
       )}
     </div>
   );
