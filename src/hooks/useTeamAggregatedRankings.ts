@@ -24,6 +24,7 @@ export interface RepRankingData {
   workStartTime?: string;
   avgStartMinutes?: number;
   avgEndMinutes?: number;
+  hasUnfinalizedEntry?: boolean;
   // Historical averages for comparison
   historicalAvg?: {
     pitchesPerHour: number;
@@ -228,6 +229,7 @@ export const useTeamAggregatedRankings = ({
         startTimeCount: number;
         endTimeMinutesSum: number;
         endTimeCount: number;
+        hasUnfinalizedEntry: boolean;
       }>();
 
       // Helper to get local minutes of day from timestamp in rep's timezone
@@ -268,6 +270,7 @@ export const useTeamAggregatedRankings = ({
           startTimeCount: 0,
           endTimeMinutesSum: 0,
           endTimeCount: 0,
+          hasUnfinalizedEntry: false,
         };
 
         let entryHours = 0;
@@ -344,6 +347,7 @@ export const useTeamAggregatedRankings = ({
           startTimeCount,
           endTimeMinutesSum,
           endTimeCount,
+          hasUnfinalizedEntry: current.hasUnfinalizedEntry || !entry.is_finalized,
         });
       });
 
@@ -381,6 +385,7 @@ export const useTeamAggregatedRankings = ({
           workStartTime: totals.earliestStart,
           avgStartMinutes,
           avgEndMinutes,
+          hasUnfinalizedEntry: totals.hasUnfinalizedEntry,
           historicalAvg: historicalAvgMap.get(userId),
         });
       });
