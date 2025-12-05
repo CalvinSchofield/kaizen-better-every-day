@@ -142,9 +142,11 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
           if (entry.is_finalized) {
             prmrValue = Number(entry.prmr) || 0;
           } else {
-            const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+            // Prioritize sales_log if it has entries (supports edits/deletes)
+            const salesLog = entry.sales_log as any[];
+            const fromLog = calculateFromSalesLog(salesLog);
             const fromColumns = Number(entry.prmr) || 0;
-            prmrValue = Math.max(fromLog.prmr, fromColumns);
+            prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumns;
           }
           prmrByUser.set(entry.user_id, prmrValue);
         });
@@ -159,11 +161,12 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               // Finalized: use the saved column value
               value = Number(entry.fp_plus) || 0;
             } else {
-              // Unfinalized: calculate from sales_log OR use column if manually entered
-              const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+              // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
+              const salesLog = entry.sales_log as any[];
+              const fromLog = calculateFromSalesLog(salesLog);
               const fromColumn = Number(entry.fp_plus) || 0;
-              // Use whichever is higher (in case they manually entered something)
-              value = Math.max(fromLog.fp, fromColumn);
+              // Use sales_log calculation if there are sales, otherwise use column
+              value = (salesLog && salesLog.length > 0) ? fromLog.fp : fromColumn;
             }
             
             if (value === 0) return null;
@@ -201,11 +204,12 @@ export const useTodayLeaderboard = (filterByYear?: string) => {
               // Finalized: prmr field IS total PRMR
               value = Number(entry.prmr) || 0;
             } else {
-              // Unfinalized: calculate from sales_log OR use columns if manually entered
-              const fromLog = calculateFromSalesLog(entry.sales_log as any[]);
+              // Unfinalized: prioritize sales_log if it has entries (supports edits/deletes)
+              const salesLog = entry.sales_log as any[];
+              const fromLog = calculateFromSalesLog(salesLog);
               const fromColumns = Number(entry.prmr) || 0;
-              // Use whichever is higher
-              value = Math.max(fromLog.prmr, fromColumns);
+              // Use sales_log calculation if there are sales, otherwise use column
+              value = (salesLog && salesLog.length > 0) ? fromLog.prmr : fromColumns;
             }
             
             if (value === 0) return null;

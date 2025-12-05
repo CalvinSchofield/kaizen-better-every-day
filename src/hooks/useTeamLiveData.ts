@@ -238,12 +238,13 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               prmrValue = todayEntry.prmr || 0;
               upgradePrmrValue = todayEntry.upgrade_prmr || 0;
             } else {
-              // For unfinalized entries, calculate from sales_log (like dashboard does)
-              const fromLog = calculateFromSalesLog(todayEntry.sales_log as any[]);
-              // Use the higher of sales_log or column values (in case of partial saves)
-              fpValue = Math.max(fromLog.fp, todayEntry.fp_plus || 0);
-              prmrValue = Math.max(fromLog.prmr, todayEntry.prmr || 0);
-              upgradePrmrValue = Math.max(fromLog.upgradePrmr, todayEntry.upgrade_prmr || 0);
+              // For unfinalized entries, prioritize sales_log if it has entries (supports edits/deletes)
+              const salesLog = todayEntry.sales_log as any[];
+              const fromLog = calculateFromSalesLog(salesLog);
+              // Use sales_log calculation if there are sales, otherwise use column
+              fpValue = (salesLog && salesLog.length > 0) ? fromLog.fp : (todayEntry.fp_plus || 0);
+              prmrValue = (salesLog && salesLog.length > 0) ? fromLog.prmr : (todayEntry.prmr || 0);
+              upgradePrmrValue = (salesLog && salesLog.length > 0) ? fromLog.upgradePrmr : (todayEntry.upgrade_prmr || 0);
             }
             
             processedUsers.add(userId);
