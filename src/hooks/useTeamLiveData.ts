@@ -18,6 +18,7 @@ interface LiveRepData {
     closes: number;
     fp: number;
     prmr: number;
+    upgradePrmr?: number;
     isFinalized?: boolean;
   };
   workStartTime?: string;
@@ -63,6 +64,30 @@ const calculateBreakMinutes = (breakPeriods: any): number => {
   return totalMinutes;
 };
 
+// Calculate FP+ and PRMR from sales_log for unfinalized entries
+const calculateFromSalesLog = (salesLog: any[]): { fp: number; prmr: number; upgradePrmr: number } => {
+  if (!salesLog || !Array.isArray(salesLog)) return { fp: 0, prmr: 0, upgradePrmr: 0 };
+  
+  let fp = 0;
+  let prmr = 0;
+  let upgradePrmr = 0;
+  
+  for (const sale of salesLog) {
+    const salePrmr = Number(sale.prmr) || 0;
+    prmr += salePrmr;
+    
+    if (sale.type === 'fp') {
+      fp += 1;
+    } else if (sale.type === 'upgrade') {
+      // Upgrade FP+ = PRMR / 85
+      fp += salePrmr / 85;
+      upgradePrmr += salePrmr;
+    }
+  }
+  
+  return { fp, prmr, upgradePrmr };
+};
+
 export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDataParams) => {
   return useQuery({
     queryKey: ['team-live-data', userIds, excludeUserIds],
@@ -90,7 +115,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("*")
+        .select("*, sales_log")
         .in("user_id", filteredUserIds)
         .gte("entry_date", threeDaysAgoStr)
         .order("entry_date", { ascending: false });
@@ -159,6 +184,25 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             todayEntry.work_start_time !== null;
 
           if (hasActivity) {
+            // Calculate FP+ and PRMR - use sales_log for unfinalized, columns for finalized
+            let fpValue: number;
+            let prmrValue: number;
+            let upgradePrmrValue: number;
+            
+            if (todayEntry.is_finalized) {
+              // For finalized entries, use the saved column values
+              fpValue = todayEntry.fp_plus || 0;
+              prmrValue = todayEntry.prmr || 0;
+              upgradePrmrValue = todayEntry.upgrade_prmr || 0;
+            } else {
+              // For unfinalized entries, calculate from sales_log (like dashboard does)
+              const fromLog = calculateFromSalesLog(todayEntry.sales_log as any[]);
+              // Use the higher of sales_log or column values (in case of partial saves)
+              fpValue = Math.max(fromLog.fp, todayEntry.fp_plus || 0);
+              prmrValue = Math.max(fromLog.prmr, todayEntry.prmr || 0);
+              upgradePrmrValue = Math.max(fromLog.upgradePrmr, todayEntry.upgrade_prmr || 0);
+            }
+            
             processedUsers.add(userId);
             liveReps.push({
               userId,
@@ -175,8 +219,9 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
                 transitions: todayEntry.transitions || 0,
                 presentations: todayEntry.presentations || 0,
                 closes: todayEntry.closes || 0,
-                fp: todayEntry.fp_plus || 0,
-                prmr: todayEntry.prmr || 0,
+                fp: fpValue,
+                prmr: prmrValue,
+                upgradePrmr: upgradePrmrValue,
                 isFinalized: todayEntry.is_finalized || false,
               },
               workStartTime: todayEntry.work_start_time || undefined,
