@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface LiveRepData {
   userId: string;
@@ -59,13 +60,15 @@ const formatDuration = (minutes: number) => {
 export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Activity" }: LiveLeaderboardProps) => {
   const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
+  const [outstandingOpen, setOutstandingOpen] = useState(true);
+  const [workingOpen, setWorkingOpen] = useState(true);
+  const [attentionOpen, setAttentionOpen] = useState(true);
 
   const handleRepClick = (rep: LiveRepData) => {
     setSelectedRep(rep);
     setRepDrawerOpen(true);
   };
 
-  // Convert LiveRepData to RepDetailData format
   const getRepDetailData = (rep: LiveRepData & { durationMinutes?: number }) => {
     if (!rep) return null;
     return {
@@ -123,18 +126,39 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     return { ...rep, durationMinutes };
   });
 
-  // Sort by FP+ desc, then PRMR as tiebreaker, then doors as secondary tiebreaker
-  const sortedReps = [...repsWithDuration].sort((a, b) => {
-    if (b.todayStats.fp !== a.todayStats.fp) return b.todayStats.fp - a.todayStats.fp;
-    if (b.todayStats.prmr !== a.todayStats.prmr) return b.todayStats.prmr - a.todayStats.prmr;
-    return b.todayStats.doors - a.todayStats.doors;
-  });
+  // Categorize reps
+  // Outstanding: Has FP+ OR has presentations
+  const outstanding = repsWithDuration
+    .filter(r => r.todayStats.fp > 0 || r.todayStats.presentations > 0)
+    .sort((a, b) => {
+      if (b.todayStats.fp !== a.todayStats.fp) return b.todayStats.fp - a.todayStats.fp;
+      if (b.todayStats.prmr !== a.todayStats.prmr) return b.todayStats.prmr - a.todayStats.prmr;
+      return b.todayStats.presentations - a.todayStats.presentations;
+    });
+
+  // Working: Has activity but no presentations/FP+ yet, and decent door count (10+) or recent start
+  const working = repsWithDuration
+    .filter(r => 
+      r.todayStats.fp === 0 && 
+      r.todayStats.presentations === 0 &&
+      (r.todayStats.doors >= 10 || r.todayStats.transitions > 0 || r.durationMinutes < 60)
+    )
+    .sort((a, b) => b.todayStats.doors - a.todayStats.doors);
+
+  // Need Attention: Low activity relative to time worked (under 10 doors and worked 1+ hour), or no recent activity
+  const needAttention = repsWithDuration
+    .filter(r => 
+      r.todayStats.fp === 0 && 
+      r.todayStats.presentations === 0 &&
+      r.todayStats.doors < 10 &&
+      r.todayStats.transitions === 0 &&
+      r.durationMinutes >= 60
+    )
+    .sort((a, b) => a.todayStats.doors - b.todayStats.doors);
 
   // Calculate team totals
   const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
   const totalPRMR = repsWithDuration.reduce((sum, r) => sum + r.todayStats.prmr, 0);
-  const totalDoors = repsWithDuration.reduce((sum, r) => sum + r.todayStats.doors, 0);
-  const totalPresentations = repsWithDuration.reduce((sum, r) => sum + r.todayStats.presentations, 0);
 
   if (workingReps.length === 0) {
     return (
@@ -147,6 +171,100 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       </Card>
     );
   }
+
+  const RepRow = ({ rep, showRank, rank }: { rep: LiveRepData & { durationMinutes: number }; showRank?: boolean; rank?: number }) => {
+    const hasSales = rep.todayStats.fp > 0;
+    return (
+      <button 
+        onClick={() => handleRepClick(rep)}
+        className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {showRank && rank !== undefined && (
+            <span className={cn(
+              "w-5 flex-shrink-0 text-center text-xs font-medium",
+              rank === 0 && "text-primary"
+            )}>
+              {rank === 0 ? <Trophy className="w-4 h-4" /> : rank + 1}
+            </span>
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="truncate font-medium">
+              {stripEmojis(rep.name)}
+            </span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              {rep.workStartTime && (
+                <>
+                  <Clock className="w-2.5 h-2.5" />
+                  {formatTime(rep.workStartTime)}
+                </>
+              )}
+              {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}
+              {rep.todayStats.doors > 0 && ` · ${rep.todayStats.doors} doors`}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0 text-right">
+          {hasSales ? (
+            <>
+              <span className="font-semibold text-primary tabular-nums">
+                {rep.todayStats.fp.toFixed(1)} FP+
+              </span>
+              {rep.todayStats.prmr > 0 && (
+                <span className="font-semibold text-green-700 dark:text-green-500 tabular-nums text-xs">
+                  ${rep.todayStats.prmr.toLocaleString()}
+                </span>
+              )}
+            </>
+          ) : rep.todayStats.presentations > 0 ? (
+            <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
+              {rep.todayStats.presentations} pres
+            </span>
+          ) : (
+            <span className="text-muted-foreground tabular-nums text-xs">
+              {rep.todayStats.transitions > 0 ? `${rep.todayStats.transitions} trans` : 
+               rep.todayStats.pitches > 0 ? `${rep.todayStats.pitches} pitch` : ''}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  const SectionHeader = ({ 
+    icon: Icon, 
+    title, 
+    count, 
+    color, 
+    isOpen, 
+    onToggle 
+  }: { 
+    icon: any; 
+    title: string; 
+    count: number; 
+    color: string; 
+    isOpen: boolean; 
+    onToggle: () => void;
+  }) => (
+    <CollapsibleTrigger 
+      onClick={onToggle}
+      className={cn(
+        "flex items-center justify-between w-full py-2 px-3 rounded-lg transition-colors",
+        color
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4" />
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground">({count})</span>
+      </div>
+      <ChevronDown className={cn(
+        "w-4 h-4 transition-transform",
+        isOpen && "rotate-180"
+      )} />
+    </CollapsibleTrigger>
+  );
 
   return (
     <>
@@ -162,111 +280,87 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
             </div>
             <h3 className="font-semibold">{title}</h3>
           </div>
-          <span className="text-xs text-muted-foreground">{workingReps.length} working</span>
+          <span className="text-xs text-muted-foreground">{workingReps.length} reps</span>
         </div>
 
-        {/* Team Totals - compact row */}
-        <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-primary/5 rounded-lg text-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">FP+:</span>
-            <span className="font-bold text-primary">{totalFP.toFixed(1)}</span>
+        {/* Team Totals */}
+        {(totalFP > 0 || totalPRMR > 0) && (
+          <div className="flex items-center gap-4 mb-4 py-2 px-3 bg-primary/5 rounded-lg text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">FP+:</span>
+              <span className="font-bold text-primary">{totalFP.toFixed(1)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">PRMR:</span>
+              <span className="font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">PRMR:</span>
-            <span className="font-bold text-green-700 dark:text-green-500">${totalPRMR.toLocaleString()}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">Doors:</span>
-            <span className="font-semibold">{totalDoors}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">Pres:</span>
-            <span className="font-semibold">{totalPresentations}</span>
-          </div>
-        </div>
+        )}
 
-        {/* Simple Table Header */}
-        <div className="grid grid-cols-[1fr_60px_70px_50px_50px] gap-2 px-2 py-1 text-xs text-muted-foreground font-medium border-b border-border/50 mb-1">
-          <span>Rep</span>
-          <span className="text-right">FP+</span>
-          <span className="text-right">PRMR</span>
-          <span className="text-right">Pres</span>
-          <span className="text-right">Doors</span>
-        </div>
-
-        {/* Rep Rows - sorted by production */}
-        <div className="space-y-0.5 max-h-[400px] overflow-y-auto">
-          {sortedReps.map((rep, idx) => {
-            const hasSales = rep.todayStats.fp > 0;
-            return (
-              <button 
-                key={rep.userId}
-                onClick={() => handleRepClick(rep)}
-                className={cn(
-                  "grid grid-cols-[1fr_60px_70px_50px_50px] gap-2 px-2 py-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50",
-                  hasSales && "bg-primary/5"
-                )}
-              >
-                {/* Name + Team */}
-                <div className="flex items-center gap-2 min-w-0">
-                  {hasSales && idx < 3 ? (
-                    <span className={cn(
-                      "w-5 flex-shrink-0 text-center",
-                      idx === 0 && "text-primary"
-                    )}>
-                      {idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
-                    </span>
-                  ) : (
-                    <span className="w-5 flex-shrink-0" />
-                  )}
-                  <div className="flex flex-col min-w-0">
-                    <span className={cn("truncate text-sm", hasSales && idx === 0 && "font-medium")}>
-                      {stripEmojis(rep.name)}
-                    </span>
-                    {rep.workStartTime && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        {formatTime(rep.workStartTime)}
-                        {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}
-                      </span>
-                    )}
-                  </div>
+        {/* Collapsible Sections */}
+        <div className="space-y-2">
+          {/* Outstanding Performance */}
+          {outstanding.length > 0 && (
+            <Collapsible open={outstandingOpen} onOpenChange={setOutstandingOpen}>
+              <SectionHeader
+                icon={Star}
+                title="Outstanding"
+                count={outstanding.length}
+                color="bg-primary/10 hover:bg-primary/15 text-primary"
+                isOpen={outstandingOpen}
+                onToggle={() => setOutstandingOpen(!outstandingOpen)}
+              />
+              <CollapsibleContent className="pt-1">
+                <div className="space-y-0.5 pl-1">
+                  {outstanding.map((rep, idx) => (
+                    <RepRow key={rep.userId} rep={rep} showRank rank={idx} />
+                  ))}
                 </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
-                {/* FP+ */}
-                <span className={cn(
-                  "text-right font-semibold tabular-nums",
-                  rep.todayStats.fp > 0 ? "text-primary" : "text-muted-foreground/50"
-                )}>
-                  {rep.todayStats.fp > 0 ? rep.todayStats.fp.toFixed(1) : "–"}
-                </span>
+          {/* Working */}
+          {working.length > 0 && (
+            <Collapsible open={workingOpen} onOpenChange={setWorkingOpen}>
+              <SectionHeader
+                icon={Activity}
+                title="Working"
+                count={working.length}
+                color="bg-blue-500/10 hover:bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                isOpen={workingOpen}
+                onToggle={() => setWorkingOpen(!workingOpen)}
+              />
+              <CollapsibleContent className="pt-1">
+                <div className="space-y-0.5 pl-1">
+                  {working.map((rep) => (
+                    <RepRow key={rep.userId} rep={rep} />
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
-                {/* PRMR */}
-                <span className={cn(
-                  "text-right font-semibold tabular-nums",
-                  rep.todayStats.prmr > 0 ? "text-green-700 dark:text-green-500" : "text-muted-foreground/50"
-                )}>
-                  {rep.todayStats.prmr > 0 ? `$${rep.todayStats.prmr.toLocaleString()}` : "–"}
-                </span>
-
-                {/* Presentations */}
-                <span className={cn(
-                  "text-right tabular-nums",
-                  rep.todayStats.presentations > 0 ? "font-medium" : "text-muted-foreground/50"
-                )}>
-                  {rep.todayStats.presentations || "–"}
-                </span>
-
-                {/* Doors */}
-                <span className={cn(
-                  "text-right tabular-nums",
-                  rep.todayStats.doors > 0 ? "" : "text-muted-foreground/50"
-                )}>
-                  {rep.todayStats.doors || "–"}
-                </span>
-              </button>
-            );
-          })}
+          {/* Need Attention */}
+          {needAttention.length > 0 && (
+            <Collapsible open={attentionOpen} onOpenChange={setAttentionOpen}>
+              <SectionHeader
+                icon={AlertTriangle}
+                title="Need Attention"
+                count={needAttention.length}
+                color="bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-500"
+                isOpen={attentionOpen}
+                onToggle={() => setAttentionOpen(!attentionOpen)}
+              />
+              <CollapsibleContent className="pt-1">
+                <div className="space-y-0.5 pl-1">
+                  {needAttention.map((rep) => (
+                    <RepRow key={rep.userId} rep={rep} />
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       </Card>
 
