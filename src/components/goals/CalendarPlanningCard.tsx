@@ -219,6 +219,12 @@ export const CalendarPlanningCard = ({
     
     const onPace = projectedTotal >= goalTotal;
     const pacePercent = goalTotal > 0 ? (currentProgress / goalTotal) * 100 : 0;
+    
+    // Calculate extra per week needed to catch up (if behind pace)
+    // Weeks left = remaining days / 6 (Mon-Sat)
+    const weeksLeft = remainingDays / 6;
+    const behindBy = Math.max(0, goalTotal - projectedTotal);
+    const extraPerWeek = weeksLeft > 0 ? behindBy / weeksLeft : 0;
 
     return {
       futurePlannedCount,
@@ -236,6 +242,8 @@ export const CalendarPlanningCard = ({
       neededDaily: neededDaily.toFixed(2),
       onPace,
       pacePercent,
+      extraPerWeek: extraPerWeek.toFixed(1),
+      behindBy: behindBy.toFixed(1),
     };
   }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonCurrentEFP, preseasonTotalInput, isEfpMode]);
 
@@ -289,6 +297,15 @@ export const CalendarPlanningCard = ({
       weeksWorking,
       upgradeFpGoal,
     });
+    
+    // Calculate catch-up: extra per week needed if behind
+    // For summer, we calculate based on current pace vs needed pace
+    const weeksLeft = futureDaysLeft / 6;
+    // Current summer progress (using worked days in summer only)
+    const summerProgress = 0; // Summer hasn't started yet for preseason user
+    const projectedSummer = daysWorkedCount > 0 ? (summerProgress / daysWorkedCount) * totalSummerDays : 0;
+    const behindBy = Math.max(0, remainingSummerGoal - projectedSummer);
+    const extraPerWeek = weeksLeft > 0 ? behindBy / weeksLeft : 0;
 
     return {
       futurePlannedCount: futureDaysLeft,
@@ -296,8 +313,11 @@ export const CalendarPlanningCard = ({
       totalDays: totalSummerDays,
       daysLeft: futureDaysLeft,
       goalTotal: remainingSummerGoal.toFixed(1),
+      goalTotalRaw: remainingSummerGoal,
       goalDaily: goalDaily.toFixed(2),
       projectedEarnings: result.takeHomePay,
+      extraPerWeek: extraPerWeek.toFixed(1),
+      weeksLeft: Math.round(weeksLeft),
     };
   }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
 
@@ -591,6 +611,13 @@ export const CalendarPlanningCard = ({
                 <span>{preseasonStats.daysLeft} days left</span>
               </div>
               
+              {/* Catch-up message when behind pace */}
+              {!preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0 && (
+                <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-md">
+                  You need to sell an extra <span className="font-semibold">{preseasonStats.extraPerWeek} {metricLabel}/week</span> to get back on pace
+                </div>
+              )}
+              
               {/* Edit mode - goal inputs */}
               {isEditingPreseasonGoal && (
                 <div className="pt-3 mt-2 border-t border-border/30 space-y-3">
@@ -718,6 +745,13 @@ export const CalendarPlanningCard = ({
                     <span className="text-xs text-muted-foreground">Daily Goal</span>
                     <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
                   </div>
+                  
+                  {/* Catch-up message for summer - show weekly goal */}
+                  {summerStats.weeksLeft > 0 && parseFloat(summerStats.goalTotalRaw.toString()) > 0 && (
+                    <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
+                      Weekly goal: <span className="font-semibold">{(summerStats.goalTotalRaw / summerStats.weeksLeft).toFixed(1)} {metricLabel}/week</span> over {summerStats.weeksLeft} weeks
+                    </div>
+                  )}
                 </div>
               )}
             </CollapsibleContent>
@@ -732,16 +766,6 @@ export const CalendarPlanningCard = ({
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Goal Total</span>
                 <span className="text-lg font-bold">{totalStats.goalTotal} {metricLabel}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Current</span>
-                <span className={cn(
-                  "text-sm font-semibold flex items-center gap-1",
-                  totalStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                )}>
-                  {totalStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {totalStats.currentFP} {metricLabel}
-                </span>
               </div>
               <div className="pt-2 border-t border-border/30 flex justify-between items-center">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
