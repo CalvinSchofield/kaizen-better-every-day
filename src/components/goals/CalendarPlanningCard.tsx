@@ -1,11 +1,14 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay } from "date-fns";
+import { Calendar, ChevronLeft, ChevronRight, DollarSign, Zap, Trash2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay, addWeeks, isMonday, isTuesday, isWednesday, isThursday, isFriday, isSaturday } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useRepData } from "@/hooks/useRepData";
+import { useBlitzes } from "@/hooks/useBlitzes";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface CalendarPlanningCardProps {
   fpGoal: number;
@@ -23,10 +26,20 @@ export const CalendarPlanningCard = ({
   upgradeFpGoal = 0,
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const { plannedDays, togglePlannedDay, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
+  const [isAdding, setIsAdding] = useState(false);
+  const { plannedDays, togglePlannedDay, addMultipleDays, clearAllPlannedDays, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
+  const { repData } = useRepData();
+  const { allBlitzes } = useBlitzes();
 
   const today = startOfDay(new Date());
   
+  // Get committed blitzes from rep data
+  const committedBlitzes = useMemo(() => {
+    if (!repData?.committed_blitzes) return [];
+    const committed = repData.committed_blitzes as string[];
+    return allBlitzes.filter(b => committed.includes(b.name));
+  }, [repData?.committed_blitzes, allBlitzes]);
+
   // Calculate days in current month view
   const monthDays = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -72,6 +85,81 @@ export const CalendarPlanningCard = ({
     await togglePlannedDay(dateStr);
   };
 
+  // Check if a day is Mon-Sat (work day)
+  const isWorkDay = (date: Date): boolean => {
+    return isMonday(date) || isTuesday(date) || isWednesday(date) || 
+           isThursday(date) || isFriday(date) || isSaturday(date);
+  };
+
+  // Add Mon-Sat for X weeks starting from today
+  const handleAddWeeks = async (numWeeks: number) => {
+    setIsAdding(true);
+    try {
+      const dates: string[] = [];
+      const endDate = addWeeks(today, numWeeks);
+      let current = today;
+      
+      while (isBefore(current, endDate) || current.getTime() === endDate.getTime()) {
+        if (isWorkDay(current) && !isBefore(current, today)) {
+          dates.push(format(current, 'yyyy-MM-dd'));
+        }
+        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      await addMultipleDays(dates);
+      toast.success(`Added ${numWeeks} week${numWeeks > 1 ? 's' : ''} of work days`);
+    } catch (error) {
+      toast.error("Failed to add days");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // Add all committed blitz dates
+  const handleAddBlitzDates = async () => {
+    if (committedBlitzes.length === 0) {
+      toast.error("No committed blitzes found");
+      return;
+    }
+    
+    setIsAdding(true);
+    try {
+      const dates: string[] = [];
+      
+      for (const blitz of committedBlitzes) {
+        const startDate = new Date(blitz.date);
+        const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+        
+        let current = startDate;
+        while (isBefore(current, endDate) || current.getTime() === endDate.getTime()) {
+          if (!isBefore(current, today)) {
+            dates.push(format(current, 'yyyy-MM-dd'));
+          }
+          current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+        }
+      }
+      
+      await addMultipleDays(dates);
+      toast.success(`Added ${dates.length} blitz days`);
+    } catch (error) {
+      toast.error("Failed to add blitz days");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    setIsAdding(true);
+    try {
+      await clearAllPlannedDays();
+      toast.success("Cleared all planned days");
+    } catch (error) {
+      toast.error("Failed to clear days");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
@@ -106,6 +194,54 @@ export const CalendarPlanningCard = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Quick Presets */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddWeeks(1)}
+            disabled={isAdding || isToggling}
+            className="text-xs"
+          >
+            <Zap className="h-3 w-3 mr-1" />
+            +1 Week
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddWeeks(4)}
+            disabled={isAdding || isToggling}
+            className="text-xs"
+          >
+            <Zap className="h-3 w-3 mr-1" />
+            +4 Weeks
+          </Button>
+          {committedBlitzes.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddBlitzDates}
+              disabled={isAdding || isToggling}
+              className="text-xs"
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              Blitz Days
+            </Button>
+          )}
+          {getPlannedDaysCount() > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAll}
+              disabled={isAdding || isToggling}
+              className="text-xs text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+
         {/* Day Headers */}
         <div className="grid grid-cols-7 gap-1 text-center">
           {dayNames.map((day) => (
@@ -134,7 +270,7 @@ export const CalendarPlanningCard = ({
               <button
                 key={dateStr}
                 onClick={() => handleDayClick(day)}
-                disabled={isPast || isToggling}
+                disabled={isPast || isToggling || isAdding}
                 className={cn(
                   "aspect-square rounded-lg text-sm font-medium transition-all",
                   "flex items-center justify-center",
@@ -180,7 +316,7 @@ export const CalendarPlanningCard = ({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-3">
-              Tap days to mark your planned work schedule
+              Tap days or use presets to plan your work schedule
             </p>
           )}
         </div>

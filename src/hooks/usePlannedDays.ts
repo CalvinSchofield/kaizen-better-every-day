@@ -78,6 +78,36 @@ export const usePlannedDays = () => {
     }
   };
 
+  const addMultipleDays = async (dates: string[]) => {
+    if (!repData?.user_id) return;
+    
+    // Filter out already planned dates
+    const newDates = dates.filter(d => !plannedDays?.some(p => p.planned_date === d));
+    if (newDates.length === 0) return;
+
+    const { error } = await supabase
+      .from('planned_work_days')
+      .insert(newDates.map(date => ({
+        user_id: repData.user_id,
+        planned_date: date,
+      })));
+
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+  };
+
+  const clearAllPlannedDays = async () => {
+    if (!repData?.user_id) return;
+
+    const { error } = await supabase
+      .from('planned_work_days')
+      .delete()
+      .eq('user_id', repData.user_id);
+
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+  };
+
   const isDatePlanned = (date: string): boolean => {
     return plannedDays?.some(d => d.planned_date === date) || false;
   };
@@ -98,6 +128,8 @@ export const usePlannedDays = () => {
     error,
     refetch,
     togglePlannedDay,
+    addMultipleDays,
+    clearAllPlannedDays,
     isDatePlanned,
     getPlannedDaysCount,
     getPlannedDaysInRange,
