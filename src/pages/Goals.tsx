@@ -83,6 +83,7 @@ const Goals = () => {
                   must_do_fp_goal: data.mustDoFpGoal,
                   will_do_fp_goal: data.willDoFpGoal,
                   could_do_fp_goal: data.couldDoFpGoal,
+                  preseason_fp_goal: data.preseasonFpGoal,
                   setup_complete: true,
                 });
 
@@ -135,7 +136,15 @@ const Goals = () => {
           </Button>
         </div>
 
-        {/* Goal Progress Ladder */}
+        {/* Preseason Commitments - Show first */}
+        <CommitmentsTracker
+          goals={goals}
+          preseasonFpProgress={totalFpPlus}
+          onUpdateGoals={updateGoals}
+          isUpdating={isUpdating}
+        />
+
+        {/* Goal Progress Ladder - Must Do → Will Do → Could Do */}
         <div>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
@@ -149,15 +158,6 @@ const Goals = () => {
             onTierClick={(tier) => setEditingTier(tier)}
           />
         </div>
-
-
-        {/* Preseason Commitments */}
-        <CommitmentsTracker
-          goals={goals}
-          preseasonFpProgress={totalFpPlus}
-          onUpdateGoals={updateGoals}
-          isUpdating={isUpdating}
-        />
 
         {/* Calendar Planning */}
         <CalendarPlanningCard
