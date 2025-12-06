@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar } from "lucide-react";
+import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon } from "lucide-react";
 import { 
   calculateMustDoFromExpenses, 
   calculateTakeHome, 
@@ -11,13 +11,23 @@ import {
 } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { differenceInWeeks, parseISO } from "date-fns";
+import { differenceInWeeks, parseISO, format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Summer date constraints
-const SUMMER_START_MIN = "2026-04-12";
-const SUMMER_START_MAX = "2026-06-01";
-const SUMMER_END_MIN = "2026-08-01";
-const SUMMER_END_MAX = "2026-09-27";
+const SUMMER_START_MIN = new Date("2026-04-12");
+const SUMMER_START_MAX = new Date("2026-06-01");
+const SUMMER_END_MIN = new Date("2026-08-01");
+const SUMMER_END_MAX = new Date("2026-09-27");
+
+// Housing options with weekly costs
+const HOUSING_OPTIONS = [
+  { label: "Single Shared", value: 200 },
+  { label: "Single Private", value: 385 },
+  { label: "Married", value: 415 },
+  { label: "Married+", value: 440 },
+];
 
 interface GoalSetupWizardProps {
   isRookie: boolean;
@@ -43,16 +53,22 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   // Form state - no prefilled values for goals
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
   const [monthsOff, setMonthsOff] = useState<string>('4');
-  const [rentPerWeek, setRentPerWeek] = useState(200); // Default $200/week (Single Shared)
+  const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]); // Default Single Shared
   const [avgPrmrPerFp, setAvgPrmrPerFp] = useState<string>('85');
-  const [summerStart, setSummerStart] = useState('2026-04-12');
-  const [summerEnd, setSummerEnd] = useState('2026-09-27');
+  const [summerStart, setSummerStart] = useState<Date | undefined>(SUMMER_START_MIN);
+  const [summerEnd, setSummerEnd] = useState<Date | undefined>(SUMMER_END_MAX);
   const [mustDoFpGoalInput, setMustDoFpGoalInput] = useState<string>('');
   const [willDoFpGoal, setWillDoFpGoal] = useState<string>('');
   const [couldDoFpGoal, setCouldDoFpGoal] = useState<string>('');
 
+  // Date picker states
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
+
   // Calculate weeks from dates
-  const weeksWorking = Math.max(1, differenceInWeeks(parseISO(summerEnd), parseISO(summerStart)));
+  const weeksWorking = summerStart && summerEnd 
+    ? Math.max(1, differenceInWeeks(summerEnd, summerStart))
+    : 18;
 
   // Calculated must-do for rookies (based on expenses)
   const mustDoFpGoal = isRookie 
@@ -60,7 +76,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         Number(monthlyExpenses) || 0, 
         Number(monthsOff) || 4, 
         Number(avgPrmrPerFp) || 85, 
-        'Single Shared', 
+        housingOption.label, 
         weeksWorking
       )
     : Number(mustDoFpGoalInput) || 0;
@@ -74,6 +90,16 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setter(value);
     }
+  };
+
+  // Auto-open end date picker after selecting start date
+  const handleStartDateSelect = (date: Date | undefined) => {
+    setSummerStart(date);
+    setStartDateOpen(false);
+    // Small delay for smooth animation
+    setTimeout(() => {
+      setEndDateOpen(true);
+    }, 150);
   };
 
   const getStepTitle = () => {
@@ -104,14 +130,14 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     onComplete({
       monthlyExpenses: isRookie ? Number(monthlyExpenses) || 0 : 0,
       monthsOff: Number(monthsOff) || 4,
-      rentType: 'Single Shared', // Store type name for compatibility
+      rentType: housingOption.label,
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85,
       weeksWorking,
       mustDoFpGoal,
       willDoFpGoal: Number(willDoFpGoal) || 0,
       couldDoFpGoal: Number(couldDoFpGoal) || 0,
-      summerStart,
-      summerEnd,
+      summerStart: summerStart ? format(summerStart, 'yyyy-MM-dd') : '2026-04-12',
+      summerEnd: summerEnd ? format(summerEnd, 'yyyy-MM-dd') : '2026-09-27',
     });
   };
 
@@ -196,47 +222,116 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   const renderDateSettings = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <Calendar className="h-12 w-12 mx-auto text-primary mb-3" />
+        <CalendarIcon className="h-12 w-12 mx-auto text-primary mb-3" />
         <p className="text-muted-foreground">
           When will you be selling?
         </p>
       </div>
 
-      <div>
-        <Label htmlFor="summerStart">Summer Start Date</Label>
-        <Input
-          id="summerStart"
-          type="date"
-          value={summerStart}
-          min={SUMMER_START_MIN}
-          max={SUMMER_START_MAX}
-          onChange={(e) => setSummerStart(e.target.value)}
-          className="mt-2"
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Apr 12 - Jun 1, 2026
-        </p>
-      </div>
+      {/* Date Pickers */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Start Date</Label>
+          <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal mt-1",
+                  !summerStart && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {summerStart ? format(summerStart, "MMM d") : "Select"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={summerStart}
+                onSelect={handleStartDateSelect}
+                disabled={(date) => date < SUMMER_START_MIN || date > SUMMER_START_MAX}
+                defaultMonth={SUMMER_START_MIN}
+                className="pointer-events-auto"
+              />
+              <p className="text-xs text-muted-foreground text-center pb-2">
+                Apr 12 - Jun 1, 2026
+              </p>
+            </PopoverContent>
+          </Popover>
+        </div>
 
-      <div>
-        <Label htmlFor="summerEnd">Summer End Date</Label>
-        <Input
-          id="summerEnd"
-          type="date"
-          value={summerEnd}
-          min={SUMMER_END_MIN}
-          max={SUMMER_END_MAX}
-          onChange={(e) => setSummerEnd(e.target.value)}
-          className="mt-2"
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Aug 1 - Sep 27, 2026
-        </p>
+        <div>
+          <Label className="text-xs">End Date</Label>
+          <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal mt-1",
+                  !summerEnd && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {summerEnd ? format(summerEnd, "MMM d") : "Select"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={summerEnd}
+                onSelect={(date) => {
+                  setSummerEnd(date);
+                  setEndDateOpen(false);
+                }}
+                disabled={(date) => date < SUMMER_END_MIN || date > SUMMER_END_MAX}
+                defaultMonth={SUMMER_END_MIN}
+                className="pointer-events-auto"
+              />
+              <p className="text-xs text-muted-foreground text-center pb-2">
+                Aug 1 - Sep 27, 2026
+              </p>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       <div className="rounded-xl bg-muted/50 p-4 text-center">
         <p className="text-sm text-muted-foreground mb-1">Selling for:</p>
         <p className="text-2xl font-bold">{weeksWorking} weeks</p>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Label>Housing</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Weekly rent + utilities cost</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {HOUSING_OPTIONS.map((option) => (
+            <Button
+              key={option.label}
+              type="button"
+              variant={housingOption.value === option.value ? "default" : "outline"}
+              className={cn(
+                "h-auto py-2 px-3 flex flex-col items-start",
+                housingOption.value === option.value && "ring-2 ring-primary"
+              )}
+              onClick={() => setHousingOption(option)}
+            >
+              <span className="text-xs font-medium">{option.label}</span>
+              <span className="text-xs opacity-70">${option.value}/wk</span>
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div>
@@ -263,45 +358,6 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
           placeholder="85"
         />
       </div>
-
-      <div>
-        <div className="flex items-center gap-2">
-          <Label>Housing Cost</Label>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[250px]">
-                <p className="font-semibold mb-1">Weekly rates (rent + utilities):</p>
-                <ul className="text-xs space-y-0.5">
-                  <li>• No Housing: $0</li>
-                  <li>• Single Shared: $200</li>
-                  <li>• Single Private: $385</li>
-                  <li>• Married 1 Bed: $415</li>
-                  <li>• Married 2 Bed: $440</li>
-                  <li>• Married 3 Bed: $465</li>
-                </ul>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-muted-foreground">$</span>
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={rentPerWeek}
-            onChange={(e) => {
-              const val = e.target.value.replace(/\D/g, '');
-              setRentPerWeek(Number(val) || 0);
-            }}
-            className="w-20"
-            placeholder="200"
-          />
-          <span className="text-muted-foreground">/week</span>
-        </div>
-      </div>
     </div>
   );
 
@@ -309,19 +365,19 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     const mustDoResult = calculateTakeHome({ 
       fpGoal: mustDoFpGoal, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
     const willDoResult = calculateTakeHome({ 
       fpGoal: Number(willDoFpGoal) || 0, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
     const couldDoResult = calculateTakeHome({ 
       fpGoal: Number(couldDoFpGoal) || 0, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
 
@@ -367,7 +423,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
                 placeholder="Enter FP+ goal"
               />
               {mustDoFpGoalInput && (
-                <span className="text-muted-foreground whitespace-nowrap">
+                <span className="text-muted-foreground whitespace-nowrap text-sm">
                   = {formatCurrency(mustDoResult.takeHomePay)}
                 </span>
               )}
@@ -391,7 +447,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               placeholder="Enter FP+ goal"
             />
             {willDoFpGoal && (
-              <span className="text-muted-foreground whitespace-nowrap">
+              <span className="text-muted-foreground whitespace-nowrap text-sm">
                 = {formatCurrency(willDoResult.takeHomePay)}
               </span>
             )}
@@ -414,7 +470,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               placeholder="Enter FP+ goal"
             />
             {couldDoFpGoal && (
-              <span className="text-muted-foreground whitespace-nowrap">
+              <span className="text-muted-foreground whitespace-nowrap text-sm">
                 = {formatCurrency(couldDoResult.takeHomePay)}
               </span>
             )}
@@ -428,19 +484,19 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     const mustDoResult = calculateTakeHome({ 
       fpGoal: mustDoFpGoal, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
     const willDoResult = calculateTakeHome({ 
       fpGoal: Number(willDoFpGoal) || 0, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
     const couldDoResult = calculateTakeHome({ 
       fpGoal: Number(couldDoFpGoal) || 0, 
       avgPrmrPerFp: Number(avgPrmrPerFp) || 85, 
-      rentType: 'Single Shared', 
+      rentType: housingOption.label, 
       weeksWorking 
     });
 
@@ -486,7 +542,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          ${rentPerWeek}/wk housing • {weeksWorking} weeks • ${avgPrmrPerFp} avg PRMR
+          {housingOption.label} (${housingOption.value}/wk) • {weeksWorking} weeks • ${avgPrmrPerFp} avg PRMR
         </div>
       </div>
     );
