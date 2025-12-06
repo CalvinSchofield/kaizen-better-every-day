@@ -354,20 +354,26 @@ export type Database = {
         Row: {
           avg_prmr_per_fp: number | null
           blitzes_goal: number | null
+          blitzes_progress: number | null
           books_goal: number | null
+          books_progress: number | null
           could_do_fp_goal: number | null
           created_at: string | null
           id: string
           monday_night_lights_goal: number | null
+          monday_night_lights_progress: number | null
           monthly_expenses: number | null
           months_off: number | null
           must_do_fp_goal: number | null
           preseason_fp_goal: number | null
           recruits_with_sale_goal: number | null
+          recruits_with_sale_progress: number | null
           rent_type: string | null
           role_plays_goal: number | null
+          role_plays_progress: number | null
           setup_complete: boolean | null
           training_hours_goal: number | null
+          training_hours_progress: number | null
           updated_at: string | null
           upgrade_fp_goal: number | null
           user_id: string
@@ -377,20 +383,26 @@ export type Database = {
         Insert: {
           avg_prmr_per_fp?: number | null
           blitzes_goal?: number | null
+          blitzes_progress?: number | null
           books_goal?: number | null
+          books_progress?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string
           monday_night_lights_goal?: number | null
+          monday_night_lights_progress?: number | null
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
+          recruits_with_sale_progress?: number | null
           rent_type?: string | null
           role_plays_goal?: number | null
+          role_plays_progress?: number | null
           setup_complete?: boolean | null
           training_hours_goal?: number | null
+          training_hours_progress?: number | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id: string
@@ -400,20 +412,26 @@ export type Database = {
         Update: {
           avg_prmr_per_fp?: number | null
           blitzes_goal?: number | null
+          blitzes_progress?: number | null
           books_goal?: number | null
+          books_progress?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string
           monday_night_lights_goal?: number | null
+          monday_night_lights_progress?: number | null
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
+          recruits_with_sale_progress?: number | null
           rent_type?: string | null
           role_plays_goal?: number | null
+          role_plays_progress?: number | null
           setup_complete?: boolean | null
           training_hours_goal?: number | null
+          training_hours_progress?: number | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id?: string

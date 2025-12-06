@@ -21,6 +21,13 @@ export interface RepGoals {
   blitzes_goal: number;
   preseason_fp_goal: number;
   recruits_with_sale_goal: number;
+  // Progress tracking fields
+  training_hours_progress: number;
+  books_progress: number;
+  monday_night_lights_progress: number;
+  role_plays_progress: number;
+  blitzes_progress: number;
+  recruits_with_sale_progress: number;
   setup_complete: boolean;
   created_at: string;
   updated_at: string;

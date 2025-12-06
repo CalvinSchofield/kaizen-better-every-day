@@ -10,12 +10,13 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalProgressLadder } from "@/components/goals/GoalProgressLadder";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
+import { CommitmentsTracker } from "@/components/goals/CommitmentsTracker";
 import { GoalTier } from "@/components/goals/GoalTierCard";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const Goals = () => {
-  const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals } = useRepGoals();
+  const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
   const { totalFP: totalFpPlus } = usePreseasonFP();
   
@@ -157,17 +158,13 @@ const Goals = () => {
           </CardContent>
         </Card>
 
-        {/* Coming Soon: Preseason Commitments */}
-        <Card className="border-border/50 border-dashed opacity-60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Preseason Commitments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Track training hours, books, role plays, and more. Coming soon!
-            </p>
-          </CardContent>
-        </Card>
+        {/* Preseason Commitments */}
+        <CommitmentsTracker
+          goals={goals}
+          preseasonFpProgress={totalFpPlus}
+          onUpdateGoals={updateGoals}
+          isUpdating={isUpdating}
+        />
 
         {/* Coming Soon: Calendar Planning */}
         <Card className="border-border/50 border-dashed opacity-60">
