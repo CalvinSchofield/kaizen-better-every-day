@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
-import { useDailyEntry } from "@/hooks/useDailyEntry";
+import { SaleDetailSheet } from "@/components/SaleDetailSheet";
+import { useDailyEntry, Sale } from "@/hooks/useDailyEntry";
+import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
@@ -26,12 +28,15 @@ export const CalendarView = ({
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isDatePlanned } = usePlannedDays();
   const { goals } = useRepGoals();
+  const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [dataViewMode, setDataViewMode] = useState<"totals" | "weekly" | "daily">("totals");
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [saleDetailOpen, setSaleDetailOpen] = useState(false);
   
   // Calculate daily goal based on mode
   const dailyGoal = useMemo(() => {
@@ -916,6 +921,25 @@ export const CalendarView = ({
         onSave={handleSaveEntry}
         onDelete={selectedEntry?.is_finalized ? handleDeleteEntry : undefined}
         isSaving={isFinalizing}
+        salesLog={selectedEntry?.sales_log || []}
+      />
+
+      {/* Sale Detail Sheet - accessed from SalesLoggerCard in Track page */}
+      <SaleDetailSheet
+        open={saleDetailOpen}
+        onOpenChange={setSaleDetailOpen}
+        sale={selectedSale}
+        entryDate={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+        onUpdateSale={(updatedSale) => {
+          if (selectedEntry?.id && selectedDate) {
+            updateSale({
+              entryId: selectedEntry.id,
+              entryDate: format(selectedDate, 'yyyy-MM-dd'),
+              saleId: updatedSale.id,
+              updates: updatedSale,
+            });
+          }
+        }}
       />
     </div>
   );

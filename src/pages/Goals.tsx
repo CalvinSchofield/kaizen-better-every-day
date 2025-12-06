@@ -12,6 +12,7 @@ import { GoalProgressLadder } from "@/components/goals/GoalProgressLadder";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CommitmentsTracker } from "@/components/goals/CommitmentsTracker";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
+import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { GoalTier } from "@/components/goals/GoalTierCard";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -189,6 +190,9 @@ const Goals = () => {
           preseasonFpGoal={goals.preseason_fp_goal || 0}
           onPreseasonGoalChange={(goal) => updateGoals({ preseason_fp_goal: goal })}
         />
+
+        {/* Canceled Stats */}
+        <CanceledStatsCard />
       </div>
 
       {/* Calculator Sheet */}
