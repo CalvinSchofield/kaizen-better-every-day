@@ -10,7 +10,7 @@ export const usePreseasonFP = () => {
     queryKey: ['preseason-fp-total'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { totalFP: 0, totalPRMR: 0 };
+      if (!user) return { totalFP: 0, totalPRMR: 0, totalEFP: 0 };
 
       // Query all finalized entries before summer start date
       const { data: entries, error } = await supabase
@@ -22,7 +22,7 @@ export const usePreseasonFP = () => {
 
       if (error) {
         console.error('Error fetching preseason FP:', error);
-        return { totalFP: 0, totalPRMR: 0 };
+        return { totalFP: 0, totalPRMR: 0, totalEFP: 0 };
       }
 
       // Calculate totals, excluding cancelled sales
@@ -51,9 +51,13 @@ export const usePreseasonFP = () => {
         }
       });
       
+      // EFP = Total PRMR / 85
+      const totalEFP = totalPRMR / 85;
+      
       return {
         totalFP: Math.round(totalFP * 10) / 10,
         totalPRMR: Math.round(totalPRMR * 100) / 100,
+        totalEFP: Math.round(totalEFP * 100) / 100,
       };
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
@@ -62,6 +66,7 @@ export const usePreseasonFP = () => {
   return { 
     totalFP: data?.totalFP ?? 0, 
     totalPRMR: data?.totalPRMR ?? 0,
+    totalEFP: data?.totalEFP ?? 0,
     isLoading 
   };
 };
