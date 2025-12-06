@@ -20,6 +20,16 @@ const parseLocalDate = (dateString: string): Date => {
   return new Date(year, month - 1, day);
 };
 
+// Strip emojis from name and get first name
+const getFirstName = (fullName: string): string => {
+  // Remove emojis using comprehensive regex
+  const withoutEmojis = fullName
+    .replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}]/gu, '')
+    .trim();
+  // Get first name (first word)
+  return withoutEmojis.split(' ')[0] || fullName;
+};
+
 export const TeamSummerAvailabilityCard = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(() => parseLocalDate(DEFAULT_SUMMER_START));
@@ -296,11 +306,33 @@ export const TeamSummerAvailabilityCard = () => {
                   <Users className="h-3.5 w-3.5" />
                   Summer Schedules
                 </h4>
+                
+                {/* Reps without custom dates warning */}
+                {(() => {
+                  const repsWithoutDates = teamConfigs.filter(c => !c.personalSummerStart || !c.personalSummerEnd);
+                  if (repsWithoutDates.length === 0) return null;
+                  return (
+                    <div className="flex items-start gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <span className="font-medium text-destructive">
+                          {repsWithoutDates.length} rep{repsWithoutDates.length > 1 ? 's' : ''} missing dates:
+                        </span>
+                        <span className="text-muted-foreground ml-1">
+                          {repsWithoutDates.slice(0, 3).map(r => getFirstName(r.name)).join(', ')}
+                          {repsWithoutDates.length > 3 && ` +${repsWithoutDates.length - 3} more`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                
                 <ScrollArea className="max-h-[200px]">
                   <div className="space-y-1.5">
                     {teamConfigs
                       .sort((a, b) => (a.personalSummerStart || '').localeCompare(b.personalSummerStart || ''))
                       .map((config) => {
+                        const hasCustomDates = config.personalSummerStart && config.personalSummerEnd;
                         const startDate = config.personalSummerStart || DEFAULT_SUMMER_START;
                         const endDate = config.personalSummerEnd || DEFAULT_SUMMER_END;
                         const offDaysCount = config.excludedSummerDays.length;
@@ -317,11 +349,21 @@ export const TeamSummerAvailabilityCard = () => {
                         const width = Math.min(100 - leftOffset, Math.ceil((repEnd.getTime() - repStart.getTime()) / (1000 * 60 * 60 * 24)) / totalDays * 100);
 
                         return (
-                          <div key={config.userId} className="bg-card rounded-lg p-2 border border-border/40">
+                          <div key={config.userId} className={cn(
+                            "bg-card rounded-lg p-2 border",
+                            hasCustomDates ? "border-border/40" : "border-destructive/30 bg-destructive/5"
+                          )}>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs font-medium truncate max-w-[120px]">
-                                {config.name.split(' ')[0]}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium truncate max-w-[100px]">
+                                  {getFirstName(config.name)}
+                                </span>
+                                {!hasCustomDates && (
+                                  <span className="text-[9px] bg-destructive/20 text-destructive px-1 py-0.5 rounded font-medium">
+                                    No dates
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1.5 text-[10px]">
                                 <span className="text-muted-foreground">
                                   {format(parseLocalDate(startDate), 'M/d')} – {format(parseLocalDate(endDate), 'M/d')}
@@ -336,7 +378,10 @@ export const TeamSummerAvailabilityCard = () => {
                             {/* Timeline bar */}
                             <div className="h-2 bg-muted/30 rounded-full overflow-hidden relative">
                               <div
-                                className="absolute h-full bg-primary/60 rounded-full"
+                                className={cn(
+                                  "absolute h-full rounded-full",
+                                  hasCustomDates ? "bg-primary/60" : "bg-destructive/40"
+                                )}
                                 style={{
                                   left: `${leftOffset}%`,
                                   width: `${width}%`,
@@ -393,7 +438,7 @@ export const TeamSummerAvailabilityCard = () => {
                           key={rep.userId}
                           className="flex items-center justify-between p-3 bg-destructive/10 rounded-xl border border-destructive/20"
                         >
-                          <span className="font-medium text-sm">{rep.name}</span>
+                          <span className="font-medium text-sm">{getFirstName(rep.name)}</span>
                           <span className="text-xs text-muted-foreground">{reason}</span>
                         </div>
                       );
@@ -415,7 +460,7 @@ export const TeamSummerAvailabilityCard = () => {
                         key={rep.userId}
                         className="flex items-center justify-between p-3 bg-success/10 rounded-xl border border-success/20"
                       >
-                        <span className="font-medium text-sm">{rep.name}</span>
+                        <span className="font-medium text-sm">{getFirstName(rep.name)}</span>
                         <span className="text-xs text-muted-foreground">
                           {format(parseLocalDate(rep.personalSummerStart || DEFAULT_SUMMER_START), 'M/d')} – {format(parseLocalDate(rep.personalSummerEnd || DEFAULT_SUMMER_END), 'M/d')}
                         </span>

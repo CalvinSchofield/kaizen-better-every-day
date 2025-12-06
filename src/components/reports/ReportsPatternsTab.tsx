@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { ActivityTrendChart } from "@/components/insights/ActivityTrendChart";
-import { TrendingUp, Clock, Calendar, Award, Sparkles } from "lucide-react";
+import { BestPeriodsSection } from "./BestPeriodsSection";
+import { TrendingUp, Clock, Calendar, Sparkles } from "lucide-react";
 
 interface ReportsPatternsTabProps {
   insightsData?: {
@@ -50,47 +51,18 @@ export const ReportsPatternsTab = ({
 
   return (
     <div className="space-y-4">
-      {/* Activity Trends */}
+      {/* Activity Trends - No wrapper card since ActivityTrendChart has its own */}
       {hasActivityTrends && (
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Activity Trends</h3>
-            <span className="text-xs text-muted-foreground ml-auto">
-              {insightsData.dailyTrend!.length} days
-            </span>
-          </div>
-          <ActivityTrendChart dailyTrend={insightsData.dailyTrend!} />
-        </Card>
+        <ActivityTrendChart dailyTrend={insightsData.dailyTrend!} />
       )}
 
-      {/* Best Periods Summary */}
+      {/* Best Periods - Full component with group/individual/rookie filters */}
       {hasBestPeriods && (
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Award className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Best Periods</h3>
-          </div>
-          <div className="space-y-3">
-            {insightsData.bestPeriods.highestFpDay && (
-              <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                <span className="text-sm text-muted-foreground">Best FP+ Day</span>
-                <div className="text-right">
-                  <div className="font-semibold">{insightsData.bestPeriods.highestFpDay.value?.toFixed(1) || 0} FP+</div>
-                  <div className="text-xs text-muted-foreground">{insightsData.bestPeriods.highestFpDay.date}</div>
-                </div>
-              </div>
-            )}
-            {insightsData.bestPeriods.highestPrmrDay && (
-              <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                <span className="text-sm text-muted-foreground">Best PRMR Day</span>
-                <div className="text-right">
-                  <div className="font-semibold">${insightsData.bestPeriods.highestPrmrDay.value?.toLocaleString() || 0}</div>
-                  <div className="text-xs text-muted-foreground">{insightsData.bestPeriods.highestPrmrDay.date}</div>
-                </div>
-              </div>
-            )}
-          </div>
+        <Card className="overflow-hidden">
+          <BestPeriodsSection 
+            data={insightsData.bestPeriods} 
+            dailyTrend={insightsData.dailyTrend}
+          />
         </Card>
       )}
 
