@@ -1,18 +1,16 @@
 import { useMemo } from "react";
-import { Progress } from "@/components/ui/progress";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { Target, TrendingUp, CheckCircle2, Settings2, Flame } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, differenceInWeeks, differenceInDays } from "date-fns";
+import { Target, Flame, Zap, Trophy } from "lucide-react";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, differenceInDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 
 // Season boundaries
-const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
 const SUMMER_START = '2026-04-12';
 const SUMMER_END = '2026-09-27';
@@ -58,7 +56,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     enabled: !!repData?.user_id,
   });
 
-  const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
   // Determine if we're in preseason or summer
@@ -67,7 +64,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     return today <= preseasonEndDate;
   }, [today]);
 
-  // Calculate period totals (week or month)
+  // Calculate period totals (week or month) from entries prop
   const periodTotals = useMemo(() => {
     const weekStart = startOfWeek(currentDate);
     const weekEnd = endOfWeek(currentDate);
@@ -108,7 +105,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       d.planned_date >= periodStartStr && d.planned_date <= periodEndStr
     );
     
-    // Elapsed = planned days that have passed (up to and including today)
     const elapsed = allPlannedInPeriod.filter(d => d.planned_date <= todayStr);
     
     return {
@@ -117,13 +113,12 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, currentDate, viewMode, today]);
 
-  // Calculate weeks remaining in each season (for fixed weekly goals)
+  // Calculate weeks remaining in each season
   const { weeksRemainingPreseason, weeksRemainingSummer } = useMemo(() => {
     const preseasonEnd = parseLocalDate(PRESEASON_END);
     const summerEnd = parseLocalDate(personalSummerEnd);
     const weekStart = startOfWeek(today);
     
-    // Weeks remaining = full weeks from start of this week to end of season
     const preseasonWeeks = Math.max(1, Math.ceil(differenceInDays(preseasonEnd, weekStart) / 7));
     const summerWeeks = Math.max(1, Math.ceil(differenceInDays(summerEnd, weekStart) / 7));
     
@@ -133,20 +128,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [today, personalSummerEnd]);
 
-  // Get current cumulative totals
-  const cumulativeTotals = useMemo(() => {
-    return entries.reduce((totals, entry) => {
-      if (entry.is_finalized) {
-        totals.fpPlus += entry.fp_plus || 0;
-        totals.prmr += entry.prmr || 0;
-      }
-      return totals;
-    }, { fpPlus: preseasonFP || 0, prmr: 0 });
-  }, [entries, preseasonFP]);
-
-  const cumulativeEFP = calculateEfp(cumulativeTotals.prmr) + (preseasonEFP || 0);
-  const cumulativeFPPlus = cumulativeTotals.fpPlus;
-
   if (!goals || !goals.setup_complete) {
     return null;
   }
@@ -154,11 +135,13 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
   const metricLabel = efpModeEnabled ? "EFP" : "FP+";
 
-  // Calculate period progress
+  // Current cumulative progress - use preseason hook values directly (no double counting!)
+  const currentProgress = efpModeEnabled ? (preseasonEFP || 0) : (preseasonFP || 0);
+  
+  // Period progress from entries
   const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
-  const currentProgress = efpModeEnabled ? cumulativeEFP : cumulativeFPPlus;
 
-  // Goal values based on season
+  // Goal values
   const preseasonGoal = goals.preseason_fp_goal || 0;
   const displayPreseasonGoal = efpModeEnabled ? preseasonGoal * conversionFactor : preseasonGoal;
   
@@ -169,14 +152,13 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
   const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
 
-  // Calculate FIXED weekly/monthly goals based on remaining season goal ÷ remaining periods
-  // This creates a consistent target that doesn't shrink as you work through the week
+  // Calculate FIXED weekly goals
   const remainingPreseasonGoal = Math.max(0, displayPreseasonGoal - currentProgress);
   const weeklyPreseasonGoal = weeksRemainingPreseason > 0 
     ? remainingPreseasonGoal / weeksRemainingPreseason 
     : 0;
 
-  // For summer, calculate weekly goals for each tier
+  // Summer weekly goals for each tier
   const remainingMustDo = Math.max(0, displayMustDo - currentProgress);
   const remainingWillDo = Math.max(0, displayWillDo - currentProgress);
   const remainingCouldDo = Math.max(0, displayCouldDo - currentProgress);
@@ -185,197 +167,188 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const weeklyWillDo = weeksRemainingSummer > 0 ? remainingWillDo / weeksRemainingSummer : 0;
   const weeklyCouldDo = weeksRemainingSummer > 0 ? remainingCouldDo / weeksRemainingSummer : 0;
 
-  // For summer, determine current target tier
+  // Current target tier for summer
   const mustDoComplete = currentProgress >= displayMustDo;
   const willDoComplete = currentProgress >= displayWillDo;
   const couldDoComplete = currentProgress >= displayCouldDo;
 
-  let currentTarget = displayMustDo;
-  let currentTargetLabel = "Must Do";
   let currentWeeklyTarget = weeklyMustDo;
+  let currentTargetLabel = "Must Do";
   if (mustDoComplete && !willDoComplete) {
-    currentTarget = displayWillDo;
-    currentTargetLabel = "Will Do";
     currentWeeklyTarget = weeklyWillDo;
+    currentTargetLabel = "Will Do";
   } else if (willDoComplete && !couldDoComplete) {
-    currentTarget = displayCouldDo;
-    currentTargetLabel = "Could Do";
     currentWeeklyTarget = weeklyCouldDo;
-  } else if (couldDoComplete) {
-    currentTarget = displayCouldDo;
     currentTargetLabel = "Could Do";
+  } else if (couldDoComplete) {
     currentWeeklyTarget = 0;
+    currentTargetLabel = "Complete";
   }
 
-  // Period goal is FIXED for the week/month - doesn't shrink as you work
-  // For month view, multiply weekly goal by ~4
+  // Period goal (fixed for the week/month)
   const periodGoal = isInPreseason
     ? viewMode === "month" ? weeklyPreseasonGoal * 4 : weeklyPreseasonGoal
     : viewMode === "month" ? currentWeeklyTarget * 4 : currentWeeklyTarget;
 
-  const periodProgressPercent = periodGoal > 0 
-    ? Math.min((periodProgress / periodGoal) * 100, 100) 
-    : 0;
   const periodRemaining = Math.max(0, periodGoal - periodProgress);
-
-  // Days remaining in period for catch-up calculation
-  const remainingDaysInPeriod = plannedDaysInPeriod - elapsedPlannedDays;
+  const remainingDaysInPeriod = Math.max(0, plannedDaysInPeriod - elapsedPlannedDays);
   const catchUpPerDay = remainingDaysInPeriod > 0 ? periodRemaining / remainingDaysInPeriod : 0;
   const dailyTarget = plannedDaysInPeriod > 0 ? periodGoal / plannedDaysInPeriod : 0;
-  
-  // Pace: compare actual progress to expected (proportional to elapsed days)
-  const expectedProgressSoFar = plannedDaysInPeriod > 0 
-    ? (periodGoal * elapsedPlannedDays) / plannedDaysInPeriod 
-    : 0;
-  const paceVariance = periodProgress - expectedProgressSoFar;
-  const isOnPace = paceVariance >= 0;
-  const isPeriodComplete = elapsedPlannedDays >= plannedDaysInPeriod && plannedDaysInPeriod > 0;
 
-  // Overall progress (for end goal reminder)
-  const overallTarget = isInPreseason ? displayPreseasonGoal : currentTarget;
-  const overallRemaining = Math.max(0, overallTarget - currentProgress);
+  // Progress percentage (capped at 100 for display, but can exceed)
+  const progressPercent = periodGoal > 0 ? (periodProgress / periodGoal) * 100 : 0;
+  const isGoalHit = periodProgress >= periodGoal && periodGoal > 0;
+  const isAhead = periodProgress > periodGoal;
+
+  // Overall season progress
+  const overallTarget = isInPreseason ? displayPreseasonGoal : displayMustDo;
   const overallProgressPercent = overallTarget > 0 
     ? Math.min((currentProgress / overallTarget) * 100, 100) 
     : 0;
 
   const periodLabel = viewMode === "month" 
     ? format(currentDate, 'MMMM') 
-    : `Week of ${format(startOfWeek(currentDate), 'MMM d')}`;
+    : `This Week`;
 
   return (
-    <div className="rounded-lg bg-card border border-border p-4 space-y-3">
+    <div 
+      className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-accent/5 border border-border/50 p-5 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:border-primary/20"
+      onClick={() => navigate('/goals')}
+    >
+      {/* Subtle background glow */}
+      <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+      
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Goal Progress</span>
+      <div className="relative flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <Target className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{periodLabel} Goal</h3>
+            <p className="text-[11px] text-muted-foreground">
+              {isInPreseason ? `${weeksRemainingPreseason} weeks left in preseason` : `Chasing ${currentTargetLabel}`}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/goals')}
-          className="text-muted-foreground hover:text-primary transition-colors"
-          aria-label="Adjust goals"
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
+        {isGoalHit && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
+            <Trophy className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Hit!</span>
+          </div>
+        )}
       </div>
 
-      {/* Period Goal Progress (Primary Focus) */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {periodLabel} Goal
-            {plannedDaysInPeriod > 0 && (
-              <span className="text-xs ml-1">({plannedDaysInPeriod} days)</span>
-            )}
-          </span>
-          <span className="font-semibold text-foreground">
-            {periodProgress.toFixed(1)} / {periodGoal.toFixed(1)} {metricLabel}
+      {/* Main Progress Display */}
+      <div className="relative mb-4">
+        <div className="flex items-end justify-between mb-2">
+          <div>
+            <span className="text-3xl font-bold text-foreground tracking-tight">
+              {periodProgress.toFixed(1)}
+            </span>
+            <span className="text-lg text-muted-foreground ml-1">
+              / {periodGoal.toFixed(1)}
+            </span>
+          </div>
+          <span className="text-sm font-medium text-muted-foreground mb-1">
+            {metricLabel}
           </span>
         </div>
-        <Progress value={periodProgressPercent} className="h-2.5" />
-        {isPeriodComplete ? (
-          // Period is complete - show if goal was hit
-          periodProgress >= periodGoal ? (
-            <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <CheckCircle2 className="h-3 w-3" />
-              <span>{viewMode === "week" ? "Weekly" : "Monthly"} goal hit!</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-              <TrendingUp className="h-3 w-3" />
-              <span>Missed by {(periodGoal - periodProgress).toFixed(1)} {metricLabel}</span>
-            </div>
-          )
-        ) : periodGoal > 0 ? (
-          // Period in progress - show pace
-          <div className="flex items-center gap-1 text-xs">
-            {isOnPace ? (
-              <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                On pace! +{paceVariance.toFixed(1)} ahead
-              </span>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  {Math.abs(paceVariance).toFixed(1)} {metricLabel} behind pace
+        
+        {/* Custom Progress Bar */}
+        <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden">
+          <div 
+            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
+              isGoalHit 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
+                : 'bg-gradient-to-r from-primary to-primary/70'
+            }`}
+            style={{ width: `${Math.min(progressPercent, 100)}%` }}
+          />
+          {/* Animated shimmer on progress */}
+          <div 
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+            style={{ width: `${Math.min(progressPercent, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Mission Statement */}
+      <div className="relative">
+        {isAhead ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+            <Zap className="h-4 w-4 text-green-500 flex-shrink-0" />
+            <p className="text-sm text-green-700 dark:text-green-300">
+              <span className="font-semibold">+{(periodProgress - periodGoal).toFixed(1)} ahead!</span>
+              {' '}You're crushing it this {viewMode}.
+            </p>
+          </div>
+        ) : periodRemaining > 0 && remainingDaysInPeriod > 0 ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">
+            <Flame className="h-4 w-4 text-primary flex-shrink-0" />
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">{periodRemaining.toFixed(1)} {metricLabel} to go</span>
+              {remainingDaysInPeriod === 1 ? (
+                <span className="text-muted-foreground"> — hit it today!</span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {' '}· {catchUpPerDay.toFixed(1)}/day
+                  {catchUpPerDay > dailyTarget && dailyTarget > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400"> (was {dailyTarget.toFixed(1)})</span>
+                  )}
                 </span>
-                {remainingDaysInPeriod > 0 && (
-                  <span className="text-muted-foreground">
-                    {dailyTarget.toFixed(1)}/day → <span className="font-medium text-foreground">{catchUpPerDay.toFixed(1)}</span>/day to catch up
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </p>
+          </div>
+        ) : periodGoal === 0 ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-border/50">
+            <Target className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              Set up planned days to see your weekly goals
+            </p>
           </div>
         ) : null}
       </div>
 
-      {/* End Goal Reminder (Compact) */}
-      <div className="pt-2 border-t border-border">
+      {/* Season Goal Footer */}
+      <div className="relative mt-4 pt-3 border-t border-border/50">
         {isInPreseason ? (
-          // Preseason: show preseason goal only
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              Preseason Goal
-            </span>
-            <span className="font-medium text-foreground">
-              {currentProgress.toFixed(1)} / {displayPreseasonGoal.toFixed(1)} {metricLabel}
-              <span className="text-muted-foreground ml-1">
-                ({overallRemaining.toFixed(1)} to go)
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Preseason Goal</span>
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary/60 rounded-full"
+                  style={{ width: `${overallProgressPercent}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-foreground">
+                {currentProgress.toFixed(1)} / {displayPreseasonGoal.toFixed(0)}
               </span>
-            </span>
+            </div>
           </div>
         ) : (
-          // Summer: show current target tier with mini progress
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                {couldDoComplete ? (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <CheckCircle2 className="h-3 w-3" />
-                    All goals achieved!
-                  </span>
-                ) : (
-                  <>Chasing <span className="font-semibold text-foreground">{currentTargetLabel}</span></>
-                )}
-              </span>
-              <span className="font-medium text-foreground">
-                {currentProgress.toFixed(1)} / {currentTarget.toFixed(1)} {metricLabel}
-              </span>
-            </div>
-            <Progress value={overallProgressPercent} className="h-1.5" />
-            
-            {/* Summer Goal Tiers with Weekly Targets */}
-            <div className="flex gap-2 pt-1">
-              <div className={`flex-1 text-center py-1 px-2 rounded ${mustDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-                <div className="text-[9px] text-muted-foreground uppercase">Must</div>
-                <div className={`text-xs font-bold ${mustDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                  {displayMustDo.toFixed(0)}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Must', goal: displayMustDo, weekly: weeklyMustDo, done: mustDoComplete },
+              { label: 'Will', goal: displayWillDo, weekly: weeklyWillDo, done: willDoComplete },
+              { label: 'Could', goal: displayCouldDo, weekly: weeklyCouldDo, done: couldDoComplete },
+            ].map(tier => (
+              <div 
+                key={tier.label}
+                className={`text-center py-2 px-1 rounded-lg transition-colors ${
+                  tier.done ? 'bg-green-500/10' : 'bg-muted/30'
+                }`}
+              >
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{tier.label}</div>
+                <div className={`text-sm font-bold ${tier.done ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                  {tier.goal.toFixed(0)}
                 </div>
-                {!mustDoComplete && (
-                  <div className="text-[9px] text-muted-foreground">{weeklyMustDo.toFixed(1)}/wk</div>
+                {!tier.done && (
+                  <div className="text-[10px] text-muted-foreground">{tier.weekly.toFixed(1)}/wk</div>
                 )}
               </div>
-              <div className={`flex-1 text-center py-1 px-2 rounded ${willDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-                <div className="text-[9px] text-muted-foreground uppercase">Will</div>
-                <div className={`text-xs font-bold ${willDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                  {displayWillDo.toFixed(0)}
-                </div>
-                {!willDoComplete && (
-                  <div className="text-[9px] text-muted-foreground">{weeklyWillDo.toFixed(1)}/wk</div>
-                )}
-              </div>
-              <div className={`flex-1 text-center py-1 px-2 rounded ${couldDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-                <div className="text-[9px] text-muted-foreground uppercase">Could</div>
-                <div className={`text-xs font-bold ${couldDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                  {displayCouldDo.toFixed(0)}
-                </div>
-                {!couldDoComplete && (
-                  <div className="text-[9px] text-muted-foreground">{weeklyCouldDo.toFixed(1)}/wk</div>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
         )}
       </div>
