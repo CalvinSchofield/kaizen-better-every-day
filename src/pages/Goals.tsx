@@ -182,15 +182,11 @@ const Goals = () => {
             goals={goals}
             currentFpPlus={totalFpPlus}
             currentPrmr={totalPRMR}
+            fundedFpPlus={fundedFP}
+            fundedPrmr={fundedPRMR}
             isRookie={isRookie}
             onTierClick={(tier) => setEditingTier(tier)}
           />
-          {/* Funded vs Total clarification */}
-          {fundedFP < totalFpPlus && (
-            <p className="text-xs text-muted-foreground mt-2 px-1">
-              {totalFpPlus.toFixed(1)} FP+ total for goals • {fundedFP.toFixed(1)} FP+ funded for income
-            </p>
-          )}
         </div>
 
         {/* Calendar Planning */}
