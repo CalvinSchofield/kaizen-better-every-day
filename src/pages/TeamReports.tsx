@@ -795,8 +795,8 @@ const TeamReports = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{(insightsData.totalFP - insightsData.totalUpgradeFP).toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">FP</div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{Math.round(insightsData.totalFP - insightsData.totalUpgradeFP)}</div>
+                      <div className="text-xs text-muted-foreground">FP (new accounts)</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insightsData.totalUpgradeFP.toFixed(1)}</div>
