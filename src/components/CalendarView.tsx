@@ -6,6 +6,8 @@ import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useRepGoals } from "@/hooks/useRepGoals";
 
 interface CalendarViewProps {
   entries?: any[];
@@ -22,12 +24,26 @@ export const CalendarView = ({
 }: CalendarViewProps) => {
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { isDatePlanned } = usePlannedDays();
+  const { goals } = useRepGoals();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [dataViewMode, setDataViewMode] = useState<"totals" | "weekly" | "daily">("totals");
+  
+  // Calculate daily goal based on mode
+  const dailyGoal = useMemo(() => {
+    if (!goals) return null;
+    // Use will_do goal divided by planned days, or fallback to simple calc
+    // For now, show the "will do" goal divided by weeks * 6 days
+    const weeksWorking = goals.weeks_working || 18;
+    const totalDays = weeksWorking * 6;
+    const fpGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
+    if (totalDays === 0 || fpGoal === 0) return null;
+    return fpGoal / totalDays;
+  }, [goals]);
 
   // When switching to week view, change from totals to weekly if needed
   const handleViewModeChange = (mode: "month" | "week") => {
@@ -349,24 +365,33 @@ export const CalendarView = ({
             const isTodayDate = isToday(day);
             const isSunday = getDay(day) === 0;
             const sundayHasData = isSunday && entry;
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const isPlanned = isDatePlanned(dateStr);
+            const hasEntry = entry && entry.is_finalized;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  aspect-square p-2 rounded-lg border transition-all
+                  aspect-square p-1.5 rounded-lg border transition-all relative
                   ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
                   ${!isCurrentMonth ? 'opacity-40' : ''}
-                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
                 `}
               >
-                <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
+                {/* Planned day goal indicator - top right corner */}
+                {isPlanned && dailyGoal && !hasEntry && (
+                  <div className="absolute top-0.5 right-1 text-[8px] text-muted-foreground/60 font-medium">
+                    {efpModeEnabled ? formatValue(dailyGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(dailyGoal)}
+                  </div>
+                )}
+                <div className={`text-sm font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
-                {entry && entry.is_finalized && (
-                  <div className="text-xs text-primary font-semibold mt-1">
+                {hasEntry && (
+                  <div className="text-xs text-primary font-semibold mt-0.5">
                     {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
@@ -391,22 +416,31 @@ export const CalendarView = ({
             const isTodayDate = isToday(day);
             const isSunday = getDay(day) === 0;
             const sundayHasData = isSunday && entry;
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const isPlanned = isDatePlanned(dateStr);
+            const hasEntry = entry && entry.is_finalized;
 
             return (
               <div
                 key={idx}
                 onClick={() => handleDayClick(day)}
                 className={`
-                  p-3 rounded-lg border transition-all min-h-[100px] flex flex-col
+                  p-3 rounded-lg border transition-all min-h-[100px] flex flex-col relative
                   ${isSunday && !sundayHasData ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${isTodayDate ? 'border-primary border-2' : 'border-border'}
-                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : 'bg-card'}
+                  ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
                 `}
               >
-                <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
+                {/* Planned day goal indicator - top right corner */}
+                {isPlanned && dailyGoal && !hasEntry && (
+                  <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
+                    {efpModeEnabled ? formatValue(dailyGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(dailyGoal)}
+                  </div>
+                )}
+                <div className={`text-lg font-semibold ${isKnocking && (!isSunday || sundayHasData) ? 'text-primary' : isPlanned && !hasEntry ? 'text-accent-foreground' : isSunday && !sundayHasData ? 'text-muted-foreground' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
-                {entry && entry.is_finalized && (
+                {hasEntry && (
                   <div className="mt-2 space-y-0.5">
                     {efpModeEnabled ? (
                       <>
@@ -438,18 +472,20 @@ export const CalendarView = ({
       )}
 
       {/* Legend */}
-      <div className="mt-4 flex items-center gap-6 text-sm">
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-primary" />
-          <span className="text-muted-foreground">Knocking day</span>
+          <div className="w-4 h-4 rounded bg-primary/10 border border-primary/30" />
+          <span className="text-muted-foreground">Worked</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-accent/30 border border-border" />
+          <span className="text-muted-foreground">Planned</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center">
-            <span className="text-xs text-primary font-semibold">2</span>
+            <span className="text-[8px] text-muted-foreground/60 font-medium">0.5</span>
           </div>
-          <span className="text-muted-foreground">
-            {efpModeEnabled ? 'Entry with EFP' : 'Entry with FP+'}
-          </span>
+          <span className="text-muted-foreground">Daily goal</span>
         </div>
       </div>
 
