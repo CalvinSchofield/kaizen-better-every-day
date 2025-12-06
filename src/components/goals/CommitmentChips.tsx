@@ -159,14 +159,21 @@ export const CommitmentChips = ({
       return;
     }
     
-    if (config.autoTracked || isComplete(config)) return;
+    if (config.autoTracked) return;
     
     // Visual feedback
     setTappedChip(config.key);
     setTimeout(() => setTappedChip(null), 300);
     
-    // Quick increment
-    await onQuickIncrement(config.progressKey);
+    const progress = getProgress(config);
+    const goal = getGoal(config);
+    
+    // Wrap-around: if at goal, reset to 0; otherwise increment
+    if (progress >= goal && goal > 0) {
+      await onQuickIncrement(config.progressKey + '_reset');
+    } else {
+      await onQuickIncrement(config.progressKey);
+    }
   };
 
   const hasAnyGoals = activeChips.length > 0 || preseasonFpGoal > 0;

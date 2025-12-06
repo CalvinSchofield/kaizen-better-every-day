@@ -174,6 +174,15 @@ const Goals = () => {
   }, [goals, tiers, isPreseason]);
 
   const handleQuickIncrement = async (progressKey: string) => {
+    // Check if this is a reset action (wrap-around)
+    if (progressKey.endsWith('_reset')) {
+      const actualKey = progressKey.replace('_reset', '');
+      await updateGoals({
+        [actualKey]: 0,
+      });
+      return;
+    }
+    
     const currentProgress = Number(goals?.[progressKey as keyof typeof goals]) || 0;
     await updateGoals({
       [progressKey]: currentProgress + 1,
