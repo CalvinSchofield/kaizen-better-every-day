@@ -16,12 +16,14 @@ const PAYSCALE_TIERS = [
   { min: 300, max: Infinity, rate: 10.59, rentBonus: 5000 },
 ];
 
-// Rent costs per week by type
+// Rent costs per week by type (rent + utilities combined)
 const RENT_PER_WEEK: Record<string, number> = {
-  'Single': 200,
-  'Married': 275,
-  'Married+': 350,
   'None': 0,
+  'Single Shared': 200, // $175 rent + $25 utilities
+  'Single Private': 385, // $350 rent + $35 utilities
+  'Married 1 Bed': 415, // $375 rent + $40 utilities
+  'Married 2 Bed': 440, // $400 rent + $40 utilities
+  'Married 3 Bed': 465, // $425 rent + $40 utilities
 };
 
 export interface PayscaleInputs {
