@@ -28,12 +28,28 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
 
       if (error) throw error;
 
-      const totals = data?.reduce((acc, entry) => ({
-        transitions: acc.transitions + (entry.transitions || 0),
-        fp: acc.fp + (Number(entry.fp_plus) || 0),
-        prmr: acc.prmr + (Number(entry.prmr) || 0),
-        days: acc.days + 1,
-      }), { transitions: 0, fp: 0, prmr: 0, days: 0 }) || { transitions: 0, fp: 0, prmr: 0, days: 0 };
+      const totals = data?.reduce((acc, entry) => {
+        acc.transitions += entry.transitions || 0;
+        acc.fp += Number(entry.fp_plus) || 0;
+        acc.prmr += Number(entry.prmr) || 0;
+        acc.days += 1;
+        
+        // Parse sales_log to get FP count and PRMR breakdown
+        const salesLog = entry.sales_log || [];
+        if (Array.isArray(salesLog)) {
+          (salesLog as any[]).forEach((sale: any) => {
+            if (sale.type === 'fp') {
+              acc.fpCount += 1;
+              acc.fpPrmrTotal += sale.prmr || 0;
+            } else if (sale.type === 'upgrade') {
+              acc.upgradeCount += 1;
+              acc.upgradePrmrTotal += sale.prmr || 0;
+            }
+          });
+        }
+        
+        return acc;
+      }, { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 }) || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 };
 
       return totals;
     },
@@ -68,11 +84,15 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
     enabled: !!repData?.user_id,
   });
 
-  const thisWeek = thisWeekData || { transitions: 0, fp: 0, prmr: 0, days: 0 };
+  const thisWeek = thisWeekData || { transitions: 0, fp: 0, prmr: 0, days: 0, fpCount: 0, fpPrmrTotal: 0, upgradeCount: 0, upgradePrmrTotal: 0 };
   const lastWeek = lastWeekData || { fp: 0 };
   const fpChange = thisWeek.fp - lastWeek.fp;
   const isImproving = fpChange >= 0;
   const upfrontPay = thisWeek.prmr * 4;
+
+  // Calculate averages from sales_log data
+  const avgPrmrPerFp = thisWeek.fpCount > 0 ? Math.round(thisWeek.fpPrmrTotal / thisWeek.fpCount) : 0;
+  const avgPrmrPerUpgrade = thisWeek.upgradeCount > 0 ? Math.round(thisWeek.upgradePrmrTotal / thisWeek.upgradeCount) : 0;
 
   return (
     <Card>
@@ -90,14 +110,35 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
             <p className="text-xs text-muted-foreground">Transitions</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-primary">{thisWeek.fp.toFixed(1)}</p>
-            <p className="text-xs text-muted-foreground">FP+</p>
+            <p className="text-2xl font-bold text-primary">{thisWeek.fpCount}</p>
+            <p className="text-xs text-muted-foreground">FP</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-primary">${thisWeek.prmr}</p>
+            <p className="text-2xl font-bold text-primary">${Math.round(thisWeek.prmr)}</p>
             <p className="text-xs text-muted-foreground">PRMR</p>
           </div>
         </div>
+
+        {/* FP+ Breakdown */}
+        {(thisWeek.fpCount > 0 || thisWeek.upgradeCount > 0) && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm font-semibold text-foreground mb-2">FP+ Breakdown</p>
+            <div className="grid grid-cols-2 gap-4">
+              {thisWeek.fpCount > 0 && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">${avgPrmrPerFp}</p>
+                  <p className="text-xs text-muted-foreground">Avg PRMR per FP</p>
+                </div>
+              )}
+              {thisWeek.upgradeCount > 0 && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">${avgPrmrPerUpgrade}</p>
+                  <p className="text-xs text-muted-foreground">Avg PRMR per Upgrade</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Upfront Pay Calculation */}
         <div className="mt-4 text-center">

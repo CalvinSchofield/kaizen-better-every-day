@@ -40,6 +40,14 @@ export interface InsightsData {
   upgradeRate: number;
   doorsToNewFp: number;
   
+  // Sales log breakdown (accurate from sales_log)
+  fpCount: number;
+  fpPrmrTotal: number;
+  upgradeCount: number;
+  upgradePrmrTotal: number;
+  avgPrmrPerFp: number;
+  avgPrmrPerUpgrade: number;
+  
   // Best periods
   bestDay: { date: string; fpPlus: number; efp: number; stats: string } | null;
   bestWeek: { weekStart: string; weekEnd: string; fpPlus: number; efp: number; stats: string } | null;
@@ -196,6 +204,20 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         acc.closes += entry.closes || 0;
         acc.daysWorked += 1;
         
+        // Parse sales_log to get FP count and PRMR breakdown
+        const salesLog = entry.sales_log || [];
+        if (Array.isArray(salesLog)) {
+          salesLog.forEach((sale: any) => {
+            if (sale.type === 'fp') {
+              acc.fpCount += 1;
+              acc.fpPrmrTotal += sale.prmr || 0;
+            } else if (sale.type === 'upgrade') {
+              acc.upgradeCount += 1;
+              acc.upgradePrmrTotal += sale.prmr || 0;
+            }
+          });
+        }
+        
         // Calculate work hours
         if (entry.work_start_time && entry.work_end_time) {
           const start = new Date(entry.work_start_time);
@@ -236,7 +258,11 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         daysWorked: 0, 
         totalHours: 0, 
         totalMinutes: 0,
-        customCounters: {} as Record<string, number>
+        customCounters: {} as Record<string, number>,
+        fpCount: 0,
+        fpPrmrTotal: 0,
+        upgradeCount: 0,
+        upgradePrmrTotal: 0
       });
 
       // Calculate activity-based totals for ratios (only entries with activity)
@@ -737,6 +763,12 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         totalNewPrmr,
         upgradeRate,
         doorsToNewFp,
+        fpCount: totals.fpCount,
+        fpPrmrTotal: totals.fpPrmrTotal,
+        upgradeCount: totals.upgradeCount,
+        upgradePrmrTotal: totals.upgradePrmrTotal,
+        avgPrmrPerFp: totals.fpCount > 0 ? totals.fpPrmrTotal / totals.fpCount : 0,
+        avgPrmrPerUpgrade: totals.upgradeCount > 0 ? totals.upgradePrmrTotal / totals.upgradeCount : 0,
         bestDay: bestDayData,
         bestWeek: bestWeekData,
         bestMonth: bestMonthData,
