@@ -197,19 +197,22 @@ export const CommitmentsTracker = ({
     });
   }, [allBlitzes, today]);
 
-  // Calculate blitz stats (only counting future blitzes)
+  // Calculate blitz stats
+  // Attended = past blitzes + active blitz (ones they've been on or are currently on)
+  // Committed = total committed blitzes (past + active + future)
   const blitzStats = useMemo(() => {
     const blitzesAttended = pastBlitzes.length + (activeBlitz ? 1 : 0);
     const blitzesAvailable = futureAvailableBlitzes.length;
-    const blitzesCommitted = futureBlitzes.length + (activeBlitz ? 1 : 0); // Include active as committed
+    // Total committed = all committed blitzes (past attended + active + future)
+    const totalCommitted = committedBlitzes.length;
     
     return {
       attended: blitzesAttended,
-      committed: blitzesCommitted,
+      committed: totalCommitted,
       available: blitzesAvailable,
       maxGoal: blitzesAvailable,
     };
-  }, [pastBlitzes.length, activeBlitz, futureAvailableBlitzes.length, futureBlitzes.length]);
+  }, [pastBlitzes.length, activeBlitz, futureAvailableBlitzes.length, committedBlitzes.length]);
 
   // Check if blitz goal mismatches committed count (auto-expand if mismatch)
   const blitzMismatch = useMemo(() => {
