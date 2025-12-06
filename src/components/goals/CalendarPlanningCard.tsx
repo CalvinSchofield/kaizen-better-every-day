@@ -377,7 +377,7 @@ export const CalendarPlanningCard = ({
     await togglePlannedDay(dateStr);
   };
 
-  const metricLabel = isEfpMode ? 'RPD' : 'FP+';
+  const metricLabel = isEfpMode ? 'EFP' : 'FP+';
 
   const handleGoToToday = () => {
     setCurrentMonth(new Date());
