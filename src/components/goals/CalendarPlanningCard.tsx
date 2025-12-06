@@ -136,38 +136,42 @@ export const CalendarPlanningCard = ({
     if (totalPreseasonDays === 0) return null;
 
     const currentFP = preseasonCurrentFP || 0;
-    const goalTotal = parseFloat(preseasonTotalInput) || 0;
-    const goalDailyRaw = totalPreseasonDays > 0 ? goalTotal / totalPreseasonDays : 0;
+    // Convert input goal to FP+ if user is in EFP mode (input is in EFP)
+    const inputGoal = parseFloat(preseasonTotalInput) || 0;
+    // The goal input is always in the current mode (EFP if efpModeEnabled, FP+ otherwise)
+    // Store as FP+ internally for calculations
+    const goalTotalFp = isEfpMode ? inputGoal / (avgPrmrPerFp / 85) : inputGoal;
+    const goalDailyRawFp = totalPreseasonDays > 0 ? goalTotalFp / totalPreseasonDays : 0;
     
     const daysWorked = pastCount || 1;
-    const currentDailyAvgRaw = currentFP / daysWorked;
-    const projectedTotalRaw = currentDailyAvgRaw * totalPreseasonDays;
+    const currentDailyAvgRawFp = currentFP / daysWorked;
+    const projectedTotalRawFp = currentDailyAvgRawFp * totalPreseasonDays;
     
     // Calculate remaining goal (what's left after current progress)
-    const remainingGoal = Math.max(0, goalTotal - currentFP);
+    const remainingGoalFp = Math.max(0, goalTotalFp - currentFP);
     const remainingDays = futurePlannedCount;
-    const neededDailyRaw = remainingDays > 0 ? remainingGoal / remainingDays : 0;
+    const neededDailyRawFp = remainingDays > 0 ? remainingGoalFp / remainingDays : 0;
 
-    // Convert to EFP if mode is enabled
+    // Convert to display values based on mode
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
     
-    const onPace = projectedTotalRaw >= goalTotal;
-    const pacePercent = goalTotal > 0 ? (currentFP / goalTotal) * 100 : 0;
+    const onPace = projectedTotalRawFp >= goalTotalFp;
+    const pacePercent = goalTotalFp > 0 ? (currentFP / goalTotalFp) * 100 : 0;
 
     return {
       futurePlannedCount,
       pastCount,
       totalDays: totalPreseasonDays,
       daysLeft: futurePlannedCount,
-      goalTotal: (goalTotal * conversionFactor).toFixed(1),
-      goalTotalRaw: goalTotal,
-      goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
-      currentDailyAvg: (currentDailyAvgRaw * conversionFactor).toFixed(2),
-      projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
+      goalTotal: (goalTotalFp * conversionFactor).toFixed(1),
+      goalTotalRaw: goalTotalFp,
+      goalDaily: (goalDailyRawFp * conversionFactor).toFixed(2),
+      currentDailyAvg: (currentDailyAvgRawFp * conversionFactor).toFixed(2),
+      projectedTotal: (projectedTotalRawFp * conversionFactor).toFixed(1),
       currentFP: (currentFP * conversionFactor).toFixed(1),
       currentFPRaw: currentFP,
-      remainingGoal: (remainingGoal * conversionFactor).toFixed(1),
-      neededDaily: (neededDailyRaw * conversionFactor).toFixed(2),
+      remainingGoal: (remainingGoalFp * conversionFactor).toFixed(1),
+      neededDaily: (neededDailyRawFp * conversionFactor).toFixed(2),
       onPace,
       pacePercent,
     };
@@ -178,12 +182,14 @@ export const CalendarPlanningCard = ({
     const plannedCount = summerPlannedDays.length;
     if (plannedCount === 0) return null;
 
-    // Remaining summer goal = Selected tier - preseason goal - current preseason FP
-    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
-    const currentPreseasonFP = preseasonCurrentFP || 0;
-    const remainingSummerGoal = Math.max(0, selectedSummerGoal - preseasonGoal);
+    // Convert preseason input goal to FP+ if in EFP mode
+    const inputGoal = parseFloat(preseasonTotalInput) || 0;
+    const preseasonGoalFp = isEfpMode ? inputGoal / (avgPrmrPerFp / 85) : inputGoal;
     
-    const goalDailyRaw = plannedCount > 0 ? remainingSummerGoal / plannedCount : 0;
+    // Remaining summer goal = Selected tier - preseason goal
+    const remainingSummerGoalFp = Math.max(0, selectedSummerGoal - preseasonGoalFp);
+    
+    const goalDailyRawFp = plannedCount > 0 ? remainingSummerGoalFp / plannedCount : 0;
 
     // Calculate projected earnings
     const result = calculateTakeHome({
@@ -197,17 +203,24 @@ export const CalendarPlanningCard = ({
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
     // Calculate days left (future planned days that haven't passed)
-    const summerStart = parseLocalDate(SUMMER_START);
     const daysLeft = summerPlannedDays.filter(dateStr => {
       const date = parseLocalDate(dateStr);
       return date >= today;
     }).length;
+    
+    // Calculate past summer days (days worked)
+    const pastSummerCount = summerPlannedDays.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
+      return date < today;
+    }).length;
 
     return {
       plannedCount,
+      pastCount: pastSummerCount,
+      totalDays: plannedCount,
       daysLeft,
-      goalTotal: (remainingSummerGoal * conversionFactor).toFixed(1),
-      goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
+      goalTotal: (remainingSummerGoalFp * conversionFactor).toFixed(1),
+      goalDaily: (goalDailyRawFp * conversionFactor).toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
   }, [summerPlannedDays, selectedSummerGoal, preseasonTotalInput, preseasonCurrentFP, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
@@ -252,8 +265,6 @@ export const CalendarPlanningCard = ({
     }, 800);
   };
 
-  // Check if summer has started
-  const isSummerStarted = today >= parseLocalDate(SUMMER_START);
 
   // Handle preseason total input change
   const handlePreseasonTotalChange = (value: string) => {
@@ -536,66 +547,66 @@ export const CalendarPlanningCard = ({
           </div>
         </Collapsible>
 
-        {/* Summer Goal Tier Selection - Only show after summer starts */}
-        {isSummerStarted && (
-          <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
-            <div className="pt-3 border-t border-border/50">
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    Summer Goal
-                    <ChevronDown className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform",
-                      isSummerOpen && "rotate-180"
-                    )} />
-                  </h4>
-                  {!isSummerOpen && summerStats && (
-                    <span className="text-xs text-muted-foreground">
-                      {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {summerStats.goalDaily}/day · {summerStats.daysLeft} left
-                    </span>
-                  )}
+        {/* Summer Goal Tier Selection - Always show */}
+        <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
+          <div className="pt-3 border-t border-border/50">
+            <CollapsibleTrigger className="w-full">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  Summer Goal
+                  <ChevronDown className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    isSummerOpen && "rotate-180"
+                  )} />
+                </h4>
+                {!isSummerOpen && summerStats && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {summerStats.goalDaily}/day · {summerStats.daysLeft} left
+                  </span>
+                )}
+              </div>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="mt-3 space-y-3">
+              {/* Days summary */}
+              {summerStats && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{summerStats.totalDays} total days</span>
+                  <span>{summerStats.daysLeft} days left</span>
                 </div>
-              </CollapsibleTrigger>
+              )}
               
-              <CollapsibleContent className="mt-3 space-y-3">
-                {/* Days summary */}
-                {summerStats && (
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{summerStats.plannedCount} total days</span>
-                    <span>{summerStats.daysLeft} days left</span>
+              <div className="grid grid-cols-3 gap-2">
+                {(['must', 'will', 'could'] as const).map((tier) => {
+                  const tierGoalFp = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
+                  const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
+                  const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+                  const displayGoal = (tierGoalFp * conversionFactor).toFixed(1);
+                  return (
+                    <Button
+                      key={tier}
+                      variant={selectedTier === tier ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedTier(tier)}
+                      className="flex flex-col h-auto py-2"
+                    >
+                      <span className="text-xs">{tierLabel}</span>
+                      <span className="font-bold">{displayGoal}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              {summerStats && (
+                <div className="p-3 rounded-lg bg-accent/30 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Daily Goal</span>
+                    <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
                   </div>
-                )}
-                
-                <div className="grid grid-cols-3 gap-2">
-                  {(['must', 'will', 'could'] as const).map((tier) => {
-                    const tierGoal = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
-                    const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
-                    return (
-                      <Button
-                        key={tier}
-                        variant={selectedTier === tier ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedTier(tier)}
-                        className="flex flex-col h-auto py-2"
-                      >
-                        <span className="text-xs">{tierLabel}</span>
-                        <span className="font-bold">{tierGoal}</span>
-                      </Button>
-                    );
-                  })}
                 </div>
-                {summerStats && (
-                  <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">Daily Goal</span>
-                      <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
-                    </div>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-        )}
+              )}
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         {/* Total Summary */}
         {totalStats && (
