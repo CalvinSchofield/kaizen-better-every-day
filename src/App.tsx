@@ -22,6 +22,7 @@ import TeamReports from "./pages/TeamReports";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
+import Goals from "./pages/Goals";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -148,6 +149,14 @@ const App = () => {
                   <Layout>
                     <Settings />
                   </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/goals"
+              element={
+                <ProtectedRoute>
+                  <Goals />
                 </ProtectedRoute>
               }
             />

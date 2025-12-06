@@ -278,6 +278,27 @@ export type Database = {
         }
         Relationships: []
       }
+      planned_work_days: {
+        Row: {
+          created_at: string | null
+          id: string
+          planned_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          planned_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          planned_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -326,6 +347,78 @@ export type Database = {
           p256dh?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      rep_goals: {
+        Row: {
+          avg_prmr_per_fp: number | null
+          blitzes_goal: number | null
+          books_goal: number | null
+          could_do_fp_goal: number | null
+          created_at: string | null
+          id: string
+          monday_night_lights_goal: number | null
+          monthly_expenses: number | null
+          months_off: number | null
+          must_do_fp_goal: number | null
+          preseason_fp_goal: number | null
+          recruits_with_sale_goal: number | null
+          rent_type: string | null
+          role_plays_goal: number | null
+          setup_complete: boolean | null
+          training_hours_goal: number | null
+          updated_at: string | null
+          upgrade_fp_goal: number | null
+          user_id: string
+          weeks_working: number | null
+          will_do_fp_goal: number | null
+        }
+        Insert: {
+          avg_prmr_per_fp?: number | null
+          blitzes_goal?: number | null
+          books_goal?: number | null
+          could_do_fp_goal?: number | null
+          created_at?: string | null
+          id?: string
+          monday_night_lights_goal?: number | null
+          monthly_expenses?: number | null
+          months_off?: number | null
+          must_do_fp_goal?: number | null
+          preseason_fp_goal?: number | null
+          recruits_with_sale_goal?: number | null
+          rent_type?: string | null
+          role_plays_goal?: number | null
+          setup_complete?: boolean | null
+          training_hours_goal?: number | null
+          updated_at?: string | null
+          upgrade_fp_goal?: number | null
+          user_id: string
+          weeks_working?: number | null
+          will_do_fp_goal?: number | null
+        }
+        Update: {
+          avg_prmr_per_fp?: number | null
+          blitzes_goal?: number | null
+          books_goal?: number | null
+          could_do_fp_goal?: number | null
+          created_at?: string | null
+          id?: string
+          monday_night_lights_goal?: number | null
+          monthly_expenses?: number | null
+          months_off?: number | null
+          must_do_fp_goal?: number | null
+          preseason_fp_goal?: number | null
+          recruits_with_sale_goal?: number | null
+          rent_type?: string | null
+          role_plays_goal?: number | null
+          setup_complete?: boolean | null
+          training_hours_goal?: number | null
+          updated_at?: string | null
+          upgrade_fp_goal?: number | null
+          user_id?: string
+          weeks_working?: number | null
+          will_do_fp_goal?: number | null
         }
         Relationships: []
       }
