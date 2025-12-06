@@ -633,6 +633,21 @@ export default function Settings() {
             </CollapsibleContent>
           </Collapsible>
         </Card>
+
+        {/* Preseason Commitments */}
+        <Card>
+          <CardHeader className="cursor-pointer" onClick={() => window.location.href = '/goals'}>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <CardTitle>Preseason Commitments</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Training hours, books, blitzes & more
+                </p>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground -rotate-90" />
+            </div>
+          </CardHeader>
+        </Card>
         
         {/* EFP Mode (Vets only) - Collapsible */}
         {isVet && (

@@ -63,7 +63,7 @@ const Goals = () => {
   const [showCommitmentEditor, setShowCommitmentEditor] = useState(false);
   const [showTrainingTimer, setShowTrainingTimer] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
-  const [activeTier, setActiveTier] = useState<GoalTier>('willDo');
+  const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
 
@@ -122,11 +122,19 @@ const Goals = () => {
   const currentProgress = efpModeEnabled ? calculateEfp(totalPRMR) : totalFpPlus;
   const fundedProgress = efpModeEnabled ? calculateEfp(fundedPRMR) : fundedFP;
 
-  // Convert goals to display values (EFP if enabled)
-  const conversionFactor = efpModeEnabled ? (goals?.avg_prmr_per_fp || 85) / 85 : 1;
+  // Check if we're in preseason (before April 12, 2026)
+  const isPreseason = new Date() < new Date('2026-04-12');
+
+  // Convert goals to display values (EFP if enabled) - always use $85 for PRMR per FP
+  const conversionFactor = efpModeEnabled ? 85 / 85 : 1; // Simplified since we're using $85
 
   // Goal tiers data
   const tiers = useMemo(() => ({
+    preseason: {
+      goal: (goals?.preseason_fp_goal || 0) * conversionFactor,
+      rawGoal: goals?.preseason_fp_goal || 0,
+      complete: currentProgress >= (goals?.preseason_fp_goal || 0) * conversionFactor && (goals?.preseason_fp_goal || 0) > 0,
+    },
     mustDo: {
       goal: (goals?.must_do_fp_goal || 0) * conversionFactor,
       rawGoal: goals?.must_do_fp_goal || 0,
@@ -144,20 +152,25 @@ const Goals = () => {
     },
   }), [goals, conversionFactor, currentProgress]);
 
-  // Auto-select appropriate tier based on progress
+  // Auto-select appropriate tier based on progress and season
   useEffect(() => {
     if (!goals) return;
     
-    if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
+    // During preseason, default to preseason tier if goal exists and not complete
+    if (isPreseason && !tiers.preseason.complete && tiers.preseason.goal > 0) {
+      setActiveTier('preseason');
+    } else if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
       setActiveTier('mustDo');
     } else if (!tiers.willDo.complete && tiers.willDo.goal > 0) {
       setActiveTier('willDo');
     } else if (!tiers.couldDo.complete && tiers.couldDo.goal > 0) {
       setActiveTier('couldDo');
+    } else if (isPreseason && tiers.preseason.goal > 0) {
+      setActiveTier('preseason');
     } else if (tiers.willDo.goal > 0) {
       setActiveTier('willDo');
     }
-  }, [goals, tiers]);
+  }, [goals, tiers, isPreseason]);
 
   const handleQuickIncrement = async (progressKey: string) => {
     const currentProgress = Number(goals?.[progressKey as keyof typeof goals]) || 0;
@@ -360,12 +373,12 @@ const Goals = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <GoalHeroRing
+            <GoalHeroRing
             activeTier={activeTier}
             fpGoal={activeGoalData.goal}
             currentProgress={currentProgress}
             fundedProgress={fundedProgress < currentProgress ? fundedProgress : undefined}
-            avgPrmrPerFp={goals.avg_prmr_per_fp || 85}
+            avgPrmrPerFp={85}
             upgradeFpGoal={goals.upgrade_fp_goal || 0}
             rentType={goals.rent_type || 'Single'}
             weeksWorking={goals.weeks_working || 18}

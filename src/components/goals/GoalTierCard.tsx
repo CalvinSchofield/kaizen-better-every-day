@@ -4,7 +4,7 @@ import { Check, Target, Zap, Trophy, ArrowRight } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 
-export type GoalTier = 'mustDo' | 'willDo' | 'couldDo';
+export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalTierCardProps {
   tier: GoalTier;
@@ -23,6 +23,12 @@ interface GoalTierCardProps {
 }
 
 const tierConfig: Record<GoalTier, { label: string; icon: typeof Target; color: string; bgColor: string }> = {
+  preseason: {
+    label: 'Preseason',
+    icon: Target,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-500/10',
+  },
   mustDo: { 
     label: 'Must Do', 
     icon: Target, 

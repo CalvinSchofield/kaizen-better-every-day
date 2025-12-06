@@ -67,7 +67,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
   const [monthsOff, setMonthsOff] = useState<string>('4');
   const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]); // Default Single Shared
-  const [avgPrmrPerFp, setAvgPrmrPerFp] = useState<string>('85');
+  const avgPrmrPerFp = 85; // Hardcoded to $85
   const [summerStart, setSummerStart] = useState<Date | undefined>(SUMMER_START_MIN);
   const [summerEnd, setSummerEnd] = useState<Date | undefined>(SUMMER_END_MAX);
   const [mustDoFpGoalInput, setMustDoFpGoalInput] = useState<string>('');
@@ -89,7 +89,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     ? calculateMustDoFromExpenses(
         Number(monthlyExpenses) || 0, 
         Number(monthsOff) || 4, 
-        Number(avgPrmrPerFp) || 85, 
+        avgPrmrPerFp, 
         housingOption.label, 
         weeksWorking
       )
@@ -145,7 +145,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
       monthlyExpenses: isRookie ? Number(monthlyExpenses) || 0 : 0,
       monthsOff: Number(monthsOff) || 4,
       rentType: housingOption.label,
-      avgPrmrPerFp: Number(avgPrmrPerFp) || 85,
+      avgPrmrPerFp: avgPrmrPerFp,
       weeksWorking,
       mustDoFpGoal,
       willDoFpGoal: Number(willDoFpGoal) || 0,
@@ -349,30 +349,6 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="avgPrmr">Expected Avg PRMR per FP</Label>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[200px]">
-                <p>$85 is typical for most areas. You can adjust this later.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <Input
-          id="avgPrmr"
-          type="text"
-          inputMode="numeric"
-          value={avgPrmrPerFp}
-          onChange={(e) => handleNumberInput(e.target.value, setAvgPrmrPerFp)}
-          className="mt-2"
-          placeholder="85"
-        />
-      </div>
     </div>
   );
 
