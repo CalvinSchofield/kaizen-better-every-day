@@ -11,6 +11,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { GoalProgressCard } from "@/components/GoalProgressCard";
 
 interface CalendarViewProps {
   entries?: any[];
@@ -573,6 +574,15 @@ export const CalendarView = ({
           </div>
           <span className="text-muted-foreground">Daily goal</span>
         </div>
+      </div>
+
+      {/* Goal Progress Card */}
+      <div className="mt-4">
+        <GoalProgressCard 
+          entries={entries} 
+          currentDate={currentDate} 
+          viewMode={viewMode} 
+        />
       </div>
 
       {/* Summary Card - Expandable (only show if there's data) */}
