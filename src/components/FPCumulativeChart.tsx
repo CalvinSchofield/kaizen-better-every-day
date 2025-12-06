@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
-import { format, parseISO, startOfWeek, startOfMonth, isSameWeek, isSameMonth } from "date-fns";
+import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
 import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
@@ -19,7 +19,6 @@ interface FPCumulativeChartProps {
 
 export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChartProps) => {
   const [isOpen, setIsOpen] = useState(true);
-  const [movingAvgPeriod, setMovingAvgPeriod] = useState<6 | 12>(6);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
   const { data: personalData, isLoading: personalLoading } = useCumulativeFP();
@@ -69,14 +68,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
         cumulative: metricType === 'primary' 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
-        movingAvg: metricType === 'primary' 
-          ? (movingAvgPeriod === 6 ? point.movingAvg6 : point.movingAvg12)
-          : (efpModeEnabled 
-              ? (movingAvgPeriod === 6 ? point.movingAvgFp6 : point.movingAvgFp12)
-              : (movingAvgPeriod === 6 ? point.movingAvgPrmr6 : point.movingAvgPrmr12)),
-        dailyValue: metricType === 'primary' 
-          ? point.dailyValue 
-          : (efpModeEnabled ? point.dailyFp : point.dailyPrmr),
       }));
     }
 
@@ -97,26 +88,15 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           cumulative: metricType === 'primary' 
             ? point.cumulative 
             : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
-          total: metricType === 'primary' 
-            ? point.dailyValue 
-            : (efpModeEnabled ? point.dailyFp : point.dailyPrmr),
-          count: 1,
         };
       } else {
         grouped[key].cumulative = metricType === 'primary' 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
-        grouped[key].total += metricType === 'primary' 
-          ? point.dailyValue 
-          : (efpModeEnabled ? point.dailyFp : point.dailyPrmr);
-        grouped[key].count += 1;
       }
     });
 
-    return Object.values(grouped).map((g: any) => ({
-      ...g,
-      movingAvg: g.total / g.count, // Average for the period
-    }));
+    return Object.values(grouped);
   };
 
   const chartData = groupedData();
@@ -147,10 +127,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
       label: `Total ${currentMetricLabel}`,
       color: "hsl(var(--primary))",
     },
-    movingAvg: {
-      label: `${movingAvgPeriod}-Day Avg`,
-      color: "hsl(var(--chart-2))",
-    },
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -163,7 +139,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
         <p className="font-semibold text-sm mb-2">
           {format(parseISO(data.date), "MMM d, yyyy")}
         </p>
-        <div className="space-y-1 text-xs">
+        <div className="text-xs">
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Total {currentMetricLabel}:</span>
             <span className="font-semibold" style={{ color: chartConfig.cumulative.color }}>
@@ -174,20 +150,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   : data.cumulative.toFixed(1)}
             </span>
           </div>
-          {data.movingAvg !== null && (
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">
-                {groupBy === 'day' ? 'Daily' : groupBy === 'week' ? 'Weekly' : 'Monthly'} Avg ({movingAvgPeriod}d):
-              </span>
-              <span className="font-semibold" style={{ color: chartConfig.movingAvg.color }}>
-                {metricType === 'secondary' && !efpModeEnabled
-                  ? `$${data.movingAvg.toFixed(0)}`
-                  : (efpModeEnabled && metricType === 'primary')
-                    ? data.movingAvg.toFixed(2)
-                    : data.movingAvg.toFixed(1)}
-              </span>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -198,8 +160,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     : (efpModeEnabled
         ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
         : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
-
-  const latestMovingAvg = chartData[chartData.length - 1]?.movingAvg || 0;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -217,11 +177,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
               <div className="mt-2 text-left text-sm text-muted-foreground">
                 {metricType === 'primary' 
                   ? (efpModeEnabled 
-                      ? `${totalForMode.toFixed(2)} EFP total · ${latestMovingAvg.toFixed(2)} ${movingAvgPeriod}d avg`
-                      : `${totalForMode.toFixed(1)} FP+ total · ${latestMovingAvg.toFixed(1)} ${movingAvgPeriod}d avg`)
+                      ? `${totalForMode.toFixed(2)} EFP total`
+                      : `${totalForMode.toFixed(1)} FP+ total`)
                   : (efpModeEnabled
-                      ? `${totalForMode.toFixed(1)} FP+ total · ${latestMovingAvg.toFixed(1)} ${movingAvgPeriod}d avg`
-                      : `$${totalForMode.toFixed(0)} PRMR total · $${latestMovingAvg.toFixed(0)} ${movingAvgPeriod}d avg`)}
+                      ? `${totalForMode.toFixed(1)} FP+ total`
+                      : `$${totalForMode.toFixed(0)} PRMR total`)}
               </div>
             )}
           </CollapsibleTrigger>
@@ -282,25 +242,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   </Button>
                 </div>
 
-                {/* Moving Average Period */}
-                <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-                  <Button
-                    variant={movingAvgPeriod === 6 ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMovingAvgPeriod(6)}
-                    className="text-xs h-7 px-2"
-                  >
-                    6d Avg
-                  </Button>
-                  <Button
-                    variant={movingAvgPeriod === 12 ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setMovingAvgPeriod(12)}
-                    className="text-xs h-7 px-2"
-                  >
-                    12d Avg
-                  </Button>
-                </div>
               </div>
 
               {/* Comparison Metrics */}
@@ -334,13 +275,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           <div className="px-4 pb-4">
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <defs>
-                <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <XAxis
                 dataKey="displayDate"
                 tick={{ fontSize: 12 }}
@@ -353,40 +288,26 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                 stroke="hsl(var(--muted-foreground))"
               />
               <Tooltip content={<CustomTooltip />} />
-              <Line
+              <defs>
+                <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
                 type="monotone"
                 dataKey="cumulative"
                 stroke="hsl(var(--primary))"
                 strokeWidth={3}
+                fill="url(#cumulativeGradient)"
                 dot={{ fill: "hsl(var(--primary))", r: 4 }}
                 activeDot={{ r: 6 }}
                 animationDuration={800}
                 animationEasing="ease-out"
               />
-              <Line
-                type="monotone"
-                dataKey="movingAvg"
-                stroke="hsl(var(--chart-2))"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                activeDot={{ r: 5 }}
-                animationDuration={800}
-                animationEasing="ease-out"
-              />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
           </ChartContainer>
-          <div className="flex items-center justify-center gap-6 mt-4 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-0.5 bg-primary rounded" />
-              <span className="text-muted-foreground">Total {currentMetricLabel}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-0.5 bg-chart-2 rounded" style={{ backgroundImage: 'repeating-linear-gradient(to right, hsl(var(--chart-2)) 0, hsl(var(--chart-2)) 3px, transparent 3px, transparent 8px)' }} />
-              <span className="text-muted-foreground">{movingAvgPeriod}-Day Avg</span>
-            </div>
-          </div>
         </div>
       </CollapsibleContent>
     </Card>
