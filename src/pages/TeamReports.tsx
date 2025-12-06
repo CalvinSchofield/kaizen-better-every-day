@@ -31,6 +31,7 @@ import { useTeamAggregatedRankings } from "@/hooks/useTeamAggregatedRankings";
 import { LeaderGoalsCard } from "@/components/reports/LeaderGoalsCard";
 import { TeamCanceledStatsCard } from "@/components/reports/TeamCanceledStatsCard";
 import { useTeamCanceledStats } from "@/hooks/useTeamCanceledStats";
+import { TeamSummerAvailabilityCard } from "@/components/reports/TeamSummerAvailabilityCard";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 type ExpandedSection = 'aiCoach' | 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
@@ -390,6 +391,7 @@ const TeamReports = () => {
               excludeUserIds={excludeUserIds}
               accessibleReps={accessData?.accessibleReps || []}
             />
+            <TeamSummerAvailabilityCard />
           </div>
         ) : isYesterdayView ? (
           <div className="space-y-4">
@@ -455,6 +457,11 @@ const TeamReports = () => {
                 isOpen={expandedSection === 'aiCoach'}
                 onToggle={() => handleSectionToggle('aiCoach')}
               />
+
+              {/* Summer Availability Card - Show in Season/YTD views */}
+              {(datePreset === 'preseason' || datePreset === 'ytd') && (
+                <TeamSummerAvailabilityCard />
+              )}
 
               {/* Cancellation Stats */}
               {canceledStats && (canceledStats.totals.canceledFpCount > 0 || canceledStats.totals.canceledUpgradeCount > 0) && (
