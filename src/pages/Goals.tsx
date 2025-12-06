@@ -11,6 +11,7 @@ import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalProgressLadder } from "@/components/goals/GoalProgressLadder";
 import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CommitmentsTracker } from "@/components/goals/CommitmentsTracker";
+import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { GoalTier } from "@/components/goals/GoalTierCard";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -166,17 +167,14 @@ const Goals = () => {
           isUpdating={isUpdating}
         />
 
-        {/* Coming Soon: Calendar Planning */}
-        <Card className="border-border/50 border-dashed opacity-60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Calendar Planning</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Mark your planned work days and project your earnings. Coming soon!
-            </p>
-          </CardContent>
-        </Card>
+        {/* Calendar Planning */}
+        <CalendarPlanningCard
+          fpGoal={goals.will_do_fp_goal || 0}
+          avgPrmrPerFp={goals.avg_prmr_per_fp || 85}
+          rentType={goals.rent_type || 'Single'}
+          weeksWorking={goals.weeks_working || 18}
+          upgradeFpGoal={goals.upgrade_fp_goal || 0}
+        />
       </div>
 
       {/* Calculator Sheet */}
