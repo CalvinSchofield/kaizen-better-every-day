@@ -9,13 +9,15 @@ export type GoalTier = 'mustDo' | 'willDo' | 'couldDo';
 interface GoalTierCardProps {
   tier: GoalTier;
   fpGoal: number;
-  currentFpPlus: number;
+  displayGoal?: number;
+  currentProgress?: number;
   avgPrmrPerFp?: number;
   upgradeFpGoal?: number;
   rentType?: string;
   weeksWorking?: number;
   isCurrentTarget?: boolean;
   isComplete?: boolean;
+  efpMode?: boolean;
   onClick?: () => void;
 }
 
@@ -43,17 +45,23 @@ const tierConfig: Record<GoalTier, { label: string; icon: typeof Target; color: 
 export const GoalTierCard = ({
   tier,
   fpGoal,
-  currentFpPlus,
+  displayGoal,
+  currentProgress = 0,
   avgPrmrPerFp = 85,
   upgradeFpGoal = 0,
   rentType = 'Single',
   weeksWorking = 18,
   isCurrentTarget = false,
   isComplete = false,
+  efpMode = false,
   onClick,
 }: GoalTierCardProps) => {
   const config = tierConfig[tier];
   const Icon = config.icon;
+  
+  // Use displayGoal if provided (for EFP mode), otherwise use fpGoal
+  const goalValue = displayGoal ?? fpGoal;
+  const metricLabel = efpMode ? 'EFP' : 'FP+';
 
   const result = calculateTakeHome({
     fpGoal,
@@ -63,8 +71,8 @@ export const GoalTierCard = ({
     weeksWorking,
   });
 
-  const progress = fpGoal > 0 ? Math.min((currentFpPlus / fpGoal) * 100, 100) : 0;
-  const remaining = Math.max(fpGoal - currentFpPlus, 0);
+  const progress = goalValue > 0 ? Math.min((currentProgress / goalValue) * 100, 100) : 0;
+  const remaining = Math.max(goalValue - currentProgress, 0);
 
   if (fpGoal === 0) return null;
 
@@ -93,7 +101,7 @@ export const GoalTierCard = ({
                 {config.label}
               </p>
               <p className="text-xs text-muted-foreground">
-                {fpGoal} FP+
+                {goalValue.toFixed(1)} {metricLabel}
               </p>
             </div>
           </div>
@@ -111,7 +119,7 @@ export const GoalTierCard = ({
           <div className="space-y-2">
             <Progress value={progress} className="h-2" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{currentFpPlus.toFixed(1)} FP+</span>
+              <span>{currentProgress.toFixed(1)} {metricLabel}</span>
               {remaining > 0 ? (
                 <span className="flex items-center gap-1">
                   <ArrowRight className="h-3 w-3" />
