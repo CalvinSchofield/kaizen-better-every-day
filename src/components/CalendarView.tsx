@@ -253,10 +253,11 @@ export const CalendarView = ({
       totals.closes += entry.closes || 0;
       totals.daysWorked += 1;
 
-      // Parse sales_log to get FP count and PRMR breakdown
+      // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
       const salesLog = entry.sales_log || [];
       if (Array.isArray(salesLog)) {
-        salesLog.forEach((sale: any) => {
+        const fundedSales = salesLog.filter((sale: any) => sale.install_status !== 'cancelled');
+        fundedSales.forEach((sale: any) => {
           if (sale.type === 'fp') {
             totals.fpCount += 1;
             totals.fpPrmrTotal += sale.prmr || 0;

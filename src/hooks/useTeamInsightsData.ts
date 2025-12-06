@@ -364,10 +364,11 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           acc.totalMinutes += minutes;
         }
         
-        // Parse sales_log for FP count and PRMR averages
+        // Parse sales_log for FP count and PRMR averages (only funded sales)
         const salesLog = entry.sales_log || [];
         if (Array.isArray(salesLog)) {
-          salesLog.forEach((sale: any) => {
+          const fundedSales = salesLog.filter((sale: any) => sale.install_status !== 'cancelled');
+          fundedSales.forEach((sale: any) => {
             if (sale.type === 'fp') {
               acc.fpCount += 1;
               acc.fpPrmrTotal += sale.prmr || 0;
