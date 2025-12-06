@@ -74,20 +74,20 @@ export const CalendarPlanningCard = ({
     return { preseasonPlannedDays: preseason, summerPlannedDays: summer };
   }, [plannedDays, today]);
 
+  const { calculateEfp } = useEfpMode();
+
   // Calculate preseason stats
   const preseasonStats = useMemo(() => {
     const plannedCount = preseasonPlannedDays.length;
     if (plannedCount === 0) return null;
 
     // Calculate current daily average based on actual preseason FP+
-    // Count finalized days worked in preseason (we approximate using current FP / assumed days)
     const currentFP = preseasonCurrentFP || 0;
     
-    // Goal daily average from settings
-    const goalDailyFP = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
+    // Goal daily - fpGoal is stored as FP+, convert if EFP mode
+    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
     
-    // Current pace: current FP / days worked so far in preseason
-    // For now, we estimate using planned days that have passed
+    // Past preseason days for pace calculation
     const pastPreseasonDays = (plannedDays?.map(d => d.planned_date) || []).filter(dateStr => {
       const date = new Date(dateStr);
       const preseasonStart = new Date(PRESEASON_START);
@@ -96,49 +96,56 @@ export const CalendarPlanningCard = ({
     });
     
     const daysWorked = pastPreseasonDays.length || 1;
-    const currentDailyAvg = currentFP / daysWorked;
+    const currentDailyAvgRaw = currentFP / daysWorked;
     
     // Projected total based on current daily average
-    const projectedTotal = currentDailyAvg * (plannedCount + pastPreseasonDays.length);
+    const projectedTotalRaw = currentDailyAvgRaw * (plannedCount + pastPreseasonDays.length);
     
     // Goal total based on goal daily
-    const goalTotal = goalDailyFP * (plannedCount + pastPreseasonDays.length);
+    const goalTotalRaw = goalDailyFPRaw * (plannedCount + pastPreseasonDays.length);
+
+    // Convert to EFP if mode is enabled (EFP = PRMR / 85, and FP+ ≈ PRMR/avgPrmrPerFp)
+    // When converting FP+ to EFP: EFP = FP+ * avgPrmrPerFp / 85
+    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
     return {
       plannedCount,
-      goalDailyFP: goalDailyFP.toFixed(2),
-      goalTotal: goalTotal.toFixed(1),
-      currentDailyAvg: currentDailyAvg.toFixed(2),
-      projectedTotal: projectedTotal.toFixed(1),
-      currentFP: currentFP.toFixed(1),
+      goalDailyFP: (goalDailyFPRaw * conversionFactor).toFixed(2),
+      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
+      currentDailyAvg: (currentDailyAvgRaw * conversionFactor).toFixed(2),
+      projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
+      currentFP: (currentFP * conversionFactor).toFixed(1),
     };
-  }, [preseasonPlannedDays, preseasonCurrentFP, fpGoal, weeksWorking, plannedDays, today]);
+  }, [preseasonPlannedDays, preseasonCurrentFP, fpGoal, weeksWorking, plannedDays, today, isEfpMode, avgPrmrPerFp]);
 
   // Calculate summer stats
   const summerStats = useMemo(() => {
     const plannedCount = summerPlannedDays.length;
     if (plannedCount === 0) return null;
 
-    // Goal daily average from settings
-    const goalDailyFP = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
-    const goalTotal = goalDailyFP * plannedCount;
+    // Goal daily average from settings (fpGoal is stored as FP+)
+    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
+    const goalTotalRaw = goalDailyFPRaw * plannedCount;
 
-    // Calculate projected earnings
+    // Calculate projected earnings (always uses FP+ for payscale calculation)
     const result = calculateTakeHome({
-      fpGoal: goalTotal,
+      fpGoal: goalTotalRaw,
       avgPrmrPerFp,
       rentType,
       weeksWorking,
       upgradeFpGoal: upgradeFpGoal * (plannedCount / (weeksWorking * 6)),
     });
 
+    // Convert to EFP if mode is enabled
+    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+
     return {
       plannedCount,
-      goalDailyFP: goalDailyFP.toFixed(2),
-      goalTotal: goalTotal.toFixed(1),
+      goalDailyFP: (goalDailyFPRaw * conversionFactor).toFixed(2),
+      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
       projectedEarnings: result.takeHomePay,
     };
-  }, [summerPlannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal]);
+  }, [summerPlannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
