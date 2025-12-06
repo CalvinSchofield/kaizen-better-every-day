@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 
-export const AICoachFab = () => {
+export const LeaderAICoachFab = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -23,7 +23,7 @@ export const AICoachFab = () => {
         <Sparkles className="h-6 w-6" />
       </Button>
 
-      {/* AI Coach Drawer */}
+      {/* Leader AI Coach Drawer */}
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="pb-4">
@@ -39,20 +39,28 @@ export const AICoachFab = () => {
           <div className="px-4 space-y-4 pb-8">
             <div className="p-5 rounded-2xl bg-muted/50 border border-border/50">
               <p className="text-muted-foreground leading-relaxed">
-                AI Coach will analyze your numbers to show what you're doing well and where to focus. 
-                No more guessing—just clear, data-driven coaching to help you improve.
+                AI Coach will help you understand your team's performance and identify coaching opportunities—no more guessing. 
+                Data-driven insights to help your team get better.
               </p>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 rounded-xl bg-card border border-border/50">
-                <div className="text-sm text-muted-foreground mb-1">Strengths</div>
+                <div className="text-sm text-muted-foreground mb-1">Team Strengths</div>
                 <div className="text-lg font-semibold text-success">Coming soon</div>
               </div>
               <div className="p-4 rounded-xl bg-card border border-border/50">
-                <div className="text-sm text-muted-foreground mb-1">Focus Areas</div>
+                <div className="text-sm text-muted-foreground mb-1">Coaching Focus</div>
                 <div className="text-lg font-semibold text-warning">Coming soon</div>
               </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-card border border-border/50">
+              <div className="text-sm text-muted-foreground mb-1">Compare Performance</div>
+              <div className="text-sm text-muted-foreground">
+                Compare your team vs other teams or MGMT groups
+              </div>
+              <div className="text-lg font-semibold text-primary mt-1">Coming soon</div>
             </div>
           </div>
         </DrawerContent>

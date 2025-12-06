@@ -20,6 +20,7 @@ import { ReportsHeroCard } from "@/components/reports/ReportsHeroCard";
 import { ReportsPeopleTab } from "@/components/reports/ReportsPeopleTab";
 import { ReportsPerformanceTab } from "@/components/reports/ReportsPerformanceTab";
 import { ReportsPatternsTab } from "@/components/reports/ReportsPatternsTab";
+import { LeaderAICoachFab } from "@/components/reports/LeaderAICoachFab";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 type ReportTab = 'people' | 'performance' | 'patterns';
@@ -555,6 +556,9 @@ const TeamReports = () => {
           yearFilter={yearFilter}
           onYearFilterChange={setYearFilter}
         />
+
+        {/* AI Coach FAB */}
+        <LeaderAICoachFab />
       </div>
     </div>
   );
