@@ -353,7 +353,8 @@ export const CalendarPlanningCard = ({
     const baseGoal = selectedSummerGoal * conversionFactor;
     const adjustedGoal = baseGoal / (1 - cancelRate);
 
-    // Calculate projected earnings (using original goal for payscale)
+    // Calculate projected earnings using the ORIGINAL FP+ goal (not EFP-converted)
+    // selectedSummerGoal is always stored in FP+ units in the database
     const result = calculateTakeHome({
       fpGoal: selectedSummerGoal,
       avgPrmrPerFp,
@@ -857,7 +858,7 @@ export const CalendarPlanningCard = ({
             <div className="p-3 rounded-lg bg-primary/10 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Goal Total</span>
-                <span className="text-lg font-bold">{totalStats.goalTotal} {metricLabel}</span>
+                <span className="text-lg font-bold">{totalStats.baseGoal} {metricLabel}</span>
               </div>
               <div className="pt-2 border-t border-border/30 flex justify-between items-center">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">

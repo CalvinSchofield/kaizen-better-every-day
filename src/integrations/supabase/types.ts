@@ -380,6 +380,7 @@ export type Database = {
           updated_at: string | null
           upgrade_fp_goal: number | null
           user_id: string
+          vet_earnings_per_efp: number | null
           weeks_working: number | null
           will_do_fp_goal: number | null
         }
@@ -412,6 +413,7 @@ export type Database = {
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id: string
+          vet_earnings_per_efp?: number | null
           weeks_working?: number | null
           will_do_fp_goal?: number | null
         }
@@ -444,6 +446,7 @@ export type Database = {
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id?: string
+          vet_earnings_per_efp?: number | null
           weeks_working?: number | null
           will_do_fp_goal?: number | null
         }
