@@ -1,12 +1,9 @@
 import { useState, useMemo } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, parseISO } from 'date-fns';
-import { GitCompare, TrendingUp, TrendingDown
-
- } from "lucide-react";
+import { GitCompare, TrendingUp, TrendingDown } from "lucide-react";
 
 interface ActivityTrendChartProps {
   dailyTrend: Array<{
@@ -32,11 +29,8 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   const [compareMode, setCompareMode] = useState(false);
   const [compareMetric, setCompareMetric] = useState<MetricKey>('fp');
 
-  // Primary metric color (solid orange)
   const primaryColor = 'hsl(var(--primary))';
-  // Comparison metric color (distinct teal/blue)
-  const compareColor = '#0ea5e9'; // Sky blue for clear visual distinction
-  // Trend line color
+  const compareColor = '#0ea5e9';
   const trendColor = 'hsl(var(--chart-2))';
 
   const metrics = [
@@ -64,7 +58,7 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     if (metric === 'fp' && efpModeEnabled) {
       return day.efp;
     } else if (metric === 'prmr' && efpModeEnabled) {
-      return day.fp; // Show FP+ when PRMR key is selected in EFP mode
+      return day.fp;
     } else if (metric === 'hoursWorked') {
       return day.hoursWorked ?? 0;
     } else {
@@ -72,10 +66,8 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     }
   };
 
-  // Calculate moving average for a specific index
   const calculateMovingAvg = (data: number[], index: number, period: number): number | null => {
-    if (index < period - 1) return null; // Not enough data points yet
-    
+    if (index < period - 1) return null;
     const slice = data.slice(index - period + 1, index + 1);
     const sum = slice.reduce((acc, val) => acc + val, 0);
     return sum / period;
@@ -98,7 +90,6 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     });
   }, [dailyTrend, selectedMetric, compareMode, compareMetric, showTrend, trendPeriod, efpModeEnabled]);
 
-  // Calculate trend direction (comparing latest value to moving avg)
   const trendDirection = useMemo(() => {
     if (!showTrend || chartData.length < trendPeriod) return null;
     
@@ -106,11 +97,9 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     if (!latest.movingAvg) return null;
     
     const diff = latest.displayValue - latest.movingAvg;
-    const percentDiff = latest.movingAvg > 0 ? (diff / latest.movingAvg) * 100 : 0;
     
     return {
       diff,
-      percentDiff,
       isPositive: diff >= 0,
     };
   }, [chartData, showTrend, trendPeriod]);
@@ -156,108 +145,32 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   const compareStats = compareMode ? calculateStats(compareMetric) : null;
 
   return (
-    <Card className="p-4">
-      <div className="space-y-4">
-        {/* Header with Trend and Compare Toggles */}
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm text-foreground">Activity Trends</h3>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showTrend ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setShowTrend(!showTrend);
-                if (!showTrend) setCompareMode(false); // Turn off compare when enabling trend
-              }}
-              className="gap-1.5"
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              Trend
-            </Button>
-            <Button
-              variant={compareMode ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setCompareMode(!compareMode);
-                if (!compareMode) setShowTrend(false); // Turn off trend when enabling compare
-              }}
-              className="gap-1.5"
-            >
-              <GitCompare className="w-3.5 h-3.5" />
-              Compare
-            </Button>
-          </div>
-        </div>
-
-        {/* Trend Period Toggle (when trend enabled) */}
-        {showTrend && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Moving Average:</span>
-            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
-              <Button
-                variant={trendPeriod === 6 ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTrendPeriod(6)}
-                className="text-xs h-6 px-2"
-              >
-                6 day
-              </Button>
-              <Button
-                variant={trendPeriod === 12 ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTrendPeriod(12)}
-                className="text-xs h-6 px-2"
-              >
-                12 day
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Trend Direction Indicator */}
-        {showTrend && trendDirection && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/30">
-            {trendDirection.isPositive ? (
-              <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-            )}
-            <span className="text-sm">
-              <span className={trendDirection.isPositive ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
-                {trendDirection.isPositive ? '+' : ''}{formatValue(trendDirection.diff, selectedMetric)}
-              </span>
-              <span className="text-muted-foreground"> {trendDirection.isPositive ? 'above' : 'below'} your {trendPeriod}-day average</span>
-            </span>
-          </div>
-        )}
-
-        {/* Metric Selectors - Horizontal with colored indicators */}
-        <div className="flex gap-4 overflow-x-auto pb-1">
-          {/* Primary Metric */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: primaryColor }} />
-            <select
-              value={selectedMetric}
-              onChange={(e) => {
-                const newMetric = e.target.value as MetricKey;
-                setSelectedMetric(newMetric);
-                if (compareMode && newMetric === compareMetric) {
-                  setCompareMetric(selectedMetric);
-                }
-              }}
-              className="text-sm font-medium bg-transparent border-none focus:outline-none cursor-pointer"
-            >
-              {metrics.map(m => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Compare Metric (only in compare mode) */}
+    <div className="space-y-3">
+      {/* Controls Row - Compact */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        {/* Metric Selector */}
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: primaryColor }} />
+          <select
+            value={selectedMetric}
+            onChange={(e) => {
+              const newMetric = e.target.value as MetricKey;
+              setSelectedMetric(newMetric);
+              if (compareMode && newMetric === compareMetric) {
+                setCompareMetric(selectedMetric);
+              }
+            }}
+            className="text-sm font-medium bg-transparent border-none focus:outline-none cursor-pointer"
+          >
+            {metrics.map(m => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
+          
           {compareMode && (
             <>
-              <span className="text-muted-foreground text-sm">vs</span>
-              <div className="flex items-center gap-2 min-w-0">
+              <span className="text-muted-foreground text-xs">vs</span>
+              <div className="flex items-center gap-1.5">
                 <div 
                   className="w-3 h-3 rounded-full flex-shrink-0 border-2 border-dashed" 
                   style={{ borderColor: compareColor }} 
@@ -276,179 +189,224 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
           )}
         </div>
 
-        {/* Chart */}
-        <ChartContainer config={chartConfig} className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: compareMode ? 50 : 10, left: 0, bottom: 5 }}>
-              <XAxis 
-                dataKey="displayDate" 
-                tick={{ fontSize: 12 }}
-                tickMargin={8}
-              />
+        {/* Toggle Buttons */}
+        <div className="flex items-center gap-1 border border-border rounded-lg p-0.5">
+          <Button
+            variant={showTrend ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setShowTrend(!showTrend);
+              if (!showTrend) setCompareMode(false);
+            }}
+            className="h-7 px-2 text-xs gap-1"
+          >
+            <TrendingUp className="w-3 h-3" />
+            {showTrend ? `${trendPeriod}d` : 'Trend'}
+          </Button>
+          <Button
+            variant={compareMode ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setCompareMode(!compareMode);
+              if (!compareMode) setShowTrend(false);
+            }}
+            className="h-7 px-2 text-xs gap-1"
+          >
+            <GitCompare className="w-3 h-3" />
+            Compare
+          </Button>
+        </div>
+      </div>
+
+      {/* Trend Controls (when enabled) */}
+      {showTrend && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1 border border-border rounded-md p-0.5">
+            <button
+              onClick={() => setTrendPeriod(6)}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${trendPeriod === 6 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              6d
+            </button>
+            <button
+              onClick={() => setTrendPeriod(12)}
+              className={`px-2 py-0.5 text-xs rounded transition-colors ${trendPeriod === 12 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              12d
+            </button>
+          </div>
+          {trendDirection && (
+            <div className="flex items-center gap-1.5 text-sm">
+              {trendDirection.isPositive ? (
+                <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+              )}
+              <span className={trendDirection.isPositive ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                {trendDirection.isPositive ? '+' : ''}{formatValue(trendDirection.diff, selectedMetric)}
+              </span>
+              <span className="text-muted-foreground text-xs">vs avg</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Chart */}
+      <ChartContainer config={chartConfig} className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: compareMode ? 50 : 10, left: 0, bottom: 5 }}>
+            <XAxis 
+              dataKey="displayDate" 
+              tick={{ fontSize: 12 }}
+              tickMargin={8}
+            />
+            <YAxis 
+              yAxisId="left"
+              tick={{ fontSize: 12 }}
+              tickMargin={8}
+              stroke={primaryColor}
+            />
+            {compareMode && (
               <YAxis 
-                yAxisId="left"
+                yAxisId="right"
+                orientation="right"
                 tick={{ fontSize: 12 }}
                 tickMargin={8}
-                stroke={primaryColor}
+                stroke={compareColor}
               />
-              {compareMode && (
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  tick={{ fontSize: 12 }}
-                  tickMargin={8}
-                  stroke={compareColor}
-                />
-              )}
-              <ChartTooltip
-                content={<ChartTooltipContent />}
-                formatter={(value: any, name: string) => {
-                  if (name === 'movingAvg') {
-                    return [formatValue(Number(value), selectedMetric), `${trendPeriod}d Avg`];
-                  }
-                  const metric = name === 'displayValue' ? selectedMetric : compareMetric;
-                  const label = name === 'displayValue' ? currentMetricConfig.label : currentCompareMetricConfig.label;
-                  return [
-                    formatValue(Number(value), metric),
-                    label
-                  ];
-                }}
-              />
-              {/* Moving Average Line (behind primary) */}
-              {showTrend && (
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="movingAvg"
-                  name="movingAvg"
-                  stroke={trendColor}
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  connectNulls={false}
-                />
-              )}
-              {/* Primary Line */}
+            )}
+            <ChartTooltip
+              content={<ChartTooltipContent />}
+              formatter={(value: any, name: string) => {
+                if (name === 'movingAvg') {
+                  return [formatValue(Number(value), selectedMetric), `${trendPeriod}d Avg`];
+                }
+                const metric = name === 'displayValue' ? selectedMetric : compareMetric;
+                const label = name === 'displayValue' ? currentMetricConfig.label : currentCompareMetricConfig.label;
+                return [formatValue(Number(value), metric), label];
+              }}
+            />
+            {showTrend && (
               <Line
                 yAxisId="left"
                 type="monotone"
-                dataKey="displayValue"
-                name="displayValue"
-                stroke={primaryColor}
-                strokeWidth={2.5}
-                dot={{ fill: primaryColor, r: 4 }}
-                activeDot={{ r: 6 }}
+                dataKey="movingAvg"
+                name="movingAvg"
+                stroke={trendColor}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                activeDot={{ r: 4 }}
+                connectNulls={false}
               />
-              {compareMode && (
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="compareValue"
-                  name="compareValue"
-                  stroke={compareColor}
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  dot={{ fill: compareColor, r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-6 text-xs">
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-5 h-1 rounded-full" 
-              style={{ backgroundColor: primaryColor }}
+            )}
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="displayValue"
+              name="displayValue"
+              stroke={primaryColor}
+              strokeWidth={2.5}
+              dot={{ fill: primaryColor, r: 4 }}
+              activeDot={{ r: 6 }}
             />
-            <span className="font-medium">{currentMetricConfig.label}</span>
-          </div>
-          {showTrend && (
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-5 h-0 border-t-2 border-dashed" 
-                style={{ borderColor: trendColor }}
+            {compareMode && (
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="compareValue"
+                name="compareValue"
+                stroke={compareColor}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={{ fill: compareColor, r: 3 }}
+                activeDot={{ r: 5 }}
               />
-              <span className="font-medium" style={{ color: trendColor }}>{trendPeriod}d Avg</span>
-            </div>
-          )}
-          {compareMode && (
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-5 h-0 border-t-2 border-dashed" 
-                style={{ borderColor: compareColor }}
-              />
-              <span className="font-medium" style={{ color: compareColor }}>{currentCompareMetricConfig.label}</span>
-            </div>
-          )}
-        </div>
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartContainer>
 
-        {/* Summary Stats */}
-        <div className={`grid gap-2 text-xs ${compareMode ? 'grid-cols-2' : 'grid-cols-3'}`}>
-          {compareMode ? (
-            <>
-              {/* Primary metric stats */}
-              <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${primaryColor}15` }}>
-                <div className="font-medium text-center" style={{ color: primaryColor }}>
-                  {currentMetricConfig.label}
-                </div>
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Total</div>
-                    <div className="font-semibold">{formatValue(primaryStats.sum, selectedMetric)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Avg</div>
-                    <div className="font-semibold">{formatValue(primaryStats.avg, selectedMetric)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Best</div>
-                    <div className="font-semibold">{formatValue(primaryStats.max, selectedMetric)}</div>
-                  </div>
-                </div>
-              </div>
-              {/* Compare metric stats */}
-              <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${compareColor}15` }}>
-                <div className="font-medium text-center" style={{ color: compareColor }}>
-                  {currentCompareMetricConfig.label}
-                </div>
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Total</div>
-                    <div className="font-semibold">{formatValue(compareStats!.sum, compareMetric)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Avg</div>
-                    <div className="font-semibold">{formatValue(compareStats!.avg, compareMetric)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground text-[10px]">Best</div>
-                    <div className="font-semibold">{formatValue(compareStats!.max, compareMetric)}</div>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="p-2 rounded-lg bg-accent/30 text-center">
-                <div className="text-muted-foreground mb-1">Total</div>
-                <div className="font-semibold">{formatValue(primaryStats.sum, selectedMetric)}</div>
-              </div>
-              <div className="p-2 rounded-lg bg-accent/30 text-center">
-                <div className="text-muted-foreground mb-1">Avg/Day</div>
-                <div className="font-semibold">{formatValue(primaryStats.avg, selectedMetric)}</div>
-              </div>
-              <div className="p-2 rounded-lg bg-accent/30 text-center">
-                <div className="text-muted-foreground mb-1">Best Day</div>
-                <div className="font-semibold">{formatValue(primaryStats.max, selectedMetric)}</div>
-              </div>
-            </>
-          )}
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-6 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
+          <span className="font-medium">{currentMetricConfig.label}</span>
         </div>
+        {showTrend && (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-0 border-t-2 border-dashed" style={{ borderColor: trendColor }} />
+            <span className="font-medium" style={{ color: trendColor }}>{trendPeriod}d Avg</span>
+          </div>
+        )}
+        {compareMode && (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-0 border-t-2 border-dashed" style={{ borderColor: compareColor }} />
+            <span className="font-medium" style={{ color: compareColor }}>{currentCompareMetricConfig.label}</span>
+          </div>
+        )}
       </div>
-    </Card>
+
+      {/* Summary Stats */}
+      <div className={`grid gap-2 text-xs ${compareMode ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {compareMode ? (
+          <>
+            <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${primaryColor}15` }}>
+              <div className="font-medium text-center" style={{ color: primaryColor }}>
+                {currentMetricConfig.label}
+              </div>
+              <div className="grid grid-cols-3 gap-1 text-center">
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Total</div>
+                  <div className="font-semibold">{formatValue(primaryStats.sum, selectedMetric)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Avg</div>
+                  <div className="font-semibold">{formatValue(primaryStats.avg, selectedMetric)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Best</div>
+                  <div className="font-semibold">{formatValue(primaryStats.max, selectedMetric)}</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg space-y-2" style={{ backgroundColor: `${compareColor}15` }}>
+              <div className="font-medium text-center" style={{ color: compareColor }}>
+                {currentCompareMetricConfig.label}
+              </div>
+              <div className="grid grid-cols-3 gap-1 text-center">
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Total</div>
+                  <div className="font-semibold">{formatValue(compareStats!.sum, compareMetric)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Avg</div>
+                  <div className="font-semibold">{formatValue(compareStats!.avg, compareMetric)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground text-[10px]">Best</div>
+                  <div className="font-semibold">{formatValue(compareStats!.max, compareMetric)}</div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="p-2 rounded-lg bg-accent/30 text-center">
+              <div className="text-muted-foreground mb-1">Total</div>
+              <div className="font-semibold">{formatValue(primaryStats.sum, selectedMetric)}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-accent/30 text-center">
+              <div className="text-muted-foreground mb-1">Avg/Day</div>
+              <div className="font-semibold">{formatValue(primaryStats.avg, selectedMetric)}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-accent/30 text-center">
+              <div className="text-muted-foreground mb-1">Best Day</div>
+              <div className="font-semibold">{formatValue(primaryStats.max, selectedMetric)}</div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 };
