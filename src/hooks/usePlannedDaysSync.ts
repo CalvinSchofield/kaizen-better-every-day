@@ -66,14 +66,14 @@ export const usePlannedDaysSync = () => {
   const prevSummerEndRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
   
-  // Fetch season config for summer dates and excluded blitz days
+  // Fetch season config for summer dates, excluded blitz days, and excluded summer days
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config', repData?.user_id],
     queryFn: async () => {
       if (!repData?.user_id) return null;
       const { data, error } = await supabase
         .from('season_config')
-        .select('personal_summer_start, personal_summer_end, excluded_blitz_days')
+        .select('personal_summer_start, personal_summer_end, excluded_blitz_days, excluded_summer_days')
         .eq('user_id', repData.user_id)
         .maybeSingle();
       if (error) throw error;
@@ -151,13 +151,20 @@ export const usePlannedDaysSync = () => {
     return [...new Set(days)];
   }, [committedBlitzes, excludedBlitzDays, today]);
 
-  // Calculate expected summer days (Mon-Sat only)
+  // Get excluded summer days from season config
+  const excludedSummerDays = useMemo(() => {
+    return (seasonConfig?.excluded_summer_days as string[]) || [];
+  }, [seasonConfig?.excluded_summer_days]);
+
+  // Calculate expected summer days (Mon-Sat only), excluding user-marked off-days
   const getSummerDays = useMemo(() => {
     if (!seasonConfig?.personal_summer_start || !seasonConfig?.personal_summer_end) return [];
     const startDate = parseLocalDate(seasonConfig.personal_summer_start);
     const endDate = parseLocalDate(seasonConfig.personal_summer_end);
-    return getWorkDaysInRange(startDate, endDate).filter(d => !isBefore(parseLocalDate(d), today));
-  }, [seasonConfig, today]);
+    return getWorkDaysInRange(startDate, endDate).filter(d => 
+      !isBefore(parseLocalDate(d), today) && !excludedSummerDays.includes(d)
+    );
+  }, [seasonConfig, today, excludedSummerDays]);
 
   // Function to add a day to exclusions for a blitz
   const addExcludedDay = useCallback((blitzId: string, dateStr: string) => {
@@ -361,10 +368,47 @@ export const usePlannedDaysSync = () => {
     prevCommittedBlitzIdsRef.current = committedBlitzIds;
   }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds]);
 
+  // Mutation to update excluded summer days
+  const updateExcludedSummerDaysMutation = useMutation({
+    mutationFn: async (newExcluded: string[]) => {
+      if (!repData?.user_id) throw new Error('No user');
+      const { error } = await supabase
+        .from('season_config')
+        .upsert({
+          user_id: repData.user_id,
+          excluded_summer_days: newExcluded,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['season-config', repData?.user_id] });
+    },
+  });
+
+  // Add a summer off-day
+  const addSummerOffDay = useCallback((dateStr: string) => {
+    const currentExcluded = excludedSummerDays;
+    if (!currentExcluded.includes(dateStr)) {
+      updateExcludedSummerDaysMutation.mutate([...currentExcluded, dateStr]);
+    }
+  }, [excludedSummerDays, updateExcludedSummerDaysMutation]);
+
+  // Remove a summer off-day
+  const removeSummerOffDay = useCallback((dateStr: string) => {
+    const currentExcluded = excludedSummerDays;
+    if (currentExcluded.includes(dateStr)) {
+      updateExcludedSummerDaysMutation.mutate(currentExcluded.filter(d => d !== dateStr));
+    }
+  }, [excludedSummerDays, updateExcludedSummerDaysMutation]);
+
   return {
     getBlitzDays,
     getSummerDays,
     committedBlitzes,
     excludedBlitzDays,
+    excludedSummerDays,
+    addSummerOffDay,
+    removeSummerOffDay,
   };
 };

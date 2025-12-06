@@ -585,6 +585,7 @@ export type Database = {
         Row: {
           created_at: string | null
           excluded_blitz_days: Json | null
+          excluded_summer_days: string[] | null
           id: string
           knocking_mode_enabled: boolean | null
           personal_summer_end: string | null
@@ -595,6 +596,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           excluded_blitz_days?: Json | null
+          excluded_summer_days?: string[] | null
           id?: string
           knocking_mode_enabled?: boolean | null
           personal_summer_end?: string | null
@@ -605,6 +607,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           excluded_blitz_days?: Json | null
+          excluded_summer_days?: string[] | null
           id?: string
           knocking_mode_enabled?: boolean | null
           personal_summer_end?: string | null
