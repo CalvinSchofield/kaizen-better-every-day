@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 
 interface CalendarViewProps {
   entries?: any[];
@@ -26,8 +27,9 @@ export const CalendarView = ({
 }: CalendarViewProps) => {
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
-  const { isDatePlanned } = usePlannedDays();
+  const { isDatePlanned, plannedDays } = usePlannedDays();
   const { goals } = useRepGoals();
+  const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP } = usePreseasonFP();
   const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
@@ -38,17 +40,33 @@ export const CalendarView = ({
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleDetailOpen, setSaleDetailOpen] = useState(false);
   
-  // Calculate daily goal based on mode
+  // Calculate daily goal based on preseason goal and planned days
   const dailyGoal = useMemo(() => {
     if (!goals) return null;
-    // Use will_do goal divided by planned days, or fallback to simple calc
-    // For now, show the "will do" goal divided by weeks * 6 days
+    
+    // Use preseason_fp_goal if set, divided by preseason planned days
+    const preseasonFpGoal = goals.preseason_fp_goal || 0;
+    if (preseasonFpGoal > 0 && plannedDays && plannedDays.length > 0) {
+      // Count preseason planned days (before April 12, 2026)
+      const preseasonEnd = new Date(2026, 3, 11); // April 11, 2026
+      const preseasonPlannedCount = plannedDays.filter(d => {
+        const date = new Date(d.planned_date);
+        return date <= preseasonEnd;
+      }).length;
+      
+      if (preseasonPlannedCount > 0) {
+        // If in EFP mode, the goal is already in EFP units
+        return preseasonFpGoal / preseasonPlannedCount;
+      }
+    }
+    
+    // Fallback to will_do goal divided by weeks * 6 days
     const weeksWorking = goals.weeks_working || 18;
     const totalDays = weeksWorking * 6;
     const fpGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
     if (totalDays === 0 || fpGoal === 0) return null;
     return fpGoal / totalDays;
-  }, [goals]);
+  }, [goals, plannedDays]);
 
   // When switching to week view, change from totals to weekly if needed
   const handleViewModeChange = (mode: "month" | "week") => {
