@@ -12,7 +12,9 @@ import {
   Plus,
   Minus,
   Check,
-  Settings2
+  Settings2,
+  AlertCircle,
+  ChevronRight
 } from "lucide-react";
 import { RepGoals } from "@/hooks/useRepGoals";
 import { cn } from "@/lib/utils";
@@ -26,6 +28,10 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
+import { TrainingTimer } from "./TrainingTimer";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface CommitmentsTrackerProps {
   goals: RepGoals;
@@ -46,6 +52,15 @@ interface Commitment {
   incrementBy?: number;
   autoTracked?: boolean;
   maxValue?: number;
+  hasCustomEditor?: boolean;
+}
+
+interface CommittedBlitz {
+  id: string;
+  name: string;
+  date: string;
+  endDate?: string;
+  location?: string;
 }
 
 const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxValue'>[] = [
@@ -55,7 +70,8 @@ const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxV
     icon: Clock,
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
-    incrementBy: 5,
+    incrementBy: 60, // minutes for goal setting
+    hasCustomEditor: true,
   },
   {
     key: 'books_goal',
@@ -89,15 +105,16 @@ const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxV
     bgColor: 'bg-red-500/10',
     incrementBy: 1,
     autoTracked: true,
+    hasCustomEditor: true,
   },
 ];
 
 const commitmentLabels: Record<string, { label: string; unit: string; description: string }> = {
-  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Hours in training sessions' },
+  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Time spent studying' },
   books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books' },
-  role_plays_goal: { label: 'Role Plays', unit: 'sessions', description: 'Practice sessions with vets' },
+  role_plays_goal: { label: 'Role Plays', unit: 'sessions', description: 'Practice with vets' },
   monday_night_lights_goal: { label: 'Monday Night Lights', unit: 'calls', description: 'Weekly team calls' },
-  blitzes_goal: { label: 'Blitzes', unit: 'trips', description: 'Auto-tracked from your commits' },
+  blitzes_goal: { label: 'Blitzes', unit: 'trips', description: 'Commit to trips below' },
 };
 
 export const CommitmentsTracker = ({
@@ -109,14 +126,22 @@ export const CommitmentsTracker = ({
   const { efpModeEnabled } = useEfpMode();
   const { repData } = useRepData();
   const { allBlitzes } = useBlitzes();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [isTrainingTimerOpen, setIsTrainingTimerOpen] = useState(false);
   const [editingGoals, setEditingGoals] = useState<Record<string, number>>({});
+  const [isCommitting, setIsCommitting] = useState<string | null>(null);
+
+  // Get committed blitzes
+  const committedBlitzes = useMemo(() => {
+    return (repData?.committed_blitzes as CommittedBlitz[]) || [];
+  }, [repData?.committed_blitzes]);
 
   // Calculate blitz stats
   const blitzStats = useMemo(() => {
-    const committedBlitzes = (repData?.committed_blitzes as string[]) || [];
     const blitzesAttended = goals.blitzes_progress || 0;
     const blitzesRemaining = allBlitzes.length;
     const blitzesCommitted = committedBlitzes.length;
@@ -127,7 +152,13 @@ export const CommitmentsTracker = ({
       remaining: blitzesRemaining,
       maxGoal: blitzesRemaining,
     };
-  }, [repData?.committed_blitzes, goals.blitzes_progress, allBlitzes.length]);
+  }, [committedBlitzes.length, goals.blitzes_progress, allBlitzes.length]);
+
+  // Check if blitz goal matches committed count
+  const blitzMismatch = useMemo(() => {
+    const goal = Number(goals.blitzes_goal) || 0;
+    return goal !== blitzStats.committed && goal > 0;
+  }, [goals.blitzes_goal, blitzStats.committed]);
 
   // Build commitments with dynamic max for blitzes
   const commitments = useMemo((): Commitment[] => {
@@ -157,10 +188,13 @@ export const CommitmentsTracker = ({
   }, [metricLabel, blitzStats.remaining]);
 
   const handleOpenEditDrawer = () => {
-    // Initialize with current goal values
+    // Initialize with current goal values, use committed blitzes count for blitz goal
     const currentGoals: Record<string, number> = {};
     commitments.forEach(c => {
-      if (!c.autoTracked || c.key === 'blitzes_goal') {
+      if (c.key === 'blitzes_goal') {
+        // Pre-fill with committed blitzes count
+        currentGoals[c.key] = blitzStats.committed;
+      } else if (!c.autoTracked) {
         currentGoals[c.key] = Number(goals[c.key as keyof RepGoals]) || 0;
       }
     });
@@ -177,13 +211,101 @@ export const CommitmentsTracker = ({
     setEditingGoals(prev => {
       const currentVal = prev[key] || 0;
       const newVal = Math.max(0, currentVal + delta);
-      // Cap at maxValue if defined
       return { ...prev, [key]: maxValue !== undefined ? Math.min(newVal, maxValue) : newVal };
     });
   };
 
+  const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
+    if (!repData?.id) return;
+    setIsCommitting(blitz.id);
+    
+    try {
+      const newCommitment: CommittedBlitz = {
+        id: blitz.id,
+        name: blitz.name,
+        date: blitz.date,
+        endDate: blitz.endDate || undefined,
+        location: blitz.location || undefined,
+      };
+      
+      const newCommitments = [...committedBlitzes, newCommitment];
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: newCommitments as any })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Update the editing goals to reflect new commitment
+      setEditingGoals(prev => ({
+        ...prev,
+        blitzes_goal: newCommitments.length
+      }));
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: "Committed!",
+        description: `You're going to ${blitz.name}`,
+      });
+    } catch (error) {
+      console.error('Error committing to blitz:', error);
+      toast({
+        title: "Failed to commit",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCommitting(null);
+    }
+  };
+
+  const handleUncommitFromBlitz = async (blitzId: string) => {
+    if (!repData?.id) return;
+    setIsCommitting(blitzId);
+    
+    try {
+      const newCommitments = committedBlitzes.filter(b => b.id !== blitzId);
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: newCommitments as any })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Update the editing goals to reflect removal
+      setEditingGoals(prev => ({
+        ...prev,
+        blitzes_goal: newCommitments.length
+      }));
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: "Uncommitted",
+        description: "You've been removed from this trip",
+      });
+    } catch (error) {
+      console.error('Error uncommitting from blitz:', error);
+      toast({
+        title: "Failed to uncommit",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCommitting(null);
+    }
+  };
+
+  const handleSaveTrainingTime = async (totalMinutes: number) => {
+    await onUpdateGoals({
+      training_hours_progress: totalMinutes,
+    } as Partial<RepGoals>);
+    setIsTrainingTimerOpen(false);
+  };
+
   const handleQuickIncrement = async (commitment: Commitment) => {
-    if (commitment.autoTracked) return;
+    if (commitment.autoTracked || commitment.hasCustomEditor) return;
     
     const progressKey = commitment.progressKey as keyof RepGoals;
     const currentProgress = Number(goals[progressKey]) || 0;
@@ -195,7 +317,7 @@ export const CommitmentsTracker = ({
   };
 
   const handleQuickDecrement = async (commitment: Commitment) => {
-    if (commitment.autoTracked) return;
+    if (commitment.autoTracked || commitment.hasCustomEditor) return;
     
     const progressKey = commitment.progressKey as keyof RepGoals;
     const currentProgress = Number(goals[progressKey]) || 0;
@@ -213,7 +335,6 @@ export const CommitmentsTracker = ({
       return preseasonFpProgress;
     }
     if (commitment.key === 'blitzes_goal') {
-      // Auto-track blitzes from committed blitzes
       return blitzStats.attended;
     }
     const progressKey = commitment.progressKey as keyof RepGoals;
@@ -221,6 +342,9 @@ export const CommitmentsTracker = ({
   };
 
   const getGoal = (commitment: Commitment): number => {
+    if (commitment.key === 'blitzes_goal') {
+      return blitzStats.committed; // Goal IS the committed count
+    }
     const goalKey = commitment.key as keyof RepGoals;
     return Number(goals[goalKey]) || 0;
   };
@@ -235,15 +359,25 @@ export const CommitmentsTracker = ({
     return getProgress(commitment) >= getGoal(commitment) && getGoal(commitment) > 0;
   };
 
+  // Format training time display
+  const formatTrainingTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+
   // Filter to only show commitments with goals set, plus always show FP+
   const activeCommitments = commitments.filter(
-    c => getGoal(c) > 0 || c.key === 'preseason_fp_goal'
+    c => getGoal(c) > 0 || c.key === 'preseason_fp_goal' || c.key === 'blitzes_goal'
   );
 
   const hasAnyGoals = commitments.some(c => getGoal(c) > 0);
 
   // Get commitments that are editable (not fully auto-tracked like FP)
-  const editableCommitments = commitments.filter(c => c.key !== 'preseason_fp_goal');
+  const editableCommitments = commitments.filter(c => 
+    c.key !== 'preseason_fp_goal' && c.key !== 'blitzes_goal'
+  );
 
   return (
     <>
@@ -261,12 +395,12 @@ export const CommitmentsTracker = ({
               className="text-xs"
             >
               <Settings2 className="h-3 w-3 mr-1" />
-              Edit Goals
+              Edit
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {!hasAnyGoals ? (
+          {!hasAnyGoals && blitzStats.committed === 0 ? (
             <div className="text-center py-6">
               <p className="text-muted-foreground text-sm mb-3">
                 No preseason commitments set yet
@@ -277,7 +411,7 @@ export const CommitmentsTracker = ({
                 onClick={handleOpenEditDrawer}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Set Commitments
+                Set Your Standards
               </Button>
             </div>
           ) : (
@@ -288,9 +422,12 @@ export const CommitmentsTracker = ({
               const percentage = getPercentage(commitment);
               const complete = isComplete(commitment);
               const isFpCommitment = commitment.key === 'preseason_fp_goal';
+              const isBlitzes = commitment.key === 'blitzes_goal';
+              const isTraining = commitment.key === 'training_hours_goal';
               const isAutoTracked = commitment.autoTracked;
+              const hasCustomEditor = commitment.hasCustomEditor;
 
-              if (goal === 0 && !isFpCommitment) return null;
+              if (goal === 0 && !isFpCommitment && !isBlitzes) return null;
 
               return (
                 <div
@@ -315,14 +452,31 @@ export const CommitmentsTracker = ({
                         <p className="text-xs text-muted-foreground">
                           {isFpCommitment 
                             ? `${progress.toFixed(1)} / ${goal} ${commitment.unit}`
-                            : `${progress} / ${goal} ${commitment.unit}`
+                            : isTraining
+                              ? `${formatTrainingTime(progress)} / ${formatTrainingTime(goal)}`
+                              : isBlitzes
+                                ? `${progress} attended / ${goal} committed`
+                                : `${progress} / ${goal} ${commitment.unit}`
                           }
                         </p>
                       </div>
                     </div>
 
-                    {/* Quick increment/decrement buttons (not for auto-tracked) */}
-                    {!isAutoTracked && goal > 0 && (
+                    {/* Training timer button */}
+                    {isTraining && goal > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs gap-1"
+                        onClick={() => setIsTrainingTimerOpen(true)}
+                      >
+                        <Clock className="h-3 w-3" />
+                        Log Time
+                      </Button>
+                    )}
+
+                    {/* Quick increment/decrement buttons (not for auto-tracked or custom editors) */}
+                    {!isAutoTracked && !hasCustomEditor && goal > 0 && (
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
@@ -361,21 +515,90 @@ export const CommitmentsTracker = ({
 
       {/* Edit Goals Drawer */}
       <Drawer open={isEditDrawerOpen} onOpenChange={setIsEditDrawerOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="text-center pb-2">
-            <DrawerTitle>Set Your Goals</DrawerTitle>
+            <DrawerTitle>Set Your Standards</DrawerTitle>
             <DrawerDescription>
-              Tap + or - to set your preseason commitments
+              What are you committing to this preseason?
             </DrawerDescription>
           </DrawerHeader>
 
           <div className="px-4 pb-6 space-y-4 overflow-y-auto">
+            {/* Blitzes Section - Special handling */}
+            <div className="rounded-xl p-4 bg-red-500/10">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-background/60">
+                  <Plane className="h-5 w-5 text-red-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">Blitzes</p>
+                  <p className="text-xs text-muted-foreground">
+                    {blitzStats.committed} committed · {allBlitzes.length} available
+                  </p>
+                </div>
+                <span className="text-2xl font-bold tabular-nums">{blitzStats.committed}</span>
+              </div>
+              
+              {/* Blitz list */}
+              <div className="space-y-2 mt-3">
+                {allBlitzes.map((blitz) => {
+                  const isCommitted = committedBlitzes.some(b => b.id === blitz.id);
+                  const blitzDate = new Date(blitz.date);
+                  
+                  return (
+                    <div 
+                      key={blitz.id}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg transition-all",
+                        isCommitted ? "bg-green-500/20 ring-1 ring-green-500/50" : "bg-background/50"
+                      )}
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{blitz.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {blitz.location && ` · ${blitz.location}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant={isCommitted ? "outline" : "default"}
+                        size="sm"
+                        onClick={() => isCommitted 
+                          ? handleUncommitFromBlitz(blitz.id)
+                          : handleCommitToBlitz(blitz)
+                        }
+                        disabled={isCommitting === blitz.id}
+                        className={cn(
+                          "min-w-[80px]",
+                          isCommitted && "border-green-500/50 text-green-600"
+                        )}
+                      >
+                        {isCommitting === blitz.id ? "..." : isCommitted ? (
+                          <>
+                            <Check className="h-3 w-3 mr-1" />
+                            Going
+                          </>
+                        ) : "Commit"}
+                      </Button>
+                    </div>
+                  );
+                })}
+                
+                {allBlitzes.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No upcoming blitzes scheduled
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Other commitments with steppers */}
             {editableCommitments.map((commitment) => {
               const Icon = commitment.icon;
+              const isTraining = commitment.key === 'training_hours_goal';
               const currentGoalValue = editingGoals[commitment.key] ?? (Number(goals[commitment.key as keyof RepGoals]) || 0);
-              const isBlitzes = commitment.key === 'blitzes_goal';
-              const stepAmount = commitment.incrementBy || 1;
-              const maxValue = commitment.maxValue;
+              const stepAmount = isTraining ? 60 : (commitment.incrementBy || 1); // 1 hour steps for training
+              const displayValue = isTraining ? Math.round(currentGoalValue / 60) : currentGoalValue;
 
               return (
                 <div 
@@ -395,11 +618,6 @@ export const CommitmentsTracker = ({
                         <p className="text-xs text-muted-foreground">
                           {commitment.description}
                         </p>
-                        {isBlitzes && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {blitzStats.remaining} trips left this preseason
-                          </p>
-                        )}
                       </div>
                     </div>
                     
@@ -409,20 +627,22 @@ export const CommitmentsTracker = ({
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-full"
-                        onClick={() => handleStepperChange(commitment.key, -stepAmount, maxValue)}
+                        onClick={() => handleStepperChange(commitment.key, -stepAmount)}
                         disabled={currentGoalValue <= 0}
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <span className="text-xl font-bold w-12 text-center tabular-nums">
-                        {currentGoalValue}
-                      </span>
+                      <div className="text-center min-w-[48px]">
+                        <span className="text-xl font-bold tabular-nums">
+                          {displayValue}
+                        </span>
+                        {isTraining && <span className="text-xs text-muted-foreground ml-0.5">h</span>}
+                      </div>
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-full"
-                        onClick={() => handleStepperChange(commitment.key, stepAmount, maxValue)}
-                        disabled={maxValue !== undefined && currentGoalValue >= maxValue}
+                        onClick={() => handleStepperChange(commitment.key, stepAmount)}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
@@ -438,8 +658,31 @@ export const CommitmentsTracker = ({
               disabled={isUpdating}
               size="lg"
             >
-              {isUpdating ? "Saving..." : "Save Goals"}
+              {isUpdating ? "Saving..." : "Save Standards"}
             </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Training Timer Drawer */}
+      <Drawer open={isTrainingTimerOpen} onOpenChange={setIsTrainingTimerOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle className="flex items-center justify-center gap-2">
+              <Clock className="h-5 w-5 text-blue-500" />
+              Training Timer
+            </DrawerTitle>
+            <DrawerDescription>
+              Log time spent studying and training
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <div className="px-4 pb-6">
+            <TrainingTimer
+              currentMinutes={Number(goals.training_hours_progress) || 0}
+              onSave={handleSaveTrainingTime}
+              isSaving={isUpdating}
+            />
           </div>
         </DrawerContent>
       </Drawer>
