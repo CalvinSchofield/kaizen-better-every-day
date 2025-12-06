@@ -787,21 +787,37 @@ const TeamReports = () => {
               </div>
 
               {/* FP+ Breakdown */}
-              {insightsData.totalUpgradeFP > 0 && (
+              {(insightsData.fpCount > 0 || insightsData.upgradeCount > 0) && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-medium text-muted-foreground">FP+ Breakdown</div>
-                    <div className="text-xs text-primary font-semibold">{((insightsData.totalUpgradeFP / insightsData.totalFP) * 100).toFixed(0)}% upgrades</div>
+                    {insightsData.fpCount > 0 && insightsData.upgradeCount > 0 && (
+                      <div className="text-xs text-primary font-semibold">
+                        {Math.round((insightsData.upgradeCount / (insightsData.fpCount + insightsData.upgradeCount)) * 100)}% upgrades
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{Math.round(insightsData.totalFP - insightsData.totalUpgradeFP)}</div>
-                      <div className="text-xs text-muted-foreground">FP (new accounts)</div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{insightsData.fpCount}</div>
+                      <div className="text-xs text-muted-foreground">FP</div>
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insightsData.totalUpgradeFP.toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">Upgrade FP+</div>
+                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insightsData.upgradeCount}</div>
+                      <div className="text-xs text-muted-foreground">Upgrades</div>
                     </div>
+                    {insightsData.fpCount > 0 && (
+                      <div>
+                        <div className="text-lg font-bold text-primary">${Math.round(insightsData.avgPrmrPerFp)}</div>
+                        <div className="text-xs text-muted-foreground">Avg PRMR per FP</div>
+                      </div>
+                    )}
+                    {insightsData.upgradeCount > 0 && (
+                      <div>
+                        <div className="text-lg font-bold text-primary">${Math.round(insightsData.avgPrmrPerUpgrade)}</div>
+                        <div className="text-xs text-muted-foreground">Avg PRMR per Upgrade</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

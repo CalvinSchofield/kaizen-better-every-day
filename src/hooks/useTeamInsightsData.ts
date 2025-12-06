@@ -19,6 +19,7 @@ interface DailyEntry {
   break_periods: any;
   counter_timestamps: any;
   timezone: string | null;
+  sales_log: any;
 }
 
 interface RepInfo {
@@ -44,6 +45,14 @@ interface TeamInsightsData {
   totalWorkMinutes: number;
   daysWorked: number;
   uniqueRepsWorked: number;
+  
+  // FP+ Breakdown from sales_log
+  fpCount: number;
+  upgradeCount: number;
+  fpPrmrTotal: number;
+  upgradePrmrTotal: number;
+  avgPrmrPerFp: number;
+  avgPrmrPerUpgrade: number;
   
   // Ratios
   doorsToFp: number;
@@ -355,8 +364,22 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           acc.totalMinutes += minutes;
         }
         
+        // Parse sales_log for FP count and PRMR averages
+        const salesLog = entry.sales_log || [];
+        if (Array.isArray(salesLog)) {
+          salesLog.forEach((sale: any) => {
+            if (sale.type === 'fp') {
+              acc.fpCount += 1;
+              acc.fpPrmrTotal += sale.prmr || 0;
+            } else if (sale.type === 'upgrade') {
+              acc.upgradeCount += 1;
+              acc.upgradePrmrTotal += sale.prmr || 0;
+            }
+          });
+        }
+        
         return acc;
-      }, { doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePRMR: 0, daysWorked: 0, totalMinutes: 0 });
+      }, { doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fp: 0, prmr: 0, upgradePRMR: 0, daysWorked: 0, totalMinutes: 0, fpCount: 0, upgradeCount: 0, fpPrmrTotal: 0, upgradePrmrTotal: 0 });
 
       // Activity-based totals for ratios
       const activityTotals = entriesWithActivity.reduce((acc, entry) => {
@@ -1190,6 +1213,10 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
       };
       // ==================== END BEST PERIODS CALCULATIONS ====================
 
+      // Calculate averages from sales_log
+      const avgPrmrPerFp = totals.fpCount > 0 ? totals.fpPrmrTotal / totals.fpCount : 0;
+      const avgPrmrPerUpgrade = totals.upgradeCount > 0 ? totals.upgradePrmrTotal / totals.upgradeCount : 0;
+
       return {
         totalDoors: totals.doors,
         totalDMs: totals.dms,
@@ -1204,6 +1231,13 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         totalWorkMinutes: totals.totalMinutes,
         daysWorked: totals.daysWorked,
         uniqueRepsWorked: new Set(entries.map(e => e.user_id)).size,
+        // FP+ Breakdown from sales_log
+        fpCount: totals.fpCount,
+        upgradeCount: totals.upgradeCount,
+        fpPrmrTotal: totals.fpPrmrTotal,
+        upgradePrmrTotal: totals.upgradePrmrTotal,
+        avgPrmrPerFp,
+        avgPrmrPerUpgrade,
         doorsToFp,
         doorsToPresentation,
         pitchesToFp,
