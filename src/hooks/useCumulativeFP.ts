@@ -29,7 +29,7 @@ export const useCumulativeFP = () => {
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized")
+        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked")
         .eq("user_id", user.id)
         .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
@@ -37,6 +37,17 @@ export const useCumulativeFP = () => {
       if (error) throw error;
 
       if (!entries || entries.length === 0) return [];
+
+      // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
+      // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
+      const isRealKnockingDay = (entry: typeof entries[0]): boolean => {
+        const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
+        // Note: we don't have work_start_time in this query, so just use doors threshold
+        return hasMeaningfulActivity;
+      };
+
+      // Filter to only real knocking days for rolling averages
+      const realKnockingEntries = entries.filter(isRealKnockingDay);
 
       // Build cumulative data points
       const dataPoints: CumulativeDataPoint[] = [];
@@ -60,39 +71,43 @@ export const useCumulativeFP = () => {
         cumulativePrmr += totalPrmr;
         cumulativeFp += fpValue;
 
-        // Calculate 6-day moving average (last 6 days including current)
-        const last6 = entries.slice(Math.max(0, index - 5), index + 1);
-        const movingAvg6 = last6.length >= 1
-          ? last6.reduce((sum, e) => {
+        // For rolling averages, only use real knocking days up to current date
+        const currentDate = entry.entry_date;
+        const realEntriesUpToNow = realKnockingEntries.filter(e => e.entry_date <= currentDate);
+
+        // Calculate 6-day moving average (last 6 REAL knocking days)
+        const last6Real = realEntriesUpToNow.slice(-6);
+        const movingAvg6 = last6Real.length >= 1
+          ? last6Real.reduce((sum, e) => {
               const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
               return sum + v;
-            }, 0) / last6.length
+            }, 0) / last6Real.length
           : null;
 
-        const movingAvgPrmr6 = last6.length >= 1
-          ? last6.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6.length
+        const movingAvgPrmr6 = last6Real.length >= 1
+          ? last6Real.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6Real.length
           : null;
 
-        // Calculate 12-day moving average (last 12 days including current)
-        const last12 = entries.slice(Math.max(0, index - 11), index + 1);
-        const movingAvg12 = last12.length >= 1
-          ? last12.reduce((sum, e) => {
+        // Calculate 12-day moving average (last 12 REAL knocking days)
+        const last12Real = realEntriesUpToNow.slice(-12);
+        const movingAvg12 = last12Real.length >= 1
+          ? last12Real.reduce((sum, e) => {
               const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
               return sum + v;
-            }, 0) / last12.length
+            }, 0) / last12Real.length
           : null;
 
-        const movingAvgPrmr12 = last12.length >= 1
-          ? last12.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12.length
+        const movingAvgPrmr12 = last12Real.length >= 1
+          ? last12Real.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12Real.length
           : null;
 
         // Calculate FP+ moving averages (always actual FP+, not EFP)
-        const movingAvgFp6 = last6.length >= 1
-          ? last6.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last6.length
+        const movingAvgFp6 = last6Real.length >= 1
+          ? last6Real.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last6Real.length
           : null;
 
-        const movingAvgFp12 = last12.length >= 1
-          ? last12.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last12.length
+        const movingAvgFp12 = last12Real.length >= 1
+          ? last12Real.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last12Real.length
           : null;
 
         dataPoints.push({
