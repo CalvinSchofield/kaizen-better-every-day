@@ -6,6 +6,8 @@ interface GoalProgressLadderProps {
   goals: RepGoals;
   currentFpPlus: number;
   currentPrmr?: number;
+  fundedFpPlus?: number;
+  fundedPrmr?: number;
   isRookie: boolean;
   onTierClick?: (tier: GoalTier) => void;
 }
@@ -14,13 +16,16 @@ export const GoalProgressLadder = ({
   goals,
   currentFpPlus,
   currentPrmr = 0,
+  fundedFpPlus = 0,
+  fundedPrmr = 0,
   isRookie,
   onTierClick,
 }: GoalProgressLadderProps) => {
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   
-  // Calculate current progress based on mode
+  // Calculate current progress based on mode (total = for goals, funded = for income)
   const currentProgress = efpModeEnabled ? calculateEfp(currentPrmr) : currentFpPlus;
+  const fundedProgress = efpModeEnabled ? calculateEfp(fundedPrmr) : fundedFpPlus;
   
   // Convert goals to EFP if in EFP mode (EFP goal = FP+ goal * avgPrmrPerFp / 85)
   const conversionFactor = efpModeEnabled ? goals.avg_prmr_per_fp / 85 : 1;
@@ -44,12 +49,16 @@ export const GoalProgressLadder = ({
     currentTarget = 'couldDo';
   }
 
+  // Only show funded progress if it differs from total
+  const showFundedProgress = fundedProgress < currentProgress;
+
   const sharedProps = {
     avgPrmrPerFp: goals.avg_prmr_per_fp,
     upgradeFpGoal: goals.upgrade_fp_goal,
     rentType: goals.rent_type,
     weeksWorking: goals.weeks_working,
     currentProgress,
+    fundedProgress: showFundedProgress ? fundedProgress : undefined,
     efpMode: efpModeEnabled,
   };
 

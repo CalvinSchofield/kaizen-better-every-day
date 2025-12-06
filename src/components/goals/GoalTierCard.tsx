@@ -11,6 +11,7 @@ interface GoalTierCardProps {
   fpGoal: number;
   displayGoal?: number;
   currentProgress?: number;
+  fundedProgress?: number; // Only passed when different from currentProgress
   avgPrmrPerFp?: number;
   upgradeFpGoal?: number;
   rentType?: string;
@@ -47,6 +48,7 @@ export const GoalTierCard = ({
   fpGoal,
   displayGoal,
   currentProgress = 0,
+  fundedProgress,
   avgPrmrPerFp = 85,
   upgradeFpGoal = 0,
   rentType = 'Single',
@@ -72,7 +74,11 @@ export const GoalTierCard = ({
   });
 
   const progress = goalValue > 0 ? Math.min((currentProgress / goalValue) * 100, 100) : 0;
+  const fundedProgressPercent = fundedProgress !== undefined && goalValue > 0 
+    ? Math.min((fundedProgress / goalValue) * 100, 100) 
+    : undefined;
   const remaining = Math.max(goalValue - currentProgress, 0);
+  const showDualProgress = fundedProgress !== undefined && fundedProgress < currentProgress;
 
   if (fpGoal === 0) return null;
 
@@ -114,21 +120,51 @@ export const GoalTierCard = ({
           </div>
         </div>
 
-        {/* Progress Section */}
         {isCurrentTarget && (
           <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{currentProgress.toFixed(1)} {metricLabel}</span>
-              {remaining > 0 ? (
-                <span className="flex items-center gap-1">
-                  <ArrowRight className="h-3 w-3" />
-                  {remaining.toFixed(1)} to go
-                </span>
-              ) : (
-                <span className="text-green-500 font-medium">Complete!</span>
-              )}
-            </div>
+            {/* Dual progress bars when there are unfunded sales */}
+            {showDualProgress ? (
+              <div className="space-y-1.5">
+                {/* Funded progress (for income) */}
+                <div className="space-y-0.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-green-600 font-medium">Funded</span>
+                    <span className="text-muted-foreground">{fundedProgress?.toFixed(1)} {metricLabel}</span>
+                  </div>
+                  <Progress value={fundedProgressPercent || 0} className="h-1.5 [&>div]:bg-green-500" />
+                </div>
+                {/* Total progress (for goals) */}
+                <div className="space-y-0.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Total (incl. unfunded)</span>
+                    <span className="text-muted-foreground">{currentProgress.toFixed(1)} {metricLabel}</span>
+                  </div>
+                  <Progress value={progress} className="h-1.5 [&>div]:bg-primary/50" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <Progress value={progress} className="h-2" />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{currentProgress.toFixed(1)} {metricLabel}</span>
+                  {remaining > 0 ? (
+                    <span className="flex items-center gap-1">
+                      <ArrowRight className="h-3 w-3" />
+                      {remaining.toFixed(1)} to go
+                    </span>
+                  ) : (
+                    <span className="text-green-500 font-medium">Complete!</span>
+                  )}
+                </div>
+              </>
+            )}
+            {/* Remaining indicator for dual progress */}
+            {showDualProgress && remaining > 0 && (
+              <div className="flex items-center justify-end text-xs text-muted-foreground pt-1">
+                <ArrowRight className="h-3 w-3 mr-1" />
+                {remaining.toFixed(1)} to go
+              </div>
+            )}
           </div>
         )}
 
