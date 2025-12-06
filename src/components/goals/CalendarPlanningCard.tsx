@@ -109,17 +109,25 @@ export const CalendarPlanningCard = ({
   const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // Query to get actual days worked (finalized entries)
+  // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
+  // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
+  const isRealKnockingDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null }): boolean => {
+    const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
+    const hasWorkSession = entry.work_start_time && entry.work_end_time;
+    return hasMeaningfulActivity || !!hasWorkSession;
+  };
+
+  // Query to get actual days worked (finalized entries with real activity)
   const { data: workedDays } = useQuery({
     queryKey: ['worked-days-count', personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
 
-      // Get all finalized entries
+      // Get all finalized entries with activity fields
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('entry_date')
+        .select('entry_date, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', user.id)
         .eq('is_finalized', true);
 
@@ -136,7 +144,10 @@ export const CalendarPlanningCard = ({
       let preseasonCount = 0;
       let summerCount = 0;
 
+      // Only count entries that are "real knocking days" (not referral-only days)
       entries?.forEach(entry => {
+        if (!isRealKnockingDay(entry)) return; // Skip result-only days
+        
         const date = parseLocalDate(entry.entry_date);
         if (date >= preseasonStart && date <= preseasonEnd) {
           preseasonCount++;

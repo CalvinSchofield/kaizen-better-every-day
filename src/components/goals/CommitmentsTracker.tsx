@@ -435,17 +435,20 @@ export const CommitmentsTracker = ({
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
+  // Get commitments that are editable (not fully auto-tracked like FP)
+  const editableCommitments = commitments.filter(c => 
+    c.key !== 'preseason_fp_goal' && c.key !== 'blitzes_goal'
+  );
+
   // Filter to only show commitments with goals set, plus always show FP+
   const activeCommitments = commitments.filter(
     c => getGoal(c) > 0 || c.key === 'preseason_fp_goal' || c.key === 'blitzes_goal'
   );
 
-  const hasAnyGoals = commitments.some(c => getGoal(c) > 0);
+  // Get commitments that have NO goal set (available to add)
+  const uncommittedCommitments = editableCommitments.filter(c => getGoal(c) === 0);
 
-  // Get commitments that are editable (not fully auto-tracked like FP)
-  const editableCommitments = commitments.filter(c => 
-    c.key !== 'preseason_fp_goal' && c.key !== 'blitzes_goal'
-  );
+  const hasAnyGoals = commitments.some(c => getGoal(c) > 0);
 
   return (
     <>
@@ -483,100 +486,115 @@ export const CommitmentsTracker = ({
               </Button>
             </div>
           ) : (
-            activeCommitments.map((commitment) => {
-              const Icon = commitment.icon;
-              const progress = getProgress(commitment);
-              const goal = getGoal(commitment);
-              const percentage = getPercentage(commitment);
-              const complete = isComplete(commitment);
-              const isFpCommitment = commitment.key === 'preseason_fp_goal';
-              const isBlitzes = commitment.key === 'blitzes_goal';
-              const isTraining = commitment.key === 'training_hours_goal';
-              const isAutoTracked = commitment.autoTracked;
-              const hasCustomEditor = commitment.hasCustomEditor;
+            <>
+              {activeCommitments.map((commitment) => {
+                const Icon = commitment.icon;
+                const progress = getProgress(commitment);
+                const goal = getGoal(commitment);
+                const percentage = getPercentage(commitment);
+                const complete = isComplete(commitment);
+                const isFpCommitment = commitment.key === 'preseason_fp_goal';
+                const isBlitzes = commitment.key === 'blitzes_goal';
+                const isTraining = commitment.key === 'training_hours_goal';
+                const isAutoTracked = commitment.autoTracked;
+                const hasCustomEditor = commitment.hasCustomEditor;
 
-              if (goal === 0 && !isFpCommitment && !isBlitzes) return null;
+                if (goal === 0 && !isFpCommitment && !isBlitzes) return null;
 
-              return (
-                <div
-                  key={commitment.key}
-                  className={cn(
-                    "rounded-xl p-3 transition-all",
-                    commitment.bgColor,
-                    complete && "ring-2 ring-green-500/50"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("p-1.5 rounded-lg bg-background/50")}>
-                        {complete ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Icon className={cn("h-4 w-4", commitment.color)} />
-                        )}
+                return (
+                  <div
+                    key={commitment.key}
+                    className={cn(
+                      "rounded-xl p-3 transition-all",
+                      commitment.bgColor,
+                      complete && "ring-2 ring-green-500/50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("p-1.5 rounded-lg bg-background/50")}>
+                          {complete ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Icon className={cn("h-4 w-4", commitment.color)} />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{commitment.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isFpCommitment 
+                              ? `${progress.toFixed(1)} / ${goal} ${commitment.unit}`
+                              : isTraining
+                                ? `${formatTrainingTime(progress)} / ${formatTrainingTime(goal)}`
+                                : isBlitzes
+                                  ? `${progress} attended / ${goal} committed`
+                                  : `${progress} / ${goal} ${commitment.unit}`
+                            }
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{commitment.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {isFpCommitment 
-                            ? `${progress.toFixed(1)} / ${goal} ${commitment.unit}`
-                            : isTraining
-                              ? `${formatTrainingTime(progress)} / ${formatTrainingTime(goal)}`
-                              : isBlitzes
-                                ? `${progress} attended / ${goal} committed`
-                                : `${progress} / ${goal} ${commitment.unit}`
-                          }
-                        </p>
-                      </div>
+
+                      {/* Training timer button */}
+                      {isTraining && goal > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs gap-1"
+                          onClick={() => setIsTrainingTimerOpen(true)}
+                        >
+                          <Clock className="h-3 w-3" />
+                          Log Time
+                        </Button>
+                      )}
+
+                      {/* Quick increment/decrement buttons (not for auto-tracked or custom editors) */}
+                      {!isAutoTracked && !hasCustomEditor && goal > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleQuickDecrement(commitment)}
+                            disabled={isUpdating || progress <= 0}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleQuickIncrement(commitment)}
+                            disabled={isUpdating}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Training timer button */}
-                    {isTraining && goal > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs gap-1"
-                        onClick={() => setIsTrainingTimerOpen(true)}
-                      >
-                        <Clock className="h-3 w-3" />
-                        Log Time
-                      </Button>
-                    )}
-
-                    {/* Quick increment/decrement buttons (not for auto-tracked or custom editors) */}
-                    {!isAutoTracked && !hasCustomEditor && goal > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleQuickDecrement(commitment)}
-                          disabled={isUpdating || progress <= 0}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleQuickIncrement(commitment)}
-                          disabled={isUpdating}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
+                    {goal > 0 && (
+                      <Progress 
+                        value={percentage} 
+                        className="h-1.5"
+                      />
                     )}
                   </div>
+                );
+              })}
 
-                  {goal > 0 && (
-                    <Progress 
-                      value={percentage} 
-                      className="h-1.5"
-                    />
-                  )}
-                </div>
-              );
-            })
+              {/* Show "Add more" button if there are uncommitted commitments */}
+              {uncommittedCommitments.length > 0 && (
+                <button
+                  onClick={handleOpenEditDrawer}
+                  className="w-full rounded-xl p-3 border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-accent/30 transition-all flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    Add {uncommittedCommitments.length} more commitment{uncommittedCommitments.length > 1 ? 's' : ''}
+                  </span>
+                </button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
