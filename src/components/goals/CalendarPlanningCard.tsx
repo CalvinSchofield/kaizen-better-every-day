@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay } from "date-fns";
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -14,6 +14,8 @@ import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useRepData } from "@/hooks/useRepData";
 
 // Define season boundaries
 const PRESEASON_START = '2025-09-28';
@@ -65,11 +67,13 @@ export const CalendarPlanningCard = ({
   const [isEditingPreseasonGoal, setIsEditingPreseasonGoal] = useState(false);
   const [isSummerOpen, setIsSummerOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean} | null>(null);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP } = usePreseasonFP();
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
+  const { repData } = useRepData();
   
   // Debounce timer ref for saving preseason goal
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,9 +81,29 @@ export const CalendarPlanningCard = ({
   // Hook for auto-syncing with blitzes and summer dates
   const { getBlitzDays, getSummerDays } = usePlannedDaysSync();
 
+  // Fetch user's personal summer dates
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-for-goals', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return null;
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+  });
+
+  // Use personal summer dates or fallback to defaults
+  const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
+  const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
+
   // Query to get actual days worked (finalized entries)
   const { data: workedDays } = useQuery({
-    queryKey: ['worked-days-count'],
+    queryKey: ['worked-days-count', personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
@@ -98,8 +122,8 @@ export const CalendarPlanningCard = ({
 
       const preseasonStart = parseLocalDate(PRESEASON_START);
       const preseasonEnd = parseLocalDate(PRESEASON_END);
-      const summerStart = parseLocalDate(SUMMER_START);
-      const summerEnd = parseLocalDate(SUMMER_END);
+      const summerStart = parseLocalDate(personalSummerStart);
+      const summerEnd = parseLocalDate(personalSummerEnd);
 
       let preseasonCount = 0;
       let summerCount = 0;
@@ -132,11 +156,12 @@ export const CalendarPlanningCard = ({
   const firstDayOffset = getDay(startOfMonth(currentMonth));
 
   // Separate preseason and summer planned days - use parseLocalDate to avoid timezone issues
+  // Summer days now use PERSONAL dates from user's season_config
   const { preseasonPlannedDays, summerPlannedDays } = useMemo(() => {
     const preseasonStart = parseLocalDate(PRESEASON_START);
     const preseasonEnd = parseLocalDate(PRESEASON_END);
-    const summerStart = parseLocalDate(SUMMER_START);
-    const summerEnd = parseLocalDate(SUMMER_END);
+    const summerStart = parseLocalDate(personalSummerStart);
+    const summerEnd = parseLocalDate(personalSummerEnd);
     
     const allPlanned = plannedDays?.map(d => d.planned_date) || [];
     
@@ -146,7 +171,7 @@ export const CalendarPlanningCard = ({
       return date >= preseasonStart && date <= preseasonEnd && !isBefore(date, today);
     });
     
-    // Future summer planned days only (not past)
+    // Future summer planned days only (not past) - using USER'S personal dates
     const summerFuture = allPlanned.filter(dateStr => {
       const date = parseLocalDate(dateStr);
       return date >= summerStart && date <= summerEnd && !isBefore(date, today);
@@ -156,7 +181,7 @@ export const CalendarPlanningCard = ({
       preseasonPlannedDays: preseasonFuture, 
       summerPlannedDays: summerFuture,
     };
-  }, [plannedDays, today]);
+  }, [plannedDays, today, personalSummerStart, personalSummerEnd]);
 
   // Get selected summer goal based on tier
   const selectedSummerGoal = useMemo(() => {
@@ -326,11 +351,29 @@ export const CalendarPlanningCard = ({
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
-    const summerEnd = parseLocalDate(SUMMER_END);
-    // Don't allow Sundays, past days, or days after summer end
-    if (dayOfWeek === 0 || isBefore(date, today) || date > summerEnd) return;
+    const globalSummerEnd = parseLocalDate(SUMMER_END);
+    // Don't allow Sundays, past days, or days after global summer end
+    if (dayOfWeek === 0 || isBefore(date, today) || date > globalSummerEnd) return;
     
     const dateStr = format(date, 'yyyy-MM-dd');
+    const isCurrentlyPlanned = isDatePlanned(dateStr);
+    
+    // Check if this day is outside the user's personal summer date range
+    const userSummerStart = parseLocalDate(personalSummerStart);
+    const userSummerEnd = parseLocalDate(personalSummerEnd);
+    
+    // If ADDING a day (not currently planned) that's outside their range, show popup
+    if (!isCurrentlyPlanned) {
+      if (date < userSummerStart) {
+        setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart: true });
+        return;
+      }
+      if (date > userSummerEnd) {
+        setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart: false });
+        return;
+      }
+    }
+    
     await togglePlannedDay(dateStr);
   };
 
@@ -467,8 +510,35 @@ export const CalendarPlanningCard = ({
           
           {preseasonStats && (
             <div className="p-3 rounded-lg bg-accent/30 space-y-2">
+              {/* Current pace info */}
+              {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Your Daily Pace</span>
+                  <span className={cn(
+                    "text-sm font-semibold flex items-center gap-1",
+                    preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                  )}>
+                    {preseasonStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {preseasonStats.currentDailyAvg} {metricLabel}/day
+                  </span>
+                </div>
+              )}
+
+              {/* Projected total at current pace */}
+              {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">At this pace you'll hit</span>
+                  <span className={cn(
+                    "text-sm font-bold",
+                    preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                  )}>
+                    {preseasonStats.projectedTotal} {metricLabel}
+                  </span>
+                </div>
+              )}
+              
               {/* Main focus: What you need today */}
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center pt-2 border-t border-border/30">
                 <span className="text-sm font-medium">Need Today</span>
                 <span className={cn(
                   "text-lg font-bold",
@@ -669,6 +739,59 @@ export const CalendarPlanningCard = ({
           </p>
         )}
       </CardContent>
+
+      {/* Date Out of Range Sheet */}
+      <Sheet 
+        open={dateOutOfRangeSheet?.open || false} 
+        onOpenChange={(open) => !open && setDateOutOfRangeSheet(null)}
+      >
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <div className="flex items-center gap-2 text-amber-500">
+              <AlertCircle className="h-5 w-5" />
+              <SheetTitle className="text-amber-500">Date Outside Your Summer</SheetTitle>
+            </div>
+            <SheetDescription>
+              {dateOutOfRangeSheet?.isBeforeStart 
+                ? `This date is before your summer start date (${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}).`
+                : `This date is after your summer end date (${format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')}).`
+              }
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Would you like to update your official summer dates, or mark specific days as off-days?
+            </p>
+            
+            <div className="space-y-2">
+              <Button 
+                variant="default"
+                className="w-full"
+                onClick={() => {
+                  setDateOutOfRangeSheet(null);
+                  // Navigate to settings/setup to change dates
+                  // For now, just close - user can use the setup wizard
+                }}
+              >
+                Update Summer Dates in Settings
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => setDateOutOfRangeSheet(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+            
+            <p className="text-xs text-center text-muted-foreground pt-2">
+              Off-days feature coming soon
+            </p>
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
