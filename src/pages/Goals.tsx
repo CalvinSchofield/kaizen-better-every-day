@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,29 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { supabase } from "@/integrations/supabase/client";
 
 const Goals = () => {
-  const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals, isUpdating } = useRepGoals();
+  const { 
+    goals, 
+    isLoading, 
+    hasGoalsAccess, 
+    isRookie, 
+    updateGoals, 
+    isUpdating,
+    checkAndResetWeeklyProgress,
+    needsWeeklyCheck
+  } = useRepGoals();
   const { repData } = useRepData();
   const { totalFP: totalFpPlus, totalPRMR } = usePreseasonFP();
   
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [editingTier, setEditingTier] = useState<GoalTier | null>(null);
+
+  // Check and reset weekly training progress on new week
+  useEffect(() => {
+    if (needsWeeklyCheck && goals) {
+      checkAndResetWeeklyProgress();
+    }
+  }, [needsWeeklyCheck, goals, checkAndResetWeeklyProgress]);
 
   // Locked state for pre-Phase 1 rookies
   if (!hasGoalsAccess) {

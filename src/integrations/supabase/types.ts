@@ -374,7 +374,9 @@ export type Database = {
           role_plays_progress: number | null
           setup_complete: boolean | null
           training_hours_goal: number | null
+          training_hours_history: Json | null
           training_hours_progress: number | null
+          training_week_start: string | null
           updated_at: string | null
           upgrade_fp_goal: number | null
           user_id: string
@@ -404,7 +406,9 @@ export type Database = {
           role_plays_progress?: number | null
           setup_complete?: boolean | null
           training_hours_goal?: number | null
+          training_hours_history?: Json | null
           training_hours_progress?: number | null
+          training_week_start?: string | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id: string
@@ -434,7 +438,9 @@ export type Database = {
           role_plays_progress?: number | null
           setup_complete?: boolean | null
           training_hours_goal?: number | null
+          training_hours_history?: Json | null
           training_hours_progress?: number | null
+          training_week_start?: string | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
           user_id?: string
