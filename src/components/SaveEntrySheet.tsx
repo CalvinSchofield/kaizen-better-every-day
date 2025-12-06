@@ -99,7 +99,7 @@ export const SaveEntrySheet = ({
   const isSavingRef = useRef(false);
   
   // Sale update hook
-  const { updateSale } = useSaleUpdate();
+  const { updateSale, deleteSale } = useSaleUpdate();
 
   // Calculate timestamp bounds from counter_timestamps
   const timestampBounds = useMemo(() => {
@@ -659,23 +659,36 @@ export const SaveEntrySheet = ({
                           .filter((c): c is typeof allCounters[0] => c !== undefined);
                       }
 
-                      return coreCounters.map((counter, idx) => (
-                        <div key={counter.field} className="space-y-1.5">
-                          <Label htmlFor={counter.field} className="text-sm">{counter.label}</Label>
-                          <Input
-                            id={counter.field}
-                            type="number"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            min="0"
-                            step="1"
-                            placeholder=""
-                            value={counter.value}
-                            onChange={(e) => counter.setter(e.target.value)}
-                            enterKeyHint="next"
-                          />
-                        </div>
-                      ));
+                      return coreCounters.map((counter, idx) => {
+                        // Lock closes when salesLog exists (must edit via sales)
+                        const isClosesLocked = counter.field === 'closes' && salesLog && salesLog.length > 0;
+                        
+                        return (
+                          <div key={counter.field} className="space-y-1.5">
+                            <Label htmlFor={counter.field} className="text-sm">
+                              {counter.label}
+                              {isClosesLocked && (
+                                <span className="text-xs text-muted-foreground ml-1">(via sales)</span>
+                              )}
+                            </Label>
+                            <Input
+                              id={counter.field}
+                              type="number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              min="0"
+                              step="1"
+                              placeholder=""
+                              value={counter.value}
+                              onChange={(e) => counter.setter(e.target.value)}
+                              enterKeyHint="next"
+                              readOnly={isClosesLocked}
+                              className={isClosesLocked ? 'bg-muted/50 cursor-not-allowed' : ''}
+                              tabIndex={isClosesLocked ? -1 : 0}
+                            />
+                          </div>
+                        );
+                      });
                     })()}
 
                     {/* Custom counters (if any) */}
@@ -1050,7 +1063,7 @@ export const SaveEntrySheet = ({
                   })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Tap a sale to edit PRMR or mark as cancelled
+                  Tap a sale to edit PRMR, mark unfunded, or remove if never installed
                 </p>
               </CardContent>
             </Card>
@@ -1101,6 +1114,39 @@ export const SaveEntrySheet = ({
           setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
           setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : "");
           setNewAccounts(fpCount);
+          
+          // Update closes to match sales_log length
+          setCloses(updatedSalesLog.length.toString());
+        }
+        setShowSaleDetail(false);
+        setSelectedSale(null);
+      }}
+      onDeleteSale={async (saleId) => {
+        if (entry?.id) {
+          deleteSale({
+            entryId: entry.id,
+            entryDate: format(date, 'yyyy-MM-dd'),
+            saleId: saleId,
+          });
+          
+          // Recalculate from remaining sales
+          const remainingSales = salesLog.filter(s => s.id !== saleId);
+          const fundedSales = remainingSales.filter(s => s.install_status !== 'cancelled');
+          const fpSales = fundedSales.filter(s => s.type === 'fp');
+          const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+          
+          const fpCount = fpSales.length;
+          const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+          const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+          const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+          const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+          
+          setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
+          setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : "");
+          setNewAccounts(fpCount);
+          
+          // Update closes to match remaining sales_log length
+          setCloses(remainingSales.length.toString());
         }
         setShowSaleDetail(false);
         setSelectedSale(null);
