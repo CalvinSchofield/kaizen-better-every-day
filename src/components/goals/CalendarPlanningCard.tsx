@@ -240,10 +240,34 @@ export const CalendarPlanningCard = ({
   }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonCurrentEFP, preseasonTotalInput, isEfpMode]);
 
   // Calculate summer stats based on selected tier
+  // Use the personal summer date range to calculate available days, not just planned days in DB
   const summerStats = useMemo(() => {
-    const futurePlannedCount = summerPlannedDays.length;
+    // Calculate total workdays (Mon-Sat) within personal summer range
+    const summerStart = parseLocalDate(personalSummerStart);
+    const summerEnd = parseLocalDate(personalSummerEnd);
+    
+    // Get all Mon-Sat days in summer range
+    const allSummerWorkDays: string[] = [];
+    const interval = eachDayOfInterval({ start: summerStart, end: summerEnd });
+    for (const day of interval) {
+      const dayOfWeek = getDay(day);
+      // Skip Sundays (0)
+      if (dayOfWeek !== 0) {
+        allSummerWorkDays.push(format(day, 'yyyy-MM-dd'));
+      }
+    }
+    
+    // Total available summer days
+    const totalSummerDays = allSummerWorkDays.length;
+    
+    // Future days left (not including today and past)
+    const futureDaysLeft = allSummerWorkDays.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
+      return !isBefore(date, today);
+    }).length;
+    
+    // Days already worked in summer
     const daysWorkedCount = workedDays?.summerDaysWorked || 0;
-    const totalSummerDays = futurePlannedCount + daysWorkedCount;
     
     if (totalSummerDays === 0) return null;
 
@@ -267,15 +291,15 @@ export const CalendarPlanningCard = ({
     });
 
     return {
-      futurePlannedCount,
+      futurePlannedCount: futureDaysLeft,
       daysWorkedCount,
       totalDays: totalSummerDays,
-      daysLeft: futurePlannedCount,
+      daysLeft: futureDaysLeft,
       goalTotal: remainingSummerGoal.toFixed(1),
       goalDaily: goalDaily.toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
-  }, [summerPlannedDays, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
