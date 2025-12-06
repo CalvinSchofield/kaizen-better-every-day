@@ -29,6 +29,8 @@ import { LeaderAICoachCard } from "@/components/reports/LeaderAICoachCard";
 import { AggregatedRankingsCard } from "@/components/reports/AggregatedRankingsCard";
 import { useTeamAggregatedRankings } from "@/hooks/useTeamAggregatedRankings";
 import { LeaderGoalsCard } from "@/components/reports/LeaderGoalsCard";
+import { TeamCanceledStatsCard } from "@/components/reports/TeamCanceledStatsCard";
+import { useTeamCanceledStats } from "@/hooks/useTeamCanceledStats";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 type ExpandedSection = 'aiCoach' | 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
@@ -186,6 +188,15 @@ const TeamReports = () => {
   });
 
   const isAggregatedView = datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason' || datePreset === 'ytd';
+
+  // Team canceled stats for aggregated views
+  const currentDateRange = getDateRange(datePreset);
+  const { data: canceledStats, isLoading: canceledLoading } = useTeamCanceledStats({
+    userIds: effectiveUserIds,
+    excludeUserIds,
+    startDate: isAggregatedView ? currentDateRange.start : undefined,
+    endDate: isAggregatedView ? currentDateRange.end : undefined,
+  });
 
   // Determine scope label
   const getScopeLabel = () => {
@@ -444,6 +455,19 @@ const TeamReports = () => {
                 isOpen={expandedSection === 'aiCoach'}
                 onToggle={() => handleSectionToggle('aiCoach')}
               />
+
+              {/* Cancellation Stats */}
+              {canceledStats && (canceledStats.totals.canceledFpCount > 0 || canceledStats.totals.canceledUpgradeCount > 0) && (
+                <TeamCanceledStatsCard
+                  reps={canceledStats.reps}
+                  totals={canceledStats.totals}
+                  isLoading={canceledLoading}
+                  title={datePreset === 'week' ? "This Week's Cancellations" : 
+                         datePreset === 'month' ? "This Month's Cancellations" : 
+                         datePreset === 'ytd' ? "YTD Cancellations" :
+                         "Season Cancellations"}
+                />
+              )}
 
               {/* Progress Over Time Chart */}
               <TeamProgressChart 
