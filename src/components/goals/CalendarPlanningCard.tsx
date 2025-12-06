@@ -72,7 +72,13 @@ export const CalendarPlanningCard = ({
   const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean} | null>(null);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
-  const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP } = usePreseasonFP();
+  const { 
+    totalFP: preseasonCurrentFP, 
+    totalEFP: preseasonCurrentEFP,
+    fundedFP: preseasonFundedFP,
+    fundedEFP: preseasonFundedEFP,
+    fundedPRMR: preseasonFundedPRMR
+  } = usePreseasonFP();
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
