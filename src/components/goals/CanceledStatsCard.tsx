@@ -47,8 +47,8 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
                   <Ban className="h-4 w-4 text-amber-600" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-medium text-amber-600">
-                    YTD Cancelled
+                <p className="text-xs font-medium text-amber-600">
+                    YTD Unfunded (Installed but Cancelled)
                   </p>
                   <p className="text-sm font-semibold text-foreground">
                     {summaryText}
@@ -119,7 +119,7 @@ export const CanceledStatsCard = ({ className }: CanceledStatsCardProps) => {
               )}
 
               <p className="text-[10px] text-muted-foreground text-center mt-3 italic">
-                Cancelled sales are not counted toward your goals
+                These sales were installed but later cancelled. They count toward your total goal but not funded income.
               </p>
             </div>
           </CardContent>

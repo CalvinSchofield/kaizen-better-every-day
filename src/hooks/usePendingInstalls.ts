@@ -138,7 +138,7 @@ export const usePendingInstalls = () => {
     toast.success('Install rescheduled');
   };
 
-  const cancelSale = async (entryId: string, saleId: string) => {
+  const markUnfunded = async (entryId: string, saleId: string) => {
     await updateSaleMutation.mutateAsync({
       entryId,
       saleId,
@@ -146,7 +146,73 @@ export const usePendingInstalls = () => {
         install_status: 'cancelled',
       },
     });
-    toast.success('Sale marked as cancelled');
+    toast.success('Marked as installed but unfunded');
+  };
+
+  // Remove sale mutation - completely removes from sales_log
+  const removeSaleMutation = useMutation({
+    mutationFn: async ({
+      entryId,
+      saleId,
+    }: {
+      entryId: string;
+      saleId: string;
+    }) => {
+      // First fetch the current entry
+      const { data: entry, error: fetchError } = await supabase
+        .from('daily_entries')
+        .select('sales_log, closes, fp_plus, prmr, upgrade_prmr')
+        .eq('id', entryId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const salesLog = (entry.sales_log as unknown as Sale[]) || [];
+      const updatedSalesLog = salesLog.filter(sale => sale.id !== saleId);
+
+      // Recalculate totals from remaining funded sales
+      const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+      const fpSales = fundedSales.filter(s => s.type === 'fp');
+      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+      
+      const fpCount = fpSales.length;
+      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+      const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+
+      const newClosesCount = Math.max(0, (entry.closes || 0) - 1);
+
+      const { error: updateError } = await supabase
+        .from('daily_entries')
+        .update({ 
+          sales_log: updatedSalesLog as any,
+          closes: newClosesCount,
+          fp_plus: Math.round(calculatedFpPlus * 100) / 100,
+          prmr: Math.round(totalPrmr * 100) / 100,
+          upgrade_prmr: Math.round(upgradePrmrTotal * 100) / 100,
+        })
+        .eq('id', entryId);
+
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pending-installs'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
+      queryClient.invalidateQueries({ queryKey: ['all-daily-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['preseason-fp-total'] });
+      queryClient.invalidateQueries({ queryKey: ['canceled-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-summary'] });
+      toast.success('Sale removed - never installed');
+    },
+    onError: (error) => {
+      console.error('Error removing sale:', error);
+      toast.error('Failed to remove sale');
+    },
+  });
+
+  const removeSale = async (entryId: string, saleId: string) => {
+    await removeSaleMutation.mutateAsync({ entryId, saleId });
   };
 
   return {
@@ -154,7 +220,8 @@ export const usePendingInstalls = () => {
     isLoading,
     confirmInstall,
     rescheduleSale,
-    cancelSale,
-    isUpdating: updateSaleMutation.isPending,
+    markUnfunded,
+    removeSale,
+    isUpdating: updateSaleMutation.isPending || removeSaleMutation.isPending,
   };
 };

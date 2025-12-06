@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO } from "date-fns";
-import { AlertTriangle, Ban, CheckCircle, Calendar } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2 } from "lucide-react";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -19,6 +19,7 @@ interface SaleDetailSheetProps {
   sale: Sale | null;
   entryDate: string;
   onUpdateSale: (updatedSale: Sale) => void;
+  onDeleteSale?: (saleId: string) => void;
 }
 
 export const SaleDetailSheet = ({
@@ -27,9 +28,11 @@ export const SaleDetailSheet = ({
   sale,
   entryDate,
   onUpdateSale,
+  onDeleteSale,
 }: SaleDetailSheetProps) => {
   const [prmr, setPrmr] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Initialize form when sale changes
   useEffect(() => {
@@ -37,6 +40,14 @@ export const SaleDetailSheet = ({
       setPrmr(sale.prmr.toString());
     }
   }, [sale]);
+
+  // Reset confirmation states when sheet closes
+  useEffect(() => {
+    if (!open) {
+      setShowCancelConfirm(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [open]);
 
   if (!sale) return null;
 
@@ -58,7 +69,7 @@ export const SaleDetailSheet = ({
     onOpenChange(false);
   };
 
-  const handleMarkCancelled = () => {
+  const handleMarkUnfunded = () => {
     onUpdateSale({
       ...sale,
       install_status: 'cancelled',
@@ -81,6 +92,14 @@ export const SaleDetailSheet = ({
       ...sale,
       install_status: 'installed',
     });
+    onOpenChange(false);
+  };
+
+  const handleDeleteSale = () => {
+    if (onDeleteSale) {
+      onDeleteSale(sale.id);
+    }
+    setShowDeleteConfirm(false);
     onOpenChange(false);
   };
 
@@ -110,7 +129,7 @@ export const SaleDetailSheet = ({
               {isCancelled ? (
                 <>
                   <Ban className="h-4 w-4" />
-                  Cancelled / Unfunded
+                  Installed but Unfunded
                 </>
               ) : isPending ? (
                 <>
@@ -181,36 +200,57 @@ export const SaleDetailSheet = ({
                 <Button
                   variant="ghost"
                   onClick={() => setShowCancelConfirm(true)}
-                  className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="w-full h-10 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
                 >
                   <Ban className="h-4 w-4 mr-2" />
-                  Mark as Cancelled
+                  Installed but Later Cancelled
                 </Button>
+                {onDeleteSale && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Never Installed - Remove Sale
+                  </Button>
+                )}
               </>
             ) : (
-              <Button
-                variant="ghost"
-                onClick={() => setShowCancelConfirm(true)}
-                className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Ban className="h-4 w-4 mr-2" />
-                Mark as Cancelled / Unfunded
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full h-10 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  Mark as Unfunded (Cancelled After Install)
+                </Button>
+                {onDeleteSale && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Never Installed - Remove Sale
+                  </Button>
+                )}
+              </>
             )}
           </div>
 
-          {/* Cancel Confirmation */}
+          {/* Unfunded Confirmation */}
           {showCancelConfirm && (
-            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-3">
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-3">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-foreground">
-                    Mark as Cancelled?
+                    Mark as Unfunded?
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    This will remove ${sale.prmr} from your funded totals. 
-                    You can undo this later if needed.
+                    This deal was installed but later cancelled. It will still count toward your total goals but won't count as funded income.
                   </p>
                 </div>
               </div>
@@ -221,15 +261,49 @@ export const SaleDetailSheet = ({
                   onClick={() => setShowCancelConfirm(false)}
                   className="flex-1"
                 >
+                  Keep as Funded
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleMarkUnfunded}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700"
+                >
+                  Yes, Mark Unfunded
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation */}
+          {showDeleteConfirm && (
+            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Trash2 className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-foreground">
+                    Remove Sale Completely?
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This deal never installed. Removing it will delete it from your numbers completely—as if it never happened. Your FP+ and PRMR will be recalculated.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
+                >
                   Keep Sale
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={handleMarkCancelled}
+                  onClick={handleDeleteSale}
                   className="flex-1"
                 >
-                  Yes, Cancel
+                  Yes, Remove
                 </Button>
               </div>
             </div>
