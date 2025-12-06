@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, DollarSign, Zap, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Calendar, ChevronLeft, ChevronRight, DollarSign, Zap, Trash2, Plus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay, addWeeks, isMonday, isTuesday, isWednesday, isThursday, isFriday, isSaturday } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepData } from "@/hooks/useRepData";
@@ -27,6 +28,7 @@ export const CalendarPlanningCard = ({
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isAdding, setIsAdding] = useState(false);
+  const [customWeeks, setCustomWeeks] = useState("");
   const { plannedDays, togglePlannedDay, addMultipleDays, clearAllPlannedDays, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
   const { repData } = useRepData();
   const { allBlitzes } = useBlitzes();
@@ -108,6 +110,7 @@ export const CalendarPlanningCard = ({
       
       await addMultipleDays(dates);
       toast.success(`Added ${numWeeks} week${numWeeks > 1 ? 's' : ''} of work days`);
+      setCustomWeeks("");
     } catch (error) {
       toast.error("Failed to add days");
     } finally {
@@ -146,6 +149,15 @@ export const CalendarPlanningCard = ({
     } finally {
       setIsAdding(false);
     }
+  };
+
+  const handleCustomWeeks = async () => {
+    const weeks = parseInt(customWeeks, 10);
+    if (isNaN(weeks) || weeks < 1 || weeks > 52) {
+      toast.error("Enter a number between 1 and 52");
+      return;
+    }
+    await handleAddWeeks(weeks);
   };
 
   const handleClearAll = async () => {
@@ -195,7 +207,7 @@ export const CalendarPlanningCard = ({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Quick Presets */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <Button
             variant="outline"
             size="sm"
@@ -204,7 +216,7 @@ export const CalendarPlanningCard = ({
             className="text-xs"
           >
             <Zap className="h-3 w-3 mr-1" />
-            +1 Week
+            +1 Wk
           </Button>
           <Button
             variant="outline"
@@ -214,8 +226,30 @@ export const CalendarPlanningCard = ({
             className="text-xs"
           >
             <Zap className="h-3 w-3 mr-1" />
-            +4 Weeks
+            +4 Wks
           </Button>
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={1}
+              max={52}
+              placeholder="#"
+              value={customWeeks}
+              onChange={(e) => setCustomWeeks(e.target.value.slice(0, 2))}
+              disabled={isAdding || isToggling}
+              className="w-12 h-8 text-xs text-center px-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCustomWeeks}
+              disabled={isAdding || isToggling || !customWeeks}
+              className="text-xs h-8 px-2"
+            >
+              <Plus className="h-3 w-3" />
+              Wks
+            </Button>
+          </div>
           {committedBlitzes.length > 0 && (
             <Button
               variant="outline"
