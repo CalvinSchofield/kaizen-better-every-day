@@ -116,30 +116,22 @@ const Goals = () => {
   return (
     <Layout>
       <div className="p-4 space-y-4 pb-24">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Goals & Plan</h1>
-            <p className="text-sm text-muted-foreground">
-              {totalFpPlus.toFixed(1)} FP+ earned
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowCalculator(true)}
-            >
-              <Calculator className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowSetupWizard(true)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+        {/* Quick action buttons */}
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowCalculator(true)}
+          >
+            <Calculator className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowSetupWizard(true)}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Goal Progress Ladder */}
