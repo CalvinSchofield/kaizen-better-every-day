@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { 
   BookOpen, 
@@ -13,19 +12,20 @@ import {
   Plus,
   Minus,
   Check,
-  Pencil
+  Settings2
 } from "lucide-react";
 import { RepGoals } from "@/hooks/useRepGoals";
 import { cn } from "@/lib/utils";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useRepData } from "@/hooks/useRepData";
+import { useBlitzes } from "@/hooks/useBlitzes";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 
 interface CommitmentsTrackerProps {
   goals: RepGoals;
@@ -44,16 +44,18 @@ interface Commitment {
   bgColor: string;
   description: string;
   incrementBy?: number;
+  autoTracked?: boolean;
+  maxValue?: number;
 }
 
-const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description'>[] = [
+const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxValue'>[] = [
   {
     key: 'training_hours_goal',
     progressKey: 'training_hours_progress',
     icon: Clock,
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
-    incrementBy: 1,
+    incrementBy: 5,
   },
   {
     key: 'books_goal',
@@ -86,41 +88,16 @@ const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description'>[] = [
     color: 'text-red-500',
     bgColor: 'bg-red-500/10',
     incrementBy: 1,
+    autoTracked: true,
   },
 ];
 
-// Build full commitments list with static labels
 const commitmentLabels: Record<string, { label: string; unit: string; description: string }> = {
-  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Hours spent in training sessions' },
-  books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books completed' },
+  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Hours in training sessions' },
+  books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books' },
   role_plays_goal: { label: 'Role Plays', unit: 'sessions', description: 'Practice sessions with vets' },
-  monday_night_lights_goal: { label: 'Monday Night Lights', unit: 'calls', description: 'Weekly team calls attended' },
-  blitzes_goal: { label: 'Blitzes', unit: 'trips', description: 'Preseason blitz trips attended' },
-};
-
-// Get the full commitments array with dynamic preseason label
-const getCommitments = (metricLabel: string): Commitment[] => {
-  const staticCommitments: Commitment[] = baseCommitments.map(c => ({
-    ...c,
-    label: commitmentLabels[c.key].label,
-    unit: commitmentLabels[c.key].unit,
-    description: commitmentLabels[c.key].description,
-  }));
-  
-  // Add the preseason commitment with dynamic label
-  staticCommitments.push({
-    key: 'preseason_fp_goal',
-    progressKey: 'preseason_fp_goal',
-    label: `Preseason ${metricLabel}`,
-    icon: Target,
-    unit: metricLabel,
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
-    description: `${metricLabel} earned before summer`,
-    incrementBy: 0.5,
-  });
-  
-  return staticCommitments;
+  monday_night_lights_goal: { label: 'Monday Night Lights', unit: 'calls', description: 'Weekly team calls' },
+  blitzes_goal: { label: 'Blitzes', unit: 'trips', description: 'Auto-tracked from your commits' },
 };
 
 export const CommitmentsTracker = ({
@@ -130,47 +107,83 @@ export const CommitmentsTracker = ({
   isUpdating = false,
 }: CommitmentsTrackerProps) => {
   const { efpModeEnabled } = useEfpMode();
+  const { repData } = useRepData();
+  const { allBlitzes } = useBlitzes();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
-  const commitments = getCommitments(metricLabel);
   
-  const [editingCommitment, setEditingCommitment] = useState<Commitment | null>(null);
-  const [editGoalValue, setEditGoalValue] = useState<number>(0);
-  const [editProgressValue, setEditProgressValue] = useState<number>(0);
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [editingGoals, setEditingGoals] = useState<Record<string, number>>({});
 
-  const handleOpenEdit = (commitment: Commitment) => {
-    setEditingCommitment(commitment);
-    setEditGoalValue(Number(goals[commitment.key]) || 0);
-    setEditProgressValue(
-      commitment.key === 'preseason_fp_goal' 
-        ? preseasonFpProgress 
-        : Number(goals[commitment.progressKey]) || 0
-    );
-  };
+  // Calculate blitz stats
+  const blitzStats = useMemo(() => {
+    const committedBlitzes = (repData?.committed_blitzes as string[]) || [];
+    const blitzesAttended = goals.blitzes_progress || 0;
+    const blitzesRemaining = allBlitzes.length;
+    const blitzesCommitted = committedBlitzes.length;
+    
+    return {
+      attended: blitzesAttended,
+      committed: blitzesCommitted,
+      remaining: blitzesRemaining,
+      maxGoal: blitzesRemaining,
+    };
+  }, [repData?.committed_blitzes, goals.blitzes_progress, allBlitzes.length]);
 
-  const handleSaveGoal = async () => {
-    if (!editingCommitment) return;
+  // Build commitments with dynamic max for blitzes
+  const commitments = useMemo((): Commitment[] => {
+    const staticCommitments: Commitment[] = baseCommitments.map(c => ({
+      ...c,
+      label: commitmentLabels[c.key].label,
+      unit: commitmentLabels[c.key].unit,
+      description: commitmentLabels[c.key].description,
+      maxValue: c.key === 'blitzes_goal' ? blitzStats.remaining : undefined,
+    }));
     
-    // Save all commitments at once
-    const updates: Record<string, number> = {};
-    
-    commitments.forEach((commitment) => {
-      const goalKey = commitment.key as string;
-      const progressKey = commitment.progressKey as string;
-      
-      if (commitment.key === editingCommitment.key) {
-        updates[goalKey] = editGoalValue;
-        if (commitment.key !== 'preseason_fp_goal') {
-          updates[progressKey] = editProgressValue;
-        }
-      }
+    // Add preseason FP commitment
+    staticCommitments.push({
+      key: 'preseason_fp_goal',
+      progressKey: 'preseason_fp_goal',
+      label: `Preseason ${metricLabel}`,
+      icon: Target,
+      unit: metricLabel,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      description: `${metricLabel} before summer`,
+      incrementBy: 1,
+      autoTracked: true,
     });
     
-    await onUpdateGoals(updates as Partial<RepGoals>);
-    setEditingCommitment(null);
+    return staticCommitments;
+  }, [metricLabel, blitzStats.remaining]);
+
+  const handleOpenEditDrawer = () => {
+    // Initialize with current goal values
+    const currentGoals: Record<string, number> = {};
+    commitments.forEach(c => {
+      if (!c.autoTracked || c.key === 'blitzes_goal') {
+        currentGoals[c.key] = Number(goals[c.key as keyof RepGoals]) || 0;
+      }
+    });
+    setEditingGoals(currentGoals);
+    setIsEditDrawerOpen(true);
+  };
+
+  const handleSaveGoals = async () => {
+    await onUpdateGoals(editingGoals as Partial<RepGoals>);
+    setIsEditDrawerOpen(false);
+  };
+
+  const handleStepperChange = (key: string, delta: number, maxValue?: number) => {
+    setEditingGoals(prev => {
+      const currentVal = prev[key] || 0;
+      const newVal = Math.max(0, currentVal + delta);
+      // Cap at maxValue if defined
+      return { ...prev, [key]: maxValue !== undefined ? Math.min(newVal, maxValue) : newVal };
+    });
   };
 
   const handleQuickIncrement = async (commitment: Commitment) => {
-    if (commitment.key === 'preseason_fp_goal') return; // Can't manually increment FP
+    if (commitment.autoTracked) return;
     
     const progressKey = commitment.progressKey as keyof RepGoals;
     const currentProgress = Number(goals[progressKey]) || 0;
@@ -182,7 +195,7 @@ export const CommitmentsTracker = ({
   };
 
   const handleQuickDecrement = async (commitment: Commitment) => {
-    if (commitment.key === 'preseason_fp_goal') return;
+    if (commitment.autoTracked) return;
     
     const progressKey = commitment.progressKey as keyof RepGoals;
     const currentProgress = Number(goals[progressKey]) || 0;
@@ -198,6 +211,10 @@ export const CommitmentsTracker = ({
   const getProgress = (commitment: Commitment): number => {
     if (commitment.key === 'preseason_fp_goal') {
       return preseasonFpProgress;
+    }
+    if (commitment.key === 'blitzes_goal') {
+      // Auto-track blitzes from committed blitzes
+      return blitzStats.attended;
     }
     const progressKey = commitment.progressKey as keyof RepGoals;
     return Number(goals[progressKey]) || 0;
@@ -225,6 +242,9 @@ export const CommitmentsTracker = ({
 
   const hasAnyGoals = commitments.some(c => getGoal(c) > 0);
 
+  // Get commitments that are editable (not fully auto-tracked like FP)
+  const editableCommitments = commitments.filter(c => c.key !== 'preseason_fp_goal');
+
   return (
     <>
       <Card className="border-border/50">
@@ -237,11 +257,11 @@ export const CommitmentsTracker = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleOpenEdit(commitments[0])}
+              onClick={handleOpenEditDrawer}
               className="text-xs"
             >
-              <Pencil className="h-3 w-3 mr-1" />
-              Edit
+              <Settings2 className="h-3 w-3 mr-1" />
+              Edit Goals
             </Button>
           </div>
         </CardHeader>
@@ -254,7 +274,7 @@ export const CommitmentsTracker = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleOpenEdit(commitments[0])}
+                onClick={handleOpenEditDrawer}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Set Commitments
@@ -268,6 +288,7 @@ export const CommitmentsTracker = ({
               const percentage = getPercentage(commitment);
               const complete = isComplete(commitment);
               const isFpCommitment = commitment.key === 'preseason_fp_goal';
+              const isAutoTracked = commitment.autoTracked;
 
               if (goal === 0 && !isFpCommitment) return null;
 
@@ -292,13 +313,16 @@ export const CommitmentsTracker = ({
                       <div>
                         <p className="font-medium text-sm">{commitment.label}</p>
                         <p className="text-xs text-muted-foreground">
-                          {progress.toFixed(commitment.key === 'preseason_fp_goal' ? 1 : 0)} / {goal} {commitment.unit}
+                          {isFpCommitment 
+                            ? `${progress.toFixed(1)} / ${goal} ${commitment.unit}`
+                            : `${progress} / ${goal} ${commitment.unit}`
+                          }
                         </p>
                       </div>
                     </div>
 
-                    {/* Quick increment/decrement buttons (not for FP) */}
-                    {!isFpCommitment && goal > 0 && (
+                    {/* Quick increment/decrement buttons (not for auto-tracked) */}
+                    {!isAutoTracked && goal > 0 && (
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
@@ -335,79 +359,73 @@ export const CommitmentsTracker = ({
         </CardContent>
       </Card>
 
-      {/* Edit Sheet */}
-      <Sheet open={!!editingCommitment} onOpenChange={() => setEditingCommitment(null)}>
-        <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Edit Preseason Commitments</SheetTitle>
-            <SheetDescription>
-              Set your goals and track your progress
-            </SheetDescription>
-          </SheetHeader>
+      {/* Edit Goals Drawer */}
+      <Drawer open={isEditDrawerOpen} onOpenChange={setIsEditDrawerOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle>Set Your Goals</DrawerTitle>
+            <DrawerDescription>
+              Tap + or - to set your preseason commitments
+            </DrawerDescription>
+          </DrawerHeader>
 
-          <div className="mt-6 space-y-6">
-            {commitments.map((commitment) => {
+          <div className="px-4 pb-6 space-y-4 overflow-y-auto">
+            {editableCommitments.map((commitment) => {
               const Icon = commitment.icon;
-              const isFpCommitment = commitment.key === 'preseason_fp_goal';
-              const currentGoal = Number(goals[commitment.key]) || 0;
-              const currentProgress = isFpCommitment 
-                ? preseasonFpProgress 
-                : Number(goals[commitment.progressKey]) || 0;
+              const currentGoalValue = editingGoals[commitment.key] ?? (Number(goals[commitment.key as keyof RepGoals]) || 0);
+              const isBlitzes = commitment.key === 'blitzes_goal';
+              const stepAmount = commitment.incrementBy || 1;
+              const maxValue = commitment.maxValue;
 
               return (
-                <div key={commitment.key} className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className={cn("p-2 rounded-lg", commitment.bgColor)}>
-                      <Icon className={cn("h-4 w-4", commitment.color)} />
+                <div 
+                  key={commitment.key} 
+                  className={cn(
+                    "rounded-xl p-4 transition-all",
+                    commitment.bgColor
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("p-2 rounded-lg bg-background/60")}>
+                        <Icon className={cn("h-5 w-5", commitment.color)} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{commitment.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {commitment.description}
+                        </p>
+                        {isBlitzes && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {blitzStats.remaining} trips left this preseason
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{commitment.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {commitment.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Goal ({commitment.unit})</Label>
-                      <Input
-                        type="number"
-                        value={editingCommitment ? (commitment.key === editingCommitment.key ? editGoalValue : currentGoal) : currentGoal}
-                        onChange={(e) => {
-                          if (editingCommitment?.key === commitment.key) {
-                            setEditGoalValue(Number(e.target.value));
-                          }
-                        }}
-                        onFocus={() => {
-                          if (!editingCommitment || editingCommitment.key !== commitment.key) {
-                            setEditingCommitment(commitment);
-                            setEditGoalValue(currentGoal);
-                            setEditProgressValue(currentProgress);
-                          }
-                        }}
-                        className="mt-1"
-                        min={0}
-                        step={commitment.key === 'preseason_fp_goal' ? 0.5 : 1}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">
-                        Progress {isFpCommitment && "(auto)"}
-                      </Label>
-                      <Input
-                        type="number"
-                        value={editingCommitment?.key === commitment.key ? editProgressValue : currentProgress}
-                        onChange={(e) => {
-                          if (editingCommitment?.key === commitment.key && !isFpCommitment) {
-                            setEditProgressValue(Number(e.target.value));
-                          }
-                        }}
-                        className="mt-1"
-                        min={0}
-                        disabled={isFpCommitment}
-                        step={commitment.key === 'preseason_fp_goal' ? 0.1 : 1}
-                      />
+                    
+                    {/* Stepper */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => handleStepperChange(commitment.key, -stepAmount, maxValue)}
+                        disabled={currentGoalValue <= 0}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xl font-bold w-12 text-center tabular-nums">
+                        {currentGoalValue}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => handleStepperChange(commitment.key, stepAmount, maxValue)}
+                        disabled={maxValue !== undefined && currentGoalValue >= maxValue}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -415,15 +433,16 @@ export const CommitmentsTracker = ({
             })}
 
             <Button 
-              onClick={handleSaveGoal} 
-              className="w-full mt-6"
+              onClick={handleSaveGoals} 
+              className="w-full mt-4"
               disabled={isUpdating}
+              size="lg"
             >
-              {isUpdating ? "Saving..." : "Save All Commitments"}
+              {isUpdating ? "Saving..." : "Save Goals"}
             </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };

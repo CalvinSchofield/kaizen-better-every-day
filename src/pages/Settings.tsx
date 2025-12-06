@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -702,33 +702,49 @@ export default function Settings() {
                     This includes ROR cancels and unfunded accounts. Your goals will be adjusted to account for expected cancellations.
                   </p>
                   
-                  {/* Visual slider */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-semibold">{cancelRate}%</Label>
-                      <span className="text-sm text-muted-foreground">
-                        Sell {((1 / (1 - cancelRate / 100)) * 100).toFixed(0)}% of goal
-                      </span>
+                  {/* Stepper for cancel rate */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-accent/30">
+                    <div>
+                      <p className="font-semibold">Cancel Rate</p>
+                      <p className="text-sm text-muted-foreground">
+                        Sell {((1 / (1 - cancelRate / 100)) * 100).toFixed(0)}% of goal to hit target
+                      </p>
                     </div>
-                    
-                    <Slider
-                      value={[cancelRate]}
-                      onValueChange={(values) => setCancelRate(values[0])}
-                      min={5}
-                      max={15}
-                      step={1}
-                      className="w-full"
-                    />
-                    
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>5%</span>
-                      <span>10%</span>
-                      <span>15%</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => {
+                          const newRate = Math.max(5, cancelRate - 1);
+                          setCancelRate(newRate);
+                          handleSaveCancelRate(newRate);
+                        }}
+                        disabled={cancelRate <= 5 || isSavingCancelRate}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xl font-bold w-12 text-center tabular-nums">
+                        {cancelRate}%
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => {
+                          const newRate = Math.min(15, cancelRate + 1);
+                          setCancelRate(newRate);
+                          handleSaveCancelRate(newRate);
+                        }}
+                        disabled={cancelRate >= 15 || isSavingCancelRate}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                   
                   {/* Example calculation */}
-                  <div className="p-3 rounded-lg bg-accent/30 space-y-1">
+                  <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                     <p className="text-xs font-medium">Example</p>
                     <p className="text-sm text-muted-foreground">
                       If your goal is <span className="font-semibold text-foreground">100 FP+ funded</span>, 
@@ -736,14 +752,6 @@ export default function Settings() {
                       end up with 100 funded after {cancelRate}% cancel.
                     </p>
                   </div>
-                  
-                  <Button 
-                    onClick={() => handleSaveCancelRate(cancelRate)}
-                    disabled={isSavingCancelRate || isUpdatingGoals}
-                    className="w-full"
-                  >
-                    {isSavingCancelRate ? "Saving..." : "Save Cancel Rate"}
-                  </Button>
                 </CardContent>
               </CollapsibleContent>
             </Collapsible>
