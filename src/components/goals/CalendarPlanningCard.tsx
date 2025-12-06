@@ -12,6 +12,8 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Define season boundaries
 const PRESEASON_START = '2025-09-28';
@@ -74,6 +76,47 @@ export const CalendarPlanningCard = ({
   // Hook for auto-syncing with blitzes and summer dates
   const { getBlitzDays, getSummerDays } = usePlannedDaysSync();
 
+  // Query to get actual days worked (finalized entries)
+  const { data: workedDays } = useQuery({
+    queryKey: ['worked-days-count'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
+
+      // Get all finalized entries
+      const { data: entries, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date')
+        .eq('user_id', user.id)
+        .eq('is_finalized', true);
+
+      if (error) {
+        console.error('Error fetching worked days:', error);
+        return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
+      }
+
+      const preseasonStart = parseLocalDate(PRESEASON_START);
+      const preseasonEnd = parseLocalDate(PRESEASON_END);
+      const summerStart = parseLocalDate(SUMMER_START);
+      const summerEnd = parseLocalDate(SUMMER_END);
+
+      let preseasonCount = 0;
+      let summerCount = 0;
+
+      entries?.forEach(entry => {
+        const date = parseLocalDate(entry.entry_date);
+        if (date >= preseasonStart && date <= preseasonEnd) {
+          preseasonCount++;
+        } else if (date >= summerStart && date <= summerEnd) {
+          summerCount++;
+        }
+      });
+
+      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount };
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
   const today = getLocalToday();
   const isViewingToday = isSameMonth(currentMonth, today);
 
@@ -88,7 +131,7 @@ export const CalendarPlanningCard = ({
   const firstDayOffset = getDay(startOfMonth(currentMonth));
 
   // Separate preseason and summer planned days - use parseLocalDate to avoid timezone issues
-  const { preseasonPlannedDays, summerPlannedDays, pastPreseasonDays } = useMemo(() => {
+  const { preseasonPlannedDays, summerPlannedDays } = useMemo(() => {
     const preseasonStart = parseLocalDate(PRESEASON_START);
     const preseasonEnd = parseLocalDate(PRESEASON_END);
     const summerStart = parseLocalDate(SUMMER_START);
@@ -96,25 +139,21 @@ export const CalendarPlanningCard = ({
     
     const allPlanned = plannedDays?.map(d => d.planned_date) || [];
     
+    // Future preseason planned days only (not past)
     const preseasonFuture = allPlanned.filter(dateStr => {
       const date = parseLocalDate(dateStr);
       return date >= preseasonStart && date <= preseasonEnd && !isBefore(date, today);
     });
     
-    const preseasonPast = allPlanned.filter(dateStr => {
-      const date = parseLocalDate(dateStr);
-      return date >= preseasonStart && date <= preseasonEnd && isBefore(date, today);
-    });
-    
-    const summer = allPlanned.filter(dateStr => {
+    // Future summer planned days only (not past)
+    const summerFuture = allPlanned.filter(dateStr => {
       const date = parseLocalDate(dateStr);
       return date >= summerStart && date <= summerEnd && !isBefore(date, today);
     });
     
     return { 
       preseasonPlannedDays: preseasonFuture, 
-      summerPlannedDays: summer,
-      pastPreseasonDays: preseasonPast 
+      summerPlannedDays: summerFuture,
     };
   }, [plannedDays, today]);
 
@@ -127,11 +166,11 @@ export const CalendarPlanningCard = ({
     }
   }, [selectedTier, mustDoFpGoal, willDoFpGoal, couldDoFpGoal]);
 
-  // Calculate preseason stats
+  // Calculate preseason stats - now using actual worked days from database
   const preseasonStats = useMemo(() => {
     const futurePlannedCount = preseasonPlannedDays.length;
-    const pastCount = pastPreseasonDays.length;
-    const totalPreseasonDays = futurePlannedCount + pastCount;
+    const daysWorkedCount = workedDays?.preseasonDaysWorked || 0;
+    const totalPreseasonDays = futurePlannedCount + daysWorkedCount;
     
     if (totalPreseasonDays === 0) return null;
 
@@ -143,7 +182,7 @@ export const CalendarPlanningCard = ({
     const goalTotalFp = isEfpMode ? inputGoal / (avgPrmrPerFp / 85) : inputGoal;
     const goalDailyRawFp = totalPreseasonDays > 0 ? goalTotalFp / totalPreseasonDays : 0;
     
-    const daysWorked = pastCount || 1;
+    const daysWorked = daysWorkedCount || 1;
     const currentDailyAvgRawFp = currentFP / daysWorked;
     const projectedTotalRawFp = currentDailyAvgRawFp * totalPreseasonDays;
     
@@ -160,7 +199,7 @@ export const CalendarPlanningCard = ({
 
     return {
       futurePlannedCount,
-      pastCount,
+      daysWorkedCount,
       totalDays: totalPreseasonDays,
       daysLeft: futurePlannedCount,
       goalTotal: (goalTotalFp * conversionFactor).toFixed(1),
@@ -175,12 +214,15 @@ export const CalendarPlanningCard = ({
       onPace,
       pacePercent,
     };
-  }, [preseasonPlannedDays, pastPreseasonDays, preseasonCurrentFP, preseasonTotalInput, isEfpMode, avgPrmrPerFp]);
+  }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonTotalInput, isEfpMode, avgPrmrPerFp]);
 
   // Calculate summer stats based on selected tier
   const summerStats = useMemo(() => {
-    const plannedCount = summerPlannedDays.length;
-    if (plannedCount === 0) return null;
+    const futurePlannedCount = summerPlannedDays.length;
+    const daysWorkedCount = workedDays?.summerDaysWorked || 0;
+    const totalSummerDays = futurePlannedCount + daysWorkedCount;
+    
+    if (totalSummerDays === 0) return null;
 
     // Convert preseason input goal to FP+ if in EFP mode
     const inputGoal = parseFloat(preseasonTotalInput) || 0;
@@ -189,7 +231,7 @@ export const CalendarPlanningCard = ({
     // Remaining summer goal = Selected tier - preseason goal
     const remainingSummerGoalFp = Math.max(0, selectedSummerGoal - preseasonGoalFp);
     
-    const goalDailyRawFp = plannedCount > 0 ? remainingSummerGoalFp / plannedCount : 0;
+    const goalDailyRawFp = totalSummerDays > 0 ? remainingSummerGoalFp / totalSummerDays : 0;
 
     // Calculate projected earnings
     const result = calculateTakeHome({
@@ -202,28 +244,16 @@ export const CalendarPlanningCard = ({
 
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
-    // Calculate days left (future planned days that haven't passed)
-    const daysLeft = summerPlannedDays.filter(dateStr => {
-      const date = parseLocalDate(dateStr);
-      return date >= today;
-    }).length;
-    
-    // Calculate past summer days (days worked)
-    const pastSummerCount = summerPlannedDays.filter(dateStr => {
-      const date = parseLocalDate(dateStr);
-      return date < today;
-    }).length;
-
     return {
-      plannedCount,
-      pastCount: pastSummerCount,
-      totalDays: plannedCount,
-      daysLeft,
+      futurePlannedCount,
+      daysWorkedCount,
+      totalDays: totalSummerDays,
+      daysLeft: futurePlannedCount,
       goalTotal: (remainingSummerGoalFp * conversionFactor).toFixed(1),
       goalDaily: (goalDailyRawFp * conversionFactor).toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
-  }, [summerPlannedDays, selectedSummerGoal, preseasonTotalInput, preseasonCurrentFP, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
+  }, [summerPlannedDays, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
@@ -446,8 +476,8 @@ export const CalendarPlanningCard = ({
               {/* Days summary */}
               {preseasonStats && (
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{preseasonStats.totalDays} total days</span>
-                  <span>{preseasonStats.daysLeft} days left</span>
+                  <span>{preseasonStats.daysWorkedCount} worked + {preseasonStats.daysLeft} planned = {preseasonStats.totalDays} total</span>
+                  <span>{preseasonStats.daysLeft} left</span>
                 </div>
               )}
               <div className="flex justify-end">
@@ -571,8 +601,8 @@ export const CalendarPlanningCard = ({
               {/* Days summary */}
               {summerStats && (
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{summerStats.totalDays} total days</span>
-                  <span>{summerStats.daysLeft} days left</span>
+                  <span>{summerStats.daysWorkedCount} worked + {summerStats.daysLeft} planned = {summerStats.totalDays} total</span>
+                  <span>{summerStats.daysLeft} left</span>
                 </div>
               )}
               
