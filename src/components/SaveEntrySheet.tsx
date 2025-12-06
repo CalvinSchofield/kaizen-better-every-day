@@ -814,10 +814,29 @@ export const SaveEntrySheet = ({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-3 mt-3">
+                    {/* Info box when sales are logged - must edit individual sales */}
+                    {salesLog && salesLog.length > 0 && (
+                      <div className="flex items-start gap-2.5 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                        <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground">
+                            Auto-calculated from logged sales
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tap a sale below to edit its PRMR. Check <button
+                              type="button"
+                              className="text-primary underline underline-offset-2 hover:text-primary/80"
+                              onClick={() => window.open('https://salesops.vivint.com', '_blank')}
+                            >Curator</button> for accurate PRMR values.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
-                        {showHelp && (
+                        {showHelp && !salesLog?.length && (
                           <button
                             type="button"
                             className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
@@ -841,9 +860,11 @@ export const SaveEntrySheet = ({
                           value={fpPlus}
                           onChange={(e) => setFpPlus(e.target.value)}
                           enterKeyHint="next"
-                          className="flex-1"
+                          className={`flex-1 ${salesLog && salesLog.length > 0 ? 'bg-muted/50 cursor-not-allowed' : ''}`}
+                          readOnly={salesLog && salesLog.length > 0}
+                          tabIndex={salesLog && salesLog.length > 0 ? -1 : 0}
                         />
-                        {parseFloat(fpPlus) > 0 && (
+                        {parseFloat(fpPlus) > 0 && !salesLog?.length && (
                           <button
                             type="button"
                             onClick={() => {
@@ -857,7 +878,7 @@ export const SaveEntrySheet = ({
                           </button>
                         )}
                       </div>
-                      {showHelp && openHelp === 'fp' && (
+                      {showHelp && openHelp === 'fp' && !salesLog?.length && (
                         <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
                           <p className="text-xs text-muted-foreground flex-1">
                             FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
@@ -894,7 +915,7 @@ export const SaveEntrySheet = ({
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="prmr" className="text-sm">Total PRMR</Label>
-                        {showHelp && (
+                        {showHelp && !salesLog?.length && (
                           <button
                             type="button"
                             className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
@@ -920,11 +941,13 @@ export const SaveEntrySheet = ({
                           placeholder=""
                           value={prmr}
                           onChange={(e) => setPrmr(e.target.value)}
-                          className="pl-7"
+                          className={`pl-7 ${salesLog && salesLog.length > 0 ? 'bg-muted/50 cursor-not-allowed' : ''}`}
+                          readOnly={salesLog && salesLog.length > 0}
+                          tabIndex={salesLog && salesLog.length > 0 ? -1 : 0}
                           enterKeyHint="done"
                         />
                       </div>
-                      {showHelp && openHelp === 'prmr' && (
+                      {showHelp && openHelp === 'prmr' && !salesLog?.length && (
                         <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
                           <p className="text-xs text-muted-foreground flex-1">
                             What the customer pays monthly (plus adders/deductions)
@@ -1037,6 +1060,24 @@ export const SaveEntrySheet = ({
             saleId: updatedSale.id,
             updates: updatedSale,
           });
+          
+          // Recalculate local FP+ and PRMR from updated salesLog
+          const updatedSalesLog = salesLog.map(s => 
+            s.id === updatedSale.id ? updatedSale : s
+          );
+          const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
+          const fpSales = fundedSales.filter(s => s.type === 'fp');
+          const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+          
+          const fpCount = fpSales.length;
+          const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+          const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+          const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+          const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
+          
+          setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
+          setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : "");
+          setNewAccounts(fpCount);
         }
         setShowSaleDetail(false);
         setSelectedSale(null);
