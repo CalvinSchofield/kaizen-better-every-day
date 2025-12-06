@@ -135,6 +135,14 @@ export const CommitmentChips = ({
 
   // Filter to only show chips with goals set
   const activeChips = chipConfigs.filter(c => getGoal(c) > 0);
+  
+  // Count unset commitments (goals that are 0 or undefined)
+  const unsetCommitments = chipConfigs.filter(c => {
+    if (c.key === 'blitzes_goal') return false; // Blitzes always shows if committed
+    const goalKey = c.key as keyof RepGoals;
+    return !goals[goalKey] || Number(goals[goalKey]) === 0;
+  });
+  const hasUnsetCommitments = unsetCommitments.length > 0 || !goals.preseason_fp_goal;
 
   // Preseason FP chip data
   const preseasonFpGoal = goals.preseason_fp_goal || 0;
@@ -299,6 +307,27 @@ export const CommitmentChips = ({
             );
           })}
         </AnimatePresence>
+
+        {/* Add More Chip - shows if there are unset commitments */}
+        {hasUnsetCommitments && (
+          <motion.button
+            onClick={onEdit}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl",
+              "bg-muted/30 border-2 border-dashed border-muted-foreground/20",
+              "hover:border-primary/40 hover:bg-primary/5 active:scale-95",
+              "transition-all duration-200"
+            )}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-muted-foreground/10">
+              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">Add</span>
+          </motion.button>
+        )}
       </div>
     </div>
   );
