@@ -1,0 +1,173 @@
+import { useEffect, useRef, useMemo } from "react";
+import { format, eachDayOfInterval, getDay, isBefore, startOfDay } from "date-fns";
+import { usePlannedDays } from "./usePlannedDays";
+import { useRepData } from "./useRepData";
+import { useBlitzes } from "./useBlitzes";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+// Generates all Mon-Sat dates between start and end (no Sundays)
+const getWorkDaysInRange = (startDate: Date, endDate: Date): string[] => {
+  const days: string[] = [];
+  const interval = eachDayOfInterval({ start: startDate, end: endDate });
+  
+  for (const day of interval) {
+    const dayOfWeek = getDay(day);
+    // Skip Sundays (0)
+    if (dayOfWeek !== 0) {
+      days.push(format(day, 'yyyy-MM-dd'));
+    }
+  }
+  return days;
+};
+
+export const usePlannedDaysSync = () => {
+  const { plannedDays, addMultipleDays, isLoading: isLoadingPlanned } = usePlannedDays();
+  const { repData } = useRepData();
+  const { allBlitzes } = useBlitzes();
+  
+  // Track previous values to detect changes
+  const prevCommittedBlitzesRef = useRef<string[]>([]);
+  const prevSummerStartRef = useRef<string | null>(null);
+  const prevSummerEndRef = useRef<string | null>(null);
+  const hasInitializedRef = useRef(false);
+  
+  // Fetch season config for summer dates
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return null;
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+  });
+
+  // Get committed blitzes from rep data
+  const committedBlitzes = useMemo(() => {
+    if (!repData?.committed_blitzes) return [];
+    const committed = repData.committed_blitzes as string[];
+    return allBlitzes.filter(b => committed.includes(b.name));
+  }, [repData?.committed_blitzes, allBlitzes]);
+  
+  const committedBlitzNames = useMemo(() => {
+    return (repData?.committed_blitzes as string[]) || [];
+  }, [repData?.committed_blitzes]);
+
+  const today = startOfDay(new Date());
+
+  // Calculate expected blitz days (Mon-Sat only)
+  const getBlitzDays = useMemo(() => {
+    const days: string[] = [];
+    for (const blitz of committedBlitzes) {
+      const startDate = new Date(blitz.date);
+      const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+      const blitzDays = getWorkDaysInRange(startDate, endDate);
+      days.push(...blitzDays.filter(d => !isBefore(new Date(d), today)));
+    }
+    return [...new Set(days)]; // Remove duplicates
+  }, [committedBlitzes, today]);
+
+  // Calculate expected summer days (Mon-Sat only)
+  const getSummerDays = useMemo(() => {
+    if (!seasonConfig?.personal_summer_start || !seasonConfig?.personal_summer_end) return [];
+    const startDate = new Date(seasonConfig.personal_summer_start);
+    const endDate = new Date(seasonConfig.personal_summer_end);
+    return getWorkDaysInRange(startDate, endDate).filter(d => !isBefore(new Date(d), today));
+  }, [seasonConfig, today]);
+
+  // Sync blitz dates when committed_blitzes changes
+  useEffect(() => {
+    if (isLoadingPlanned || !repData?.user_id) return;
+    
+    const currentBlitzNames = committedBlitzNames;
+    const prevBlitzNames = prevCommittedBlitzesRef.current;
+    
+    // Check if blitzes changed
+    const blitzesChanged = JSON.stringify(currentBlitzNames.sort()) !== JSON.stringify(prevBlitzNames.sort());
+    
+    if (blitzesChanged && hasInitializedRef.current) {
+      // Find newly added blitzes
+      const newlyAdded = currentBlitzNames.filter(name => !prevBlitzNames.includes(name));
+      
+      if (newlyAdded.length > 0) {
+        // Get dates for newly added blitzes only
+        const newBlitzDays: string[] = [];
+        for (const blitz of allBlitzes.filter(b => newlyAdded.includes(b.name))) {
+          const startDate = new Date(blitz.date);
+          const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+          const blitzDays = getWorkDaysInRange(startDate, endDate);
+          newBlitzDays.push(...blitzDays.filter(d => !isBefore(new Date(d), today)));
+        }
+        
+        // Add only new days (not already planned)
+        const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
+        const daysToAdd = newBlitzDays.filter(d => !plannedSet.has(d));
+        
+        if (daysToAdd.length > 0) {
+          addMultipleDays(daysToAdd);
+        }
+      }
+      
+      // Note: We don't remove days when uncommitting - user can manually remove if desired
+    }
+    
+    prevCommittedBlitzesRef.current = currentBlitzNames;
+    hasInitializedRef.current = true;
+  }, [committedBlitzNames, allBlitzes, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id, today]);
+
+  // Sync summer dates when they change
+  useEffect(() => {
+    if (isLoadingPlanned || !repData?.user_id) return;
+    
+    const currentStart = seasonConfig?.personal_summer_start || null;
+    const currentEnd = seasonConfig?.personal_summer_end || null;
+    
+    const summerChanged = currentStart !== prevSummerStartRef.current || 
+                          currentEnd !== prevSummerEndRef.current;
+    
+    if (summerChanged && hasInitializedRef.current && currentStart && currentEnd) {
+      const summerDays = getSummerDays;
+      
+      // Add only new summer days (not already planned)
+      const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
+      const daysToAdd = summerDays.filter(d => !plannedSet.has(d));
+      
+      if (daysToAdd.length > 0) {
+        addMultipleDays(daysToAdd);
+      }
+    }
+    
+    prevSummerStartRef.current = currentStart;
+    prevSummerEndRef.current = currentEnd;
+  }, [seasonConfig, getSummerDays, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id]);
+
+  // Initial population on first load
+  useEffect(() => {
+    if (isLoadingPlanned || !repData?.user_id || hasInitializedRef.current) return;
+    if (!plannedDays || plannedDays.length > 0) {
+      hasInitializedRef.current = true;
+      return;
+    }
+    
+    // If no planned days exist, auto-populate from blitzes and summer
+    const allDays = [...new Set([...getBlitzDays, ...getSummerDays])];
+    
+    if (allDays.length > 0) {
+      addMultipleDays(allDays);
+    }
+    
+    hasInitializedRef.current = true;
+  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays]);
+
+  return {
+    getBlitzDays,
+    getSummerDays,
+    committedBlitzes,
+  };
+};
