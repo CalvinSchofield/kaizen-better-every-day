@@ -25,6 +25,7 @@ import { Sale } from "@/hooks/useDailyEntry";
 import { ScheduledInstallStep } from "@/components/ScheduledInstallStep";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
+import { SalesBreakdownSheet } from "@/components/SalesBreakdownSheet";
 
 interface SaveEntrySheetProps {
   open: boolean;
@@ -98,8 +99,8 @@ export const SaveEntrySheet = ({
   const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showSaleDetail, setShowSaleDetail] = useState(false);
-  const [showSalesBreakdownPrompt, setShowSalesBreakdownPrompt] = useState(false);
-  const [manualSalePrmrs, setManualSalePrmrs] = useState<number[]>([]); // PRMR values for each manual FP
+  const [showSalesBreakdownSheet, setShowSalesBreakdownSheet] = useState(false);
+  const [confirmedManualSales, setConfirmedManualSales] = useState<Sale[] | null>(null);
   const isSavingRef = useRef(false);
   
   // Sale update hook
@@ -372,8 +373,7 @@ export const SaveEntrySheet = ({
           setCustomCounters({});
           setStartTime("");
           setEndTime("");
-          setManualSalePrmrs([]);
-          setShowSalesBreakdownPrompt(false);
+          setConfirmedManualSales(null);
           setOpenCard('activity');
         }
         
@@ -399,8 +399,8 @@ export const SaveEntrySheet = ({
       setAcknowledgedEarlyEnd(false);
       setShowInstallStep(false);
       setPendingSalesWithInstallTracking(null);
-      setShowSalesBreakdownPrompt(false);
-      setManualSalePrmrs([]);
+      setShowSalesBreakdownSheet(false);
+      setConfirmedManualSales(null);
       setUpgradePrmrInput("");
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
@@ -457,7 +457,7 @@ export const SaveEntrySheet = ({
       return;
     }
     
-    // If there are sales logged, show install confirmation step
+    // If there are sales logged via sales logger, show install confirmation step
     if (salesLog && salesLog.length > 0) {
       // Check if any sales don't have install tracking yet (new sales being saved)
       const hasUnmarkedSales = salesLog.some(s => s.install_status === undefined);
@@ -467,7 +467,25 @@ export const SaveEntrySheet = ({
       }
     }
     
+    // REQUIRE sales breakdown when manually entering FP/PRMR without sales logger
+    const hasManualResults = ((parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0);
+    const noSalesLog = !salesLog || salesLog.length === 0;
+    const noConfirmedSales = !confirmedManualSales;
+    
+    if (hasManualResults && noSalesLog && noConfirmedSales) {
+      setShowSalesBreakdownSheet(true);
+      return;
+    }
+    
     proceedWithSave();
+  };
+
+  // Handle confirmed sales breakdown from manual input
+  const handleSalesBreakdownConfirm = (sales: Sale[]) => {
+    setConfirmedManualSales(sales);
+    setShowSalesBreakdownSheet(false);
+    // Now proceed with save using confirmed sales
+    proceedWithSaveWithSales(sales);
   };
 
   // Handle install step confirmation
@@ -479,8 +497,9 @@ export const SaveEntrySheet = ({
   };
 
   const proceedWithSave = async () => {
-    // If we have pending sales with install tracking, use those
-    const salesToUse = pendingSalesWithInstallTracking || salesLog;
+    // If we have confirmed manual sales, use those
+    // Otherwise use pending sales with install tracking or existing salesLog
+    const salesToUse = confirmedManualSales || pendingSalesWithInstallTracking || salesLog;
     await proceedWithSaveWithSales(salesToUse);
   };
 
@@ -522,81 +541,34 @@ export const SaveEntrySheet = ({
       customCounterData[id] = parseInt(customCounters[id]) || 0;
     });
     
-    // Calculate upgrade PRMR - use explicit input if available, otherwise fall back to derived calculation
-    const explicitUpgradePrmr = parseFloat(upgradePrmrInput) || 0;
-    const fpValue = parseFloat(fpPlus) || 0;
-    const totalPrmrValue = parseFloat(prmr) || 0;
-    
-    // If user entered upgrade PRMR explicitly, use that
-    // Otherwise, calculate from FP+ - newAccounts (legacy behavior)
+    // Calculate final values - if we have confirmed sales from breakdown sheet, use those
+    let finalFpPlus: number;
+    let finalPrmr: number;
     let finalUpgradePrmr: number | null = null;
-    if (explicitUpgradePrmr > 0) {
-      finalUpgradePrmr = explicitUpgradePrmr;
-    } else if (!salesLog || salesLog.length === 0) {
-      // Only calculate from newAccounts if no explicit upgrade and no sales log
-      const upgradeFP = fpValue - newAccounts;
-      finalUpgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
-    }
     
-    // Recalculate FP+ to include upgrade if explicit upgrade PRMR was entered
-    let finalFpPlus = fpValue;
-    if (explicitUpgradePrmr > 0 && (!salesLog || salesLog.length === 0)) {
-      // FP+ = FP count + (upgrade_prmr / 85)
-      finalFpPlus = newAccounts + (explicitUpgradePrmr / 85);
-    }
-    
-    // AUTO-GENERATE sales_log entries if user entered FP/PRMR manually without using sales logger
-    let finalSalesLog: Sale[] | undefined = salesToSave;
-    const hasManuallEnteredResults = (newAccounts > 0 || totalPrmrValue > 0) && (!salesLog || salesLog.length === 0);
-    
-    if (hasManuallEnteredResults) {
-      const generatedSales: Sale[] = [];
-      const now = new Date();
+    if (salesToSave && salesToSave.length > 0) {
+      // Calculate from sales_log
+      const fpSales = salesToSave.filter(s => s.type === 'fp');
+      const upgradeSales = salesToSave.filter(s => s.type === 'upgrade');
+      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + s.prmr, 0);
+      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
       
-      // Generate FP sales entries
-      if (newAccounts > 0 && totalPrmrValue > 0) {
-        // Calculate PRMR per FP (excluding upgrade PRMR)
-        const fpPrmr = totalPrmrValue - explicitUpgradePrmr;
-        const avgPrmrPerFp = fpPrmr > 0 ? fpPrmr / newAccounts : 85; // Default to $85 if no PRMR
-        
-        for (let i = 0; i < newAccounts; i++) {
-          generatedSales.push({
-            id: crypto.randomUUID(),
-            type: 'fp',
-            prmr: Math.round(avgPrmrPerFp * 100) / 100,
-            timestamp: now.toISOString(),
-            installed_same_day: true,
-            install_status: 'installed',
-          });
-        }
-      } else if (newAccounts > 0) {
-        // FP count but no PRMR - create sales with $85 default
-        for (let i = 0; i < newAccounts; i++) {
-          generatedSales.push({
-            id: crypto.randomUUID(),
-            type: 'fp',
-            prmr: 85,
-            timestamp: now.toISOString(),
-            installed_same_day: true,
-            install_status: 'installed',
-          });
-        }
-      }
+      finalFpPlus = fpSales.length + (upgradePrmrTotal / 85);
+      finalPrmr = fpPrmrTotal + upgradePrmrTotal;
+      finalUpgradePrmr = upgradePrmrTotal > 0 ? upgradePrmrTotal : null;
+    } else {
+      // Fallback to form values (shouldn't happen with new flow)
+      const explicitUpgradePrmr = parseFloat(upgradePrmrInput) || 0;
+      const fpValue = parseFloat(fpPlus) || 0;
+      finalPrmr = parseFloat(prmr) || 0;
       
-      // Generate upgrade sale entry if upgrade PRMR was entered
       if (explicitUpgradePrmr > 0) {
-        generatedSales.push({
-          id: crypto.randomUUID(),
-          type: 'upgrade',
-          prmr: explicitUpgradePrmr,
-          timestamp: now.toISOString(),
-          installed_same_day: true,
-          install_status: 'installed',
-        });
-      }
-      
-      if (generatedSales.length > 0) {
-        finalSalesLog = generatedSales;
+        finalUpgradePrmr = explicitUpgradePrmr;
+        finalFpPlus = newAccounts + (explicitUpgradePrmr / 85);
+      } else {
+        finalFpPlus = fpValue;
+        const upgradeFP = fpValue - newAccounts;
+        finalUpgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
       }
     }
     
@@ -609,13 +581,13 @@ export const SaveEntrySheet = ({
       presentations: parseInt(presentations) || 0,
       closes: parseInt(closes) || 0,
       fp_plus: finalFpPlus,
-      prmr: totalPrmrValue,
+      prmr: finalPrmr,
       upgrade_prmr: finalUpgradePrmr,
       saveDate,
       work_start_time: workStartTime,
       work_end_time: workEndTime,
       custom_counters: customCounterData,
-      sales_log: finalSalesLog,
+      sales_log: salesToSave,
     });
     
     // Only close after save completes and resets
@@ -1473,6 +1445,16 @@ export const SaveEntrySheet = ({
       onOpenChange={setShowInstallStep}
       salesLog={salesLog || []}
       onConfirm={handleInstallConfirm}
+    />
+
+    {/* Sales Breakdown Sheet - required when manually entering FP/PRMR */}
+    <SalesBreakdownSheet
+      open={showSalesBreakdownSheet}
+      onOpenChange={setShowSalesBreakdownSheet}
+      totalPrmr={parseFloat(prmr) || 0}
+      initialFpCount={newAccounts > 0 ? newAccounts : Math.floor(parseFloat(fpPlus) || 0)}
+      initialUpgradePrmr={parseFloat(upgradePrmrInput) || 0}
+      onConfirm={handleSalesBreakdownConfirm}
     />
     </>
   );
