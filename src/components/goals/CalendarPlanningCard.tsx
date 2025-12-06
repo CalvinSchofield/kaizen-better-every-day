@@ -623,10 +623,15 @@ export const CalendarPlanningCard = ({
           
               {preseasonStats && (
                 <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                  {/* Current pace info */}
+                  {/* Current pace info - based on actual days worked, not calendar days */}
                   {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Your Daily Pace</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-muted-foreground">Your Daily Pace</span>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          ({preseasonStats.daysWorkedCount} days worked)
+                        </span>
+                      </div>
                       <span className={cn(
                         "text-sm font-semibold flex items-center gap-1",
                         preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
@@ -674,11 +679,16 @@ export const CalendarPlanningCard = ({
                     </div>
                   )}
                   
-                  {/* Summary stats */}
+                  {/* Summary stats - clarify this includes unfunded */}
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <span>{preseasonStats.currentFP} / {preseasonStats.goalTotal} {metricLabel} funded</span>
+                    <span>{preseasonStats.currentFP} / {preseasonStats.goalTotal} {metricLabel}</span>
                     <span>{preseasonStats.daysLeft} days left</span>
                   </div>
+                  
+                  {/* Note about what's included */}
+                  <p className="text-[10px] text-muted-foreground/70 italic">
+                    Includes unfunded sales (installed but cancelled). Never-installed sales should be deleted.
+                  </p>
                   
                   {/* Catch-up message when behind pace */}
                   {!preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0 && (
