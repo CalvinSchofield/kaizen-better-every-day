@@ -147,6 +147,64 @@ export const CalendarPlanningCard = ({
     };
   }, [summerPlannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
+  // Calculate total stats (preseason + summer combined)
+  const totalStats = useMemo(() => {
+    const preseasonCount = preseasonPlannedDays.length;
+    const summerCount = summerPlannedDays.length;
+    const totalPlannedDays = preseasonCount + summerCount;
+    
+    if (totalPlannedDays === 0) return null;
+
+    // Goal daily average from settings
+    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
+    const goalTotalRaw = goalDailyFPRaw * totalPlannedDays;
+
+    // Current FP+ from preseason
+    const currentFP = preseasonCurrentFP || 0;
+    
+    // Past preseason days for pace calculation
+    const pastPreseasonDays = (plannedDays?.map(d => d.planned_date) || []).filter(dateStr => {
+      const date = new Date(dateStr);
+      const preseasonStart = new Date(PRESEASON_START);
+      const preseasonEnd = new Date(PRESEASON_END);
+      return date >= preseasonStart && date <= preseasonEnd && isBefore(date, today);
+    });
+    
+    const daysWorked = pastPreseasonDays.length || 1;
+    const currentDailyAvgRaw = currentFP / daysWorked;
+    const projectedTotalRaw = currentDailyAvgRaw * totalPlannedDays;
+
+    // Calculate projected earnings based on total goal
+    const result = calculateTakeHome({
+      fpGoal: goalTotalRaw,
+      avgPrmrPerFp,
+      rentType,
+      weeksWorking,
+      upgradeFpGoal,
+    });
+
+    // Earnings based on current pace
+    const paceResult = calculateTakeHome({
+      fpGoal: projectedTotalRaw,
+      avgPrmrPerFp,
+      rentType,
+      weeksWorking,
+      upgradeFpGoal,
+    });
+
+    // Convert to EFP if mode is enabled
+    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+
+    return {
+      totalPlannedDays,
+      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
+      projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
+      currentFP: (currentFP * conversionFactor).toFixed(1),
+      goalEarnings: result.takeHomePay,
+      paceEarnings: paceResult.takeHomePay,
+    };
+  }, [preseasonPlannedDays, summerPlannedDays, fpGoal, weeksWorking, preseasonCurrentFP, plannedDays, today, avgPrmrPerFp, rentType, upgradeFpGoal, isEfpMode]);
+
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
     // Don't allow Sundays or past days
@@ -311,21 +369,57 @@ export const CalendarPlanningCard = ({
                 <span className="text-sm text-muted-foreground">Goal Total</span>
                 <span className="text-sm font-semibold">{summerStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</span>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                <span className="text-sm font-medium flex items-center gap-1">
-                  <DollarSign className="h-3 w-3 text-green-500" />
-                  Projected Earnings
-                </span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(summerStats.projectedEarnings)}
-                </span>
+            </div>
+          </div>
+        )}
+
+        {/* Total Stats */}
+        {totalStats && (
+          <div className="pt-3 border-t border-border/50">
+            <h4 className="text-sm font-semibold mb-2">Total</h4>
+            <div className="space-y-2 p-3 rounded-lg bg-primary/10">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Goal Total</p>
+                  <p className="text-sm font-semibold">{totalStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">On Pace For</p>
+                  <p className="text-sm font-semibold">{totalStats.projectedTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-border/30">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">Current {isEfpMode ? 'EFP' : 'FP+'}</p>
+                  <p className="text-sm font-bold text-primary">{totalStats.currentFP}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/30">
+                <div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3 text-green-500" />
+                    Goal Earnings
+                  </p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                    {formatCurrency(totalStats.goalEarnings)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <DollarSign className="h-3 w-3 text-muted-foreground" />
+                    Pace Earnings
+                  </p>
+                  <p className="text-lg font-bold text-muted-foreground">
+                    {formatCurrency(totalStats.paceEarnings)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {/* Empty state */}
-        {!preseasonStats && !summerStats && (
+        {!preseasonStats && !summerStats && !totalStats && (
           <p className="text-sm text-muted-foreground text-center py-3">
             Set your summer dates above to auto-populate work days
           </p>

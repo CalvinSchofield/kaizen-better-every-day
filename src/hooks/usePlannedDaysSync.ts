@@ -153,23 +153,33 @@ export const usePlannedDaysSync = () => {
     prevSummerEndRef.current = currentEnd;
   }, [seasonConfig, getSummerDays, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id]);
 
-  // Initial population on first load
+  // Initial population on first load - adds blitz days that aren't already planned
   useEffect(() => {
-    if (isLoadingPlanned || !repData?.user_id || hasInitializedRef.current) return;
-    if (!plannedDays || plannedDays.length > 0) {
+    if (isLoadingPlanned || !repData?.user_id) return;
+    
+    // Always check for blitz days that need to be added (even if some planned days exist)
+    const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
+    const blitzDaysToAdd = getBlitzDays.filter(d => !plannedSet.has(d));
+    
+    // On first load, also add summer days if none exist
+    if (!hasInitializedRef.current) {
+      const summerDaysToAdd = getSummerDays.filter(d => !plannedSet.has(d));
+      const allDaysToAdd = [...new Set([...blitzDaysToAdd, ...summerDaysToAdd])];
+      
+      if (allDaysToAdd.length > 0) {
+        addMultipleDays(allDaysToAdd);
+      }
+      
       hasInitializedRef.current = true;
+      prevCommittedBlitzIdsRef.current = committedBlitzIds;
       return;
     }
     
-    // If no planned days exist, auto-populate from blitzes and summer
-    const allDays = [...new Set([...getBlitzDays, ...getSummerDays])];
-    
-    if (allDays.length > 0) {
-      addMultipleDays(allDays);
+    // After initialization, only auto-add blitz days (summer days handled by separate effect)
+    if (blitzDaysToAdd.length > 0) {
+      addMultipleDays(blitzDaysToAdd);
     }
-    
-    hasInitializedRef.current = true;
-  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays]);
+  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds]);
 
   return {
     getBlitzDays,

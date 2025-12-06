@@ -21,10 +21,28 @@ const RENT_PER_WEEK: Record<string, number> = {
   'None': 0,
   'Single Shared': 200, // $175 rent + $25 utilities
   'Single Private': 385, // $350 rent + $35 utilities
-  'Married 1 Bed': 415, // $375 rent + $40 utilities
-  'Married 2 Bed': 440, // $400 rent + $40 utilities
-  'Married 3 Bed': 465, // $425 rent + $40 utilities
+  'Married': 415, // $375 rent + $40 utilities
+  'Married+': 440, // $400 rent + $40 utilities
 };
+
+// Normalize rent type from various formats to match RENT_PER_WEEK keys
+export function normalizeRentType(rentType: string | undefined): string {
+  if (!rentType) return 'Single Shared';
+  
+  const normalized = rentType.trim();
+  
+  // Direct match
+  if (RENT_PER_WEEK[normalized] !== undefined) return normalized;
+  
+  // Handle legacy/alternate formats
+  if (normalized === 'Single') return 'Single Shared';
+  if (normalized.toLowerCase().includes('married') && normalized.includes('+')) return 'Married+';
+  if (normalized.toLowerCase().includes('married')) return 'Married';
+  if (normalized.toLowerCase().includes('private')) return 'Single Private';
+  if (normalized.toLowerCase().includes('shared') || normalized.toLowerCase().includes('single')) return 'Single Shared';
+  
+  return 'Single Shared';
+}
 
 export interface PayscaleInputs {
   fpGoal: number;
@@ -65,7 +83,7 @@ export function calculateTakeHome(inputs: PayscaleInputs): PayscaleResult {
     fpGoal,
     avgPrmrPerFp = 85,
     upgradeFpGoal = 0,
-    rentType = 'Single',
+    rentType = 'Single Shared',
     weeksWorking = 18,
   } = inputs;
 
@@ -81,8 +99,9 @@ export function calculateTakeHome(inputs: PayscaleInputs): PayscaleResult {
   const tier = getTier(totalFpPlus);
   const { rate, rentBonus } = tier;
 
-  // Calculate rent deduction
-  const rentPerWeek = RENT_PER_WEEK[rentType] || RENT_PER_WEEK['Single'];
+  // Calculate rent deduction - normalize rent type first
+  const normalizedRentType = normalizeRentType(rentType);
+  const rentPerWeek = RENT_PER_WEEK[normalizedRentType] || RENT_PER_WEEK['Single Shared'];
   const rentDeduction = weeksWorking * rentPerWeek;
 
   // Calculate take-home pay
@@ -105,12 +124,13 @@ export function calculateRequiredFp(inputs: ReversePayscaleInputs): number {
     targetEarnings,
     avgPrmrPerFp = 85,
     upgradeFpGoal = 0,
-    rentType = 'Single',
+    rentType = 'Single Shared',
     weeksWorking = 18,
   } = inputs;
 
-  // Calculate rent deduction (fixed regardless of FP+)
-  const rentPerWeek = RENT_PER_WEEK[rentType] || RENT_PER_WEEK['Single'];
+  // Normalize rent type
+  const normalizedRentType = normalizeRentType(rentType);
+  const rentPerWeek = RENT_PER_WEEK[normalizedRentType] || RENT_PER_WEEK['Single Shared'];
   const rentDeduction = weeksWorking * rentPerWeek;
 
   // We need to find FP goal where:
@@ -124,7 +144,7 @@ export function calculateRequiredFp(inputs: ReversePayscaleInputs): number {
       fpGoal,
       avgPrmrPerFp,
       upgradeFpGoal,
-      rentType,
+      rentType: normalizedRentType,
       weeksWorking,
     });
 
@@ -176,6 +196,7 @@ export function getRentTypes(): string[] {
 
 // Get rent cost for display
 export function getRentCost(rentType: string, weeksWorking: number = 18): number {
-  const rentPerWeek = RENT_PER_WEEK[rentType] || RENT_PER_WEEK['Single'];
+  const normalizedRentType = normalizeRentType(rentType);
+  const rentPerWeek = RENT_PER_WEEK[normalizedRentType] || RENT_PER_WEEK['Single Shared'];
   return rentPerWeek * weeksWorking;
 }
