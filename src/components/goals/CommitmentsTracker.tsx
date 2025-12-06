@@ -109,6 +109,23 @@ const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxV
   },
 ];
 
+// Calculate Mondays remaining until summer start (April 13, 2026)
+const getMondaysRemaining = (): number => {
+  const summerStart = new Date('2026-04-13');
+  const today = new Date();
+  let count = 0;
+  let current = new Date(today);
+  
+  while (current < summerStart) {
+    if (current.getDay() === 1) { // Monday
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
+};
+
 const commitmentLabels: Record<string, { label: string; unit: string; description: string }> = {
   training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Time spent studying' },
   books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books' },
@@ -160,14 +177,21 @@ export const CommitmentsTracker = ({
     return goal !== blitzStats.committed && goal > 0;
   }, [goals.blitzes_goal, blitzStats.committed]);
 
-  // Build commitments with dynamic max for blitzes
+  // Calculate dynamic max values
+  const mondaysRemaining = useMemo(() => getMondaysRemaining(), []);
+
+  // Build commitments with dynamic max for blitzes and Monday Night Lights
   const commitments = useMemo((): Commitment[] => {
     const staticCommitments: Commitment[] = baseCommitments.map(c => ({
       ...c,
       label: commitmentLabels[c.key].label,
       unit: commitmentLabels[c.key].unit,
       description: commitmentLabels[c.key].description,
-      maxValue: c.key === 'blitzes_goal' ? blitzStats.remaining : undefined,
+      maxValue: c.key === 'blitzes_goal' 
+        ? blitzStats.remaining 
+        : c.key === 'monday_night_lights_goal'
+          ? mondaysRemaining
+          : undefined,
     }));
     
     // Add preseason FP commitment

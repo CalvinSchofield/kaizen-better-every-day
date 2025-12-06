@@ -179,7 +179,15 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         return entryDate >= startOfDay(dateRange.start) && entryDate <= endOfDay(dateRange.end);
       });
 
-      // Filter entries that have actual activity for ratio calculations
+      // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
+      // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
+      const isRealKnockingDay = (entry: typeof allEntries[0]): boolean => {
+        const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
+        const hasWorkSession = entry.work_start_time && entry.work_end_time;
+        return hasMeaningfulActivity || !!hasWorkSession;
+      };
+
+      // Filter entries that have actual activity for ratio calculations (any activity)
       const entriesWithActivity = rangeEntries.filter(entry => 
         (entry.doors_knocked || 0) > 0 ||
         (entry.decision_makers || 0) > 0 ||
@@ -188,6 +196,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         (entry.presentations || 0) > 0 ||
         (entry.closes || 0) > 0
       );
+
+      // Filter to only "real knocking days" for calculating daily averages
+      const realKnockingDays = rangeEntries.filter(isRealKnockingDay);
 
       // Calculate totals for the period (use ALL entries including results-only)
       // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
@@ -202,7 +213,10 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         acc.transitions += entry.transitions || 0;
         acc.presentations += entry.presentations || 0;
         acc.closes += entry.closes || 0;
-        acc.daysWorked += 1;
+        // Only count real knocking days for "days worked" (not referral-only days)
+        if (isRealKnockingDay(entry)) {
+          acc.daysWorked += 1;
+        }
         
         // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
         // Fall back to column values for entries without sales_log (pre-feature entries)
