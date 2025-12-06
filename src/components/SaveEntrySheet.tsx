@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, AlertTriangle } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, AlertTriangle, Ban } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { useRepData } from "@/hooks/useRepData";
@@ -23,6 +23,8 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { Sale } from "@/hooks/useDailyEntry";
 import { ScheduledInstallStep } from "@/components/ScheduledInstallStep";
+import { SaleDetailSheet } from "@/components/SaleDetailSheet";
+import { useSaleUpdate } from "@/hooks/useSaleUpdate";
 
 interface SaveEntrySheetProps {
   open: boolean;
@@ -92,7 +94,12 @@ export const SaveEntrySheet = ({
   const [endTimeWarning, setEndTimeWarning] = useState<string | null>(null);
   const [showInstallStep, setShowInstallStep] = useState(false);
   const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showSaleDetail, setShowSaleDetail] = useState(false);
   const isSavingRef = useRef(false);
+  
+  // Sale update hook
+  const { updateSale } = useSaleUpdate();
 
   // Calculate timestamp bounds from counter_timestamps
   const timestampBounds = useMemo(() => {
@@ -957,6 +964,52 @@ export const SaveEntrySheet = ({
             </CardContent>
           </Card>
 
+          {/* Logged Sales Section */}
+          {salesLog && salesLog.length > 0 && (
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <Label className="text-base mb-3 block">Logged Sales</Label>
+                <div className="flex flex-wrap gap-2">
+                  {salesLog.map((sale) => {
+                    const isCancelled = sale.install_status === 'cancelled';
+                    const isPending = sale.install_status === 'pending';
+                    const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
+                    
+                    return (
+                      <button
+                        key={sale.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSale(sale);
+                          setShowSaleDetail(true);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all hover:scale-105 active:scale-95 ${
+                          isCancelled 
+                            ? 'bg-destructive/10 text-destructive line-through' 
+                            : isPending
+                              ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
+                              : sale.type === 'fp'
+                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
+                                : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                        }`}
+                      >
+                        {isCancelled && <Ban className="h-3 w-3" />}
+                        <span className="uppercase text-xs font-bold">
+                          {sale.type === 'fp' ? 'FP' : 'UP'}
+                        </span>
+                        <span>${sale.prmr}</span>
+                        <span className="text-xs opacity-70">{timeStr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Tap a sale to edit PRMR or mark as cancelled
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Save Button */}
           <Button
             onClick={handleSave}
@@ -969,6 +1022,26 @@ export const SaveEntrySheet = ({
         </div>
       </DrawerContent>
     </Drawer>
+
+    {/* Sale Detail Sheet */}
+    <SaleDetailSheet
+      open={showSaleDetail}
+      onOpenChange={setShowSaleDetail}
+      sale={selectedSale}
+      entryDate={format(date, 'yyyy-MM-dd')}
+      onUpdateSale={async (updatedSale) => {
+        if (entry?.id) {
+          await updateSale({
+            entryId: entry.id,
+            entryDate: format(date, 'yyyy-MM-dd'),
+            saleId: updatedSale.id,
+            updates: updatedSale,
+          });
+        }
+        setShowSaleDetail(false);
+        setSelectedSale(null);
+      }}
+    />
 
     <Drawer open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
       <DrawerContent className="pb-safe">
