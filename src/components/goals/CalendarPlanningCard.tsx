@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Calendar, ChevronLeft, ChevronRight, DollarSign, Zap, Trash2, Plus } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay, addWeeks, isMonday, isTuesday, isWednesday, isThursday, isFriday, isSaturday } from "date-fns";
+import { Calendar, ChevronLeft, ChevronRight, DollarSign, Trash2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { useRepData } from "@/hooks/useRepData";
-import { useBlitzes } from "@/hooks/useBlitzes";
+import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -28,19 +26,12 @@ export const CalendarPlanningCard = ({
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isAdding, setIsAdding] = useState(false);
-  const [customWeeks, setCustomWeeks] = useState("");
-  const { plannedDays, togglePlannedDay, addMultipleDays, clearAllPlannedDays, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
-  const { repData } = useRepData();
-  const { allBlitzes } = useBlitzes();
+  const { plannedDays, togglePlannedDay, clearAllPlannedDays, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
+  
+  // Hook for auto-syncing with blitzes and summer dates
+  usePlannedDaysSync();
 
   const today = startOfDay(new Date());
-  
-  // Get committed blitzes from rep data
-  const committedBlitzes = useMemo(() => {
-    if (!repData?.committed_blitzes) return [];
-    const committed = repData.committed_blitzes as string[];
-    return allBlitzes.filter(b => committed.includes(b.name));
-  }, [repData?.committed_blitzes, allBlitzes]);
 
   // Calculate days in current month view
   const monthDays = useMemo(() => {
@@ -80,84 +71,12 @@ export const CalendarPlanningCard = ({
   }, [plannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, getPlannedDaysCount]);
 
   const handleDayClick = async (date: Date) => {
-    // Don't allow planning past days
-    if (isBefore(date, today)) return;
+    const dayOfWeek = getDay(date);
+    // Don't allow Sundays or past days
+    if (dayOfWeek === 0 || isBefore(date, today)) return;
     
     const dateStr = format(date, 'yyyy-MM-dd');
     await togglePlannedDay(dateStr);
-  };
-
-  // Check if a day is Mon-Sat (work day)
-  const isWorkDay = (date: Date): boolean => {
-    return isMonday(date) || isTuesday(date) || isWednesday(date) || 
-           isThursday(date) || isFriday(date) || isSaturday(date);
-  };
-
-  // Add Mon-Sat for X weeks starting from today
-  const handleAddWeeks = async (numWeeks: number) => {
-    setIsAdding(true);
-    try {
-      const dates: string[] = [];
-      const endDate = addWeeks(today, numWeeks);
-      let current = today;
-      
-      while (isBefore(current, endDate) || current.getTime() === endDate.getTime()) {
-        if (isWorkDay(current) && !isBefore(current, today)) {
-          dates.push(format(current, 'yyyy-MM-dd'));
-        }
-        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
-      }
-      
-      await addMultipleDays(dates);
-      toast.success(`Added ${numWeeks} week${numWeeks > 1 ? 's' : ''} of work days`);
-      setCustomWeeks("");
-    } catch (error) {
-      toast.error("Failed to add days");
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  // Add all committed blitz dates
-  const handleAddBlitzDates = async () => {
-    if (committedBlitzes.length === 0) {
-      toast.error("No committed blitzes found");
-      return;
-    }
-    
-    setIsAdding(true);
-    try {
-      const dates: string[] = [];
-      
-      for (const blitz of committedBlitzes) {
-        const startDate = new Date(blitz.date);
-        const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
-        
-        let current = startDate;
-        while (isBefore(current, endDate) || current.getTime() === endDate.getTime()) {
-          if (!isBefore(current, today)) {
-            dates.push(format(current, 'yyyy-MM-dd'));
-          }
-          current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
-        }
-      }
-      
-      await addMultipleDays(dates);
-      toast.success(`Added ${dates.length} blitz days`);
-    } catch (error) {
-      toast.error("Failed to add blitz days");
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const handleCustomWeeks = async () => {
-    const weeks = parseInt(customWeeks, 10);
-    if (isNaN(weeks) || weeks < 1 || weeks > 52) {
-      toast.error("Enter a number between 1 and 52");
-      return;
-    }
-    await handleAddWeeks(weeks);
   };
 
   const handleClearAll = async () => {
@@ -206,69 +125,18 @@ export const CalendarPlanningCard = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Quick Presets */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAddWeeks(1)}
-            disabled={isAdding || isToggling}
-            className="text-xs"
-          >
-            <Zap className="h-3 w-3 mr-1" />
-            +1 Wk
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAddWeeks(4)}
-            disabled={isAdding || isToggling}
-            className="text-xs"
-          >
-            <Zap className="h-3 w-3 mr-1" />
-            +4 Wks
-          </Button>
-          <div className="flex items-center gap-1">
-            <Input
-              type="number"
-              min={1}
-              max={52}
-              placeholder="#"
-              value={customWeeks}
-              onChange={(e) => setCustomWeeks(e.target.value.slice(0, 2))}
-              disabled={isAdding || isToggling}
-              className="w-12 h-8 text-xs text-center px-1"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCustomWeeks}
-              disabled={isAdding || isToggling || !customWeeks}
-              className="text-xs h-8 px-2"
-            >
-              <Plus className="h-3 w-3" />
-              Wks
-            </Button>
-          </div>
-          {committedBlitzes.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddBlitzDates}
-              disabled={isAdding || isToggling}
-              className="text-xs"
-            >
-              <Zap className="h-3 w-3 mr-1" />
-              Blitz Days
-            </Button>
-          )}
+        {/* Info text and clear button */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Auto-synced from blitzes & summer dates. Tap to adjust.
+          </p>
           {getPlannedDaysCount() > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleClearAll}
               disabled={isAdding || isToggling}
-              className="text-xs text-destructive hover:text-destructive"
+              className="text-xs text-destructive hover:text-destructive h-7 px-2"
             >
               <Trash2 className="h-3 w-3 mr-1" />
               Clear
@@ -278,8 +146,14 @@ export const CalendarPlanningCard = ({
 
         {/* Day Headers */}
         <div className="grid grid-cols-7 gap-1 text-center">
-          {dayNames.map((day) => (
-            <div key={day} className="text-xs text-muted-foreground font-medium py-1">
+          {dayNames.map((day, idx) => (
+            <div 
+              key={day} 
+              className={cn(
+                "text-xs font-medium py-1",
+                idx === 0 ? "text-muted-foreground/50" : "text-muted-foreground"
+              )}
+            >
               {day}
             </div>
           ))}
@@ -298,20 +172,23 @@ export const CalendarPlanningCard = ({
             const isPlanned = isDatePlanned(dateStr);
             const isPast = isBefore(day, today);
             const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isToday = format(day, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            const isTodayDate = format(day, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            const dayOfWeek = getDay(day);
+            const isSunday = dayOfWeek === 0;
 
             return (
               <button
                 key={dateStr}
                 onClick={() => handleDayClick(day)}
-                disabled={isPast || isToggling || isAdding}
+                disabled={isPast || isToggling || isAdding || isSunday}
                 className={cn(
                   "aspect-square rounded-lg text-sm font-medium transition-all",
                   "flex items-center justify-center",
-                  isPast && "opacity-40 cursor-not-allowed",
-                  !isPast && "hover:bg-accent cursor-pointer",
-                  isPlanned && !isPast && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  isToday && !isPlanned && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  isSunday && "opacity-30 cursor-not-allowed",
+                  isPast && !isSunday && "opacity-40 cursor-not-allowed",
+                  !isPast && !isSunday && "hover:bg-accent cursor-pointer",
+                  isPlanned && !isPast && !isSunday && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  isTodayDate && !isPlanned && !isSunday && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                   !isCurrentMonth && "opacity-30"
                 )}
               >
@@ -350,7 +227,7 @@ export const CalendarPlanningCard = ({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-3">
-              Tap days or use presets to plan your work schedule
+              Set your summer dates above to auto-populate work days
             </p>
           )}
         </div>
