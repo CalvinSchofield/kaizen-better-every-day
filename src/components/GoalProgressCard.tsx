@@ -292,14 +292,18 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
                 On pace! +{paceVariance.toFixed(1)} ahead
               </span>
             ) : (
-              <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                {Math.abs(paceVariance).toFixed(1)} behind pace
-              </span>
+              <>
+                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  {Math.abs(paceVariance).toFixed(1)} behind
+                </span>
+                {plannedDaysInPeriod - elapsedPlannedDays > 0 && (
+                  <span className="text-muted-foreground">
+                    · {(periodRemaining / (plannedDaysInPeriod - elapsedPlannedDays)).toFixed(1)} {metricLabel}/day to catch up
+                  </span>
+                )}
+              </>
             )}
-            <span className="text-muted-foreground">
-              ({elapsedPlannedDays}/{plannedDaysInPeriod} days)
-            </span>
           </div>
         ) : null}
       </div>
