@@ -204,10 +204,11 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         acc.closes += entry.closes || 0;
         acc.daysWorked += 1;
         
-        // Parse sales_log to get FP count and PRMR breakdown
+        // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
         const salesLog = entry.sales_log || [];
         if (Array.isArray(salesLog)) {
-          salesLog.forEach((sale: any) => {
+          const fundedSales = salesLog.filter((sale: any) => sale.install_status !== 'cancelled');
+          fundedSales.forEach((sale: any) => {
             if (sale.type === 'fp') {
               acc.fpCount += 1;
               acc.fpPrmrTotal += sale.prmr || 0;
