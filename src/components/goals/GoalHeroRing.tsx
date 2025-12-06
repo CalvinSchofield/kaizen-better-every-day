@@ -4,7 +4,7 @@ import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-export type GoalTier = 'mustDo' | 'willDo' | 'couldDo';
+export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
 interface GoalHeroRingProps {
   activeTier: GoalTier;
@@ -18,6 +18,7 @@ interface GoalHeroRingProps {
   efpMode?: boolean;
   onTierChange: (tier: GoalTier) => void;
   tiers: {
+    preseason: { goal: number; complete: boolean };
     mustDo: { goal: number; complete: boolean };
     willDo: { goal: number; complete: boolean };
     couldDo: { goal: number; complete: boolean };
@@ -31,6 +32,13 @@ const tierConfig: Record<GoalTier, {
   gradient: string;
   glowColor: string;
 }> = {
+  preseason: {
+    label: 'Preseason',
+    shortLabel: 'Preseason',
+    icon: Target,
+    gradient: 'from-blue-400 to-blue-600',
+    glowColor: 'shadow-blue-500/30',
+  },
   mustDo: { 
     label: 'Must Do', 
     shortLabel: 'Must',
@@ -99,7 +107,7 @@ export const GoalHeroRing = ({
 
   // Available tiers (only show tiers with goals > 0)
   const availableTiers = useMemo(() => {
-    return (['mustDo', 'willDo', 'couldDo'] as GoalTier[]).filter(
+    return (['preseason', 'mustDo', 'willDo', 'couldDo'] as GoalTier[]).filter(
       tier => tiers[tier].goal > 0
     );
   }, [tiers]);
