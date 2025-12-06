@@ -178,11 +178,15 @@ const Goals = () => {
 
         {/* Calendar Planning */}
         <CalendarPlanningCard
-          fpGoal={goals.will_do_fp_goal || 0}
+          mustDoFpGoal={goals.must_do_fp_goal || 0}
+          willDoFpGoal={goals.will_do_fp_goal || 0}
+          couldDoFpGoal={goals.could_do_fp_goal || 0}
           avgPrmrPerFp={goals.avg_prmr_per_fp || 85}
           rentType={goals.rent_type || 'Single'}
           weeksWorking={goals.weeks_working || 18}
           upgradeFpGoal={goals.upgrade_fp_goal || 0}
+          preseasonFpGoal={goals.preseason_fp_goal || 0}
+          onPreseasonGoalChange={(goal) => updateGoals({ preseason_fp_goal: goal })}
         />
       </div>
 

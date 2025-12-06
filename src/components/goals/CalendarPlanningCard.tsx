@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay, isSameDay } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Calendar, ChevronLeft, ChevronRight, DollarSign, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -16,30 +17,54 @@ const PRESEASON_END = '2026-04-11';
 const SUMMER_START = '2026-04-12';
 const SUMMER_END = '2026-09-27';
 
+// Parse date string as local date (not UTC) to avoid timezone offset issues
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+// Get today as local start of day
+const getLocalToday = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
 interface CalendarPlanningCardProps {
-  fpGoal: number;
+  mustDoFpGoal: number;
+  willDoFpGoal: number;
+  couldDoFpGoal: number;
   avgPrmrPerFp: number;
   rentType: string;
   weeksWorking: number;
   upgradeFpGoal?: number;
+  preseasonFpGoal?: number;
+  onPreseasonGoalChange?: (goal: number) => void;
 }
 
 export const CalendarPlanningCard = ({
-  fpGoal,
+  mustDoFpGoal,
+  willDoFpGoal,
+  couldDoFpGoal,
   avgPrmrPerFp,
   rentType,
   weeksWorking,
   upgradeFpGoal = 0,
+  preseasonFpGoal = 0,
+  onPreseasonGoalChange,
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [preseasonTotalInput, setPreseasonTotalInput] = useState(preseasonFpGoal.toString());
+  const [preseasonDailyInput, setPreseasonDailyInput] = useState('');
+  const [selectedTier, setSelectedTier] = useState<'must' | 'will' | 'could'>('will');
+  
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { totalFP: preseasonCurrentFP } = usePreseasonFP();
-  const { efpModeEnabled: isEfpMode } = useEfpMode();
+  const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   
   // Hook for auto-syncing with blitzes and summer dates
   const { getBlitzDays, getSummerDays } = usePlannedDaysSync();
 
-  const today = startOfDay(new Date());
+  const today = getLocalToday();
   const isViewingToday = isSameMonth(currentMonth, today);
 
   // Calculate days in current month view
@@ -52,158 +77,161 @@ export const CalendarPlanningCard = ({
   // Calculate first day offset for grid alignment
   const firstDayOffset = getDay(startOfMonth(currentMonth));
 
-  // Separate preseason and summer planned days
-  const { preseasonPlannedDays, summerPlannedDays } = useMemo(() => {
-    const preseasonStart = new Date(PRESEASON_START);
-    const preseasonEnd = new Date(PRESEASON_END);
-    const summerStart = new Date(SUMMER_START);
-    const summerEnd = new Date(SUMMER_END);
+  // Separate preseason and summer planned days - use parseLocalDate to avoid timezone issues
+  const { preseasonPlannedDays, summerPlannedDays, pastPreseasonDays } = useMemo(() => {
+    const preseasonStart = parseLocalDate(PRESEASON_START);
+    const preseasonEnd = parseLocalDate(PRESEASON_END);
+    const summerStart = parseLocalDate(SUMMER_START);
+    const summerEnd = parseLocalDate(SUMMER_END);
     
     const allPlanned = plannedDays?.map(d => d.planned_date) || [];
     
-    const preseason = allPlanned.filter(dateStr => {
-      const date = new Date(dateStr);
+    const preseasonFuture = allPlanned.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
       return date >= preseasonStart && date <= preseasonEnd && !isBefore(date, today);
     });
     
-    const summer = allPlanned.filter(dateStr => {
-      const date = new Date(dateStr);
-      return date >= summerStart && date <= summerEnd && !isBefore(date, today);
-    });
-    
-    return { preseasonPlannedDays: preseason, summerPlannedDays: summer };
-  }, [plannedDays, today]);
-
-  const { calculateEfp } = useEfpMode();
-
-  // Calculate preseason stats
-  const preseasonStats = useMemo(() => {
-    const plannedCount = preseasonPlannedDays.length;
-    if (plannedCount === 0) return null;
-
-    // Calculate current daily average based on actual preseason FP+
-    const currentFP = preseasonCurrentFP || 0;
-    
-    // Goal daily - fpGoal is stored as FP+, convert if EFP mode
-    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
-    
-    // Past preseason days for pace calculation
-    const pastPreseasonDays = (plannedDays?.map(d => d.planned_date) || []).filter(dateStr => {
-      const date = new Date(dateStr);
-      const preseasonStart = new Date(PRESEASON_START);
-      const preseasonEnd = new Date(PRESEASON_END);
+    const preseasonPast = allPlanned.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
       return date >= preseasonStart && date <= preseasonEnd && isBefore(date, today);
     });
     
-    const daysWorked = pastPreseasonDays.length || 1;
-    const currentDailyAvgRaw = currentFP / daysWorked;
+    const summer = allPlanned.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
+      return date >= summerStart && date <= summerEnd && !isBefore(date, today);
+    });
     
-    // Projected total based on current daily average
-    const projectedTotalRaw = currentDailyAvgRaw * (plannedCount + pastPreseasonDays.length);
-    
-    // Goal total based on goal daily
-    const goalTotalRaw = goalDailyFPRaw * (plannedCount + pastPreseasonDays.length);
+    return { 
+      preseasonPlannedDays: preseasonFuture, 
+      summerPlannedDays: summer,
+      pastPreseasonDays: preseasonPast 
+    };
+  }, [plannedDays, today]);
 
-    // Convert to EFP if mode is enabled (EFP = PRMR / 85, and FP+ ≈ PRMR/avgPrmrPerFp)
-    // When converting FP+ to EFP: EFP = FP+ * avgPrmrPerFp / 85
+  // Get selected summer goal based on tier
+  const selectedSummerGoal = useMemo(() => {
+    switch (selectedTier) {
+      case 'must': return mustDoFpGoal;
+      case 'will': return willDoFpGoal;
+      case 'could': return couldDoFpGoal;
+    }
+  }, [selectedTier, mustDoFpGoal, willDoFpGoal, couldDoFpGoal]);
+
+  // Calculate preseason stats
+  const preseasonStats = useMemo(() => {
+    const futurePlannedCount = preseasonPlannedDays.length;
+    const pastCount = pastPreseasonDays.length;
+    const totalPreseasonDays = futurePlannedCount + pastCount;
+    
+    if (totalPreseasonDays === 0) return null;
+
+    const currentFP = preseasonCurrentFP || 0;
+    const goalTotal = parseFloat(preseasonTotalInput) || 0;
+    const goalDailyRaw = totalPreseasonDays > 0 ? goalTotal / totalPreseasonDays : 0;
+    
+    const daysWorked = pastCount || 1;
+    const currentDailyAvgRaw = currentFP / daysWorked;
+    const projectedTotalRaw = currentDailyAvgRaw * totalPreseasonDays;
+
+    // Convert to EFP if mode is enabled
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+    
+    const onPace = projectedTotalRaw >= goalTotal;
+    const pacePercent = goalTotal > 0 ? (projectedTotalRaw / goalTotal) * 100 : 0;
 
     return {
-      plannedCount,
-      goalDailyFP: (goalDailyFPRaw * conversionFactor).toFixed(2),
-      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
+      futurePlannedCount,
+      pastCount,
+      totalDays: totalPreseasonDays,
+      goalTotal: (goalTotal * conversionFactor).toFixed(1),
+      goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
       currentDailyAvg: (currentDailyAvgRaw * conversionFactor).toFixed(2),
       projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
       currentFP: (currentFP * conversionFactor).toFixed(1),
+      onPace,
+      pacePercent,
     };
-  }, [preseasonPlannedDays, preseasonCurrentFP, fpGoal, weeksWorking, plannedDays, today, isEfpMode, avgPrmrPerFp]);
+  }, [preseasonPlannedDays, pastPreseasonDays, preseasonCurrentFP, preseasonTotalInput, isEfpMode, avgPrmrPerFp]);
 
-  // Calculate summer stats
+  // Calculate summer stats based on selected tier
   const summerStats = useMemo(() => {
     const plannedCount = summerPlannedDays.length;
     if (plannedCount === 0) return null;
 
-    // Goal daily average from settings (fpGoal is stored as FP+)
-    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
-    const goalTotalRaw = goalDailyFPRaw * plannedCount;
+    // Remaining summer goal = Selected tier - preseason goal - current preseason FP
+    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
+    const currentPreseasonFP = preseasonCurrentFP || 0;
+    const remainingSummerGoal = Math.max(0, selectedSummerGoal - preseasonGoal);
+    
+    const goalDailyRaw = plannedCount > 0 ? remainingSummerGoal / plannedCount : 0;
 
-    // Calculate projected earnings (always uses FP+ for payscale calculation)
+    // Calculate projected earnings
     const result = calculateTakeHome({
-      fpGoal: goalTotalRaw,
+      fpGoal: selectedSummerGoal,
       avgPrmrPerFp,
       rentType,
       weeksWorking,
-      upgradeFpGoal: upgradeFpGoal * (plannedCount / (weeksWorking * 6)),
+      upgradeFpGoal,
     });
 
-    // Convert to EFP if mode is enabled
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
     return {
       plannedCount,
-      goalDailyFP: (goalDailyFPRaw * conversionFactor).toFixed(2),
-      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
+      goalTotal: (remainingSummerGoal * conversionFactor).toFixed(1),
+      goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
-  }, [summerPlannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+  }, [summerPlannedDays, selectedSummerGoal, preseasonTotalInput, preseasonCurrentFP, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
-  // Calculate total stats (preseason + summer combined)
+  // Calculate total stats
   const totalStats = useMemo(() => {
-    const preseasonCount = preseasonPlannedDays.length;
-    const summerCount = summerPlannedDays.length;
-    const totalPlannedDays = preseasonCount + summerCount;
-    
-    if (totalPlannedDays === 0) return null;
-
-    // Goal daily average from settings
-    const goalDailyFPRaw = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
-    const goalTotalRaw = goalDailyFPRaw * totalPlannedDays;
-
-    // Current FP+ from preseason
     const currentFP = preseasonCurrentFP || 0;
+    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
+    const onPace = preseasonStats ? preseasonStats.onPace : true;
     
-    // Past preseason days for pace calculation
-    const pastPreseasonDays = (plannedDays?.map(d => d.planned_date) || []).filter(dateStr => {
-      const date = new Date(dateStr);
-      const preseasonStart = new Date(PRESEASON_START);
-      const preseasonEnd = new Date(PRESEASON_END);
-      return date >= preseasonStart && date <= preseasonEnd && isBefore(date, today);
-    });
-    
-    const daysWorked = pastPreseasonDays.length || 1;
-    const currentDailyAvgRaw = currentFP / daysWorked;
-    const projectedTotalRaw = currentDailyAvgRaw * totalPlannedDays;
+    // Total goal is the selected tier
+    const goalTotal = selectedSummerGoal;
 
-    // Calculate projected earnings based on total goal
+    // Calculate projected earnings
     const result = calculateTakeHome({
-      fpGoal: goalTotalRaw,
+      fpGoal: goalTotal,
       avgPrmrPerFp,
       rentType,
       weeksWorking,
       upgradeFpGoal,
     });
 
-    // Earnings based on current pace
-    const paceResult = calculateTakeHome({
-      fpGoal: projectedTotalRaw,
-      avgPrmrPerFp,
-      rentType,
-      weeksWorking,
-      upgradeFpGoal,
-    });
-
-    // Convert to EFP if mode is enabled
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
     return {
-      totalPlannedDays,
-      goalTotal: (goalTotalRaw * conversionFactor).toFixed(1),
-      projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
+      goalTotal: (goalTotal * conversionFactor).toFixed(1),
       currentFP: (currentFP * conversionFactor).toFixed(1),
-      goalEarnings: result.takeHomePay,
-      paceEarnings: paceResult.takeHomePay,
+      onPace,
+      projectedEarnings: result.takeHomePay,
     };
-  }, [preseasonPlannedDays, summerPlannedDays, fpGoal, weeksWorking, preseasonCurrentFP, plannedDays, today, avgPrmrPerFp, rentType, upgradeFpGoal, isEfpMode]);
+  }, [selectedSummerGoal, preseasonCurrentFP, preseasonTotalInput, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+
+  // Handle preseason total input change
+  const handlePreseasonTotalChange = (value: string) => {
+    setPreseasonTotalInput(value);
+    const numValue = parseFloat(value) || 0;
+    if (preseasonStats && preseasonStats.totalDays > 0) {
+      setPreseasonDailyInput((numValue / preseasonStats.totalDays).toFixed(2));
+    }
+    onPreseasonGoalChange?.(numValue);
+  };
+
+  // Handle preseason daily input change
+  const handlePreseasonDailyChange = (value: string) => {
+    setPreseasonDailyInput(value);
+    const numValue = parseFloat(value) || 0;
+    if (preseasonStats && preseasonStats.totalDays > 0) {
+      const total = numValue * preseasonStats.totalDays;
+      setPreseasonTotalInput(total.toFixed(1));
+      onPreseasonGoalChange?.(total);
+    }
+  };
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
@@ -213,6 +241,8 @@ export const CalendarPlanningCard = ({
     const dateStr = format(date, 'yyyy-MM-dd');
     await togglePlannedDay(dateStr);
   };
+
+  const metricLabel = isEfpMode ? 'EFP' : 'FP+';
 
   const handleGoToToday = () => {
     setCurrentMonth(new Date());
@@ -322,111 +352,122 @@ export const CalendarPlanningCard = ({
           })}
         </div>
 
-        {/* Preseason Stats */}
-        {preseasonStats && (
-          <div className="pt-3 border-t border-border/50">
-            <h4 className="text-sm font-semibold mb-2">Preseason</h4>
-            <div className="space-y-2 p-3 rounded-lg bg-accent/30">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Goal Daily</p>
-                  <p className="text-sm font-semibold">{preseasonStats.goalDailyFP} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Current Avg</p>
-                  <p className="text-sm font-semibold">{preseasonStats.currentDailyAvg} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/30">
-                <div>
-                  <p className="text-xs text-muted-foreground">Goal Total</p>
-                  <p className="text-sm font-semibold">{preseasonStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">On Pace For</p>
-                  <p className="text-sm font-semibold">{preseasonStats.projectedTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-border/30">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-muted-foreground">Current Total</p>
-                  <p className="text-sm font-bold text-primary">{preseasonStats.currentFP} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-              </div>
+        {/* Preseason Goal Inputs */}
+        <div className="pt-3 border-t border-border/50">
+          <h4 className="text-sm font-semibold mb-2">Preseason Goal</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel}</label>
+              <Input
+                type="number"
+                value={preseasonTotalInput}
+                onChange={(e) => handlePreseasonTotalChange(e.target.value)}
+                placeholder="e.g. 10"
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Daily {metricLabel}</label>
+              <Input
+                type="number"
+                value={preseasonDailyInput}
+                onChange={(e) => handlePreseasonDailyChange(e.target.value)}
+                placeholder="auto"
+                className="h-9"
+              />
             </div>
           </div>
-        )}
+          {preseasonStats && (
+            <div className="mt-3 p-3 rounded-lg bg-accent/30 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Current</span>
+                <span className="text-sm font-bold text-primary">{preseasonStats.currentFP} {metricLabel}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Pace</span>
+                <span className={cn(
+                  "text-sm font-semibold flex items-center gap-1",
+                  preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                )}>
+                  {preseasonStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {preseasonStats.projectedTotal} {metricLabel}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Summer Stats */}
-        {summerStats && (
-          <div className="pt-3 border-t border-border/50">
-            <h4 className="text-sm font-semibold mb-2">Summer</h4>
-            <div className="space-y-2 p-3 rounded-lg bg-accent/30">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Planned Days</span>
+        {/* Summer Goal Tier Selection */}
+        <div className="pt-3 border-t border-border/50">
+          <h4 className="text-sm font-semibold mb-2">Summer Goal Tier</h4>
+          <div className="grid grid-cols-3 gap-2">
+            {(['must', 'will', 'could'] as const).map((tier) => {
+              const tierGoal = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
+              const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
+              return (
+                <Button
+                  key={tier}
+                  variant={selectedTier === tier ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedTier(tier)}
+                  className="flex flex-col h-auto py-2"
+                >
+                  <span className="text-xs">{tierLabel}</span>
+                  <span className="font-bold">{tierGoal}</span>
+                </Button>
+              );
+            })}
+          </div>
+          {summerStats && (
+            <div className="mt-3 p-3 rounded-lg bg-accent/30 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Days Planned</span>
                 <span className="text-sm font-semibold">{summerStats.plannedCount}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Goal Daily</span>
-                <span className="text-sm font-semibold">{summerStats.goalDailyFP} {isEfpMode ? 'EFP' : 'FP+'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Goal Total</span>
-                <span className="text-sm font-semibold">{summerStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-muted-foreground">Daily Goal</span>
+                <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Total Stats */}
+        {/* Total Summary */}
         {totalStats && (
           <div className="pt-3 border-t border-border/50">
-            <h4 className="text-sm font-semibold mb-2">Total</h4>
-            <div className="space-y-2 p-3 rounded-lg bg-primary/10">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Goal Total</p>
-                  <p className="text-sm font-semibold">{totalStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">On Pace For</p>
-                  <p className="text-sm font-semibold">{totalStats.projectedTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
-                </div>
+            <h4 className="text-sm font-semibold mb-2">Total Summary</h4>
+            <div className="p-3 rounded-lg bg-primary/10 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Goal Total</span>
+                <span className="text-lg font-bold">{totalStats.goalTotal} {metricLabel}</span>
               </div>
-              <div className="pt-2 border-t border-border/30">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-muted-foreground">Current {isEfpMode ? 'EFP' : 'FP+'}</p>
-                  <p className="text-sm font-bold text-primary">{totalStats.currentFP}</p>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Current</span>
+                <span className={cn(
+                  "text-sm font-semibold flex items-center gap-1",
+                  totalStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                )}>
+                  {totalStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {totalStats.currentFP} {metricLabel}
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/30">
-                <div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="h-3 w-3 text-green-500" />
-                    Goal Earnings
-                  </p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(totalStats.goalEarnings)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="h-3 w-3 text-muted-foreground" />
-                    Pace Earnings
-                  </p>
-                  <p className="text-lg font-bold text-muted-foreground">
-                    {formatCurrency(totalStats.paceEarnings)}
-                  </p>
-                </div>
+              <div className="pt-2 border-t border-border/30 flex justify-between items-center">
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                  Projected Earnings
+                </span>
+                <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(totalStats.projectedEarnings)}
+                </span>
               </div>
             </div>
           </div>
         )}
 
         {/* Empty state */}
-        {!preseasonStats && !summerStats && !totalStats && (
+        {!totalStats && (
           <p className="text-sm text-muted-foreground text-center py-3">
-            Set your summer dates above to auto-populate work days
+            Set your summer dates to see projections
           </p>
         )}
       </CardContent>
