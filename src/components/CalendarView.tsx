@@ -214,6 +214,20 @@ export const CalendarView = ({
       totals.closes += entry.closes || 0;
       totals.daysWorked += 1;
 
+      // Parse sales_log to get FP count and PRMR breakdown
+      const salesLog = entry.sales_log || [];
+      if (Array.isArray(salesLog)) {
+        salesLog.forEach((sale: any) => {
+          if (sale.type === 'fp') {
+            totals.fpCount += 1;
+            totals.fpPrmrTotal += sale.prmr || 0;
+          } else if (sale.type === 'upgrade') {
+            totals.upgradeCount += 1;
+            totals.upgradePrmrTotal += sale.prmr || 0;
+          }
+        });
+      }
+
       // Calculate total work time in minutes
       if (entry.work_start_time && entry.work_end_time) {
         const start = new Date(entry.work_start_time);
@@ -248,7 +262,11 @@ export const CalendarView = ({
     presentations: 0,
     closes: 0,
     daysWorked: 0,
-    totalWorkMinutes: 0
+    totalWorkMinutes: 0,
+    fpCount: 0,
+    fpPrmrTotal: 0,
+    upgradeCount: 0,
+    upgradePrmrTotal: 0
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
   // Calculate display values based on view mode
@@ -660,23 +678,23 @@ export const CalendarView = ({
               </div>
             </div>
 
-            {/* Upgrade Breakdown */}
-            {viewTotals.upgradePrmr > 0 && (
+            {/* FP+ Breakdown - Use sales_log data for accuracy */}
+            {(viewTotals.fpCount > 0 || viewTotals.upgradeCount > 0) && (
               <div className="pt-4 border-t border-border">
                 <div className="text-sm font-semibold text-foreground mb-3">FP+ Breakdown</div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="text-sm text-muted-foreground">FP</div>
                     <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {(viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)).toFixed(1)}
+                      {viewTotals.fpCount}
                     </div>
                     {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
                       <div className="text-xs text-muted-foreground">
                         Avg {dataViewMode === "weekly" 
                           ? viewTotals.daysWorked < 6
-                            ? (((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / viewTotals.daysWorked) * 6).toFixed(1)
-                            : ((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / 6).toFixed(1)
-                          : ((viewTotals.fpPlus - (viewTotals.upgradePrmr / 85)) / viewTotals.daysWorked).toFixed(1)
+                            ? ((viewTotals.fpCount / viewTotals.daysWorked) * 6).toFixed(1)
+                            : (viewTotals.fpCount / 6).toFixed(1)
+                          : (viewTotals.fpCount / viewTotals.daysWorked).toFixed(1)
                         } / day
                       </div>
                     )}
@@ -684,25 +702,35 @@ export const CalendarView = ({
                   <div className="space-y-1">
                     <div className="text-sm text-muted-foreground">Upgrade FP+</div>
                     <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {(viewTotals.upgradePrmr / 85).toFixed(1)}
+                      {(viewTotals.upgradePrmrTotal / 85).toFixed(1)}
                     </div>
                     {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
                       <div className="text-xs text-muted-foreground">
                         Avg {dataViewMode === "weekly" 
                           ? viewTotals.daysWorked < 6
-                            ? (((viewTotals.upgradePrmr / 85) / viewTotals.daysWorked) * 6).toFixed(1)
-                            : ((viewTotals.upgradePrmr / 85) / 6).toFixed(1)
-                          : ((viewTotals.upgradePrmr / 85) / viewTotals.daysWorked).toFixed(1)
+                            ? (((viewTotals.upgradePrmrTotal / 85) / viewTotals.daysWorked) * 6).toFixed(1)
+                            : ((viewTotals.upgradePrmrTotal / 85) / 6).toFixed(1)
+                          : ((viewTotals.upgradePrmrTotal / 85) / viewTotals.daysWorked).toFixed(1)
                         } / day
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">Avg PRMR per FP</div>
-                    <div className="text-lg font-bold text-primary">
-                      ${viewTotals.fpPlus > 0 ? ((viewTotals.prmr + viewTotals.upgradePrmr) / viewTotals.fpPlus).toFixed(0) : "0"}
+                  {viewTotals.fpCount > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">Avg PRMR per FP</div>
+                      <div className="text-lg font-bold text-primary">
+                        ${Math.round(viewTotals.fpPrmrTotal / viewTotals.fpCount)}
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {viewTotals.upgradeCount > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-sm text-muted-foreground">Avg PRMR per Upgrade</div>
+                      <div className="text-lg font-bold text-primary">
+                        ${Math.round(viewTotals.upgradePrmrTotal / viewTotals.upgradeCount)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
