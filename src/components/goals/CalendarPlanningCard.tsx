@@ -66,7 +66,7 @@ export const CalendarPlanningCard = ({
   const [isSaving, setIsSaving] = useState(false);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
-  const { totalFP: preseasonCurrentFP } = usePreseasonFP();
+  const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP } = usePreseasonFP();
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   
@@ -174,47 +174,44 @@ export const CalendarPlanningCard = ({
     
     if (totalPreseasonDays === 0) return null;
 
-    const currentFP = preseasonCurrentFP || 0;
-    // Convert input goal to FP+ if user is in EFP mode (input is in EFP)
+    // Use EFP if in EFP mode, otherwise use FP+
+    const currentProgress = isEfpMode ? preseasonCurrentEFP : preseasonCurrentFP;
+    
+    // Convert input goal to raw value
     const inputGoal = parseFloat(preseasonTotalInput) || 0;
-    // The goal input is always in the current mode (EFP if efpModeEnabled, FP+ otherwise)
-    // Store as FP+ internally for calculations
-    const goalTotalFp = isEfpMode ? inputGoal / (avgPrmrPerFp / 85) : inputGoal;
-    const goalDailyRawFp = totalPreseasonDays > 0 ? goalTotalFp / totalPreseasonDays : 0;
+    const goalTotal = inputGoal; // Goal is already in the correct mode unit
+    const goalDaily = totalPreseasonDays > 0 ? goalTotal / totalPreseasonDays : 0;
     
     const daysWorked = daysWorkedCount || 1;
-    const currentDailyAvgRawFp = currentFP / daysWorked;
-    const projectedTotalRawFp = currentDailyAvgRawFp * totalPreseasonDays;
+    const currentDailyAvg = currentProgress / daysWorked;
+    const projectedTotal = currentDailyAvg * totalPreseasonDays;
     
     // Calculate remaining goal (what's left after current progress)
-    const remainingGoalFp = Math.max(0, goalTotalFp - currentFP);
+    const remainingGoal = Math.max(0, goalTotal - currentProgress);
     const remainingDays = futurePlannedCount;
-    const neededDailyRawFp = remainingDays > 0 ? remainingGoalFp / remainingDays : 0;
-
-    // Convert to display values based on mode
-    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+    const neededDaily = remainingDays > 0 ? remainingGoal / remainingDays : 0;
     
-    const onPace = projectedTotalRawFp >= goalTotalFp;
-    const pacePercent = goalTotalFp > 0 ? (currentFP / goalTotalFp) * 100 : 0;
+    const onPace = projectedTotal >= goalTotal;
+    const pacePercent = goalTotal > 0 ? (currentProgress / goalTotal) * 100 : 0;
 
     return {
       futurePlannedCount,
       daysWorkedCount,
       totalDays: totalPreseasonDays,
       daysLeft: futurePlannedCount,
-      goalTotal: (goalTotalFp * conversionFactor).toFixed(1),
-      goalTotalRaw: goalTotalFp,
-      goalDaily: (goalDailyRawFp * conversionFactor).toFixed(2),
-      currentDailyAvg: (currentDailyAvgRawFp * conversionFactor).toFixed(2),
-      projectedTotal: (projectedTotalRawFp * conversionFactor).toFixed(1),
-      currentFP: (currentFP * conversionFactor).toFixed(1),
-      currentFPRaw: currentFP,
-      remainingGoal: (remainingGoalFp * conversionFactor).toFixed(1),
-      neededDaily: (neededDailyRawFp * conversionFactor).toFixed(2),
+      goalTotal: goalTotal.toFixed(1),
+      goalTotalRaw: goalTotal,
+      goalDaily: goalDaily.toFixed(2),
+      currentDailyAvg: currentDailyAvg.toFixed(2),
+      projectedTotal: projectedTotal.toFixed(1),
+      currentFP: currentProgress.toFixed(1),
+      currentFPRaw: currentProgress,
+      remainingGoal: remainingGoal.toFixed(1),
+      neededDaily: neededDaily.toFixed(2),
       onPace,
       pacePercent,
     };
-  }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonTotalInput, isEfpMode, avgPrmrPerFp]);
+  }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonCurrentEFP, preseasonTotalInput, isEfpMode]);
 
   // Calculate summer stats based on selected tier
   const summerStats = useMemo(() => {
@@ -224,14 +221,15 @@ export const CalendarPlanningCard = ({
     
     if (totalSummerDays === 0) return null;
 
-    // Convert preseason input goal to FP+ if in EFP mode
-    const inputGoal = parseFloat(preseasonTotalInput) || 0;
-    const preseasonGoalFp = isEfpMode ? inputGoal / (avgPrmrPerFp / 85) : inputGoal;
+    // Preseason goal is in the current mode already
+    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
     
-    // Remaining summer goal = Selected tier - preseason goal
-    const remainingSummerGoalFp = Math.max(0, selectedSummerGoal - preseasonGoalFp);
+    // Remaining summer goal = Selected tier (converted to current mode) - preseason goal
+    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+    const selectedGoalInMode = selectedSummerGoal * conversionFactor;
+    const remainingSummerGoal = Math.max(0, selectedGoalInMode - preseasonGoal);
     
-    const goalDailyRawFp = totalSummerDays > 0 ? remainingSummerGoalFp / totalSummerDays : 0;
+    const goalDaily = totalSummerDays > 0 ? remainingSummerGoal / totalSummerDays : 0;
 
     // Calculate projected earnings
     const result = calculateTakeHome({
@@ -242,46 +240,43 @@ export const CalendarPlanningCard = ({
       upgradeFpGoal,
     });
 
-    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
-
     return {
       futurePlannedCount,
       daysWorkedCount,
       totalDays: totalSummerDays,
       daysLeft: futurePlannedCount,
-      goalTotal: (remainingSummerGoalFp * conversionFactor).toFixed(1),
-      goalDaily: (goalDailyRawFp * conversionFactor).toFixed(2),
+      goalTotal: remainingSummerGoal.toFixed(1),
+      goalDaily: goalDaily.toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
   }, [summerPlannedDays, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
-    const currentFP = preseasonCurrentFP || 0;
-    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
+    // Use EFP if in EFP mode, otherwise use FP+
+    const currentProgress = isEfpMode ? preseasonCurrentEFP : preseasonCurrentFP;
     const onPace = preseasonStats ? preseasonStats.onPace : true;
     
-    // Total goal is the selected tier
-    const goalTotal = selectedSummerGoal;
+    // Total goal is the selected tier (convert to current mode)
+    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+    const goalTotal = selectedSummerGoal * conversionFactor;
 
     // Calculate projected earnings
     const result = calculateTakeHome({
-      fpGoal: goalTotal,
+      fpGoal: selectedSummerGoal,
       avgPrmrPerFp,
       rentType,
       weeksWorking,
       upgradeFpGoal,
     });
 
-    const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
-
     return {
-      goalTotal: (goalTotal * conversionFactor).toFixed(1),
-      currentFP: (currentFP * conversionFactor).toFixed(1),
+      goalTotal: goalTotal.toFixed(1),
+      currentFP: currentProgress.toFixed(1),
       onPace,
       projectedEarnings: result.takeHomePay,
     };
-  }, [selectedSummerGoal, preseasonCurrentFP, preseasonTotalInput, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+  }, [selectedSummerGoal, preseasonCurrentFP, preseasonCurrentEFP, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
 
   // Save preseason goal to database with debounce
   const savePreseasonGoal = (value: number) => {
@@ -473,11 +468,11 @@ export const CalendarPlanningCard = ({
             </CollapsibleTrigger>
             
             <CollapsibleContent className="mt-3 space-y-3">
-              {/* Days summary */}
+              {/* Days summary - simplified */}
               {preseasonStats && (
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{preseasonStats.daysWorkedCount} worked + {preseasonStats.daysLeft} planned = {preseasonStats.totalDays} total</span>
-                  <span>{preseasonStats.daysLeft} left</span>
+                  <span>{preseasonStats.totalDays} total days</span>
+                  <span>{preseasonStats.daysLeft} days left</span>
                 </div>
               )}
               <div className="flex justify-end">
@@ -598,11 +593,11 @@ export const CalendarPlanningCard = ({
             </CollapsibleTrigger>
             
             <CollapsibleContent className="mt-3 space-y-3">
-              {/* Days summary */}
+              {/* Days summary - simplified */}
               {summerStats && (
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{summerStats.daysWorkedCount} worked + {summerStats.daysLeft} planned = {summerStats.totalDays} total</span>
-                  <span>{summerStats.daysLeft} left</span>
+                  <span>{summerStats.totalDays} total days</span>
+                  <span>{summerStats.daysLeft} days left</span>
                 </div>
               )}
               
