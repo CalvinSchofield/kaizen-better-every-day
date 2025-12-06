@@ -3,9 +3,29 @@ import { Progress } from "@/components/ui/progress";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { Target, TrendingUp, CheckCircle2, Settings2 } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, isBefore, getDay, eachDayOfInterval } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRepData } from "@/hooks/useRepData";
+
+// Season boundaries
+const PRESEASON_START = '2025-09-28';
+const PRESEASON_END = '2026-04-11';
+const SUMMER_START = '2026-04-12';
+const SUMMER_END = '2026-09-27';
+
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getLocalToday = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
 
 interface GoalProgressCardProps {
   entries: any[];
@@ -16,10 +36,38 @@ interface GoalProgressCardProps {
 export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgressCardProps) => {
   const navigate = useNavigate();
   const { goals } = useRepGoals();
-  const { totalFP: preseasonFP, totalEFP: preseasonEFP, fundedFP, fundedEFP } = usePreseasonFP();
+  const { totalFP: preseasonFP, totalEFP: preseasonEFP } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { plannedDays } = usePlannedDays();
+  const { repData } = useRepData();
+  const today = getLocalToday();
 
-  // Calculate period totals
+  // Fetch user's personal summer dates
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-for-goal-card', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return null;
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+  });
+
+  const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
+  const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
+
+  // Determine if we're in preseason or summer
+  const isInPreseason = useMemo(() => {
+    const preseasonEndDate = parseLocalDate(PRESEASON_END);
+    return today <= preseasonEndDate;
+  }, [today]);
+
+  // Calculate period totals (week or month)
   const periodTotals = useMemo(() => {
     const weekStart = startOfWeek(currentDate);
     const weekEnd = endOfWeek(currentDate);
@@ -41,7 +89,52 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Get current cumulative totals (all finalized entries)
+  // Count planned days in period
+  const plannedDaysInPeriod = useMemo(() => {
+    if (!plannedDays) return 0;
+    
+    const periodStart = viewMode === "month" 
+      ? startOfMonth(currentDate) 
+      : startOfWeek(currentDate);
+    const periodEnd = viewMode === "month" 
+      ? endOfMonth(currentDate) 
+      : endOfWeek(currentDate);
+    
+    const periodStartStr = format(periodStart, 'yyyy-MM-dd');
+    const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
+    
+    return plannedDays.filter(d => 
+      d.planned_date >= periodStartStr && d.planned_date <= periodEndStr
+    ).length;
+  }, [plannedDays, currentDate, viewMode]);
+
+  // Calculate future planned days for preseason
+  const futurePreseasonPlannedDays = useMemo(() => {
+    if (!plannedDays) return 0;
+    const preseasonEnd = parseLocalDate(PRESEASON_END);
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const preseasonEndStr = format(preseasonEnd, 'yyyy-MM-dd');
+    
+    return plannedDays.filter(d => 
+      d.planned_date >= todayStr && d.planned_date <= preseasonEndStr
+    ).length;
+  }, [plannedDays, today]);
+
+  // Calculate future planned days for summer
+  const futureSummerPlannedDays = useMemo(() => {
+    if (!plannedDays) return 0;
+    const summerStart = parseLocalDate(personalSummerStart);
+    const summerEnd = parseLocalDate(personalSummerEnd);
+    const effectiveStart = today > summerStart ? today : summerStart;
+    const startStr = format(effectiveStart, 'yyyy-MM-dd');
+    const endStr = format(summerEnd, 'yyyy-MM-dd');
+    
+    return plannedDays.filter(d => 
+      d.planned_date >= startStr && d.planned_date <= endStr
+    ).length;
+  }, [plannedDays, today, personalSummerStart, personalSummerEnd]);
+
+  // Get current cumulative totals
   const cumulativeTotals = useMemo(() => {
     return entries.reduce((totals, entry) => {
       if (entry.is_finalized) {
@@ -52,7 +145,6 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: preseasonFP || 0, prmr: 0 });
   }, [entries, preseasonFP]);
 
-  // Add preseason EFP for EFP mode
   const cumulativeEFP = calculateEfp(cumulativeTotals.prmr) + (preseasonEFP || 0);
   const cumulativeFPPlus = cumulativeTotals.fpPlus;
 
@@ -60,22 +152,31 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     return null;
   }
 
-  // Determine which goals to show based on progress
+  const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
+  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
+
+  // Calculate period progress
+  const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
+  const currentProgress = efpModeEnabled ? cumulativeEFP : cumulativeFPPlus;
+
+  // Goal values based on season
+  const preseasonGoal = goals.preseason_fp_goal || 0;
+  const displayPreseasonGoal = efpModeEnabled ? preseasonGoal * conversionFactor : preseasonGoal;
+  
   const mustDoGoal = goals.must_do_fp_goal || 0;
   const willDoGoal = goals.will_do_fp_goal || 0;
   const couldDoGoal = goals.could_do_fp_goal || 0;
-
-  // Convert goals to EFP if needed
-  const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
   const displayMustDo = efpModeEnabled ? mustDoGoal * conversionFactor : mustDoGoal;
   const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
   const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
 
-  const currentProgress = efpModeEnabled ? cumulativeEFP : cumulativeFPPlus;
-  const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
-  const metricLabel = efpModeEnabled ? "EFP" : "FP+";
+  // Calculate daily average needed
+  const remainingPreseasonGoal = Math.max(0, displayPreseasonGoal - currentProgress);
+  const dailyAverageNeeded = futurePreseasonPlannedDays > 0 
+    ? remainingPreseasonGoal / futurePreseasonPlannedDays 
+    : 0;
 
-  // Determine current target (first incomplete goal)
+  // For summer, calculate based on current target tier
   const mustDoComplete = currentProgress >= displayMustDo;
   const willDoComplete = currentProgress >= displayWillDo;
   const couldDoComplete = currentProgress >= displayCouldDo;
@@ -93,79 +194,134 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     currentTargetLabel = "Could Do";
   }
 
-  const progressPercent = currentTarget > 0 ? Math.min((currentProgress / currentTarget) * 100, 100) : 0;
-  const remaining = Math.max(0, currentTarget - currentProgress);
+  const remainingSummerGoal = Math.max(0, currentTarget - currentProgress);
+  const summerDailyNeeded = futureSummerPlannedDays > 0 
+    ? remainingSummerGoal / futureSummerPlannedDays 
+    : 0;
+
+  // Calculate period goal based on daily average × planned days in period
+  const periodGoal = isInPreseason
+    ? dailyAverageNeeded * plannedDaysInPeriod
+    : summerDailyNeeded * plannedDaysInPeriod;
+
+  const periodProgressPercent = periodGoal > 0 
+    ? Math.min((periodProgress / periodGoal) * 100, 100) 
+    : 0;
+  const periodRemaining = Math.max(0, periodGoal - periodProgress);
+
+  // Overall progress (for end goal reminder)
+  const overallTarget = isInPreseason ? displayPreseasonGoal : currentTarget;
+  const overallRemaining = Math.max(0, overallTarget - currentProgress);
+  const overallProgressPercent = overallTarget > 0 
+    ? Math.min((currentProgress / overallTarget) * 100, 100) 
+    : 0;
+
+  const periodLabel = viewMode === "month" 
+    ? format(currentDate, 'MMMM') 
+    : `Week of ${format(startOfWeek(currentDate), 'MMM d')}`;
 
   return (
     <div className="rounded-lg bg-card border border-border p-4 space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Goal Progress</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {viewMode === "month" ? format(currentDate, 'MMMM') : "This Week"}: +{periodProgress.toFixed(1)} {metricLabel}
-          </span>
-          <button
-            onClick={() => navigate('/goals')}
-            className="text-muted-foreground hover:text-primary transition-colors"
-            aria-label="Adjust goals"
-          >
-            <Settings2 className="h-4 w-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/goals')}
+          className="text-muted-foreground hover:text-primary transition-colors"
+          aria-label="Adjust goals"
+        >
+          <Settings2 className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Current Target Progress */}
+      {/* Period Goal Progress (Primary Focus) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {couldDoComplete ? (
-              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                All goals achieved!
-              </span>
-            ) : (
-              <>Chasing <span className="font-semibold text-foreground">{currentTargetLabel}</span></>
+            {periodLabel} Goal
+            {plannedDaysInPeriod > 0 && (
+              <span className="text-xs ml-1">({plannedDaysInPeriod} days)</span>
             )}
           </span>
           <span className="font-semibold text-foreground">
-            {currentProgress.toFixed(1)} / {currentTarget.toFixed(1)} {metricLabel}
+            {periodProgress.toFixed(1)} / {periodGoal.toFixed(1)} {metricLabel}
           </span>
         </div>
-        <Progress value={progressPercent} className="h-2" />
-        {!couldDoComplete && (
+        <Progress value={periodProgressPercent} className="h-2.5" />
+        {periodRemaining > 0 ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <TrendingUp className="h-3 w-3" />
-            <span>{remaining.toFixed(1)} {metricLabel} to go</span>
+            <span>{periodRemaining.toFixed(1)} {metricLabel} to go this {viewMode}</span>
           </div>
-        )}
+        ) : periodGoal > 0 ? (
+          <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>{viewMode === "week" ? "Weekly" : "Monthly"} goal hit!</span>
+          </div>
+        ) : null}
       </div>
 
-      {/* Goal Tiers Mini Display */}
-      <div className="flex gap-3 pt-2 border-t border-border">
-        <div className={`flex-1 text-center p-2 rounded-md ${mustDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Must Do</div>
-          <div className={`text-sm font-bold ${mustDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-            {mustDoComplete && <CheckCircle2 className="h-3 w-3 inline mr-0.5" />}
-            {displayMustDo.toFixed(1)}
+      {/* End Goal Reminder (Compact) */}
+      <div className="pt-2 border-t border-border">
+        {isInPreseason ? (
+          // Preseason: show preseason goal only
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Preseason Goal
+            </span>
+            <span className="font-medium text-foreground">
+              {currentProgress.toFixed(1)} / {displayPreseasonGoal.toFixed(1)} {metricLabel}
+              <span className="text-muted-foreground ml-1">
+                ({overallRemaining.toFixed(1)} to go)
+              </span>
+            </span>
           </div>
-        </div>
-        <div className={`flex-1 text-center p-2 rounded-md ${willDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Will Do</div>
-          <div className={`text-sm font-bold ${willDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-            {willDoComplete && <CheckCircle2 className="h-3 w-3 inline mr-0.5" />}
-            {displayWillDo.toFixed(1)}
+        ) : (
+          // Summer: show current target tier with mini progress
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {couldDoComplete ? (
+                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-3 w-3" />
+                    All goals achieved!
+                  </span>
+                ) : (
+                  <>Chasing <span className="font-semibold text-foreground">{currentTargetLabel}</span></>
+                )}
+              </span>
+              <span className="font-medium text-foreground">
+                {currentProgress.toFixed(1)} / {currentTarget.toFixed(1)} {metricLabel}
+              </span>
+            </div>
+            <Progress value={overallProgressPercent} className="h-1.5" />
+            
+            {/* Summer Goal Tiers Mini Display */}
+            <div className="flex gap-2 pt-1">
+              <div className={`flex-1 text-center py-1 px-2 rounded ${mustDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
+                <div className="text-[9px] text-muted-foreground uppercase">Must</div>
+                <div className={`text-xs font-bold ${mustDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                  {displayMustDo.toFixed(0)}
+                </div>
+              </div>
+              <div className={`flex-1 text-center py-1 px-2 rounded ${willDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
+                <div className="text-[9px] text-muted-foreground uppercase">Will</div>
+                <div className={`text-xs font-bold ${willDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                  {displayWillDo.toFixed(0)}
+                </div>
+              </div>
+              <div className={`flex-1 text-center py-1 px-2 rounded ${couldDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
+                <div className="text-[9px] text-muted-foreground uppercase">Could</div>
+                <div className={`text-xs font-bold ${couldDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                  {displayCouldDo.toFixed(0)}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className={`flex-1 text-center p-2 rounded-md ${couldDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Could Do</div>
-          <div className={`text-sm font-bold ${couldDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-            {couldDoComplete && <CheckCircle2 className="h-3 w-3 inline mr-0.5" />}
-            {displayCouldDo.toFixed(1)}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
