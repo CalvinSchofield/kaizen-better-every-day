@@ -23,6 +23,7 @@ import { ActivityTrendChart } from '@/components/insights/ActivityTrendChart';
 import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
 import { FPCumulativeChart } from '@/components/FPCumulativeChart';
 import { AICoachCard } from '@/components/insights/AICoachCard';
+import { CanceledStatsCard } from '@/components/goals/CanceledStatsCard';
 
 type DatePreset = 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
 
@@ -345,6 +346,9 @@ export default function Insights() {
                 </div>
               )}
             </Card>
+
+            {/* Cancelled Stats Card */}
+            <CanceledStatsCard />
 
             {/* Progress Over Time Chart */}
             <FPCumulativeChart />
