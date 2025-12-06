@@ -79,6 +79,7 @@ export const SaveEntrySheet = ({
   const [closes, setCloses] = useState("");
   const [fpPlus, setFpPlus] = useState("");
   const [prmr, setPrmr] = useState("");
+  const [upgradePrmrInput, setUpgradePrmrInput] = useState(""); // New explicit upgrade PRMR field
   const [newAccounts, setNewAccounts] = useState(0);
   const [customCounters, setCustomCounters] = useState<Record<string, string>>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -96,6 +97,8 @@ export const SaveEntrySheet = ({
   const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showSaleDetail, setShowSaleDetail] = useState(false);
+  const [showSalesBreakdownPrompt, setShowSalesBreakdownPrompt] = useState(false);
+  const [manualSalePrmrs, setManualSalePrmrs] = useState<number[]>([]); // PRMR values for each manual FP
   const isSavingRef = useRef(false);
   
   // Sale update hook
@@ -253,12 +256,21 @@ export const SaveEntrySheet = ({
   // Build results summary text
   const resultsSummary = useMemo(() => {
     const parts: string[] = [];
-    const fp = parseFloat(fpPlus) || 0;
+    const explicitUpgrade = parseFloat(upgradePrmrInput) || 0;
+    
+    // Calculate FP+ including upgrades when manually entered
+    let displayFpPlus: number;
+    if (explicitUpgrade > 0 && (!salesLog || salesLog.length === 0)) {
+      displayFpPlus = newAccounts + (explicitUpgrade / 85);
+    } else {
+      displayFpPlus = parseFloat(fpPlus) || 0;
+    }
+    
     const prmrVal = parseFloat(prmr) || 0;
-    if (fp > 0) parts.push(`${fp} FP+`);
+    if (displayFpPlus > 0) parts.push(`${displayFpPlus.toFixed(1)} FP+`);
     if (prmrVal > 0) parts.push(`$${Math.round(prmrVal)}`);
     return parts.join(' · ') || 'No results';
-  }, [fpPlus, prmr]);
+  }, [fpPlus, prmr, upgradePrmrInput, newAccounts, salesLog]);
 
   useEffect(() => {
     // Only populate form when sheet first opens, not on every entry change
@@ -291,6 +303,7 @@ export const SaveEntrySheet = ({
           } else {
             setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
             setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
+            setUpgradePrmrInput(entry.upgrade_prmr && entry.upgrade_prmr > 0 ? entry.upgrade_prmr.toString() : "");
             
             // Calculate newAccounts from saved data to preserve original split
             const fpValue = entry.fp_plus || 0;
@@ -353,10 +366,13 @@ export const SaveEntrySheet = ({
           setCloses("");
           setFpPlus("");
           setPrmr("");
+          setUpgradePrmrInput("");
           setNewAccounts(0);
           setCustomCounters({});
           setStartTime("");
           setEndTime("");
+          setManualSalePrmrs([]);
+          setShowSalesBreakdownPrompt(false);
           setOpenCard('activity');
         }
         
@@ -382,6 +398,9 @@ export const SaveEntrySheet = ({
       setAcknowledgedEarlyEnd(false);
       setShowInstallStep(false);
       setPendingSalesWithInstallTracking(null);
+      setShowSalesBreakdownPrompt(false);
+      setManualSalePrmrs([]);
+      setUpgradePrmrInput("");
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
@@ -502,10 +521,28 @@ export const SaveEntrySheet = ({
       customCounterData[id] = parseInt(customCounters[id]) || 0;
     });
     
-    // Calculate upgrade metrics
+    // Calculate upgrade PRMR - use explicit input if available, otherwise fall back to derived calculation
+    const explicitUpgradePrmr = parseFloat(upgradePrmrInput) || 0;
     const fpValue = parseFloat(fpPlus) || 0;
-    const upgradeFP = fpValue - newAccounts;
-    const upgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
+    const totalPrmrValue = parseFloat(prmr) || 0;
+    
+    // If user entered upgrade PRMR explicitly, use that
+    // Otherwise, calculate from FP+ - newAccounts (legacy behavior)
+    let finalUpgradePrmr: number | null = null;
+    if (explicitUpgradePrmr > 0) {
+      finalUpgradePrmr = explicitUpgradePrmr;
+    } else if (!salesLog || salesLog.length === 0) {
+      // Only calculate from newAccounts if no explicit upgrade and no sales log
+      const upgradeFP = fpValue - newAccounts;
+      finalUpgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
+    }
+    
+    // Recalculate FP+ to include upgrade if explicit upgrade PRMR was entered
+    let finalFpPlus = fpValue;
+    if (explicitUpgradePrmr > 0 && (!salesLog || salesLog.length === 0)) {
+      // FP+ = FP count + (upgrade_prmr / 85)
+      finalFpPlus = newAccounts + (explicitUpgradePrmr / 85);
+    }
     
     // Wait for save to complete before closing
     await onSave({
@@ -515,9 +552,9 @@ export const SaveEntrySheet = ({
       transitions: parseInt(transitions) || 0,
       presentations: parseInt(presentations) || 0,
       closes: parseInt(closes) || 0,
-      fp_plus: fpValue,
-      prmr: parseFloat(prmr) || 0,
-      upgrade_prmr: upgradePrmr,
+      fp_plus: finalFpPlus,
+      prmr: totalPrmrValue,
+      upgrade_prmr: finalUpgradePrmr,
       saveDate,
       work_start_time: workStartTime,
       work_end_time: workEndTime,
@@ -901,17 +938,24 @@ export const SaveEntrySheet = ({
                           tabIndex={salesLog && salesLog.length > 0 ? -1 : 0}
                         />
                         {parseFloat(fpPlus) > 0 && !salesLog?.length && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const maxFP = Math.floor(parseFloat(fpPlus));
-                              // Cycle: decrement until 0, then loop back to max
-                              setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-muted/50 border border-border text-sm font-medium transition-all hover:bg-muted active:scale-95 animate-in fade-in slide-in-from-right-2 duration-200"
-                          >
-                            <span>{newAccounts} FP</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Decrement, or wrap to max
+                                const maxFP = Math.floor(parseFloat(fpPlus) || 0);
+                                setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-sm font-medium transition-all hover:bg-emerald-500/20 active:scale-95"
+                            >
+                              <span>{newAccounts} New</span>
+                            </button>
+                            {parseFloat(upgradePrmrInput) > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                + upgrade
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       {showHelp && openHelp === 'fp' && !salesLog?.length && (
@@ -931,17 +975,33 @@ export const SaveEntrySheet = ({
                           </Button>
                         </div>
                       )}
-                      {/* Upgrade indicator */}
+                      {/* Smart detection prompt - show when FP entered without PRMR details */}
                       {(() => {
-                        const fpValue = parseFloat(fpPlus) || 0;
-                        const upgradeFP = fpValue - newAccounts;
-                        const upgradePrmr = upgradeFP > 0 ? Math.round(upgradeFP * 85) : 0;
+                        const fpCount = newAccounts;
+                        const prmrValue = parseFloat(prmr) || 0;
+                        const upgradePrmrValue = parseFloat(upgradePrmrInput) || 0;
+                        const noSalesLog = !salesLog || salesLog.length === 0;
                         
-                        if (upgradeFP > 0) {
+                        // Show prompt if: FP count > 0, no sales log, and either no PRMR or PRMR doesn't match expected range
+                        if (noSalesLog && fpCount > 0 && prmrValue === 0) {
                           return (
-                            <p className="text-xs text-muted-foreground mt-1.5">
-                              📊 Includes {upgradeFP.toFixed(1)} upgrade FP+ (${upgradePrmr})
-                            </p>
+                            <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                              <p className="text-sm font-medium text-foreground mb-2">
+                                💡 Add PRMR for your {fpCount} sale{fpCount > 1 ? 's' : ''}
+                              </p>
+                              <p className="text-xs text-muted-foreground mb-2">
+                                Enter total PRMR below, or check Curator for accurate values.
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => window.open('https://curator.vivint.com/dashboard/source-weekly-pay', '_blank')}
+                              >
+                                Open Curator
+                              </Button>
+                            </div>
                           );
                         }
                         return null;
@@ -1017,6 +1077,45 @@ export const SaveEntrySheet = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Upgrade PRMR Input - Only show when no sales log */}
+                    {(!salesLog || salesLog.length === 0) && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="upgrade-prmr" className="text-sm">Upgrade PRMR</Label>
+                          <span className="text-xs text-muted-foreground">(optional)</span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            $
+                          </span>
+                          <Input
+                            id="upgrade-prmr"
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            placeholder="e.g., 40"
+                            value={upgradePrmrInput}
+                            onChange={(e) => setUpgradePrmrInput(e.target.value)}
+                            className="pl-7"
+                            enterKeyHint="done"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Enter upgrade revenue separately (avg ~$40). This adds to your FP+ total.
+                        </p>
+                        {/* Show calculated FP+ when upgrade is entered */}
+                        {parseFloat(upgradePrmrInput) > 0 && newAccounts > 0 && (
+                          <div className="flex items-center gap-2 px-2 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                            <Info className="h-3.5 w-3.5 text-blue-500" />
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              Total FP+ = {newAccounts} FP + {(parseFloat(upgradePrmrInput) / 85).toFixed(2)} upgrade = <span className="font-semibold">{(newAccounts + parseFloat(upgradePrmrInput) / 85).toFixed(2)}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
