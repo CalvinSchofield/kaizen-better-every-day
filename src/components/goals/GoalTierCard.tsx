@@ -122,24 +122,38 @@ export const GoalTierCard = ({
 
         {isCurrentTarget && (
           <div className="space-y-2">
-            {/* Dual progress bars when there are unfunded sales */}
+            {/* Stacked progress bar when there are unfunded sales */}
             {showDualProgress ? (
-              <div className="space-y-1.5">
-                {/* Funded progress (for income) */}
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-green-600 font-medium">Funded</span>
-                    <span className="text-muted-foreground">{fundedProgress?.toFixed(1)} {metricLabel}</span>
-                  </div>
-                  <Progress value={fundedProgressPercent || 0} className="h-1.5 [&>div]:bg-green-500" />
+              <div className="space-y-1">
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  {/* Total progress (unfunded portion) - muted color */}
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-primary/30 transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                  {/* Funded progress - solid green on top */}
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-green-500 transition-all"
+                    style={{ width: `${fundedProgressPercent || 0}%` }}
+                  />
                 </div>
-                {/* Total progress (for goals) */}
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Total (incl. unfunded)</span>
-                    <span className="text-muted-foreground">{currentProgress.toFixed(1)} {metricLabel}</span>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      {fundedProgress?.toFixed(1)} funded
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary/30" />
+                      {(currentProgress - (fundedProgress || 0)).toFixed(1)} unfunded
+                    </span>
                   </div>
-                  <Progress value={progress} className="h-1.5 [&>div]:bg-primary/50" />
+                  {remaining > 0 && (
+                    <span className="flex items-center gap-1">
+                      <ArrowRight className="h-3 w-3" />
+                      {remaining.toFixed(1)} to go
+                    </span>
+                  )}
                 </div>
               </div>
             ) : (
@@ -157,13 +171,6 @@ export const GoalTierCard = ({
                   )}
                 </div>
               </>
-            )}
-            {/* Remaining indicator for dual progress */}
-            {showDualProgress && remaining > 0 && (
-              <div className="flex items-center justify-end text-xs text-muted-foreground pt-1">
-                <ArrowRight className="h-3 w-3 mr-1" />
-                {remaining.toFixed(1)} to go
-              </div>
             )}
           </div>
         )}
