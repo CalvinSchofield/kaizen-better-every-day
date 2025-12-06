@@ -228,36 +228,41 @@ export const CalendarPlanningCard = ({
             <Calendar className="h-4 w-4 text-primary" />
             Calendar Planning
           </CardTitle>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <button 
-              onClick={handleGoToToday}
-              className={cn(
-                "text-sm font-medium min-w-[100px] text-center transition-colors",
-                !isViewingToday && "text-primary underline underline-offset-2 cursor-pointer"
-              )}
-            >
-              {format(currentMonth, 'MMMM yyyy')}
-            </button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Period Navigation - matches CalendarView style */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h2 className="text-base font-semibold">
+            {format(currentMonth, 'MMMM yyyy')}
+          </h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <Button 
+          variant={isViewingToday ? "ghost" : "default"} 
+          size="sm" 
+          onClick={handleGoToToday}
+          className={cn("w-full", isViewingToday && "text-xs")}
+        >
+          Today
+        </Button>
+
         {/* Info text */}
         <p className="text-xs text-muted-foreground">
           Auto-synced from blitzes & summer dates. Tap to adjust.
