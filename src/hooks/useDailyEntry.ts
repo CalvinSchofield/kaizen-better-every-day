@@ -40,6 +40,11 @@ export interface Sale {
   type: 'fp' | 'upgrade';
   prmr: number;
   timestamp: string;
+  // Install tracking fields (defaults applied on save)
+  installed_same_day?: boolean;        // Default: true
+  scheduled_install_date?: string;     // YYYY-MM-DD (only if scheduled out)
+  install_status?: 'installed' | 'pending' | 'cancelled';  // Default: 'installed'
+  install_confirmed_at?: string;       // When confirmed (for pending → installed)
 }
 
 export interface DailyEntry {

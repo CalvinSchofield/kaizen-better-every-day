@@ -12,6 +12,7 @@ import { KnockingModeWeatherCard } from "@/components/KnockingModeWeatherCard";
 import { LeaderboardCTA } from "@/components/LeaderboardCTA";
 import { SaveDayAlertCard } from "@/components/SaveDayAlertCard";
 import { AdminDataReviewCard } from "@/components/AdminDataReviewCard";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { useState, useMemo } from "react";
@@ -177,6 +178,9 @@ export const KnockingModeHome = ({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
+        {/* Pending Install Alert - shows after 7 PM if pending installs */}
+        <PendingInstallAlertCard />
+        
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
         {!hasStartedWorkToday && (
           <>

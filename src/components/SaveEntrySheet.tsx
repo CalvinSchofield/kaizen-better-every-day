@@ -22,6 +22,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { Sale } from "@/hooks/useDailyEntry";
+import { ScheduledInstallStep } from "@/components/ScheduledInstallStep";
 
 interface SaveEntrySheetProps {
   open: boolean;
@@ -89,6 +90,8 @@ export const SaveEntrySheet = ({
   const [acknowledgedEarlyEnd, setAcknowledgedEarlyEnd] = useState(false);
   const [startTimeWarning, setStartTimeWarning] = useState<string | null>(null);
   const [endTimeWarning, setEndTimeWarning] = useState<string | null>(null);
+  const [showInstallStep, setShowInstallStep] = useState(false);
+  const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
   const isSavingRef = useRef(false);
 
   // Calculate timestamp bounds from counter_timestamps
@@ -370,6 +373,8 @@ export const SaveEntrySheet = ({
       setStartTimeWarning(null);
       setEndTimeWarning(null);
       setAcknowledgedEarlyEnd(false);
+      setShowInstallStep(false);
+      setPendingSalesWithInstallTracking(null);
     }
   }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
 
@@ -425,10 +430,34 @@ export const SaveEntrySheet = ({
       return;
     }
     
+    // If there are sales logged, show install confirmation step
+    if (salesLog && salesLog.length > 0) {
+      // Check if any sales don't have install tracking yet (new sales being saved)
+      const hasUnmarkedSales = salesLog.some(s => s.install_status === undefined);
+      if (hasUnmarkedSales) {
+        setShowInstallStep(true);
+        return;
+      }
+    }
+    
     proceedWithSave();
   };
 
+  // Handle install step confirmation
+  const handleInstallConfirm = (updatedSales: Sale[]) => {
+    setPendingSalesWithInstallTracking(updatedSales);
+    setShowInstallStep(false);
+    // Continue with save using updated sales
+    proceedWithSaveWithSales(updatedSales);
+  };
+
   const proceedWithSave = async () => {
+    // If we have pending sales with install tracking, use those
+    const salesToUse = pendingSalesWithInstallTracking || salesLog;
+    await proceedWithSaveWithSales(salesToUse);
+  };
+
+  const proceedWithSaveWithSales = async (salesToSave: Sale[] | undefined) => {
     // Set flag to prevent useEffect from repopulating form during save/close
     isSavingRef.current = true;
     
@@ -1098,6 +1127,14 @@ export const SaveEntrySheet = ({
         </div>
       </DrawerContent>
     </Drawer>
+
+    {/* Scheduled Install Step */}
+    <ScheduledInstallStep
+      open={showInstallStep}
+      onOpenChange={setShowInstallStep}
+      salesLog={salesLog || []}
+      onConfirm={handleInstallConfirm}
+    />
     </>
   );
 };

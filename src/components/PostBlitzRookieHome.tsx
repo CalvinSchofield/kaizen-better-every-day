@@ -15,6 +15,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -693,6 +694,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       </div>
 
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
+        {/* Pending Install Alert - shows after 7 PM if pending installs */}
+        <PendingInstallAlertCard />
+
         {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
         {(() => {
           const now = new Date();
