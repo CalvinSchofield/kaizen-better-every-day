@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, parseISO } from 'date-fns';
-import { GitCompare } from "lucide-react";
+import { GitCompare, TrendingUp, TrendingDown
+
+ } from "lucide-react";
 
 interface ActivityTrendChartProps {
   dailyTrend: Array<{
@@ -25,6 +27,8 @@ type MetricKey = 'doors' | 'pitches' | 'transitions' | 'presentations' | 'fp' | 
 
 export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: ActivityTrendChartProps) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('doors');
+  const [showTrend, setShowTrend] = useState(false);
+  const [trendPeriod, setTrendPeriod] = useState<6 | 12>(6);
   const [compareMode, setCompareMode] = useState(false);
   const [compareMetric, setCompareMetric] = useState<MetricKey>('fp');
 
@@ -32,6 +36,8 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   const primaryColor = 'hsl(var(--primary))';
   // Comparison metric color (distinct teal/blue)
   const compareColor = '#0ea5e9'; // Sky blue for clear visual distinction
+  // Trend line color
+  const trendColor = 'hsl(var(--chart-2))';
 
   const metrics = [
     { key: 'doors' as MetricKey, label: 'Doors' },
@@ -66,20 +72,60 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     }
   };
 
-  const chartData = dailyTrend.map(day => {
+  // Calculate moving average for a specific index
+  const calculateMovingAvg = (data: number[], index: number, period: number): number | null => {
+    if (index < period - 1) return null; // Not enough data points yet
+    
+    const slice = data.slice(index - period + 1, index + 1);
+    const sum = slice.reduce((acc, val) => acc + val, 0);
+    return sum / period;
+  };
+
+  const chartData = useMemo(() => {
+    const values = dailyTrend.map(day => getMetricValue(day, selectedMetric));
+    
+    return dailyTrend.map((day, index) => {
+      const displayValue = getMetricValue(day, selectedMetric);
+      const movingAvg = showTrend ? calculateMovingAvg(values, index, trendPeriod) : null;
+      
+      return {
+        ...day,
+        displayValue,
+        movingAvg,
+        compareValue: compareMode ? getMetricValue(day, compareMetric) : undefined,
+        displayDate: format(parseISO(day.date), 'MMM d'),
+      };
+    });
+  }, [dailyTrend, selectedMetric, compareMode, compareMetric, showTrend, trendPeriod, efpModeEnabled]);
+
+  // Calculate trend direction (comparing latest value to moving avg)
+  const trendDirection = useMemo(() => {
+    if (!showTrend || chartData.length < trendPeriod) return null;
+    
+    const latest = chartData[chartData.length - 1];
+    if (!latest.movingAvg) return null;
+    
+    const diff = latest.displayValue - latest.movingAvg;
+    const percentDiff = latest.movingAvg > 0 ? (diff / latest.movingAvg) * 100 : 0;
+    
     return {
-      ...day,
-      displayValue: getMetricValue(day, selectedMetric),
-      compareValue: compareMode ? getMetricValue(day, compareMetric) : undefined,
-      displayDate: format(parseISO(day.date), 'MMM d'),
+      diff,
+      percentDiff,
+      isPositive: diff >= 0,
     };
-  });
+  }, [chartData, showTrend, trendPeriod]);
 
   const chartConfig = {
     displayValue: {
       label: currentMetricConfig.label,
       color: primaryColor,
     },
+    ...(showTrend && {
+      movingAvg: {
+        label: `${trendPeriod}d Avg`,
+        color: trendColor,
+      },
+    }),
     ...(compareMode && {
       compareValue: {
         label: currentCompareMetricConfig.label,
@@ -112,19 +158,78 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        {/* Header with Compare Toggle */}
+        {/* Header with Trend and Compare Toggles */}
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm text-foreground">Activity Trends</h3>
-          <Button
-            variant={compareMode ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setCompareMode(!compareMode)}
-            className="gap-1.5"
-          >
-            <GitCompare className="w-3.5 h-3.5" />
-            Compare
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showTrend ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setShowTrend(!showTrend);
+                if (!showTrend) setCompareMode(false); // Turn off compare when enabling trend
+              }}
+              className="gap-1.5"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Trend
+            </Button>
+            <Button
+              variant={compareMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setCompareMode(!compareMode);
+                if (!compareMode) setShowTrend(false); // Turn off trend when enabling compare
+              }}
+              className="gap-1.5"
+            >
+              <GitCompare className="w-3.5 h-3.5" />
+              Compare
+            </Button>
+          </div>
         </div>
+
+        {/* Trend Period Toggle (when trend enabled) */}
+        {showTrend && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Moving Average:</span>
+            <div className="flex items-center gap-1 border border-border rounded-lg p-1">
+              <Button
+                variant={trendPeriod === 6 ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTrendPeriod(6)}
+                className="text-xs h-6 px-2"
+              >
+                6 day
+              </Button>
+              <Button
+                variant={trendPeriod === 12 ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTrendPeriod(12)}
+                className="text-xs h-6 px-2"
+              >
+                12 day
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Trend Direction Indicator */}
+        {showTrend && trendDirection && (
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/30">
+            {trendDirection.isPositive ? (
+              <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+            ) : (
+              <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+            )}
+            <span className="text-sm">
+              <span className={trendDirection.isPositive ? "text-green-600 dark:text-green-400 font-medium" : "text-red-600 dark:text-red-400 font-medium"}>
+                {trendDirection.isPositive ? '+' : ''}{formatValue(trendDirection.diff, selectedMetric)}
+              </span>
+              <span className="text-muted-foreground"> {trendDirection.isPositive ? 'above' : 'below'} your {trendPeriod}-day average</span>
+            </span>
+          </div>
+        )}
 
         {/* Metric Selectors - Horizontal with colored indicators */}
         <div className="flex gap-4 overflow-x-auto pb-1">
@@ -198,6 +303,9 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
               <ChartTooltip
                 content={<ChartTooltipContent />}
                 formatter={(value: any, name: string) => {
+                  if (name === 'movingAvg') {
+                    return [formatValue(Number(value), selectedMetric), `${trendPeriod}d Avg`];
+                  }
                   const metric = name === 'displayValue' ? selectedMetric : compareMetric;
                   const label = name === 'displayValue' ? currentMetricConfig.label : currentCompareMetricConfig.label;
                   return [
@@ -206,6 +314,22 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
                   ];
                 }}
               />
+              {/* Moving Average Line (behind primary) */}
+              {showTrend && (
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="movingAvg"
+                  name="movingAvg"
+                  stroke={trendColor}
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  connectNulls={false}
+                />
+              )}
+              {/* Primary Line */}
               <Line
                 yAxisId="left"
                 type="monotone"
@@ -242,6 +366,15 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
             />
             <span className="font-medium">{currentMetricConfig.label}</span>
           </div>
+          {showTrend && (
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-5 h-0 border-t-2 border-dashed" 
+                style={{ borderColor: trendColor }}
+              />
+              <span className="font-medium" style={{ color: trendColor }}>{trendPeriod}d Avg</span>
+            </div>
+          )}
           {compareMode && (
             <div className="flex items-center gap-2">
               <div 
