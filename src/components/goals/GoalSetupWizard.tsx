@@ -48,6 +48,7 @@ interface GoalSetupWizardProps {
     couldDoFpGoal: number;
     summerStart: string;
     summerEnd: string;
+    preseasonFpGoal: number;
   }) => void;
   onCancel?: () => void;
 }
@@ -55,6 +56,9 @@ interface GoalSetupWizardProps {
 export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
   const totalSteps = isRookie ? 4 : 3;
+
+  // Check if it's currently summer (after April 12, 2026)
+  const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
 
   // Form state - no prefilled values for goals
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
@@ -66,6 +70,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   const [mustDoFpGoalInput, setMustDoFpGoalInput] = useState<string>('');
   const [willDoFpGoal, setWillDoFpGoal] = useState<string>('');
   const [couldDoFpGoal, setCouldDoFpGoal] = useState<string>('');
+  const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('');
 
   // Date picker states
   const [startDateOpen, setStartDateOpen] = useState(false);
@@ -144,6 +149,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
       couldDoFpGoal: Number(couldDoFpGoal) || 0,
       summerStart: summerStart ? format(summerStart, 'yyyy-MM-dd') : '2026-04-12',
       summerEnd: summerEnd ? format(summerEnd, 'yyyy-MM-dd') : '2026-09-27',
+      preseasonFpGoal: Number(preseasonFpGoal) || 0,
     });
   };
 
@@ -392,9 +398,31 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         <div className="text-center mb-6">
           <Target className="h-12 w-12 mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">
-            Set your summer FP+ goals
+            Set your FP+ goals
           </p>
         </div>
+
+        {/* Preseason FP+ Goal - only show if not summer yet */}
+        {!isCurrentlySummer && (
+          <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-4 w-4 text-blue-500" />
+              <span className="font-semibold text-blue-500">Preseason FP+ Goal</span>
+              <span className="text-xs text-muted-foreground">(Optional)</span>
+            </div>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={preseasonFpGoal}
+              onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
+              placeholder="e.g., 5"
+              className="bg-background/50"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              FP+ you want to earn before summer starts
+            </p>
+          </div>
+        )}
 
         {isRookie && mustDoFpGoal > 0 && (
           <div className="rounded-xl bg-amber-500/10 p-4 border border-amber-500/20">

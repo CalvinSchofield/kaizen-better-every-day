@@ -58,20 +58,20 @@ export const GoalProgressLadder = ({
 
   return (
     <div className="space-y-3">
-      {/* Could Do - Top tier */}
-      {couldDoGoal > 0 && (
+      {/* Must Do - First tier (minimum) */}
+      {showMustDo && (
         <GoalTierCard
-          tier="couldDo"
-          fpGoal={goals.could_do_fp_goal}
-          displayGoal={couldDoGoal}
-          isCurrentTarget={currentTarget === 'couldDo'}
-          isComplete={couldDoComplete}
-          onClick={() => onTierClick?.('couldDo')}
+          tier="mustDo"
+          fpGoal={goals.must_do_fp_goal}
+          displayGoal={mustDoGoal}
+          isCurrentTarget={currentTarget === 'mustDo'}
+          isComplete={mustDoComplete}
+          onClick={() => onTierClick?.('mustDo')}
           {...sharedProps}
         />
       )}
 
-      {/* Will Do - Middle tier */}
+      {/* Will Do - Second tier (realistic) */}
       {willDoGoal > 0 && (
         <GoalTierCard
           tier="willDo"
@@ -84,15 +84,15 @@ export const GoalProgressLadder = ({
         />
       )}
 
-      {/* Must Do - Show for everyone until completed */}
-      {showMustDo && (
+      {/* Could Do - Top tier (stretch) */}
+      {couldDoGoal > 0 && (
         <GoalTierCard
-          tier="mustDo"
-          fpGoal={goals.must_do_fp_goal}
-          displayGoal={mustDoGoal}
-          isCurrentTarget={currentTarget === 'mustDo'}
-          isComplete={mustDoComplete}
-          onClick={() => onTierClick?.('mustDo')}
+          tier="couldDo"
+          fpGoal={goals.could_do_fp_goal}
+          displayGoal={couldDoGoal}
+          isCurrentTarget={currentTarget === 'couldDo'}
+          isComplete={couldDoComplete}
+          onClick={() => onTierClick?.('couldDo')}
           {...sharedProps}
         />
       )}
