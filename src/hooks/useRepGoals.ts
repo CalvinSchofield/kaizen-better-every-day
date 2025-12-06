@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "./useRepData";
 
+export interface TrainingWeekHistory {
+  week_start: string; // ISO date string (Sunday)
+  minutes: number;
+}
+
 export interface RepGoals {
   id: string;
   user_id: string;
@@ -28,12 +33,25 @@ export interface RepGoals {
   role_plays_progress: number;
   blitzes_progress: number;
   recruits_with_sale_progress: number;
+  // Weekly training tracking
+  training_week_start: string | null;
+  training_hours_history: TrainingWeekHistory[];
   // Cancel rate for adjusting goals (decimal, e.g., 0.10 = 10%)
   cancel_rate: number;
   setup_complete: boolean;
   created_at: string;
   updated_at: string;
 }
+
+// Get the start of the current week (Sunday) in user's local timezone
+const getCurrentWeekStart = (): string => {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday
+  const diff = now.getDate() - dayOfWeek;
+  const sunday = new Date(now.setDate(diff));
+  sunday.setHours(0, 0, 0, 0);
+  return sunday.toISOString().split('T')[0];
+};
 
 export const useRepGoals = () => {
   const queryClient = useQueryClient();
@@ -51,21 +69,87 @@ export const useRepGoals = () => {
         .maybeSingle();
 
       if (error) throw error;
-      return data as RepGoals | null;
+      
+      // Parse training_hours_history from JSON if it exists
+      const parsedData = data ? {
+        ...data,
+        training_hours_history: (Array.isArray(data.training_hours_history) 
+          ? data.training_hours_history as unknown as TrainingWeekHistory[]
+          : []),
+      } : null;
+      
+      return parsedData as RepGoals | null;
     },
     enabled: !!repData?.user_id,
     staleTime: 5 * 60 * 1000,
   });
 
+  // Check if we need to reset training progress for new week
+  const checkAndResetWeeklyProgress = async () => {
+    if (!goals || !repData?.user_id) return;
+    
+    const currentWeekStart = getCurrentWeekStart();
+    const storedWeekStart = goals.training_week_start;
+    
+    // If week has changed, archive current progress and reset
+    if (storedWeekStart && storedWeekStart !== currentWeekStart) {
+      const currentProgress = goals.training_hours_progress || 0;
+      
+      // Only archive if there was actual progress
+      const newHistory: TrainingWeekHistory[] = currentProgress > 0 
+        ? [...(goals.training_hours_history || []), { 
+            week_start: storedWeekStart, 
+            minutes: currentProgress 
+          }]
+        : (goals.training_hours_history || []);
+      
+      // Keep only last 12 weeks of history
+      const trimmedHistory = newHistory.slice(-12);
+      
+      await supabase
+        .from('rep_goals')
+        .update({
+          training_hours_progress: 0,
+          training_week_start: currentWeekStart,
+          training_hours_history: JSON.parse(JSON.stringify(trimmedHistory)),
+        })
+        .eq('user_id', repData.user_id);
+      
+      queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+    } else if (!storedWeekStart) {
+      // Initialize week start if not set
+      await supabase
+        .from('rep_goals')
+        .update({ training_week_start: currentWeekStart })
+        .eq('user_id', repData.user_id);
+    }
+  };
+
+  // Check for weekly reset when goals are loaded
+  const needsWeeklyCheck = goals && goals.training_week_start !== getCurrentWeekStart();
+
   const upsertGoalsMutation = useMutation({
     mutationFn: async (updates: Partial<RepGoals>) => {
       if (!repData?.user_id) throw new Error('No user ID');
+      
+      // Ensure week start is set when updating training progress
+      const currentWeekStart = getCurrentWeekStart();
+      
+      // Remove training_hours_history from updates if present (handle separately)
+      const { training_hours_history, ...restUpdates } = updates;
+      
+      const finalUpdates: Record<string, unknown> = {
+        ...restUpdates,
+        training_week_start: updates.training_hours_progress !== undefined 
+          ? currentWeekStart 
+          : undefined,
+      };
 
       const { data, error } = await supabase
         .from('rep_goals')
         .upsert({
           user_id: repData.user_id,
-          ...updates,
+          ...finalUpdates,
         }, { onConflict: 'user_id' })
         .select()
         .single();
@@ -105,6 +189,9 @@ export const useRepGoals = () => {
     isUpdating: upsertGoalsMutation.isPending,
     hasGoalsAccess: hasGoalsAccess(),
     isRookie: repData?.year === 'Rookie',
+    checkAndResetWeeklyProgress,
+    needsWeeklyCheck,
+    currentWeekStart: getCurrentWeekStart(),
   };
 };
 
@@ -118,7 +205,12 @@ export const useAllRepGoals = () => {
         .select('*');
 
       if (error) throw error;
-      return data as RepGoals[];
+      return (data || []).map(d => ({
+        ...d,
+        training_hours_history: (Array.isArray(d.training_hours_history) 
+          ? d.training_hours_history as unknown as TrainingWeekHistory[]
+          : []),
+      })) as RepGoals[];
     },
     staleTime: 5 * 60 * 1000,
   });

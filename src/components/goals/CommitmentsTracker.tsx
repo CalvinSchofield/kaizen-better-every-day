@@ -127,7 +127,7 @@ const getMondaysRemaining = (): number => {
 };
 
 const commitmentLabels: Record<string, { label: string; unit: string; description: string }> = {
-  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Time spent studying' },
+  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Weekly goal (resets Sunday)' },
   books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books' },
   role_plays_goal: { label: 'Role Plays', unit: 'sessions', description: 'Practice with vets' },
   monday_night_lights_goal: { label: 'Monday Night Lights', unit: 'calls', description: 'Weekly team calls' },
@@ -800,6 +800,8 @@ export const CommitmentsTracker = ({
           <div className="px-4 pb-6">
             <TrainingTimer
               currentMinutes={Number(goals.training_hours_progress) || 0}
+              weeklyGoal={Number(goals.training_hours_goal) || 0}
+              history={goals.training_hours_history || []}
               onSave={handleSaveTrainingTime}
               isSaving={isUpdating}
             />

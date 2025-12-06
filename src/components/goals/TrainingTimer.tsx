@@ -1,15 +1,24 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Plus, Minus, Clock, Check } from "lucide-react";
+import { Play, Pause, Plus, Minus, Clock, Check, TrendingUp, TrendingDown, Equal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TrainingWeekHistory } from "@/hooks/useRepGoals";
 
 interface TrainingTimerProps {
   currentMinutes: number;
+  weeklyGoal: number;
+  history: TrainingWeekHistory[];
   onSave: (totalMinutes: number) => void;
   isSaving?: boolean;
 }
 
-export const TrainingTimer = ({ currentMinutes, onSave, isSaving }: TrainingTimerProps) => {
+export const TrainingTimer = ({ 
+  currentMinutes, 
+  weeklyGoal,
+  history,
+  onSave, 
+  isSaving 
+}: TrainingTimerProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [manualMinutes, setManualMinutes] = useState(0);
@@ -26,12 +35,45 @@ export const TrainingTimer = ({ currentMinutes, onSave, isSaving }: TrainingTime
   // Format hours and minutes for display
   const formatTotalTime = (minutes: number) => {
     if (minutes < 60) {
-      return `${minutes} min`;
+      return `${minutes}m`;
     }
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
+
+  // Calculate week-over-week trend
+  const weeklyTrend = useMemo(() => {
+    if (history.length === 0) return null;
+    
+    const lastWeek = history[history.length - 1];
+    const prevWeek = history.length > 1 ? history[history.length - 2] : null;
+    
+    if (!prevWeek) {
+      return { 
+        lastWeekMinutes: lastWeek.minutes, 
+        change: null, 
+        direction: 'neutral' as const 
+      };
+    }
+    
+    const change = lastWeek.minutes - prevWeek.minutes;
+    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+    
+    return { 
+      lastWeekMinutes: lastWeek.minutes, 
+      prevWeekMinutes: prevWeek.minutes,
+      change, 
+      direction: direction as 'up' | 'down' | 'neutral'
+    };
+  }, [history]);
+
+  // Calculate average from history
+  const averageMinutes = useMemo(() => {
+    if (history.length === 0) return 0;
+    const total = history.reduce((sum, w) => sum + w.minutes, 0);
+    return Math.round(total / history.length);
+  }, [history]);
 
   const startTimer = useCallback(() => {
     setIsRunning(true);
@@ -87,14 +129,68 @@ export const TrainingTimer = ({ currentMinutes, onSave, isSaving }: TrainingTime
 
   const totalNewMinutes = manualMinutes + Math.ceil(sessionSeconds / 60);
   const hasNewTime = totalNewMinutes > 0;
+  const progressPercentage = weeklyGoal > 0 ? Math.min((currentMinutes / weeklyGoal) * 100, 100) : 0;
 
   return (
     <div className="space-y-4">
-      {/* Current total */}
+      {/* Current week progress */}
       <div className="text-center">
-        <p className="text-xs text-muted-foreground mb-1">Total logged</p>
+        <p className="text-xs text-muted-foreground mb-1">This week</p>
         <p className="text-2xl font-bold tabular-nums">{formatTotalTime(currentMinutes)}</p>
+        {weeklyGoal > 0 && (
+          <div className="mt-2">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatTotalTime(currentMinutes)} / {formatTotalTime(weeklyGoal)} goal
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Week over week trend */}
+      {weeklyTrend && (
+        <div className="rounded-xl p-3 bg-muted/30">
+          <p className="text-xs text-muted-foreground text-center mb-2">Week-over-week</p>
+          <div className="flex items-center justify-center gap-4">
+            <div className="text-center">
+              <p className="text-lg font-semibold tabular-nums">
+                {formatTotalTime(weeklyTrend.lastWeekMinutes)}
+              </p>
+              <p className="text-xs text-muted-foreground">Last week</p>
+            </div>
+            
+            {weeklyTrend.change !== null && (
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium",
+                weeklyTrend.direction === 'up' && "bg-green-500/10 text-green-600",
+                weeklyTrend.direction === 'down' && "bg-red-500/10 text-red-600",
+                weeklyTrend.direction === 'neutral' && "bg-muted text-muted-foreground"
+              )}>
+                {weeklyTrend.direction === 'up' && <TrendingUp className="h-3 w-3" />}
+                {weeklyTrend.direction === 'down' && <TrendingDown className="h-3 w-3" />}
+                {weeklyTrend.direction === 'neutral' && <Equal className="h-3 w-3" />}
+                <span>
+                  {weeklyTrend.change > 0 ? '+' : ''}{formatTotalTime(Math.abs(weeklyTrend.change))}
+                </span>
+              </div>
+            )}
+            
+            {history.length > 1 && (
+              <div className="text-center">
+                <p className="text-lg font-semibold tabular-nums">
+                  {formatTotalTime(averageMinutes)}
+                </p>
+                <p className="text-xs text-muted-foreground">Avg</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Timer display */}
       <div 
