@@ -35,10 +35,21 @@ export const InsightsSummaryHero = ({
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-foreground">
-            ${totalPrmr.toFixed(0)}
-          </div>
-          <div className="text-sm text-muted-foreground">Total PRMR</div>
+          {efpModeEnabled ? (
+            <>
+              <div className="text-2xl font-bold text-foreground">
+                {totalFp.toFixed(1)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total FP+</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold text-foreground">
+                ${totalPrmr.toFixed(0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total PRMR</div>
+            </>
+          )}
         </div>
       </div>
 
