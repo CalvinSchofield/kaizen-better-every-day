@@ -15,23 +15,22 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, HelpCircle, Download, MessageSquare, AlertTriangle, Ban } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, AlertTriangle, Ban, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useNavigate } from "react-router-dom";
-import { useRepData } from "@/hooks/useRepData";
-import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { Sale } from "@/hooks/useDailyEntry";
 import { ScheduledInstallStep } from "@/components/ScheduledInstallStep";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { useSaleUpdate } from "@/hooks/useSaleUpdate";
-import { SalesBreakdownSheet } from "@/components/SalesBreakdownSheet";
+import { LogSaleSheet } from "@/components/LogSaleSheet";
+import { useRepData } from "@/hooks/useRepData";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 
 interface SaveEntrySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: any;
-  date: Date; // The date being edited
+  date: Date;
   onSave: (data: {
     doors_knocked: number;
     decision_makers: number;
@@ -55,7 +54,7 @@ interface SaveEntrySheetProps {
   salesLog?: Sale[];
 }
 
-type OpenCardType = 'activity' | 'time' | 'results' | null;
+type OpenCardType = 'activity' | 'time' | null;
 
 export const SaveEntrySheet = ({
   open,
@@ -71,40 +70,74 @@ export const SaveEntrySheet = ({
 }: SaveEntrySheetProps) => {
   const { repData } = useRepData();
   const { totalFP } = usePreseasonFP();
-  const navigate = useNavigate();
-  const [openHelp, setOpenHelp] = useState<'fp' | 'prmr' | null>(null);
+  
+  // Activity counters
   const [doorsKnocked, setDoorsKnocked] = useState("");
   const [decisionMakers, setDecisionMakers] = useState("");
   const [pitches, setPitches] = useState("");
   const [transitions, setTransitions] = useState("");
   const [presentations, setPresentations] = useState("");
   const [closes, setCloses] = useState("");
-  const [fpPlus, setFpPlus] = useState("");
-  const [prmr, setPrmr] = useState("");
-  const [upgradePrmrInput, setUpgradePrmrInput] = useState(""); // New explicit upgrade PRMR field
-  const [newAccounts, setNewAccounts] = useState(0);
   const [customCounters, setCustomCounters] = useState<Record<string, string>>({});
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Time tracking
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [startTimeWarning, setStartTimeWarning] = useState<string | null>(null);
+  const [endTimeWarning, setEndTimeWarning] = useState<string | null>(null);
+  const [acknowledgedEarlyEnd, setAcknowledgedEarlyEnd] = useState(false);
+  
+  // UI state
   const [openCard, setOpenCard] = useState<OpenCardType>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDataQualityWarning, setShowDataQualityWarning] = useState(false);
   const [showHighValueWarning, setShowHighValueWarning] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [isFormReady, setIsFormReady] = useState(false);
-  const [acknowledgedEarlyEnd, setAcknowledgedEarlyEnd] = useState(false);
-  const [startTimeWarning, setStartTimeWarning] = useState<string | null>(null);
-  const [endTimeWarning, setEndTimeWarning] = useState<string | null>(null);
-  const [showInstallStep, setShowInstallStep] = useState(false);
-  const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
+  
+  // Sales management - local sales for adding new sales
+  const [localSales, setLocalSales] = useState<Sale[]>([]);
+  const [showLogSaleSheet, setShowLogSaleSheet] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showSaleDetail, setShowSaleDetail] = useState(false);
-  const [showSalesBreakdownSheet, setShowSalesBreakdownSheet] = useState(false);
-  const [confirmedManualSales, setConfirmedManualSales] = useState<Sale[] | null>(null);
-  const isSavingRef = useRef(false);
   
-  // Sale update hook
+  // Install tracking
+  const [showInstallStep, setShowInstallStep] = useState(false);
+  const [pendingSalesWithInstallTracking, setPendingSalesWithInstallTracking] = useState<Sale[] | null>(null);
+  
+  const isSavingRef = useRef(false);
+  const formInitializedRef = useRef(false);
+  
+  // Sale update hook (for editing existing salesLog entries)
   const { updateSale, deleteSale } = useSaleUpdate();
+
+  // Combine salesLog (from DB) with localSales (newly added)
+  const allSales = useMemo(() => {
+    // If we have salesLog from DB, those are the authoritative source
+    // localSales are for new entries being added in this session
+    return salesLog.length > 0 ? salesLog : localSales;
+  }, [salesLog, localSales]);
+
+  // Calculate FP+ and PRMR from sales
+  const calculatedMetrics = useMemo(() => {
+    const fundedSales = allSales.filter(s => s.install_status !== 'cancelled');
+    const fpSales = fundedSales.filter(s => s.type === 'fp');
+    const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+    
+    const fpCount = fpSales.length;
+    const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+    const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+    const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
+    const fpPlus = fpCount + (upgradePrmrTotal / 85);
+    
+    return { fpPlus, totalPrmr, upgradePrmrTotal, fpCount };
+  }, [allSales]);
+
+  // Determine if user is a rookie
+  const isRookie = repData?.year === "Rookie";
+  const isVet = repData?.year === "Vet" || repData?.year === "Sophomore";
+  const showPrmrHelper = isRookie || totalFP < 20;
 
   // Calculate timestamp bounds from counter_timestamps
   const timestampBounds = useMemo(() => {
@@ -175,146 +208,48 @@ export const SaveEntrySheet = ({
     }
   };
 
-  // Handle start time change with validation
   const handleStartTimeChange = (value: string) => {
     setStartTime(value);
     validateStartTime(value);
   };
 
-  // Handle end time change with validation
   const handleEndTimeChange = (value: string) => {
     setEndTime(value);
     validateEndTime(value);
-    // Reset acknowledgment when end time changes
     if (acknowledgedEarlyEnd) setAcknowledgedEarlyEnd(false);
   };
 
-  // Determine if user is a rookie with <10 FP+
-  const isRookie = repData?.year === "Rookie";
-  const isVet = repData?.year === "Vet" || repData?.year === "Sophomore";
-  const showHelp = true; // TEMPORARY: Always show for testing. Change back to: isRookie && totalFP < 10
-
-  // Auto-set newAccounts when fpPlus changes - but only if form hasn't been initialized with existing data
-  // This prevents overwriting the calculated newAccounts from saved upgrade_prmr
-  const hasInitializedNewAccounts = useRef(false);
-  
-  useEffect(() => {
-    // Skip auto-calculation if we already initialized from saved data
-    if (hasInitializedNewAccounts.current) return;
-    
-    const fpValue = parseFloat(fpPlus);
-    if (fpValue > 0) {
-      setNewAccounts(Math.floor(fpValue));
-    } else {
-      setNewAccounts(0);
-    }
-  }, [fpPlus]);
-
-  // Track if form has been initialized to prevent repopulation during typing
-  const formInitializedRef = useRef(false);
-  
-  // Check if sections have data for summary display
-  const hasActivityData = useMemo(() => {
-    return (parseInt(doorsKnocked) || 0) > 0 ||
-           (parseInt(decisionMakers) || 0) > 0 ||
-           (parseInt(pitches) || 0) > 0 ||
-           (parseInt(transitions) || 0) > 0 ||
-           (parseInt(presentations) || 0) > 0 ||
-           (parseInt(closes) || 0) > 0;
-  }, [doorsKnocked, decisionMakers, pitches, transitions, presentations, closes]);
-
-  const hasTimeData = useMemo(() => {
-    return startTime !== "" || endTime !== "";
-  }, [startTime, endTime]);
-
-  const hasResultsData = useMemo(() => {
-    return (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
-  }, [fpPlus, prmr]);
-
-  // Build activity summary text
+  // Build summary texts
   const activitySummary = useMemo(() => {
     const parts: string[] = [];
     if ((parseInt(doorsKnocked) || 0) > 0) parts.push(`${doorsKnocked} doors`);
     if ((parseInt(presentations) || 0) > 0) parts.push(`${presentations} pres`);
     if ((parseInt(closes) || 0) > 0) parts.push(`${closes} closes`);
     if (parts.length === 0) {
-      // Try other metrics
       if ((parseInt(pitches) || 0) > 0) parts.push(`${pitches} pitches`);
       if ((parseInt(transitions) || 0) > 0) parts.push(`${transitions} trans`);
     }
     return parts.slice(0, 3).join(' · ') || 'No activity';
   }, [doorsKnocked, pitches, transitions, presentations, closes]);
 
-  // Build time summary text
   const timeSummary = useMemo(() => {
     if (!startTime && !endTime) return 'No time logged';
-    if (startTime && endTime) {
-      return `${startTime} - ${endTime}`;
-    }
+    if (startTime && endTime) return `${startTime} - ${endTime}`;
     if (startTime) return `Started ${startTime}`;
     return 'No time logged';
   }, [startTime, endTime]);
 
-  // Build results summary text
-  const resultsSummary = useMemo(() => {
-    const parts: string[] = [];
-    const explicitUpgrade = parseFloat(upgradePrmrInput) || 0;
-    
-    // Calculate FP+ including upgrades when manually entered
-    let displayFpPlus: number;
-    if (explicitUpgrade > 0 && (!salesLog || salesLog.length === 0)) {
-      displayFpPlus = newAccounts + (explicitUpgrade / 85);
-    } else {
-      displayFpPlus = parseFloat(fpPlus) || 0;
-    }
-    
-    const prmrVal = parseFloat(prmr) || 0;
-    if (displayFpPlus > 0) parts.push(`${displayFpPlus.toFixed(1)} FP+`);
-    if (prmrVal > 0) parts.push(`$${Math.round(prmrVal)}`);
-    return parts.join(' · ') || 'No results';
-  }, [fpPlus, prmr, upgradePrmrInput, newAccounts, salesLog]);
-
+  // Initialize form when sheet opens
   useEffect(() => {
-    // Only populate form when sheet first opens, not on every entry change
     if (open && !isSavingRef.current && !formInitializedRef.current) {
-      // Small delay to ensure entry data is available
       const initializeForm = () => {
         if (entry) {
-          // Pre-fill with existing entry data if available, show empty for 0 values
           setDoorsKnocked(entry.doors_knocked && entry.doors_knocked > 0 ? entry.doors_knocked.toString() : "");
           setDecisionMakers(entry.decision_makers && entry.decision_makers > 0 ? entry.decision_makers.toString() : "");
           setPitches(entry.pitches && entry.pitches > 0 ? entry.pitches.toString() : "");
           setTransitions(entry.transitions && entry.transitions > 0 ? entry.transitions.toString() : "");
           setPresentations(entry.presentations && entry.presentations > 0 ? entry.presentations.toString() : "");
           setCloses(entry.closes && entry.closes > 0 ? entry.closes.toString() : "");
-          
-          // AUTO-CALCULATE from sales log if available
-          if (salesLog && salesLog.length > 0) {
-            const fpSales = salesLog.filter(s => s.type === 'fp');
-            const upgradeSales = salesLog.filter(s => s.type === 'upgrade');
-            const fpCount = fpSales.length;
-            const fpPrmrTotal = fpSales.reduce((sum, s) => sum + s.prmr, 0);
-            const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
-            const totalPrmr = fpPrmrTotal + upgradePrmrTotal; // Total PRMR from all sales
-            const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
-            
-            setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
-            setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : ""); // Total PRMR (FP + upgrades)
-            setNewAccounts(fpCount);
-            hasInitializedNewAccounts.current = true;
-          } else {
-            setFpPlus(entry.fp_plus && entry.fp_plus > 0 ? entry.fp_plus.toString() : "");
-            setPrmr(entry.prmr && entry.prmr > 0 ? entry.prmr.toString() : "");
-            setUpgradePrmrInput(entry.upgrade_prmr && entry.upgrade_prmr > 0 ? entry.upgrade_prmr.toString() : "");
-            
-            // Calculate newAccounts from saved data to preserve original split
-            const fpValue = entry.fp_plus || 0;
-            const upgradePrmr = entry.upgrade_prmr || 0;
-            const upgradeFP = upgradePrmr / 85;
-            const calculatedNewAccounts = Math.round(fpValue - upgradeFP);
-            setNewAccounts(Math.max(0, calculatedNewAccounts));
-            hasInitializedNewAccounts.current = true;
-          }
           
           // Pre-fill custom counters
           const customCounterData: Record<string, string> = {};
@@ -339,9 +274,7 @@ export const SaveEntrySheet = ({
             setEndTime("");
           }
 
-          // Determine which card to open based on data availability
-          // If existing entry has data, keep all collapsed
-          // If no data anywhere, open activity card for new entry
+          // Determine which card to open
           const hasAnyActivity = (entry.doors_knocked || 0) > 0 || 
                                  (entry.decision_makers || 0) > 0 ||
                                  (entry.pitches || 0) > 0 ||
@@ -349,31 +282,25 @@ export const SaveEntrySheet = ({
                                  (entry.presentations || 0) > 0 ||
                                  (entry.closes || 0) > 0;
           const hasAnyTime = entry.work_start_time || entry.work_end_time;
-          const hasAnyResults = (entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0;
+          const hasAnySales = salesLog && salesLog.length > 0;
           
-          if (!hasAnyActivity && !hasAnyTime && !hasAnyResults) {
-            // New empty entry - open activity card
+          if (!hasAnyActivity && !hasAnyTime && !hasAnySales) {
             setOpenCard('activity');
           } else {
-            // Has existing data - keep all collapsed
             setOpenCard(null);
           }
         } else {
-          // No entry - new day, open activity card
+          // New empty entry
           setDoorsKnocked("");
           setDecisionMakers("");
           setPitches("");
           setTransitions("");
           setPresentations("");
           setCloses("");
-          setFpPlus("");
-          setPrmr("");
-          setUpgradePrmrInput("");
-          setNewAccounts(0);
           setCustomCounters({});
           setStartTime("");
           setEndTime("");
-          setConfirmedManualSales(null);
+          setLocalSales([]);
           setOpenCard('activity');
         }
         
@@ -381,7 +308,6 @@ export const SaveEntrySheet = ({
         setIsFormReady(true);
       };
 
-      // Use requestAnimationFrame to ensure entry data is settled
       requestAnimationFrame(() => {
         initializeForm();
       });
@@ -391,7 +317,6 @@ export const SaveEntrySheet = ({
     if (!open) {
       isSavingRef.current = false;
       formInitializedRef.current = false;
-      hasInitializedNewAccounts.current = false;
       setIsFormReady(false);
       setOpenCard(null);
       setStartTimeWarning(null);
@@ -399,14 +324,13 @@ export const SaveEntrySheet = ({
       setAcknowledgedEarlyEnd(false);
       setShowInstallStep(false);
       setPendingSalesWithInstallTracking(null);
-      setShowSalesBreakdownSheet(false);
-      setConfirmedManualSales(null);
-      setUpgradePrmrInput("");
+      setLocalSales([]);
+      setEditingSale(null);
     }
-  }, [open, entry?.id]); // Only depend on open state and entry ID, not entire entry object
+  }, [open, entry?.id]);
 
   const hasResultsWithoutActivity = () => {
-    const hasFpOrPrmr = (parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0;
+    const hasSales = allSales.length > 0;
     const hasAnyActivity = 
       (parseInt(doorsKnocked) || 0) > 0 ||
       (parseInt(decisionMakers) || 0) > 0 ||
@@ -415,24 +339,23 @@ export const SaveEntrySheet = ({
       (parseInt(presentations) || 0) > 0 ||
       (parseInt(closes) || 0) > 0;
     
-    return hasFpOrPrmr && !hasAnyActivity;
+    return hasSales && !hasAnyActivity;
   };
 
   const hasUnusuallyHighValues = () => {
-    const fpValue = parseFloat(fpPlus) || 0;
-    const prmrValue = parseFloat(prmr) || 0;
+    const { fpPlus, totalPrmr } = calculatedMetrics;
     
     if (isRookie) {
-      return fpValue > 4 || prmrValue > 425;
+      return fpPlus > 4 || totalPrmr > 425;
     } else if (isVet) {
-      return fpValue > 7 || prmrValue > 850;
+      return fpPlus > 7 || totalPrmr > 850;
     }
     
     return false;
   };
 
   const handleSave = () => {
-    // Check if entry is already finalized (prevent accidental overwrite)
+    // Check if entry is already finalized
     if (entry?.is_finalized) {
       setShowOverwriteWarning(true);
       return;
@@ -440,12 +363,11 @@ export const SaveEntrySheet = ({
     
     // Check for unacknowledged end time warning
     if (endTimeWarning && !acknowledgedEarlyEnd) {
-      // Open time card to show the warning
       setOpenCard('time');
       return;
     }
     
-    // Check for data quality issue first
+    // Check for data quality issue
     if (hasResultsWithoutActivity()) {
       setShowDataQualityWarning(true);
       return;
@@ -457,67 +379,44 @@ export const SaveEntrySheet = ({
       return;
     }
     
-    // If there are sales logged via sales logger, show install confirmation step
-    if (salesLog && salesLog.length > 0) {
-      // Check if any sales don't have install tracking yet (new sales being saved)
-      const hasUnmarkedSales = salesLog.some(s => s.install_status === undefined);
+    // If there are sales, show install confirmation step for unmarked sales
+    const salesToCheck = salesLog.length > 0 ? salesLog : localSales;
+    if (salesToCheck.length > 0) {
+      const hasUnmarkedSales = salesToCheck.some(s => s.install_status === undefined);
       if (hasUnmarkedSales) {
         setShowInstallStep(true);
         return;
       }
     }
     
-    // REQUIRE sales breakdown when manually entering FP/PRMR without sales logger
-    const hasManualResults = ((parseFloat(fpPlus) || 0) > 0 || (parseFloat(prmr) || 0) > 0);
-    const noSalesLog = !salesLog || salesLog.length === 0;
-    const noConfirmedSales = !confirmedManualSales;
-    
-    if (hasManualResults && noSalesLog && noConfirmedSales) {
-      setShowSalesBreakdownSheet(true);
-      return;
-    }
-    
     proceedWithSave();
   };
 
-  // Handle confirmed sales breakdown from manual input
-  const handleSalesBreakdownConfirm = (sales: Sale[]) => {
-    setConfirmedManualSales(sales);
-    setShowSalesBreakdownSheet(false);
-    // Now proceed with save using confirmed sales
-    proceedWithSaveWithSales(sales);
-  };
-
-  // Handle install step confirmation
   const handleInstallConfirm = (updatedSales: Sale[]) => {
     setPendingSalesWithInstallTracking(updatedSales);
     setShowInstallStep(false);
-    // Continue with save using updated sales
     proceedWithSaveWithSales(updatedSales);
   };
 
   const proceedWithSave = async () => {
-    // If we have confirmed manual sales, use those
-    // Otherwise use pending sales with install tracking or existing salesLog
-    const salesToUse = confirmedManualSales || pendingSalesWithInstallTracking || salesLog;
+    const salesToUse = pendingSalesWithInstallTracking || (salesLog.length > 0 ? salesLog : localSales);
     await proceedWithSaveWithSales(salesToUse);
   };
 
-  const proceedWithSaveWithSales = async (salesToSave: Sale[] | undefined) => {
-    // Set flag to prevent useEffect from repopulating form during save/close
+  const proceedWithSaveWithSales = async (salesToSave: Sale[]) => {
     isSavingRef.current = true;
     
     const saveDate = format(date, 'yyyy-MM-dd');
     
-    // Auto-fill end time with current time if not set (only when saving)
+    // Auto-fill end time if not set
     let finalEndTime = endTime;
     if (startTime && !endTime) {
       const now = new Date();
       finalEndTime = format(now, 'HH:mm');
-      setEndTime(finalEndTime); // Update local state so user sees it
+      setEndTime(finalEndTime);
     }
     
-    // Convert times to ISO strings if provided
+    // Convert times to ISO strings
     let workStartTime: string | undefined;
     let workEndTime: string | undefined;
     
@@ -541,45 +440,24 @@ export const SaveEntrySheet = ({
       customCounterData[id] = parseInt(customCounters[id]) || 0;
     });
     
-    // Calculate final values - if we have confirmed sales from breakdown sheet, use those
-    let finalFpPlus: number;
-    let finalPrmr: number;
-    let finalUpgradePrmr: number | null = null;
+    // Calculate final values from sales
+    const fundedSales = salesToSave.filter(s => s.install_status !== 'cancelled');
+    const fpSales = fundedSales.filter(s => s.type === 'fp');
+    const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+    const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+    const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
     
-    if (salesToSave && salesToSave.length > 0) {
-      // Calculate from sales_log
-      const fpSales = salesToSave.filter(s => s.type === 'fp');
-      const upgradeSales = salesToSave.filter(s => s.type === 'upgrade');
-      const fpPrmrTotal = fpSales.reduce((sum, s) => sum + s.prmr, 0);
-      const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
-      
-      finalFpPlus = fpSales.length + (upgradePrmrTotal / 85);
-      finalPrmr = fpPrmrTotal + upgradePrmrTotal;
-      finalUpgradePrmr = upgradePrmrTotal > 0 ? upgradePrmrTotal : null;
-    } else {
-      // Fallback to form values (shouldn't happen with new flow)
-      const explicitUpgradePrmr = parseFloat(upgradePrmrInput) || 0;
-      const fpValue = parseFloat(fpPlus) || 0;
-      finalPrmr = parseFloat(prmr) || 0;
-      
-      if (explicitUpgradePrmr > 0) {
-        finalUpgradePrmr = explicitUpgradePrmr;
-        finalFpPlus = newAccounts + (explicitUpgradePrmr / 85);
-      } else {
-        finalFpPlus = fpValue;
-        const upgradeFP = fpValue - newAccounts;
-        finalUpgradePrmr = upgradeFP > 0 ? upgradeFP * 85 : null;
-      }
-    }
+    const finalFpPlus = fpSales.length + (upgradePrmrTotal / 85);
+    const finalPrmr = fpPrmrTotal + upgradePrmrTotal;
+    const finalUpgradePrmr = upgradePrmrTotal > 0 ? upgradePrmrTotal : null;
     
-    // Wait for save to complete before closing
     await onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
       decision_makers: parseInt(decisionMakers) || 0,
       pitches: parseInt(pitches) || 0,
       transitions: parseInt(transitions) || 0,
       presentations: parseInt(presentations) || 0,
-      closes: parseInt(closes) || 0,
+      closes: salesToSave.length, // Closes = number of sales
       fp_plus: finalFpPlus,
       prmr: finalPrmr,
       upgrade_prmr: finalUpgradePrmr,
@@ -590,13 +468,10 @@ export const SaveEntrySheet = ({
       sales_log: salesToSave,
     });
     
-    // Only close after save completes and resets
     onOpenChange(false);
   };
-  
-  // Calculate total time worked based on current input values
+
   const calculateTotalTime = () => {
-    // If neither time is set, check entry data
     if (!startTime && !endTime) {
       if (!entry?.work_start_time) return "Not started";
       
@@ -605,7 +480,6 @@ export const SaveEntrySheet = ({
       
       let totalMinutes = differenceInMinutes(end, start);
       
-      // Subtract break time
       const breakPeriods = entry.break_periods || [];
       breakPeriods.forEach((bp: any) => {
         if (bp.start) {
@@ -618,17 +492,12 @@ export const SaveEntrySheet = ({
       const hours = Math.floor(totalMinutes / 60);
       const mins = totalMinutes % 60;
       
-      if (hours > 0) {
-        return `${hours}h ${mins}m`;
-      }
-      return `${mins}m`;
+      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     }
     
-    // Use current input values for live calculation
     if (!startTime) return "Set start time";
     if (!endTime) return "Set end time";
     
-    // Parse input times and calculate difference
     const [startHours, startMinutes] = startTime.split(':').map(Number);
     const [endHours, endMinutes] = endTime.split(':').map(Number);
     
@@ -640,12 +509,10 @@ export const SaveEntrySheet = ({
     
     let totalMinutes = differenceInMinutes(endDate, startDate);
     
-    // Handle overnight shifts (end time before start time)
     if (totalMinutes < 0) {
-      totalMinutes += 24 * 60; // Add 24 hours
+      totalMinutes += 24 * 60;
     }
     
-    // Subtract break time if available from entry
     const breakPeriods = entry?.break_periods || [];
     breakPeriods.forEach((bp: any) => {
       if (bp.start) {
@@ -658,21 +525,44 @@ export const SaveEntrySheet = ({
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
-    }
-    return `${mins}m`;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
   const handleCardToggle = (card: OpenCardType) => {
     setOpenCard(openCard === card ? null : card);
   };
 
+  // Handle adding a new sale via LogSaleSheet
+  const handleLogSale = (saleData: { type: 'fp' | 'upgrade'; prmr: number }) => {
+    const newSale: Sale = {
+      id: crypto.randomUUID(),
+      type: saleData.type,
+      prmr: saleData.prmr,
+      timestamp: new Date().toISOString(),
+    };
+    setLocalSales(prev => [...prev, newSale]);
+    setShowLogSaleSheet(false);
+  };
+
+  // Handle updating a local sale
+  const handleUpdateLocalSale = (updatedSale: Sale) => {
+    setLocalSales(prev => prev.map(s => s.id === updatedSale.id ? updatedSale : s));
+    setEditingSale(null);
+    setShowLogSaleSheet(false);
+  };
+
+  // Handle deleting a local sale
+  const handleDeleteLocalSale = (saleId: string) => {
+    setLocalSales(prev => prev.filter(s => s.id !== saleId));
+    setEditingSale(null);
+    setShowLogSaleSheet(false);
+  };
+
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="pb-safe">
-          <DrawerHeader className="mb-6 flex flex-row items-center justify-between">
+        <DrawerContent className="pb-safe max-h-[90vh]">
+          <DrawerHeader className="mb-4 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {entry?.is_finalized && onDelete && (
                 <Button
@@ -688,774 +578,492 @@ export const SaveEntrySheet = ({
             </div>
           </DrawerHeader>
 
-        <div className="space-y-4 mt-6">
-          {/* Daily Activity Card - Collapsible */}
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <Collapsible open={openCard === 'activity'} onOpenChange={() => handleCardToggle('activity')}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base cursor-pointer">Daily Activity</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {openCard !== 'activity' && (
-                      <span className="text-sm text-muted-foreground">{activitySummary}</span>
-                    )}
-                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'activity' ? 'rotate-180' : ''}`} />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    {(() => {
-                      // Build counter definitions matching Track page order
-                      const allCounters = [
-                        { field: "doors_knocked", label: "Doors Knocked", value: doorsKnocked, setter: setDoorsKnocked },
-                        { field: "decision_makers", label: "Decision Makers", value: decisionMakers, setter: setDecisionMakers },
-                        { field: "pitches", label: "Pitches", value: pitches, setter: setPitches },
-                        { field: "transitions", label: "Transitions", value: transitions, setter: setTransitions },
-                        { field: "presentations", label: "Presentations", value: presentations, setter: setPresentations },
-                        { field: "closes", label: "Closes", value: closes, setter: setCloses },
-                      ];
-
-                      // Apply custom layout if available (matching Track page)
-                      let coreCounters = allCounters;
-                      if (counterLayoutConfig?.order) {
-                        coreCounters = counterLayoutConfig.order
-                          .map(field => allCounters.find(c => c.field === field))
-                          .filter((c): c is typeof allCounters[0] => c !== undefined);
-                      }
-
-                      return coreCounters.map((counter, idx) => {
-                        // Lock closes when salesLog exists (must edit via sales)
-                        const isClosesLocked = counter.field === 'closes' && salesLog && salesLog.length > 0;
-                        
-                        return (
-                          <div key={counter.field} className="space-y-1.5">
-                            <Label htmlFor={counter.field} className="text-sm">
-                              {counter.label}
-                              {isClosesLocked && (
-                                <span className="text-xs text-muted-foreground ml-1">(via sales)</span>
-                              )}
-                            </Label>
-                            <Input
-                              id={counter.field}
-                              type="number"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              min="0"
-                              step="1"
-                              placeholder=""
-                              value={counter.value}
-                              onChange={(e) => counter.setter(e.target.value)}
-                              enterKeyHint="next"
-                              readOnly={isClosesLocked}
-                              className={isClosesLocked ? 'bg-muted/50 cursor-not-allowed' : ''}
-                              tabIndex={isClosesLocked ? -1 : 0}
-                            />
-                          </div>
-                        );
-                      });
-                    })()}
-
-                    {/* Custom counters (if any) */}
-                    {customCounterConfig.filter(c => !c.hidden).map(config => (
-                      <div key={config.id} className="space-y-1.5">
-                        <Label htmlFor={`custom-${config.id}`} className="text-sm">
-                          {config.emoji} {config.name}
-                        </Label>
-                        <Input
-                          id={`custom-${config.id}`}
-                          type="number"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          min="0"
-                          step="1"
-                          placeholder=""
-                          value={customCounters[config.id] || ""}
-                          onChange={(e) => setCustomCounters(prev => ({ ...prev, [config.id]: e.target.value }))}
-                          enterKeyHint="next"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </CardContent>
-          </Card>
-
-          {/* Time Tracking Card - Collapsible */}
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <Collapsible open={openCard === 'time'} onOpenChange={() => handleCardToggle('time')}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base cursor-pointer">Time Tracking</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {openCard !== 'time' && (
-                      <span className="text-sm text-muted-foreground">{timeSummary}</span>
-                    )}
-                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'time' ? 'rotate-180' : ''}`} />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-3 mt-3">
-                    {/* Timestamp bounds display */}
-                    {timestampBounds.earliest && timestampBounds.latest ? (
-                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md text-xs">
-                        <span className="text-muted-foreground">Activity:</span>
-                        <span className="font-medium">{timestampBounds.earliestTime}</span>
-                        <span className="text-muted-foreground">→</span>
-                        <span className="font-medium">{timestampBounds.latestTime}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 rounded-md text-xs text-muted-foreground">
-                        <Info className="h-3.5 w-3.5" />
-                        <span>No real-time tracking data</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <Input
-                        id="start-time"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => handleStartTimeChange(e.target.value)}
-                        className={`flex-1 h-10 text-center ${startTimeWarning ? 'border-amber-500' : ''}`}
-                      />
-                      <span className="text-muted-foreground">-</span>
-                      <Input
-                        id="end-time"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => handleEndTimeChange(e.target.value)}
-                        className={`flex-1 h-10 text-center ${endTimeWarning && !acknowledgedEarlyEnd ? 'border-amber-500' : ''}`}
-                      />
-                    </div>
-                    
-                    {/* Time warnings */}
-                    {(startTimeWarning || endTimeWarning) && (
-                      <div className="space-y-1.5">
-                        {startTimeWarning && (
-                          <p className="text-xs text-amber-600 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {startTimeWarning}
-                          </p>
-                        )}
-                        {endTimeWarning && (
-                          <p className="text-xs text-amber-600 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {endTimeWarning}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Acknowledgment checkbox for early end time */}
-                    {endTimeWarning && (
-                      <div className="flex items-center gap-2 px-2 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
-                        <Checkbox
-                          id="acknowledge-early-end"
-                          checked={acknowledgedEarlyEnd}
-                          onCheckedChange={(checked) => setAcknowledgedEarlyEnd(checked === true)}
-                        />
-                        <label htmlFor="acknowledge-early-end" className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer">
-                          I finished earlier than my last tracked activity
-                        </label>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
-                      <span className="text-xs text-muted-foreground">Total:</span>
-                      <span className="text-xs font-medium">{calculateTotalTime()}</span>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </CardContent>
-          </Card>
-
-          {/* Results Card - Now Collapsible */}
-          <Card>
-            <CardContent className="pt-4 pb-4">
-              <Collapsible open={openCard === 'results'} onOpenChange={() => handleCardToggle('results')}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-base cursor-pointer">Results</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {openCard !== 'results' && (
-                      <span className="text-sm text-muted-foreground">{resultsSummary}</span>
-                    )}
-                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'results' ? 'rotate-180' : ''}`} />
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-3 mt-3">
-                    {/* Info box when sales are logged AND there's a mismatch with entry values */}
-                    {(() => {
-                      if (!salesLog || salesLog.length === 0) return null;
-                      
-                      // Calculate expected values from funded sales
-                      const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
-                      const fpSales = fundedSales.filter(s => s.type === 'fp');
-                      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-                      const expectedFpCount = fpSales.length;
-                      const expectedUpgradePrmr = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-                      const expectedTotalPrmr = fundedSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-                      const expectedFpPlus = expectedFpCount + (expectedUpgradePrmr / 85);
-                      
-                      // Compare with current form values
-                      const currentFpPlus = parseFloat(fpPlus) || 0;
-                      const currentPrmr = parseFloat(prmr) || 0;
-                      const hasMismatch = Math.abs(currentFpPlus - expectedFpPlus) > 0.01 || Math.abs(currentPrmr - expectedTotalPrmr) > 0.01;
-                      
-                      if (!hasMismatch) return null;
-                      
-                      return (
-                        <div className="flex items-start gap-2.5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                          <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">
-                              Values don't match logged sales
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {expectedFpPlus.toFixed(2)} FP+ · ${expectedTotalPrmr.toFixed(0)} PRMR
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Tap a sale below to edit its PRMR. Check <button
-                                type="button"
-                                className="text-primary underline underline-offset-2 hover:text-primary/80"
-                                onClick={() => window.open('https://curator.vivint.com/dashboard/source-weekly-pay', '_blank')}
-                              >Curator</button> for accurate PRMR values.
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="fp-plus" className="text-sm">FP+</Label>
-                        {showHelp && !salesLog?.length && (
-                          <button
-                            type="button"
-                            className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setOpenHelp(openHelp === 'fp' ? null : 'fp');
-                            }}
-                          >
-                            <HelpCircle className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="fp-plus"
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.1"
-                          placeholder=""
-                          value={fpPlus}
-                          onChange={(e) => setFpPlus(e.target.value)}
-                          enterKeyHint="next"
-                          className={`flex-1 ${salesLog && salesLog.length > 0 ? 'bg-muted/50 cursor-not-allowed' : ''}`}
-                          readOnly={salesLog && salesLog.length > 0}
-                          tabIndex={salesLog && salesLog.length > 0 ? -1 : 0}
-                        />
-                        {parseFloat(fpPlus) > 0 && !salesLog?.length && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Decrement, or wrap to max
-                                const maxFP = Math.floor(parseFloat(fpPlus) || 0);
-                                setNewAccounts(newAccounts === 0 ? maxFP : newAccounts - 1);
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-2 h-10 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-sm font-medium transition-all hover:bg-emerald-500/20 active:scale-95"
-                            >
-                              <span>{newAccounts} New</span>
-                            </button>
-                            {parseFloat(upgradePrmrInput) > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                + upgrade
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {showHelp && openHelp === 'fp' && !salesLog?.length && (
-                        <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
-                          <p className="text-xs text-muted-foreground flex-1">
-                            FP+ = Families Protected + Upgrades (upgrade PRMR ÷ 85)
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs px-2 shrink-0"
-                            onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
-                          >
-                            <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                            Ask GPT
-                          </Button>
-                        </div>
-                      )}
-                      {/* Smart detection prompt - show when FP entered without PRMR details */}
-                      {(() => {
-                        const fpCount = newAccounts;
-                        const prmrValue = parseFloat(prmr) || 0;
-                        const upgradePrmrValue = parseFloat(upgradePrmrInput) || 0;
-                        const noSalesLog = !salesLog || salesLog.length === 0;
-                        
-                        // Show prompt if: FP count > 0, no sales log, and either no PRMR or PRMR doesn't match expected range
-                        if (noSalesLog && fpCount > 0 && prmrValue === 0) {
-                          return (
-                            <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                              <p className="text-sm font-medium text-foreground mb-2">
-                                💡 Add PRMR for your {fpCount} sale{fpCount > 1 ? 's' : ''}
-                              </p>
-                              <p className="text-xs text-muted-foreground mb-2">
-                                Enter total PRMR below, or check Curator for accurate values.
-                              </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => window.open('https://curator.vivint.com/dashboard/source-weekly-pay', '_blank')}
-                              >
-                                Open Curator
-                              </Button>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="prmr" className="text-sm">Total PRMR</Label>
-                        {showHelp && !salesLog?.length && (
-                          <button
-                            type="button"
-                            className="flex items-center justify-center w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setOpenHelp(openHelp === 'prmr' ? null : 'prmr');
-                            }}
-                          >
-                            <HelpCircle className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          $
-                        </span>
-                        <Input
-                          id="prmr"
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          placeholder=""
-                          value={prmr}
-                          onChange={(e) => setPrmr(e.target.value)}
-                          className={`pl-7 ${salesLog && salesLog.length > 0 ? 'bg-muted/50 cursor-not-allowed' : ''}`}
-                          readOnly={salesLog && salesLog.length > 0}
-                          tabIndex={salesLog && salesLog.length > 0 ? -1 : 0}
-                          enterKeyHint="done"
-                        />
-                      </div>
-                      {showHelp && openHelp === 'prmr' && !salesLog?.length && (
-                        <div className="mt-2 p-2.5 bg-background border border-border rounded-lg flex items-center justify-between gap-3">
-                          <p className="text-xs text-muted-foreground flex-1">
-                            What the customer pays monthly (plus adders/deductions)
-                          </p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs px-2"
-                              onClick={() => window.open('https://chatgpt.com/g/g-67f0056351a081918e8849fb6310fa42-vivintgpt', '_blank')}
-                            >
-                              <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                              Ask
-                            </Button>
-                            <button
-                              type="button"
-                              className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-                              title="Download pay scale"
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = '/documents/2025_Sales_Rep_Payscale-2.pdf';
-                                link.download = '2025_Sales_Rep_Payscale.pdf';
-                                link.click();
-                              }}
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              <span className="text-xs">Payscale</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Upgrade PRMR Input - Only show when no sales log */}
-                    {(!salesLog || salesLog.length === 0) && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="upgrade-prmr" className="text-sm">Upgrade PRMR</Label>
-                          <span className="text-xs text-muted-foreground">(optional)</span>
-                        </div>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
-                          </span>
-                          <Input
-                            id="upgrade-prmr"
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="0.01"
-                            placeholder="e.g., 40"
-                            value={upgradePrmrInput}
-                            onChange={(e) => setUpgradePrmrInput(e.target.value)}
-                            className="pl-7"
-                            enterKeyHint="done"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Enter upgrade revenue separately (avg ~$40). This adds to your FP+ total.
-                        </p>
-                        {/* Show calculated FP+ when upgrade is entered */}
-                        {parseFloat(upgradePrmrInput) > 0 && newAccounts > 0 && (
-                          <div className="flex items-center gap-2 px-2 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-md">
-                            <Info className="h-3.5 w-3.5 text-blue-500" />
-                            <p className="text-xs text-blue-700 dark:text-blue-300">
-                              Total FP+ = {newAccounts} FP + {(parseFloat(upgradePrmrInput) / 85).toFixed(2)} upgrade = <span className="font-semibold">{(newAccounts + parseFloat(upgradePrmrInput) / 85).toFixed(2)}</span>
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </CardContent>
-          </Card>
-
-          {/* Logged Sales Section */}
-          {salesLog && salesLog.length > 0 && (
+          <div className="space-y-4 px-4 pb-4 overflow-y-auto">
+            {/* Daily Activity Card - Collapsible */}
             <Card>
               <CardContent className="pt-4 pb-4">
-                <Label className="text-base mb-3 block">Logged Sales</Label>
-                <div className="flex flex-wrap gap-2">
-                  {salesLog.map((sale) => {
-                    const isCancelled = sale.install_status === 'cancelled';
-                    const isPending = sale.install_status === 'pending';
-                    const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
-                    
-                    return (
-                      <button
-                        key={sale.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSale(sale);
-                          setShowSaleDetail(true);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all hover:scale-105 active:scale-95 ${
-                          isCancelled 
-                            ? 'bg-destructive/10 text-destructive line-through' 
-                            : isPending
-                              ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
-                              : sale.type === 'fp'
-                                ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
-                                : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-                        }`}
-                      >
-                        {isCancelled && <Ban className="h-3 w-3" />}
-                        <span className="uppercase text-xs font-bold">
-                          {sale.type === 'fp' ? 'FP' : 'UP'}
-                        </span>
-                        <span>${sale.prmr}</span>
-                        <span className="text-xs opacity-70">{timeStr}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Tap a sale to edit PRMR, mark unfunded, or remove if never installed
-                </p>
+                <Collapsible open={openCard === 'activity'} onOpenChange={() => handleCardToggle('activity')}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base cursor-pointer">Daily Activity</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {openCard !== 'activity' && (
+                        <span className="text-sm text-muted-foreground">{activitySummary}</span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'activity' ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      {(() => {
+                        const allCounters = [
+                          { field: "doors_knocked", label: "Doors Knocked", value: doorsKnocked, setter: setDoorsKnocked },
+                          { field: "decision_makers", label: "Decision Makers", value: decisionMakers, setter: setDecisionMakers },
+                          { field: "pitches", label: "Pitches", value: pitches, setter: setPitches },
+                          { field: "transitions", label: "Transitions", value: transitions, setter: setTransitions },
+                          { field: "presentations", label: "Presentations", value: presentations, setter: setPresentations },
+                          { field: "closes", label: "Closes", value: closes, setter: setCloses },
+                        ];
+
+                        let coreCounters = allCounters;
+                        if (counterLayoutConfig?.order) {
+                          coreCounters = counterLayoutConfig.order
+                            .map(field => allCounters.find(c => c.field === field))
+                            .filter((c): c is typeof allCounters[0] => c !== undefined);
+                        }
+
+                        return coreCounters.map((counter) => {
+                          // Lock closes when there are sales (must add via + button)
+                          const isClosesLocked = counter.field === 'closes' && allSales.length > 0;
+                          
+                          return (
+                            <div key={counter.field} className="space-y-1.5">
+                              <Label htmlFor={counter.field} className="text-sm">
+                                {counter.label}
+                                {isClosesLocked && (
+                                  <span className="text-xs text-muted-foreground ml-1">(via sales)</span>
+                                )}
+                              </Label>
+                              <Input
+                                id={counter.field}
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                min="0"
+                                step="1"
+                                placeholder=""
+                                value={isClosesLocked ? allSales.length.toString() : counter.value}
+                                onChange={(e) => counter.setter(e.target.value)}
+                                enterKeyHint="next"
+                                readOnly={isClosesLocked}
+                                className={isClosesLocked ? 'bg-muted/50 cursor-not-allowed' : ''}
+                                tabIndex={isClosesLocked ? -1 : 0}
+                              />
+                            </div>
+                          );
+                        });
+                      })()}
+
+                      {/* Custom counters */}
+                      {customCounterConfig.filter(c => !c.hidden).map(config => (
+                        <div key={config.id} className="space-y-1.5">
+                          <Label htmlFor={`custom-${config.id}`} className="text-sm">
+                            {config.emoji} {config.name}
+                          </Label>
+                          <Input
+                            id={`custom-${config.id}`}
+                            type="number"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            min="0"
+                            step="1"
+                            placeholder=""
+                            value={customCounters[config.id] || ""}
+                            onChange={(e) => setCustomCounters(prev => ({ ...prev, [config.id]: e.target.value }))}
+                            enterKeyHint="next"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </CardContent>
             </Card>
-          )}
 
-          {/* Save Button */}
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="w-full py-6 text-lg"
-            size="lg"
-          >
-            {isSaving ? "Saving..." : "Save Entry"}
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+            {/* Time Tracking Card - Collapsible */}
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <Collapsible open={openCard === 'time'} onOpenChange={() => handleCardToggle('time')}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base cursor-pointer">Time Tracking</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {openCard !== 'time' && (
+                        <span className="text-sm text-muted-foreground">{timeSummary}</span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openCard === 'time' ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="space-y-3 mt-3">
+                      {timestampBounds.earliest && timestampBounds.latest ? (
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md text-xs">
+                          <span className="text-muted-foreground">Activity:</span>
+                          <span className="font-medium">{timestampBounds.earliestTime}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-medium">{timestampBounds.latestTime}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 rounded-md text-xs text-muted-foreground">
+                          <Info className="h-3.5 w-3.5" />
+                          <span>No real-time tracking data</span>
+                        </div>
+                      )}
 
-    {/* Sale Detail Sheet */}
-    <SaleDetailSheet
-      open={showSaleDetail}
-      onOpenChange={setShowSaleDetail}
-      sale={selectedSale}
-      entryDate={format(date, 'yyyy-MM-dd')}
-      onUpdateSale={async (updatedSale) => {
-        if (entry?.id) {
-          await updateSale({
-            entryId: entry.id,
-            entryDate: format(date, 'yyyy-MM-dd'),
-            saleId: updatedSale.id,
-            updates: updatedSale,
-          });
-          
-          // Recalculate local FP+ and PRMR from updated salesLog
-          const updatedSalesLog = salesLog.map(s => 
-            s.id === updatedSale.id ? updatedSale : s
-          );
-          const fundedSales = updatedSalesLog.filter(s => s.install_status !== 'cancelled');
-          const fpSales = fundedSales.filter(s => s.type === 'fp');
-          const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-          
-          const fpCount = fpSales.length;
-          const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-          const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-          const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
-          const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
-          
-          setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
-          setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : "");
-          setNewAccounts(fpCount);
-          
-          // Update closes to match sales_log length
-          setCloses(updatedSalesLog.length.toString());
-        }
-        setShowSaleDetail(false);
-        setSelectedSale(null);
-      }}
-      onDeleteSale={async (saleId) => {
-        if (entry?.id) {
-          deleteSale({
-            entryId: entry.id,
-            entryDate: format(date, 'yyyy-MM-dd'),
-            saleId: saleId,
-          });
-          
-          // Recalculate from remaining sales
-          const remainingSales = salesLog.filter(s => s.id !== saleId);
-          const fundedSales = remainingSales.filter(s => s.install_status !== 'cancelled');
-          const fpSales = fundedSales.filter(s => s.type === 'fp');
-          const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
-          
-          const fpCount = fpSales.length;
-          const fpPrmrTotal = fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-          const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
-          const totalPrmr = fpPrmrTotal + upgradePrmrTotal;
-          const calculatedFpPlus = fpCount + (upgradePrmrTotal / 85);
-          
-          setFpPlus(calculatedFpPlus > 0 ? calculatedFpPlus.toFixed(2) : "");
-          setPrmr(totalPrmr > 0 ? totalPrmr.toFixed(2) : "");
-          setNewAccounts(fpCount);
-          
-          // Update closes to match remaining sales_log length
-          setCloses(remainingSales.length.toString());
-        }
-        setShowSaleDetail(false);
-        setSelectedSale(null);
-      }}
-    />
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <Input
+                          id="start-time"
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => handleStartTimeChange(e.target.value)}
+                          className={`flex-1 h-10 text-center ${startTimeWarning ? 'border-amber-500' : ''}`}
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <Input
+                          id="end-time"
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => handleEndTimeChange(e.target.value)}
+                          className={`flex-1 h-10 text-center ${endTimeWarning && !acknowledgedEarlyEnd ? 'border-amber-500' : ''}`}
+                        />
+                      </div>
+                      
+                      {(startTimeWarning || endTimeWarning) && (
+                        <div className="space-y-1.5">
+                          {startTimeWarning && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {startTimeWarning}
+                            </p>
+                          )}
+                          {endTimeWarning && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {endTimeWarning}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {endTimeWarning && (
+                        <div className="flex items-center gap-2 px-2 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
+                          <Checkbox
+                            id="acknowledge-early-end"
+                            checked={acknowledgedEarlyEnd}
+                            onCheckedChange={(checked) => setAcknowledgedEarlyEnd(checked === true)}
+                          />
+                          <label htmlFor="acknowledge-early-end" className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer">
+                            I finished earlier than my last tracked activity
+                          </label>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 rounded-md">
+                        <span className="text-xs text-muted-foreground">Total:</span>
+                        <span className="text-xs font-medium">{calculateTotalTime()}</span>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CardContent>
+            </Card>
 
-    <Drawer open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-      <DrawerContent className="pb-safe">
-        <DrawerHeader className="mb-6">
-          <DrawerTitle>Delete Entry?</DrawerTitle>
-          <DrawerDescription>
-            This will permanently delete this entry. This action cannot be undone.
-          </DrawerDescription>
-        </DrawerHeader>
-        
-        <div className="flex flex-col gap-3 mt-6">
-          <Button
-            onClick={() => {
-              onDelete?.();
-              setShowDeleteDialog(false);
-              onOpenChange(false);
-            }}
-            variant="destructive"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Delete Entry
-          </Button>
-          <Button
-            onClick={() => setShowDeleteDialog(false)}
-            variant="outline"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Cancel
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+            {/* Sales Card - Add Sales via + Button */}
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-base">Sales</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={() => {
+                      setEditingSale(null);
+                      setShowLogSaleSheet(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Sale
+                  </Button>
+                </div>
 
-    <Drawer open={showDataQualityWarning} onOpenChange={setShowDataQualityWarning}>
-      <DrawerContent className="pb-safe">
-        <DrawerHeader className="mb-6">
-          <DrawerTitle>Track While You Work 📊</DrawerTitle>
-          <DrawerDescription>
-            You've entered results but no daily activity. For the most accurate 
-            insights and data, track your numbers on the app while working next time!
-          </DrawerDescription>
-        </DrawerHeader>
-        
-        <div className="px-4 text-sm text-muted-foreground mb-6">
-          Tracking in real-time helps you see your true ratios (doors per sale, 
-          pitches per close) and understand what it takes to succeed.
-        </div>
-        
-        <div className="flex flex-col gap-3 mt-6 px-4">
-          <Button
-            onClick={() => {
-              setShowDataQualityWarning(false);
-            }}
-            variant="default"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Add Activity Numbers
-          </Button>
-          <Button
-            onClick={() => {
-              setShowDataQualityWarning(false);
-              proceedWithSave();
-            }}
-            variant="outline"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Save Results Only
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+                {allSales.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <p className="text-sm">No sales logged</p>
+                    <p className="text-xs mt-1">Tap "Add Sale" to log a sale</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Sales chips */}
+                    <div className="flex flex-wrap gap-2">
+                      {allSales.map((sale) => {
+                        const isCancelled = sale.install_status === 'cancelled';
+                        const isPending = sale.install_status === 'pending';
+                        const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
+                        const isFromDb = salesLog.some(s => s.id === sale.id);
+                        
+                        return (
+                          <button
+                            key={sale.id}
+                            type="button"
+                            onClick={() => {
+                              if (isFromDb) {
+                                // Open detail sheet for DB sales
+                                setSelectedSale(sale);
+                                setShowSaleDetail(true);
+                              } else {
+                                // Edit local sales via LogSaleSheet
+                                setEditingSale(sale);
+                                setShowLogSaleSheet(true);
+                              }
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all hover:scale-105 active:scale-95 ${
+                              isCancelled 
+                                ? 'bg-destructive/10 text-destructive line-through' 
+                                : isPending
+                                  ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
+                                  : sale.type === 'fp'
+                                    ? 'bg-primary/10 text-primary border border-primary/30'
+                                    : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
+                            }`}
+                          >
+                            {isCancelled && <Ban className="h-3 w-3" />}
+                            <span className="uppercase text-xs font-bold">
+                              {sale.type === 'fp' ? 'FP' : 'UP'}
+                            </span>
+                            <span>${sale.prmr}</span>
+                            <span className="text-xs opacity-70">{timeStr}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-    <Drawer open={showHighValueWarning} onOpenChange={setShowHighValueWarning}>
-      <DrawerContent className="pb-safe">
-        <DrawerHeader className="mb-6">
-          <DrawerTitle>Double-Check Your Numbers 🤔</DrawerTitle>
-          <DrawerDescription>
-            {isRookie 
-              ? `You entered ${fpPlus || '0'} FP+ and $${prmr || '0'} PRMR. That's higher than usual for most rookies (4 FP+ / $425 PRMR). Just want to make sure these numbers are correct!`
-              : `You entered ${fpPlus || '0'} FP+ and $${prmr || '0'} PRMR. That's higher than usual (7 FP+ / $850 PRMR). Just want to make sure these numbers are correct!`
-            }
-          </DrawerDescription>
-        </DrawerHeader>
-        
-        <div className="px-4 text-sm text-muted-foreground mb-6">
-          If these numbers are right, great work! If not, go back and adjust them.
-        </div>
-        
-        <div className="flex flex-col gap-3 mt-6 px-4">
-          <Button
-            onClick={() => {
-              setShowHighValueWarning(false);
-            }}
-            variant="outline"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Edit Numbers
-          </Button>
-          <Button
-            onClick={() => {
-              setShowHighValueWarning(false);
-              proceedWithSave();
-            }}
-            variant="default"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Yes, Numbers Are Correct
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+                    {/* Calculated totals */}
+                    <div className="p-3 bg-accent/50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Total FP+</span>
+                        <span className="text-lg font-bold text-primary">{calculatedMetrics.fpPlus.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm text-muted-foreground">Total PRMR</span>
+                        <span className="text-lg font-bold">${calculatedMetrics.totalPrmr.toFixed(0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-    <Drawer open={showOverwriteWarning} onOpenChange={setShowOverwriteWarning}>
-      <DrawerContent className="pb-safe">
-        <DrawerHeader className="mb-6">
-          <DrawerTitle>Already Saved ⚠️</DrawerTitle>
-          <DrawerDescription>
-            This day's entry has already been saved. Saving again will overwrite your existing data.
-            Are you sure you want to continue?
-          </DrawerDescription>
-        </DrawerHeader>
-        
-        <div className="px-4 text-sm text-muted-foreground mb-6">
-          If you need to make changes, your existing data will be replaced with the current values shown.
-        </div>
-        
-        <div className="flex flex-col gap-3 mt-6 px-4">
-          <Button
-            onClick={() => {
-              setShowOverwriteWarning(false);
-            }}
-            variant="default"
-            className="w-full py-6 text-lg font-semibold"
-            size="lg"
-          >
-            Keep Existing Data
-          </Button>
-          <Button
-            onClick={() => {
-              setShowOverwriteWarning(false);
-              // Skip other validations since they already saved once
-              proceedWithSave();
-            }}
-            variant="outline"
-            className="w-full py-6 text-lg font-semibold text-destructive"
-            size="lg"
-          >
-            Overwrite Data
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+            {/* Save Button */}
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="w-full py-6 text-lg"
+              size="lg"
+            >
+              {isSaving ? "Saving..." : "Save Entry"}
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-    {/* Scheduled Install Step */}
-    <ScheduledInstallStep
-      open={showInstallStep}
-      onOpenChange={setShowInstallStep}
-      salesLog={salesLog || []}
-      onConfirm={handleInstallConfirm}
-    />
+      {/* Log Sale Sheet - Same as Track page */}
+      <LogSaleSheet
+        open={showLogSaleSheet}
+        onOpenChange={setShowLogSaleSheet}
+        onLogSale={handleLogSale}
+        editingSale={editingSale}
+        onUpdateSale={handleUpdateLocalSale}
+        onDeleteSale={handleDeleteLocalSale}
+        showPrmrHelper={showPrmrHelper}
+      />
 
-    {/* Sales Breakdown Sheet - required when manually entering FP/PRMR */}
-    <SalesBreakdownSheet
-      open={showSalesBreakdownSheet}
-      onOpenChange={setShowSalesBreakdownSheet}
-      totalPrmr={parseFloat(prmr) || 0}
-      initialFpCount={newAccounts > 0 ? newAccounts : Math.floor(parseFloat(fpPlus) || 0)}
-      initialUpgradePrmr={parseFloat(upgradePrmrInput) || 0}
-      onConfirm={handleSalesBreakdownConfirm}
-    />
+      {/* Sale Detail Sheet - For editing DB sales */}
+      <SaleDetailSheet
+        open={showSaleDetail}
+        onOpenChange={setShowSaleDetail}
+        sale={selectedSale}
+        entryDate={format(date, 'yyyy-MM-dd')}
+        onUpdateSale={async (updatedSale) => {
+          if (entry?.id) {
+            await updateSale({
+              entryId: entry.id,
+              entryDate: format(date, 'yyyy-MM-dd'),
+              saleId: updatedSale.id,
+              updates: updatedSale,
+            });
+          }
+          setShowSaleDetail(false);
+          setSelectedSale(null);
+        }}
+        onDeleteSale={async (saleId) => {
+          if (entry?.id) {
+            deleteSale({
+              entryId: entry.id,
+              entryDate: format(date, 'yyyy-MM-dd'),
+              saleId: saleId,
+            });
+          }
+          setShowSaleDetail(false);
+          setSelectedSale(null);
+        }}
+      />
+
+      {/* Delete Entry Dialog */}
+      <Drawer open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader className="mb-6">
+            <DrawerTitle>Delete Entry?</DrawerTitle>
+            <DrawerDescription>
+              This will permanently delete this entry. This action cannot be undone.
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <Button
+              onClick={() => {
+                onDelete?.();
+                setShowDeleteDialog(false);
+                onOpenChange(false);
+              }}
+              variant="destructive"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Delete Entry
+            </Button>
+            <Button
+              onClick={() => setShowDeleteDialog(false)}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Data Quality Warning */}
+      <Drawer open={showDataQualityWarning} onOpenChange={setShowDataQualityWarning}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader className="mb-6">
+            <DrawerTitle>Track While You Work 📊</DrawerTitle>
+            <DrawerDescription>
+              You've entered sales but no daily activity. For the most accurate 
+              insights and data, track your numbers on the app while working next time!
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="px-4 text-sm text-muted-foreground mb-6">
+            Tracking in real-time helps you see your true ratios (doors per sale, 
+            pitches per close) and understand what it takes to succeed.
+          </div>
+          
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <Button
+              onClick={() => setShowDataQualityWarning(false)}
+              variant="default"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Add Activity Numbers
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDataQualityWarning(false);
+                proceedWithSave();
+              }}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Save Results Only
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* High Value Warning */}
+      <Drawer open={showHighValueWarning} onOpenChange={setShowHighValueWarning}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader className="mb-6">
+            <DrawerTitle>Double-Check Your Numbers 🤔</DrawerTitle>
+            <DrawerDescription>
+              {isRookie 
+                ? `You entered ${calculatedMetrics.fpPlus.toFixed(1)} FP+ and $${calculatedMetrics.totalPrmr.toFixed(0)} PRMR. That's higher than usual for most rookies. Just want to make sure these numbers are correct!`
+                : `You entered ${calculatedMetrics.fpPlus.toFixed(1)} FP+ and $${calculatedMetrics.totalPrmr.toFixed(0)} PRMR. That's higher than usual. Just want to make sure these numbers are correct!`
+              }
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="px-4 text-sm text-muted-foreground mb-6">
+            If these numbers are right, great work! If not, go back and adjust them.
+          </div>
+          
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <Button
+              onClick={() => setShowHighValueWarning(false)}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Edit Numbers
+            </Button>
+            <Button
+              onClick={() => {
+                setShowHighValueWarning(false);
+                proceedWithSave();
+              }}
+              variant="default"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Yes, Numbers Are Correct
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Overwrite Warning */}
+      <Drawer open={showOverwriteWarning} onOpenChange={setShowOverwriteWarning}>
+        <DrawerContent className="pb-safe">
+          <DrawerHeader className="mb-6">
+            <DrawerTitle>Already Saved ⚠️</DrawerTitle>
+            <DrawerDescription>
+              This day's entry has already been saved. Saving again will overwrite your existing data.
+              Are you sure you want to continue?
+            </DrawerDescription>
+          </DrawerHeader>
+          
+          <div className="px-4 text-sm text-muted-foreground mb-6">
+            If you need to make changes, your existing data will be replaced with the current values shown.
+          </div>
+          
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            <Button
+              onClick={() => setShowOverwriteWarning(false)}
+              variant="default"
+              className="w-full py-6 text-lg font-semibold"
+              size="lg"
+            >
+              Keep Existing Data
+            </Button>
+            <Button
+              onClick={() => {
+                setShowOverwriteWarning(false);
+                proceedWithSave();
+              }}
+              variant="outline"
+              className="w-full py-6 text-lg font-semibold text-destructive"
+              size="lg"
+            >
+              Overwrite Data
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Scheduled Install Step */}
+      <ScheduledInstallStep
+        open={showInstallStep}
+        onOpenChange={setShowInstallStep}
+        salesLog={salesLog.length > 0 ? salesLog : localSales}
+        onConfirm={handleInstallConfirm}
+      />
     </>
   );
 };
