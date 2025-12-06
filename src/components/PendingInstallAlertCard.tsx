@@ -4,14 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Bell, Check, CalendarDays, X } from 'lucide-react';
+import { Bell, Check, CalendarDays, Ban, Trash2, AlertTriangle } from 'lucide-react';
 import { usePendingInstalls } from '@/hooks/usePendingInstalls';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export const PendingInstallAlertCard = () => {
-  const { pendingSales, isLoading, confirmInstall, rescheduleSale, cancelSale, isUpdating } = usePendingInstalls();
+  const { pendingSales, isLoading, confirmInstall, rescheduleSale, markUnfunded, removeSale, isUpdating } = usePendingInstalls();
   const [rescheduleOpenFor, setRescheduleOpenFor] = useState<string | null>(null);
+  const [confirmRemoveFor, setConfirmRemoveFor] = useState<string | null>(null);
 
   // Only show after 7 PM local time
   const localHour = new Date().getHours();
@@ -25,6 +26,11 @@ export const PendingInstallAlertCard = () => {
     const dateStr = format(date, 'yyyy-MM-dd');
     await rescheduleSale(entryId, saleId, dateStr);
     setRescheduleOpenFor(null);
+  };
+
+  const handleRemoveSale = async (entryId: string, saleId: string) => {
+    await removeSale(entryId, saleId);
+    setConfirmRemoveFor(null);
   };
 
   return (
@@ -43,6 +49,7 @@ export const PendingInstallAlertCard = () => {
         <div className="space-y-3">
           {pendingSales.map((sale) => {
             const isOverdue = sale.scheduled_install_date && sale.scheduled_install_date < format(new Date(), 'yyyy-MM-dd');
+            const showRemoveConfirm = confirmRemoveFor === sale.id;
             
             return (
               <div
@@ -68,55 +75,101 @@ export const PendingInstallAlertCard = () => {
                   Scheduled: {format(parseISO(sale.scheduled_install_date!), 'MMM d, yyyy')}
                 </div>
 
-                <div className="flex gap-2 mt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-xs bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    onClick={() => confirmInstall(sale.entryId, sale.id)}
-                    disabled={isUpdating}
-                  >
-                    <Check className="h-3.5 w-3.5 mr-1" />
-                    Installed
-                  </Button>
-
-                  <Popover 
-                    open={rescheduleOpenFor === sale.id} 
-                    onOpenChange={(open) => setRescheduleOpenFor(open ? sale.id : null)}
-                  >
-                    <PopoverTrigger asChild>
+                {showRemoveConfirm ? (
+                  <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">
+                        This deal never installed. Remove it completely from your numbers?
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 h-8 text-xs"
+                        className="flex-1 h-7 text-xs"
+                        onClick={() => setConfirmRemoveFor(null)}
                         disabled={isUpdating}
                       >
-                        <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                        Reschedule
+                        Cancel
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={sale.scheduled_install_date ? parseISO(sale.scheduled_install_date) : undefined}
-                        onSelect={(date) => handleReschedule(sale.entryId, sale.id, date)}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 h-7 text-xs"
+                        onClick={() => handleRemoveSale(sale.entryId, sale.id)}
+                        disabled={isUpdating}
+                      >
+                        Yes, Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2 mt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-8 text-xs bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-950/50"
+                        onClick={() => confirmInstall(sale.entryId, sale.id)}
+                        disabled={isUpdating}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        Installed
+                      </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => cancelSale(sale.entryId, sale.id)}
-                    disabled={isUpdating}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                      <Popover 
+                        open={rescheduleOpenFor === sale.id} 
+                        onOpenChange={(open) => setRescheduleOpenFor(open ? sale.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-8 text-xs"
+                            disabled={isUpdating}
+                          >
+                            <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                            Reschedule
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="center">
+                          <Calendar
+                            mode="single"
+                            selected={sale.scheduled_install_date ? parseISO(sale.scheduled_install_date) : undefined}
+                            onSelect={(date) => handleReschedule(sale.entryId, sale.id, date)}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1 h-7 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+                        onClick={() => markUnfunded(sale.entryId, sale.id)}
+                        disabled={isUpdating}
+                      >
+                        <Ban className="h-3 w-3 mr-1" />
+                        Installed but Cancelled
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1 h-7 text-xs text-destructive hover:bg-destructive/10"
+                        onClick={() => setConfirmRemoveFor(sale.id)}
+                        disabled={isUpdating}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Never Installed
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
