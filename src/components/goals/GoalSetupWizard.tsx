@@ -11,7 +11,7 @@ import {
 } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { differenceInWeeks, parseISO, format } from "date-fns";
+import { differenceInDays, parseISO, format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -71,9 +71,9 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
-  // Calculate weeks from dates
+  // Calculate weeks from dates - round UP since any partial week = full rent week
   const weeksWorking = summerStart && summerEnd 
-    ? Math.max(1, differenceInWeeks(summerEnd, summerStart))
+    ? Math.max(1, Math.ceil(differenceInDays(summerEnd, summerStart) / 7))
     : 18;
 
   // Calculated must-do for rookies (based on expenses)
