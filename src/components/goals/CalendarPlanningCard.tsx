@@ -53,6 +53,7 @@ export const CalendarPlanningCard = ({
   onPreseasonGoalChange,
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [preseasonInputMode, setPreseasonInputMode] = useState<'total' | 'daily'>('total');
   const [preseasonTotalInput, setPreseasonTotalInput] = useState(preseasonFpGoal.toString());
   const [preseasonDailyInput, setPreseasonDailyInput] = useState('');
   const [selectedTier, setSelectedTier] = useState<'must' | 'will' | 'could'>('will');
@@ -132,22 +133,31 @@ export const CalendarPlanningCard = ({
     const daysWorked = pastCount || 1;
     const currentDailyAvgRaw = currentFP / daysWorked;
     const projectedTotalRaw = currentDailyAvgRaw * totalPreseasonDays;
+    
+    // Calculate remaining goal (what's left after current progress)
+    const remainingGoal = Math.max(0, goalTotal - currentFP);
+    const remainingDays = futurePlannedCount;
+    const neededDailyRaw = remainingDays > 0 ? remainingGoal / remainingDays : 0;
 
     // Convert to EFP if mode is enabled
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
     
     const onPace = projectedTotalRaw >= goalTotal;
-    const pacePercent = goalTotal > 0 ? (projectedTotalRaw / goalTotal) * 100 : 0;
+    const pacePercent = goalTotal > 0 ? (currentFP / goalTotal) * 100 : 0;
 
     return {
       futurePlannedCount,
       pastCount,
       totalDays: totalPreseasonDays,
       goalTotal: (goalTotal * conversionFactor).toFixed(1),
+      goalTotalRaw: goalTotal,
       goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
       currentDailyAvg: (currentDailyAvgRaw * conversionFactor).toFixed(2),
       projectedTotal: (projectedTotalRaw * conversionFactor).toFixed(1),
       currentFP: (currentFP * conversionFactor).toFixed(1),
+      currentFPRaw: currentFP,
+      remainingGoal: (remainingGoal * conversionFactor).toFixed(1),
+      neededDaily: (neededDailyRaw * conversionFactor).toFixed(2),
       onPace,
       pacePercent,
     };
@@ -354,45 +364,98 @@ export const CalendarPlanningCard = ({
 
         {/* Preseason Goal Inputs */}
         <div className="pt-3 border-t border-border/50">
-          <h4 className="text-sm font-semibold mb-2">Preseason Goal</h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold">Preseason Goal</h4>
+            <div className="flex rounded-lg border border-border/50 overflow-hidden">
+              <button
+                onClick={() => setPreseasonInputMode('total')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium transition-colors",
+                  preseasonInputMode === 'total' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-muted-foreground hover:bg-accent"
+                )}
+              >
+                Total
+              </button>
+              <button
+                onClick={() => setPreseasonInputMode('daily')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium transition-colors",
+                  preseasonInputMode === 'daily' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-muted-foreground hover:bg-accent"
+                )}
+              >
+                Daily
+              </button>
+            </div>
+          </div>
+          
+          {preseasonInputMode === 'total' ? (
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel} Goal</label>
               <Input
                 type="number"
                 value={preseasonTotalInput}
                 onChange={(e) => handlePreseasonTotalChange(e.target.value)}
                 placeholder="e.g. 10"
-                className="h-9"
+                className="h-10 text-lg font-semibold"
               />
+              {preseasonStats && preseasonStats.totalDays > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  = {preseasonStats.goalDaily} {metricLabel}/day
+                </p>
+              )}
             </div>
+          ) : (
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Daily {metricLabel}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Daily {metricLabel} Goal</label>
               <Input
                 type="number"
                 value={preseasonDailyInput}
                 onChange={(e) => handlePreseasonDailyChange(e.target.value)}
-                placeholder="auto"
-                className="h-9"
+                placeholder="e.g. 0.5"
+                className="h-10 text-lg font-semibold"
               />
+              {preseasonStats && preseasonStats.totalDays > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  = {preseasonStats.goalTotal} {metricLabel} total
+                </p>
+              )}
             </div>
-          </div>
+          )}
+          
           {preseasonStats && (
             <div className="mt-3 p-3 rounded-lg bg-accent/30 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Current</span>
+                <span className="text-xs text-muted-foreground">Current Progress</span>
                 <span className="text-sm font-bold text-primary">{preseasonStats.currentFP} {metricLabel}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-muted-foreground">Pace</span>
-                <span className={cn(
-                  "text-sm font-semibold flex items-center gap-1",
-                  preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                )}>
-                  {preseasonStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {preseasonStats.projectedTotal} {metricLabel}
-                </span>
-              </div>
+              {parseFloat(preseasonStats.goalTotal) > 0 && (
+                <>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        preseasonStats.onPace ? "bg-green-500" : "bg-orange-500"
+                      )}
+                      style={{ width: `${Math.min(100, preseasonStats.pacePercent)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">
+                      {preseasonStats.remainingGoal} {metricLabel} left
+                    </span>
+                    <span className={cn(
+                      "font-medium",
+                      preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                    )}>
+                      Need {preseasonStats.neededDaily}/day
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

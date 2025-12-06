@@ -15,11 +15,17 @@ import { differenceInWeeks, parseISO, format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-// Summer date constraints
-const SUMMER_START_MIN = new Date("2026-04-12");
-const SUMMER_START_MAX = new Date("2026-06-01");
-const SUMMER_END_MIN = new Date("2026-08-01");
-const SUMMER_END_MAX = new Date("2026-09-27");
+// Parse date string as local date (not UTC) to avoid timezone offset issues
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+// Summer date constraints - using local dates to avoid timezone issues
+const SUMMER_START_MIN = parseLocalDate("2026-04-12");
+const SUMMER_START_MAX = parseLocalDate("2026-06-01");
+const SUMMER_END_MIN = parseLocalDate("2026-08-01");
+const SUMMER_END_MAX = parseLocalDate("2026-09-27");
 
 // Housing options with weekly costs
 const HOUSING_OPTIONS = [
