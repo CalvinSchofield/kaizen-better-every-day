@@ -383,7 +383,7 @@ export const CalendarView = ({
               >
                 {/* Planned day goal indicator - top right corner */}
                 {isPlanned && dailyGoal && !hasEntry && (
-                  <div className="absolute top-0.5 right-1 text-[8px] text-muted-foreground/60 font-medium">
+                  <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
                     {efpModeEnabled ? formatValue(dailyGoal * (goals?.avg_prmr_per_fp || 85) / 85) : formatValue(dailyGoal)}
                   </div>
                 )}
