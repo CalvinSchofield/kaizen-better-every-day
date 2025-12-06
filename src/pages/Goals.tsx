@@ -30,7 +30,12 @@ const Goals = () => {
     needsWeeklyCheck
   } = useRepGoals();
   const { repData } = useRepData();
-  const { totalFP: totalFpPlus, totalPRMR } = usePreseasonFP();
+  const { 
+    totalFP: totalFpPlus, 
+    totalPRMR, 
+    fundedFP, 
+    fundedPRMR 
+  } = usePreseasonFP();
   
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -180,6 +185,12 @@ const Goals = () => {
             isRookie={isRookie}
             onTierClick={(tier) => setEditingTier(tier)}
           />
+          {/* Funded vs Total clarification */}
+          {fundedFP < totalFpPlus && (
+            <p className="text-xs text-muted-foreground mt-2 px-1">
+              {totalFpPlus.toFixed(1)} FP+ total for goals • {fundedFP.toFixed(1)} FP+ funded for income
+            </p>
+          )}
         </div>
 
         {/* Calendar Planning */}
