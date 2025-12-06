@@ -357,6 +357,7 @@ export type Database = {
           blitzes_progress: number | null
           books_goal: number | null
           books_progress: number | null
+          cancel_rate: number | null
           could_do_fp_goal: number | null
           created_at: string | null
           id: string
@@ -386,6 +387,7 @@ export type Database = {
           blitzes_progress?: number | null
           books_goal?: number | null
           books_progress?: number | null
+          cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string
@@ -415,6 +417,7 @@ export type Database = {
           blitzes_progress?: number | null
           books_goal?: number | null
           books_progress?: number | null
+          cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string

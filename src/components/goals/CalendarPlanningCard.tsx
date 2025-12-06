@@ -44,6 +44,7 @@ interface CalendarPlanningCardProps {
   weeksWorking: number;
   upgradeFpGoal?: number;
   preseasonFpGoal?: number;
+  cancelRate?: number; // decimal, e.g., 0.10 = 10%
   onPreseasonGoalChange?: (goal: number) => void;
 }
 
@@ -56,6 +57,7 @@ export const CalendarPlanningCard = ({
   weeksWorking,
   upgradeFpGoal = 0,
   preseasonFpGoal = 0,
+  cancelRate = 0.10, // Default 10% for rookies
   onPreseasonGoalChange,
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -193,6 +195,7 @@ export const CalendarPlanningCard = ({
   }, [selectedTier, mustDoFpGoal, willDoFpGoal, couldDoFpGoal]);
 
   // Calculate preseason stats - now using actual worked days from database
+  // Adjusts goals for cancel rate (what you need to SELL to end up with your goal after cancels)
   const preseasonStats = useMemo(() => {
     const futurePlannedCount = preseasonPlannedDays.length;
     const daysWorkedCount = workedDays?.preseasonDaysWorked || 0;
@@ -203,9 +206,11 @@ export const CalendarPlanningCard = ({
     // Use EFP if in EFP mode, otherwise use FP+
     const currentProgress = isEfpMode ? preseasonCurrentEFP : preseasonCurrentFP;
     
-    // Convert input goal to raw value
+    // Convert input goal to raw value and adjust for cancel rate
+    // User inputs what they want to END UP with, we calculate what they need to SELL
     const inputGoal = parseFloat(preseasonTotalInput) || 0;
-    const goalTotal = inputGoal; // Goal is already in the correct mode unit
+    const adjustedGoal = inputGoal / (1 - cancelRate); // e.g., 100 / 0.90 = 111.1 if 10% cancel
+    const goalTotal = adjustedGoal;
     const goalDaily = totalPreseasonDays > 0 ? goalTotal / totalPreseasonDays : 0;
     
     const daysWorked = daysWorkedCount || 1;
@@ -233,6 +238,7 @@ export const CalendarPlanningCard = ({
       daysLeft: futurePlannedCount,
       goalTotal: goalTotal.toFixed(1),
       goalTotalRaw: goalTotal,
+      inputGoal: inputGoal.toFixed(1), // What user wants to end up with
       goalDaily: goalDaily.toFixed(2),
       currentDailyAvg: currentDailyAvg.toFixed(2),
       projectedTotal: projectedTotal.toFixed(1),
@@ -245,10 +251,11 @@ export const CalendarPlanningCard = ({
       extraPerWeek: extraPerWeek.toFixed(1),
       behindBy: behindBy.toFixed(1),
     };
-  }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonCurrentEFP, preseasonTotalInput, isEfpMode]);
+  }, [preseasonPlannedDays, workedDays, preseasonCurrentFP, preseasonCurrentEFP, preseasonTotalInput, isEfpMode, cancelRate]);
 
   // Calculate summer stats based on selected tier
   // Use the personal summer date range to calculate available days, not just planned days in DB
+  // Adjusts goals for cancel rate
   const summerStats = useMemo(() => {
     // Calculate total workdays (Mon-Sat) within personal summer range
     const summerStart = parseLocalDate(personalSummerStart);
@@ -283,17 +290,20 @@ export const CalendarPlanningCard = ({
     
     if (totalSummerDays === 0) return null;
 
-    // Preseason goal is in the current mode already
+    // Preseason goal is in the current mode already (adjusted for cancel rate)
     const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
+    const adjustedPreseasonGoal = preseasonGoal / (1 - cancelRate);
     
     // Remaining summer goal = Selected tier (converted to current mode) - preseason goal
+    // Also adjust for cancel rate
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
     const selectedGoalInMode = selectedSummerGoal * conversionFactor;
-    const remainingSummerGoal = Math.max(0, selectedGoalInMode - preseasonGoal);
+    const adjustedSelectedGoal = selectedGoalInMode / (1 - cancelRate);
+    const remainingSummerGoal = Math.max(0, adjustedSelectedGoal - adjustedPreseasonGoal);
     
     const goalDaily = totalSummerDays > 0 ? remainingSummerGoal / totalSummerDays : 0;
 
-    // Calculate projected earnings
+    // Calculate projected earnings (using original goal for payscale)
     const result = calculateTakeHome({
       fpGoal: selectedSummerGoal,
       avgPrmrPerFp,
@@ -324,7 +334,7 @@ export const CalendarPlanningCard = ({
       extraPerWeek: extraPerWeek.toFixed(1),
       weeksLeft: Math.round(weeksLeft),
     };
-  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today, excludedSummerDays]);
+  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today, excludedSummerDays, cancelRate]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
@@ -332,11 +342,12 @@ export const CalendarPlanningCard = ({
     const currentProgress = isEfpMode ? preseasonCurrentEFP : preseasonCurrentFP;
     const onPace = preseasonStats ? preseasonStats.onPace : true;
     
-    // Total goal is the selected tier (convert to current mode)
+    // Total goal is the selected tier (convert to current mode), adjusted for cancel rate
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
-    const goalTotal = selectedSummerGoal * conversionFactor;
+    const baseGoal = selectedSummerGoal * conversionFactor;
+    const adjustedGoal = baseGoal / (1 - cancelRate);
 
-    // Calculate projected earnings
+    // Calculate projected earnings (using original goal for payscale)
     const result = calculateTakeHome({
       fpGoal: selectedSummerGoal,
       avgPrmrPerFp,
@@ -346,12 +357,13 @@ export const CalendarPlanningCard = ({
     });
 
     return {
-      goalTotal: goalTotal.toFixed(1),
+      goalTotal: adjustedGoal.toFixed(1),
+      baseGoal: baseGoal.toFixed(1), // What user wants to end up with
       currentFP: currentProgress.toFixed(1),
       onPace,
       projectedEarnings: result.takeHomePay,
     };
-  }, [selectedSummerGoal, preseasonCurrentFP, preseasonCurrentEFP, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+  }, [selectedSummerGoal, preseasonCurrentFP, preseasonCurrentEFP, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, cancelRate]);
 
   // Save preseason goal to database with debounce
   const savePreseasonGoal = (value: number) => {

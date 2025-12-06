@@ -42,8 +42,12 @@ export const CalendarView = ({
   
   // Calculate daily goal based on preseason goal and planned days
   // Must match CalendarPlanningCard calculation: goal / (future planned days + days worked)
+  // Adjusts for cancel rate to show what user needs to SELL
   const dailyGoal = useMemo(() => {
     if (!goals) return null;
+    
+    // Get cancel rate (default 10% for rookies)
+    const cancelRate = goals.cancel_rate ?? 0.10;
     
     // Use preseason_fp_goal if set
     const preseasonFpGoal = goals.preseason_fp_goal || 0;
@@ -70,8 +74,10 @@ export const CalendarView = ({
       const totalPreseasonDays = preseasonFuturePlannedCount + preseasonWorkedCount;
       
       if (totalPreseasonDays > 0) {
+        // Adjust for cancel rate: what you need to SELL to end up with goal
+        const adjustedGoal = preseasonFpGoal / (1 - cancelRate);
         // Round to 1 decimal for cleaner display
-        return Math.round((preseasonFpGoal / totalPreseasonDays) * 10) / 10;
+        return Math.round((adjustedGoal / totalPreseasonDays) * 10) / 10;
       }
     }
     
@@ -80,7 +86,9 @@ export const CalendarView = ({
     const totalDays = weeksWorking * 6;
     const fpGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
     if (totalDays === 0 || fpGoal === 0) return null;
-    return fpGoal / totalDays;
+    // Adjust for cancel rate
+    const adjustedGoal = fpGoal / (1 - cancelRate);
+    return adjustedGoal / totalDays;
   }, [goals, plannedDays, entries]);
 
   // When switching to week view, change from totals to weekly if needed

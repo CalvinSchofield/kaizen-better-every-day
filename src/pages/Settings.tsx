@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown, Bell } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useRepGoals } from "@/hooks/useRepGoals";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,7 @@ export default function Settings() {
   const { repData } = useRepData();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
   
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
@@ -80,6 +83,9 @@ export default function Settings() {
   // Collapsible states
   const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
   const [isEfpModeOpen, setIsEfpModeOpen] = useState(false);
+  const [isCancelRateOpen, setIsCancelRateOpen] = useState(false);
+  const [cancelRate, setCancelRate] = useState(10); // percentage (5-15)
+  const [isSavingCancelRate, setIsSavingCancelRate] = useState(false);
   const [isTrackCountersOpen, setIsTrackCountersOpen] = useState(false);
   const [isSalesLoggerOpen, setIsSalesLoggerOpen] = useState(false);
   const [isSavingSalesLogger, setIsSavingSalesLogger] = useState(false);
@@ -126,6 +132,33 @@ export default function Settings() {
     
     loadUserData();
   }, [repData]);
+
+  // Load cancel rate from goals
+  useEffect(() => {
+    if (goals?.cancel_rate !== undefined) {
+      setCancelRate(Math.round(goals.cancel_rate * 100));
+    }
+  }, [goals?.cancel_rate]);
+
+  const handleSaveCancelRate = async (newRate: number) => {
+    setIsSavingCancelRate(true);
+    try {
+      await updateRepGoals({ cancel_rate: newRate / 100 });
+      toast({
+        title: "Cancel rate saved",
+        description: `Your cancel/unfunded rate has been set to ${newRate}%`,
+      });
+    } catch (error: any) {
+      console.error("Error saving cancel rate:", error);
+      toast({
+        title: "Failed to save",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCancelRate(false);
+    }
+  };
 
   const handleAddCounter = async () => {
     if (!counterName.trim()) {
@@ -635,6 +668,82 @@ export default function Settings() {
                     disabled={isSavingEfp}
                   />
                   </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        )}
+
+        {/* Cancel/Unfunded Rate (Vets only) - Collapsible */}
+        {isVet && (
+          <Card>
+            <Collapsible open={isCancelRateOpen} onOpenChange={setIsCancelRateOpen}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Percent className="h-4 w-4 text-primary" />
+                        Cancel/Unfunded Rate
+                      </CardTitle>
+                      {!isCancelRateOpen && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {cancelRate}% — Goals adjusted by {((1 / (1 - cancelRate / 100) - 1) * 100).toFixed(0)}%
+                        </p>
+                      )}
+                    </div>
+                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isCancelRateOpen && "rotate-180")} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-5">
+                  <p className="text-sm text-muted-foreground">
+                    This includes ROR cancels and unfunded accounts. Your goals will be adjusted to account for expected cancellations.
+                  </p>
+                  
+                  {/* Visual slider */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold">{cancelRate}%</Label>
+                      <span className="text-sm text-muted-foreground">
+                        Sell {((1 / (1 - cancelRate / 100)) * 100).toFixed(0)}% of goal
+                      </span>
+                    </div>
+                    
+                    <Slider
+                      value={[cancelRate]}
+                      onValueChange={(values) => setCancelRate(values[0])}
+                      min={5}
+                      max={15}
+                      step={1}
+                      className="w-full"
+                    />
+                    
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>5%</span>
+                      <span>10%</span>
+                      <span>15%</span>
+                    </div>
+                  </div>
+                  
+                  {/* Example calculation */}
+                  <div className="p-3 rounded-lg bg-accent/30 space-y-1">
+                    <p className="text-xs font-medium">Example</p>
+                    <p className="text-sm text-muted-foreground">
+                      If your goal is <span className="font-semibold text-foreground">500 FP+</span>, 
+                      you need to sell <span className="font-semibold text-foreground">{Math.round(500 / (1 - cancelRate / 100))} FP+</span> to 
+                      end up with 500 after {cancelRate}% cancel.
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    onClick={() => handleSaveCancelRate(cancelRate)}
+                    disabled={isSavingCancelRate || isUpdatingGoals}
+                    className="w-full"
+                  >
+                    {isSavingCancelRate ? "Saving..." : "Save Cancel Rate"}
+                  </Button>
                 </CardContent>
               </CollapsibleContent>
             </Collapsible>
