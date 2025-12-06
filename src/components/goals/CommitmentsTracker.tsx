@@ -130,7 +130,7 @@ export const CommitmentsTracker = ({
   isUpdating = false,
 }: CommitmentsTrackerProps) => {
   const { efpModeEnabled } = useEfpMode();
-  const metricLabel = efpModeEnabled ? 'RPD' : 'FP+';
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const commitments = getCommitments(metricLabel);
   
   const [editingCommitment, setEditingCommitment] = useState<Commitment | null>(null);

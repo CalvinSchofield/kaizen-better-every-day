@@ -61,7 +61,7 @@ export const GoalTierCard = ({
   
   // Use displayGoal if provided (for EFP mode), otherwise use fpGoal
   const goalValue = displayGoal ?? fpGoal;
-  const metricLabel = efpMode ? 'RPD' : 'FP+';
+  const metricLabel = efpMode ? 'EFP' : 'FP+';
 
   const result = calculateTakeHome({
     fpGoal,
