@@ -254,9 +254,14 @@ export const CalendarView = ({
       totals.daysWorked += 1;
 
       // Parse sales_log to get FP count and PRMR breakdown (only funded sales)
+      // Fall back to column values for entries without sales_log (pre-feature entries)
       const salesLog = entry.sales_log || [];
-      if (Array.isArray(salesLog)) {
-        const fundedSales = salesLog.filter((sale: any) => sale.install_status !== 'cancelled');
+      const fundedSales = Array.isArray(salesLog) 
+        ? salesLog.filter((sale: any) => sale.install_status !== 'cancelled')
+        : [];
+      
+      if (fundedSales.length > 0) {
+        // Use sales_log data
         fundedSales.forEach((sale: any) => {
           if (sale.type === 'fp') {
             totals.fpCount += 1;
@@ -266,6 +271,20 @@ export const CalendarView = ({
             totals.upgradePrmrTotal += sale.prmr || 0;
           }
         });
+      } else if ((entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0) {
+        // Fallback for pre-sales_log entries: derive from column values
+        const upgradeFp = (entry.upgrade_prmr || 0) / 85;
+        const newFp = (entry.fp_plus || 0) - upgradeFp;
+        const newPrmr = (entry.prmr || 0) - (entry.upgrade_prmr || 0);
+        
+        if (newFp > 0) {
+          totals.fpCount += Math.round(newFp);
+          totals.fpPrmrTotal += newPrmr;
+        }
+        if ((entry.upgrade_prmr || 0) > 0) {
+          totals.upgradeCount += Math.round(upgradeFp);
+          totals.upgradePrmrTotal += entry.upgrade_prmr || 0;
+        }
       }
 
       // Calculate total work time in minutes
