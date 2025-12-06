@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Goals = () => {
   const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
-  const { totalFP: totalFpPlus } = usePreseasonFP();
+  const { totalFP: totalFpPlus, totalPRMR } = usePreseasonFP();
   
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -143,6 +143,7 @@ const Goals = () => {
           <GoalProgressLadder
             goals={goals}
             currentFpPlus={totalFpPlus}
+            currentPrmr={totalPRMR}
             isRookie={isRookie}
             onTierClick={(tier) => setEditingTier(tier)}
           />
