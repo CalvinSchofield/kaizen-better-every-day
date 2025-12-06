@@ -79,7 +79,7 @@ export const CalendarPlanningCard = ({
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Hook for auto-syncing with blitzes and summer dates
-  const { getBlitzDays, getSummerDays } = usePlannedDaysSync();
+  const { getBlitzDays, getSummerDays, excludedSummerDays, addSummerOffDay, removeSummerOffDay } = usePlannedDaysSync();
 
   // Fetch user's personal summer dates
   const { data: seasonConfig } = useQuery({
@@ -265,11 +265,15 @@ export const CalendarPlanningCard = ({
       }
     }
     
-    // Total available summer days
-    const totalSummerDays = allSummerWorkDays.length;
+    // Filter out excluded off-days
+    const availableSummerDays = allSummerWorkDays.filter(d => !excludedSummerDays.includes(d));
     
-    // Future days left (not including today and past)
-    const futureDaysLeft = allSummerWorkDays.filter(dateStr => {
+    // Total available summer days (excluding off-days)
+    const totalSummerDays = availableSummerDays.length;
+    const offDaysCount = allSummerWorkDays.length - availableSummerDays.length;
+    
+    // Future days left (not including today and past, excluding off-days)
+    const futureDaysLeft = availableSummerDays.filter(dateStr => {
       const date = parseLocalDate(dateStr);
       return !isBefore(date, today);
     }).length;
@@ -312,6 +316,7 @@ export const CalendarPlanningCard = ({
       daysWorkedCount,
       totalDays: totalSummerDays,
       daysLeft: futureDaysLeft,
+      offDaysCount,
       goalTotal: remainingSummerGoal.toFixed(1),
       goalTotalRaw: remainingSummerGoal,
       goalDaily: goalDaily.toFixed(2),
@@ -319,7 +324,7 @@ export const CalendarPlanningCard = ({
       extraPerWeek: extraPerWeek.toFixed(1),
       weeksLeft: Math.round(weeksLeft),
     };
-  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
+  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today, excludedSummerDays]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
@@ -402,11 +407,33 @@ export const CalendarPlanningCard = ({
     const dateStr = format(date, 'yyyy-MM-dd');
     const isCurrentlyPlanned = isDatePlanned(dateStr);
     
-    // Check if this day is outside the user's personal summer date range
+    // Check if this is a summer day (within personal summer range)
     const userSummerStart = parseLocalDate(personalSummerStart);
     const userSummerEnd = parseLocalDate(personalSummerEnd);
+    const isInSummerRange = date >= userSummerStart && date <= userSummerEnd;
     
-    // If ADDING a day (not currently planned) that's outside their range, show popup
+    // If day is in summer range, handle as summer off-day toggle
+    if (isInSummerRange) {
+      const isExcluded = excludedSummerDays.includes(dateStr);
+      if (isExcluded) {
+        // Re-add the day (remove from exclusions)
+        removeSummerOffDay(dateStr);
+        // Also add to planned days if not already
+        if (!isCurrentlyPlanned) {
+          await togglePlannedDay(dateStr);
+        }
+      } else {
+        // Mark as off-day (add to exclusions)
+        addSummerOffDay(dateStr);
+        // Also remove from planned days if planned
+        if (isCurrentlyPlanned) {
+          await togglePlannedDay(dateStr);
+        }
+      }
+      return;
+    }
+    
+    // If ADDING a day (not currently planned) that's outside their summer range, show popup
     if (!isCurrentlyPlanned) {
       if (date < userSummerStart) {
         setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart: true });
@@ -474,7 +501,7 @@ export const CalendarPlanningCard = ({
 
         {/* Info text */}
         <p className="text-xs text-muted-foreground">
-          Auto-synced from blitzes & summer dates. Tap to adjust.
+          Tap summer days to mark off-days you won't be working.
         </p>
 
         {/* Day Headers */}
@@ -511,6 +538,14 @@ export const CalendarPlanningCard = ({
             const summerEnd = parseLocalDate(SUMMER_END);
             const isAfterSummerEnd = day > summerEnd;
             const isDisabled = isPast || isSunday || isAfterSummerEnd;
+            
+            // Check if this is a summer off-day (excluded)
+            const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
+            
+            // Check if this is within summer range
+            const userSummerStart = parseLocalDate(personalSummerStart);
+            const userSummerEnd = parseLocalDate(personalSummerEnd);
+            const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
 
             return (
               <button
@@ -519,12 +554,15 @@ export const CalendarPlanningCard = ({
                 disabled={isDisabled || isToggling}
                 className={cn(
                   "aspect-square rounded-lg text-sm font-medium transition-all",
-                  "flex items-center justify-center",
+                  "flex items-center justify-center relative",
                   (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
                   isPast && !isSunday && !isAfterSummerEnd && "opacity-40 cursor-not-allowed",
                   !isDisabled && "hover:bg-accent cursor-pointer",
-                  isPlanned && !isDisabled && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  // Planned and not excluded = solid primary
+                  isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  // Summer off-day (excluded) = strikethrough style
+                  isExcludedSummerDay && !isDisabled && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
+                  isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                   !isCurrentMonth && "opacity-30"
                 )}
               >
@@ -711,10 +749,15 @@ export const CalendarPlanningCard = ({
             </CollapsibleTrigger>
             
             <CollapsibleContent className="mt-3 space-y-3">
-              {/* Days summary - simplified */}
+              {/* Days summary - show off-days if any */}
               {summerStats && (
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{summerStats.totalDays} total days</span>
+                  <span>
+                    {summerStats.totalDays} work days
+                    {summerStats.offDaysCount > 0 && (
+                      <span className="text-destructive ml-1">({summerStats.offDaysCount} off)</span>
+                    )}
+                  </span>
                   <span>{summerStats.daysLeft} days left</span>
                 </div>
               )}
