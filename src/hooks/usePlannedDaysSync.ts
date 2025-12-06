@@ -2,9 +2,16 @@ import { useEffect, useRef, useMemo } from "react";
 import { format, eachDayOfInterval, getDay, isBefore, startOfDay } from "date-fns";
 import { usePlannedDays } from "./usePlannedDays";
 import { useRepData } from "./useRepData";
-import { useBlitzes } from "./useBlitzes";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+
+interface CommittedBlitz {
+  id: string;
+  name: string;
+  date: string;
+  endDate: string | null;
+  location?: string;
+}
 
 // Generates all Mon-Sat dates between start and end (no Sundays)
 const getWorkDaysInRange = (startDate: Date, endDate: Date): string[] => {
@@ -24,10 +31,9 @@ const getWorkDaysInRange = (startDate: Date, endDate: Date): string[] => {
 export const usePlannedDaysSync = () => {
   const { plannedDays, addMultipleDays, isLoading: isLoadingPlanned } = usePlannedDays();
   const { repData } = useRepData();
-  const { allBlitzes } = useBlitzes();
   
   // Track previous values to detect changes
-  const prevCommittedBlitzesRef = useRef<string[]>([]);
+  const prevCommittedBlitzIdsRef = useRef<string[]>([]);
   const prevSummerStartRef = useRef<string | null>(null);
   const prevSummerEndRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
@@ -48,16 +54,16 @@ export const usePlannedDaysSync = () => {
     enabled: !!repData?.user_id,
   });
 
-  // Get committed blitzes from rep data
+  // Get committed blitzes directly from rep data (they're already full objects)
   const committedBlitzes = useMemo(() => {
     if (!repData?.committed_blitzes) return [];
-    const committed = repData.committed_blitzes as string[];
-    return allBlitzes.filter(b => committed.includes(b.name));
-  }, [repData?.committed_blitzes, allBlitzes]);
-  
-  const committedBlitzNames = useMemo(() => {
-    return (repData?.committed_blitzes as string[]) || [];
+    const blitzes = repData.committed_blitzes as CommittedBlitz[];
+    return Array.isArray(blitzes) ? blitzes.filter(b => b && b.date) : [];
   }, [repData?.committed_blitzes]);
+  
+  const committedBlitzIds = useMemo(() => {
+    return committedBlitzes.map(b => b.id);
+  }, [committedBlitzes]);
 
   const today = startOfDay(new Date());
 
@@ -85,20 +91,20 @@ export const usePlannedDaysSync = () => {
   useEffect(() => {
     if (isLoadingPlanned || !repData?.user_id) return;
     
-    const currentBlitzNames = committedBlitzNames;
-    const prevBlitzNames = prevCommittedBlitzesRef.current;
+    const currentBlitzIds = committedBlitzIds;
+    const prevBlitzIds = prevCommittedBlitzIdsRef.current;
     
     // Check if blitzes changed
-    const blitzesChanged = JSON.stringify(currentBlitzNames.sort()) !== JSON.stringify(prevBlitzNames.sort());
+    const blitzesChanged = JSON.stringify(currentBlitzIds.sort()) !== JSON.stringify(prevBlitzIds.sort());
     
     if (blitzesChanged && hasInitializedRef.current) {
       // Find newly added blitzes
-      const newlyAdded = currentBlitzNames.filter(name => !prevBlitzNames.includes(name));
+      const newlyAddedIds = currentBlitzIds.filter(id => !prevBlitzIds.includes(id));
       
-      if (newlyAdded.length > 0) {
+      if (newlyAddedIds.length > 0) {
         // Get dates for newly added blitzes only
         const newBlitzDays: string[] = [];
-        for (const blitz of allBlitzes.filter(b => newlyAdded.includes(b.name))) {
+        for (const blitz of committedBlitzes.filter(b => newlyAddedIds.includes(b.id))) {
           const startDate = new Date(blitz.date);
           const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
           const blitzDays = getWorkDaysInRange(startDate, endDate);
@@ -117,9 +123,9 @@ export const usePlannedDaysSync = () => {
       // Note: We don't remove days when uncommitting - user can manually remove if desired
     }
     
-    prevCommittedBlitzesRef.current = currentBlitzNames;
+    prevCommittedBlitzIdsRef.current = currentBlitzIds;
     hasInitializedRef.current = true;
-  }, [committedBlitzNames, allBlitzes, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id, today]);
+  }, [committedBlitzIds, committedBlitzes, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id, today]);
 
   // Sync summer dates when they change
   useEffect(() => {

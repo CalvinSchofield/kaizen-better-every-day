@@ -1,13 +1,20 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, DollarSign, Trash2 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay } from "date-fns";
+import { Calendar, ChevronLeft, ChevronRight, DollarSign } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, startOfDay, isSameDay } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+
+// Define season boundaries
+const PRESEASON_START = '2025-09-28';
+const PRESEASON_END = '2026-04-11';
+const SUMMER_START = '2026-04-12';
+const SUMMER_END = '2026-09-27';
 
 interface CalendarPlanningCardProps {
   fpGoal: number;
@@ -25,13 +32,15 @@ export const CalendarPlanningCard = ({
   upgradeFpGoal = 0,
 }: CalendarPlanningCardProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [isAdding, setIsAdding] = useState(false);
-  const { plannedDays, togglePlannedDay, clearAllPlannedDays, isDatePlanned, getPlannedDaysCount, isToggling } = usePlannedDays();
+  const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
+  const { totalFP: preseasonCurrentFP } = usePreseasonFP();
+  const { efpModeEnabled: isEfpMode } = useEfpMode();
   
   // Hook for auto-syncing with blitzes and summer dates
-  usePlannedDaysSync();
+  const { getBlitzDays, getSummerDays } = usePlannedDaysSync();
 
   const today = startOfDay(new Date());
+  const isViewingToday = isSameMonth(currentMonth, today);
 
   // Calculate days in current month view
   const monthDays = useMemo(() => {
@@ -43,32 +52,93 @@ export const CalendarPlanningCard = ({
   // Calculate first day offset for grid alignment
   const firstDayOffset = getDay(startOfMonth(currentMonth));
 
-  // Calculate projected earnings based on planned days
-  const projectedEarnings = useMemo(() => {
-    const totalPlannedDays = getPlannedDaysCount();
-    if (totalPlannedDays === 0) return null;
+  // Separate preseason and summer planned days
+  const { preseasonPlannedDays, summerPlannedDays } = useMemo(() => {
+    const preseasonStart = new Date(PRESEASON_START);
+    const preseasonEnd = new Date(PRESEASON_END);
+    const summerStart = new Date(SUMMER_START);
+    const summerEnd = new Date(SUMMER_END);
+    
+    const allPlanned = plannedDays?.map(d => d.planned_date) || [];
+    
+    const preseason = allPlanned.filter(dateStr => {
+      const date = new Date(dateStr);
+      return date >= preseasonStart && date <= preseasonEnd && !isBefore(date, today);
+    });
+    
+    const summer = allPlanned.filter(dateStr => {
+      const date = new Date(dateStr);
+      return date >= summerStart && date <= summerEnd && !isBefore(date, today);
+    });
+    
+    return { preseasonPlannedDays: preseason, summerPlannedDays: summer };
+  }, [plannedDays, today]);
 
-    // Assume 6 knocking days per week based on weeksWorking
-    const totalKnockingDays = weeksWorking * 6;
-    const fpPerDay = fpGoal / totalKnockingDays;
+  // Calculate preseason stats
+  const preseasonStats = useMemo(() => {
+    const plannedCount = preseasonPlannedDays.length;
+    if (plannedCount === 0) return null;
+
+    // Calculate current daily average based on actual preseason FP+
+    // Count finalized days worked in preseason (we approximate using current FP / assumed days)
+    const currentFP = preseasonCurrentFP || 0;
     
-    // Project FP+ based on planned days
-    const projectedFp = fpPerDay * totalPlannedDays;
+    // Goal daily average from settings
+    const goalDailyFP = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
     
+    // Current pace: current FP / days worked so far in preseason
+    // For now, we estimate using planned days that have passed
+    const pastPreseasonDays = (plannedDays?.map(d => d.planned_date) || []).filter(dateStr => {
+      const date = new Date(dateStr);
+      const preseasonStart = new Date(PRESEASON_START);
+      const preseasonEnd = new Date(PRESEASON_END);
+      return date >= preseasonStart && date <= preseasonEnd && isBefore(date, today);
+    });
+    
+    const daysWorked = pastPreseasonDays.length || 1;
+    const currentDailyAvg = currentFP / daysWorked;
+    
+    // Projected total based on current daily average
+    const projectedTotal = currentDailyAvg * (plannedCount + pastPreseasonDays.length);
+    
+    // Goal total based on goal daily
+    const goalTotal = goalDailyFP * (plannedCount + pastPreseasonDays.length);
+
+    return {
+      plannedCount,
+      goalDailyFP: goalDailyFP.toFixed(2),
+      goalTotal: goalTotal.toFixed(1),
+      currentDailyAvg: currentDailyAvg.toFixed(2),
+      projectedTotal: projectedTotal.toFixed(1),
+      currentFP: currentFP.toFixed(1),
+    };
+  }, [preseasonPlannedDays, preseasonCurrentFP, fpGoal, weeksWorking, plannedDays, today]);
+
+  // Calculate summer stats
+  const summerStats = useMemo(() => {
+    const plannedCount = summerPlannedDays.length;
+    if (plannedCount === 0) return null;
+
+    // Goal daily average from settings
+    const goalDailyFP = fpGoal && weeksWorking ? fpGoal / (weeksWorking * 6) : 0;
+    const goalTotal = goalDailyFP * plannedCount;
+
+    // Calculate projected earnings
     const result = calculateTakeHome({
-      fpGoal: projectedFp,
+      fpGoal: goalTotal,
       avgPrmrPerFp,
       rentType,
       weeksWorking,
-      upgradeFpGoal: upgradeFpGoal * (totalPlannedDays / totalKnockingDays),
+      upgradeFpGoal: upgradeFpGoal * (plannedCount / (weeksWorking * 6)),
     });
 
     return {
-      projectedFp: projectedFp.toFixed(1),
-      takeHome: result.takeHomePay,
-      fpPerDay: fpPerDay.toFixed(2),
+      plannedCount,
+      goalDailyFP: goalDailyFP.toFixed(2),
+      goalTotal: goalTotal.toFixed(1),
+      projectedEarnings: result.takeHomePay,
     };
-  }, [plannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, getPlannedDaysCount]);
+  }, [summerPlannedDays, fpGoal, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal]);
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
@@ -79,16 +149,8 @@ export const CalendarPlanningCard = ({
     await togglePlannedDay(dateStr);
   };
 
-  const handleClearAll = async () => {
-    setIsAdding(true);
-    try {
-      await clearAllPlannedDays();
-      toast.success("Cleared all planned days");
-    } catch (error) {
-      toast.error("Failed to clear days");
-    } finally {
-      setIsAdding(false);
-    }
+  const handleGoToToday = () => {
+    setCurrentMonth(new Date());
   };
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -110,9 +172,15 @@ export const CalendarPlanningCard = ({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium min-w-[100px] text-center">
+            <button 
+              onClick={handleGoToToday}
+              className={cn(
+                "text-sm font-medium min-w-[100px] text-center transition-colors",
+                !isViewingToday && "text-primary underline underline-offset-2 cursor-pointer"
+              )}
+            >
               {format(currentMonth, 'MMMM yyyy')}
-            </span>
+            </button>
             <Button
               variant="ghost"
               size="icon"
@@ -125,24 +193,10 @@ export const CalendarPlanningCard = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Info text and clear button */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Auto-synced from blitzes & summer dates. Tap to adjust.
-          </p>
-          {getPlannedDaysCount() > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearAll}
-              disabled={isAdding || isToggling}
-              className="text-xs text-destructive hover:text-destructive h-7 px-2"
-            >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Clear
-            </Button>
-          )}
-        </div>
+        {/* Info text */}
+        <p className="text-xs text-muted-foreground">
+          Auto-synced from blitzes & summer dates. Tap to adjust.
+        </p>
 
         {/* Day Headers */}
         <div className="grid grid-cols-7 gap-1 text-center">
@@ -172,7 +226,7 @@ export const CalendarPlanningCard = ({
             const isPlanned = isDatePlanned(dateStr);
             const isPast = isBefore(day, today);
             const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isTodayDate = format(day, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            const isTodayDate = isSameDay(day, today);
             const dayOfWeek = getDay(day);
             const isSunday = dayOfWeek === 0;
 
@@ -180,7 +234,7 @@ export const CalendarPlanningCard = ({
               <button
                 key={dateStr}
                 onClick={() => handleDayClick(day)}
-                disabled={isPast || isToggling || isAdding || isSunday}
+                disabled={isPast || isToggling || isSunday}
                 className={cn(
                   "aspect-square rounded-lg text-sm font-medium transition-all",
                   "flex items-center justify-center",
@@ -198,22 +252,57 @@ export const CalendarPlanningCard = ({
           })}
         </div>
 
-        {/* Summary */}
-        <div className="pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">Planned Days</span>
-            <span className="text-sm font-semibold">{getPlannedDaysCount()}</span>
+        {/* Preseason Stats */}
+        {preseasonStats && (
+          <div className="pt-3 border-t border-border/50">
+            <h4 className="text-sm font-semibold mb-2">Preseason</h4>
+            <div className="space-y-2 p-3 rounded-lg bg-accent/30">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Goal Daily</p>
+                  <p className="text-sm font-semibold">{preseasonStats.goalDailyFP} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Current Avg</p>
+                  <p className="text-sm font-semibold">{preseasonStats.currentDailyAvg} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/30">
+                <div>
+                  <p className="text-xs text-muted-foreground">Goal Total</p>
+                  <p className="text-sm font-semibold">{preseasonStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">On Pace For</p>
+                  <p className="text-sm font-semibold">{preseasonStats.projectedTotal} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-border/30">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">Current Total</p>
+                  <p className="text-sm font-bold text-primary">{preseasonStats.currentFP} {isEfpMode ? 'EFP' : 'FP+'}</p>
+                </div>
+              </div>
+            </div>
           </div>
-          
-          {projectedEarnings ? (
+        )}
+
+        {/* Summer Stats */}
+        {summerStats && (
+          <div className="pt-3 border-t border-border/50">
+            <h4 className="text-sm font-semibold mb-2">Summer</h4>
             <div className="space-y-2 p-3 rounded-lg bg-accent/30">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Projected FP+</span>
-                <span className="text-sm font-semibold">{projectedEarnings.projectedFp}</span>
+                <span className="text-sm text-muted-foreground">Planned Days</span>
+                <span className="text-sm font-semibold">{summerStats.plannedCount}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Avg FP+ / Day</span>
-                <span className="text-sm font-semibold">{projectedEarnings.fpPerDay}</span>
+                <span className="text-sm text-muted-foreground">Goal Daily</span>
+                <span className="text-sm font-semibold">{summerStats.goalDailyFP} {isEfpMode ? 'EFP' : 'FP+'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Goal Total</span>
+                <span className="text-sm font-semibold">{summerStats.goalTotal} {isEfpMode ? 'EFP' : 'FP+'}</span>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-border/30">
                 <span className="text-sm font-medium flex items-center gap-1">
@@ -221,16 +310,19 @@ export const CalendarPlanningCard = ({
                   Projected Earnings
                 </span>
                 <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(projectedEarnings.takeHome)}
+                  {formatCurrency(summerStats.projectedEarnings)}
                 </span>
               </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-3">
-              Set your summer dates above to auto-populate work days
-            </p>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!preseasonStats && !summerStats && (
+          <p className="text-sm text-muted-foreground text-center py-3">
+            Set your summer dates above to auto-populate work days
+          </p>
+        )}
       </CardContent>
     </Card>
   );

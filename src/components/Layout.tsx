@@ -159,6 +159,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "Personalize";
       case "/team-reports":
         return "Reports";
+      case "/goals":
+        return "Goals";
       default:
         return "Kaizen";
     }
