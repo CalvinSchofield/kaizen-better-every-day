@@ -44,8 +44,9 @@ export const useTeamSummerConfig = () => {
           userId: rep.userId,
           name: rep.name,
           notionPageId: rep.notionPageId,
-          personalSummerStart: config?.personal_summer_start || DEFAULT_SUMMER_START,
-          personalSummerEnd: config?.personal_summer_end || DEFAULT_SUMMER_END,
+          // Return null if not set - UI can then show warning for missing dates
+          personalSummerStart: config?.personal_summer_start || null,
+          personalSummerEnd: config?.personal_summer_end || null,
           excludedSummerDays: config?.excluded_summer_days || [],
         };
       }) || [];
