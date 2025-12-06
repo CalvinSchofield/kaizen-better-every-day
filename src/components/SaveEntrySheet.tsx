@@ -112,6 +112,14 @@ export const SaveEntrySheet = ({
   // Sale update hook (for editing existing salesLog entries)
   const { updateSale, deleteSale } = useSaleUpdate();
 
+  // Detect legacy data: entry has FP+/PRMR but no sales_log
+  const hasLegacyData = useMemo(() => {
+    const hasFpOrPrmr = (entry?.fp_plus && entry.fp_plus > 0) || (entry?.prmr && entry.prmr > 0);
+    const noSalesLog = !salesLog || salesLog.length === 0;
+    const noLocalSales = localSales.length === 0;
+    return hasFpOrPrmr && noSalesLog && noLocalSales;
+  }, [entry?.fp_plus, entry?.prmr, salesLog, localSales]);
+
   // Combine salesLog (from DB) with localSales (newly added)
   const allSales = useMemo(() => {
     // If we have salesLog from DB, those are the authoritative source
@@ -780,12 +788,27 @@ export const SaveEntrySheet = ({
                   </Button>
                 </div>
 
-                {allSales.length === 0 ? (
+                {hasLegacyData ? (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-700 dark:text-amber-400">Previous data found</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                          This entry has {entry?.fp_plus?.toFixed(2)} FP+ / ${entry?.prmr?.toFixed(0)} PRMR saved before sales logging.
+                          Add your sales below to update the breakdown. Old values will be replaced.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+                
+                {allSales.length === 0 && !hasLegacyData ? (
                   <div className="text-center py-6 text-muted-foreground">
                     <p className="text-sm">No sales logged</p>
                     <p className="text-xs mt-1">Tap "Add Sale" to log a sale</p>
                   </div>
-                ) : (
+                ) : allSales.length === 0 ? null : (
                   <div className="space-y-3">
                     {/* Sales chips */}
                     <div className="flex flex-wrap gap-2">
