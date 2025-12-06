@@ -12,6 +12,7 @@ import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
+import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -727,6 +728,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             }}
           />
         )}
+
+        {/* Pending Install Alert - shows after 7 PM if pending installs */}
+        <PendingInstallAlertCard />
 
         {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
         {(() => {
