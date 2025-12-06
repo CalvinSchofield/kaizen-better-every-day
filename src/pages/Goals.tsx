@@ -15,6 +15,7 @@ import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { GoalTier } from "@/components/goals/GoalTierCard";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { supabase } from "@/integrations/supabase/client";
 
 const Goals = () => {
   const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals, isUpdating } = useRepGoals();
@@ -71,6 +72,7 @@ const Goals = () => {
             isRookie={isRookie}
             onComplete={async (data) => {
               try {
+                // Save goals to rep_goals
                 await updateGoals({
                   monthly_expenses: data.monthlyExpenses,
                   months_off: data.monthsOff,
@@ -82,6 +84,21 @@ const Goals = () => {
                   could_do_fp_goal: data.couldDoFpGoal,
                   setup_complete: true,
                 });
+
+                // Save summer dates to season_config
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  await supabase
+                    .from('season_config')
+                    .upsert({
+                      user_id: user.id,
+                      personal_summer_start: data.summerStart,
+                      personal_summer_end: data.summerEnd,
+                    }, {
+                      onConflict: 'user_id'
+                    });
+                }
+
                 setShowSetupWizard(false);
                 toast.success("Goals saved!");
               } catch (error) {
