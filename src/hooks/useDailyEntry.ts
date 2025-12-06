@@ -290,6 +290,7 @@ export const useDailyEntry = (date?: string) => {
       saveDate: string;
       work_start_time?: string;
       work_end_time?: string;
+      sales_log?: Sale[];
     }) => {
       // Wait for any pending counter updates to complete first
       await queryClient.refetchQueries({ queryKey: ['update-counter', data.saveDate] });
@@ -297,24 +298,32 @@ export const useDailyEntry = (date?: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Build upsert payload - only include sales_log if provided
+      const upsertPayload: any = {
+        user_id: user.id,
+        entry_date: data.saveDate,
+        doors_knocked: data.doors_knocked,
+        decision_makers: data.decision_makers,
+        pitches: data.pitches,
+        transitions: data.transitions,
+        presentations: data.presentations,
+        closes: data.closes,
+        fp_plus: data.fp_plus,
+        prmr: data.prmr,
+        upgrade_prmr: data.upgrade_prmr,
+        work_start_time: data.work_start_time,
+        work_end_time: data.work_end_time,
+        is_finalized: true,
+      };
+
+      // Include sales_log if provided (auto-generated or existing)
+      if (data.sales_log !== undefined) {
+        upsertPayload.sales_log = data.sales_log;
+      }
+
       const { error } = await supabase
         .from('daily_entries')
-        .upsert({
-          user_id: user.id,
-          entry_date: data.saveDate,
-          doors_knocked: data.doors_knocked,
-          decision_makers: data.decision_makers,
-          pitches: data.pitches,
-          transitions: data.transitions,
-          presentations: data.presentations,
-          closes: data.closes,
-          fp_plus: data.fp_plus,
-          prmr: data.prmr,
-          upgrade_prmr: data.upgrade_prmr,
-          work_start_time: data.work_start_time,
-          work_end_time: data.work_end_time,
-          is_finalized: true,
-        }, {
+        .upsert(upsertPayload, {
           onConflict: 'user_id,entry_date'
         });
 

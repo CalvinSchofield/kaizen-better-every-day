@@ -45,6 +45,7 @@ interface SaveEntrySheetProps {
     work_start_time?: string;
     work_end_time?: string;
     custom_counters?: Record<string, number>;
+    sales_log?: Sale[];
   }) => Promise<void>;
   onDelete?: () => void;
   isSaving: boolean;
@@ -544,6 +545,61 @@ export const SaveEntrySheet = ({
       finalFpPlus = newAccounts + (explicitUpgradePrmr / 85);
     }
     
+    // AUTO-GENERATE sales_log entries if user entered FP/PRMR manually without using sales logger
+    let finalSalesLog: Sale[] | undefined = salesToSave;
+    const hasManuallEnteredResults = (newAccounts > 0 || totalPrmrValue > 0) && (!salesLog || salesLog.length === 0);
+    
+    if (hasManuallEnteredResults) {
+      const generatedSales: Sale[] = [];
+      const now = new Date();
+      
+      // Generate FP sales entries
+      if (newAccounts > 0 && totalPrmrValue > 0) {
+        // Calculate PRMR per FP (excluding upgrade PRMR)
+        const fpPrmr = totalPrmrValue - explicitUpgradePrmr;
+        const avgPrmrPerFp = fpPrmr > 0 ? fpPrmr / newAccounts : 85; // Default to $85 if no PRMR
+        
+        for (let i = 0; i < newAccounts; i++) {
+          generatedSales.push({
+            id: crypto.randomUUID(),
+            type: 'fp',
+            prmr: Math.round(avgPrmrPerFp * 100) / 100,
+            timestamp: now.toISOString(),
+            installed_same_day: true,
+            install_status: 'installed',
+          });
+        }
+      } else if (newAccounts > 0) {
+        // FP count but no PRMR - create sales with $85 default
+        for (let i = 0; i < newAccounts; i++) {
+          generatedSales.push({
+            id: crypto.randomUUID(),
+            type: 'fp',
+            prmr: 85,
+            timestamp: now.toISOString(),
+            installed_same_day: true,
+            install_status: 'installed',
+          });
+        }
+      }
+      
+      // Generate upgrade sale entry if upgrade PRMR was entered
+      if (explicitUpgradePrmr > 0) {
+        generatedSales.push({
+          id: crypto.randomUUID(),
+          type: 'upgrade',
+          prmr: explicitUpgradePrmr,
+          timestamp: now.toISOString(),
+          installed_same_day: true,
+          install_status: 'installed',
+        });
+      }
+      
+      if (generatedSales.length > 0) {
+        finalSalesLog = generatedSales;
+      }
+    }
+    
     // Wait for save to complete before closing
     await onSave({
       doors_knocked: parseInt(doorsKnocked) || 0,
@@ -559,6 +615,7 @@ export const SaveEntrySheet = ({
       work_start_time: workStartTime,
       work_end_time: workEndTime,
       custom_counters: customCounterData,
+      sales_log: finalSalesLog,
     });
     
     // Only close after save completes and resets

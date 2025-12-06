@@ -227,6 +227,7 @@ export const CalendarView = ({
     work_start_time?: string;
     work_end_time?: string;
     custom_counters?: Record<string, number>;
+    sales_log?: Sale[];
   }) => {
     await new Promise<void>((resolve) => {
       finalizeEntry(data, {
