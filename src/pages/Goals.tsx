@@ -150,25 +150,6 @@ const Goals = () => {
           />
         </div>
 
-        {/* Quick Stats */}
-        <Card className="border-border/50">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold">{goals.weeks_working}</p>
-                <p className="text-xs text-muted-foreground">Weeks</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">${goals.avg_prmr_per_fp}</p>
-                <p className="text-xs text-muted-foreground">Avg PRMR</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{goals.rent_type}</p>
-                <p className="text-xs text-muted-foreground">Housing</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Preseason Commitments */}
         <CommitmentsTracker

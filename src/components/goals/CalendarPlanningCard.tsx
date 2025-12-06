@@ -649,12 +649,6 @@ export const CalendarPlanningCard = ({
                   {totalStats.currentFP} {metricLabel}
                 </span>
               </div>
-              {isEfpMode && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Projected {metricLabel}</span>
-                  <span className="text-sm font-semibold">{totalStats.goalTotal} {metricLabel}</span>
-                </div>
-              )}
               <div className="pt-2 border-t border-border/30 flex justify-between items-center">
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <DollarSign className="h-4 w-4 text-green-500" />
