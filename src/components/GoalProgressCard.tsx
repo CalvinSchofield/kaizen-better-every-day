@@ -89,9 +89,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Count planned days in period
-  const plannedDaysInPeriod = useMemo(() => {
-    if (!plannedDays) return 0;
+  // Count planned days in period (total and elapsed)
+  const { plannedDaysInPeriod, elapsedPlannedDays } = useMemo(() => {
+    if (!plannedDays) return { plannedDaysInPeriod: 0, elapsedPlannedDays: 0 };
     
     const periodStart = viewMode === "month" 
       ? startOfMonth(currentDate) 
@@ -102,11 +102,20 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     
     const periodStartStr = format(periodStart, 'yyyy-MM-dd');
     const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
+    const todayStr = format(today, 'yyyy-MM-dd');
     
-    return plannedDays.filter(d => 
+    const allPlannedInPeriod = plannedDays.filter(d => 
       d.planned_date >= periodStartStr && d.planned_date <= periodEndStr
-    ).length;
-  }, [plannedDays, currentDate, viewMode]);
+    );
+    
+    // Elapsed = planned days that have passed (up to and including today)
+    const elapsed = allPlannedInPeriod.filter(d => d.planned_date <= todayStr);
+    
+    return {
+      plannedDaysInPeriod: allPlannedInPeriod.length,
+      elapsedPlannedDays: elapsed.length
+    };
+  }, [plannedDays, currentDate, viewMode, today]);
 
   // Calculate future planned days for preseason
   const futurePreseasonPlannedDays = useMemo(() => {
@@ -204,10 +213,20 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     ? dailyAverageNeeded * plannedDaysInPeriod
     : summerDailyNeeded * plannedDaysInPeriod;
 
+  // Expected progress so far = daily average × elapsed planned days
+  const expectedProgressSoFar = isInPreseason
+    ? dailyAverageNeeded * elapsedPlannedDays
+    : summerDailyNeeded * elapsedPlannedDays;
+
   const periodProgressPercent = periodGoal > 0 
     ? Math.min((periodProgress / periodGoal) * 100, 100) 
     : 0;
   const periodRemaining = Math.max(0, periodGoal - periodProgress);
+
+  // Pace calculation: compare actual to expected so far
+  const paceVariance = periodProgress - expectedProgressSoFar;
+  const isOnPace = paceVariance >= 0;
+  const isPeriodComplete = elapsedPlannedDays >= plannedDaysInPeriod;
 
   // Overall progress (for end goal reminder)
   const overallTarget = isInPreseason ? displayPreseasonGoal : currentTarget;
@@ -251,15 +270,36 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           </span>
         </div>
         <Progress value={periodProgressPercent} className="h-2.5" />
-        {periodRemaining > 0 ? (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <TrendingUp className="h-3 w-3" />
-            <span>{periodRemaining.toFixed(1)} {metricLabel} to go this {viewMode}</span>
-          </div>
+        {isPeriodComplete ? (
+          // Period is complete - show if goal was hit
+          periodProgress >= periodGoal ? (
+            <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>{viewMode === "week" ? "Weekly" : "Monthly"} goal hit!</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+              <TrendingUp className="h-3 w-3" />
+              <span>Missed by {(periodGoal - periodProgress).toFixed(1)} {metricLabel}</span>
+            </div>
+          )
         ) : periodGoal > 0 ? (
-          <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-            <CheckCircle2 className="h-3 w-3" />
-            <span>{viewMode === "week" ? "Weekly" : "Monthly"} goal hit!</span>
+          // Period in progress - show pace
+          <div className="flex items-center gap-1 text-xs">
+            {isOnPace ? (
+              <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                On pace! +{paceVariance.toFixed(1)} ahead
+              </span>
+            ) : (
+              <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                {Math.abs(paceVariance).toFixed(1)} behind pace
+              </span>
+            )}
+            <span className="text-muted-foreground">
+              ({elapsedPlannedDays}/{plannedDaysInPeriod} days)
+            </span>
           </div>
         ) : null}
       </div>
