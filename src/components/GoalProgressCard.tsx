@@ -86,7 +86,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Count planned days in period (total and elapsed)
+  // Count planned days in period (total and elapsed) - same logic for week AND month
   const { plannedDaysInPeriod, elapsedPlannedDays } = useMemo(() => {
     if (!plannedDays) return { plannedDaysInPeriod: 0, elapsedPlannedDays: 0 };
     
@@ -113,6 +113,22 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, currentDate, viewMode, today]);
 
+  // For monthly, also calculate the weekly breakdown for reference
+  const { weeklyPlannedDays } = useMemo(() => {
+    if (!plannedDays || viewMode !== "month") return { weeklyPlannedDays: 0 };
+    
+    const weekStart = startOfWeek(today);
+    const weekEnd = endOfWeek(today);
+    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+    
+    const weekDays = plannedDays.filter(d => 
+      d.planned_date >= weekStartStr && d.planned_date <= weekEndStr
+    ).length;
+    
+    return { weeklyPlannedDays: weekDays };
+  }, [plannedDays, viewMode, today]);
+
   // Calculate remaining planned days for each season (from TODAY forward)
   const { remainingPreseasonDays, remainingSummerDays } = useMemo(() => {
     if (!plannedDays) return { remainingPreseasonDays: 0, remainingSummerDays: 0 };
@@ -136,8 +152,45 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, today, personalSummerEnd]);
 
+  // Check if user has no goals set up - show engaging prompt
   if (!goals || !goals.setup_complete) {
-    return null;
+    return (
+      <div 
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10 border border-primary/20 p-5 cursor-pointer group transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:scale-[1.01]"
+        onClick={() => navigate('/goals')}
+      >
+        {/* Animated background elements */}
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-2xl animate-pulse" />
+        <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-accent/20 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }} />
+        
+        <div className="relative flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-primary/15 group-hover:bg-primary/20 transition-colors">
+            <Target className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-foreground mb-0.5">
+              {isInPreseason ? "Set Your Preseason Goals" : "Set Your Summer Goals"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isInPreseason 
+                ? "Plan your path to a strong start before summer"
+                : "Define your Must Do, Will Do & Could Do targets"
+              }
+            </p>
+          </div>
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <Zap className="h-4 w-4 text-primary" />
+          </div>
+        </div>
+        
+        <div className="relative mt-4 pt-3 border-t border-primary/10">
+          <div className="flex items-center gap-2 text-sm text-primary font-medium">
+            <Flame className="h-4 w-4" />
+            <span>Tap to get started →</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
@@ -200,10 +253,26 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     currentTargetLabel = "Complete";
   }
 
-  // Period goal (fixed for the week/month)
+  // Period goal - calculated from daily rate × planned days in THIS period (not multiplying weekly by 4)
+  // This uses the same logic for both week and month: daily needed × planned days in period
+  const monthlyPreseasonGoal = dailyPreseasonNeeded * plannedDaysInPeriod;
+  const monthlyMustDo = dailyMustDo * plannedDaysInPeriod;
+  const monthlyWillDo = dailyWillDo * plannedDaysInPeriod;
+  const monthlyCouldDo = dailyCouldDo * plannedDaysInPeriod;
+  
+  // Current monthly target tier
+  let currentMonthlyTarget = monthlyMustDo;
+  if (mustDoComplete && !willDoComplete) {
+    currentMonthlyTarget = monthlyWillDo;
+  } else if (willDoComplete && !couldDoComplete) {
+    currentMonthlyTarget = monthlyCouldDo;
+  } else if (couldDoComplete) {
+    currentMonthlyTarget = 0;
+  }
+  
   const periodGoal = isInPreseason
-    ? viewMode === "month" ? weeklyPreseasonGoal * 4 : weeklyPreseasonGoal
-    : viewMode === "month" ? currentWeeklyTarget * 4 : currentWeeklyTarget;
+    ? viewMode === "month" ? monthlyPreseasonGoal : weeklyPreseasonGoal
+    : viewMode === "month" ? currentMonthlyTarget : currentWeeklyTarget;
 
   const periodRemaining = Math.max(0, periodGoal - periodProgress);
   const remainingDaysInPeriod = Math.max(0, plannedDaysInPeriod - elapsedPlannedDays);
