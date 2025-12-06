@@ -814,24 +814,47 @@ export const SaveEntrySheet = ({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-3 mt-3">
-                    {/* Info box when sales are logged - must edit individual sales */}
-                    {salesLog && salesLog.length > 0 && (
-                      <div className="flex items-start gap-2.5 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                        <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">
-                            Auto-calculated from logged sales
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Tap a sale below to edit its PRMR. Check <button
-                              type="button"
-                              className="text-primary underline underline-offset-2 hover:text-primary/80"
-                              onClick={() => window.open('https://salesops.vivint.com', '_blank')}
-                            >Curator</button> for accurate PRMR values.
-                          </p>
+                    {/* Info box when sales are logged AND there's a mismatch with entry values */}
+                    {(() => {
+                      if (!salesLog || salesLog.length === 0) return null;
+                      
+                      // Calculate expected values from funded sales
+                      const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
+                      const fpSales = fundedSales.filter(s => s.type === 'fp');
+                      const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
+                      const expectedFpCount = fpSales.length;
+                      const expectedUpgradePrmr = upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+                      const expectedTotalPrmr = fundedSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
+                      const expectedFpPlus = expectedFpCount + (expectedUpgradePrmr / 85);
+                      
+                      // Compare with current form values
+                      const currentFpPlus = parseFloat(fpPlus) || 0;
+                      const currentPrmr = parseFloat(prmr) || 0;
+                      const hasMismatch = Math.abs(currentFpPlus - expectedFpPlus) > 0.01 || Math.abs(currentPrmr - expectedTotalPrmr) > 0.01;
+                      
+                      if (!hasMismatch) return null;
+                      
+                      return (
+                        <div className="flex items-start gap-2.5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">
+                              Values don't match logged sales
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Expected: {expectedFpPlus.toFixed(2)} FP+ · ${expectedTotalPrmr.toFixed(0)} PRMR
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Tap a sale below to edit its PRMR. Check <button
+                                type="button"
+                                className="text-primary underline underline-offset-2 hover:text-primary/80"
+                                onClick={() => window.open('https://curator.vivint.com/dashboard/source-weekly-pay', '_blank')}
+                              >Curator</button> for accurate PRMR values.
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
