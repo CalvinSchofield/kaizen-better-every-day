@@ -3,8 +3,9 @@ import { Progress } from "@/components/ui/progress";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { Target, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Target, TrendingUp, CheckCircle2, Settings2 } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface GoalProgressCardProps {
   entries: any[];
@@ -13,6 +14,7 @@ interface GoalProgressCardProps {
 }
 
 export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgressCardProps) => {
+  const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { totalFP: preseasonFP, totalEFP: preseasonEFP, fundedFP, fundedEFP } = usePreseasonFP();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
@@ -101,9 +103,18 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           <Target className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Goal Progress</span>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {viewMode === "month" ? format(currentDate, 'MMMM') : "This Week"}: +{periodProgress.toFixed(1)} {metricLabel}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {viewMode === "month" ? format(currentDate, 'MMMM') : "This Week"}: +{periodProgress.toFixed(1)} {metricLabel}
+          </span>
+          <button
+            onClick={() => navigate('/goals')}
+            className="text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Adjust goals"
+          >
+            <Settings2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Current Target Progress */}
