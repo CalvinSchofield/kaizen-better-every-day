@@ -487,410 +487,389 @@ export const CalendarPlanningCard = ({
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <Card className="border-border/50">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            Calendar Planning
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Period Navigation - matches CalendarView style */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h2 className="text-base font-semibold">
-            {format(currentMonth, 'MMMM yyyy')}
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <Button 
-          variant={isViewingToday ? "ghost" : "default"} 
-          size="sm" 
-          onClick={handleGoToToday}
-          className={cn("w-full", isViewingToday && "text-xs")}
+    <div className="space-y-3">
+      {/* Period Navigation */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
         >
-          Today
+          <ChevronLeft className="h-4 w-4" />
         </Button>
+        <button 
+          onClick={handleGoToToday}
+          className="text-base font-semibold hover:text-primary transition-colors"
+        >
+          {format(currentMonth, 'MMMM yyyy')}
+        </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
 
-        {/* Info text */}
-        <p className="text-xs text-muted-foreground">
-          Tap summer days to mark off-days you won't be working.
-        </p>
+      {/* Day Headers */}
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {dayNames.map((day, idx) => (
+          <div 
+            key={day} 
+            className={cn(
+              "text-xs font-medium py-1",
+              idx === 0 ? "text-muted-foreground/50" : "text-muted-foreground"
+            )}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
 
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 gap-1 text-center">
-          {dayNames.map((day, idx) => (
-            <div 
-              key={day} 
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Empty cells for offset */}
+        {Array.from({ length: firstDayOffset }).map((_, i) => (
+          <div key={`empty-${i}`} className="aspect-square" />
+        ))}
+        
+        {/* Day cells */}
+        {monthDays.map((day) => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isPlanned = isDatePlanned(dateStr);
+          const isPast = isBefore(day, today);
+          const isCurrentMonth = isSameMonth(day, currentMonth);
+          const isTodayDate = isSameDay(day, today);
+          const dayOfWeek = getDay(day);
+          const isSunday = dayOfWeek === 0;
+          const summerEnd = parseLocalDate(SUMMER_END);
+          const isAfterSummerEnd = day > summerEnd;
+          const isDisabled = isPast || isSunday || isAfterSummerEnd;
+          
+          // Check if this is a summer off-day (excluded)
+          const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
+          
+          // Check if this is within summer range
+          const userSummerStart = parseLocalDate(personalSummerStart);
+          const userSummerEnd = parseLocalDate(personalSummerEnd);
+          const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
+
+          return (
+            <button
+              key={dateStr}
+              onClick={() => handleDayClick(day)}
+              disabled={isDisabled || isToggling}
               className={cn(
-                "text-xs font-medium py-1",
-                idx === 0 ? "text-muted-foreground/50" : "text-muted-foreground"
+                "aspect-square rounded-lg text-sm font-medium transition-all",
+                "flex items-center justify-center relative",
+                (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
+                isPast && !isSunday && !isAfterSummerEnd && "opacity-40 cursor-not-allowed",
+                !isDisabled && "hover:bg-accent cursor-pointer",
+                // Planned and not excluded = solid primary
+                isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
+                // Summer off-day (excluded) = strikethrough style
+                isExcludedSummerDay && !isDisabled && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
+                isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                !isCurrentMonth && "opacity-30"
               )}
             >
-              {day}
+              {format(day, 'd')}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Preseason Goal - Collapsible */}
+      <Collapsible open={isPreseasonOpen} onOpenChange={setIsPreseasonOpen}>
+        <div className="pt-3 border-t border-border/50">
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                Preseason Goal
+                {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                <ChevronDown className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform",
+                  isPreseasonOpen && "rotate-180"
+                )} />
+              </h4>
+              {!isPreseasonOpen && preseasonStats && (
+                <span className="text-xs text-muted-foreground">
+                  {preseasonStats.neededDaily}/day · {preseasonStats.daysLeft} left
+                </span>
+              )}
             </div>
-          ))}
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Empty cells for offset */}
-          {Array.from({ length: firstDayOffset }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" />
-          ))}
+          </CollapsibleTrigger>
           
-          {/* Day cells */}
-          {monthDays.map((day) => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const isPlanned = isDatePlanned(dateStr);
-            const isPast = isBefore(day, today);
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isTodayDate = isSameDay(day, today);
-            const dayOfWeek = getDay(day);
-            const isSunday = dayOfWeek === 0;
-            const summerEnd = parseLocalDate(SUMMER_END);
-            const isAfterSummerEnd = day > summerEnd;
-            const isDisabled = isPast || isSunday || isAfterSummerEnd;
-            
-            // Check if this is a summer off-day (excluded)
-            const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
-            
-            // Check if this is within summer range
-            const userSummerStart = parseLocalDate(personalSummerStart);
-            const userSummerEnd = parseLocalDate(personalSummerEnd);
-            const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
-
-            return (
-              <button
-                key={dateStr}
-                onClick={() => handleDayClick(day)}
-                disabled={isDisabled || isToggling}
-                className={cn(
-                  "aspect-square rounded-lg text-sm font-medium transition-all",
-                  "flex items-center justify-center relative",
-                  (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
-                  isPast && !isSunday && !isAfterSummerEnd && "opacity-40 cursor-not-allowed",
-                  !isDisabled && "hover:bg-accent cursor-pointer",
-                  // Planned and not excluded = solid primary
-                  isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  // Summer off-day (excluded) = strikethrough style
-                  isExcludedSummerDay && !isDisabled && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
-                  isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                  !isCurrentMonth && "opacity-30"
-                )}
+          <CollapsibleContent className="mt-3">
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingPreseasonGoal(!isEditingPreseasonGoal);
+                }}
               >
-                {format(day, 'd')}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Preseason Goal - Collapsible */}
-        <Collapsible open={isPreseasonOpen} onOpenChange={setIsPreseasonOpen}>
-          <div className="pt-3 border-t border-border/50">
-            <CollapsibleTrigger className="w-full">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  Preseason Goal
-                  {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                  <ChevronDown className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    isPreseasonOpen && "rotate-180"
-                  )} />
-                </h4>
-                {!isPreseasonOpen && preseasonStats && (
-                  <span className="text-xs text-muted-foreground">
-                    {preseasonStats.neededDaily}/day · {preseasonStats.daysLeft} left
-                  </span>
-                )}
-              </div>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="mt-3">
-              <div className="flex justify-end mb-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditingPreseasonGoal(!isEditingPreseasonGoal);
-                  }}
-                >
-                  <Pencil className="h-3 w-3 mr-1" />
-                  <span className="text-xs">{isEditingPreseasonGoal ? 'Done' : 'Edit'}</span>
-                </Button>
-              </div>
-          
-              {preseasonStats && (
-                <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                  {/* Current pace info - based on actual days worked, not calendar days */}
-                  {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
-                    <div className="flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-sm text-muted-foreground">Your Daily Pace</span>
-                        <span className="text-[10px] text-muted-foreground/70">
-                          ({preseasonStats.daysWorkedCount} days worked)
-                        </span>
-                      </div>
-                      <span className={cn(
-                        "text-sm font-semibold flex items-center gap-1",
-                        preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                      )}>
-                        {preseasonStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {preseasonStats.currentDailyAvg} {metricLabel}/day
+                <Pencil className="h-3 w-3 mr-1" />
+                <span className="text-xs">{isEditingPreseasonGoal ? 'Done' : 'Edit'}</span>
+              </Button>
+            </div>
+        
+            {preseasonStats && (
+              <div className="p-3 rounded-lg bg-accent/30 space-y-2">
+                {/* Current pace info - based on actual days worked, not calendar days */}
+                {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-muted-foreground">Your Daily Pace</span>
+                      <span className="text-[10px] text-muted-foreground/70">
+                        ({preseasonStats.daysWorkedCount} days worked)
                       </span>
                     </div>
-                  )}
-
-                  {/* Projected total at current pace */}
-                  {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">At this pace you'll hit</span>
-                      <span className={cn(
-                        "text-sm font-bold",
-                        preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                      )}>
-                        {preseasonStats.projectedTotal} {metricLabel}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Main focus: What you need today */}
-                  <div className="flex justify-between items-center pt-2 border-t border-border/30">
-                    <span className="text-sm font-medium">Need Today</span>
                     <span className={cn(
-                      "text-lg font-bold",
-                      preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-primary"
+                      "text-sm font-semibold flex items-center gap-1",
+                      preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
                     )}>
-                      {preseasonStats.neededDaily} {metricLabel}
+                      {preseasonStats.onPace ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {preseasonStats.currentDailyAvg} {metricLabel}/day
                     </span>
                   </div>
-                  
-                  {/* Progress bar */}
-                  {parseFloat(preseasonStats.goalTotal) > 0 && (
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          preseasonStats.onPace ? "bg-green-500" : "bg-orange-500"
-                        )}
-                        style={{ width: `${Math.min(100, preseasonStats.pacePercent)}%` }}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Summary stats - clarify this includes unfunded */}
-                  <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <span>{preseasonStats.currentFP} / {preseasonStats.goalTotal} {metricLabel}</span>
-                    <span>{preseasonStats.daysLeft} days left</span>
-                  </div>
-                  
-                  {/* Note about what's included */}
-                  <p className="text-[10px] text-muted-foreground/70 italic">
-                    Includes unfunded sales (installed but cancelled). Never-installed sales should be deleted.
-                  </p>
-                  
-                  {/* Catch-up message when behind pace */}
-                  {!preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0 && (
-                    <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-md">
-                      You need to sell an extra <span className="font-semibold">{preseasonStats.extraPerWeek} {metricLabel}/week</span> to get back on pace
-                    </div>
-                  )}
-                  
-                  {/* Edit mode - goal inputs */}
-                  {isEditingPreseasonGoal && (
-                    <div className="pt-3 mt-2 border-t border-border/30 space-y-3">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{preseasonStats.totalDays} total days</span>
-                      </div>
-                      <div className="flex justify-end">
-                        <div className="flex rounded-lg border border-border/50 overflow-hidden">
-                          <button
-                            onClick={() => setPreseasonInputMode('total')}
-                            className={cn(
-                              "px-3 py-1 text-xs font-medium transition-colors",
-                              preseasonInputMode === 'total' 
-                                ? "bg-primary text-primary-foreground" 
-                                : "text-muted-foreground hover:bg-accent"
-                            )}
-                          >
-                            Total
-                          </button>
-                          <button
-                            onClick={() => setPreseasonInputMode('daily')}
-                            className={cn(
-                              "px-3 py-1 text-xs font-medium transition-colors",
-                              preseasonInputMode === 'daily' 
-                                ? "bg-primary text-primary-foreground" 
-                                : "text-muted-foreground hover:bg-accent"
-                            )}
-                          >
-                            Daily
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {preseasonInputMode === 'total' ? (
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel} Goal</label>
-                          <Input
-                            type="number"
-                            value={preseasonTotalInput}
-                            onChange={(e) => handlePreseasonTotalChange(e.target.value)}
-                            placeholder="e.g. 10"
-                            className="h-10 text-lg font-semibold"
-                          />
-                          {preseasonStats.totalDays > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              = {preseasonStats.goalDaily} {metricLabel}/day
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Daily {metricLabel} Goal</label>
-                          <Input
-                            type="number"
-                            value={preseasonDailyInput}
-                            onChange={(e) => handlePreseasonDailyChange(e.target.value)}
-                            placeholder="e.g. 0.5"
-                            className="h-10 text-lg font-semibold"
-                          />
-                          {preseasonStats.totalDays > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              = {preseasonStats.goalTotal} {metricLabel} total funded
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+                )}
 
-        {/* Summer Goal Tier Selection - Always show */}
-        <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
-          <div className="pt-3 border-t border-border/50">
-            <CollapsibleTrigger className="w-full">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  Summer Goal
-                  <ChevronDown className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    isSummerOpen && "rotate-180"
-                  )} />
-                </h4>
-                {!isSummerOpen && summerStats && (
-                  <span className="text-xs text-muted-foreground">
-                    {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {summerStats.goalDaily}/day · {summerStats.daysLeft} left
+                {/* Projected total at current pace */}
+                {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">At this pace you'll hit</span>
+                    <span className={cn(
+                      "text-sm font-bold",
+                      preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                    )}>
+                      {preseasonStats.projectedTotal} {metricLabel}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Main focus: What you need today */}
+                <div className="flex justify-between items-center pt-2 border-t border-border/30">
+                  <span className="text-sm font-medium">Need Today</span>
+                  <span className={cn(
+                    "text-lg font-bold",
+                    preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-primary"
+                  )}>
+                    {preseasonStats.neededDaily} {metricLabel}
                   </span>
+                </div>
+                
+                {/* Progress bar */}
+                {parseFloat(preseasonStats.goalTotal) > 0 && (
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        preseasonStats.onPace ? "bg-green-500" : "bg-orange-500"
+                      )}
+                      style={{ width: `${Math.min(100, preseasonStats.pacePercent)}%` }}
+                    />
+                  </div>
+                )}
+                
+                {/* Summary stats - clarify this includes unfunded */}
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <span>{preseasonStats.currentFP} / {preseasonStats.goalTotal} {metricLabel}</span>
+                  <span>{preseasonStats.daysLeft} days left</span>
+                </div>
+                
+                {/* Note about what's included */}
+                <p className="text-[10px] text-muted-foreground/70 italic">
+                  Includes unfunded sales (installed but cancelled). Never-installed sales should be deleted.
+                </p>
+                
+                {/* Catch-up message when behind pace */}
+                {!preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0 && (
+                  <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-md">
+                    You need to sell an extra <span className="font-semibold">{preseasonStats.extraPerWeek} {metricLabel}/week</span> to get back on pace
+                  </div>
+                )}
+                
+                {/* Edit mode - goal inputs */}
+                {isEditingPreseasonGoal && (
+                  <div className="pt-3 mt-2 border-t border-border/30 space-y-3">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{preseasonStats.totalDays} total days</span>
+                    </div>
+                    <div className="flex justify-end">
+                      <div className="flex rounded-lg border border-border/50 overflow-hidden">
+                        <button
+                          onClick={() => setPreseasonInputMode('total')}
+                          className={cn(
+                            "px-3 py-1 text-xs font-medium transition-colors",
+                            preseasonInputMode === 'total' 
+                              ? "bg-primary text-primary-foreground" 
+                              : "text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          Total
+                        </button>
+                        <button
+                          onClick={() => setPreseasonInputMode('daily')}
+                          className={cn(
+                            "px-3 py-1 text-xs font-medium transition-colors",
+                            preseasonInputMode === 'daily' 
+                              ? "bg-primary text-primary-foreground" 
+                              : "text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          Daily
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {preseasonInputMode === 'total' ? (
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel} Goal</label>
+                        <Input
+                          type="number"
+                          value={preseasonTotalInput}
+                          onChange={(e) => handlePreseasonTotalChange(e.target.value)}
+                          placeholder="e.g. 10"
+                          className="h-10 text-lg font-semibold"
+                        />
+                        {preseasonStats.totalDays > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            = {preseasonStats.goalDaily} {metricLabel}/day
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Daily {metricLabel} Goal</label>
+                        <Input
+                          type="number"
+                          value={preseasonDailyInput}
+                          onChange={(e) => handlePreseasonDailyChange(e.target.value)}
+                          placeholder="e.g. 0.5"
+                          className="h-10 text-lg font-semibold"
+                        />
+                        {preseasonStats.totalDays > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            = {preseasonStats.goalTotal} {metricLabel} total funded
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="mt-3 space-y-3">
-              {/* Days summary - show off-days if any */}
-              {summerStats && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>
-                    {summerStats.totalDays} work days
-                    {summerStats.offDaysCount > 0 && (
-                      <span className="text-destructive ml-1">({summerStats.offDaysCount} off)</span>
-                    )}
-                  </span>
-                  <span>{summerStats.daysLeft} days left</span>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-3 gap-2">
-                {(['must', 'will', 'could'] as const).map((tier) => {
-                  const tierGoalFp = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
-                  const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
-                  const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
-                  const displayGoal = (tierGoalFp * conversionFactor).toFixed(1);
-                  return (
-                    <Button
-                      key={tier}
-                      variant={selectedTier === tier ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedTier(tier)}
-                      className="flex flex-col h-auto py-2"
-                    >
-                      <span className="text-xs">{tierLabel}</span>
-                      <span className="font-bold">{displayGoal}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-              {summerStats && (
-                <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Daily Goal</span>
-                    <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
-                  </div>
-                  
-                  {/* Catch-up message for summer - show weekly goal */}
-                  {summerStats.weeksLeft > 0 && parseFloat(summerStats.goalTotalRaw.toString()) > 0 && (
-                    <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
-                      Weekly goal: <span className="font-semibold">{(summerStats.goalTotalRaw / summerStats.weeksLeft).toFixed(1)} {metricLabel}/week</span> over {summerStats.weeksLeft} weeks
-                    </div>
-                  )}
-                </div>
-              )}
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+            )}
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
 
-        {/* Total Summary */}
-        {totalStats && (
-          <div className="pt-3 border-t border-border/50">
-            <h4 className="text-sm font-semibold mb-2">Total Summary</h4>
-            <div className="p-3 rounded-lg bg-primary/10 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Goal Total</span>
-                <span className="text-lg font-bold">{totalStats.baseGoal} {metricLabel}</span>
-              </div>
-              <div className="pt-2 border-t border-border/30 flex justify-between items-center">
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <DollarSign className="h-4 w-4 text-green-500" />
-                  Projected Earnings
+      {/* Summer Goal Tier Selection - Always show */}
+      <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
+        <div className="pt-3 border-t border-border/50">
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                Summer Goal
+                <ChevronDown className={cn(
+                  "h-4 w-4 text-muted-foreground transition-transform",
+                  isSummerOpen && "rotate-180"
+                )} />
+              </h4>
+              {!isSummerOpen && summerStats && (
+                <span className="text-xs text-muted-foreground">
+                  {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {summerStats.goalDaily}/day · {summerStats.daysLeft} left
                 </span>
-                <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(totalStats.projectedEarnings)}
+              )}
+            </div>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent className="mt-3 space-y-3">
+            {/* Days summary - show off-days if any */}
+            {summerStats && (
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  {summerStats.totalDays} work days
+                  {summerStats.offDaysCount > 0 && (
+                    <span className="text-destructive ml-1">({summerStats.offDaysCount} off)</span>
+                  )}
                 </span>
+                <span>{summerStats.daysLeft} days left</span>
               </div>
+            )}
+            
+            <div className="grid grid-cols-3 gap-2">
+              {(['must', 'will', 'could'] as const).map((tier) => {
+                const tierGoalFp = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
+                const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
+                const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
+                const displayGoal = (tierGoalFp * conversionFactor).toFixed(1);
+                return (
+                  <Button
+                    key={tier}
+                    variant={selectedTier === tier ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedTier(tier)}
+                    className="flex flex-col h-auto py-2"
+                  >
+                    <span className="text-xs">{tierLabel}</span>
+                    <span className="font-bold">{displayGoal}</span>
+                  </Button>
+                );
+              })}
+            </div>
+            {summerStats && (
+              <div className="p-3 rounded-lg bg-accent/30 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Daily Goal</span>
+                  <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
+                </div>
+                
+                {/* Catch-up message for summer - show weekly goal */}
+                {summerStats.weeksLeft > 0 && parseFloat(summerStats.goalTotalRaw.toString()) > 0 && (
+                  <div className="text-xs text-muted-foreground pt-1 border-t border-border/30">
+                    Weekly goal: <span className="font-semibold">{(summerStats.goalTotalRaw / summerStats.weeksLeft).toFixed(1)} {metricLabel}/week</span> over {summerStats.weeksLeft} weeks
+                  </div>
+                )}
+              </div>
+            )}
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      {/* Total Summary */}
+      {totalStats && (
+        <div className="pt-3 border-t border-border/50">
+          <h4 className="text-sm font-semibold mb-2">Total Summary</h4>
+          <div className="p-3 rounded-lg bg-primary/10 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Goal Total</span>
+              <span className="text-lg font-bold">{totalStats.baseGoal} {metricLabel}</span>
+            </div>
+            <div className="pt-2 border-t border-border/30 flex justify-between items-center">
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-green-500" />
+                Projected Earnings
+              </span>
+              <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                {formatCurrency(totalStats.projectedEarnings)}
+              </span>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Empty state */}
-        {!totalStats && (
-          <p className="text-sm text-muted-foreground text-center py-3">
-            Set your summer dates to see projections
-          </p>
-        )}
-      </CardContent>
+      {/* Empty state */}
+      {!totalStats && (
+        <p className="text-sm text-muted-foreground text-center py-3">
+          Set your summer dates to see projections
+        </p>
+      )}
 
       {/* Date Out of Range Sheet */}
       <Sheet 
@@ -944,6 +923,6 @@ export const CalendarPlanningCard = ({
           </div>
         </SheetContent>
       </Sheet>
-    </Card>
+    </div>
   );
 };
