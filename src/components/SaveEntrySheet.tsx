@@ -15,7 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
-import { Info, Trash2, Clock, ChevronDown, AlertTriangle, Ban, Plus } from "lucide-react";
+import { Info, Trash2, Clock, ChevronDown, AlertTriangle, Ban, Plus, Check, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, parseISO, differenceInMinutes } from "date-fns";
 import { Sale } from "@/hooks/useDailyEntry";
@@ -119,6 +119,56 @@ export const SaveEntrySheet = ({
     const noLocalSales = localSales.length === 0;
     return hasFpOrPrmr && noSalesLog && noLocalSales;
   }, [entry?.fp_plus, entry?.prmr, salesLog, localSales]);
+
+  // Generate suggested sales from legacy FP+/PRMR data
+  const suggestedSales = useMemo((): Sale[] => {
+    if (!hasLegacyData || !entry) return [];
+    
+    const fpPlus = entry.fp_plus || 0;
+    const totalPrmr = entry.prmr || 0;
+    const upgradePrmr = entry.upgrade_prmr || 0;
+    
+    const suggestions: Sale[] = [];
+    const baseTimestamp = entry.work_start_time || new Date().toISOString();
+    
+    // Calculate FP count from fp_plus (whole number part)
+    const fpCount = Math.floor(fpPlus);
+    
+    // Calculate upgrade PRMR from decimal part of fp_plus
+    // If upgrade_prmr is stored, use that; otherwise derive from fp_plus decimal
+    const derivedUpgradePrmr = upgradePrmr > 0 ? upgradePrmr : Math.round((fpPlus % 1) * 85);
+    
+    // FP PRMR is total minus upgrade
+    const fpPrmr = totalPrmr - derivedUpgradePrmr;
+    
+    // Create FP sales
+    if (fpCount > 0) {
+      const prmrPerFp = Math.round(fpPrmr / fpCount);
+      for (let i = 0; i < fpCount; i++) {
+        suggestions.push({
+          id: `suggested-fp-${i}`,
+          type: 'fp',
+          prmr: prmrPerFp,
+          timestamp: baseTimestamp,
+        });
+      }
+    }
+    
+    // Create upgrade sale if there's upgrade PRMR
+    if (derivedUpgradePrmr > 0) {
+      suggestions.push({
+        id: 'suggested-upgrade-0',
+        type: 'upgrade',
+        prmr: derivedUpgradePrmr,
+        timestamp: baseTimestamp,
+      });
+    }
+    
+    return suggestions;
+  }, [hasLegacyData, entry]);
+
+  // Track if user has confirmed/dismissed suggested sales
+  const [suggestedSalesConfirmed, setSuggestedSalesConfirmed] = useState(false);
 
   // Combine salesLog (from DB) with localSales (newly added)
   const allSales = useMemo(() => {
@@ -334,6 +384,7 @@ export const SaveEntrySheet = ({
       setPendingSalesWithInstallTracking(null);
       setLocalSales([]);
       setEditingSale(null);
+      setSuggestedSalesConfirmed(false);
     }
   }, [open, entry?.id]);
 
@@ -788,27 +839,87 @@ export const SaveEntrySheet = ({
                   </Button>
                 </div>
 
-                {hasLegacyData ? (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-3">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm">
-                        <p className="font-medium text-amber-700 dark:text-amber-400">Previous data found</p>
-                        <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                          This entry has {entry?.fp_plus?.toFixed(2)} FP+ / ${entry?.prmr?.toFixed(0)} PRMR saved before sales logging.
-                          Add your sales below to update the breakdown. Old values will be replaced.
-                        </p>
+                {/* Legacy data with suggested sales */}
+                {hasLegacyData && suggestedSales.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">
+                        Suggested breakdown from {entry?.fp_plus?.toFixed(2)} FP+ / ${entry?.prmr?.toFixed(0)} PRMR:
+                      </p>
+                      
+                      {/* Suggested sales chips */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {suggestedSales.map((sale) => (
+                          <div
+                            key={sale.id}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border-2 border-dashed ${
+                              sale.type === 'fp'
+                                ? 'bg-primary/5 text-primary border-primary/40'
+                                : 'bg-emerald-500/5 text-emerald-600 border-emerald-500/40'
+                            }`}
+                          >
+                            <span className="uppercase text-xs font-bold">
+                              {sale.type === 'fp' ? 'FP' : 'UP'}
+                            </span>
+                            <span>${sale.prmr}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Action buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1 gap-1.5"
+                          onClick={() => {
+                            // Confirm - add suggested sales with new IDs
+                            const confirmedSales = suggestedSales.map(s => ({
+                              ...s,
+                              id: crypto.randomUUID(),
+                            }));
+                            setLocalSales(confirmedSales);
+                            setSuggestedSalesConfirmed(true);
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                          Confirm
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1.5"
+                          onClick={() => {
+                            // Edit - start fresh, let user add manually
+                            setSuggestedSalesConfirmed(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit Manually
+                        </Button>
                       </div>
                     </div>
                   </div>
                 ) : null}
                 
-                {allSales.length === 0 && !hasLegacyData ? (
+                {/* No sales and no legacy data */}
+                {allSales.length === 0 && !hasLegacyData && suggestedSalesConfirmed === false ? (
                   <div className="text-center py-6 text-muted-foreground">
                     <p className="text-sm">No sales logged</p>
                     <p className="text-xs mt-1">Tap "Add Sale" to log a sale</p>
                   </div>
-                ) : allSales.length === 0 ? null : (
+                ) : null}
+                
+                {/* Show "add sales manually" state after user clicks "Edit Manually" */}
+                {allSales.length === 0 && suggestedSalesConfirmed && !hasLegacyData ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <p className="text-sm">No sales logged</p>
+                    <p className="text-xs mt-1">Tap "Add Sale" to log a sale</p>
+                  </div>
+                ) : null}
+                
+                {/* Sales list when there are sales */}
+                {allSales.length > 0 && (
                   <div className="space-y-3">
                     {/* Sales chips */}
                     <div className="flex flex-wrap gap-2">
