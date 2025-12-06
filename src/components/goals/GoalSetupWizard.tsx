@@ -30,6 +30,8 @@ interface GoalSetupWizardProps {
     mustDoFpGoal: number;
     willDoFpGoal: number;
     couldDoFpGoal: number;
+    summerStart: string;
+    summerEnd: string;
   }) => void;
   onCancel?: () => void;
 }
@@ -108,6 +110,8 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
       mustDoFpGoal,
       willDoFpGoal: Number(willDoFpGoal) || 0,
       couldDoFpGoal: Number(couldDoFpGoal) || 0,
+      summerStart,
+      summerEnd,
     });
   };
 
