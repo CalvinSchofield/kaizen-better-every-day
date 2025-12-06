@@ -151,30 +151,71 @@ export const CommitmentsTracker = ({
   const [isTrainingTimerOpen, setIsTrainingTimerOpen] = useState(false);
   const [editingGoals, setEditingGoals] = useState<Record<string, number>>({});
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
+  const [isBlitzExpanded, setIsBlitzExpanded] = useState(false);
 
   // Get committed blitzes
   const committedBlitzes = useMemo(() => {
     return (repData?.committed_blitzes as CommittedBlitz[]) || [];
   }, [repData?.committed_blitzes]);
 
-  // Calculate blitz stats
+  // Separate past blitzes (already attended) from future ones
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const { pastBlitzes, futureBlitzes, activeBlitz } = useMemo(() => {
+    const past: CommittedBlitz[] = [];
+    const future: CommittedBlitz[] = [];
+    let active: CommittedBlitz | null = null;
+    
+    committedBlitzes.forEach(blitz => {
+      const blitzStart = new Date(blitz.date);
+      blitzStart.setHours(0, 0, 0, 0);
+      const blitzEnd = blitz.endDate ? new Date(blitz.endDate) : blitzStart;
+      blitzEnd.setHours(23, 59, 59, 999);
+      
+      if (blitzEnd < today) {
+        // Blitz has ended
+        past.push(blitz);
+      } else if (blitzStart <= today && today <= blitzEnd) {
+        // Currently on this blitz
+        active = blitz;
+      } else {
+        // Future blitz
+        future.push(blitz);
+      }
+    });
+    
+    return { pastBlitzes: past, futureBlitzes: future, activeBlitz: active };
+  }, [committedBlitzes, today]);
+
+  // Filter allBlitzes to only show future ones
+  const futureAvailableBlitzes = useMemo(() => {
+    return allBlitzes.filter(blitz => {
+      const blitzStart = new Date(blitz.date);
+      blitzStart.setHours(0, 0, 0, 0);
+      return blitzStart >= today;
+    });
+  }, [allBlitzes, today]);
+
+  // Calculate blitz stats (only counting future blitzes)
   const blitzStats = useMemo(() => {
-    const blitzesAttended = goals.blitzes_progress || 0;
-    const blitzesRemaining = allBlitzes.length;
-    const blitzesCommitted = committedBlitzes.length;
+    const blitzesAttended = pastBlitzes.length + (activeBlitz ? 1 : 0);
+    const blitzesAvailable = futureAvailableBlitzes.length;
+    const blitzesCommitted = futureBlitzes.length + (activeBlitz ? 1 : 0); // Include active as committed
     
     return {
       attended: blitzesAttended,
       committed: blitzesCommitted,
-      remaining: blitzesRemaining,
-      maxGoal: blitzesRemaining,
+      available: blitzesAvailable,
+      maxGoal: blitzesAvailable,
     };
-  }, [committedBlitzes.length, goals.blitzes_progress, allBlitzes.length]);
+  }, [pastBlitzes.length, activeBlitz, futureAvailableBlitzes.length, futureBlitzes.length]);
 
-  // Check if blitz goal matches committed count
+  // Check if blitz goal mismatches committed count (auto-expand if mismatch)
   const blitzMismatch = useMemo(() => {
     const goal = Number(goals.blitzes_goal) || 0;
-    return goal !== blitzStats.committed && goal > 0;
+    const mismatch = goal !== blitzStats.committed && goal > 0;
+    return mismatch;
   }, [goals.blitzes_goal, blitzStats.committed]);
 
   // Calculate dynamic max values
@@ -188,7 +229,7 @@ export const CommitmentsTracker = ({
       unit: commitmentLabels[c.key].unit,
       description: commitmentLabels[c.key].description,
       maxValue: c.key === 'blitzes_goal' 
-        ? blitzStats.remaining 
+        ? blitzStats.available 
         : c.key === 'monday_night_lights_goal'
           ? mondaysRemaining
           : undefined,
@@ -209,7 +250,7 @@ export const CommitmentsTracker = ({
     });
     
     return staticCommitments;
-  }, [metricLabel, blitzStats.remaining]);
+  }, [metricLabel, blitzStats.available, mondaysRemaining]);
 
   const handleOpenEditDrawer = () => {
     // Initialize with current goal values, use committed blitzes count for blitz goal
@@ -548,72 +589,117 @@ export const CommitmentsTracker = ({
           </DrawerHeader>
 
           <div className="px-4 pb-6 space-y-4 overflow-y-auto">
-            {/* Blitzes Section - Special handling */}
+            {/* Blitzes Section - Collapsible */}
             <div className="rounded-xl p-4 bg-red-500/10">
-              <div className="flex items-center gap-3 mb-3">
+              <button 
+                className="flex items-center gap-3 w-full text-left"
+                onClick={() => setIsBlitzExpanded(!isBlitzExpanded)}
+              >
                 <div className="p-2 rounded-lg bg-background/60">
                   <Plane className="h-5 w-5 text-red-500" />
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">Blitzes</p>
                   <p className="text-xs text-muted-foreground">
-                    {blitzStats.committed} committed · {allBlitzes.length} available
+                    {blitzStats.attended > 0 && `${blitzStats.attended} attended · `}
+                    {blitzStats.committed} committed · {blitzStats.available} available
                   </p>
                 </div>
-                <span className="text-2xl font-bold tabular-nums">{blitzStats.committed}</span>
-              </div>
+                <span className="text-2xl font-bold tabular-nums mr-2">{blitzStats.committed}</span>
+                <ChevronRight className={cn(
+                  "h-5 w-5 text-muted-foreground transition-transform",
+                  (isBlitzExpanded || blitzMismatch) && "rotate-90"
+                )} />
+              </button>
               
-              {/* Blitz list */}
-              <div className="space-y-2 mt-3">
-                {allBlitzes.map((blitz) => {
-                  const isCommitted = committedBlitzes.some(b => b.id === blitz.id);
-                  const blitzDate = new Date(blitz.date);
-                  
-                  return (
-                    <div 
-                      key={blitz.id}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-lg transition-all",
-                        isCommitted ? "bg-green-500/20 ring-1 ring-green-500/50" : "bg-background/50"
-                      )}
-                    >
+              {/* Blitz list - collapsible, auto-expand on mismatch */}
+              {(isBlitzExpanded || blitzMismatch) && (
+                <div className="space-y-2 mt-3">
+                  {/* Active blitz (can't uncommit) */}
+                  {activeBlitz && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/20 ring-1 ring-amber-500/50">
                       <div>
-                        <p className="font-medium text-sm">{blitz.name}</p>
+                        <p className="font-medium text-sm">{activeBlitz.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {blitz.location && ` · ${blitz.location}`}
+                          Currently active
+                          {activeBlitz.location && ` · ${activeBlitz.location}`}
                         </p>
                       </div>
-                      <Button
-                        variant={isCommitted ? "outline" : "default"}
-                        size="sm"
-                        onClick={() => isCommitted 
-                          ? handleUncommitFromBlitz(blitz.id)
-                          : handleCommitToBlitz(blitz)
-                        }
-                        disabled={isCommitting === blitz.id}
+                      <span className="text-xs font-medium text-amber-600 px-2 py-1 bg-amber-100 rounded-full">
+                        On Trip
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Future available blitzes */}
+                  {futureAvailableBlitzes.map((blitz) => {
+                    const isCommitted = futureBlitzes.some(b => b.id === blitz.id);
+                    const blitzDate = new Date(blitz.date);
+                    
+                    return (
+                      <div 
+                        key={blitz.id}
                         className={cn(
-                          "min-w-[80px]",
-                          isCommitted && "border-green-500/50 text-green-600"
+                          "flex items-center justify-between p-3 rounded-lg transition-all",
+                          isCommitted ? "bg-green-500/20 ring-1 ring-green-500/50" : "bg-background/50"
                         )}
                       >
-                        {isCommitting === blitz.id ? "..." : isCommitted ? (
-                          <>
-                            <Check className="h-3 w-3 mr-1" />
-                            Going
-                          </>
-                        ) : "Commit"}
-                      </Button>
+                        <div>
+                          <p className="font-medium text-sm">{blitz.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {blitz.location && ` · ${blitz.location}`}
+                          </p>
+                        </div>
+                        <Button
+                          variant={isCommitted ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => isCommitted 
+                            ? handleUncommitFromBlitz(blitz.id)
+                            : handleCommitToBlitz(blitz)
+                          }
+                          disabled={isCommitting === blitz.id}
+                          className={cn(
+                            "min-w-[80px]",
+                            isCommitted && "border-green-500/50 text-green-600"
+                          )}
+                        >
+                          {isCommitting === blitz.id ? "..." : isCommitted ? (
+                            <>
+                              <Check className="h-3 w-3 mr-1" />
+                              Going
+                            </>
+                          ) : "Commit"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  
+                  {futureAvailableBlitzes.length === 0 && !activeBlitz && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      No upcoming blitzes scheduled
+                    </p>
+                  )}
+                  
+                  {/* Past blitzes attended */}
+                  {pastBlitzes.length > 0 && (
+                    <div className="pt-2 mt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground mb-2">Past blitzes attended</p>
+                      {pastBlitzes.map((blitz) => (
+                        <div 
+                          key={blitz.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
+                        >
+                          <div>
+                            <p className="font-medium text-xs text-muted-foreground">{blitz.name}</p>
+                          </div>
+                          <Check className="h-4 w-4 text-green-500" />
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-                
-                {allBlitzes.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    No upcoming blitzes scheduled
-                  </p>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Other commitments with steppers */}
@@ -621,8 +707,14 @@ export const CommitmentsTracker = ({
               const Icon = commitment.icon;
               const isTraining = commitment.key === 'training_hours_goal';
               const currentGoalValue = editingGoals[commitment.key] ?? (Number(goals[commitment.key as keyof RepGoals]) || 0);
-              const stepAmount = isTraining ? 60 : (commitment.incrementBy || 1); // 1 hour steps for training
-              const displayValue = isTraining ? Math.round(currentGoalValue / 60) : currentGoalValue;
+              // Training uses 15-min increments (stored as minutes)
+              const stepAmount = isTraining ? 15 : (commitment.incrementBy || 1);
+              // Display training as hours and mins
+              const displayValue = isTraining 
+                ? (currentGoalValue >= 60 
+                    ? `${Math.floor(currentGoalValue / 60)}h${currentGoalValue % 60 > 0 ? ` ${currentGoalValue % 60}m` : ''}`
+                    : `${currentGoalValue}m`)
+                : currentGoalValue;
 
               return (
                 <div 
@@ -641,6 +733,7 @@ export const CommitmentsTracker = ({
                         <p className="font-semibold text-sm">{commitment.label}</p>
                         <p className="text-xs text-muted-foreground">
                           {commitment.description}
+                          {isTraining && ' (weekly)'}
                         </p>
                       </div>
                     </div>
@@ -651,22 +744,22 @@ export const CommitmentsTracker = ({
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-full"
-                        onClick={() => handleStepperChange(commitment.key, -stepAmount)}
+                        onClick={() => handleStepperChange(commitment.key, -stepAmount, commitment.maxValue)}
                         disabled={currentGoalValue <= 0}
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <div className="text-center min-w-[48px]">
-                        <span className="text-xl font-bold tabular-nums">
+                      <div className="text-center min-w-[56px]">
+                        <span className="text-lg font-bold tabular-nums">
                           {displayValue}
                         </span>
-                        {isTraining && <span className="text-xs text-muted-foreground ml-0.5">h</span>}
                       </div>
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-full"
-                        onClick={() => handleStepperChange(commitment.key, stepAmount)}
+                        onClick={() => handleStepperChange(commitment.key, stepAmount, commitment.maxValue)}
+                        disabled={commitment.maxValue !== undefined && currentGoalValue >= commitment.maxValue}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
