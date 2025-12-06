@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
@@ -61,6 +61,7 @@ export const CalendarPlanningCard = ({
   const [selectedTier, setSelectedTier] = useState<'must' | 'will' | 'could'>('will');
   const [isPreseasonOpen, setIsPreseasonOpen] = useState(true);
   const [isSummerOpen, setIsSummerOpen] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { totalFP: preseasonCurrentFP } = usePreseasonFP();
@@ -157,6 +158,7 @@ export const CalendarPlanningCard = ({
       futurePlannedCount,
       pastCount,
       totalDays: totalPreseasonDays,
+      daysLeft: futurePlannedCount,
       goalTotal: (goalTotal * conversionFactor).toFixed(1),
       goalTotalRaw: goalTotal,
       goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
@@ -194,13 +196,21 @@ export const CalendarPlanningCard = ({
 
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
 
+    // Calculate days left (future planned days that haven't passed)
+    const summerStart = parseLocalDate(SUMMER_START);
+    const daysLeft = summerPlannedDays.filter(dateStr => {
+      const date = parseLocalDate(dateStr);
+      return date >= today;
+    }).length;
+
     return {
       plannedCount,
+      daysLeft,
       goalTotal: (remainingSummerGoal * conversionFactor).toFixed(1),
       goalDaily: (goalDailyRaw * conversionFactor).toFixed(2),
       projectedEarnings: result.takeHomePay,
     };
-  }, [summerPlannedDays, selectedSummerGoal, preseasonTotalInput, preseasonCurrentFP, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode]);
+  }, [summerPlannedDays, selectedSummerGoal, preseasonTotalInput, preseasonCurrentFP, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
@@ -235,10 +245,15 @@ export const CalendarPlanningCard = ({
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    saveTimeoutRef.current = setTimeout(() => {
-      updateGoals({ preseason_fp_goal: value });
+    setIsSaving(true);
+    saveTimeoutRef.current = setTimeout(async () => {
+      await updateGoals({ preseason_fp_goal: value });
+      setIsSaving(false);
     }, 800);
   };
+
+  // Check if summer has started
+  const isSummerStarted = today >= parseLocalDate(SUMMER_START);
 
   // Handle preseason total input change
   const handlePreseasonTotalChange = (value: string) => {
@@ -402,6 +417,7 @@ export const CalendarPlanningCard = ({
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold flex items-center gap-2">
                   Preseason Goal
+                  {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   <ChevronDown className={cn(
                     "h-4 w-4 text-muted-foreground transition-transform",
                     isPreseasonOpen && "rotate-180"
@@ -409,13 +425,20 @@ export const CalendarPlanningCard = ({
                 </h4>
                 {!isPreseasonOpen && preseasonStats && (
                   <span className="text-xs text-muted-foreground">
-                    {preseasonStats.currentFP}/{preseasonStats.goalTotal} {metricLabel} · {preseasonStats.onPace ? '✓ On pace' : 'Behind'}
+                    {preseasonStats.currentFP}/{preseasonStats.goalTotal} {metricLabel} · {preseasonStats.daysLeft} days left
                   </span>
                 )}
               </div>
             </CollapsibleTrigger>
             
             <CollapsibleContent className="mt-3 space-y-3">
+              {/* Days summary */}
+              {preseasonStats && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{preseasonStats.totalDays} total days</span>
+                  <span>{preseasonStats.daysLeft} days left</span>
+                </div>
+              )}
               <div className="flex justify-end">
                 <div className="flex rounded-lg border border-border/50 overflow-hidden">
                   <button
@@ -513,60 +536,66 @@ export const CalendarPlanningCard = ({
           </div>
         </Collapsible>
 
-        {/* Summer Goal Tier Selection - Collapsible */}
-        <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
-          <div className="pt-3 border-t border-border/50">
-            <CollapsibleTrigger className="w-full">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  Summer Goal
-                  <ChevronDown className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    isSummerOpen && "rotate-180"
-                  )} />
-                </h4>
-                {!isSummerOpen && summerStats && (
-                  <span className="text-xs text-muted-foreground">
-                    {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {selectedSummerGoal} {metricLabel} · {summerStats.goalDaily}/day
-                  </span>
-                )}
-              </div>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="mt-3 space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {(['must', 'will', 'could'] as const).map((tier) => {
-                  const tierGoal = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
-                  const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
-                  return (
-                    <Button
-                      key={tier}
-                      variant={selectedTier === tier ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedTier(tier)}
-                      className="flex flex-col h-auto py-2"
-                    >
-                      <span className="text-xs">{tierLabel}</span>
-                      <span className="font-bold">{tierGoal}</span>
-                    </Button>
-                  );
-                })}
-              </div>
-              {summerStats && (
-                <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Days Planned</span>
-                    <span className="text-sm font-semibold">{summerStats.plannedCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Daily Goal</span>
-                    <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
-                  </div>
+        {/* Summer Goal Tier Selection - Only show after summer starts */}
+        {isSummerStarted && (
+          <Collapsible open={isSummerOpen} onOpenChange={setIsSummerOpen}>
+            <div className="pt-3 border-t border-border/50">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    Summer Goal
+                    <ChevronDown className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      isSummerOpen && "rotate-180"
+                    )} />
+                  </h4>
+                  {!isSummerOpen && summerStats && (
+                    <span className="text-xs text-muted-foreground">
+                      {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'}: {summerStats.goalDaily}/day · {summerStats.daysLeft} left
+                    </span>
+                  )}
                 </div>
-              )}
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-3 space-y-3">
+                {/* Days summary */}
+                {summerStats && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{summerStats.plannedCount} total days</span>
+                    <span>{summerStats.daysLeft} days left</span>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-3 gap-2">
+                  {(['must', 'will', 'could'] as const).map((tier) => {
+                    const tierGoal = tier === 'must' ? mustDoFpGoal : tier === 'will' ? willDoFpGoal : couldDoFpGoal;
+                    const tierLabel = tier === 'must' ? 'Must Do' : tier === 'will' ? 'Will Do' : 'Could Do';
+                    return (
+                      <Button
+                        key={tier}
+                        variant={selectedTier === tier ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedTier(tier)}
+                        className="flex flex-col h-auto py-2"
+                      >
+                        <span className="text-xs">{tierLabel}</span>
+                        <span className="font-bold">{tierGoal}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+                {summerStats && (
+                  <div className="p-3 rounded-lg bg-accent/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">Daily Goal</span>
+                      <span className="text-sm font-semibold">{summerStats.goalDaily} {metricLabel}</span>
+                    </div>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        )}
 
         {/* Total Summary */}
         {totalStats && (
