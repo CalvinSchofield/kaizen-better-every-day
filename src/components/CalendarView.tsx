@@ -490,7 +490,7 @@ export const CalendarView = ({
                     <span className="text-muted-foreground ml-1">FP+</span>
                   </div>
                   <div>
-                    <span className="font-bold text-primary">${(viewTotals.prmr + viewTotals.upgradePrmr).toFixed(0)}</span>
+                    <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
                     <span className="text-muted-foreground ml-1">PRMR</span>
                   </div>
                 </>

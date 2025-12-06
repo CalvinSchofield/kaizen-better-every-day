@@ -260,7 +260,7 @@ export default function Insights() {
                 <span className="text-sm text-primary font-medium">{insights.daysWorked} days worked</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {efpModeEnabled ? (
+              {efpModeEnabled ? (
                   <>
                     <div>
                       <div className="text-2xl font-bold text-primary">{insights.totalEfp.toFixed(2)}</div>
@@ -309,22 +309,38 @@ export default function Insights() {
                 </div>
               </div>
 
-              {/* Upgrade Breakdown */}
-              {insights.totalUpgradeFp > 0 && (
+              {/* FP+ Breakdown */}
+              {(insights.fpCount > 0 || insights.upgradeCount > 0) && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-sm font-medium text-muted-foreground">FP+ Breakdown</div>
-                    <div className="text-xs text-primary font-semibold">{((insights.totalUpgradeFp / insights.totalFp) * 100).toFixed(0)}% upgrades</div>
+                    {insights.fpCount > 0 && insights.upgradeCount > 0 && (
+                      <div className="text-xs text-primary font-semibold">
+                        {Math.round((insights.upgradeCount / (insights.fpCount + insights.upgradeCount)) * 100)}% upgrades
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{(insights.totalFp - insights.totalUpgradeFp).toFixed(1)}</div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">{insights.fpCount}</div>
                       <div className="text-xs text-muted-foreground">FP</div>
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insights.totalUpgradeFp.toFixed(1)}</div>
-                      <div className="text-xs text-muted-foreground">Upgrade FP+</div>
+                      <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{insights.upgradeCount}</div>
+                      <div className="text-xs text-muted-foreground">Upgrades</div>
                     </div>
+                    {insights.fpCount > 0 && (
+                      <div>
+                        <div className="text-lg font-bold text-primary">${Math.round(insights.avgPrmrPerFp)}</div>
+                        <div className="text-xs text-muted-foreground">Avg PRMR per FP</div>
+                      </div>
+                    )}
+                    {insights.upgradeCount > 0 && (
+                      <div>
+                        <div className="text-lg font-bold text-primary">${Math.round(insights.avgPrmrPerUpgrade)}</div>
+                        <div className="text-xs text-muted-foreground">Avg PRMR per Upgrade</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
