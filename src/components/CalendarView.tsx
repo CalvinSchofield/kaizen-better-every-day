@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Ban } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
@@ -373,6 +373,10 @@ export const CalendarView = ({
             const dateStr = format(day, 'yyyy-MM-dd');
             const isPlanned = isDatePlanned(dateStr);
             const hasEntry = entry && entry.is_finalized;
+            
+            // Check for cancelled sales
+            const salesLog = entry?.sales_log || [];
+            const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
 
             return (
               <div
@@ -386,6 +390,12 @@ export const CalendarView = ({
                   ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
                 `}
               >
+                {/* Cancelled sale indicator - top right corner */}
+                {hasEntry && hasCancelledSale && (
+                  <div className="absolute top-0.5 right-0.5 text-destructive">
+                    <Ban className="h-3 w-3" />
+                  </div>
+                )}
                 {/* Planned day goal indicator - top right corner */}
                 {isPlanned && dailyGoal && !hasEntry && (
                   <div className="absolute top-1 right-1.5 text-[8px] text-muted-foreground/60 font-medium">
@@ -424,6 +434,10 @@ export const CalendarView = ({
             const dateStr = format(day, 'yyyy-MM-dd');
             const isPlanned = isDatePlanned(dateStr);
             const hasEntry = entry && entry.is_finalized;
+            
+            // Check for cancelled sales
+            const salesLog = entry?.sales_log || [];
+            const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
 
             return (
               <div
@@ -436,6 +450,12 @@ export const CalendarView = ({
                   ${isKnocking && (!isSunday || sundayHasData) ? 'bg-primary/10' : isPlanned && !hasEntry ? 'bg-accent/30' : 'bg-card'}
                 `}
               >
+                {/* Cancelled sale indicator - top right corner */}
+                {hasEntry && hasCancelledSale && (
+                  <div className="absolute top-1 right-1.5 text-destructive">
+                    <Ban className="h-3.5 w-3.5" />
+                  </div>
+                )}
                 {/* Planned day goal indicator - top right corner */}
                 {isPlanned && dailyGoal && !hasEntry && (
                   <div className="absolute top-1 right-1.5 text-[10px] text-muted-foreground/60 font-medium">
