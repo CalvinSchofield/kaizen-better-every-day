@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo } from "react";
-import { format, eachDayOfInterval, getDay, isBefore, startOfDay } from "date-fns";
+import { format, eachDayOfInterval, getDay, isBefore, startOfDay, parseISO } from "date-fns";
 import { usePlannedDays } from "./usePlannedDays";
 import { useRepData } from "./useRepData";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,13 @@ interface CommittedBlitz {
   endDate: string | null;
   location?: string;
 }
+
+// Parse date string as local date (not UTC)
+const parseLocalDate = (dateString: string): Date => {
+  // Split the date string and create a local date
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 // Generates all Mon-Sat dates between start and end (no Sundays)
 const getWorkDaysInRange = (startDate: Date, endDate: Date): string[] => {
@@ -71,10 +78,10 @@ export const usePlannedDaysSync = () => {
   const getBlitzDays = useMemo(() => {
     const days: string[] = [];
     for (const blitz of committedBlitzes) {
-      const startDate = new Date(blitz.date);
-      const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+      const startDate = parseLocalDate(blitz.date);
+      const endDate = blitz.endDate ? parseLocalDate(blitz.endDate) : startDate;
       const blitzDays = getWorkDaysInRange(startDate, endDate);
-      days.push(...blitzDays.filter(d => !isBefore(new Date(d), today)));
+      days.push(...blitzDays.filter(d => !isBefore(parseLocalDate(d), today)));
     }
     return [...new Set(days)]; // Remove duplicates
   }, [committedBlitzes, today]);
@@ -82,9 +89,9 @@ export const usePlannedDaysSync = () => {
   // Calculate expected summer days (Mon-Sat only)
   const getSummerDays = useMemo(() => {
     if (!seasonConfig?.personal_summer_start || !seasonConfig?.personal_summer_end) return [];
-    const startDate = new Date(seasonConfig.personal_summer_start);
-    const endDate = new Date(seasonConfig.personal_summer_end);
-    return getWorkDaysInRange(startDate, endDate).filter(d => !isBefore(new Date(d), today));
+    const startDate = parseLocalDate(seasonConfig.personal_summer_start);
+    const endDate = parseLocalDate(seasonConfig.personal_summer_end);
+    return getWorkDaysInRange(startDate, endDate).filter(d => !isBefore(parseLocalDate(d), today));
   }, [seasonConfig, today]);
 
   // Sync blitz dates when committed_blitzes changes
@@ -105,10 +112,10 @@ export const usePlannedDaysSync = () => {
         // Get dates for newly added blitzes only
         const newBlitzDays: string[] = [];
         for (const blitz of committedBlitzes.filter(b => newlyAddedIds.includes(b.id))) {
-          const startDate = new Date(blitz.date);
-          const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+          const startDate = parseLocalDate(blitz.date);
+          const endDate = blitz.endDate ? parseLocalDate(blitz.endDate) : startDate;
           const blitzDays = getWorkDaysInRange(startDate, endDate);
-          newBlitzDays.push(...blitzDays.filter(d => !isBefore(new Date(d), today)));
+          newBlitzDays.push(...blitzDays.filter(d => !isBefore(parseLocalDate(d), today)));
         }
         
         // Add only new days (not already planned)
