@@ -28,6 +28,8 @@ export interface RepGoals {
   role_plays_progress: number;
   blitzes_progress: number;
   recruits_with_sale_progress: number;
+  // Cancel rate for adjusting goals (decimal, e.g., 0.10 = 10%)
+  cancel_rate: number;
   setup_complete: boolean;
   created_at: string;
   updated_at: string;

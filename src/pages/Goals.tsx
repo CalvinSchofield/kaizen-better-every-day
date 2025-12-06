@@ -169,6 +169,7 @@ const Goals = () => {
           weeksWorking={goals.weeks_working || 18}
           upgradeFpGoal={goals.upgrade_fp_goal || 0}
           preseasonFpGoal={goals.preseason_fp_goal || 0}
+          cancelRate={goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)}
           onPreseasonGoalChange={(goal) => updateGoals({ preseason_fp_goal: goal })}
         />
 
