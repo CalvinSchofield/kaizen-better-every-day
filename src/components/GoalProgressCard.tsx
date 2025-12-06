@@ -4,8 +4,8 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { Target, TrendingUp, CheckCircle2, Settings2 } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, isBefore, getDay, eachDayOfInterval } from "date-fns";
+import { Target, TrendingUp, CheckCircle2, Settings2, Flame } from "lucide-react";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, differenceInWeeks, differenceInDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,31 +117,21 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, currentDate, viewMode, today]);
 
-  // Calculate future planned days for preseason
-  const futurePreseasonPlannedDays = useMemo(() => {
-    if (!plannedDays) return 0;
+  // Calculate weeks remaining in each season (for fixed weekly goals)
+  const { weeksRemainingPreseason, weeksRemainingSummer } = useMemo(() => {
     const preseasonEnd = parseLocalDate(PRESEASON_END);
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const preseasonEndStr = format(preseasonEnd, 'yyyy-MM-dd');
-    
-    return plannedDays.filter(d => 
-      d.planned_date >= todayStr && d.planned_date <= preseasonEndStr
-    ).length;
-  }, [plannedDays, today]);
-
-  // Calculate future planned days for summer
-  const futureSummerPlannedDays = useMemo(() => {
-    if (!plannedDays) return 0;
-    const summerStart = parseLocalDate(personalSummerStart);
     const summerEnd = parseLocalDate(personalSummerEnd);
-    const effectiveStart = today > summerStart ? today : summerStart;
-    const startStr = format(effectiveStart, 'yyyy-MM-dd');
-    const endStr = format(summerEnd, 'yyyy-MM-dd');
+    const weekStart = startOfWeek(today);
     
-    return plannedDays.filter(d => 
-      d.planned_date >= startStr && d.planned_date <= endStr
-    ).length;
-  }, [plannedDays, today, personalSummerStart, personalSummerEnd]);
+    // Weeks remaining = full weeks from start of this week to end of season
+    const preseasonWeeks = Math.max(1, Math.ceil(differenceInDays(preseasonEnd, weekStart) / 7));
+    const summerWeeks = Math.max(1, Math.ceil(differenceInDays(summerEnd, weekStart) / 7));
+    
+    return {
+      weeksRemainingPreseason: preseasonWeeks,
+      weeksRemainingSummer: summerWeeks
+    };
+  }, [today, personalSummerEnd]);
 
   // Get current cumulative totals
   const cumulativeTotals = useMemo(() => {
@@ -179,54 +169,67 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
   const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
 
-  // Calculate daily average needed
+  // Calculate FIXED weekly/monthly goals based on remaining season goal ÷ remaining periods
+  // This creates a consistent target that doesn't shrink as you work through the week
   const remainingPreseasonGoal = Math.max(0, displayPreseasonGoal - currentProgress);
-  const dailyAverageNeeded = futurePreseasonPlannedDays > 0 
-    ? remainingPreseasonGoal / futurePreseasonPlannedDays 
+  const weeklyPreseasonGoal = weeksRemainingPreseason > 0 
+    ? remainingPreseasonGoal / weeksRemainingPreseason 
     : 0;
 
-  // For summer, calculate based on current target tier
+  // For summer, calculate weekly goals for each tier
+  const remainingMustDo = Math.max(0, displayMustDo - currentProgress);
+  const remainingWillDo = Math.max(0, displayWillDo - currentProgress);
+  const remainingCouldDo = Math.max(0, displayCouldDo - currentProgress);
+  
+  const weeklyMustDo = weeksRemainingSummer > 0 ? remainingMustDo / weeksRemainingSummer : 0;
+  const weeklyWillDo = weeksRemainingSummer > 0 ? remainingWillDo / weeksRemainingSummer : 0;
+  const weeklyCouldDo = weeksRemainingSummer > 0 ? remainingCouldDo / weeksRemainingSummer : 0;
+
+  // For summer, determine current target tier
   const mustDoComplete = currentProgress >= displayMustDo;
   const willDoComplete = currentProgress >= displayWillDo;
   const couldDoComplete = currentProgress >= displayCouldDo;
 
   let currentTarget = displayMustDo;
   let currentTargetLabel = "Must Do";
+  let currentWeeklyTarget = weeklyMustDo;
   if (mustDoComplete && !willDoComplete) {
     currentTarget = displayWillDo;
     currentTargetLabel = "Will Do";
+    currentWeeklyTarget = weeklyWillDo;
   } else if (willDoComplete && !couldDoComplete) {
     currentTarget = displayCouldDo;
     currentTargetLabel = "Could Do";
+    currentWeeklyTarget = weeklyCouldDo;
   } else if (couldDoComplete) {
     currentTarget = displayCouldDo;
     currentTargetLabel = "Could Do";
+    currentWeeklyTarget = 0;
   }
 
-  const remainingSummerGoal = Math.max(0, currentTarget - currentProgress);
-  const summerDailyNeeded = futureSummerPlannedDays > 0 
-    ? remainingSummerGoal / futureSummerPlannedDays 
-    : 0;
-
-  // Calculate period goal based on daily average × planned days in period
+  // Period goal is FIXED for the week/month - doesn't shrink as you work
+  // For month view, multiply weekly goal by ~4
   const periodGoal = isInPreseason
-    ? dailyAverageNeeded * plannedDaysInPeriod
-    : summerDailyNeeded * plannedDaysInPeriod;
-
-  // Expected progress so far = daily average × elapsed planned days
-  const expectedProgressSoFar = isInPreseason
-    ? dailyAverageNeeded * elapsedPlannedDays
-    : summerDailyNeeded * elapsedPlannedDays;
+    ? viewMode === "month" ? weeklyPreseasonGoal * 4 : weeklyPreseasonGoal
+    : viewMode === "month" ? currentWeeklyTarget * 4 : currentWeeklyTarget;
 
   const periodProgressPercent = periodGoal > 0 
     ? Math.min((periodProgress / periodGoal) * 100, 100) 
     : 0;
   const periodRemaining = Math.max(0, periodGoal - periodProgress);
 
-  // Pace calculation: compare actual to expected so far
+  // Days remaining in period for catch-up calculation
+  const remainingDaysInPeriod = plannedDaysInPeriod - elapsedPlannedDays;
+  const catchUpPerDay = remainingDaysInPeriod > 0 ? periodRemaining / remainingDaysInPeriod : 0;
+  const dailyTarget = plannedDaysInPeriod > 0 ? periodGoal / plannedDaysInPeriod : 0;
+  
+  // Pace: compare actual progress to expected (proportional to elapsed days)
+  const expectedProgressSoFar = plannedDaysInPeriod > 0 
+    ? (periodGoal * elapsedPlannedDays) / plannedDaysInPeriod 
+    : 0;
   const paceVariance = periodProgress - expectedProgressSoFar;
   const isOnPace = paceVariance >= 0;
-  const isPeriodComplete = elapsedPlannedDays >= plannedDaysInPeriod;
+  const isPeriodComplete = elapsedPlannedDays >= plannedDaysInPeriod && plannedDaysInPeriod > 0;
 
   // Overall progress (for end goal reminder)
   const overallTarget = isInPreseason ? displayPreseasonGoal : currentTarget;
@@ -297,9 +300,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
                   <TrendingUp className="h-3 w-3" />
                   {Math.abs(paceVariance).toFixed(1)} {metricLabel} behind pace
                 </span>
-                {plannedDaysInPeriod - elapsedPlannedDays > 0 && (
+                {remainingDaysInPeriod > 0 && (
                   <span className="text-muted-foreground">
-                    {(isInPreseason ? dailyAverageNeeded : summerDailyNeeded).toFixed(1)}/day → <span className="font-medium text-foreground">{(periodRemaining / (plannedDaysInPeriod - elapsedPlannedDays)).toFixed(1)}</span>/day to catch up
+                    {dailyTarget.toFixed(1)}/day → <span className="font-medium text-foreground">{catchUpPerDay.toFixed(1)}</span>/day to catch up
                   </span>
                 )}
               </div>
@@ -343,25 +346,34 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             </div>
             <Progress value={overallProgressPercent} className="h-1.5" />
             
-            {/* Summer Goal Tiers Mini Display */}
+            {/* Summer Goal Tiers with Weekly Targets */}
             <div className="flex gap-2 pt-1">
               <div className={`flex-1 text-center py-1 px-2 rounded ${mustDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
                 <div className="text-[9px] text-muted-foreground uppercase">Must</div>
                 <div className={`text-xs font-bold ${mustDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
                   {displayMustDo.toFixed(0)}
                 </div>
+                {!mustDoComplete && (
+                  <div className="text-[9px] text-muted-foreground">{weeklyMustDo.toFixed(1)}/wk</div>
+                )}
               </div>
               <div className={`flex-1 text-center py-1 px-2 rounded ${willDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
                 <div className="text-[9px] text-muted-foreground uppercase">Will</div>
                 <div className={`text-xs font-bold ${willDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
                   {displayWillDo.toFixed(0)}
                 </div>
+                {!willDoComplete && (
+                  <div className="text-[9px] text-muted-foreground">{weeklyWillDo.toFixed(1)}/wk</div>
+                )}
               </div>
               <div className={`flex-1 text-center py-1 px-2 rounded ${couldDoComplete ? 'bg-green-500/10' : 'bg-muted/30'}`}>
                 <div className="text-[9px] text-muted-foreground uppercase">Could</div>
                 <div className={`text-xs font-bold ${couldDoComplete ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
                   {displayCouldDo.toFixed(0)}
                 </div>
+                {!couldDoComplete && (
+                  <div className="text-[9px] text-muted-foreground">{weeklyCouldDo.toFixed(1)}/wk</div>
+                )}
               </div>
             </div>
           </div>
