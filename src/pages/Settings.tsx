@@ -731,9 +731,9 @@ export default function Settings() {
                   <div className="p-3 rounded-lg bg-accent/30 space-y-1">
                     <p className="text-xs font-medium">Example</p>
                     <p className="text-sm text-muted-foreground">
-                      If your goal is <span className="font-semibold text-foreground">500 FP+</span>, 
-                      you need to sell <span className="font-semibold text-foreground">{Math.round(500 / (1 - cancelRate / 100))} FP+</span> to 
-                      end up with 500 after {cancelRate}% cancel.
+                      If your goal is <span className="font-semibold text-foreground">100 FP+ funded</span>, 
+                      you need to sell <span className="font-semibold text-foreground">{Math.round(100 / (1 - cancelRate / 100))} FP+</span> to 
+                      end up with 100 funded after {cancelRate}% cancel.
                     </p>
                   </div>
                   
