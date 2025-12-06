@@ -57,6 +57,9 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
   const [step, setStep] = useState(1);
   const totalSteps = isRookie ? 4 : 3;
 
+  // Vets use RPD terminology instead of FP+
+  const isVet = !isRookie;
+
   // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
 
@@ -398,16 +401,16 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         <div className="text-center mb-6">
           <Target className="h-12 w-12 mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">
-            Set your FP+ goals
+            Set your {isVet ? 'RPD' : 'FP+'} goals
           </p>
         </div>
 
-        {/* Preseason FP+ Goal - only show if not summer yet */}
+        {/* Preseason Goal - only show if not summer yet */}
         {!isCurrentlySummer && (
           <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
             <div className="flex items-center gap-2 mb-3">
               <Target className="h-4 w-4 text-blue-500" />
-              <span className="font-semibold text-blue-500">Preseason FP+ Goal</span>
+              <span className="font-semibold text-blue-500">Preseason {isVet ? 'RPD' : 'FP+'} Goal</span>
               <span className="text-xs text-muted-foreground">(Optional)</span>
             </div>
             <Input
@@ -419,7 +422,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               className="bg-background/50"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              FP+ you want to earn before summer starts
+              {isVet ? 'RPD' : 'FP+'} you want to earn before summer starts
             </p>
           </div>
         )}
@@ -431,7 +434,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               <span className="font-semibold text-amber-500">Must Do (Minimum)</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">{mustDoFpGoal} FP+</span>
+              <span className="text-2xl font-bold">{mustDoFpGoal} {isVet ? 'RPD' : 'FP+'}</span>
               <span className="text-muted-foreground">{formatCurrency(mustDoResult.takeHomePay)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -454,7 +457,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
                 value={mustDoFpGoalInput}
                 onChange={(e) => handleNumberInput(e.target.value, setMustDoFpGoalInput)}
                 className="flex-1"
-                placeholder="Enter FP+ goal"
+                placeholder={`Enter ${isVet ? 'RPD' : 'FP+'} goal`}
               />
               {mustDoFpGoalInput && (
                 <span className="text-muted-foreground whitespace-nowrap text-sm">
@@ -478,7 +481,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               value={willDoFpGoal}
               onChange={(e) => handleNumberInput(e.target.value, setWillDoFpGoal)}
               className="flex-1"
-              placeholder="Enter FP+ goal"
+              placeholder={`Enter ${isVet ? 'RPD' : 'FP+'} goal`}
             />
             {willDoFpGoal && (
               <span className="text-muted-foreground whitespace-nowrap text-sm">
@@ -501,7 +504,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               value={couldDoFpGoal}
               onChange={(e) => handleNumberInput(e.target.value, setCouldDoFpGoal)}
               className="flex-1"
-              placeholder="Enter FP+ goal"
+              placeholder={`Enter ${isVet ? 'RPD' : 'FP+'} goal`}
             />
             {couldDoFpGoal && (
               <span className="text-muted-foreground whitespace-nowrap text-sm">

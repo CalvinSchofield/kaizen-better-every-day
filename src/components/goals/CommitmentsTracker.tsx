@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { RepGoals } from "@/hooks/useRepGoals";
 import { cn } from "@/lib/utils";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import {
   Sheet,
   SheetContent,
@@ -45,74 +46,82 @@ interface Commitment {
   incrementBy?: number;
 }
 
-const commitments: Commitment[] = [
+const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description'>[] = [
   {
     key: 'training_hours_goal',
     progressKey: 'training_hours_progress',
-    label: 'Training Hours',
     icon: Clock,
-    unit: 'hrs',
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
-    description: 'Hours spent in training sessions',
     incrementBy: 1,
   },
   {
     key: 'books_goal',
     progressKey: 'books_progress',
-    label: 'Books Read',
     icon: BookOpen,
-    unit: 'books',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
-    description: 'Sales/mindset books completed',
     incrementBy: 1,
   },
   {
     key: 'role_plays_goal',
     progressKey: 'role_plays_progress',
-    label: 'Role Plays',
     icon: Users,
-    unit: 'sessions',
     color: 'text-green-500',
     bgColor: 'bg-green-500/10',
-    description: 'Practice sessions with vets',
     incrementBy: 1,
   },
   {
     key: 'monday_night_lights_goal',
     progressKey: 'monday_night_lights_progress',
-    label: 'Monday Night Lights',
     icon: Calendar,
-    unit: 'calls',
     color: 'text-amber-500',
     bgColor: 'bg-amber-500/10',
-    description: 'Weekly team calls attended',
     incrementBy: 1,
   },
   {
     key: 'blitzes_goal',
     progressKey: 'blitzes_progress',
-    label: 'Blitzes',
     icon: Plane,
-    unit: 'trips',
     color: 'text-red-500',
     bgColor: 'bg-red-500/10',
-    description: 'Preseason blitz trips attended',
     incrementBy: 1,
   },
-  {
+];
+
+// Build full commitments list with static labels
+const commitmentLabels: Record<string, { label: string; unit: string; description: string }> = {
+  training_hours_goal: { label: 'Training Hours', unit: 'hrs', description: 'Hours spent in training sessions' },
+  books_goal: { label: 'Books Read', unit: 'books', description: 'Sales/mindset books completed' },
+  role_plays_goal: { label: 'Role Plays', unit: 'sessions', description: 'Practice sessions with vets' },
+  monday_night_lights_goal: { label: 'Monday Night Lights', unit: 'calls', description: 'Weekly team calls attended' },
+  blitzes_goal: { label: 'Blitzes', unit: 'trips', description: 'Preseason blitz trips attended' },
+};
+
+// Get the full commitments array with dynamic preseason label
+const getCommitments = (metricLabel: string): Commitment[] => {
+  const staticCommitments: Commitment[] = baseCommitments.map(c => ({
+    ...c,
+    label: commitmentLabels[c.key].label,
+    unit: commitmentLabels[c.key].unit,
+    description: commitmentLabels[c.key].description,
+  }));
+  
+  // Add the preseason commitment with dynamic label
+  staticCommitments.push({
     key: 'preseason_fp_goal',
-    progressKey: 'preseason_fp_goal', // Uses actual FP data, not progress field
-    label: 'Preseason FP+',
+    progressKey: 'preseason_fp_goal',
+    label: `Preseason ${metricLabel}`,
     icon: Target,
-    unit: 'FP+',
+    unit: metricLabel,
     color: 'text-primary',
     bgColor: 'bg-primary/10',
-    description: 'FP+ earned before summer',
+    description: `${metricLabel} earned before summer`,
     incrementBy: 0.5,
-  },
-];
+  });
+  
+  return staticCommitments;
+};
 
 export const CommitmentsTracker = ({
   goals,
@@ -120,6 +129,10 @@ export const CommitmentsTracker = ({
   onUpdateGoals,
   isUpdating = false,
 }: CommitmentsTrackerProps) => {
+  const { efpModeEnabled } = useEfpMode();
+  const metricLabel = efpModeEnabled ? 'RPD' : 'FP+';
+  const commitments = getCommitments(metricLabel);
+  
   const [editingCommitment, setEditingCommitment] = useState<Commitment | null>(null);
   const [editGoalValue, setEditGoalValue] = useState<number>(0);
   const [editProgressValue, setEditProgressValue] = useState<number>(0);
