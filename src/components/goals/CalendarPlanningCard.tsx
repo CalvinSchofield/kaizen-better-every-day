@@ -590,7 +590,7 @@ export const CalendarPlanningCard = ({
             <CollapsibleTrigger className="w-full">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold flex items-center gap-2">
-                  Preseason Goal (Funded)
+                  Preseason Goal
                   {isSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   <ChevronDown className={cn(
                     "h-4 w-4 text-muted-foreground transition-transform",
@@ -722,7 +722,7 @@ export const CalendarPlanningCard = ({
                       
                       {preseasonInputMode === 'total' ? (
                         <div>
-                          <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel} Goal (Funded)</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">Total {metricLabel} Goal</label>
                           <Input
                             type="number"
                             value={preseasonTotalInput}
@@ -767,7 +767,7 @@ export const CalendarPlanningCard = ({
             <CollapsibleTrigger className="w-full">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold flex items-center gap-2">
-                  Summer Goal (Funded)
+                  Summer Goal
                   <ChevronDown className={cn(
                     "h-4 w-4 text-muted-foreground transition-transform",
                     isSummerOpen && "rotate-180"
@@ -840,7 +840,7 @@ export const CalendarPlanningCard = ({
             <h4 className="text-sm font-semibold mb-2">Total Summary</h4>
             <div className="p-3 rounded-lg bg-primary/10 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Goal Total (Funded)</span>
+                <span className="text-sm text-muted-foreground">Goal Total</span>
                 <span className="text-lg font-bold">{totalStats.goalTotal} {metricLabel}</span>
               </div>
               <div className="pt-2 border-t border-border/30 flex justify-between items-center">
