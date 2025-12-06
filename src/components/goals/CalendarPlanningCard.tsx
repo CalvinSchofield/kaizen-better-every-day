@@ -245,8 +245,9 @@ export const CalendarPlanningCard = ({
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
-    // Don't allow Sundays or past days
-    if (dayOfWeek === 0 || isBefore(date, today)) return;
+    const summerEnd = parseLocalDate(SUMMER_END);
+    // Don't allow Sundays, past days, or days after summer end
+    if (dayOfWeek === 0 || isBefore(date, today) || date > summerEnd) return;
     
     const dateStr = format(date, 'yyyy-MM-dd');
     await togglePlannedDay(dateStr);
@@ -339,20 +340,23 @@ export const CalendarPlanningCard = ({
             const isTodayDate = isSameDay(day, today);
             const dayOfWeek = getDay(day);
             const isSunday = dayOfWeek === 0;
+            const summerEnd = parseLocalDate(SUMMER_END);
+            const isAfterSummerEnd = day > summerEnd;
+            const isDisabled = isPast || isSunday || isAfterSummerEnd;
 
             return (
               <button
                 key={dateStr}
                 onClick={() => handleDayClick(day)}
-                disabled={isPast || isToggling || isSunday}
+                disabled={isDisabled || isToggling}
                 className={cn(
                   "aspect-square rounded-lg text-sm font-medium transition-all",
                   "flex items-center justify-center",
-                  isSunday && "opacity-30 cursor-not-allowed",
-                  isPast && !isSunday && "opacity-40 cursor-not-allowed",
-                  !isPast && !isSunday && "hover:bg-accent cursor-pointer",
-                  isPlanned && !isPast && !isSunday && "bg-primary text-primary-foreground hover:bg-primary/90",
-                  isTodayDate && !isPlanned && !isSunday && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
+                  isPast && !isSunday && !isAfterSummerEnd && "opacity-40 cursor-not-allowed",
+                  !isDisabled && "hover:bg-accent cursor-pointer",
+                  isPlanned && !isDisabled && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                   !isCurrentMonth && "opacity-30"
                 )}
               >
