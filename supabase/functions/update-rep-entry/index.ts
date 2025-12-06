@@ -64,6 +64,21 @@ serve(async (req) => {
     // Create service role client to bypass RLS
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // First fetch the current entry to get existing timestamps
+    const { data: currentEntry, error: fetchError } = await adminClient
+      .from('daily_entries')
+      .select('counter_timestamps, doors_knocked, decision_makers, pitches, transitions, presentations, closes')
+      .eq('id', entryId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current entry:', fetchError);
+      return new Response(
+        JSON.stringify({ error: fetchError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Build the update object with only allowed fields
     const allowedFields = [
       'doors_knocked', 'decision_makers', 'pitches', 'transitions',
@@ -71,11 +86,36 @@ serve(async (req) => {
       'work_start_time', 'work_end_time'
     ];
 
+    const counterFields = ['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'closes'];
+
     const sanitizedUpdates: Record<string, any> = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         sanitizedUpdates[field] = updates[field];
       }
+    }
+
+    // Handle timestamp trimming when counters are reduced
+    const currentTimestamps = (currentEntry?.counter_timestamps as Record<string, string[]>) || {};
+    const updatedTimestamps = { ...currentTimestamps };
+    let timestampsChanged = false;
+
+    for (const field of counterFields) {
+      if (updates[field] !== undefined) {
+        const newCount = updates[field];
+        const timestamps = currentTimestamps[field] || [];
+        
+        if (timestamps.length > newCount) {
+          // Trim to keep earliest N timestamps (remove most recent ones)
+          updatedTimestamps[field] = timestamps.slice(0, newCount);
+          timestampsChanged = true;
+          console.log(`Trimmed ${field} timestamps from ${timestamps.length} to ${newCount}`);
+        }
+      }
+    }
+
+    if (timestampsChanged) {
+      sanitizedUpdates.counter_timestamps = updatedTimestamps;
     }
 
     // Add updated_at timestamp
