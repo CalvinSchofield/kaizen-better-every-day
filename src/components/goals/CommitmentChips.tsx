@@ -137,12 +137,13 @@ export const CommitmentChips = ({
   const activeChips = chipConfigs.filter(c => getGoal(c) > 0);
   
   // Count unset commitments (goals that are 0 or undefined)
-  const unsetCommitments = chipConfigs.filter(c => {
+  const unsetCount = chipConfigs.filter(c => {
     if (c.key === 'blitzes_goal') return false; // Blitzes always shows if committed
     const goalKey = c.key as keyof RepGoals;
     return !goals[goalKey] || Number(goals[goalKey]) === 0;
-  });
-  const hasUnsetCommitments = unsetCommitments.length > 0 || !goals.preseason_fp_goal;
+  }).length + (goals.preseason_fp_goal ? 0 : 1); // +1 if preseason FP not set
+  
+  const hasUnsetCommitments = unsetCount > 0;
 
   // Preseason FP chip data
   const preseasonFpGoal = goals.preseason_fp_goal || 0;
@@ -314,18 +315,31 @@ export const CommitmentChips = ({
             onClick={onEdit}
             className={cn(
               "flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl",
-              "bg-muted/30 border-2 border-dashed border-muted-foreground/20",
-              "hover:border-primary/40 hover:bg-primary/5 active:scale-95",
+              "bg-primary/5 border-2 border-dashed border-primary/30",
+              "hover:border-primary/50 hover:bg-primary/10 active:scale-95",
               "transition-all duration-200"
             )}
             initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1,
+              borderColor: ["hsl(var(--primary) / 0.3)", "hsl(var(--primary) / 0.5)", "hsl(var(--primary) / 0.3)"]
+            }}
+            transition={{
+              borderColor: {
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }
+            }}
             whileTap={{ scale: 0.95 }}
           >
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-muted-foreground/10">
-              <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-primary/10">
+              <Plus className="h-3.5 w-3.5 text-primary" />
             </div>
-            <span className="text-xs text-muted-foreground font-medium">Add</span>
+            <span className="text-xs text-primary font-medium">
+              Add {unsetCount}
+            </span>
           </motion.button>
         )}
       </div>
