@@ -108,6 +108,14 @@ interface TeamInsightsData {
     individualBestPitches: { date: string; value: number; repName: string; isRookie: boolean } | null;
     individualBestDMs: { date: string; value: number; repName: string; isRookie: boolean } | null;
     individualBestDoors: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    // Rookie-specific best records
+    rookieBestFp: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestPrmr: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestPresentations: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestTransitions: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestPitches: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestDMs: { date: string; value: number; repName: string; isRookie: boolean } | null;
+    rookieBestDoors: { date: string; value: number; repName: string; isRookie: boolean } | null;
   };
   
   // Visualizations data
@@ -1134,6 +1142,39 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         ? entries.reduce((best, e) => (e.doors_knocked || 0) > (best.doors_knocked || 0) ? e : best)
         : null;
 
+      // Rookie user IDs for filtering
+      const rookieUserIds = new Set(reps.filter(r => r.year === 'Rookie').map(r => r.user_id));
+      const rookieEntries = entries.filter(e => rookieUserIds.has(e.user_id));
+
+      // Rookie-specific best records
+      const rookieBestFpEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.fp_plus || 0) > (best.fp_plus || 0) ? e : best)
+        : null;
+
+      const rookieBestPrmrEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.prmr || 0) > (best.prmr || 0) ? e : best)
+        : null;
+
+      const rookieBestPresEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.presentations || 0) > (best.presentations || 0) ? e : best)
+        : null;
+
+      const rookieBestTransEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.transitions || 0) > (best.transitions || 0) ? e : best)
+        : null;
+
+      const rookieBestPitchesEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.pitches || 0) > (best.pitches || 0) ? e : best)
+        : null;
+
+      const rookieBestDMsEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.decision_makers || 0) > (best.decision_makers || 0) ? e : best)
+        : null;
+
+      const rookieBestDoorsEntry = rookieEntries.length > 0
+        ? rookieEntries.reduce((best, e) => (e.doors_knocked || 0) > (best.doors_knocked || 0) ? e : best)
+        : null;
+
       const getRepInfo = (userId: string) => {
         const rep = reps.find(r => r.user_id === userId);
         return {
@@ -1229,6 +1270,42 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
           date: formatDateStr(individualBestDoorsEntry.entry_date),
           value: individualBestDoorsEntry.doors_knocked || 0,
           ...getRepInfo(individualBestDoorsEntry.user_id),
+        } : null,
+        // Rookie-specific best records
+        rookieBestFp: rookieBestFpEntry && (rookieBestFpEntry.fp_plus || 0) > 0 ? {
+          date: formatDateStr(rookieBestFpEntry.entry_date),
+          value: rookieBestFpEntry.fp_plus || 0,
+          ...getRepInfo(rookieBestFpEntry.user_id),
+        } : null,
+        rookieBestPrmr: rookieBestPrmrEntry && (rookieBestPrmrEntry.prmr || 0) > 0 ? {
+          date: formatDateStr(rookieBestPrmrEntry.entry_date),
+          value: rookieBestPrmrEntry.prmr || 0,
+          ...getRepInfo(rookieBestPrmrEntry.user_id),
+        } : null,
+        rookieBestPresentations: rookieBestPresEntry && (rookieBestPresEntry.presentations || 0) > 0 ? {
+          date: formatDateStr(rookieBestPresEntry.entry_date),
+          value: rookieBestPresEntry.presentations || 0,
+          ...getRepInfo(rookieBestPresEntry.user_id),
+        } : null,
+        rookieBestTransitions: rookieBestTransEntry && (rookieBestTransEntry.transitions || 0) > 0 ? {
+          date: formatDateStr(rookieBestTransEntry.entry_date),
+          value: rookieBestTransEntry.transitions || 0,
+          ...getRepInfo(rookieBestTransEntry.user_id),
+        } : null,
+        rookieBestPitches: rookieBestPitchesEntry && (rookieBestPitchesEntry.pitches || 0) > 0 ? {
+          date: formatDateStr(rookieBestPitchesEntry.entry_date),
+          value: rookieBestPitchesEntry.pitches || 0,
+          ...getRepInfo(rookieBestPitchesEntry.user_id),
+        } : null,
+        rookieBestDMs: rookieBestDMsEntry && (rookieBestDMsEntry.decision_makers || 0) > 0 ? {
+          date: formatDateStr(rookieBestDMsEntry.entry_date),
+          value: rookieBestDMsEntry.decision_makers || 0,
+          ...getRepInfo(rookieBestDMsEntry.user_id),
+        } : null,
+        rookieBestDoors: rookieBestDoorsEntry && (rookieBestDoorsEntry.doors_knocked || 0) > 0 ? {
+          date: formatDateStr(rookieBestDoorsEntry.entry_date),
+          value: rookieBestDoorsEntry.doors_knocked || 0,
+          ...getRepInfo(rookieBestDoorsEntry.user_id),
         } : null,
       };
       // ==================== END BEST PERIODS CALCULATIONS ====================
