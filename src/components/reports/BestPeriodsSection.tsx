@@ -52,6 +52,15 @@ interface BestPeriodsData {
   individualBestPitches: IndividualRecord | null;
   individualBestDMs: IndividualRecord | null;
   individualBestDoors: IndividualRecord | null;
+  
+  // Rookie-specific best records
+  rookieBestFp?: IndividualRecord | null;
+  rookieBestPrmr?: IndividualRecord | null;
+  rookieBestPresentations?: IndividualRecord | null;
+  rookieBestTransitions?: IndividualRecord | null;
+  rookieBestPitches?: IndividualRecord | null;
+  rookieBestDMs?: IndividualRecord | null;
+  rookieBestDoors?: IndividualRecord | null;
 }
 
 interface DailyTrendItem {
@@ -90,10 +99,12 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
     return text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
   };
 
-  const filterIndividualRecord = (record: IndividualRecord | null): IndividualRecord | null => {
-    if (!record) return null;
-    if (rookieFilter === 'all') return record;
-    return record.isRookie ? record : null;
+  // Get the appropriate record based on rookie filter
+  // When 'rookie' filter is active, use the dedicated rookie records from the data
+  const getIndividualRecord = (allRecord: IndividualRecord | null, rookieRecord?: IndividualRecord | null): IndividualRecord | null => {
+    if (rookieFilter === 'all') return allRecord;
+    // Use the pre-calculated rookie-specific record
+    return rookieRecord || null;
   };
 
   // Build collapsed summary
@@ -237,13 +248,13 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
   );
 
   const renderIndividualRecords = () => {
-    const filteredFp = filterIndividualRecord(data.individualBestFp);
-    const filteredPrmr = filterIndividualRecord(data.individualBestPrmr);
-    const filteredPres = filterIndividualRecord(data.individualBestPresentations);
-    const filteredTrans = filterIndividualRecord(data.individualBestTransitions);
-    const filteredPitches = filterIndividualRecord(data.individualBestPitches);
-    const filteredDMs = filterIndividualRecord(data.individualBestDMs);
-    const filteredDoors = filterIndividualRecord(data.individualBestDoors);
+    const filteredFp = getIndividualRecord(data.individualBestFp, data.rookieBestFp);
+    const filteredPrmr = getIndividualRecord(data.individualBestPrmr, data.rookieBestPrmr);
+    const filteredPres = getIndividualRecord(data.individualBestPresentations, data.rookieBestPresentations);
+    const filteredTrans = getIndividualRecord(data.individualBestTransitions, data.rookieBestTransitions);
+    const filteredPitches = getIndividualRecord(data.individualBestPitches, data.rookieBestPitches);
+    const filteredDMs = getIndividualRecord(data.individualBestDMs, data.rookieBestDMs);
+    const filteredDoors = getIndividualRecord(data.individualBestDoors, data.rookieBestDoors);
 
     const hasAnyRecord = filteredFp || filteredPrmr || filteredPres || filteredTrans || filteredPitches || filteredDMs || filteredDoors;
 
