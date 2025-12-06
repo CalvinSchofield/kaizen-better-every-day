@@ -113,20 +113,28 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [plannedDays, currentDate, viewMode, today]);
 
-  // Calculate weeks remaining in each season
-  const { weeksRemainingPreseason, weeksRemainingSummer } = useMemo(() => {
-    const preseasonEnd = parseLocalDate(PRESEASON_END);
-    const summerEnd = parseLocalDate(personalSummerEnd);
-    const weekStart = startOfWeek(today);
+  // Calculate remaining planned days for each season (from TODAY forward)
+  const { remainingPreseasonDays, remainingSummerDays } = useMemo(() => {
+    if (!plannedDays) return { remainingPreseasonDays: 0, remainingSummerDays: 0 };
     
-    const preseasonWeeks = Math.max(1, Math.ceil(differenceInDays(preseasonEnd, weekStart) / 7));
-    const summerWeeks = Math.max(1, Math.ceil(differenceInDays(summerEnd, weekStart) / 7));
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const preseasonEndStr = PRESEASON_END;
+    const summerEndStr = personalSummerEnd;
+    
+    // Count planned days from today to end of each season
+    const preseasonDays = plannedDays.filter(d => 
+      d.planned_date >= todayStr && d.planned_date <= preseasonEndStr
+    ).length;
+    
+    const summerDays = plannedDays.filter(d => 
+      d.planned_date >= todayStr && d.planned_date <= summerEndStr
+    ).length;
     
     return {
-      weeksRemainingPreseason: preseasonWeeks,
-      weeksRemainingSummer: summerWeeks
+      remainingPreseasonDays: preseasonDays,
+      remainingSummerDays: summerDays
     };
-  }, [today, personalSummerEnd]);
+  }, [plannedDays, today, personalSummerEnd]);
 
   if (!goals || !goals.setup_complete) {
     return null;
@@ -152,20 +160,27 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
   const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
 
-  // Calculate FIXED weekly goals
+  // Calculate daily average needed based on remaining PLANNED days (not calendar weeks)
   const remainingPreseasonGoal = Math.max(0, displayPreseasonGoal - currentProgress);
-  const weeklyPreseasonGoal = weeksRemainingPreseason > 0 
-    ? remainingPreseasonGoal / weeksRemainingPreseason 
+  const dailyPreseasonNeeded = remainingPreseasonDays > 0 
+    ? remainingPreseasonGoal / remainingPreseasonDays 
     : 0;
+  // Weekly goal = daily needed × planned days in THIS week
+  const weeklyPreseasonGoal = dailyPreseasonNeeded * plannedDaysInPeriod;
 
-  // Summer weekly goals for each tier
+  // Summer goals for each tier - based on remaining planned days
   const remainingMustDo = Math.max(0, displayMustDo - currentProgress);
   const remainingWillDo = Math.max(0, displayWillDo - currentProgress);
   const remainingCouldDo = Math.max(0, displayCouldDo - currentProgress);
   
-  const weeklyMustDo = weeksRemainingSummer > 0 ? remainingMustDo / weeksRemainingSummer : 0;
-  const weeklyWillDo = weeksRemainingSummer > 0 ? remainingWillDo / weeksRemainingSummer : 0;
-  const weeklyCouldDo = weeksRemainingSummer > 0 ? remainingCouldDo / weeksRemainingSummer : 0;
+  const dailyMustDo = remainingSummerDays > 0 ? remainingMustDo / remainingSummerDays : 0;
+  const dailyWillDo = remainingSummerDays > 0 ? remainingWillDo / remainingSummerDays : 0;
+  const dailyCouldDo = remainingSummerDays > 0 ? remainingCouldDo / remainingSummerDays : 0;
+  
+  // Weekly goals = daily needed × planned days in this week
+  const weeklyMustDo = dailyMustDo * plannedDaysInPeriod;
+  const weeklyWillDo = dailyWillDo * plannedDaysInPeriod;
+  const weeklyCouldDo = dailyCouldDo * plannedDaysInPeriod;
 
   // Current target tier for summer
   const mustDoComplete = currentProgress >= displayMustDo;
@@ -227,7 +242,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           <div>
             <h3 className="text-sm font-semibold text-foreground">{periodLabel} Goal</h3>
             <p className="text-[11px] text-muted-foreground">
-              {isInPreseason ? `${weeksRemainingPreseason} weeks left in preseason` : `Chasing ${currentTargetLabel}`}
+              {isInPreseason ? `${remainingPreseasonDays} days planned` : `Chasing ${currentTargetLabel}`}
             </p>
           </div>
         </div>
