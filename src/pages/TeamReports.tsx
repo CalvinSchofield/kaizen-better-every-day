@@ -28,6 +28,7 @@ import { BestPeriodsSection } from "@/components/reports/BestPeriodsSection";
 import { LeaderAICoachCard } from "@/components/reports/LeaderAICoachCard";
 import { AggregatedRankingsCard } from "@/components/reports/AggregatedRankingsCard";
 import { useTeamAggregatedRankings } from "@/hooks/useTeamAggregatedRankings";
+import { LeaderGoalsCard } from "@/components/reports/LeaderGoalsCard";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 type ExpandedSection = 'aiCoach' | 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'individuals' | null;
@@ -372,6 +373,11 @@ const TeamReports = () => {
               liveReps={liveData?.liveReps || []}
               isLoading={liveLoading}
               hasWorkingReps={(liveData?.workingCount || 0) > 0}
+            />
+            <LeaderGoalsCard
+              userIds={effectiveUserIds}
+              excludeUserIds={excludeUserIds}
+              accessibleReps={accessData?.accessibleReps || []}
             />
           </div>
         ) : isYesterdayView ? (
