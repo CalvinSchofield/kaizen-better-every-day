@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Sale } from "./LogSaleSheet";
-import { X } from "lucide-react";
+import { Sale } from "@/hooks/useDailyEntry";
+import { X, Ban } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 interface SalesLoggerCardProps {
@@ -14,16 +14,19 @@ export const SalesLoggerCard = ({
   onEditSale,
   onDeleteSale,
 }: SalesLoggerCardProps) => {
-  // Calculate totals
-  const fpSales = salesLog.filter(s => s.type === 'fp');
-  const upgradeSales = salesLog.filter(s => s.type === 'upgrade');
+  // Filter funded sales for totals
+  const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
+  const cancelledSales = salesLog.filter(s => s.install_status === 'cancelled');
+  
+  const fpSales = fundedSales.filter(s => s.type === 'fp');
+  const upgradeSales = fundedSales.filter(s => s.type === 'upgrade');
   
   const fpCount = fpSales.length;
   const upgradePrmrTotal = upgradeSales.reduce((sum, s) => sum + s.prmr, 0);
   const upgradeFP = upgradePrmrTotal / 85;
   
   const totalFPPlus = fpCount + upgradeFP;
-  const totalPrmr = salesLog.reduce((sum, s) => sum + s.prmr, 0);
+  const totalPrmr = fundedSales.reduce((sum, s) => sum + s.prmr, 0);
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
@@ -69,6 +72,12 @@ export const SalesLoggerCard = ({
               <span>{upgradeSales.length} Upgrade{upgradeSales.length !== 1 ? 's' : ''} (+{upgradeFP.toFixed(2)} FP)</span>
             </>
           )}
+          {cancelledSales.length > 0 && (
+            <>
+              <span>•</span>
+              <span className="text-destructive/70">{cancelledSales.length} Cancelled</span>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -83,37 +92,55 @@ interface SaleChipProps {
 
 const SaleChip = ({ sale, onEdit, onDelete }: SaleChipProps) => {
   const isFP = sale.type === 'fp';
+  const isCancelled = sale.install_status === 'cancelled';
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
 
   return (
     <div
       className={`relative flex-shrink-0 rounded-xl p-3 min-w-[90px] cursor-pointer transition-all active:scale-95 ${
-        isFP
-          ? 'bg-primary/10 border border-primary/20'
-          : 'bg-emerald-500/10 border border-emerald-500/20'
+        isCancelled
+          ? 'bg-destructive/5 border border-destructive/20 opacity-60'
+          : isFP
+            ? 'bg-primary/10 border border-primary/20'
+            : 'bg-emerald-500/10 border border-emerald-500/20'
       }`}
       onClick={onEdit}
     >
-      {/* Delete button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-muted flex items-center justify-center opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity shadow-sm"
-      >
-        <X className="w-3 h-3 text-muted-foreground" />
-      </button>
+      {/* Cancelled indicator */}
+      {isCancelled && (
+        <div className="absolute top-1 right-1">
+          <Ban className="w-3 h-3 text-destructive" />
+        </div>
+      )}
+
+      {/* Delete button - only show for non-cancelled */}
+      {!isCancelled && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-muted flex items-center justify-center opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity shadow-sm"
+        >
+          <X className="w-3 h-3 text-muted-foreground" />
+        </button>
+      )}
 
       {/* Type badge */}
       <div className={`text-[10px] font-bold mb-1 ${
-        isFP ? 'text-primary' : 'text-emerald-600'
+        isCancelled
+          ? 'text-destructive/70'
+          : isFP 
+            ? 'text-primary' 
+            : 'text-emerald-600'
       }`}>
         {isFP ? 'FP' : 'UP'}
       </div>
 
       {/* PRMR amount */}
-      <div className="text-lg font-bold text-foreground">
+      <div className={`text-lg font-bold ${
+        isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'
+      }`}>
         ${sale.prmr}
       </div>
 
