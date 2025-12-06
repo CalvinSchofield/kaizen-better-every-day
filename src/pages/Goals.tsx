@@ -14,6 +14,7 @@ import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
+import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -562,29 +563,15 @@ const Goals = () => {
         </DrawerContent>
       </Drawer>
 
-      {/* Commitment Editor Drawer - simplified goals edit */}
-      <Drawer open={showCommitmentEditor} onOpenChange={setShowCommitmentEditor}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Edit Commitments</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Use the Settings button to edit your full goal configuration, or tap individual commitment chips to track progress.
-            </p>
-            <Button 
-              className="w-full" 
-              onClick={() => {
-                setShowCommitmentEditor(false);
-                setShowSetupWizard(true);
-              }}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Open Goal Settings
-            </Button>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Commitment Editor Drawer */}
+      <CommitmentEditorDrawer
+        open={showCommitmentEditor}
+        onOpenChange={setShowCommitmentEditor}
+        goals={goals}
+        onUpdateGoals={updateGoals}
+        isUpdating={isUpdating}
+        preseasonFpProgress={totalFpPlus}
+      />
     </Layout>
   );
 };
