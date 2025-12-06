@@ -1,0 +1,106 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRepData } from "./useRepData";
+
+export interface PlannedDay {
+  id: string;
+  user_id: string;
+  planned_date: string;
+  created_at: string;
+}
+
+export const usePlannedDays = () => {
+  const queryClient = useQueryClient();
+  const { repData } = useRepData();
+
+  const { data: plannedDays, isLoading, error, refetch } = useQuery({
+    queryKey: ['planned-days', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return [];
+
+      const { data, error } = await supabase
+        .from('planned_work_days')
+        .select('*')
+        .eq('user_id', repData.user_id)
+        .order('planned_date', { ascending: true });
+
+      if (error) throw error;
+      return data as PlannedDay[];
+    },
+    enabled: !!repData?.user_id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const addPlannedDayMutation = useMutation({
+    mutationFn: async (date: string) => {
+      if (!repData?.user_id) throw new Error('No user ID');
+
+      const { data, error } = await supabase
+        .from('planned_work_days')
+        .insert({
+          user_id: repData.user_id,
+          planned_date: date,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    },
+  });
+
+  const removePlannedDayMutation = useMutation({
+    mutationFn: async (date: string) => {
+      if (!repData?.user_id) throw new Error('No user ID');
+
+      const { error } = await supabase
+        .from('planned_work_days')
+        .delete()
+        .eq('user_id', repData.user_id)
+        .eq('planned_date', date);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+    },
+  });
+
+  const togglePlannedDay = async (date: string) => {
+    const isPlanned = plannedDays?.some(d => d.planned_date === date);
+    if (isPlanned) {
+      await removePlannedDayMutation.mutateAsync(date);
+    } else {
+      await addPlannedDayMutation.mutateAsync(date);
+    }
+  };
+
+  const isDatePlanned = (date: string): boolean => {
+    return plannedDays?.some(d => d.planned_date === date) || false;
+  };
+
+  const getPlannedDaysCount = (): number => {
+    return plannedDays?.length || 0;
+  };
+
+  // Get planned days within a date range
+  const getPlannedDaysInRange = (startDate: string, endDate: string): PlannedDay[] => {
+    if (!plannedDays) return [];
+    return plannedDays.filter(d => d.planned_date >= startDate && d.planned_date <= endDate);
+  };
+
+  return {
+    plannedDays,
+    isLoading,
+    error,
+    refetch,
+    togglePlannedDay,
+    isDatePlanned,
+    getPlannedDaysCount,
+    getPlannedDaysInRange,
+    isToggling: addPlannedDayMutation.isPending || removePlannedDayMutation.isPending,
+  };
+};

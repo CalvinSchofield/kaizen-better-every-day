@@ -1,0 +1,206 @@
+import { useState } from "react";
+import Layout from "@/components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Lock, Target, Settings, Calculator } from "lucide-react";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { useRepData } from "@/hooks/useRepData";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
+import { GoalProgressLadder } from "@/components/goals/GoalProgressLadder";
+import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
+import { GoalTier } from "@/components/goals/GoalTierCard";
+import { toast } from "sonner";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+
+const Goals = () => {
+  const { goals, isLoading, hasGoalsAccess, isRookie, updateGoals } = useRepGoals();
+  const { repData } = useRepData();
+  const { totalFP: totalFpPlus } = usePreseasonFP();
+  
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [editingTier, setEditingTier] = useState<GoalTier | null>(null);
+
+  // Locked state for pre-Phase 1 rookies
+  if (!hasGoalsAccess) {
+    return (
+      <Layout>
+        <div className="p-4 flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="p-4 rounded-full bg-muted mb-4">
+            <Lock className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Goals & Plan</h2>
+          <p className="text-muted-foreground max-w-xs">
+            Complete Phase 1 of Ramp to Blitz to unlock goal setting and earnings planning.
+          </p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Setup wizard state (no goals set yet)
+  if (!goals?.setup_complete || showSetupWizard) {
+    return (
+      <Layout>
+        <div className="p-4">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Set Your Goals</h1>
+            <p className="text-muted-foreground">
+              Let's plan your summer success
+            </p>
+          </div>
+          
+          <GoalSetupWizard
+            isRookie={isRookie}
+            onComplete={async (data) => {
+              try {
+                await updateGoals({
+                  monthly_expenses: data.monthlyExpenses,
+                  months_off: data.monthsOff,
+                  rent_type: data.rentType,
+                  avg_prmr_per_fp: data.avgPrmrPerFp,
+                  weeks_working: data.weeksWorking,
+                  must_do_fp_goal: data.mustDoFpGoal,
+                  will_do_fp_goal: data.willDoFpGoal,
+                  could_do_fp_goal: data.couldDoFpGoal,
+                  setup_complete: true,
+                });
+                setShowSetupWizard(false);
+                toast.success("Goals saved!");
+              } catch (error) {
+                toast.error("Failed to save goals");
+              }
+            }}
+            onCancel={goals?.setup_complete ? () => setShowSetupWizard(false) : undefined}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Active state with goals
+  return (
+    <Layout>
+      <div className="p-4 space-y-4 pb-24">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Goals & Plan</h1>
+            <p className="text-sm text-muted-foreground">
+              {totalFpPlus.toFixed(1)} FP+ earned
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowCalculator(true)}
+            >
+              <Calculator className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowSetupWizard(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Goal Progress Ladder */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Summer Goals
+          </h2>
+          <GoalProgressLadder
+            goals={goals}
+            currentFpPlus={totalFpPlus}
+            isRookie={isRookie}
+            onTierClick={(tier) => setEditingTier(tier)}
+          />
+        </div>
+
+        {/* Quick Stats */}
+        <Card className="border-border/50">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold">{goals.weeks_working}</p>
+                <p className="text-xs text-muted-foreground">Weeks</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">${goals.avg_prmr_per_fp}</p>
+                <p className="text-xs text-muted-foreground">Avg PRMR</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{goals.rent_type}</p>
+                <p className="text-xs text-muted-foreground">Housing</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Coming Soon: Preseason Commitments */}
+        <Card className="border-border/50 border-dashed opacity-60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Preseason Commitments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Track training hours, books, role plays, and more. Coming soon!
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Coming Soon: Calendar Planning */}
+        <Card className="border-border/50 border-dashed opacity-60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Calendar Planning</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Mark your planned work days and project your earnings. Coming soon!
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Calculator Sheet */}
+      <Sheet open={showCalculator} onOpenChange={setShowCalculator}>
+        <SheetContent side="bottom" className="h-[85vh]">
+          <SheetHeader>
+            <SheetTitle>Payscale Calculator</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 overflow-y-auto">
+            <PayscaleCalculator
+              initialFpGoal={goals.will_do_fp_goal}
+              initialAvgPrmr={goals.avg_prmr_per_fp}
+              initialRentType={goals.rent_type}
+              initialWeeks={goals.weeks_working}
+              initialUpgradeFp={goals.upgrade_fp_goal}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </Layout>
+  );
+};
+
+export default Goals;
