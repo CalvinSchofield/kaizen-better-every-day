@@ -118,22 +118,29 @@ const Goals = () => {
   return (
     <Layout>
       <div className="p-4 space-y-4 pb-24">
-        {/* Quick action buttons */}
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowCalculator(true)}
-          >
-            <Calculator className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowSetupWizard(true)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+        {/* Header with cancel rate indicator and action buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-full">
+            <span className="font-medium">
+              {Math.round((goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)) * 100)}% cancel buffer
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowCalculator(true)}
+            >
+              <Calculator className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowSetupWizard(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Preseason Commitments - Show first */}
