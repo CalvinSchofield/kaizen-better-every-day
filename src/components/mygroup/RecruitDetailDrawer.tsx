@@ -102,6 +102,7 @@ export const RecruitDetailDrawer = ({
   const [editNotes, setEditNotes] = useState('');
   const [editDate, setEditDate] = useState('');
   const [pendingPhoneAction, setPendingPhoneAction] = useState<'ask_help' | 'call' | 'text' | null>(null);
+  const [phoneEntryTarget, setPhoneEntryTarget] = useState<'recruit' | 'contact'>('contact');
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
   
   // Stage/onboarding change confirmation
@@ -484,7 +485,7 @@ export const RecruitDetailDrawer = ({
     return scenarios[0].message;
   }, [recruit, contactForHelp, recruitRepData, recruitGoals]);
 
-  // Save phone number mutation
+  // Save phone number mutation - syncs to both Supabase and Notion
   const savePhoneMutation = useMutation({
     mutationFn: async ({ notionPageId, phone }: { notionPageId: string; phone: string }) => {
       // Update in Supabase
@@ -495,12 +496,21 @@ export const RecruitDetailDrawer = ({
       
       if (error) throw error;
       
-      // TODO: Also sync to Notion if needed
+      // Sync to Notion via edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.functions.invoke('update-recruit-phone', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: { recruitNotionId: notionPageId, phone },
+        });
+      }
+      
       return { phone };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contact-for-help'] });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
       toast.success('Phone number saved');
     },
     onError: () => {
@@ -523,7 +533,9 @@ export const RecruitDetailDrawer = ({
 
   const handleCall = async () => {
     if (!recruit.phone) {
-      toast.error('No phone number available');
+      setPendingPhoneAction('call');
+      setPhoneEntryTarget('recruit');
+      setPhoneEntryOpen(true);
       return;
     }
     logActivityMutation.mutate({
@@ -544,7 +556,9 @@ export const RecruitDetailDrawer = ({
 
   const handleText = async () => {
     if (!recruit.phone) {
-      toast.error('No phone number available');
+      setPendingPhoneAction('text');
+      setPhoneEntryTarget('recruit');
+      setPhoneEntryOpen(true);
       return;
     }
     logActivityMutation.mutate({
@@ -569,6 +583,7 @@ export const RecruitDetailDrawer = ({
     if (!contactForHelp.phone) {
       // No phone number - prompt to enter it
       setPendingPhoneAction('ask_help');
+      setPhoneEntryTarget('contact');
       setPhoneEntryOpen(true);
       return;
     }
@@ -577,26 +592,55 @@ export const RecruitDetailDrawer = ({
     window.location.href = `sms:${contactForHelp.phone}?body=${encodedMessage}`;
   };
 
-  const handleSavePhoneAndProceed = () => {
-    if (!newPhoneNumber.trim() || !contactForHelp?.notionPageId) {
+  const handleSavePhoneAndProceed = async () => {
+    if (!newPhoneNumber.trim()) {
       toast.error('Please enter a phone number');
       return;
     }
     
+    const targetNotionId = phoneEntryTarget === 'recruit' 
+      ? recruit.notionPageId 
+      : contactForHelp?.notionPageId;
+    
+    if (!targetNotionId) {
+      toast.error('Cannot save phone number');
+      return;
+    }
+    
     savePhoneMutation.mutate({
-      notionPageId: contactForHelp.notionPageId,
+      notionPageId: targetNotionId,
       phone: newPhoneNumber.trim(),
     }, {
       onSuccess: () => {
         setPhoneEntryOpen(false);
+        const savedPhone = newPhoneNumber.trim();
         setNewPhoneNumber('');
         
         // Now proceed with the original action
         if (pendingPhoneAction === 'ask_help') {
           const encodedMessage = encodeURIComponent(helpMessage);
-          window.location.href = `sms:${newPhoneNumber.trim()}?body=${encodedMessage}`;
+          window.location.href = `sms:${savedPhone}?body=${encodedMessage}`;
+        } else if (pendingPhoneAction === 'call') {
+          logActivityMutation.mutate({
+            recruitNotionId: recruit.notionPageId,
+            activityType: 'phone_call',
+            notes: 'Call attempt',
+            updateLastContact: true,
+          });
+          toast.success('Call logged');
+          window.location.href = `tel:${savedPhone}`;
+        } else if (pendingPhoneAction === 'text') {
+          logActivityMutation.mutate({
+            recruitNotionId: recruit.notionPageId,
+            activityType: 'phone_call',
+            notes: 'Text sent',
+            updateLastContact: true,
+          });
+          toast.success('Text logged');
+          window.location.href = `sms:${savedPhone}`;
         }
         setPendingPhoneAction(null);
+        setPhoneEntryTarget('contact');
       }
     });
   };
@@ -1362,14 +1406,29 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Phone Entry Drawer */}
-      <Drawer open={phoneEntryOpen} onOpenChange={setPhoneEntryOpen}>
+      <Drawer open={phoneEntryOpen} onOpenChange={(open) => {
+        setPhoneEntryOpen(open);
+        if (!open) {
+          setNewPhoneNumber('');
+          setPendingPhoneAction(null);
+          setPhoneEntryTarget('contact');
+        }
+      }}>
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Enter Phone Number</DrawerTitle>
+            <DrawerTitle>
+              {phoneEntryTarget === 'recruit' 
+                ? `Add ${recruitFirstName}'s Phone Number`
+                : `Add ${contactForHelp?.name}'s Phone Number`
+              }
+            </DrawerTitle>
           </DrawerHeader>
           <div className="p-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              We don't have a phone number for {contactForHelp?.name}. Enter it below to continue.
+              {phoneEntryTarget === 'recruit'
+                ? `Enter ${recruitFirstName}'s phone number to ${pendingPhoneAction === 'call' ? 'call' : 'text'} them.`
+                : `We don't have a phone number for ${contactForHelp?.name}. Enter it below to continue.`
+              }
             </p>
             <div>
               <Label>Phone Number</Label>
@@ -1379,6 +1438,7 @@ export const RecruitDetailDrawer = ({
                 placeholder="(555) 123-4567"
                 type="tel"
                 className="mt-1"
+                autoFocus
               />
             </div>
             <Button 
@@ -1386,7 +1446,7 @@ export const RecruitDetailDrawer = ({
               onClick={handleSavePhoneAndProceed}
               disabled={savePhoneMutation.isPending || !newPhoneNumber.trim()}
             >
-              {savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}
+              {savePhoneMutation.isPending ? 'Saving...' : `Save & ${pendingPhoneAction === 'call' ? 'Call' : pendingPhoneAction === 'text' ? 'Text' : 'Continue'}`}
             </Button>
           </div>
         </DrawerContent>
