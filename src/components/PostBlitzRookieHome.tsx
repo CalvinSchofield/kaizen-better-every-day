@@ -2,10 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Calendar, Moon, Users, Edit2, CheckCircle2, Check, ChevronRight, Info, X, MapPin, Wifi, Key } from "lucide-react";
+import { RefreshCw, Calendar, Moon, Users, CheckCircle2, Check, ChevronRight, X, MapPin, Wifi, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +11,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { YourProgressCard } from "@/components/YourProgressCard";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
@@ -41,7 +39,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
-  const [isEditingStats, setIsEditingStats] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
@@ -80,51 +77,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     onSync();
   }, []);
 
-  // Local state for editable FP+ goal - initialize from repData
-  const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 5);
-  const [personalFPGoalInput, setPersonalFPGoalInput] = useState(String(repData.personal_fp_goal ?? 5));
-
-  // Sync local state with repData changes
-  useEffect(() => {
-    setPersonalFPGoal(repData.personal_fp_goal ?? 5);
-    setPersonalFPGoalInput(String(repData.personal_fp_goal ?? 5));
-  }, [repData.personal_fp_goal]);
-
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
-  const personalFPProgress = personalFPGoal > 0 ? (personalFP / personalFPGoal) * 100 : 0;
-
-  const saveGoals = async () => {
-    try {
-      // Convert input to number and round to 1 decimal place
-      const fpGoalValue = Math.round(parseFloat(personalFPGoalInput) * 10) / 10 || 0;
-      
-      const { error } = await supabase
-        .from('reps')
-        .update({
-          personal_fp_goal: fpGoalValue,
-        })
-        .eq('id', repData.id);
-
-      if (error) throw error;
-
-      // Update local state with the saved value
-      setPersonalFPGoal(fpGoalValue);
-      setPersonalFPGoalInput(String(fpGoalValue));
-
-      toast({
-        title: "Goal saved",
-        description: "Your FP+ goal has been updated successfully",
-      });
-      setIsEditingStats(false);
-    } catch (error) {
-      console.error("Error saving goals:", error);
-      toast({
-        title: "Save failed",
-        description: "Could not save your goal. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleLogout = () => {
     setLogoutSheetOpen(true);
@@ -735,109 +688,17 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         {/* Weekly Progress Prompt - Monday evenings */}
         <WeeklyProgressPromptCard />
 
+        {/* Your Progress Card */}
+        <YourProgressCard 
+          repData={repData}
+          personalFP={personalFP}
+          ytdPRMR={ytdPRMR}
+          efpModeEnabled={efpModeEnabled}
+          loadingFP={loadingFP}
+        />
+
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
-
-        {/* FP+ Progress Card */}
-        <Card className="mb-6 shadow-lg border-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Your Progress</CardTitle>
-              <div className="flex items-center gap-2">
-                {isEditingStats ? (
-                  <Button
-                    size="sm"
-                    onClick={saveGoals}
-                  >
-                    Save
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditingStats(true)}
-                  >
-                    <Edit2 className="h-4 w-4 mr-1.5" />
-                    Edit
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Personal FP+ */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Label className="text-base font-medium">Personal {efpModeEnabled ? 'EFP' : 'FP+'}</Label>
-                  {isEditingStats && (
-                    <button
-                      onClick={() => {
-                        navigate('/calendar');
-                        toast({
-                          title: "Track daily",
-                          description: "Add your daily entries here to see your FP+ grow automatically",
-                        });
-                      }}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      aria-label="Track numbers info"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {isEditingStats ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">
-                      {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)}
-                    </span>
-                    <span className="text-muted-foreground">/</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      enterKeyHint="done"
-                      value={personalFPGoalInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        // Allow typing decimal point and numbers
-                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFPGoalInput(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Round to 1 decimal place and update actual value
-                        const val = parseFloat(e.target.value) || 0;
-                        const rounded = Math.round(val * 10) / 10;
-                        setPersonalFPGoal(rounded);
-                        setPersonalFPGoalInput(String(rounded));
-                      }}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setPersonalFPGoalInput(String(personalFPGoal));
-                      }}
-                      disabled={personalFP < 5}
-                      className="w-16 h-8 text-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="Goal"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-lg font-bold">
-                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal % 1 === 0 ? personalFPGoal : personalFPGoal.toFixed(1)}
-                  </span>
-                )}
-              </div>
-              <Progress value={personalFPProgress} className="h-3" />
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {Math.round(personalFPProgress)}% towards your first 5 FP+
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  YTD: ${ytdPRMR.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Upcoming Blitzes Card */}
         <Card className="mb-6 shadow-sm">

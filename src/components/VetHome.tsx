@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { RefreshCw, ExternalLink, Download, Target, Users, DollarSign, Edit2, TrendingUp, HelpCircle, MessageSquare, Calculator, CheckCircle2, Calendar, Zap, Moon, ChevronRight, Info, Check, X, MapPin, Wifi, Key } from "lucide-react";
+import { RefreshCw, ExternalLink, Download, Users, Calendar, Zap, Moon, ChevronRight, Check, X, MapPin, Wifi, Key, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +18,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { YourProgressCard } from "@/components/YourProgressCard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,7 +27,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
 
@@ -77,8 +74,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
-  const [isEditingStats, setIsEditingStats] = useState(false);
-  const [helpSheetOpen, setHelpSheetOpen] = useState(false);
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamLead, setIsTeamLead] = useState(false);
@@ -244,74 +239,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     fetchTeamMembers();
   }, [fetchTeamMembers, refreshTrigger]);
   
-  // Local state for editable stats - initialize from repData
-  const [personalFPGoal, setPersonalFPGoal] = useState(repData.personal_fp_goal ?? 0);
-  const [repsWithSale, setRepsWithSale] = useState(repData.reps_with_sale ?? 0);
-  const [repsWithSaleGoal, setRepsWithSaleGoal] = useState(repData.reps_with_sale_goal ?? 0);
-  
-  // Temporary string states for editing
-  const [personalFPGoalInput, setPersonalFPGoalInput] = useState(String(repData.personal_fp_goal ?? 0));
-  const [repsWithSaleInput, setRepsWithSaleInput] = useState(String(repData.reps_with_sale ?? 0));
-  const [repsWithSaleGoalInput, setRepsWithSaleGoalInput] = useState(String(repData.reps_with_sale_goal ?? 0));
-
-  // Sync local state with repData changes
-  useEffect(() => {
-    setPersonalFPGoal(repData.personal_fp_goal ?? 0);
-    setRepsWithSale(repData.reps_with_sale ?? 0);
-    setRepsWithSaleGoal(repData.reps_with_sale_goal ?? 0);
-    setPersonalFPGoalInput(String(repData.personal_fp_goal ?? 0));
-    setRepsWithSaleInput(String(repData.reps_with_sale ?? 0));
-    setRepsWithSaleGoalInput(String(repData.reps_with_sale_goal ?? 0));
-  }, [repData]);
-
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
   const userEmail = repData.email?.toLowerCase();
   const dashboardUrl = userEmail ? DASHBOARD_MAP[userEmail] : null;
-  
-  const personalFPProgress = personalFPGoal > 0 ? (personalFP / personalFPGoal) * 100 : 0;
-  const repsProgress = repsWithSaleGoal > 0 ? (repsWithSale / repsWithSaleGoal) * 100 : 0;
-  const goalsNotSet = personalFPGoal === 0 || repsWithSaleGoal === 0;
-
-  const saveGoals = async () => {
-    try {
-      // Convert inputs to numbers
-      const fpGoalValue = Math.round(parseFloat(personalFPGoalInput) * 10) / 10 || 0;
-      const repsValue = parseInt(repsWithSaleInput) || 0;
-      const repsGoalValue = parseInt(repsWithSaleGoalInput) || 0;
-      
-      const { error } = await supabase
-        .from('reps')
-        .update({
-          personal_fp_goal: fpGoalValue,
-          reps_with_sale: repsValue,
-          reps_with_sale_goal: repsGoalValue,
-        })
-        .eq('id', repData.id);
-
-      if (error) throw error;
-
-      // Update local state with the saved values
-      setPersonalFPGoal(fpGoalValue);
-      setRepsWithSale(repsValue);
-      setRepsWithSaleGoal(repsGoalValue);
-      setPersonalFPGoalInput(String(fpGoalValue));
-      setRepsWithSaleInput(String(repsValue));
-      setRepsWithSaleGoalInput(String(repsGoalValue));
-
-      toast({
-        title: "Goals saved",
-        description: "Your progress has been updated successfully",
-      });
-      setIsEditingStats(false);
-    } catch (error) {
-      console.error("Error saving goals:", error);
-      toast({
-        title: "Save failed",
-        description: "Could not save your goals. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleLogout = () => {
     setLogoutSheetOpen(true);
@@ -770,234 +700,17 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Weekly Progress Prompt - Monday evenings */}
         <WeeklyProgressPromptCard />
 
+        {/* Status Dashboard Card - Your Progress */}
+        <YourProgressCard 
+          repData={repData}
+          personalFP={personalFP}
+          ytdPRMR={ytdPRMR}
+          efpModeEnabled={efpModeEnabled}
+          loadingFP={loadingFP}
+        />
+
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
-
-        {/* Status Dashboard Card */}
-        <Card className="mb-6 shadow-lg">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <CardTitle>Your Progress</CardTitle>
-              </div>
-              <div className="flex items-center gap-2">
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <HelpCircle className="h-4 w-4" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="bottom" className="rounded-t-3xl">
-                    <SheetHeader>
-                      <SheetTitle>Need help setting goals?</SheetTitle>
-                      <SheetDescription>
-                        Get with your leaders to set preseason goals that push you but are attainable.
-                      </SheetDescription>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        This online preseason calculator also is super helpful in determining what recruiting work needs to be done in order to hit goals on the year.
-                      </p>
-                      <div className="space-y-3">
-                        <Button 
-                          variant="outline"
-                          className="w-full h-12 text-base"
-                          onClick={() => openLink("https://vivintevolution.com/2026-season-calculator/")}
-                        >
-                          <Calculator className="h-5 w-5 mr-2" />
-                          Recruiting Calculator
-                        </Button>
-                        <Button 
-                          className="w-full h-12 text-base"
-                          onClick={() => {
-                            const phone = repData.team_leader_phone;
-                            if (phone) {
-                              window.location.href = `sms:${phone}`;
-                            } else {
-                              toast({
-                                title: "No phone number",
-                                description: "Team leader phone number not available",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          <MessageSquare className="h-5 w-5 mr-2" />
-                          Message Leader
-                        </Button>
-                      </div>
-                    </div>
-                  </SheetContent>
-                </Sheet>
-                {isEditingStats ? (
-                  <Button
-                    size="sm"
-                    onClick={saveGoals}
-                  >
-                    Save Goals
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditingStats(true)}
-                  >
-                    <Edit2 className="h-4 w-4 mr-1.5" />
-                    Edit
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {goalsNotSet && !isEditingStats && (
-              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
-                <p className="text-sm text-center font-medium">
-                  👆 Tap <strong>Edit</strong> to set your preseason goals
-                </p>
-              </div>
-            )}
-            
-            {/* Personal FP+ */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Label className="text-base font-medium">Personal {efpModeEnabled ? 'EFP' : 'FP+'}</Label>
-                  {isEditingStats && (
-                    <button
-                      onClick={() => {
-                        navigate('/calendar');
-                        toast({
-                          title: "Track daily",
-                          description: "Add your daily entries here to see your FP+ grow automatically",
-                        });
-                      }}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      aria-label="Track numbers info"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {isEditingStats ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">
-                      {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)}
-                    </span>
-                    <span className="text-muted-foreground">/</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      enterKeyHint="done"
-                      value={personalFPGoalInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        // Allow typing decimal point and numbers
-                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                          setPersonalFPGoalInput(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        // Round to 1 decimal place and update actual value
-                        const val = parseFloat(e.target.value) || 0;
-                        const rounded = Math.round(val * 10) / 10;
-                        setPersonalFPGoal(rounded);
-                        setPersonalFPGoalInput(String(rounded));
-                      }}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setPersonalFPGoalInput(String(personalFPGoal));
-                      }}
-                      className="w-16 h-8 text-center"
-                      placeholder="Goal"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-lg font-bold">
-                    {personalFP % 1 === 0 ? personalFP : personalFP.toFixed(1)} / {personalFPGoal % 1 === 0 ? personalFPGoal : personalFPGoal.toFixed(1)}
-                  </span>
-                )}
-              </div>
-              <Progress value={personalFPProgress} className="h-3" />
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {Math.round(personalFPProgress)}% towards your personal preseason sales goal
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  YTD: ${ytdPRMR.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Reps with a Sale */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Reps with a Sale</Label>
-                {isEditingStats ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      enterKeyHint="done"
-                      value={repsWithSaleInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '' || /^\d+$/.test(val)) {
-                          setRepsWithSaleInput(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setRepsWithSale(val);
-                        setRepsWithSaleInput(String(val));
-                      }}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setRepsWithSaleInput(String(repsWithSale));
-                      }}
-                      className="w-16 h-8 text-center"
-                      placeholder="Current"
-                    />
-                    <span className="text-muted-foreground">/</span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      enterKeyHint="done"
-                      value={repsWithSaleGoalInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '' || /^\d+$/.test(val)) {
-                          setRepsWithSaleGoalInput(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setRepsWithSaleGoal(val);
-                        setRepsWithSaleGoalInput(String(val));
-                      }}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setRepsWithSaleGoalInput(String(repsWithSaleGoal));
-                      }}
-                      className="w-16 h-8 text-center"
-                      placeholder="Goal"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-lg font-bold">
-                    {repsWithSale} / {repsWithSaleGoal}
-                  </span>
-                )}
-              </div>
-              <Progress value={repsProgress} className="h-3" />
-              <p className="text-sm text-muted-foreground">
-                {Math.round(repsProgress)}% towards your recruiting goal
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Personal Dashboard Card (conditional) */}
         {dashboardUrl && (
           <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
