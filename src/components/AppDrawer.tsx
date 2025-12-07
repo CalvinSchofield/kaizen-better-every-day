@@ -227,21 +227,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                   </div>
                 </Link>
 
-                {/* Direct link to team calendar for pre-blitz rookies */}
-                <Link
-                  to="/tools"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors bg-primary/5"
-                >
-                  <Calendar className="w-5 h-5 text-primary" />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-semibold text-sm">Team Blitz Calendar</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      See upcoming blitz trips
-                    </span>
-                  </div>
-                </Link>
-
                 <Link
                   to="/insights"
                   onClick={() => setOpen(false)}
