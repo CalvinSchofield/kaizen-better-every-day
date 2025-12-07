@@ -75,17 +75,18 @@ const getDisplayName = (name: string, allNames: string[]): string => {
 };
 
 // Calculate pace status for a commitment
-const getBehindStatus = (current: number, goal: number): "ahead" | "on-track" | "behind" | "no-goal" => {
+const getBehindStatus = (current: number, goal: number, asOfDate?: Date): "ahead" | "on-track" | "behind" | "no-goal" => {
   if (goal === 0) return "no-goal";
   const progress = current / goal;
   
   // Calculate based on time elapsed in preseason
   const summerStart = new Date("2026-04-12");
   const preseasonStart = new Date("2025-09-28");
-  const now = new Date();
+  // Use provided date (e.g., yesterday) or default to today
+  const referenceDate = asOfDate || new Date();
   
   const totalDays = (summerStart.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24);
-  const elapsedDays = Math.max(0, (now.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24));
+  const elapsedDays = Math.max(0, (referenceDate.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24));
   const expectedProgress = elapsedDays / totalDays;
   
   if (progress >= 1) return "ahead";
@@ -715,7 +716,7 @@ const RepCard = ({
             >
               <div className="font-medium truncate">{c.label}</div>
               <div className="text-[10px] opacity-80">
-                {c.current}/{c.goal}
+                {c.key === 'fp' ? Math.round(c.current * 10) / 10 : c.current}/{c.goal}
               </div>
             </div>
           ))}
@@ -743,7 +744,7 @@ const RepCard = ({
                     c.status === "behind" && "text-destructive",
                     c.status === "ahead" && "text-green-600 dark:text-green-400"
                   )}>
-                    {c.current}/{c.goal}
+                    {c.key === 'fp' ? Math.round(c.current * 10) / 10 : c.current}/{c.goal}
                     {c.unit && <span className="text-muted-foreground ml-0.5">{c.unit}</span>}
                   </span>
                 </div>
