@@ -248,7 +248,7 @@ export const LeaderGoalsCard = ({
     return { total: totalDays, elapsed: workedDays };
   };
 
-  // Calculate expected FP+ based on planned work days
+  // Calculate expected FP+ based on planned work days for a given period
   const getExpectedFpByWorkDays = (userId: string, goal: number, seasonStart: Date, seasonEnd: Date): number => {
     if (!goal || goal <= 0) return 0;
     
@@ -265,6 +265,91 @@ export const LeaderGoalsCard = ({
     // Expected = goal distributed across total work days × days already worked
     const dailyExpected = goal / total;
     return dailyExpected * elapsed;
+  };
+
+  // Get daily goal rate (season goal / total planned work days)
+  const getDailyGoalRate = (userId: string, goal: number, seasonStart: Date, seasonEnd: Date): number => {
+    if (!goal || goal <= 0) return 0;
+    const { total } = getTotalWorkDays(userId, seasonStart, seasonEnd);
+    if (total <= 0) {
+      // Fallback to linear
+      const totalCalendarDays = differenceInDays(seasonEnd, seasonStart);
+      return totalCalendarDays > 0 ? goal / totalCalendarDays : 0;
+    }
+    return goal / total;
+  };
+
+  // Calculate expected FP for the selected period based on datePreset
+  const getExpectedFpForPeriod = (userId: string, goal: number, seasonStart: Date, seasonEnd: Date): number => {
+    if (!goal || goal <= 0) return 0;
+    
+    const dailyRate = getDailyGoalRate(userId, goal, seasonStart, seasonEnd);
+    const todayStr = format(now, 'yyyy-MM-dd');
+    
+    switch (datePreset) {
+      case 'today': {
+        // For today, expected is 1 day's worth IF today is a work day
+        const workedToday = repsFpData?.workedDaysByUser[userId] || 0;
+        // If they haven't worked today yet, expected is still the daily rate
+        return dailyRate;
+      }
+      case 'yesterday': {
+        // Expected is 1 day's worth
+        return dailyRate;
+      }
+      case 'week': {
+        // Count planned/worked days this week within the date range
+        if (!dateRange) return dailyRate * 6; // Default to 6-day week
+        const rangeStart = parseISO(dateRange.start);
+        const rangeEnd = parseISO(dateRange.end);
+        
+        // Count worked days in this range
+        let workedInRange = 0;
+        // This is an approximation - we'd need entry dates to be precise
+        // For now, use the total worked days if range is current week
+        workedInRange = repsFpData?.workedDaysByUser[userId] || 0;
+        
+        // Count remaining planned days in range
+        const plannedDates = allPlannedDays?.[userId] || [];
+        const plannedInRange = plannedDates.filter(d => {
+          const date = parseISO(d);
+          return !isBefore(date, rangeStart) && !isAfter(date, rangeEnd) && isAfter(date, now);
+        }).length;
+        
+        const totalDaysInPeriod = Math.max(workedInRange + plannedInRange, 1);
+        return dailyRate * totalDaysInPeriod;
+      }
+      case 'month': {
+        // Similar logic for month
+        if (!dateRange) return dailyRate * 20; // Default estimate
+        const rangeStart = parseISO(dateRange.start);
+        const rangeEnd = parseISO(dateRange.end);
+        
+        const workedInRange = repsFpData?.workedDaysByUser[userId] || 0;
+        const plannedDates = allPlannedDays?.[userId] || [];
+        const plannedInRange = plannedDates.filter(d => {
+          const date = parseISO(d);
+          return !isBefore(date, rangeStart) && !isAfter(date, rangeEnd) && isAfter(date, now);
+        }).length;
+        
+        const totalDaysInPeriod = Math.max(workedInRange + plannedInRange, 1);
+        return dailyRate * totalDaysInPeriod;
+      }
+      default:
+        // Full season calculation
+        return getExpectedFpByWorkDays(userId, goal, seasonStart, seasonEnd);
+    }
+  };
+
+  // Get period label for UI
+  const getPeriodLabel = (): string => {
+    switch (datePreset) {
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
+      case 'week': return 'This Week';
+      case 'month': return 'This Month';
+      default: return isPreseason ? 'Preseason' : 'Season';
+    }
   };
 
   const allRepNames = useMemo(() => {
@@ -299,9 +384,9 @@ export const LeaderGoalsCard = ({
       let paceDiff = 0;
       
       if (isPreseason) {
-        // Preseason pace based on planned/worked days
+        // Preseason pace based on selected period
         if (preseasonGoal > 0) {
-          const expectedFp = getExpectedFpByWorkDays(userId, preseasonGoal, parseISO(preseasonStartDate), parseISO(summerStartDate));
+          const expectedFp = getExpectedFpForPeriod(userId, preseasonGoal, parseISO(preseasonStartDate), parseISO(summerStartDate));
           paceDiff = currentFp - expectedFp;
           
           if (expectedFp > 0) {
@@ -319,7 +404,7 @@ export const LeaderGoalsCard = ({
                          selectedTier === 'will_do' ? willDoGoal : couldDoGoal;
         
         if (tierGoal > 0) {
-          const expectedFp = getExpectedFpByWorkDays(userId, tierGoal, parseISO(summerStartDate), parseISO(summerEndDate));
+          const expectedFp = getExpectedFpForPeriod(userId, tierGoal, parseISO(summerStartDate), parseISO(summerEndDate));
           paceDiff = currentFp - expectedFp;
           
           if (expectedFp > 0) {
@@ -364,7 +449,7 @@ export const LeaderGoalsCard = ({
         return bProgress - aProgress;
       }
     });
-  }, [allGoals, repsFpData, allPlannedDays, repsBlitzData, userIds, excludeUserIds, accessibleReps, allRepNames, isPreseason, selectedTier]);
+  }, [allGoals, repsFpData, allPlannedDays, repsBlitzData, userIds, excludeUserIds, accessibleReps, allRepNames, isPreseason, selectedTier, datePreset, dateRange]);
 
   // Get active goal for a rep based on season/tier
   const getActiveGoal = (rep: RepWithGoals) => {
@@ -380,9 +465,11 @@ export const LeaderGoalsCard = ({
   };
 
   const getGoalLabel = () => {
-    if (isPreseason) return 'Preseason';
-    return selectedTier === 'must_do' ? 'Must Do' : 
+    const periodLabel = getPeriodLabel();
+    if (isPreseason) return periodLabel !== 'Preseason' ? `${periodLabel} Goal` : 'Preseason';
+    const tierLabel = selectedTier === 'must_do' ? 'Must Do' : 
            selectedTier === 'will_do' ? 'Will Do' : 'Could Do';
+    return periodLabel !== 'Season' ? `${periodLabel}` : tierLabel;
   };
 
   const stats = useMemo(() => {
