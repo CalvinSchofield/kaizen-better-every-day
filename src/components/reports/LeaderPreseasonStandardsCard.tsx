@@ -2,23 +2,21 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { 
-  BookOpen, 
-  Dumbbell, 
-  Phone, 
-  Target, 
-  Users, 
-  Timer, 
   ChevronDown, 
   ChevronUp,
   MessageSquare,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUpDown
 } from "lucide-react";
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+type SortOption = "year" | "behind" | "name";
 
 interface LeaderPreseasonStandardsCardProps {
   accessibleReps: Array<{
@@ -204,6 +202,7 @@ export const LeaderPreseasonStandardsCard = ({
 }: LeaderPreseasonStandardsCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [filter, setFilter] = useState<"all" | "behind" | "on-track" | "no-goals">("all");
+  const [sortBy, setSortBy] = useState<SortOption>("year");
   
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
@@ -248,27 +247,52 @@ export const LeaderPreseasonStandardsCard = ({
           behindCount,
           hasGoals: true,
         };
-      })
-      .sort((a, b) => {
-        // Sort by behind count descending, then by name
-        if (b.behindCount !== a.behindCount) return b.behindCount - a.behindCount;
-        return a.displayName.localeCompare(b.displayName);
       });
   }, [accessibleReps, allGoals, fpByUser, excludeUserIds]);
 
-  // Filter reps based on selected filter
+  // Year priority for sorting (Rookie first, then Sophomore, then Vet)
+  const getYearPriority = (year?: string): number => {
+    if (!year) return 99;
+    const y = year.toLowerCase();
+    if (y === "rookie") return 1;
+    if (y === "sophomore") return 2;
+    if (y === "vet") return 3;
+    return 99;
+  };
+
+  // Sort reps based on selected option
+  const sortedReps = useMemo(() => {
+    return [...repsWithGoals].sort((a, b) => {
+      if (sortBy === "year") {
+        const yearDiff = getYearPriority(a.year) - getYearPriority(b.year);
+        if (yearDiff !== 0) return yearDiff;
+        // Secondary sort by behind count within same year
+        return b.behindCount - a.behindCount;
+      }
+      if (sortBy === "behind") {
+        if (b.behindCount !== a.behindCount) return b.behindCount - a.behindCount;
+        return a.displayName.localeCompare(b.displayName);
+      }
+      if (sortBy === "name") {
+        return a.displayName.localeCompare(b.displayName);
+      }
+      return 0;
+    });
+  }, [repsWithGoals, sortBy]);
+
+  // Filter reps based on selected filter (applied to sorted list)
   const filteredReps = useMemo(() => {
     switch (filter) {
       case "behind":
-        return repsWithGoals.filter(r => r.behindCount > 0);
+        return sortedReps.filter(r => r.behindCount > 0);
       case "on-track":
-        return repsWithGoals.filter(r => r.hasGoals && r.behindCount === 0);
+        return sortedReps.filter(r => r.hasGoals && r.behindCount === 0);
       case "no-goals":
-        return repsWithGoals.filter(r => !r.hasGoals);
+        return sortedReps.filter(r => !r.hasGoals);
       default:
-        return repsWithGoals;
+        return sortedReps;
     }
-  }, [repsWithGoals, filter]);
+  }, [sortedReps, filter]);
 
   // Summary stats
   const stats = useMemo(() => {
@@ -321,15 +345,21 @@ export const LeaderPreseasonStandardsCard = ({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Preseason Standards</CardTitle>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="h-7 w-[110px] text-xs">
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="year">By Year</SelectItem>
+                <SelectItem value="behind">By Behind</SelectItem>
+                <SelectItem value="name">By Name</SelectItem>
+              </SelectContent>
+            </Select>
             {stats.behind > 0 && (
               <Badge variant="destructive" className="text-xs">
                 {stats.behind} behind
-              </Badge>
-            )}
-            {stats.noGoals > 0 && (
-              <Badge variant="outline" className="text-xs text-muted-foreground">
-                {stats.noGoals} no goals
               </Badge>
             )}
           </div>
