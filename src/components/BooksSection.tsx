@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookMarked, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { BookMarked, Check, ChevronDown, ChevronUp, Trophy, Crown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useBooksLeaderboard } from "@/hooks/useBooksLeaderboard";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -163,6 +164,7 @@ const BOOKS_READ_KEY = "kaizen-books-read";
 
 export const BooksSection = () => {
   const { goals, updateGoals, isUpdating } = useRepGoals();
+  const { data: leaderboard } = useBooksLeaderboard();
   const { toast } = useToast();
   const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
   const [expandedBook, setExpandedBook] = useState<string | null>(null);
@@ -261,6 +263,40 @@ export const BooksSection = () => {
         )}
       </CardHeader>
       <CardContent className="space-y-2">
+        {/* Books Leaderboard */}
+        {(leaderboard?.mostReadOverall || leaderboard?.mostReadRookie) && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              <span className="text-sm font-medium">Most Well Read</span>
+            </div>
+            <div className="space-y-1.5">
+              {leaderboard.mostReadOverall && (
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <Crown className="h-3 w-3 text-amber-500" />
+                    <span>{leaderboard.mostReadOverall.name}</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {leaderboard.mostReadOverall.booksRead} books
+                  </Badge>
+                </div>
+              )}
+              {leaderboard.mostReadRookie && 
+               leaderboard.mostReadRookie.userId !== leaderboard.mostReadOverall?.userId && (
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Top Rookie:</span>
+                    <span>{leaderboard.mostReadRookie.name}</span>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {leaderboard.mostReadRookie.booksRead} books
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {booksToShow.map((book) => {
           const isRead = booksRead.has(book.id);
           const isExpanded = expandedBook === book.id;
