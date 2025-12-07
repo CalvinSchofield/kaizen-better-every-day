@@ -41,33 +41,104 @@ export interface RecruitSuggestion {
   created_at: string;
 }
 
-export const useGroupRecruits = () => {
-  const { data: teamAccess } = useTeamAccess();
+// Recruiting pipeline stages (stages that indicate someone is in the recruiting funnel)
+const RECRUITING_STAGES = [
+  '100 List',
+  'Potential Follow Up',
+  'Reached out',
+  'Reached Out',
+  'Evaluating',
+  'Signed',
+  'Shadow ✅',
+  'Sold 💲',
+  'Sold (5+) 💰',
+  'Not Interested'
+];
 
-  return useQuery({
-    queryKey: ['group-recruits', teamAccess?.accessibleUserIds],
+export const useGroupRecruits = () => {
+  const { data: teamAccess, isLoading: teamLoading } = useTeamAccess();
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+
+  const query = useQuery({
+    queryKey: ['group-recruits', teamAccess?.accessibleReps?.[0]?.notionPageId],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Get accessible notion IDs from team access
-      const accessibleNotionIds = teamAccess?.accessibleReps?.map(r => r.notionPageId) || [];
+      // For leaders, fetch team members which already includes stage info
+      // Use the current user's rep notion page ID as the leader ID
+      const { data: currentRep } = await supabase
+        .from('reps')
+        .select('notion_page_id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      
+      const leaderNotionId = currentRep?.notion_page_id;
+      if (!leaderNotionId) {
+        return { recruits: [], activities: [], pendingSuggestions: [] };
+      }
 
-      const { data, error } = await supabase.functions.invoke('fetch-group-recruits', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { accessibleNotionIds },
+      const { data: teamData, error: teamError } = await supabase.functions.invoke('fetch-team-members', {
+        body: { leaderNotionPageId: leaderNotionId }
       });
 
-      if (error) throw error;
-      return data as {
-        recruits: Recruit[];
-        activities: RecruitActivity[];
-        pendingSuggestions: RecruitSuggestion[];
-      };
+      if (teamError) throw teamError;
+
+      // Filter team members who are in recruiting stages
+      const recruits: Recruit[] = (teamData?.teamMembers || [])
+        .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
+        .map((member: any) => ({
+          notionPageId: member.notionPageId,
+          name: member.name,
+          phone: member.phone || '',
+          email: member.email || '',
+          stage: member.stage,
+          recruiterNotionId: leaderNotionId,
+          year: member.year || '',
+          lastContact: null,
+          nextAction: null,
+          nextActionDue: null,
+          createdAt: new Date().toISOString(),
+        }));
+
+      // Fetch activities for these recruits
+      let activities: RecruitActivity[] = [];
+      if (recruits.length > 0) {
+        const recruitNotionIds = recruits.map(r => r.notionPageId);
+        const { data: activityData } = await supabase
+          .from('recruit_activities')
+          .select('*')
+          .in('rep_notion_page_id', recruitNotionIds)
+          .order('created_at', { ascending: false })
+          .limit(500);
+        
+        activities = (activityData || []) as RecruitActivity[];
+      }
+
+      // Fetch pending suggestions for this leader (reuse leaderNotionId)
+      let pendingSuggestions: RecruitSuggestion[] = [];
+      if (leaderNotionId) {
+        const { data: suggestions } = await supabase
+          .from('recruit_suggestions')
+          .select('*')
+          .eq('team_leader_notion_id', leaderNotionId)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+        
+        pendingSuggestions = (suggestions || []) as RecruitSuggestion[];
+      }
+
+      return { recruits, activities, pendingSuggestions };
     },
-    enabled: !!teamAccess && teamAccess.accessLevel !== 'none',
+    enabled: !!teamAccess?.accessibleReps?.length && isLeader,
     staleTime: 1000 * 60 * 2,
   });
+
+  return {
+    ...query,
+    isLeader,
+    isLoading: teamLoading || query.isLoading,
+  };
 };
 
 export const useSubmitSuggestion = () => {
