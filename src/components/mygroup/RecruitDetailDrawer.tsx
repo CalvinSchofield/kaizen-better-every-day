@@ -70,11 +70,35 @@ export const RecruitDetailDrawer = ({
     ? differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 7 
     : true;
 
-  const handleCall = () => {
+  const handleCall = async () => {
+    // Auto-log call attempt
+    try {
+      await logActivityMutation.mutateAsync({
+        recruitNotionId: recruit.notionPageId,
+        activityType: 'phone_call',
+        notes: 'Call attempt',
+        updateLastContact: true,
+      });
+      toast.success('Call logged');
+    } catch (error) {
+      console.error('Failed to log call:', error);
+    }
     window.location.href = `tel:${recruit.phone}`;
   };
 
-  const handleText = () => {
+  const handleText = async () => {
+    // Auto-log text attempt
+    try {
+      await logActivityMutation.mutateAsync({
+        recruitNotionId: recruit.notionPageId,
+        activityType: 'phone_call',
+        notes: 'Text sent',
+        updateLastContact: true,
+      });
+      toast.success('Text logged');
+    } catch (error) {
+      console.error('Failed to log text:', error);
+    }
     window.location.href = `sms:${recruit.phone}`;
   };
 
