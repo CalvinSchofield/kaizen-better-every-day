@@ -564,33 +564,33 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     );
   }
 
-  // Cycle through scope options
-  const cycleScopeOption = () => {
-    if (loadingAttendance) return; // Prevent cycling while loading
-    
+  // Get available scope options based on access level
+  const getScopeOptions = () => {
     if (accessLevel === 'area_director') {
-      const options: Array<'you' | 'team' | 'mgmt' | 'office'> = ['you', 'team', 'mgmt', 'office'];
-      const currentIndex = options.indexOf(attendanceScope);
-      const nextIndex = (currentIndex + 1) % options.length;
-      setAttendanceScope(options[nextIndex]);
+      return [
+        { value: 'you', label: 'You' },
+        { value: 'team', label: 'Team' },
+        { value: 'mgmt', label: 'MGMT' },
+        { value: 'office', label: 'Office' },
+      ];
     } else if (accessLevel === 'mgmt_group_lead') {
-      const options: Array<'you' | 'team' | 'mgmt'> = ['you', 'team', 'mgmt'];
-      const currentIndex = options.indexOf(attendanceScope as 'you' | 'team' | 'mgmt');
-      const nextIndex = (currentIndex + 1) % options.length;
-      setAttendanceScope(options[nextIndex]);
+      return [
+        { value: 'you', label: 'You' },
+        { value: 'team', label: 'Team' },
+        { value: 'mgmt', label: 'MGMT' },
+      ];
     } else {
       // Team lead
-      setAttendanceScope(attendanceScope === 'you' ? 'team' : 'you');
+      return [
+        { value: 'you', label: 'You' },
+        { value: 'team', label: 'Team' },
+      ];
     }
   };
 
-  const getScopeLabel = () => {
-    switch(attendanceScope) {
-      case 'you': return 'You';
-      case 'team': return 'Team';
-      case 'mgmt': return 'MGMT';
-      case 'office': return 'Office';
-    }
+  const handleScopeChange = (value: string) => {
+    if (loadingAttendance) return;
+    setAttendanceScope(value as 'you' | 'team' | 'mgmt' | 'office');
   };
 
   // Simplified personal view for non-team leads OR when scope is 'you'
@@ -609,17 +609,24 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               </CardDescription>
             </div>
             
-            {/* Cycling scope selector - only for leaders */}
+            {/* Scope selector dropdown - only for leaders */}
             {propIsTeamLead && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-8 px-3 text-xs font-medium"
-                onClick={cycleScopeOption}
+              <Select
+                value={attendanceScope}
+                onValueChange={handleScopeChange}
+                disabled={loadingAttendance}
               >
-                {getScopeLabel()}
-                <ChevronRight className="h-3 w-3 ml-1" />
-              </Button>
+                <SelectTrigger className="w-24 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getScopeOptions().map((option) => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         </CardHeader>
@@ -708,17 +715,23 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             </CardDescription>
           </div>
           
-          {/* Cycling scope selector */}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-8 px-3 text-xs font-medium"
-            onClick={cycleScopeOption}
+          {/* Scope selector dropdown */}
+          <Select
+            value={attendanceScope}
+            onValueChange={handleScopeChange}
             disabled={loadingAttendance}
           >
-            {getScopeLabel()}
-            <ChevronRight className="h-3 w-3 ml-1" />
-          </Button>
+            <SelectTrigger className="w-24 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {getScopeOptions().map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-xs">
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 relative">
