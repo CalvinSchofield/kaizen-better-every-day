@@ -3,14 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
 import { 
   ChevronDown, 
   ChevronUp,
+  ChevronRight,
   MessageSquare,
   CheckCircle2,
   AlertTriangle,
-  ArrowUpDown
+  ArrowUpDown,
+  Users
 } from "lucide-react";
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,8 +28,14 @@ interface LeaderPreseasonStandardsCardProps {
     notionPageId: string;
     phone?: string;
     year?: string;
+    teamId?: string;
+    teamName?: string;
+    mgmtGroupId?: string;
+    mgmtGroupName?: string;
+    isTeamLead?: boolean;
   }>;
   excludeUserIds?: string[];
+  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
 }
 
 interface CommitmentStatus {
@@ -199,10 +208,12 @@ const useAllPreseasonFP = (userIds: string[]) => {
 export const LeaderPreseasonStandardsCard = ({
   accessibleReps,
   excludeUserIds = [],
+  accessLevel = 'none',
 }: LeaderPreseasonStandardsCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [filter, setFilter] = useState<"all" | "behind" | "on-track" | "no-goals">("all");
   const [sortBy, setSortBy] = useState<SortOption>("year");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
@@ -250,6 +261,61 @@ export const LeaderPreseasonStandardsCard = ({
       });
   }, [accessibleReps, allGoals, fpByUser, excludeUserIds]);
 
+  // Determine if we should show grouping (MGMT or Area Director level)
+  const showGrouping = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead';
+
+  // Group reps by MGMT group and team
+  const groupedReps = useMemo(() => {
+    if (!showGrouping) return null;
+
+    const groups: Map<string, {
+      mgmtGroupName: string;
+      mgmtGroupId: string;
+      teams: Map<string, {
+        teamName: string;
+        teamId: string;
+        reps: typeof repsWithGoals;
+        behindCount: number;
+      }>;
+      behindCount: number;
+    }> = new Map();
+
+    repsWithGoals.forEach(rep => {
+      const mgmtKey = rep.mgmtGroupId || 'ungrouped';
+      const mgmtName = rep.mgmtGroupName || 'Other';
+      const teamKey = rep.teamId || 'no-team';
+      const teamName = rep.teamName || 'No Team';
+
+      if (!groups.has(mgmtKey)) {
+        groups.set(mgmtKey, {
+          mgmtGroupName: mgmtName,
+          mgmtGroupId: mgmtKey,
+          teams: new Map(),
+          behindCount: 0,
+        });
+      }
+
+      const mgmtGroup = groups.get(mgmtKey)!;
+      if (!mgmtGroup.teams.has(teamKey)) {
+        mgmtGroup.teams.set(teamKey, {
+          teamName,
+          teamId: teamKey,
+          reps: [],
+          behindCount: 0,
+        });
+      }
+
+      const team = mgmtGroup.teams.get(teamKey)!;
+      team.reps.push(rep);
+      if (rep.behindCount > 0) {
+        team.behindCount++;
+        mgmtGroup.behindCount++;
+      }
+    });
+
+    return groups;
+  }, [repsWithGoals, showGrouping]);
+
   // Year priority for sorting (Rookie first, then Sophomore, then Vet)
   const getYearPriority = (year?: string): number => {
     if (!year) return 99;
@@ -294,7 +360,65 @@ export const LeaderPreseasonStandardsCard = ({
     }
   }, [sortedReps, filter]);
 
-  // Summary stats
+  // Filter grouped reps
+  const filteredGroupedReps = useMemo(() => {
+    if (!groupedReps) return null;
+
+    const filterRep = (rep: typeof repsWithGoals[0]) => {
+      switch (filter) {
+        case "behind":
+          return rep.behindCount > 0;
+        case "on-track":
+          return rep.hasGoals && rep.behindCount === 0;
+        case "no-goals":
+          return !rep.hasGoals;
+        default:
+          return true;
+      }
+    };
+
+    const result: Map<string, typeof groupedReps extends Map<string, infer V> ? V : never> = new Map();
+
+    groupedReps.forEach((mgmtGroup, mgmtKey) => {
+      const filteredTeams: typeof mgmtGroup.teams = new Map();
+      let groupBehindCount = 0;
+
+      mgmtGroup.teams.forEach((team, teamKey) => {
+        const filteredTeamReps = team.reps.filter(filterRep);
+        if (filteredTeamReps.length > 0) {
+          const teamBehindCount = filteredTeamReps.filter(r => r.behindCount > 0).length;
+          filteredTeams.set(teamKey, {
+            ...team,
+            reps: filteredTeamReps,
+            behindCount: teamBehindCount,
+          });
+          groupBehindCount += teamBehindCount;
+        }
+      });
+
+      if (filteredTeams.size > 0) {
+        result.set(mgmtKey, {
+          ...mgmtGroup,
+          teams: filteredTeams,
+          behindCount: groupBehindCount,
+        });
+      }
+    });
+
+    return result;
+  }, [groupedReps, filter]);
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
   const stats = useMemo(() => {
     const withGoals = repsWithGoals.filter(r => r.hasGoals);
     return {
@@ -385,84 +509,87 @@ export const LeaderPreseasonStandardsCard = ({
       </CardHeader>
       
       <CardContent className="space-y-3">
-        {visibleReps.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No reps match this filter
-          </p>
-        ) : (
-          visibleReps.map((rep) => (
-            <div 
-              key={rep.userId} 
-              className={cn(
-                "p-3 rounded-lg border",
-                rep.behindCount > 0 && "border-destructive/30 bg-destructive/5",
-                !rep.hasGoals && "border-muted bg-muted/30"
-              )}
-            >
-              {/* Rep header */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{rep.displayName}</span>
-                  {rep.year && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {rep.year}
+        {/* Grouped view for MGMT/Area Director */}
+        {showGrouping && filteredGroupedReps ? (
+          filteredGroupedReps.size === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No reps match this filter
+            </p>
+          ) : (
+            Array.from(filteredGroupedReps.entries()).map(([mgmtKey, mgmtGroup]) => (
+              <div key={mgmtKey} className="space-y-2">
+                {/* MGMT Group Header */}
+                <div 
+                  className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-pointer"
+                  onClick={() => toggleGroup(mgmtKey)}
+                >
+                  <div className="flex items-center gap-2">
+                    <ChevronRight className={cn(
+                      "h-4 w-4 transition-transform",
+                      expandedGroups.has(mgmtKey) && "rotate-90"
+                    )} />
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">{mgmtGroup.mgmtGroupName}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {Array.from(mgmtGroup.teams.values()).reduce((sum, t) => sum + t.reps.length, 0)} reps
                     </Badge>
-                  )}
-                  {rep.behindCount > 0 && (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                      {rep.behindCount} behind
+                  </div>
+                  {mgmtGroup.behindCount > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {mgmtGroup.behindCount} behind
                     </Badge>
-                  )}
-                  {rep.hasGoals && rep.behindCount === 0 && (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                   )}
                 </div>
-                
-                {/* Text button */}
-                {rep.phone && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={(e) => handleTextRep(rep, e)}
-                    title="Send encouragement text"
-                  >
-                    <MessageSquare className="h-4 w-4 text-primary" />
-                  </Button>
+
+                {/* Teams within MGMT Group */}
+                {expandedGroups.has(mgmtKey) && (
+                  <div className="ml-4 space-y-2">
+                    {Array.from(mgmtGroup.teams.entries()).map(([teamKey, team]) => (
+                      <Collapsible key={teamKey} defaultOpen={team.behindCount > 0}>
+                        <CollapsibleTrigger className="w-full">
+                          <div className="flex items-center justify-between p-2 bg-secondary/30 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm">{team.teamName}</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {team.reps.length}
+                              </Badge>
+                            </div>
+                            {team.behindCount > 0 && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                {team.behindCount} behind
+                              </Badge>
+                            )}
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-2 space-y-2 ml-2">
+                            {team.reps.map((rep) => (
+                              <RepCard key={rep.userId} rep={rep} onTextRep={handleTextRep} />
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
                 )}
               </div>
-              
-              {/* Commitments */}
-              {rep.hasGoals && rep.commitments.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {rep.commitments.map((c) => (
-                    <div 
-                      key={c.key}
-                      className={cn(
-                        "text-xs p-1.5 rounded text-center",
-                        c.status === "behind" && "bg-destructive/10 text-destructive",
-                        c.status === "on-track" && "bg-muted",
-                        c.status === "ahead" && "bg-green-500/10 text-green-600 dark:text-green-400"
-                      )}
-                    >
-                      <div className="font-medium truncate">{c.label}</div>
-                      <div className="text-[10px] opacity-80">
-                        {c.current}/{c.goal}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>Goals not set up</span>
-                </div>
-              )}
-            </div>
-          ))
+            ))
+          )
+        ) : (
+          /* Flat list view for Team Leads */
+          visibleReps.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No reps match this filter
+            </p>
+          ) : (
+            visibleReps.map((rep) => (
+              <RepCard key={rep.userId} rep={rep} onTextRep={handleTextRep} />
+            ))
+          )
         )}
         
-        {filteredReps.length > 5 && (
+        {!showGrouping && filteredReps.length > 5 && (
           <Button
             variant="ghost"
             size="sm"
@@ -486,3 +613,89 @@ export const LeaderPreseasonStandardsCard = ({
     </Card>
   );
 };
+
+// Extracted RepCard component for reuse
+const RepCard = ({ 
+  rep, 
+  onTextRep 
+}: { 
+  rep: {
+    userId: string;
+    displayName: string;
+    name: string;
+    phone?: string;
+    year?: string;
+    behindCount: number;
+    hasGoals: boolean;
+    commitments: CommitmentStatus[];
+  };
+  onTextRep: (rep: any, e: React.MouseEvent) => void;
+}) => (
+  <div 
+    className={cn(
+      "p-3 rounded-lg border",
+      rep.behindCount > 0 && "border-destructive/30 bg-destructive/5",
+      !rep.hasGoals && "border-muted bg-muted/30"
+    )}
+  >
+    {/* Rep header */}
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2">
+        <span className="font-medium text-sm">{rep.displayName}</span>
+        {rep.year && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {rep.year}
+          </Badge>
+        )}
+        {rep.behindCount > 0 && (
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+            {rep.behindCount} behind
+          </Badge>
+        )}
+        {rep.hasGoals && rep.behindCount === 0 && (
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+        )}
+      </div>
+      
+      {/* Text button */}
+      {rep.phone && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={(e) => onTextRep(rep, e)}
+          title="Send encouragement text"
+        >
+          <MessageSquare className="h-4 w-4 text-primary" />
+        </Button>
+      )}
+    </div>
+    
+    {/* Commitments */}
+    {rep.hasGoals && rep.commitments.length > 0 ? (
+      <div className="grid grid-cols-3 gap-2">
+        {rep.commitments.map((c) => (
+          <div 
+            key={c.key}
+            className={cn(
+              "text-xs p-1.5 rounded text-center",
+              c.status === "behind" && "bg-destructive/10 text-destructive",
+              c.status === "on-track" && "bg-muted",
+              c.status === "ahead" && "bg-green-500/10 text-green-600 dark:text-green-400"
+            )}
+          >
+            <div className="font-medium truncate">{c.label}</div>
+            <div className="text-[10px] opacity-80">
+              {c.current}/{c.goal}
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        <span>Goals not set up</span>
+      </div>
+    )}
+  </div>
+);
