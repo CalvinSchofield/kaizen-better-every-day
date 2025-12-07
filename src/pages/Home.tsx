@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key, Check, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { KnockingModeHome } from "@/components/KnockingModeHome";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useQueryClient } from "@tanstack/react-query";
+import { useBlitzes } from "@/hooks/useBlitzes";
 
 interface StepStatus {
   completed: boolean;
@@ -119,6 +120,8 @@ const Home = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
+  const [blitzListExpanded, setBlitzListExpanded] = useState(false);
+  const [isCommittingBlitz, setIsCommittingBlitz] = useState<string | null>(null);
   const [nextBlitz, setNextBlitz] = useState<{ 
     name: string; 
     date: string; 
@@ -131,6 +134,9 @@ const Home = () => {
     wifi1?: string | null;
     wifi2?: string | null;
   } | null>(null);
+  
+  // Fetch all blitzes for inline commit
+  const { allBlitzes } = useBlitzes();
 
   // Get weather icon based on WMO weather code
   const getWeatherIcon = (code: number) => {
@@ -406,6 +412,79 @@ const Home = () => {
     // Open other links in new tab
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  // Handler to commit to a blitz from inline list
+  const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
+    if (!repData?.id) return;
+    setIsCommittingBlitz(blitz.id);
+    
+    try {
+      const currentCommitments = (repData.committed_blitzes as any[]) || [];
+      const newCommitment = {
+        id: blitz.id,
+        name: blitz.name,
+        date: blitz.date,
+        endDate: blitz.endDate || undefined,
+        location: blitz.location || undefined,
+      };
+      
+      const updatedCommitments = [...currentCommitments, newCommitment];
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: updatedCommitments as unknown as null })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Sync to Notion if we have the page ID
+      if (repData.notion_page_id) {
+        await supabase.functions.invoke('update-blitz-commitment', {
+          body: {
+            repNotionPageId: repData.notion_page_id,
+            blitzPageIds: updatedCommitments.map((b: any) => b.id),
+          },
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      toast({
+        title: "Committed! 🎉",
+        description: `You're now committed to ${blitz.name}`,
+      });
+      
+      setBlitzListExpanded(false);
+    } catch (error) {
+      console.error('Error committing to blitz:', error);
+      toast({
+        title: "Failed to commit",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCommittingBlitz(null);
+    }
+  };
+
+  // Get future blitzes user hasn't committed to
+  const futureAvailableBlitzes = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const committedIds = ((repData?.committed_blitzes as any[]) || []).map((b: any) => b.id);
+    
+    return allBlitzes.filter(blitz => {
+      const blitzStart = new Date(blitz.date);
+      blitzStart.setHours(0, 0, 0, 0);
+      return blitzStart >= today && !committedIds.includes(blitz.id);
+    });
+  }, [allBlitzes, repData?.committed_blitzes]);
 
   // Auto-complete tasks when phase is marked complete in Notion
   useEffect(() => {
@@ -1132,7 +1211,8 @@ const Home = () => {
               if (!isClickable) return;
               
               if (!hasValidBlitz) {
-                setCalendarModalOpen(true);
+                // Toggle inline blitz list instead of opening calendar modal
+                setBlitzListExpanded(!blitzListExpanded);
               } else {
                 setWeatherSheetOpen(true);
               }
@@ -1150,7 +1230,83 @@ const Home = () => {
               );
             }
             
-            // Otherwise show clickable button
+            // If no blitz, show expandable inline list
+            if (!hasValidBlitz) {
+              return (
+                <div className="mb-3">
+                  <button
+                    onClick={handleCtaClick}
+                    className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
+                  >
+                    <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                    <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                      {ctaText}
+                    </p>
+                    <ChevronDown className={`w-5 h-5 text-primary-foreground/60 transition-transform flex-shrink-0 ${blitzListExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* Inline Blitz List */}
+                  {blitzListExpanded && (
+                    <div className="mt-2 space-y-2 px-2">
+                      {futureAvailableBlitzes.length > 0 ? (
+                        futureAvailableBlitzes.map((blitz) => {
+                          const blitzDate = new Date(blitz.date);
+                          const formattedDate = blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          
+                          return (
+                            <div 
+                              key={blitz.id}
+                              className="flex items-center justify-between p-3 rounded-lg bg-background/80"
+                            >
+                              <div>
+                                <p className="font-medium text-sm text-foreground">{blitz.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formattedDate}
+                                  {blitz.location && ` · ${blitz.location}`}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => handleCommitToBlitz(blitz)}
+                                disabled={isCommittingBlitz === blitz.id}
+                                className="min-w-[80px]"
+                              >
+                                {isCommittingBlitz === blitz.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="h-3 w-3 mr-1" />
+                                    Commit
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-primary-foreground/70 text-center py-2">
+                          No upcoming blitzes available
+                        </p>
+                      )}
+                      
+                      {/* Text Calvin option */}
+                      <button
+                        onClick={() => {
+                          const message = encodeURIComponent("Hey Calvin! I'd like to learn more about upcoming blitz trips and find the right one for me.");
+                          window.open(`sms:8016870143?body=${message}`, '_blank');
+                        }}
+                        className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-background/50 hover:bg-background/70 transition-all text-sm text-foreground"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Text Calvin about blitzes
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            
+            // Otherwise show clickable button for weather
             return (
               <button
                 onClick={handleCtaClick}
@@ -1365,6 +1521,107 @@ const Home = () => {
               <p className="text-sm text-muted-foreground">All phases completed! You're ready for the blitz!</p>
             </CardContent>}
         </Card>
+
+        {/* Blitz Management Card - Show after Phase 1 is complete */}
+        {phase1Complete && (
+          <Card className="border-primary/30">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  ✈️ Your Blitzes
+                </CardTitle>
+                {((repData?.committed_blitzes as any[]) || []).length > 0 && (
+                  <Badge className="bg-success/20 text-success">
+                    {((repData?.committed_blitzes as any[]) || []).length} committed
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Committed blitzes */}
+              {((repData?.committed_blitzes as any[]) || []).length > 0 && (
+                <div className="space-y-2">
+                  {((repData?.committed_blitzes as any[]) || [])
+                    .filter((blitz: any) => {
+                      const endDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+                      return endDate >= new Date();
+                    })
+                    .map((blitz: any) => {
+                      const blitzDate = new Date(blitz.date);
+                      return (
+                        <div 
+                          key={blitz.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-success/10 border border-success/20"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">{blitz.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              {blitz.location && ` · ${blitz.location}`}
+                            </p>
+                          </div>
+                          <Badge className="bg-success/20 text-success border-success/30">
+                            <Check className="h-3 w-3 mr-1" />
+                            Going
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+              
+              {/* Available blitzes to commit */}
+              {futureAvailableBlitzes.length > 0 && (
+                <div className="space-y-2">
+                  {((repData?.committed_blitzes as any[]) || []).length > 0 && (
+                    <p className="text-xs text-muted-foreground font-medium pt-2">Other trips:</p>
+                  )}
+                  {futureAvailableBlitzes.slice(0, 3).map((blitz) => {
+                    const blitzDate = new Date(blitz.date);
+                    return (
+                      <div 
+                        key={blitz.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                      >
+                        <div>
+                          <p className="font-medium text-sm">{blitz.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {blitz.location && ` · ${blitz.location}`}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCommitToBlitz(blitz)}
+                          disabled={isCommittingBlitz === blitz.id}
+                        >
+                          {isCommittingBlitz === blitz.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Commit"
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Text Calvin option */}
+              <button
+                onClick={() => {
+                  const message = encodeURIComponent("Hey Calvin! I have a question about blitz trips.");
+                  window.open(`sms:8016870143?body=${message}`, '_blank');
+                }}
+                className="flex items-center justify-center gap-2 w-full p-3 rounded-lg border border-dashed border-muted-foreground/30 hover:bg-muted/30 transition-all text-sm text-muted-foreground"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Text Calvin about blitzes
+              </button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Intro Example Sheet */}
