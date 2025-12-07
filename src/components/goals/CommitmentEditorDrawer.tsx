@@ -365,9 +365,15 @@ export const CommitmentEditorDrawer = ({
           {commitmentConfigs.map((config) => {
             const Icon = config.icon;
             const isTraining = config.key === 'training_hours_goal';
+            const isPreseasonFp = config.key === 'preseason_fp_goal';
             const currentValue = editingGoals[config.key] ?? (Number(goals[config.key as keyof RepGoals]) || 0);
             const stepAmount = isTraining ? 15 : config.incrementBy;
             const displayValue = formatDisplayValue(config.key, currentValue);
+            
+            // Dynamic description for preseason FP goal based on mode
+            const description = isPreseasonFp 
+              ? `${metricLabel} goal before summer starts`
+              : config.description;
 
             return (
               <div 
@@ -382,7 +388,7 @@ export const CommitmentEditorDrawer = ({
                     <div>
                       <p className="font-semibold text-sm">{config.label}</p>
                       <p className="text-xs text-muted-foreground">
-                        {config.description}
+                        {description}
                       </p>
                     </div>
                   </div>
