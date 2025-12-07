@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits } from "@/hooks/useGroupRecruits";
+import { useBlitzes } from "@/hooks/useBlitzes";
+import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +18,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
+  const { allBlitzes } = useBlitzes();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'planner'>('board');
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+
+  // Auto-log blitz attendance for recently ended blitzes (leaders only)
+  useBlitzAttendanceLogger(allBlitzes, isLeader);
 
   const isLoading = accessLoading || recruitsLoading;
 

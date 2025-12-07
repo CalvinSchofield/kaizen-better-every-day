@@ -1,0 +1,180 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const notionApiKey = Deno.env.get("NOTION_API_KEY");
+
+    if (!supabaseUrl || !supabaseServiceKey || !notionApiKey) {
+      throw new Error("Missing environment variables");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Authenticate the caller
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("No authorization header");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    const { blitzId, blitzName, blitzEndDate } = await req.json();
+
+    if (!blitzId) {
+      throw new Error("Missing blitzId parameter");
+    }
+
+    console.log(`Logging attendance for blitz: ${blitzName} (${blitzId}), end date: ${blitzEndDate}`);
+
+    // Fetch all reps from Notion who have this blitz in their Preseason Trips
+    const repsResponse = await fetch(
+      `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${notionApiKey}`,
+          "Notion-Version": "2022-06-28",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filter: {
+            property: "Preseason trips",
+            relation: {
+              contains: blitzId,
+            },
+          },
+        }),
+      }
+    );
+
+    if (!repsResponse.ok) {
+      const errorText = await repsResponse.text();
+      console.error("Notion API error:", errorText);
+      throw new Error(`Notion API error: ${repsResponse.status}`);
+    }
+
+    const repsData = await repsResponse.json();
+    const attendees = repsData.results || [];
+
+    console.log(`Found ${attendees.length} attendees for blitz ${blitzName}`);
+
+    const activityDate = blitzEndDate || new Date().toISOString().split('T')[0];
+    const results: { name: string; success: boolean; error?: string }[] = [];
+
+    for (const rep of attendees) {
+      const repNotionId = rep.id;
+      const repName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
+
+      try {
+        // Check if we already logged attendance for this rep + blitz
+        const { data: existingActivity } = await supabase
+          .from("recruit_activities")
+          .select("id")
+          .eq("rep_notion_page_id", repNotionId)
+          .eq("activity_type", "in_person")
+          .ilike("notes", `%${blitzName}%`)
+          .single();
+
+        if (existingActivity) {
+          console.log(`Already logged attendance for ${repName} at ${blitzName}`);
+          results.push({ name: repName, success: true, error: "Already logged" });
+          continue;
+        }
+
+        // Log the in_person activity
+        const { error: insertError } = await supabase
+          .from("recruit_activities")
+          .insert({
+            rep_notion_page_id: repNotionId,
+            activity_type: "in_person",
+            notes: `Met at ${blitzName} blitz`,
+            logged_by_user_id: user.id,
+            created_at: `${activityDate}T18:00:00Z`, // Set to 6 PM on blitz end date
+          });
+
+        if (insertError) {
+          console.error(`Error inserting activity for ${repName}:`, insertError);
+          results.push({ name: repName, success: false, error: insertError.message });
+          continue;
+        }
+
+        // Update Last Contact in Notion
+        const notionUpdateResponse = await fetch(
+          `https://api.notion.com/v1/pages/${repNotionId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Authorization": `Bearer ${notionApiKey}`,
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              properties: {
+                "Last Contact": {
+                  date: {
+                    start: activityDate,
+                  },
+                },
+              },
+            }),
+          }
+        );
+
+        if (!notionUpdateResponse.ok) {
+          console.error(`Failed to update Notion for ${repName}`);
+        }
+
+        console.log(`Successfully logged attendance for ${repName}`);
+        results.push({ name: repName, success: true });
+      } catch (repError: any) {
+        console.error(`Error processing ${repName}:`, repError);
+        results.push({ name: repName, success: false, error: repError.message });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    console.log(`Completed: ${successCount}/${attendees.length} attendees logged`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        blitzName,
+        attendeesCount: attendees.length,
+        loggedCount: successCount,
+        results,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error: any) {
+    console.error("Error in log-blitz-attendance:", error);
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        details: "Check function logs for more information",
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
+  }
+});
