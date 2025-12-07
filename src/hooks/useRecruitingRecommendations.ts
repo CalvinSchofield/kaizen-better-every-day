@@ -55,11 +55,16 @@ export const useRecruitingRecommendations = (
       let reason = '';
       let reasonBadge: RecruitRecommendation['reasonBadge'] = 'pipeline';
 
-      // Tier 1: Signed reps (highest priority)
+      // Check if this recruit is a "rookie" (year === 'Rookie' or similar indicator)
+      const isRookie = recruit.year === 'Rookie' || recruit.year === '2025';
+
+      // Tier 1: Signed reps (highest priority) - rookies get higher priority within signed
       if (recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅') {
         if (daysSinceContact === null || daysSinceContact >= 7) {
-          priority = 100 - (daysSinceContact || 30); // More overdue = higher priority
-          reason = 'Weekly check-in due';
+          // Rookies get +50 priority boost within signed tier
+          const rookieBoost = isRookie ? 50 : 0;
+          priority = 100 + rookieBoost - (daysSinceContact || 30); // More overdue = higher priority
+          reason = isRookie ? 'Rookie check-in due' : 'Weekly check-in due';
           reasonBadge = 'signed';
         }
       }
