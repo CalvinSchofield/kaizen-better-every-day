@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.toggle-blitz-invite]
 verify_jwt = false
 
+[functions.toggle-blitz-decline]
+verify_jwt = false
+
 [functions.calculate-upgrade-prmr]
 verify_jwt = false
 

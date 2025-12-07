@@ -307,6 +307,15 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         .eq('id', repData.id);
 
       if (updateError) throw updateError;
+      
+      // Clear any previous decline record (in case they changed their mind)
+      await supabase.functions.invoke('toggle-blitz-decline', {
+        body: {
+          blitzId,
+          repNotionPageId: repData.notion_page_id,
+          isDeclined: false,
+        },
+      });
 
       // Refetch to update next blitz and UI
       onSync();
@@ -378,6 +387,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   };
 
   // RSVP Logic - Check if we should show RSVP for next upcoming blitz
+  // Shows at 21 days (first ask) AND again at 10 days (confirmation)
   const declinedBlitzes = (repData.declined_blitz_rsvps as string[]) || [];
   const upcomingBlitzForRsvp = allBlitzes.find((blitz) => {
     const today = new Date();
@@ -386,14 +396,22 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     blitzDate.setHours(0, 0, 0, 0);
     const daysUntil = Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Must be within 14 days and not yet started
-    if (daysUntil < 0 || daysUntil > 14) return false;
+    // Must be within the RSVP windows: 21-14 days (first ask) OR 10-0 days (confirmation ask)
+    const inFirstWindow = daysUntil >= 14 && daysUntil <= 21;
+    const inSecondWindow = daysUntil >= 0 && daysUntil <= 10;
+    if (!inFirstWindow && !inSecondWindow) return false;
     
     // Must not be already committed
     const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
-    if (isCommitted) return false;
     
-    // Must not be declined (in DB or locally)
+    // For 10-day window, show even if committed (reconfirm) but not if declined
+    if (inSecondWindow) {
+      if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
+      return true; // Show for confirmation even if committed
+    }
+    
+    // For 21-day window, don't show if committed or declined
+    if (isCommitted) return false;
     if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
     
     return true;
@@ -420,8 +438,34 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
-    // Commit to the blitz
-    await handleBlitzToggle(upcomingBlitzForRsvp.id, upcomingBlitzForRsvp.name);
+    // Check if already committed (for 10-day confirmation)
+    const currentCommitments = (repData.committed_blitzes as any[]) || [];
+    const isAlreadyCommitted = currentCommitments.some((b: any) => b.id === upcomingBlitzForRsvp.id);
+    
+    if (isAlreadyCommitted) {
+      // Just confirming - clear any decline and show confirmation
+      await supabase.functions.invoke('toggle-blitz-decline', {
+        body: {
+          blitzId: upcomingBlitzForRsvp.id,
+          repNotionPageId: repData.notion_page_id,
+          isDeclined: false,
+        },
+      });
+      
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      toast({
+        title: "Confirmed! 🎉",
+        description: `You've confirmed ${upcomingBlitzForRsvp.name}`,
+      });
+    } else {
+      // Commit to the blitz
+      await handleBlitzToggle(upcomingBlitzForRsvp.id, upcomingBlitzForRsvp.name);
+    }
   };
 
   const handleRsvpNo = async () => {
@@ -429,16 +473,26 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
-    // Add to declined list
+    // Add to declined list in rep's record
     const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
     
     try {
+      // Save to local rep record for RSVP tracking
       const { error } = await supabase
         .from('reps')
         .update({ declined_blitz_rsvps: newDeclined })
         .eq('id', repData.id);
       
       if (error) throw error;
+      
+      // Also save to shared blitz_declines table so leaders can see who declined
+      await supabase.functions.invoke('toggle-blitz-decline', {
+        body: {
+          blitzId: upcomingBlitzForRsvp.id,
+          repNotionPageId: repData.notion_page_id,
+          isDeclined: true,
+        },
+      });
     } catch (error) {
       console.error("Error declining RSVP:", error);
       toast({
