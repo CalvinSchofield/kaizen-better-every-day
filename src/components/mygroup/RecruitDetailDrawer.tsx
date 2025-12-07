@@ -1410,8 +1410,8 @@ export const RecruitDetailDrawer = ({
           </DrawerHeader>
           <div className="p-4 space-y-4 overflow-y-auto overflow-x-hidden">
             {!isDirectSchedule && (
-            <div className="grid grid-cols-4 gap-2">
-              {(['phone_call', 'in_person', 'note', 'next_step'] as const).map((type) => (
+            <div className="grid grid-cols-3 gap-2">
+              {(['phone_call', 'in_person', 'note'] as const).map((type) => (
                 <Button
                   key={type}
                   variant={activityType === type ? 'default' : 'outline'}
@@ -1421,7 +1421,7 @@ export const RecruitDetailDrawer = ({
                 >
                   {getActivityIcon(type, null)}
                   <span className="text-xs mt-1 capitalize">
-                    {type === 'next_step' ? 'Schedule' : type.replace('_', ' ')}
+                    {type.replace('_', ' ')}
                   </span>
                 </Button>
               ))}
