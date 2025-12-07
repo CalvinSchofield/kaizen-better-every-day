@@ -94,8 +94,9 @@ export const RecruitDetailDrawer = ({
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
   const [potentialFollowUpOpen, setPotentialFollowUpOpen] = useState(false);
   const [list100ConnectedOpen, setList100ConnectedOpen] = useState(false);
-  const [quickCallOpen, setQuickCallOpen] = useState(false);
-  const [quickCallNotes, setQuickCallNotes] = useState('');
+  const [postCallOpen, setPostCallOpen] = useState(false);
+  const [postCallStatus, setPostCallStatus] = useState<'connected' | 'attempted' | null>(null);
+  const [postCallNotes, setPostCallNotes] = useState('');
   const [followUpNextStep, setFollowUpNextStep] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
@@ -564,20 +565,14 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    logActivityMutation.mutate({
-      recruitNotionId: recruit.notionPageId,
-      activityType: 'phone_call',
-      notes: 'Call attempt',
-      updateLastContact: true,
-    }, {
-      onError: () => {
-        triggerErrorToast("Couldn't save call - please try again");
-        setActivityShake(true);
-        setTimeout(() => setActivityShake(false), 500);
-      }
-    });
-    toast.success('Call logged');
+    // Open phone app first
     window.location.href = `tel:${recruit.phone}`;
+    // Then show post-call drawer for logging
+    setTimeout(() => {
+      setPostCallStatus(null);
+      setPostCallNotes('');
+      setPostCallOpen(true);
+    }, 500);
   };
 
   const handleText = async () => {
@@ -832,27 +827,37 @@ export const RecruitDetailDrawer = ({
     });
   };
 
-  // Handle quick "Called Today" action
-  const handleQuickCall = () => {
+  // Handle post-call logging (after Call button press)
+  const handlePostCallSave = () => {
+    if (!postCallStatus) {
+      toast.error('Please select if the call connected or was attempted');
+      return;
+    }
+    
+    const notes = postCallStatus === 'connected' 
+      ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected')
+      : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer');
+    
     const is100List = recruit.stage?.toLowerCase().includes('100') || 
                       recruit.stage?.toLowerCase().includes('list');
     
     logActivityMutation.mutate({
       recruitNotionId: recruit.notionPageId,
       activityType: 'phone_call',
-      notes: quickCallNotes.trim() ? `Connected: ${quickCallNotes}` : 'Connected',
-      updateLastContact: true,
+      notes,
+      updateLastContact: postCallStatus === 'connected',
     }, {
       onSuccess: async () => {
         toast.success('Call logged');
-        setQuickCallOpen(false);
-        setQuickCallNotes('');
+        setPostCallOpen(false);
+        setPostCallStatus(null);
+        setPostCallNotes('');
         
         // Invalidate the live activities query for immediate UI update
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
         
         // If connected with someone in 100 List, show stage selection popup
-        if (is100List) {
+        if (is100List && postCallStatus === 'connected') {
           setList100ConnectedOpen(true);
         } else {
           // Auto-check for stage progression based on metrics
@@ -1315,12 +1320,15 @@ export const RecruitDetailDrawer = ({
                 variant="default" 
                 className="flex-1 gap-2" 
                 onClick={() => {
-                  setQuickCallNotes('');
-                  setQuickCallOpen(true);
+                  setActivityType('next_step');
+                  setNextAction('');
+                  setNextActionDue('');
+                  setActivityNotes('');
+                  setLogActivityOpen(true);
                 }}
               >
-                <PhoneCall className="h-4 w-4" />
-                Called Today
+                <Calendar className="h-4 w-4" />
+                Schedule
               </Button>
             </div>
 
@@ -1821,32 +1829,51 @@ export const RecruitDetailDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      {/* Quick "Called Today" Drawer */}
-      <Drawer open={quickCallOpen} onOpenChange={setQuickCallOpen}>
+      {/* Post-Call Logging Drawer - after pressing Call button */}
+      <Drawer open={postCallOpen} onOpenChange={setPostCallOpen}>
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>Log Call with {recruitFirstName}</DrawerTitle>
           </DrawerHeader>
           <div className="p-4 space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-              <PhoneCall className="h-5 w-5 text-green-600" />
-              <span className="text-sm font-medium text-green-700">Call Connected</span>
+            <p className="text-sm text-muted-foreground">How did the call go?</p>
+            
+            {/* Connected / Attempted toggle */}
+            <div className="flex gap-2">
+              <Button
+                variant={postCallStatus === 'connected' ? 'default' : 'outline'}
+                className="flex-1 gap-2"
+                onClick={() => setPostCallStatus('connected')}
+              >
+                <PhoneCall className="h-4 w-4" />
+                Connected
+              </Button>
+              <Button
+                variant={postCallStatus === 'attempted' ? 'secondary' : 'outline'}
+                className="flex-1 gap-2"
+                onClick={() => setPostCallStatus('attempted')}
+              >
+                <PhoneMissed className="h-4 w-4" />
+                Attempted
+              </Button>
             </div>
             
             <div className="space-y-2">
-              <Label>What did you talk about? (optional)</Label>
+              <Label>Notes (optional)</Label>
               <Textarea
-                placeholder="e.g., Discussed upcoming blitz, they're excited..."
-                value={quickCallNotes}
-                onChange={(e) => setQuickCallNotes(e.target.value)}
+                placeholder={postCallStatus === 'connected' 
+                  ? "e.g., Discussed upcoming blitz, they're excited..." 
+                  : "e.g., Left voicemail, will try again tomorrow..."}
+                value={postCallNotes}
+                onChange={(e) => setPostCallNotes(e.target.value)}
                 rows={3}
               />
             </div>
 
             <Button 
               className="w-full gap-2"
-              onClick={handleQuickCall}
-              disabled={logActivityMutation.isPending}
+              onClick={handlePostCallSave}
+              disabled={logActivityMutation.isPending || !postCallStatus}
             >
               <CheckCircle2 className="h-4 w-4" />
               {logActivityMutation.isPending ? 'Saving...' : 'Save Call'}
