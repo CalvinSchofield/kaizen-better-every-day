@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from "recharts";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart, ReferenceLine } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
-import { format, parseISO, startOfWeek, startOfMonth } from "date-fns";
+import { format, parseISO, startOfWeek, startOfMonth, isBefore, isAfter, differenceInDays } from "date-fns";
 import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { TrendingUp, TrendingDown, ChevronDown, Target } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type GroupBy = 'day' | 'week' | 'month';
 type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
+type GoalLineType = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
+
+// Season date constants
+const PRESEASON_START = '2025-01-25';
+const PRESEASON_END = '2025-04-11';
+const SUMMER_START = '2025-04-12';
+const SUMMER_END = '2025-09-27';
+
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getLocalToday = (): Date => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
 
 interface FPCumulativeChartProps {
   teamData?: CumulativeDataPoint[];
@@ -21,12 +40,117 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
   const [isOpen, setIsOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
+  const [showGoalLine, setShowGoalLine] = useState(true);
+  const [selectedGoalLine, setSelectedGoalLine] = useState<GoalLineType>('preseason');
+  
   const { data: personalData, isLoading: personalLoading } = useCumulativeFP();
   const { efpModeEnabled } = useEfpMode();
+  const { goals } = useRepGoals();
+  const { plannedDays } = usePlannedDays();
 
   // Use team data if provided, otherwise use personal data
   const cumulativeData = teamData || personalData;
   const isLoading = isTeamLoading !== undefined ? isTeamLoading : personalLoading;
+
+  // Determine if we're in preseason or summer
+  const today = getLocalToday();
+  const preseasonEnd = parseLocalDate(PRESEASON_END);
+  const summerStart = parseLocalDate(SUMMER_START);
+  const isPreseason = isBefore(today, summerStart);
+  const isSummer = !isPreseason;
+
+  // Calculate goal pace data
+  const goalPaceData = useMemo(() => {
+    if (!goals || !cumulativeData || cumulativeData.length === 0) return null;
+
+    // Get the date range from actual data
+    const firstDate = parseLocalDate(cumulativeData[0].date);
+    const lastDate = parseLocalDate(cumulativeData[cumulativeData.length - 1].date);
+
+    // Calculate planned days in the relevant period
+    const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
+    
+    // For preseason goal line
+    const preseasonGoal = goals.preseason_fp_goal || 0;
+    const mustDoGoal = goals.must_do_fp_goal || 0;
+    const willDoGoal = goals.will_do_fp_goal || 0;
+    const couldDoGoal = goals.could_do_fp_goal || 0;
+
+    // Count total planned days for the season
+    const preseasonStartDate = parseLocalDate(PRESEASON_START);
+    const preseasonEndDate = parseLocalDate(PRESEASON_END);
+    const summerEndDate = parseLocalDate(SUMMER_END);
+
+    // Count planned days in preseason
+    let preseasonPlannedCount = 0;
+    let summerPlannedCount = 0;
+    
+    plannedDays?.forEach(p => {
+      const pDate = parseLocalDate(p.planned_date);
+      if (!isBefore(pDate, preseasonStartDate) && !isAfter(pDate, preseasonEndDate)) {
+        preseasonPlannedCount++;
+      }
+      if (!isBefore(pDate, summerStart) && !isAfter(pDate, summerEndDate)) {
+        summerPlannedCount++;
+      }
+    });
+
+    // Also count days worked that might not be in planned (auto-populate past)
+    cumulativeData.forEach(d => {
+      const dDate = parseLocalDate(d.date);
+      if (!plannedDatesSet.has(d.date)) {
+        if (!isBefore(dDate, preseasonStartDate) && !isAfter(dDate, preseasonEndDate)) {
+          preseasonPlannedCount++;
+        }
+        if (!isBefore(dDate, summerStart) && !isAfter(dDate, summerEndDate)) {
+          summerPlannedCount++;
+        }
+      }
+    });
+
+    // Calculate daily pace for each goal
+    const preseasonDailyPace = preseasonPlannedCount > 0 ? preseasonGoal / preseasonPlannedCount : 0;
+    const mustDoDailyPace = summerPlannedCount > 0 ? mustDoGoal / summerPlannedCount : 0;
+    const willDoDailyPace = summerPlannedCount > 0 ? willDoGoal / summerPlannedCount : 0;
+    const couldDoDailyPace = summerPlannedCount > 0 ? couldDoGoal / summerPlannedCount : 0;
+
+    // Generate pace line data points matching chart data dates
+    let preseasonDayIndex = 0;
+    let summerDayIndex = 0;
+    
+    const pacePoints = cumulativeData.map((point, idx) => {
+      const pointDate = parseLocalDate(point.date);
+      const isInPreseason = !isBefore(pointDate, preseasonStartDate) && !isAfter(pointDate, preseasonEndDate);
+      const isInSummer = !isBefore(pointDate, summerStart);
+
+      if (isInPreseason) {
+        preseasonDayIndex++;
+      }
+      if (isInSummer) {
+        summerDayIndex++;
+      }
+
+      return {
+        date: point.date,
+        preseasonPace: isInPreseason ? preseasonDayIndex * preseasonDailyPace : null,
+        mustDoPace: isInSummer ? summerDayIndex * mustDoDailyPace : null,
+        willDoPace: isInSummer ? summerDayIndex * willDoDailyPace : null,
+        couldDoPace: isInSummer ? summerDayIndex * couldDoDailyPace : null,
+      };
+    });
+
+    return {
+      pacePoints,
+      preseasonGoal,
+      mustDoGoal,
+      willDoGoal,
+      couldDoGoal,
+      preseasonDailyPace,
+      mustDoDailyPace,
+      willDoDailyPace,
+      couldDoDailyPace,
+    };
+  }, [goals, cumulativeData, plannedDays]);
 
   if (isLoading) {
     return (
@@ -62,22 +186,31 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
   // Group data by day/week/month
   const groupedData = () => {
     if (groupBy === 'day') {
-      return cumulativeData.map((point) => ({
-        date: point.date,
-        displayDate: format(parseISO(point.date), "MMM d"),
-        cumulative: metricType === 'primary' 
-          ? point.cumulative 
-          : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
-      }));
+      return cumulativeData.map((point, idx) => {
+        const pacePoint = goalPaceData?.pacePoints[idx];
+        return {
+          date: point.date,
+          displayDate: format(parseISO(point.date), "MMM d"),
+          cumulative: metricType === 'primary' 
+            ? point.cumulative 
+            : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
+          preseasonPace: pacePoint?.preseasonPace,
+          mustDoPace: pacePoint?.mustDoPace,
+          willDoPace: pacePoint?.willDoPace,
+          couldDoPace: pacePoint?.couldDoPace,
+        };
+      });
     }
 
     // Group by week or month
     const grouped: Record<string, any> = {};
-    cumulativeData.forEach((point) => {
+    cumulativeData.forEach((point, idx) => {
       const date = parseISO(point.date);
       const key = groupBy === 'week' 
         ? format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
         : format(startOfMonth(date), 'yyyy-MM-dd');
+      
+      const pacePoint = goalPaceData?.pacePoints[idx];
       
       if (!grouped[key]) {
         grouped[key] = {
@@ -88,11 +221,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           cumulative: metricType === 'primary' 
             ? point.cumulative 
             : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
+          preseasonPace: pacePoint?.preseasonPace,
+          mustDoPace: pacePoint?.mustDoPace,
+          willDoPace: pacePoint?.willDoPace,
+          couldDoPace: pacePoint?.couldDoPace,
         };
       } else {
         grouped[key].cumulative = metricType === 'primary' 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
+        // Keep the latest pace values for the group
+        if (pacePoint?.preseasonPace !== null) grouped[key].preseasonPace = pacePoint.preseasonPace;
+        if (pacePoint?.mustDoPace !== null) grouped[key].mustDoPace = pacePoint.mustDoPace;
+        if (pacePoint?.willDoPace !== null) grouped[key].willDoPace = pacePoint.willDoPace;
+        if (pacePoint?.couldDoPace !== null) grouped[key].couldDoPace = pacePoint.couldDoPace;
       }
     });
 
@@ -122,10 +264,31 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
 
   const comparison = calculateComparison();
 
+  // Get the active goal line key
+  const getGoalLineKey = (): string => {
+    if (isPreseason || selectedGoalLine === 'preseason') return 'preseasonPace';
+    if (selectedGoalLine === 'mustDo') return 'mustDoPace';
+    if (selectedGoalLine === 'willDo') return 'willDoPace';
+    if (selectedGoalLine === 'couldDo') return 'couldDoPace';
+    return 'preseasonPace';
+  };
+
+  const getGoalLineLabel = (): string => {
+    if (isPreseason || selectedGoalLine === 'preseason') return 'Preseason Goal';
+    if (selectedGoalLine === 'mustDo') return 'Must Do';
+    if (selectedGoalLine === 'willDo') return 'Will Do';
+    if (selectedGoalLine === 'couldDo') return 'Could Do';
+    return 'Goal';
+  };
+
   const chartConfig = {
     cumulative: {
       label: `Total ${currentMetricLabel}`,
       color: "hsl(var(--primary))",
+    },
+    goalPace: {
+      label: getGoalLineLabel(),
+      color: "hsl(var(--muted-foreground))",
     },
   };
 
@@ -133,13 +296,15 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     if (!active || !payload || payload.length === 0) return null;
 
     const data = payload[0].payload;
+    const goalLineKey = getGoalLineKey();
+    const goalPaceValue = data[goalLineKey];
     
     return (
       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
         <p className="font-semibold text-sm mb-2">
           {format(parseISO(data.date), "MMM d, yyyy")}
         </p>
-        <div className="text-xs">
+        <div className="text-xs space-y-1">
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Total {currentMetricLabel}:</span>
             <span className="font-semibold" style={{ color: chartConfig.cumulative.color }}>
@@ -150,6 +315,14 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   : data.cumulative.toFixed(1)}
             </span>
           </div>
+          {showGoalLine && goalPaceValue != null && metricType === 'primary' && !efpModeEnabled && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">{getGoalLineLabel()} Pace:</span>
+              <span className="font-medium text-muted-foreground">
+                {goalPaceValue.toFixed(1)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -160,6 +333,9 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     : (efpModeEnabled
         ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
         : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
+
+  // Check if goal line should be available (only for FP+ primary mode)
+  const canShowGoalLine = metricType === 'primary' && !efpModeEnabled && goals?.setup_complete;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -242,7 +418,49 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   </Button>
                 </div>
 
+                {/* Goal Line Toggle */}
+                {canShowGoalLine && (
+                  <Button
+                    variant={showGoalLine ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowGoalLine(!showGoalLine)}
+                    className="text-xs h-7 px-2 gap-1"
+                  >
+                    <Target className="w-3 h-3" />
+                    Goal
+                  </Button>
+                )}
               </div>
+
+              {/* Summer Goal Selector (only show in summer when goal line is on) */}
+              {canShowGoalLine && showGoalLine && isSummer && (
+                <div className="flex items-center gap-1 border border-border rounded-lg p-1 w-fit">
+                  <Button
+                    variant={selectedGoalLine === 'mustDo' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setSelectedGoalLine('mustDo')}
+                    className="text-xs h-6 px-2"
+                  >
+                    Must Do
+                  </Button>
+                  <Button
+                    variant={selectedGoalLine === 'willDo' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setSelectedGoalLine('willDo')}
+                    className="text-xs h-6 px-2"
+                  >
+                    Will Do
+                  </Button>
+                  <Button
+                    variant={selectedGoalLine === 'couldDo' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setSelectedGoalLine('couldDo')}
+                    className="text-xs h-6 px-2"
+                  >
+                    Could Do
+                  </Button>
+                </div>
+              )}
 
               {/* Comparison Metrics */}
               {comparison && (
@@ -294,6 +512,21 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
+              
+              {/* Goal Pace Line - subtle dashed line */}
+              {canShowGoalLine && showGoalLine && (
+                <Line
+                  type="monotone"
+                  dataKey={getGoalLineKey()}
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  connectNulls={false}
+                  animationDuration={800}
+                />
+              )}
+              
               <Area
                 type="monotone"
                 dataKey="cumulative"
@@ -308,6 +541,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
             </AreaChart>
           </ResponsiveContainer>
           </ChartContainer>
+          
+          {/* Legend */}
+          {canShowGoalLine && showGoalLine && (
+            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded bg-primary" />
+                Actual
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
+                {getGoalLineLabel()} Pace
+              </span>
+            </div>
+          )}
         </div>
       </CollapsibleContent>
     </Card>
