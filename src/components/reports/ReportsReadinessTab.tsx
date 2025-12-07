@@ -169,6 +169,13 @@ export const ReportsReadinessTab = ({
     return cards.sort((a, b) => b.urgencyScore - a.urgencyScore);
   }, [userIds, excludeUserIds, allGoals, repsFp, summerConfigs, isPreseason]);
 
+  // Store urgency counts for passing to cards
+  const urgencyCounts = useMemo(() => ({
+    preseason: cardOrder.find(c => c.type === 'preseason')?.urgencyScore || 0,
+    goals: cardOrder.find(c => c.type === 'goals')?.urgencyScore || 0,
+    availability: cardOrder.find(c => c.type === 'availability')?.urgencyScore || 0,
+  }), [cardOrder]);
+
   // Render card based on type
   const renderCard = (cardType: CardType) => {
     switch (cardType) {
@@ -188,10 +195,11 @@ export const ReportsReadinessTab = ({
             userIds={userIds}
             excludeUserIds={excludeUserIds}
             accessibleReps={accessibleReps}
+            urgencyBadgeCount={urgencyCounts.goals}
           />
         );
       case 'availability':
-        return <TeamSummerAvailabilityCard key="availability" />;
+        return <TeamSummerAvailabilityCard key="availability" urgencyBadgeCount={urgencyCounts.availability} />;
       default:
         return null;
     }
