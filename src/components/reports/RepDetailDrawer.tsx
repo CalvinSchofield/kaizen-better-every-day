@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/drawer";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useAllRepGoals } from "@/hooks/useRepGoals";
-import { Clock, TrendingUp, Target, Ban } from "lucide-react";
+import { TrendingUp, Target, Ban, Play, Square, Coffee } from "lucide-react";
 import { HourlyActivityChart } from "./HourlyActivityChart";
 import { format, parseISO } from "date-fns";
 
@@ -146,9 +146,13 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
   // Calculate values
   const hasTimelineData = rep.counterTimestamps && Object.keys(rep.counterTimestamps).length > 0;
   const breakMinutes = calculateBreakMinutes(rep.breakPeriods);
-  const efp = (rep.prmr + (rep.upgradePRMR || 0)) / 85;
-  const totalFPPlus = rep.fp + (rep.upgradePRMR ? rep.upgradePRMR / 85 : 0);
-  const totalPrmr = rep.prmr + (rep.upgradePRMR || 0);
+  
+  // PRMR already includes upgradePRMR in the data source (calculateFromSalesLog sums all sales)
+  // So we use rep.prmr directly as totalPrmr, NOT rep.prmr + rep.upgradePRMR (that would double-count)
+  const totalPrmr = rep.prmr;
+  const efp = totalPrmr / 85;
+  // FP+ = FP count + (upgradePRMR / 85) - but rep.fp already includes upgrade FP+ from data source
+  const totalFPPlus = rep.fp;
   
   // Funded sales only
   const fundedSales = (rep.salesLog || []).filter(s => s.install_status !== 'cancelled');
@@ -302,26 +306,34 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
             )}
           </div>
 
-          {/* Time Details Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <h3 className="text-sm font-medium text-muted-foreground">Time</h3>
+          {/* Time Details - Simplified inline display */}
+          {(rep.workStartTime || rep.workEndTime) && (
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+              {rep.workStartTime && (
+                <div className="flex items-center gap-1.5">
+                  <Play className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{formatTime(rep.workStartTime)}</span>
+                </div>
+              )}
+              {rep.workEndTime && (
+                <div className="flex items-center gap-1.5">
+                  <Square className="w-3.5 h-3.5 text-primary" />
+                  <span>{formatTime(rep.workEndTime)}</span>
+                </div>
+              )}
+              {breakMinutes > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Coffee className="w-3.5 h-3.5" />
+                  <span>{Math.round(breakMinutes)}m break</span>
+                </div>
+              )}
+              {rep.hoursWorked > 0 && (
+                <span className="text-foreground font-medium">
+                  · {Math.floor(rep.hoursWorked)}h {Math.round((rep.hoursWorked % 1) * 60)}m total
+                </span>
+              )}
             </div>
-            
-            <div className="bg-muted/20 rounded-2xl p-4">
-              <StatRow label="Started" value={formatTime(rep.workStartTime) || '—'} />
-              <StatRow label="Ended" value={formatTime(rep.workEndTime) || '—'} />
-              <StatRow label="Breaks" value={breakMinutes > 0 ? `${Math.round(breakMinutes)} min` : '—'} />
-              <StatRow 
-                label="Total" 
-                value={rep.hoursWorked > 0 
-                  ? `${Math.floor(rep.hoursWorked)}h ${Math.round((rep.hoursWorked % 1) * 60)}m`
-                  : '—'
-                } 
-              />
-            </div>
-          </div>
+          )}
 
           {/* Activity Inputs Section */}
           <div className="space-y-3">
