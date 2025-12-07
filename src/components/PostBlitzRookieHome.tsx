@@ -13,6 +13,7 @@ import { RepData } from "@/hooks/useRepData";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
@@ -72,6 +73,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
   const { totalPRMR: ytdPRMR } = useYTDPRMR();
+  const { efpModeEnabled } = useEfpMode();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -767,7 +769,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Label className="text-base font-medium">Personal FP+</Label>
+                  <Label className="text-base font-medium">Personal {efpModeEnabled ? 'EFP' : 'FP+'}</Label>
                   {isEditingStats && (
                     <button
                       onClick={() => {
