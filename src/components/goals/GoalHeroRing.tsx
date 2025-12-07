@@ -23,6 +23,10 @@ interface GoalHeroRingProps {
     willDo: { goal: number; complete: boolean };
     couldDo: { goal: number; complete: boolean };
   };
+  // Dynamic pace tracking props
+  dailyGoal?: number;
+  todayProgress?: number;
+  remainingDailyNeeded?: number;
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -74,6 +78,9 @@ export const GoalHeroRing = ({
   efpMode = false,
   onTierChange,
   tiers,
+  dailyGoal = 0,
+  todayProgress = 0,
+  remainingDailyNeeded,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
@@ -92,6 +99,11 @@ export const GoalHeroRing = ({
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
   const remaining = Math.max(fpGoal - currentProgress, 0);
   const isComplete = currentProgress >= fpGoal && fpGoal > 0;
+
+  // Today's pace calculation
+  const todayPaceDiff = dailyGoal > 0 ? todayProgress - dailyGoal : 0;
+  const isTodayAhead = todayPaceDiff >= 0.1;
+  const isTodayBehind = todayPaceDiff <= -0.1;
 
   // SVG Arc calculations
   const size = 220;
@@ -216,6 +228,19 @@ export const GoalHeroRing = ({
                       {remaining.toFixed(1)} to go
                     </span>
                   </div>
+                  {/* Today's pace indicator */}
+                  {dailyGoal > 0 && (
+                    <div className={cn(
+                      "mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                      isTodayAhead && "bg-emerald-500/10 text-emerald-600",
+                      isTodayBehind && "bg-amber-500/10 text-amber-600",
+                      !isTodayAhead && !isTodayBehind && "bg-blue-500/10 text-blue-600"
+                    )}>
+                      {isTodayAhead && `+${todayPaceDiff.toFixed(1)} ahead today`}
+                      {isTodayBehind && `${Math.abs(todayPaceDiff).toFixed(1)} behind today`}
+                      {!isTodayAhead && !isTodayBehind && "On pace today"}
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
@@ -254,6 +279,18 @@ export const GoalHeroRing = ({
           </div>
         </div>
       </motion.div>
+
+      {/* Remaining daily needed - shows dynamic pace */}
+      {remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && !isComplete && (
+        <motion.p 
+          className="mt-2 text-xs text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          Need <span className="font-semibold text-foreground">{remainingDailyNeeded.toFixed(2)}</span> {metricLabel}/day
+        </motion.p>
+      )}
 
       {/* Tier Pills */}
       <div className="flex gap-2 mt-6">
