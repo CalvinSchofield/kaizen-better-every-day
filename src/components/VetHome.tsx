@@ -14,6 +14,8 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
+import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
+import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
@@ -762,6 +764,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </Card>
           ) : null;
         })()}
+
+        {/* Weekly Progress Prompt - Monday evenings */}
+        <WeeklyProgressPromptCard />
+
+        {/* Preseason Standards Card */}
+        <PreseasonStandardsCard />
 
         {/* Status Dashboard Card */}
         <Card className="mb-6 shadow-lg">
