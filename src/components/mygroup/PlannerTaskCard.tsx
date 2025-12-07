@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, CalendarDays } from "lucide-react";
+import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -23,6 +23,7 @@ interface PlannerTaskCardProps {
 
 export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardProps) => {
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const logActivityMutation = useLogRecruitActivity();
   
   const isOverdue = activity.next_action_due && isPast(parseISO(activity.next_action_due)) && !isToday(parseISO(activity.next_action_due));
@@ -79,6 +80,22 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     }
   };
 
+  const handleMarkComplete = async (type: 'phone_call' | 'in_person') => {
+    try {
+      await logActivityMutation.mutateAsync({
+        recruitNotionId: recruit.notionPageId,
+        activityType: type,
+        notes: `Completed: ${activity.next_action || 'Follow up'}`,
+        updateLastContact: true,
+      });
+      toast.success('Marked complete');
+      setCompleteOpen(false);
+    } catch (error) {
+      console.error('Failed to mark complete:', error);
+      toast.error('Failed to mark complete');
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -107,6 +124,47 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
           </Badge>
         </div>
         <div className="flex gap-1 flex-shrink-0">
+          <Popover open={completeOpen} onOpenChange={setCompleteOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-emerald-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className="w-auto p-2" 
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-xs text-muted-foreground mb-2">Mark as completed via:</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => handleMarkComplete('phone_call')}
+                  disabled={logActivityMutation.isPending}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => handleMarkComplete('in_person')}
+                  disabled={logActivityMutation.isPending}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  In Person
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
             <PopoverTrigger asChild>
               <Button
