@@ -1,7 +1,8 @@
-import { Trophy, Crown, TrendingUp } from "lucide-react";
+import { Trophy, Crown, TrendingUp, BookOpen } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { useBooksLeaderboard } from "@/hooks/useBooksLeaderboard";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -13,6 +14,7 @@ interface VetLeaderboardCardProps {
 export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps) => {
   const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard();
   const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard();
+  const { data: booksLeaderboard } = useBooksLeaderboard();
   
   const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
   const isLoading = isOnActiveBlitz ? isLoadingYesterday : isLoadingWeekly;
@@ -100,6 +102,22 @@ export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps)
           <p className="text-sm text-muted-foreground text-center py-4">
             No data from yesterday yet. Time to set the bar!
           </p>
+        )}
+
+        {/* Most Well-Read Shoutout */}
+        {booksLeaderboard?.mostReadOverall && booksLeaderboard.mostReadOverall.booksRead > 0 && (
+          <div className="flex items-center justify-between p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium">Most Well-Read</p>
+                <p className="text-xs text-muted-foreground">{booksLeaderboard.mostReadOverall.name}</p>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-purple-500">
+              {booksLeaderboard.mostReadOverall.booksRead} 📚
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

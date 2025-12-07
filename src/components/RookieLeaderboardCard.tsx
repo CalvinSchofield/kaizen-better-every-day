@@ -1,7 +1,8 @@
-import { Trophy, Crown } from "lucide-react";
+import { Trophy, Crown, BookOpen } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useYesterdayLeaderboard } from "@/hooks/useYesterdayLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { useBooksLeaderboard } from "@/hooks/useBooksLeaderboard";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -13,6 +14,7 @@ interface RookieLeaderboardCardProps {
 export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCardProps) => {
   const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard("Rookie");
   const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard("Rookie");
+  const { data: booksLeaderboard } = useBooksLeaderboard();
   
   const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
   const isLoading = isOnActiveBlitz ? isLoadingYesterday : isLoadingWeekly;
@@ -111,6 +113,25 @@ export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCard
           <p className="text-sm text-muted-foreground text-center py-4">
             No data from yesterday yet. Be the first to log!
           </p>
+        )}
+
+        {/* Most Well-Read Rookie Shoutout - only show if different from overall leader */}
+        {booksLeaderboard?.mostReadRookie && 
+         booksLeaderboard.mostReadRookie.booksRead > 0 &&
+         (!booksLeaderboard.mostReadOverall || 
+          booksLeaderboard.mostReadRookie.userId !== booksLeaderboard.mostReadOverall.userId) && (
+          <div className="flex items-center justify-between p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium">Most Well-Read Rookie</p>
+                <p className="text-xs text-muted-foreground">{booksLeaderboard.mostReadRookie.name}</p>
+              </div>
+            </div>
+            <p className="text-lg font-bold text-purple-500">
+              {booksLeaderboard.mostReadRookie.booksRead} 📚
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>
