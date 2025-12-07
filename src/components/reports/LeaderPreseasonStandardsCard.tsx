@@ -217,6 +217,9 @@ export const LeaderPreseasonStandardsCard = ({
   const [sortBy, setSortBy] = useState<SortOption>("year");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
+  const { efpModeEnabled } = useEfpMode();
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
+  
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
   // Get preseason FP for all accessible users
@@ -249,7 +252,7 @@ export const LeaderPreseasonStandardsCard = ({
           };
         }
         
-        const commitments = getCommitmentStatuses(goals, preseasonFP);
+        const commitments = getCommitmentStatuses(goals, preseasonFP, metricLabel);
         const behindCount = commitments.filter(c => c.status === "behind").length;
         
         return {
