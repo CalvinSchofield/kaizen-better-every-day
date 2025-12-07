@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,6 +20,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const location = useLocation();
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
+  const isNavVisible = useScrollDirection();
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -233,7 +235,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       
       {/* Bottom Navigation - generous spacing for touch targets */}
       <nav 
-        className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50"
+        className={`fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 transition-transform duration-300 ${
+          isNavVisible ? 'translate-y-0' : 'translate-y-full'
+        }`}
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
         <div className="flex items-center justify-around max-w-lg mx-auto px-2" style={{ height: 'var(--nav-height)' }}>
