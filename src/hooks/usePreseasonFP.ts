@@ -65,10 +65,11 @@ export const usePreseasonFP = () => {
           // Fallback to entry-level values for legacy entries without sales_log
           // fp_plus already includes upgrade calculation (FP+ = FP count + upgrade_prmr/85)
           totalFP += entry.fp_plus || 0;
-          // PRMR total needs to include both prmr and upgrade_prmr
-          totalPRMR += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+          // IMPORTANT: prmr field IS total PRMR (already includes upgrade_prmr)
+          // upgrade_prmr is tracked separately for breakdown purposes only, NOT additive
+          totalPRMR += entry.prmr || 0;
           fundedFP += entry.fp_plus || 0;
-          fundedPRMR += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+          fundedPRMR += entry.prmr || 0;
         }
       });
       
