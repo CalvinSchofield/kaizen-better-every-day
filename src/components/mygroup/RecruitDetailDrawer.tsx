@@ -83,7 +83,7 @@ interface RecruitDetailDrawerProps {
 }
 
 export const RecruitDetailDrawer = ({ 
-  recruit, 
+  recruit: recruitProp, 
   activities: initialActivities, 
   open, 
   onOpenChange 
@@ -128,6 +128,15 @@ export const RecruitDetailDrawer = ({
   const { data: teamAccess } = useTeamAccess();
   const queryClient = useQueryClient();
   const { checkAndUpdateStage, checkReachedOutProgression } = useAutoStageProgression();
+
+  // Get live recruit data from cache (updates when optimistic updates happen)
+  const cachedGroupData = queryClient.getQueryData<{ recruits: Recruit[] }>(['group-recruits']);
+  const recruit = useMemo(() => {
+    if (!recruitProp) return null;
+    // Try to get the latest from cache first
+    const fromCache = cachedGroupData?.recruits?.find(r => r.notionPageId === recruitProp.notionPageId);
+    return fromCache || recruitProp;
+  }, [recruitProp, cachedGroupData]);
 
   // Fetch activities directly for this recruit to get live updates
   const { data: liveActivities } = useQuery({
