@@ -69,14 +69,22 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    // Update Notion with last contact and next action if applicable
+    // Update Notion with last contact, last phone call, and next action if applicable
     if (notionApiKey && (updateLastContact || nextAction)) {
       const properties: any = {};
+      const today = new Date().toISOString().split('T')[0];
       
       if (updateLastContact) {
         properties['Last Contact'] = {
-          date: { start: new Date().toISOString().split('T')[0] }
+          date: { start: today }
         };
+        
+        // Also update Last Phone Call for phone_call or in_person activities
+        if (activityType === 'phone_call' || activityType === 'in_person') {
+          properties['Last Phone Call'] = {
+            date: { start: today }
+          };
+        }
       }
       
       if (nextAction) {
@@ -105,6 +113,8 @@ serve(async (req) => {
         if (!notionResponse.ok) {
           const errorText = await notionResponse.text();
           console.error('Notion API error:', errorText);
+        } else {
+          console.log(`Updated Notion properties for ${recruitNotionId}:`, Object.keys(properties).join(', '));
         }
       }
     }
