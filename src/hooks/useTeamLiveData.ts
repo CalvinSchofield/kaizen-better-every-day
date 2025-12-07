@@ -8,9 +8,11 @@ interface LiveRepData {
   teamName: string;
   mgmtGroupName: string;
   phone?: string;
+  notionPageId?: string;
   isWorking: boolean;
   hasForgottenEntry: boolean;
   forgottenDate?: string;
+  forgottenEntryId?: string;
   todayStats: {
     doors: number;
     dms: number;
@@ -108,10 +110,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         return { liveReps: [], workingCount: 0, forgottenCount: 0 };
       }
 
-      // Fetch reps with their info including team_leader, year, and phone
+      // Fetch reps with their info including team_leader, year, phone, and notion_page_id
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, timezone, team_leader, year, phone")
+        .select("user_id, name, timezone, team_leader, year, phone, notion_page_id")
         .in("user_id", filteredUserIds);
 
       if (repsError) throw repsError;
@@ -263,9 +265,11 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               teamName,
               mgmtGroupName,
               phone: repInfo?.phone || undefined,
+              notionPageId: repInfo?.notion_page_id || undefined,
               isWorking: !todayEntry.is_finalized,
               hasForgottenEntry: !!forgottenEntry,
               forgottenDate: forgottenEntry?.entry_date,
+              forgottenEntryId: forgottenEntry?.id,
               todayStats: {
                 doors: todayEntry.doors_knocked || 0,
                 dms: todayEntry.decision_makers || 0,
@@ -299,9 +303,11 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             teamName,
             mgmtGroupName,
             phone: repInfo?.phone || undefined,
+            notionPageId: repInfo?.notion_page_id || undefined,
             isWorking: false,
             hasForgottenEntry: true,
             forgottenDate: forgottenEntry.entry_date,
+            forgottenEntryId: forgottenEntry.id,
             todayStats: {
               doors: 0,
               dms: 0,
