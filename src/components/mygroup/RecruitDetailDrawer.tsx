@@ -934,6 +934,18 @@ export const RecruitDetailDrawer = ({
               )}
             </div>
 
+            {/* FP+ Display for Sold reps */}
+            {(recruit.stage === 'Sold 💲' || recruit.stage === 'Sold (5+) 💰') && recruitRepData && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total FP+</span>
+                  <span className="text-lg font-semibold text-emerald-600">
+                    {recruitRepData.personal_fp ?? 0}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Stage Selector */}
             <div className={stageShake ? 'animate-shake' : ''}>
               <Label className="text-sm text-muted-foreground">Stage</Label>
@@ -988,8 +1000,11 @@ export const RecruitDetailDrawer = ({
               );
             })()}
 
-            {/* iPad Assignment Toggle - show warning if not assigned */}
+            {/* iPad Assignment Toggle - only show for pre-blitz rookies */}
             {recruitRepData && (
+              (recruitRepData.year === 'Rookie' || !recruitRepData.year) && 
+              !recruitRepData.ramp_phase_4_complete
+            ) && (
               <div className={`rounded-lg p-3 ${recruitRepData.ipad_assigned ? 'bg-muted/50' : 'bg-amber-500/10 border border-amber-500/30'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
