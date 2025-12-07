@@ -171,6 +171,15 @@ const Goals = () => {
   // Convert goals to display values (EFP if enabled) - always use $85 for PRMR per FP
   const conversionFactor = efpModeEnabled ? 85 / 85 : 1; // Simplified since we're using $85
 
+  // Check if today is a planned day
+  const isTodayPlanned = useMemo(() => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return plannedDays?.some(d => d.planned_date === todayStr) ?? false;
+  }, [plannedDays]);
+
+  // Check if user has any planned days
+  const hasAnyPlannedDays = (plannedDays?.length || 0) > 0;
+
   // Calculate daily goal and remaining daily needed based on planned days
   const paceData = useMemo(() => {
     const today = new Date();
@@ -540,6 +549,8 @@ const Goals = () => {
             todayProgress={todayProgress}
             remainingDailyNeeded={paceData.remainingDailyNeeded}
             isSummer={!isPreseason}
+            isTodayPlanned={isTodayPlanned}
+            hasAnyPlannedDays={hasAnyPlannedDays}
           />
         </motion.div>
 

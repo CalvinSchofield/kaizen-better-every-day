@@ -28,6 +28,8 @@ interface GoalHeroRingProps {
   todayProgress?: number;
   remainingDailyNeeded?: number;
   isSummer?: boolean; // Whether summer season has started
+  isTodayPlanned?: boolean; // Whether today is a planned knocking day
+  hasAnyPlannedDays?: boolean; // Whether user has any planned days at all
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -83,13 +85,16 @@ export const GoalHeroRing = ({
   todayProgress = 0,
   remainingDailyNeeded,
   isSummer = false,
+  isTodayPlanned = false,
+  hasAnyPlannedDays = true,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
   const metricLabel = efpMode ? 'EFP' : 'FP+';
   
   // Only show pace tracking for: preseason tier during preseason, OR summer tiers during summer
-  const showPaceTracking = activeTier === 'preseason' ? !isSummer : isSummer;
+  // AND only if today is a planned knocking day
+  const showPaceTracking = (activeTier === 'preseason' ? !isSummer : isSummer) && isTodayPlanned;
   
   // Calculate earnings - for preseason, just show upfront pay (4x PRMR)
   const isPreseasonTier = activeTier === 'preseason';
@@ -307,14 +312,14 @@ export const GoalHeroRing = ({
       )}
       
       {/* Show CTA to plan days when no days are planned */}
-      {showPaceTracking && (remainingDailyNeeded === undefined || remainingDailyNeeded === Infinity || isNaN(remainingDailyNeeded)) && !isComplete && fpGoal > 0 && (
+      {!hasAnyPlannedDays && !isComplete && fpGoal > 0 && (
         <motion.p 
           className="mt-2 text-xs text-amber-500"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          Plan your work days below to see daily pace
+          Plan your work days below to track daily pace
         </motion.p>
       )}
 
