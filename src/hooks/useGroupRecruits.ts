@@ -9,6 +9,8 @@ export interface Recruit {
   email: string;
   stage: string;
   recruiterNotionId: string;
+  recruiterName: string | null;
+  teamName: string | null;
   year: string;
   lastContact: string | null;
   nextAction: string | null;
@@ -94,6 +96,8 @@ export const useGroupRecruits = () => {
           email: member.email || '',
           stage: member.stage,
           recruiterNotionId: leaderNotionId,
+          recruiterName: member.recruiter || null,
+          teamName: member.teamName || null,
           year: member.year || '',
           lastContact: null,
           nextAction: null,

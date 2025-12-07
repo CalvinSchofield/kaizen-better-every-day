@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,8 @@ import {
   Plus,
   Trash2,
   PhoneCall,
-  PhoneMissed
+  PhoneMissed,
+  UserRound
 } from "lucide-react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -44,6 +46,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+// Helper to strip emojis from names for cleaner display
+const stripEmojis = (text: string | null): string | null => {
+  if (!text) return null;
+  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
+};
 
 const STAGES = [
   '100 List',
@@ -83,6 +91,11 @@ export const RecruitDetailDrawer = ({
   const logActivityMutation = useLogRecruitActivity();
   const updateActivityMutation = useUpdateRecruitActivity();
   const deleteActivityMutation = useDeleteRecruitActivity();
+  const { data: teamAccess } = useTeamAccess();
+
+  // Check if current user is a leader of leaders (MGMT or AD)
+  const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || 
+                            teamAccess?.accessLevel === 'area_director';
 
   if (!recruit) return null;
 
@@ -233,10 +246,29 @@ export const RecruitDetailDrawer = ({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="border-b">
-            <DrawerTitle className="flex items-center gap-2">
-              {recruit.name}
-              {isStale && (
-                <Badge variant="destructive" className="text-xs">Needs Contact</Badge>
+            <DrawerTitle className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                {stripEmojis(recruit.name)}
+                {isStale && (
+                  <Badge variant="destructive" className="text-xs">Needs Contact</Badge>
+                )}
+              </div>
+              {/* Show team and recruiter for MGMT/AD leaders only */}
+              {isLeaderOfLeaders && (recruit.teamName || recruit.recruiterName) && (
+                <div className="flex items-center gap-3 text-xs font-normal text-muted-foreground">
+                  {recruit.teamName && (
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {stripEmojis(recruit.teamName)}
+                    </span>
+                  )}
+                  {recruit.recruiterName && (
+                    <span className="flex items-center gap-1">
+                      <UserRound className="h-3 w-3" />
+                      {stripEmojis(recruit.recruiterName)}
+                    </span>
+                  )}
+                </div>
               )}
             </DrawerTitle>
           </DrawerHeader>
