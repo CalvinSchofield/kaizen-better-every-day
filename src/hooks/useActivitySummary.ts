@@ -310,14 +310,32 @@ export const useActivitySummary = (repData: any) => {
           // Only show data up to the current blitz day number
           const maxDayToShow = currentBlitzDayNum;
           
+          // Helper to get FP+ and PRMR from entry (using sales_log for unfinalized)
+          const getEntryMetrics = (e: any) => {
+            if (e.is_finalized) {
+              return {
+                fp: Number(e.fp_plus) || 0,
+                prmr: Number(e.prmr) || 0,
+              };
+            }
+            // Unfinalized: calculate from sales_log if available
+            const fromLog = calculateFromSalesLog(e.sales_log as any[]);
+            const hasSalesLog = e.sales_log && Array.isArray(e.sales_log) && e.sales_log.length > 0;
+            return {
+              fp: hasSalesLog ? fromLog.fp : (Number(e.fp_plus) || 0),
+              prmr: hasSalesLog ? fromLog.prmr : (Number(e.prmr) || 0),
+            };
+          };
+          
           comparisonChartData = {
             current: sortedCurrentEntries.map((e) => {
               const entryDate = new Date(e.entry_date + 'T00:00:00');
               const dayNum = Math.floor((entryDate.getTime() - currentDayOne.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              const metrics = getEntryMetrics(e);
               return {
                 day: dayNum,
-                value: Number(e.fp_plus) || 0,
-                prmr: Number(e.prmr) || 0,
+                value: metrics.fp,
+                prmr: metrics.prmr,
                 upgradePrmr: Number(e.upgrade_prmr) || 0,
               };
             }).filter(d => d.day <= maxDayToShow),
@@ -379,15 +397,33 @@ export const useActivitySummary = (repData: any) => {
         const sortedCurrentEntries = workdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
         const sortedPrevEntries = lastWeekFullWorkdayEntries.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
         
+        // Helper to get FP+ and PRMR from entry (using sales_log for unfinalized)
+        const getEntryMetrics = (e: any) => {
+          if (e.is_finalized) {
+            return {
+              fp: Number(e.fp_plus) || 0,
+              prmr: Number(e.prmr) || 0,
+            };
+          }
+          // Unfinalized: calculate from sales_log if available
+          const fromLog = calculateFromSalesLog(e.sales_log as any[]);
+          const hasSalesLog = e.sales_log && Array.isArray(e.sales_log) && e.sales_log.length > 0;
+          return {
+            fp: hasSalesLog ? fromLog.fp : (Number(e.fp_plus) || 0),
+            prmr: hasSalesLog ? fromLog.prmr : (Number(e.prmr) || 0),
+          };
+        };
+        
         // Week starts Sunday = 0, so Monday = 1, Saturday = 6
         comparisonChartData = {
           current: sortedCurrentEntries.map((e) => {
             const entryDate = new Date(e.entry_date + 'T00:00:00');
             const dayOfWeek = getDay(entryDate); // 0=Sun, 1=Mon, ..., 6=Sat
+            const metrics = getEntryMetrics(e);
             return {
               day: dayOfWeek === 0 ? 7 : dayOfWeek, // Treat Sunday as 7 for sorting
-              value: Number(e.fp_plus) || 0,
-              prmr: Number(e.prmr) || 0,
+              value: metrics.fp,
+              prmr: metrics.prmr,
               upgradePrmr: Number(e.upgrade_prmr) || 0,
             };
           }),
