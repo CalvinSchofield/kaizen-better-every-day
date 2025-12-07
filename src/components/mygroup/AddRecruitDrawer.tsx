@@ -254,10 +254,15 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     queryFn: async () => {
       if (!currentRep?.team_leader) return null;
 
+      // Team leader field might be partial name (e.g., "Calvin") but db has full name with emojis
+      // Use ILIKE for fuzzy matching
+      const searchName = currentRep.team_leader.trim();
+      
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id')
-        .eq('name', currentRep.team_leader)
+        .select('notion_page_id, name')
+        .ilike('name', `%${searchName}%`)
+        .limit(1)
         .maybeSingle();
 
       return data;
