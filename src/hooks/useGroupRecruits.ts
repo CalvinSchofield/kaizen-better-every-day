@@ -62,13 +62,17 @@ export const useGroupRecruits = () => {
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
 
   const query = useQuery({
-    queryKey: ['group-recruits', teamAccess?.accessibleReps?.[0]?.notionPageId],
+    queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.[0]?.notionPageId],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // For leaders, fetch team members which already includes stage info
-      // Use the current user's rep notion page ID as the leader ID
+      // For area directors and mgmt group leads, use accessibleReps from teamAccess
+      // These already contain all reps they have access to
+      const accessLevel = teamAccess?.accessLevel;
+      const accessibleReps = teamAccess?.accessibleReps || [];
+
+      // Get the current user's rep notion page ID
       const { data: currentRep } = await supabase
         .from('reps')
         .select('notion_page_id')
@@ -80,30 +84,84 @@ export const useGroupRecruits = () => {
         return { recruits: [], activities: [], pendingSuggestions: [] };
       }
 
-      const { data: teamData, error: teamError } = await supabase.functions.invoke('fetch-team-members', {
-        body: { leaderNotionPageId: leaderNotionId }
-      });
+      let recruits: Recruit[] = [];
 
-      if (teamError) throw teamError;
+      if (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') {
+        // For higher-level leaders, use accessibleReps from teamAccess which already has all their reps
+        // But we need to fetch stage info from Notion for recruiting pipeline filtering
+        const { data: teamData, error: teamError } = await supabase.functions.invoke('fetch-team-members', {
+          body: { 
+            leaderNotionPageId: leaderNotionId,
+            fetchAllForAccessLevel: accessLevel,
+            accessibleNotionIds: accessibleReps.map(r => r.notionPageId)
+          }
+        });
 
-      // Filter team members who are in recruiting stages
-      const recruits: Recruit[] = (teamData?.teamMembers || [])
-        .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
-        .map((member: any) => ({
-          notionPageId: member.notionPageId,
-          name: member.name,
-          phone: member.phone || '',
-          email: member.email || '',
-          stage: member.stage,
-          recruiterNotionId: leaderNotionId,
-          recruiterName: member.recruiter || null,
-          teamName: member.teamName || null,
-          year: member.year || '',
-          lastContact: null,
-          nextAction: null,
-          nextActionDue: null,
-          createdAt: new Date().toISOString(),
-        }));
+        if (teamError) {
+          console.error('Error fetching team members:', teamError);
+          // Fallback to accessibleReps if edge function fails
+          recruits = accessibleReps
+            .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
+            .map((member: any) => ({
+              notionPageId: member.notionPageId,
+              name: member.name,
+              phone: member.phone || '',
+              email: '',
+              stage: member.stage || '',
+              recruiterNotionId: leaderNotionId,
+              recruiterName: member.teamName || null,
+              teamName: member.teamName || null,
+              year: member.year || '',
+              lastContact: null,
+              nextAction: null,
+              nextActionDue: null,
+              createdAt: new Date().toISOString(),
+            }));
+        } else {
+          recruits = (teamData?.teamMembers || [])
+            .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
+            .map((member: any) => ({
+              notionPageId: member.notionPageId,
+              name: member.name,
+              phone: member.phone || '',
+              email: member.email || '',
+              stage: member.stage,
+              recruiterNotionId: leaderNotionId,
+              recruiterName: member.recruiter || null,
+              teamName: member.teamName || null,
+              year: member.year || '',
+              lastContact: null,
+              nextAction: null,
+              nextActionDue: null,
+              createdAt: new Date().toISOString(),
+            }));
+        }
+      } else {
+        // For team leads, use the existing fetch-team-members logic
+        const { data: teamData, error: teamError } = await supabase.functions.invoke('fetch-team-members', {
+          body: { leaderNotionPageId: leaderNotionId }
+        });
+
+        if (teamError) throw teamError;
+
+        recruits = (teamData?.teamMembers || [])
+          .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
+          .map((member: any) => ({
+            notionPageId: member.notionPageId,
+            name: member.name,
+            phone: member.phone || '',
+            email: member.email || '',
+            stage: member.stage,
+            recruiterNotionId: leaderNotionId,
+            recruiterName: member.recruiter || null,
+            teamName: member.teamName || null,
+            year: member.year || '',
+            lastContact: null,
+            nextAction: null,
+            nextActionDue: null,
+            createdAt: new Date().toISOString(),
+          }));
+      }
 
       // Fetch activities for these recruits
       let activities: RecruitActivity[] = [];
