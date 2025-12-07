@@ -563,7 +563,7 @@ const Goals = () => {
         >
           <CommitmentChips
             goals={goals}
-            preseasonFpProgress={totalFpPlus}
+            preseasonFpProgress={currentProgress}
             blitzStats={blitzStats}
             onEdit={() => setShowCommitmentEditor(true)}
             onQuickIncrement={handleQuickIncrement}
