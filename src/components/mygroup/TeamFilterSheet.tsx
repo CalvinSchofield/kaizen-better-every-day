@@ -24,6 +24,8 @@ interface TeamFilterSheetProps {
   selectedFilter: string | null;
   onFilterChange: (filter: string | null) => void;
   accessLevel: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
+  recruitCounts?: Record<string, number>;
+  totalRecruits?: number;
 }
 
 export const TeamFilterSheet = ({
@@ -34,6 +36,8 @@ export const TeamFilterSheet = ({
   selectedFilter,
   onFilterChange,
   accessLevel,
+  recruitCounts = {},
+  totalRecruits = 0,
 }: TeamFilterSheetProps) => {
   const handleFilterSelect = (filter: string | null) => {
     onFilterChange(filter);
@@ -56,8 +60,11 @@ export const TeamFilterSheet = ({
           >
             <Users className="h-4 w-4 mr-2" />
             All Teams
+            <Badge variant="secondary" className="ml-auto mr-2">
+              {totalRecruits}
+            </Badge>
             {selectedFilter === null && (
-              <Check className="h-4 w-4 ml-auto" />
+              <Check className="h-4 w-4" />
             )}
           </Button>
 
@@ -68,22 +75,22 @@ export const TeamFilterSheet = ({
                 Management Groups
               </p>
               <div className="space-y-2">
-                {mgmtGroups.map((group) => (
-                  <Button
-                    key={group.id}
-                    variant={selectedFilter === `mgmt:${group.id}` ? 'default' : 'outline'}
-                    className="w-full justify-start"
-                    onClick={() => handleFilterSelect(`mgmt:${group.id}`)}
-                  >
-                    {group.name}
-                    <Badge variant="secondary" className="ml-auto mr-2">
-                      {group.teamIds.length} teams
-                    </Badge>
-                    {selectedFilter === `mgmt:${group.id}` && (
-                      <Check className="h-4 w-4" />
-                    )}
-                  </Button>
-                ))}
+                  {mgmtGroups.map((group) => (
+                    <Button
+                      key={group.id}
+                      variant={selectedFilter === `mgmt:${group.id}` ? 'default' : 'outline'}
+                      className="w-full justify-start"
+                      onClick={() => handleFilterSelect(`mgmt:${group.id}`)}
+                    >
+                      {group.name}
+                      <Badge variant="secondary" className="ml-auto mr-2">
+                        {recruitCounts[`mgmt:${group.id}`] || 0}
+                      </Badge>
+                      {selectedFilter === `mgmt:${group.id}` && (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                  ))}
               </div>
             </div>
           )}
@@ -95,19 +102,22 @@ export const TeamFilterSheet = ({
                 Teams
               </p>
               <div className="space-y-2">
-                {teams.map((team) => (
-                  <Button
-                    key={team.id}
-                    variant={selectedFilter === `team:${team.id}` ? 'default' : 'outline'}
-                    className="w-full justify-start"
-                    onClick={() => handleFilterSelect(`team:${team.id}`)}
-                  >
-                    {team.name}
-                    {selectedFilter === `team:${team.id}` && (
-                      <Check className="h-4 w-4 ml-auto" />
-                    )}
-                  </Button>
-                ))}
+                  {teams.map((team) => (
+                    <Button
+                      key={team.id}
+                      variant={selectedFilter === `team:${team.id}` ? 'default' : 'outline'}
+                      className="w-full justify-start"
+                      onClick={() => handleFilterSelect(`team:${team.id}`)}
+                    >
+                      {team.name}
+                      <Badge variant="secondary" className="ml-auto mr-2">
+                        {recruitCounts[`team:${team.id}`] || 0}
+                      </Badge>
+                      {selectedFilter === `team:${team.id}` && (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                  ))}
               </div>
             </div>
           )}

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits } from "@/hooks/useGroupRecruits";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, LayoutGrid, List, Plus, Filter, CalendarDays } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X } from "lucide-react";
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
 import { RecruitListView } from "@/components/mygroup/RecruitListView";
 import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
@@ -57,6 +58,41 @@ const MyGroup = () => {
     ? activities.filter(a => filteredRecruits.some(r => r.notionPageId === a.rep_notion_page_id))
     : activities;
 
+  // Get active filter name for display
+  const activeFilterName = useMemo(() => {
+    if (!selectedTeamFilter) return null;
+    if (selectedTeamFilter.startsWith('team:')) {
+      const teamId = selectedTeamFilter.replace('team:', '');
+      return teamAccess?.teams?.find(t => t.id === teamId)?.name || null;
+    } else if (selectedTeamFilter.startsWith('mgmt:')) {
+      const mgmtId = selectedTeamFilter.replace('mgmt:', '');
+      return teamAccess?.mgmtGroups?.find(g => g.id === mgmtId)?.name || null;
+    }
+    return null;
+  }, [selectedTeamFilter, teamAccess]);
+
+  // Calculate recruit counts per team for the filter sheet
+  const teamRecruitCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    teamAccess?.teams?.forEach(team => {
+      counts[`team:${team.id}`] = allRecruits.filter(
+        r => r.teamName === team.name || r.recruiterName === team.name
+      ).length;
+    });
+    
+    teamAccess?.mgmtGroups?.forEach(group => {
+      const teamNames = group.teamIds
+        .map(tid => teamAccess?.teams?.find(t => t.id === tid)?.name)
+        .filter(Boolean);
+      counts[`mgmt:${group.id}`] = allRecruits.filter(
+        r => teamNames.includes(r.teamName) || teamNames.includes(r.recruiterName)
+      ).length;
+    });
+    
+    return counts;
+  }, [allRecruits, teamAccess]);
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-4">
@@ -81,11 +117,25 @@ const MyGroup = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead' ? (
-              <Button variant="ghost" size="icon" onClick={() => setFilterSheetOpen(true)}>
+            {activeFilterName && (
+              <Badge 
+                variant="secondary" 
+                className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
+                onClick={() => setSelectedTeamFilter(null)}
+              >
+                {activeFilterName}
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+              <Button 
+                variant={selectedTeamFilter ? 'default' : 'ghost'} 
+                size="icon" 
+                onClick={() => setFilterSheetOpen(true)}
+              >
                 <Filter className="h-4 w-4" />
               </Button>
-            ) : null}
+            )}
             {isLeader && (
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
                 <TabsList className="h-8">
@@ -151,6 +201,8 @@ const MyGroup = () => {
         selectedFilter={selectedTeamFilter}
         onFilterChange={setSelectedTeamFilter}
         accessLevel={teamAccess?.accessLevel || 'none'}
+        recruitCounts={teamRecruitCounts}
+        totalRecruits={allRecruits.length}
       />
     </div>
   );
