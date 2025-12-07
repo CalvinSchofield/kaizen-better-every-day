@@ -99,6 +99,7 @@ function processReps(reps: any[]): any[] {
     const stage = getSelect(props["Stage"]);
     const recruiter = getSelect(props["Recruiter"]);
     const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
+    const teamIds = getRelation(props["Teams"]); // Get team relation IDs
 
     const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
                       onboardingStatus === "Blitz ready";
@@ -116,6 +117,7 @@ function processReps(reps: any[]): any[] {
       stage,
       recruiter,
       teamName,
+      teamIds, // Include team IDs for filtering
     };
   });
 }
@@ -139,8 +141,56 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching team members for leader: ${leaderNotionPageId}, accessLevel: ${fetchAllForAccessLevel || 'team_lead'}, accessibleNotionIds count: ${accessibleNotionIds?.length || 0}`);
 
-    // For area directors and mgmt group leads, fetch all reps from their accessible list
+    const MGMT_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878'; // Teams database
+    const MGMT_GROUPS_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9'; // MGMT Groups database
+
+    // For area directors and mgmt group leads, fetch ALL reps from Notion database
+    // Also fetch teams and MGMT groups for proper filtering
     if (fetchAllForAccessLevel === 'area_director' || fetchAllForAccessLevel === 'mgmt_group_lead') {
+      // Fetch teams and MGMT groups first for mapping
+      const [teamsResponse, mgmtGroupsResponse] = await Promise.all([
+        fetchNotionWithRetry(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${notionApiKey}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }),
+        fetchNotionWithRetry(`https://api.notion.com/v1/databases/${MGMT_GROUPS_DATABASE_ID}/query`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${notionApiKey}`,
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }),
+      ]);
+
+      const [teamsData, mgmtGroupsData] = await Promise.all([
+        teamsResponse.json(),
+        mgmtGroupsResponse.json(),
+      ]);
+
+      // Build team to MGMT group mapping
+      const teamToMgmtGroup = new Map<string, { mgmtGroupId: string; mgmtGroupName: string }>();
+      const teamNames = new Map<string, string>();
+
+      for (const team of teamsData.results || []) {
+        const teamName = team.properties['Name']?.title?.[0]?.plain_text || 'Unnamed Team';
+        teamNames.set(team.id, teamName);
+      }
+
+      for (const group of mgmtGroupsData.results || []) {
+        const groupName = group.properties['Name']?.title?.[0]?.plain_text || 'Unnamed Group';
+        const teamIds = (group.properties['Teams']?.relation || []).map((t: any) => t.id);
+        for (const teamId of teamIds) {
+          teamToMgmtGroup.set(teamId, { mgmtGroupId: group.id, mgmtGroupName: groupName });
+        }
+      }
+
       // Query all reps from the Notion database with pagination
       let allReps: any[] = [];
       let hasMore = true;
@@ -168,21 +218,29 @@ Deno.serve(async (req) => {
         }
 
         const repsData = await repsResponse.json();
+        allReps = [...allReps, ...repsData.results];
         
-        // Filter to only include accessible reps if list provided
-        const filteredResults = accessibleNotionIds && accessibleNotionIds.length > 0
-          ? repsData.results.filter((r: any) => accessibleNotionIds.includes(r.id))
-          : repsData.results;
-        
-        allReps = [...allReps, ...filteredResults];
         hasMore = repsData.has_more;
         startCursor = repsData.next_cursor;
       }
 
-      console.log(`Found ${allReps.length} reps for ${fetchAllForAccessLevel}`);
+      console.log(`Found ${allReps.length} total reps in Notion for ${fetchAllForAccessLevel}`);
 
-      // Process and return all reps
-      const teamMembers = processReps(allReps);
+      // Process reps and add team/mgmt group info
+      const processedReps = processReps(allReps);
+      const teamMembers = processedReps.map((rep: any) => {
+        const repTeamId = rep.teamIds?.[0] || null; // First team relation
+        const teamName = repTeamId ? teamNames.get(repTeamId) : rep.teamName;
+        const mgmtInfo = repTeamId ? teamToMgmtGroup.get(repTeamId) : null;
+        
+        return {
+          ...rep,
+          teamId: repTeamId,
+          teamName: teamName || rep.teamName,
+          mgmtGroupId: mgmtInfo?.mgmtGroupId || null,
+          mgmtGroupName: mgmtInfo?.mgmtGroupName || null,
+        };
+      });
       
       return new Response(
         JSON.stringify({ teamMembers, isTeamLead: true }),
