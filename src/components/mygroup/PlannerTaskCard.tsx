@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users } from "lucide-react";
+import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
-import { format, parseISO, isPast, isToday } from "date-fns";
+import { format, parseISO, isPast, isToday, addDays } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +96,25 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     }
   };
 
+  const handleSnooze = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const tomorrow = addDays(new Date(), 1);
+    const dateStr = format(tomorrow, 'yyyy-MM-dd');
+    
+    try {
+      await logActivityMutation.mutateAsync({
+        recruitNotionId: recruit.notionPageId,
+        activityType: 'next_step',
+        nextAction: activity.next_action || 'Follow up',
+        nextActionDue: dateStr,
+      });
+      toast.success('Snoozed to tomorrow');
+    } catch (error) {
+      console.error('Failed to snooze:', error);
+      toast.error('Failed to snooze');
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -165,6 +184,16 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
               </div>
             </PopoverContent>
           </Popover>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-amber-600"
+            onClick={handleSnooze}
+            disabled={logActivityMutation.isPending}
+            title="Snooze to tomorrow"
+          >
+            <Clock className="h-4 w-4" />
+          </Button>
           <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
             <PopoverTrigger asChild>
               <Button
