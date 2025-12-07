@@ -66,7 +66,7 @@ const commitmentConfigs: CommitmentConfig[] = [
     color: 'text-primary',
     bgColor: 'bg-primary/10',
     description: 'FP+ goal before summer starts',
-    incrementBy: 5,
+    incrementBy: 1,
   },
   {
     key: 'training_hours_goal',
