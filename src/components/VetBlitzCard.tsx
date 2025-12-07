@@ -87,7 +87,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   
   // Track pending updates to prevent stale data overwrites
   const pendingCommitmentsRef = useRef<Set<string>>(new Set());
-
+  
+  // Track last fetched scope to prevent prop overwrites
+  const lastFetchedScopeRef = useRef<string>("");
   // Fetch team members and contacted status based on attendance scope
   const fetchAttendanceData = useCallback(async () => {
     if (!repData?.notion_page_id) return;
@@ -118,6 +120,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       console.log('Attendance data received:', data);
 
       if (data) {
+        // Track that we've fetched for this scope
+        lastFetchedScopeRef.current = attendanceScope;
+        
         if (attendanceScope === 'you') {
           // Personal view - show no team members
           setTeamMembers([]);
@@ -176,10 +181,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     }
   }, [repData?.committed_blitzes, isUpdating]);
 
-  // Sync team members from props
+  // Only use propTeamMembers for initial 'you' scope - fetched data takes precedence for other scopes
+  // This prevents the fetched attendance data from being overwritten by stale props
   useEffect(() => {
-    setTeamMembers(propTeamMembers);
-  }, [propTeamMembers]);
+    // Don't overwrite if we've already fetched data for a non-'you' scope
+    if (lastFetchedScopeRef.current && lastFetchedScopeRef.current !== 'you') {
+      return;
+    }
+    // For 'you' scope, we don't show team members
+    if (attendanceScope === 'you') {
+      setTeamMembers([]);
+    }
+  }, [propTeamMembers, attendanceScope]);
 
   // Load contacted members from repData
   useEffect(() => {
