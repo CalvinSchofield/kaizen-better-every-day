@@ -35,10 +35,9 @@ export const InsightsSummaryHero = ({
   
   // Calculate pace status based on goals
   const paceStatus = useMemo(() => {
-    if (!goals?.setup_complete || !plannedDays) return null;
+    if (!goals?.setup_complete) return null;
     
     const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
     const preseasonEndDate = new Date(PRESEASON_END);
     const isInPreseason = today <= preseasonEndDate;
     
@@ -57,30 +56,29 @@ export const InsightsSummaryHero = ({
     const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
     const displayTargetGoal = efpModeEnabled ? targetGoal * conversionFactor : targetGoal;
     
-    // Count total planned days for the season
-    const totalPlannedDays = plannedDays.filter(d => 
-      d.planned_date >= seasonStartStr && d.planned_date <= seasonEndStr
-    ).length;
+    // Count future planned days only
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const futurePlannedDays = plannedDays?.filter(d => 
+      d.planned_date > todayStr && d.planned_date <= seasonEndStr
+    ).length || 0;
     
-    // Count elapsed planned days (up to today)
-    const elapsedPlannedDays = plannedDays.filter(d => 
-      d.planned_date >= seasonStartStr && d.planned_date <= todayStr
-    ).length;
+    // Total season days = days already worked + future planned
+    const totalSeasonDays = daysWorked + futurePlannedDays;
     
-    if (elapsedPlannedDays === 0 || totalPlannedDays === 0) return null;
+    if (daysWorked === 0 || totalSeasonDays === 0) return null;
     
-    // ORIGINAL daily goal (what was committed at start)
-    const originalDailyGoal = displayTargetGoal / totalPlannedDays;
+    // ORIGINAL daily goal (based on total days in season)
+    const originalDailyGoal = displayTargetGoal / totalSeasonDays;
     
-    // Expected progress by now (based on elapsed planned days × original daily goal)
-    const expectedAtThisPoint = originalDailyGoal * elapsedPlannedDays;
+    // Expected progress by now (based on days WORKED × original daily goal)
+    const expectedAtThisPoint = originalDailyGoal * daysWorked;
     
     const currentProgress = efpModeEnabled ? totalEfp : totalFp;
     const difference = currentProgress - expectedAtThisPoint;
     
     // Calculate remaining pace (what's needed per day going forward)
     const remainingGoal = Math.max(0, displayTargetGoal - currentProgress);
-    const remainingDays = totalPlannedDays - elapsedPlannedDays;
+    const remainingDays = futurePlannedDays + 1; // +1 for today
     const remainingDailyNeeded = remainingDays > 0 ? remainingGoal / remainingDays : 0;
     
     return {
@@ -92,7 +90,7 @@ export const InsightsSummaryHero = ({
       remainingDailyNeeded,
       isInPreseason
     };
-  }, [goals, plannedDays, totalFp, totalEfp, efpModeEnabled]);
+  }, [goals, plannedDays, totalFp, totalEfp, efpModeEnabled, daysWorked]);
   
   return (
     <Card className="p-5 bg-gradient-to-br from-card to-accent/30 border-border/50">
