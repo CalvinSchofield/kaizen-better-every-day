@@ -15,7 +15,7 @@ export const usePreseasonFP = () => {
       // Query all finalized entries before summer start date
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('fp_plus, prmr, sales_log')
+        .select('fp_plus, prmr, upgrade_prmr, sales_log')
         .eq('user_id', user.id)
         .eq('is_finalized', true)
         .lt('entry_date', GLOBAL_SUMMER_START);
@@ -63,10 +63,12 @@ export const usePreseasonFP = () => {
           fundedPRMR += fundedTotalPrmr;
         } else {
           // Fallback to entry-level values for legacy entries without sales_log
+          // fp_plus already includes upgrade calculation (FP+ = FP count + upgrade_prmr/85)
           totalFP += entry.fp_plus || 0;
-          totalPRMR += entry.prmr || 0;
+          // PRMR total needs to include both prmr and upgrade_prmr
+          totalPRMR += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
           fundedFP += entry.fp_plus || 0;
-          fundedPRMR += entry.prmr || 0;
+          fundedPRMR += (entry.prmr || 0) + (entry.upgrade_prmr || 0);
         }
       });
       
