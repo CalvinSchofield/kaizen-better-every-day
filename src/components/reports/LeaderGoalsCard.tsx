@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2, Clock } from "lucide-react";
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,7 @@ interface LeaderGoalsCardProps {
   accessibleReps?: any[];
   dateRange?: { start: string; end: string };
   datePreset?: 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
+  urgencyBadgeCount?: number;
 }
 
 type GoalTier = 'must_do' | 'will_do' | 'could_do';
@@ -74,7 +76,8 @@ export const LeaderGoalsCard = ({
   excludeUserIds = [], 
   accessibleReps = [],
   dateRange,
-  datePreset = 'today'
+  datePreset = 'today',
+  urgencyBadgeCount
 }: LeaderGoalsCardProps) => {
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
@@ -305,10 +308,17 @@ export const LeaderGoalsCard = ({
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          {isPreseason ? 'Preseason Goals' : 'Summer Goals'}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            {isPreseason ? 'Preseason Goals' : 'Summer Goals'}
+          </CardTitle>
+          {(urgencyBadgeCount ?? stats.behind) > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {urgencyBadgeCount ?? stats.behind} behind
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summer Goal Tier Filter - only show after summer starts */}

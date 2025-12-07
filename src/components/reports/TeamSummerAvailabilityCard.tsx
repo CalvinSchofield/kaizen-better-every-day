@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, ChevronLeft, ChevronRight, Sun, CalendarOff, Users, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTeamSummerConfig, isRepOffOnDate } from "@/hooks/useTeamSummerConfig";
@@ -30,7 +31,11 @@ const getFirstName = (fullName: string): string => {
   return withoutEmojis.split(' ')[0] || fullName;
 };
 
-export const TeamSummerAvailabilityCard = () => {
+interface TeamSummerAvailabilityCardProps {
+  urgencyBadgeCount?: number;
+}
+
+export const TeamSummerAvailabilityCard = ({ urgencyBadgeCount }: TeamSummerAvailabilityCardProps = {}) => {
   const [isOpen, setIsOpen] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(() => parseLocalDate(DEFAULT_SUMMER_START));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -60,6 +65,12 @@ export const TeamSummerAvailabilityCard = () => {
     );
 
     return { totalReps, earlyStarters, lateEnders, totalOffDays };
+  }, [teamConfigs]);
+
+  // Count reps missing summer dates
+  const missingDatesCount = useMemo(() => {
+    if (!teamConfigs?.length) return 0;
+    return teamConfigs.filter(c => !c.personalSummerStart || !c.personalSummerEnd).length;
   }, [teamConfigs]);
 
   // Calculate days in current month view
@@ -169,6 +180,11 @@ export const TeamSummerAvailabilityCard = () => {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Sun className="h-4 w-4 text-warning" />
                 Summer Availability
+                {(urgencyBadgeCount ?? missingDatesCount) > 0 && (
+                  <Badge variant="outline" className="text-xs ml-1 border-warning text-warning">
+                    {urgencyBadgeCount ?? missingDatesCount} missing dates
+                  </Badge>
+                )}
               </CardTitle>
               <ChevronDown className={cn(
                 "h-4 w-4 text-muted-foreground transition-transform",
