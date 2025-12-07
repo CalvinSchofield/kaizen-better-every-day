@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ export const RecruitDetailDrawer = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
   const [potentialFollowUpOpen, setPotentialFollowUpOpen] = useState(false);
+  const [list100ConnectedOpen, setList100ConnectedOpen] = useState(false);
   const [followUpNextStep, setFollowUpNextStep] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
@@ -109,6 +111,14 @@ export const RecruitDetailDrawer = ({
   const deleteActivityMutation = useDeleteRecruitActivity();
   const { data: teamAccess } = useTeamAccess();
   const queryClient = useQueryClient();
+  const { checkAndUpdateStage, checkReachedOutProgression } = useAutoStageProgression();
+
+  // Auto-check stage progression when drawer opens
+  useEffect(() => {
+    if (open && recruit) {
+      checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+    }
+  }, [open, recruit?.notionPageId, recruit?.stage, checkAndUpdateStage]);
 
   // Get current user's info
   const { data: currentUserRep } = useQuery({
@@ -628,12 +638,20 @@ export const RecruitDetailDrawer = ({
     });
   };
 
-  const handleLogActivity = () => {
+  const handleLogActivity = async () => {
     if (!activityNotes && activityType !== 'next_step') {
       toast.error('Please add some notes');
       return;
     }
 
+    // Check if this is a "connected" activity for 100 List stage
+    const isConnectedActivity = (activityType === 'phone_call' || activityType === 'in_person') &&
+      activityNotes?.toLowerCase() !== 'no answer' &&
+      activityNotes?.toLowerCase() !== 'call attempt';
+    
+    const is100List = recruit.stage?.toLowerCase().includes('100') || 
+                      recruit.stage?.toLowerCase().includes('list');
+    
     logActivityMutation.mutate({
       recruitNotionId: recruit.notionPageId,
       activityType,
@@ -642,17 +660,44 @@ export const RecruitDetailDrawer = ({
       nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
       updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
     }, {
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success('Activity logged');
         setLogActivityOpen(false);
         setActivityNotes('');
         setNextAction('');
         setNextActionDue('');
+        
+        // If connected with someone in 100 List, show stage selection popup
+        if (is100List && isConnectedActivity) {
+          setList100ConnectedOpen(true);
+        } else {
+          // Auto-check for stage progression based on metrics
+          await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+        }
       },
       onError: () => {
         triggerErrorToast("Couldn't save activity - please try again");
         setActivityShake(true);
         setTimeout(() => setActivityShake(false), 500);
+      }
+    });
+  };
+
+  // Handle 100 List connected stage selection
+  const handleList100StageSelect = (newStage: string) => {
+    updateStageMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      newStage,
+      notes: `Progressed from 100 List after connecting`,
+    }, {
+      onSuccess: () => {
+        toast.success(`Moved to ${newStage}`);
+        setList100ConnectedOpen(false);
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't update stage - please try again");
+        setStageShake(true);
+        setTimeout(() => setStageShake(false), 500);
       }
     });
   };
@@ -719,14 +764,22 @@ export const RecruitDetailDrawer = ({
   const handleMarkCallStatus = (status: 'Connected' | 'No Answer') => {
     if (!selectedActivity) return;
     
+    const is100List = recruit.stage?.toLowerCase().includes('100') || 
+                      recruit.stage?.toLowerCase().includes('list');
+    
     updateActivityMutation.mutate({
       activityId: selectedActivity.id,
       notes: status,
     }, {
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success(`Marked as ${status}`);
         setEditActivityOpen(false);
         setSelectedActivity(null);
+        
+        // If marked as Connected for 100 List, show stage selection popup
+        if (status === 'Connected' && is100List) {
+          setList100ConnectedOpen(true);
+        }
       },
       onError: () => {
         triggerErrorToast("Couldn't update status - please try again");
@@ -1167,6 +1220,67 @@ export const RecruitDetailDrawer = ({
               {logActivityMutation.isPending || updateStageMutation.isPending 
                 ? 'Saving...' 
                 : 'Mark as Potential Follow Up'}
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* 100 List Connected Drawer - pick next stage */}
+      <Drawer open={list100ConnectedOpen} onOpenChange={setList100ConnectedOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Great! You connected with {recruitFirstName}</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              How did it go? What's their status now?
+            </p>
+            
+            <Button 
+              className="w-full justify-start gap-3 h-14" 
+              variant="outline"
+              onClick={() => handleList100StageSelect('Evaluating')}
+              disabled={updateStageMutation.isPending}
+            >
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="text-left">
+                <div className="font-medium">Evaluating</div>
+                <div className="text-xs text-muted-foreground">Still thinking about it</div>
+              </div>
+            </Button>
+
+            <Button 
+              className="w-full justify-start gap-3 h-14" 
+              variant="outline"
+              onClick={() => handleList100StageSelect('Signed')}
+              disabled={updateStageMutation.isPending}
+            >
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <div className="text-left">
+                <div className="font-medium">Signed</div>
+                <div className="text-xs text-muted-foreground">They're in!</div>
+              </div>
+            </Button>
+
+            <Button 
+              className="w-full justify-start gap-3 h-14" 
+              variant="outline"
+              onClick={() => handleList100StageSelect('Not Interested')}
+              disabled={updateStageMutation.isPending}
+            >
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <div className="text-left">
+                <div className="font-medium">Not Interested</div>
+                <div className="text-xs text-muted-foreground">Not a fit right now</div>
+              </div>
+            </Button>
+
+            <Button 
+              variant="ghost" 
+              className="w-full text-muted-foreground"
+              onClick={() => setList100ConnectedOpen(false)}
+            >
+              Decide Later
             </Button>
           </div>
         </DrawerContent>

@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 // Stage progression order - higher index = more advanced
-// We NEVER move backward automatically, only forward
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
   'Potential Follow Up',
@@ -20,7 +19,6 @@ const STAGE_PROGRESSION_ORDER = [
   'Sold (5+) 💰',
 ];
 
-// Get stage index (returns -1 for terminal/unknown stages)
 const getStageIndex = (stage: string | null): number => {
   if (!stage) return -1;
   const normalizedStage = stage.trim();
@@ -29,16 +27,11 @@ const getStageIndex = (stage: string | null): number => {
   );
 };
 
-// Check if stage change is a forward progression
-const isForwardProgression = (currentStage: string | null, newStage: string): boolean => {
+const canProgressToStage = (currentStage: string | null, newStage: string): boolean => {
   const currentIndex = getStageIndex(currentStage);
   const newIndex = getStageIndex(newStage);
-  
-  // If either stage is not in progression order (terminal states), allow any change
   if (currentIndex === -1 || newIndex === -1) return true;
-  
-  // Only allow forward progression
-  return newIndex >= currentIndex;
+  return newIndex > currentIndex;
 };
 
 serve(async (req) => {
@@ -72,49 +65,70 @@ serve(async (req) => {
       });
     }
 
-    const { recruitNotionId, newStage, notes, forceUpdate = false } = await req.json();
+    // Get the user's rep record
+    const { data: repData } = await supabase
+      .from('reps')
+      .select('notion_page_id, stage, onboarding_complete, blitz_trip_date')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (!recruitNotionId || !newStage) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
+    if (!repData?.notion_page_id) {
+      return new Response(JSON.stringify({ updated: false, reason: 'No rep record found' }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // First, get the current stage from Notion to check progression
-    let currentStage: string | null = null;
+    // Get total FP+ from all daily entries
+    const { data: entries } = await supabase
+      .from('daily_entries')
+      .select('fp_plus')
+      .eq('user_id', user.id);
+
+    const totalFpPlus = entries?.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0) || 0;
+
+    // Check if they've attended a blitz (blitz trip date is in the past)
+    const hasAttendedBlitz = repData.blitz_trip_date 
+      ? new Date(repData.blitz_trip_date) < new Date()
+      : false;
     
-    if (notionApiKey) {
-      const getPageResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-        },
-      });
+    const onboardingComplete = repData.onboarding_complete ?? false;
+    const currentStage = repData.stage;
 
-      if (getPageResponse.ok) {
-        const pageData = await getPageResponse.json();
-        currentStage = pageData.properties?.Stage?.select?.name || null;
-      }
+    // Determine new stage based on metrics (check from most advanced to least)
+    let newStage: string | null = null;
+    let reason = '';
+
+    if (totalFpPlus >= 5 && canProgressToStage(currentStage, 'Sold (5+) 💰')) {
+      newStage = 'Sold (5+) 💰';
+      reason = '5+ FP+ achieved';
+    } else if (totalFpPlus > 0 && canProgressToStage(currentStage, 'Sold 💲')) {
+      newStage = 'Sold 💲';
+      reason = 'First sale recorded';
+    } else if (hasAttendedBlitz && canProgressToStage(currentStage, 'Shadow ✅')) {
+      newStage = 'Shadow ✅';
+      reason = 'Attended blitz';
+    } else if (onboardingComplete && canProgressToStage(currentStage, 'Signed')) {
+      newStage = 'Signed';
+      reason = 'Onboarding completed';
     }
 
-    // Check if this is a valid forward progression (unless forced)
-    if (!forceUpdate && !isForwardProgression(currentStage, newStage)) {
-      console.log(`Blocked backward stage change: ${currentStage} -> ${newStage}`);
+    if (!newStage || newStage === currentStage) {
       return new Response(JSON.stringify({ 
-        error: 'Cannot move stage backward',
+        updated: false, 
         currentStage,
-        requestedStage: newStage 
+        totalFpPlus,
+        onboardingComplete,
+        hasAttendedBlitz
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update in Notion
+    // Update stage in Notion
     if (notionApiKey) {
-      const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
+      const notionResponse = await fetch(`https://api.notion.com/v1/pages/${repData.notion_page_id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${notionApiKey}`,
@@ -133,32 +147,40 @@ serve(async (req) => {
       if (!notionResponse.ok) {
         const errorText = await notionResponse.text();
         console.error('Notion API error:', errorText);
-        throw new Error('Failed to update Notion');
+        throw new Error('Failed to update Notion stage');
       }
     }
 
-    // Log the stage change as an activity
-    const { error: activityError } = await supabase
+    // Also update local stage in reps table
+    await supabase
+      .from('reps')
+      .update({ stage: newStage })
+      .eq('user_id', user.id);
+
+    // Log the automatic stage change
+    await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: recruitNotionId,
+        rep_notion_page_id: repData.notion_page_id,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
-        notes: notes || `Stage changed to ${newStage}`,
+        notes: `Auto-progressed to ${newStage}: ${reason}`,
       });
 
-    if (activityError) {
-      console.error('Error logging activity:', activityError);
-    }
+    console.log(`Auto-progressed ${repData.notion_page_id} from ${currentStage} to ${newStage}: ${reason}`);
 
-    console.log(`Updated recruit ${recruitNotionId} to stage ${newStage} (from ${currentStage})`);
-
-    return new Response(JSON.stringify({ success: true, previousStage: currentStage }), {
+    return new Response(JSON.stringify({ 
+      updated: true, 
+      previousStage: currentStage,
+      newStage,
+      reason,
+      totalFpPlus
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error updating recruit stage:', error);
+    console.error('Error checking auto stage progression:', error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
