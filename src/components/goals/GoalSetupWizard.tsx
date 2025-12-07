@@ -65,7 +65,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
 
   // Form state - no prefilled values for goals
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
-  const [monthsOff, setMonthsOff] = useState<string>('4');
+  const [monthsOff, setMonthsOff] = useState<string>('8'); // Default to 8 months (summer job - most of year is school)
   const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]); // Default Single Shared
   const avgPrmrPerFp = 85; // Hardcoded to $85
   const [summerStart, setSummerStart] = useState<Date | undefined>(SUMMER_START_MIN);
@@ -186,7 +186,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
               </div>
 
               <div>
-                <Label htmlFor="monthsOff">Months Off During School</Label>
+                <Label htmlFor="monthsOff">Months Not Working at Vivint</Label>
                 <Input
                   id="monthsOff"
                   type="text"
@@ -194,10 +194,10 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
                   value={monthsOff}
                   onChange={(e) => handleNumberInput(e.target.value, setMonthsOff)}
                   className="mt-2"
-                  placeholder="4"
+                  placeholder="8"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  How many months you need to cover
+                  Months during the year you won't be selling (school, etc.) — defaults to 8 since this is a summer job
                 </p>
               </div>
 
