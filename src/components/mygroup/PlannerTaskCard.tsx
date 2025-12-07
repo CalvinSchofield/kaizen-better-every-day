@@ -1,6 +1,9 @@
-import { Phone, MessageSquare, CheckCircle2, Calendar } from "lucide-react";
+import { useState } from "react";
+import { Phone, MessageSquare, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { toast } from "sonner";
@@ -19,6 +22,7 @@ interface PlannerTaskCardProps {
 }
 
 export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardProps) => {
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const logActivityMutation = useLogRecruitActivity();
   
   const isOverdue = activity.next_action_due && isPast(parseISO(activity.next_action_due)) && !isToday(parseISO(activity.next_action_due));
@@ -55,6 +59,26 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     window.location.href = `sms:${recruit.phone}`;
   };
 
+  const handleReschedule = async (date: Date | undefined) => {
+    if (!date) return;
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    try {
+      await logActivityMutation.mutateAsync({
+        recruitNotionId: recruit.notionPageId,
+        activityType: 'next_step',
+        nextAction: activity.next_action || 'Follow up',
+        nextActionDue: dateStr,
+      });
+      toast.success(`Rescheduled to ${format(date, 'MMM d')}`);
+      setRescheduleOpen(false);
+    } catch (error) {
+      console.error('Failed to reschedule:', error);
+      toast.error('Failed to reschedule');
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -83,6 +107,32 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
           </Badge>
         </div>
         <div className="flex gap-1 flex-shrink-0">
+          <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CalendarDays className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className="w-auto p-0" 
+              align="end"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Calendar
+                mode="single"
+                selected={activity.next_action_due ? parseISO(activity.next_action_due) : undefined}
+                onSelect={handleReschedule}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="icon"
