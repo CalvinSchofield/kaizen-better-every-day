@@ -47,3 +47,15 @@ verify_jwt = false
 
 [functions.update-summer-dates]
 verify_jwt = false
+
+[functions.fetch-group-recruits]
+verify_jwt = false
+
+[functions.approve-recruit-suggestion]
+verify_jwt = false
+
+[functions.update-recruit-stage]
+verify_jwt = false
+
+[functions.log-recruit-activity]
+verify_jwt = false

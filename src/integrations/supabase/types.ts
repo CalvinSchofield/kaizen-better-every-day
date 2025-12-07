@@ -374,6 +374,93 @@ export type Database = {
         }
         Relationships: []
       }
+      recruit_activities: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["recruit_activity_type"]
+          completed_at: string | null
+          created_at: string
+          id: string
+          logged_by_user_id: string
+          next_action: string | null
+          next_action_due: string | null
+          notes: string | null
+          rep_notion_page_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["recruit_activity_type"]
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          logged_by_user_id: string
+          next_action?: string | null
+          next_action_due?: string | null
+          notes?: string | null
+          rep_notion_page_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["recruit_activity_type"]
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          logged_by_user_id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          notes?: string | null
+          rep_notion_page_id?: string
+        }
+        Relationships: []
+      }
+      recruit_suggestions: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          notion_page_id: string | null
+          phone: string
+          relationship: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
+          status: Database["public"]["Enums"]["suggestion_status"]
+          suggested_by_name: string
+          suggested_by_user_id: string
+          team_leader_notion_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          notion_page_id?: string | null
+          phone: string
+          relationship?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: Database["public"]["Enums"]["suggestion_status"]
+          suggested_by_name: string
+          suggested_by_user_id: string
+          team_leader_notion_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          notion_page_id?: string | null
+          phone?: string
+          relationship?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: Database["public"]["Enums"]["suggestion_status"]
+          suggested_by_name?: string
+          suggested_by_user_id?: string
+          team_leader_notion_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rep_goals: {
         Row: {
           avg_prmr_per_fp: number | null
@@ -682,7 +769,21 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      recruit_activity_type:
+        | "phone_call"
+        | "in_person"
+        | "note"
+        | "stage_change"
+        | "next_step"
+      recruit_stage:
+        | "100_list"
+        | "reached_out"
+        | "evaluating"
+        | "signed"
+        | "shadow_complete"
+        | "sold"
+        | "sold_5_plus"
+      suggestion_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -809,6 +910,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      recruit_activity_type: [
+        "phone_call",
+        "in_person",
+        "note",
+        "stage_change",
+        "next_step",
+      ],
+      recruit_stage: [
+        "100_list",
+        "reached_out",
+        "evaluating",
+        "signed",
+        "shadow_complete",
+        "sold",
+        "sold_5_plus",
+      ],
+      suggestion_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const
