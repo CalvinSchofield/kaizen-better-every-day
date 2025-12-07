@@ -251,40 +251,9 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             {/* POST-BLITZ ROOKIES & VETS/SOPHS */}
             {!isCalendarLocked && (
               <>
-                {/* KNOCKING MODE OFF: Show Goals, Reports (if leader), Track, Calendar, Insights */}
+                {/* KNOCKING MODE OFF: Show Track, Calendar, Insights, Reports (if leader) */}
                 {!isKnockingMode && (
                   <>
-                    <Link
-                      to="/goals"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <Trophy className="w-5 h-5 text-primary" />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-sm">Goals</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          Set your summer goals
-                        </span>
-                      </div>
-                    </Link>
-
-                    {/* Team Reports - Leaders only */}
-                    {isLeader && (
-                      <Link
-                        to="/team-reports"
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                      >
-                        <Users className="w-5 h-5 text-primary" />
-                        <div className="flex flex-col flex-1 min-w-0">
-                          <span className="font-semibold text-sm">Reports</span>
-                          <span className="text-xs text-muted-foreground truncate">
-                            View team performance
-                          </span>
-                        </div>
-                      </Link>
-                    )}
-
                     <Link
                       to="/track"
                       onClick={() => setOpen(false)}
@@ -326,6 +295,23 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                         </span>
                       </div>
                     </Link>
+
+                    {/* Team Reports - Leaders only */}
+                    {isLeader && (
+                      <Link
+                        to="/team-reports"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <Users className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="font-semibold text-sm">Reports</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            View team performance
+                          </span>
+                        </div>
+                      </Link>
+                    )}
                   </>
                 )}
 
