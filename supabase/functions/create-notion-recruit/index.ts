@@ -143,11 +143,13 @@ serve(async (req) => {
     });
 
     if (!notionResponse.ok) {
-      const errorText = await notionResponse.text();
-      console.error('Notion API error:', errorText);
+      const errorData = await notionResponse.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('Notion API error:', JSON.stringify(errorData, null, 2));
+      console.error('Notion response status:', notionResponse.status);
       return new Response(JSON.stringify({ 
         error: 'Failed to create recruit in Notion',
-        details: errorText 
+        details: errorData.message || JSON.stringify(errorData),
+        notionError: errorData,
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
