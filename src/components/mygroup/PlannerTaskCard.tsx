@@ -78,11 +78,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
             {activity.next_action || 'Follow up'}
           </p>
-          {activity.notes && activity.notes !== activity.next_action && (
-            <p className="text-xs text-muted-foreground/70 mt-0.5 line-clamp-1 italic">
-              {activity.notes}
-            </p>
-          )}
           <Badge variant="outline" className="text-xs mt-1.5">
             {recruit.stage}
           </Badge>
