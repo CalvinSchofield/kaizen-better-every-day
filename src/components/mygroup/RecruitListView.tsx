@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Phone, Calendar, AlertTriangle, ChevronRight, SortAsc, SortDesc } from "lucide-react";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
-import { differenceInDays, parseISO, format } from "date-fns";
+import { differenceInDays, parseISO, format, isBefore, startOfToday, isSameDay } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +28,11 @@ const STAGE_ORDER = [
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
+  'Potential Follow Up',
 ];
+
+// Stages that should be hidden unless follow-up is due
+const HIDDEN_STAGES = ['Not Interested', 'Signed but Not Interested'];
 
 export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) => {
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
@@ -59,7 +63,23 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
     }
   };
 
-  const sortedRecruits = [...recruits]
+  // Filter out hidden stages and show Potential Follow Up only if due
+  const filteredRecruits = recruits.filter(r => {
+    // Always hide Not Interested stages
+    if (HIDDEN_STAGES.includes(r.stage)) return false;
+    
+    // For Potential Follow Up, only show if due today or overdue
+    if (r.stage === 'Potential Follow Up') {
+      if (!r.nextActionDue) return false;
+      const dueDate = parseISO(r.nextActionDue);
+      const today = startOfToday();
+      return isBefore(dueDate, today) || isSameDay(dueDate, today);
+    }
+    
+    return true;
+  });
+
+  const sortedRecruits = [...filteredRecruits]
     .filter(r => !filterStale || isStale(r.lastContact))
     .sort((a, b) => {
       let comparison = 0;
@@ -68,7 +88,9 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
           comparison = a.name.localeCompare(b.name);
           break;
         case 'stage':
-          comparison = STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage);
+          const aIndex = STAGE_ORDER.indexOf(a.stage);
+          const bIndex = STAGE_ORDER.indexOf(b.stage);
+          comparison = (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
           break;
         case 'lastContact':
           const aDate = a.lastContact ? parseISO(a.lastContact).getTime() : 0;
@@ -179,7 +201,14 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
         recruit={selectedRecruit}
         activities={selectedRecruit ? getActivitiesForRecruit(selectedRecruit.notionPageId) : []}
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open && selectedRecruit) {
+            // Update selected recruit with latest data
+            const updated = recruits.find(r => r.notionPageId === selectedRecruit.notionPageId);
+            if (updated) setSelectedRecruit(updated);
+          }
+        }}
       />
     </>
   );
