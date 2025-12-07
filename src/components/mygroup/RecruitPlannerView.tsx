@@ -28,18 +28,18 @@ interface RecruitPlannerViewProps {
 
 export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewProps) => {
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => 
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+    startOfWeek(new Date(), { weekStartsOn: 0 })
   );
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const recommendations = useRecruitingRecommendations(recruits, activities);
 
-  // Get week days
+  // Get week days (starting Sunday)
   const weekDays = useMemo(() => 
     eachDayOfInterval({
       start: selectedWeekStart,
-      end: endOfWeek(selectedWeekStart, { weekStartsOn: 1 }),
+      end: endOfWeek(selectedWeekStart, { weekStartsOn: 0 }),
     }),
     [selectedWeekStart]
   );
@@ -104,7 +104,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
 
   const handlePrevWeek = () => setSelectedWeekStart(prev => subWeeks(prev, 1));
   const handleNextWeek = () => setSelectedWeekStart(prev => addWeeks(prev, 1));
-  const handleToday = () => setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const handleToday = () => setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
 
   const handleRecruitClick = (recruit: Recruit) => {
     setSelectedRecruit(recruit);
@@ -133,7 +133,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-3">
-          {format(selectedWeekStart, 'MMM d')} - {format(endOfWeek(selectedWeekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
+          {format(selectedWeekStart, 'MMM d')} - {format(endOfWeek(selectedWeekStart, { weekStartsOn: 0 }), 'MMM d, yyyy')}
         </p>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="flex items-center gap-1.5">
@@ -149,7 +149,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
           {signedNeedingNurture > 0 && (
             <Badge className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
               <Users className="h-3.5 w-3.5" />
-              {signedNeedingNurture} signed to nurture
+              {signedNeedingNurture} signed needing attention
             </Badge>
           )}
         </div>

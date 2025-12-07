@@ -22,10 +22,19 @@ const MyGroup = () => {
 
   const isLoading = accessLoading || recruitsLoading;
 
-  // Filter recruits by selected team if applicable
-  const filteredRecruits = groupData?.recruits || [];
+  const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];
   const activities = groupData?.activities || [];
+
+  // Filter recruits by selected team if applicable
+  const filteredRecruits = selectedTeamFilter 
+    ? allRecruits.filter(r => r.teamName === selectedTeamFilter || r.recruiterName === selectedTeamFilter)
+    : allRecruits;
+
+  // Filter activities to match filtered recruits
+  const filteredActivities = selectedTeamFilter
+    ? activities.filter(a => filteredRecruits.some(r => r.notionPageId === a.rep_notion_page_id))
+    : activities;
 
   if (isLoading) {
     return (
@@ -84,11 +93,11 @@ const MyGroup = () => {
         {/* Main Content */}
         {isLeader ? (
           viewMode === 'board' ? (
-            <RecruitKanbanBoard recruits={filteredRecruits} activities={activities} />
+            <RecruitKanbanBoard recruits={filteredRecruits} activities={filteredActivities} />
           ) : viewMode === 'list' ? (
-            <RecruitListView recruits={filteredRecruits} activities={activities} />
+            <RecruitListView recruits={filteredRecruits} activities={filteredActivities} />
           ) : (
-            <RecruitPlannerView recruits={filteredRecruits} activities={activities} />
+            <RecruitPlannerView recruits={filteredRecruits} activities={filteredActivities} />
           )
         ) : (
           <div className="text-center py-12 text-muted-foreground">
