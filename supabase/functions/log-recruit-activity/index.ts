@@ -98,9 +98,12 @@ serve(async (req) => {
       }
       
       if (nextActionDue) {
-        console.log(`Setting Next Action Due to: ${nextActionDue}`);
+        // Append noon time to prevent timezone shifts from pushing the date to previous day
+        // Notion interprets dates without time as midnight UTC, which shifts backward in US timezones
+        const dateWithNoon = `${nextActionDue}T12:00:00`;
+        console.log(`Setting Next Action Due to: ${dateWithNoon} (original: ${nextActionDue})`);
         properties['Next Action Due'] = {
-          date: { start: nextActionDue }
+          date: { start: dateWithNoon }
         };
       }
 
