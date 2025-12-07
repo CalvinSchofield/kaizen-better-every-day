@@ -155,9 +155,12 @@ const BOOKS: Book[] = [
   }
 ];
 
-// Get book cover URL from Open Library
+// Get book cover URL from Open Library (use -L for larger size)
 const getBookCoverUrl = (isbn: string) => 
-  `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
+  `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+
+// Fallback placeholder for missing covers
+const BOOK_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='120' viewBox='0 0 80 120'%3E%3Crect fill='%23374151' width='80' height='120' rx='4'/%3E%3Cpath d='M25 35h30M25 50h30M25 65h20' stroke='%236B7280' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E";
 
 // Use localStorage to track which specific books are read
 const BOOKS_READ_KEY = "kaizen-books-read";
@@ -324,12 +327,13 @@ export const BooksSection = () => {
                   src={getBookCoverUrl(book.isbn)} 
                   alt={`${book.title} cover`}
                   className={cn(
-                    "w-12 h-16 object-cover rounded shadow-sm flex-shrink-0 transition-opacity",
+                    "w-12 h-16 object-cover rounded shadow-sm flex-shrink-0 transition-opacity bg-muted",
                     isRead && "opacity-60"
                   )}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).src = BOOK_PLACEHOLDER;
                   }}
+                  loading="lazy"
                 />
                 <div className="flex-1 min-w-0">
                   <CollapsibleTrigger asChild>
