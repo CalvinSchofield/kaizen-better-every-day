@@ -89,21 +89,23 @@ serve(async (req) => {
         }
       }
       
-      // Always update Next Action and Next Action Due when provided (for next_step activity type)
-      if (nextAction) {
-        console.log(`Setting Next Action to: "${nextAction}"`);
-        properties['Next Action'] = {
-          rich_text: [{ text: { content: nextAction } }]
-        };
-      }
-      
+      // Update Next Action (which is a DATE property in Notion, not text)
+      // The property is just called "Next Action" and stores the date directly
       if (nextActionDue) {
         // Append noon time to prevent timezone shifts from pushing the date to previous day
         // Notion interprets dates without time as midnight UTC, which shifts backward in US timezones
         const dateWithNoon = `${nextActionDue}T12:00:00`;
-        console.log(`Setting Next Action Due to: ${dateWithNoon} (original: ${nextActionDue})`);
-        properties['Next Action Due'] = {
+        console.log(`Setting Next Action date to: ${dateWithNoon} (original: ${nextActionDue})`);
+        properties['Next Action'] = {
           date: { start: dateWithNoon }
+        };
+      }
+      
+      // Store next action text in Next Steps property (rich_text) if provided
+      if (nextAction) {
+        console.log(`Setting Next Steps to: "${nextAction}"`);
+        properties['Next Steps'] = {
+          rich_text: [{ text: { content: nextAction } }]
         };
       }
 
