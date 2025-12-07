@@ -60,22 +60,45 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     return activities.filter(a => a.rep_notion_page_id === recruitNotionId);
   };
 
+  // Get the most recent contact date from Supabase activities
+  // Prioritize phone_call and in_person activities as they represent actual contact
+  const getLastContactFromActivities = (recruitNotionId: string): string | null => {
+    const recruitActivities = activities.filter(a => 
+      a.rep_notion_page_id === recruitNotionId &&
+      (a.activity_type === 'phone_call' || a.activity_type === 'in_person')
+    );
+    
+    if (recruitActivities.length === 0) return null;
+    
+    // Sort by created_at descending to get most recent
+    const sorted = [...recruitActivities].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    return sorted[0].created_at;
+  };
+
   // Show stale warning based on stage-specific thresholds
+  // Uses the latest contact from Supabase activities, falling back to Notion lastContact
   const isStale = (recruit: Recruit) => {
     const stage = recruit.stage?.toLowerCase() || '';
     
     // Don't show warning for completed/closed stages
     if (stage.includes('not interested')) return false;
     
+    // Get last contact from our Supabase activities first (more reliable)
+    const activityLastContact = getLastContactFromActivities(recruit.notionPageId);
+    const lastContact = activityLastContact || recruit.lastContact;
+    
     // For Sold reps, 14 day threshold (they need less frequent check-ins)
     if (stage.includes('sold') || stage.includes('5+')) {
-      if (!recruit.lastContact) return false;
-      return differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 14;
+      if (!lastContact) return false;
+      return differenceInDays(new Date(), parseISO(lastContact)) >= 14;
     }
     
     // For all other stages (100 List, Reached Out, Evaluating, Signed, Shadow), 7 days
-    if (!recruit.lastContact) return true; // Never contacted = needs attention
-    return differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 7;
+    if (!lastContact) return true; // Never contacted = needs attention
+    return differenceInDays(new Date(), parseISO(lastContact)) >= 7;
   };
 
   const handleDragStart = (e: React.DragEvent, recruit: Recruit) => {

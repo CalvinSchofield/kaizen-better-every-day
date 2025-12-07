@@ -20,6 +20,23 @@ interface RecruitListViewProps {
 
 type SortKey = 'name' | 'stage' | 'lastContact' | 'nextActionDue';
 
+// Get the most recent contact date from activities for a recruit
+const getLastContactFromActivities = (recruitNotionId: string, activities: RecruitActivity[]): string | null => {
+  const recruitActivities = activities.filter(a => 
+    a.rep_notion_page_id === recruitNotionId &&
+    (a.activity_type === 'phone_call' || a.activity_type === 'in_person')
+  );
+  
+  if (recruitActivities.length === 0) return null;
+  
+  // Sort by created_at descending to get most recent
+  const sorted = [...recruitActivities].sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  
+  return sorted[0].created_at;
+};
+
 // Stage order follows the recruiting flow from early to late stage
 const STAGE_ORDER = [
   '100 List',
@@ -42,7 +59,23 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
   const [sortDesc, setSortDesc] = useState(true);
   const [filterStale, setFilterStale] = useState(false);
 
-  const isStale = (lastContact: string | null) => {
+  // Calculate effective last contact from activities for a recruit
+  const getEffectiveLastContact = (recruit: Recruit): string | null => {
+    const activityLastContact = getLastContactFromActivities(recruit.notionPageId, activities);
+    return activityLastContact || recruit.lastContact;
+  };
+
+  const isStale = (recruit: Recruit) => {
+    const lastContact = getEffectiveLastContact(recruit);
+    const stage = recruit.stage?.toLowerCase() || '';
+    
+    // For Sold reps, 14 day threshold
+    if (stage.includes('sold') || stage.includes('5+')) {
+      if (!lastContact) return false;
+      return differenceInDays(new Date(), parseISO(lastContact)) >= 14;
+    }
+    
+    // For all other stages, 7 days
     if (!lastContact) return true;
     return differenceInDays(new Date(), parseISO(lastContact)) >= 7;
   };
@@ -81,7 +114,7 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
   });
 
   const sortedRecruits = [...filteredRecruits]
-    .filter(r => !filterStale || isStale(r.lastContact))
+    .filter(r => !filterStale || isStale(r))
     .sort((a, b) => {
       let comparison = 0;
       switch (sortKey) {
@@ -99,8 +132,10 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
         case 'lastContact':
           // Sort by who needs contact most (longest time since last contact first)
           // null/undefined = never contacted = most urgent
-          const aContactDate = a.lastContact ? parseISO(a.lastContact).getTime() : 0;
-          const bContactDate = b.lastContact ? parseISO(b.lastContact).getTime() : 0;
+          const aEffectiveContact = getEffectiveLastContact(a);
+          const bEffectiveContact = getEffectiveLastContact(b);
+          const aContactDate = aEffectiveContact ? parseISO(aEffectiveContact).getTime() : 0;
+          const bContactDate = bEffectiveContact ? parseISO(bEffectiveContact).getTime() : 0;
           // Oldest contacts first (smallest time = contacted longest ago)
           comparison = aContactDate - bContactDate;
           // Default sort (desc=true): show oldest contacts first (needs contact most)
@@ -187,7 +222,7 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium truncate">{recruit.name}</p>
-                    {isStale(recruit.lastContact) && (
+                    {isStale(recruit) && (
                       <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                     )}
                   </div>
