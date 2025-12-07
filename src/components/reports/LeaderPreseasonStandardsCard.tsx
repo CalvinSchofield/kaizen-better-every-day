@@ -630,72 +630,137 @@ const RepCard = ({
     commitments: CommitmentStatus[];
   };
   onTextRep: (rep: any, e: React.MouseEvent) => void;
-}) => (
-  <div 
-    className={cn(
-      "p-3 rounded-lg border",
-      rep.behindCount > 0 && "border-destructive/30 bg-destructive/5",
-      !rep.hasGoals && "border-muted bg-muted/30"
-    )}
-  >
-    {/* Rep header */}
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-sm">{rep.displayName}</span>
-        {rep.year && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            {rep.year}
-          </Badge>
-        )}
-        {rep.behindCount > 0 && (
-          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-            {rep.behindCount} behind
-          </Badge>
-        )}
-        {rep.hasGoals && rep.behindCount === 0 && (
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div 
+      className={cn(
+        "p-3 rounded-lg border cursor-pointer transition-colors",
+        rep.behindCount > 0 && "border-destructive/30 bg-destructive/5",
+        !rep.hasGoals && "border-muted bg-muted/30",
+        isExpanded && "ring-1 ring-primary/20"
+      )}
+      onClick={() => setIsExpanded(!isExpanded)}
+    >
+      {/* Rep header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <ChevronRight className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform",
+            isExpanded && "rotate-90"
+          )} />
+          <span className="font-medium text-sm">{rep.displayName}</span>
+          {rep.year && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {rep.year}
+            </Badge>
+          )}
+          {rep.behindCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              {rep.behindCount} behind
+            </Badge>
+          )}
+          {rep.hasGoals && rep.behindCount === 0 && (
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+          )}
+        </div>
+        
+        {/* Text button */}
+        {rep.phone && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTextRep(rep, e);
+            }}
+            title="Send encouragement text"
+          >
+            <MessageSquare className="h-4 w-4 text-primary" />
+          </Button>
         )}
       </div>
       
-      {/* Text button */}
-      {rep.phone && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={(e) => onTextRep(rep, e)}
-          title="Send encouragement text"
-        >
-          <MessageSquare className="h-4 w-4 text-primary" />
-        </Button>
+      {/* Commitments summary (collapsed view) */}
+      {!isExpanded && rep.hasGoals && rep.commitments.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {rep.commitments.map((c) => (
+            <div 
+              key={c.key}
+              className={cn(
+                "text-xs p-1.5 rounded text-center",
+                c.status === "behind" && "bg-destructive/10 text-destructive",
+                c.status === "on-track" && "bg-muted",
+                c.status === "ahead" && "bg-green-500/10 text-green-600 dark:text-green-400"
+              )}
+            >
+              <div className="font-medium truncate">{c.label}</div>
+              <div className="text-[10px] opacity-80">
+                {c.current}/{c.goal}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Expanded detail view with progress bars */}
+      {isExpanded && rep.hasGoals && rep.commitments.length > 0 && (
+        <div className="space-y-3 mt-2">
+          {rep.commitments.map((c) => {
+            const progress = c.goal > 0 ? Math.min((c.current / c.goal) * 100, 100) : 0;
+            
+            return (
+              <div key={c.key} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className={cn(
+                    "font-medium",
+                    c.status === "behind" && "text-destructive",
+                    c.status === "ahead" && "text-green-600 dark:text-green-400"
+                  )}>
+                    {c.label}
+                  </span>
+                  <span className={cn(
+                    "font-medium",
+                    c.status === "behind" && "text-destructive",
+                    c.status === "ahead" && "text-green-600 dark:text-green-400"
+                  )}>
+                    {c.current}/{c.goal}
+                    {c.unit && <span className="text-muted-foreground ml-0.5">{c.unit}</span>}
+                  </span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      c.status === "behind" && "bg-destructive",
+                      c.status === "on-track" && "bg-primary",
+                      c.status === "ahead" && "bg-green-500"
+                    )}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>
+                    {c.status === "behind" && "Behind pace"}
+                    {c.status === "on-track" && "On track"}
+                    {c.status === "ahead" && "Goal reached!"}
+                  </span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {!rep.hasGoals && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          <span>Goals not set up</span>
+        </div>
       )}
     </div>
-    
-    {/* Commitments */}
-    {rep.hasGoals && rep.commitments.length > 0 ? (
-      <div className="grid grid-cols-3 gap-2">
-        {rep.commitments.map((c) => (
-          <div 
-            key={c.key}
-            className={cn(
-              "text-xs p-1.5 rounded text-center",
-              c.status === "behind" && "bg-destructive/10 text-destructive",
-              c.status === "on-track" && "bg-muted",
-              c.status === "ahead" && "bg-green-500/10 text-green-600 dark:text-green-400"
-            )}
-          >
-            <div className="font-medium truncate">{c.label}</div>
-            <div className="text-[10px] opacity-80">
-              {c.current}/{c.goal}
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        <span>Goals not set up</span>
-      </div>
-    )}
-  </div>
-);
+  );
+};
