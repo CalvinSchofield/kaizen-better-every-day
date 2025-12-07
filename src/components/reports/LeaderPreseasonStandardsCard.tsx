@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { 
   ChevronDown, 
@@ -211,7 +212,7 @@ export const LeaderPreseasonStandardsCard = ({
   accessLevel = 'none',
 }: LeaderPreseasonStandardsCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [filter, setFilter] = useState<"all" | "behind" | "on-track" | "no-goals">("all");
+  const [showBehindOnly, setShowBehindOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("year");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
@@ -346,35 +347,23 @@ export const LeaderPreseasonStandardsCard = ({
     });
   }, [repsWithGoals, sortBy]);
 
-  // Filter reps based on selected filter (applied to sorted list)
+  // Filter reps based on toggle
   const filteredReps = useMemo(() => {
-    switch (filter) {
-      case "behind":
-        return sortedReps.filter(r => r.behindCount > 0);
-      case "on-track":
-        return sortedReps.filter(r => r.hasGoals && r.behindCount === 0);
-      case "no-goals":
-        return sortedReps.filter(r => !r.hasGoals);
-      default:
-        return sortedReps;
+    if (showBehindOnly) {
+      return sortedReps.filter(r => r.behindCount > 0);
     }
-  }, [sortedReps, filter]);
+    return sortedReps;
+  }, [sortedReps, showBehindOnly]);
 
   // Filter grouped reps
   const filteredGroupedReps = useMemo(() => {
     if (!groupedReps) return null;
 
     const filterRep = (rep: typeof repsWithGoals[0]) => {
-      switch (filter) {
-        case "behind":
-          return rep.behindCount > 0;
-        case "on-track":
-          return rep.hasGoals && rep.behindCount === 0;
-        case "no-goals":
-          return !rep.hasGoals;
-        default:
-          return true;
+      if (showBehindOnly) {
+        return rep.behindCount > 0;
       }
+      return true;
     };
 
     const result: Map<string, typeof groupedReps extends Map<string, infer V> ? V : never> = new Map();
@@ -406,7 +395,7 @@ export const LeaderPreseasonStandardsCard = ({
     });
 
     return result;
-  }, [groupedReps, filter]);
+  }, [groupedReps, showBehindOnly]);
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => {
@@ -509,23 +498,17 @@ export const LeaderPreseasonStandardsCard = ({
           </div>
         </div>
         
-        {/* Filter pills and Text All Behind button */}
-        <div className="flex items-center justify-between pt-2 gap-2">
-          <div className="flex gap-1 flex-wrap flex-1">
-            {(["all", "behind", "on-track", "no-goals"] as const).map((f) => (
-              <Button
-                key={f}
-                variant={filter === f ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setFilter(f)}
-              >
-                {f === "all" && `All (${stats.total})`}
-                {f === "behind" && `Behind (${stats.behind})`}
-                {f === "on-track" && `On Track (${stats.onTrack})`}
-                {f === "no-goals" && `No Goals (${stats.noGoals})`}
-              </Button>
-            ))}
+        {/* Toggle and Text All Behind button */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={showBehindOnly}
+              onCheckedChange={setShowBehindOnly}
+              className="data-[state=checked]:bg-destructive"
+            />
+            <span className="text-xs text-muted-foreground">
+              Behind only
+            </span>
           </div>
           
           {behindRepsWithPhone.length > 0 && (
