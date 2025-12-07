@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3 } from "lucide-react";
+import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
@@ -95,6 +95,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     const isVetOrSoph = year === "Vet" || year === "Sophomore";
     const isPostBlitzRookie = year === "Rookie" && hasAttendedBlitz;
     const isPreBlitzRookie = year === "Rookie" && !hasAttendedBlitz;
+    const hasCompletedPhase1 = repData?.ramp_phase_1_complete === true;
 
     if (isKnockingMode) {
       // KNOCKING MODE ON
@@ -119,16 +120,27 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     // KNOCKING MODE OFF (Preseason)
     if (isVetOrSoph || isPostBlitzRookie) {
-      // Vets/Sophomores & Post-blitz Rookies: HOME, TRAINING, TOOLS, TRACK
+      // Vets/Sophomores & Post-blitz Rookies: HOME, TRAINING, TOOLS, GOALS
       return [
         { path: "/", icon: Home, label: "Home" },
         { path: "/training", icon: BookOpen, label: "Training" },
         { path: "/tools", icon: Wrench, label: "Tools" },
-        { path: "/track", icon: Target, label: "Track" },
+        { path: "/goals", icon: Trophy, label: "Goals" },
       ];
     }
 
-    // Pre-blitz Rookies: HOME, TRAINING, TOOLS
+    // Pre-blitz Rookies
+    if (isPreBlitzRookie && hasCompletedPhase1) {
+      // Phase 1 complete: HOME, TRAINING, TOOLS, GOALS
+      return [
+        { path: "/", icon: Home, label: "Home" },
+        { path: "/training", icon: BookOpen, label: "Training" },
+        { path: "/tools", icon: Wrench, label: "Tools" },
+        { path: "/goals", icon: Trophy, label: "Goals" },
+      ];
+    }
+
+    // Pre-blitz Rookies (Phase 1 not complete): HOME, TRAINING, TOOLS
     return [
       { path: "/", icon: Home, label: "Home" },
       { path: "/training", icon: BookOpen, label: "Training" },
