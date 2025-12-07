@@ -1434,7 +1434,21 @@ export const RecruitDetailDrawer = ({
               <Label>Phone Number</Label>
               <Input
                 value={newPhoneNumber}
-                onChange={(e) => setNewPhoneNumber(e.target.value)}
+                onChange={(e) => {
+                  // Auto-format phone number as user types
+                  const input = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  let formatted = '';
+                  if (input.length > 0) {
+                    formatted = '(' + input.slice(0, 3);
+                    if (input.length > 3) {
+                      formatted += ') ' + input.slice(3, 6);
+                      if (input.length > 6) {
+                        formatted += '-' + input.slice(6, 10);
+                      }
+                    }
+                  }
+                  setNewPhoneNumber(formatted || input);
+                }}
                 placeholder="(555) 123-4567"
                 type="tel"
                 className="mt-1"

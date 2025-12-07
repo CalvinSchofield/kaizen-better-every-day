@@ -19,9 +19,20 @@ import {
   isPast,
   isToday as isDateToday,
   isBefore,
-  startOfToday
+  startOfToday,
+  isTomorrow,
+  differenceInDays,
+  isThisWeek
 } from "date-fns";
 import { cn } from "@/lib/utils";
+
+// Helper to get first name from full name
+const getFirstName = (name: string | null): string => {
+  if (!name) return '';
+  // Strip emojis first
+  const cleaned = name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
+  return cleaned.split(' ')[0];
+};
 
 // Stages that should be hidden unless follow-up is due
 const HIDDEN_STAGES = ['Not Interested', 'Signed but Not Interested'];
@@ -126,6 +137,46 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
   const handleNextWeek = () => setSelectedWeekStart(prev => addWeeks(prev, 1));
   const handleToday = () => setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
 
+  // Get week label based on selected week
+  const weekLabel = useMemo(() => {
+    const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+    const diff = differenceInDays(selectedWeekStart, currentWeekStart);
+    if (diff === 0) return 'This Week';
+    if (diff === 7) return 'Next Week';
+    if (diff === -7) return 'Last Week';
+    return format(selectedWeekStart, 'MMM d') + ' - ' + format(endOfWeek(selectedWeekStart, { weekStartsOn: 0 }), 'MMM d');
+  }, [selectedWeekStart]);
+
+  // Get upcoming tasks for when today has nothing scheduled
+  const upcomingTasks = useMemo(() => {
+    const today = startOfToday();
+    const upcoming: { recruit: Recruit; activity: RecruitActivity; daysAway: number; label: string }[] = [];
+    
+    scheduledTasks.forEach((tasks, dateStr) => {
+      const date = parseISO(dateStr);
+      if (isBefore(date, today) || isSameDay(date, today)) return; // Skip past and today
+      
+      const daysAway = differenceInDays(date, today);
+      if (daysAway > 7) return; // Only show next 7 days
+      
+      let label = '';
+      if (isTomorrow(date)) {
+        label = 'Tomorrow';
+      } else if (isThisWeek(date, { weekStartsOn: 0 })) {
+        label = format(date, 'EEEE'); // Day name
+      } else {
+        label = `In ${daysAway} days`;
+      }
+      
+      tasks.forEach(({ recruit, activity }) => {
+        upcoming.push({ recruit, activity, daysAway, label });
+      });
+    });
+    
+    // Sort by days away and take first 3
+    return upcoming.sort((a, b) => a.daysAway - b.daysAway).slice(0, 3);
+  }, [scheduledTasks]);
+
   const handleRecruitClick = (recruit: Recruit) => {
     setSelectedRecruit(recruit);
     setDrawerOpen(true);
@@ -139,7 +190,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
       {/* Hero Summary Card */}
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-xl p-4 border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">This Week</h3>
+          <h3 className="font-semibold">{weekLabel}</h3>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevWeek}>
               <ChevronLeft className="h-4 w-4" />
@@ -237,9 +288,32 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
                 )}
               </div>
               {dayTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing scheduled
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Nothing scheduled
+                  </p>
+                  {/* Show upcoming tasks when today has nothing */}
+                  {isToday && upcomingTasks.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Coming up:</p>
+                      {upcomingTasks.map(({ recruit, activity, label }) => (
+                        <div 
+                          key={`upcoming-${recruit.notionPageId}-${activity.id}`}
+                          className="flex items-center justify-between bg-muted/50 rounded-lg p-2 cursor-pointer hover:bg-muted transition-colors"
+                          onClick={() => handleRecruitClick(recruit)}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="text-xs font-medium text-primary whitespace-nowrap">{label}</div>
+                            <span className="text-sm truncate">{getFirstName(recruit.name)}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs shrink-0 ml-2">
+                            {recruit.stage}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
                   {dayTasks.map(({ recruit, activity }) => (
