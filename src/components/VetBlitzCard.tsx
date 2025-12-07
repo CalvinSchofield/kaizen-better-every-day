@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -444,6 +444,51 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       toast({
         title: "Update failed",
         description: "Could not update contacted status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleDeclinedStatus = async (memberId: string, blitzId: string) => {
+    const currentDeclined = declinedMembers[blitzId] || [];
+    const isDeclined = currentDeclined.includes(memberId);
+    const newDeclined = isDeclined
+      ? currentDeclined.filter(id => id !== memberId)
+      : [...currentDeclined, memberId];
+
+    // Optimistic update
+    setDeclinedMembers(prev => ({
+      ...prev,
+      [blitzId]: newDeclined,
+    }));
+
+    try {
+      const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
+        body: {
+          blitzId,
+          repNotionPageId: memberId,
+          isDeclined: !isDeclined,
+        },
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: isDeclined ? "Decline removed" : "Marked as declined",
+        description: isDeclined 
+          ? "Team member is back in the invite list"
+          : "Team member marked as declined for this blitz",
+      });
+    } catch (error) {
+      console.error('Error updating declined status:', error);
+      // Revert on error
+      setDeclinedMembers(prev => ({
+        ...prev,
+        [blitzId]: currentDeclined,
+      }));
+      toast({
+        title: "Update failed",
+        description: "Could not update declined status",
         variant: "destructive",
       });
     }
@@ -1029,16 +1074,42 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                     <span className="text-xs text-muted-foreground">(declined)</span>
                                   )}
                                 </button>
-                                {!isContactedForThisBlitz && !isDeclinedForThisBlitz && (
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    className="h-7 px-3 text-xs"
-                                    onClick={() => promptMemberCommitment(member, blitz.id, false)}
-                                  >
-                                    Commit
-                                  </Button>
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  {isDeclinedForThisBlitz ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs text-muted-foreground"
+                                      onClick={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                    >
+                                      Undo
+                                    </Button>
+                                  ) : (
+                                    <>
+                                      {!isContactedForThisBlitz && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                            title="Mark as declined"
+                                          >
+                                            <X className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="default"
+                                            className="h-7 px-3 text-xs"
+                                            onClick={() => promptMemberCommitment(member, blitz.id, false)}
+                                          >
+                                            Commit
+                                          </Button>
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             );
                           })
