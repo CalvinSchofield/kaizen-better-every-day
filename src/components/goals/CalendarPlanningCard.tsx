@@ -12,10 +12,14 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useRepData } from "@/hooks/useRepData";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
 
 // Define season boundaries
 const PRESEASON_START = '2025-09-28';
@@ -83,6 +87,7 @@ export const CalendarPlanningCard = ({
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
+  const queryClient = useQueryClient();
   
   // Debounce timer ref for saving preseason goal
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1008,7 +1013,7 @@ export const CalendarPlanningCard = ({
         open={dateOutOfRangeSheet?.open || false} 
         onOpenChange={(open) => !open && setDateOutOfRangeSheet(null)}
       >
-        <SheetContent side="bottom" className="rounded-t-3xl">
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <div className="flex items-center gap-2 text-amber-500">
               <AlertCircle className="h-5 w-5" />
@@ -1030,14 +1035,88 @@ export const CalendarPlanningCard = ({
           <div className="mt-4 space-y-4">
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <p className="text-sm text-foreground">
-                <strong>Important:</strong> Marking extra days here doesn't change your official summer dates with Vivint or affect your rent deductions. To officially change your start/end dates, you need to coordinate with your leader.
+                <strong>Important:</strong> Marking extra days here doesn't change your official summer dates with Vivint or affect your rent deductions. To officially change your start/end dates, coordinate with your leader.
               </p>
+            </div>
+
+            {/* Inline Date Picker for quick update */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {dateOutOfRangeSheet?.isBeforeStart 
+                  ? "Update your summer start date:"
+                  : "Update your summer end date:"
+                }
+              </p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateOutOfRangeSheet?.isBeforeStart 
+                      ? format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')
+                      : format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <CalendarPicker
+                    mode="single"
+                    selected={dateOutOfRangeSheet?.isBeforeStart 
+                      ? parseLocalDate(personalSummerStart)
+                      : parseLocalDate(personalSummerEnd)
+                    }
+                    onSelect={async (selectedDate) => {
+                      if (!selectedDate || !repData?.user_id) return;
+                      
+                      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                      const updateField = dateOutOfRangeSheet?.isBeforeStart 
+                        ? 'personal_summer_start' 
+                        : 'personal_summer_end';
+                      
+                      const { error } = await supabase
+                        .from('season_config')
+                        .upsert({
+                          user_id: repData.user_id,
+                          [updateField]: dateStr,
+                        }, { onConflict: 'user_id' });
+                      
+                      if (error) {
+                        toast.error('Failed to update summer dates');
+                        console.error(error);
+                      } else {
+                        toast.success(`Summer ${dateOutOfRangeSheet?.isBeforeStart ? 'start' : 'end'} date updated!`);
+                        queryClient.invalidateQueries({ queryKey: ['season-config-for-goals'] });
+                        queryClient.invalidateQueries({ queryKey: ['season-config'] });
+                        
+                        // Now toggle the day since it's within range
+                        const clickedDate = dateOutOfRangeSheet?.date;
+                        setDateOutOfRangeSheet(null);
+                        if (clickedDate) {
+                          await togglePlannedDay(clickedDate);
+                        }
+                      }
+                    }}
+                    disabled={(date) => {
+                      const summerStart = parseLocalDate(SUMMER_START);
+                      const summerEnd = parseLocalDate(SUMMER_END);
+                      // For start date: must be within global summer bounds
+                      // For end date: must be after personal start and within global bounds
+                      if (dateOutOfRangeSheet?.isBeforeStart) {
+                        return date < summerStart || date > summerEnd;
+                      } else {
+                        return date < parseLocalDate(personalSummerStart) || date > summerEnd;
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             
             <div className="space-y-2">
               {repData?.team_leader_phone && (
                 <Button 
-                  variant="default"
+                  variant="outline"
                   className="w-full gap-2"
                   onClick={() => {
                     const phone = repData.team_leader_phone?.replace(/\D/g, '');
@@ -1047,16 +1126,15 @@ export const CalendarPlanningCard = ({
                         : `Hey! I'd like to extend my summer end date. Can you help me get my dates changed with the company?`
                     );
                     window.open(`sms:${phone}?body=${message}`, '_blank');
-                    setDateOutOfRangeSheet(null);
                   }}
                 >
                   <MessageCircle className="h-4 w-4" />
-                  Text {repData.team_leader || 'My Leader'}
+                  Text {repData.team_leader || 'My Leader'} About Official Dates
                 </Button>
               )}
               
               <Button 
-                variant="outline"
+                variant="secondary"
                 className="w-full"
                 onClick={async () => {
                   // Mark the day and dismiss future warnings for this boundary
@@ -1078,7 +1156,7 @@ export const CalendarPlanningCard = ({
                   }
                 }}
               >
-                I Understand, Mark Day Anyway
+                Keep Current Dates, Mark Day Anyway
               </Button>
               
               <Button 

@@ -15,11 +15,11 @@ type GroupBy = 'day' | 'week' | 'month';
 type MetricType = 'primary' | 'secondary'; // primary = FP+ or EFP, secondary = PRMR or FP+
 type GoalLineType = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
-// Season date constants
-const PRESEASON_START = '2025-01-25';
-const PRESEASON_END = '2025-04-11';
-const SUMMER_START = '2025-04-12';
-const SUMMER_END = '2025-09-27';
+// Season date constants - match CalendarPlanningCard
+const PRESEASON_START = '2025-09-28';
+const PRESEASON_END = '2026-04-11';
+const SUMMER_START = '2026-04-12';
+const SUMMER_END = '2026-09-27';
 
 const parseLocalDate = (dateString: string): Date => {
   const [year, month, day] = dateString.split('-').map(Number);
@@ -334,8 +334,10 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
         ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
         : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
 
-  // Check if goal line should be available (only for FP+ primary mode)
-  const canShowGoalLine = metricType === 'primary' && !efpModeEnabled && goals?.setup_complete;
+  // Check if goal line should be available (only for FP+ primary mode when there's a goal set)
+  const hasPreseasonGoal = (goals?.preseason_fp_goal || 0) > 0;
+  const hasSummerGoals = (goals?.must_do_fp_goal || 0) > 0;
+  const canShowGoalLine = metricType === 'primary' && !efpModeEnabled && (hasPreseasonGoal || hasSummerGoals);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
