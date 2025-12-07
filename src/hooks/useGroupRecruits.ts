@@ -84,6 +84,8 @@ export const useGroupRecruits = () => {
         .maybeSingle();
       
       const leaderNotionId = currentRep?.notion_page_id;
+      const currentUserId = session.user.id;
+      
       if (!leaderNotionId) {
         return { recruits: [], activities: [], pendingSuggestions: [] };
       }
@@ -140,7 +142,6 @@ export const useGroupRecruits = () => {
           recruits = (teamData?.teamMembers || [])
             .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
             .map((member: any) => {
-              const teamInfo = repTeamInfoMap.get(member.notionPageId);
               return {
                 notionPageId: member.notionPageId,
                 name: member.name,
@@ -149,9 +150,9 @@ export const useGroupRecruits = () => {
                 stage: member.stage,
                 recruiterNotionId: leaderNotionId,
                 recruiterName: member.recruiter || null,
-                teamName: teamInfo?.teamName || member.teamName || null,
-                teamId: teamInfo?.teamId || null,
-                mgmtGroupId: teamInfo?.mgmtGroupId || null,
+                teamName: member.teamName || null,
+                teamId: member.teamId || null, // Now comes directly from edge function
+                mgmtGroupId: member.mgmtGroupId || null, // Now comes directly from edge function
                 year: member.year || '',
                 lastContact: null,
                 nextAction: null,
@@ -191,6 +192,9 @@ export const useGroupRecruits = () => {
             };
           });
       }
+
+      // Exclude the current user from the recruits list - they shouldn't see themselves
+      recruits = recruits.filter(r => r.notionPageId !== leaderNotionId);
 
       // Fetch activities for these recruits
       let activities: RecruitActivity[] = [];
