@@ -12,7 +12,8 @@ serve(async (req) => {
 
   try {
     const notionApiKey = Deno.env.get('NOTION_API_KEY');
-    const notionRepsDbId = Deno.env.get('NOTION_REPS_DATABASE_ID') || '99130d187a8c4bbda60c77a230ddc364';
+    // Use hardcoded database ID - the NOTION_REPS_DATABASE_ID secret is for a different purpose
+    const notionRepsDbId = '99130d187a8c4bbda60c77a230ddc364';
 
     if (!notionApiKey) {
       return new Response(JSON.stringify({ error: 'Notion configuration missing' }), {

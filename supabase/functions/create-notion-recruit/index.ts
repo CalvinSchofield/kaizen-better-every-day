@@ -23,10 +23,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const notionApiKey = Deno.env.get('NOTION_API_KEY');
-    const notionRepsDbId = Deno.env.get('NOTION_REPS_DATABASE_ID');
+    // Hardcode the Reps database ID
+    const notionRepsDbId = '99130d187a8c4bbda60c77a230ddc364';
 
-    if (!notionApiKey || !notionRepsDbId) {
-      return new Response(JSON.stringify({ error: 'Notion configuration missing' }), {
+    if (!notionApiKey) {
+      return new Response(JSON.stringify({ error: 'Notion API key missing' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
