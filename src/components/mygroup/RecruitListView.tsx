@@ -20,6 +20,7 @@ interface RecruitListViewProps {
 
 type SortKey = 'name' | 'stage' | 'lastContact' | 'nextActionDue';
 
+// Stage order follows the recruiting flow from early to late stage
 const STAGE_ORDER = [
   '100 List',
   'Reached Out',
@@ -88,16 +89,24 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
           comparison = a.name.localeCompare(b.name);
           break;
         case 'stage':
+          // Sort by recruiting flow: 100 List → Sold 5+ (early to late)
           const aIndex = STAGE_ORDER.indexOf(a.stage);
           const bIndex = STAGE_ORDER.indexOf(b.stage);
           comparison = (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+          // When descending, show later stages first (Sold 5+ → 100 List)
+          // When ascending, show earlier stages first (100 List → Sold 5+)
           break;
         case 'lastContact':
-          const aDate = a.lastContact ? parseISO(a.lastContact).getTime() : 0;
-          const bDate = b.lastContact ? parseISO(b.lastContact).getTime() : 0;
-          comparison = aDate - bDate;
+          // Sort by who needs contact most (longest time since last contact first)
+          // null/undefined = never contacted = most urgent
+          const aContactDate = a.lastContact ? parseISO(a.lastContact).getTime() : 0;
+          const bContactDate = b.lastContact ? parseISO(b.lastContact).getTime() : 0;
+          // Oldest contacts first (smallest time = contacted longest ago)
+          comparison = aContactDate - bContactDate;
+          // Default sort (desc=true): show oldest contacts first (needs contact most)
           break;
         case 'nextActionDue':
+          // Sort by soonest due date first (most urgent)
           const aDue = a.nextActionDue ? parseISO(a.nextActionDue).getTime() : Infinity;
           const bDue = b.nextActionDue ? parseISO(b.nextActionDue).getTime() : Infinity;
           comparison = aDue - bDue;
@@ -111,7 +120,26 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
       setSortDesc(!sortDesc);
     } else {
       setSortKey(key);
-      setSortDesc(true);
+      // Set sensible defaults for each sort type
+      if (key === 'stage') {
+        setSortDesc(false); // 100 List → Sold 5+ by default
+      } else if (key === 'lastContact') {
+        setSortDesc(false); // Needs contact most first (oldest contacts first)
+      } else if (key === 'nextActionDue') {
+        setSortDesc(false); // Soonest due first
+      } else {
+        setSortDesc(true);
+      }
+    }
+  };
+
+  const getSortLabel = () => {
+    switch (sortKey) {
+      case 'stage': return 'Sort by stage';
+      case 'lastContact': return 'Needs contact';
+      case 'nextActionDue': return 'Next step due';
+      case 'name': return 'Sort by name';
+      default: return 'Sort';
     }
   };
 
@@ -123,14 +151,14 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
               {sortDesc ? <SortDesc className="h-4 w-4" /> : <SortAsc className="h-4 w-4" />}
-              Sort by {sortKey}
+              {getSortLabel()}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => handleSort('stage')}>Stage (100 List → Sold)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('lastContact')}>Needs contact (longest wait first)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('nextActionDue')}>Next step due</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSort('name')}>Name</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSort('stage')}>Stage</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSort('lastContact')}>Last Contact</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleSort('nextActionDue')}>Next Action Due</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
