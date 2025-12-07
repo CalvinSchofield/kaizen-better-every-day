@@ -404,8 +404,10 @@ const Goals = () => {
           
           <GoalSetupWizard
             isRookie={isRookie}
+            committedBlitzIds={committedBlitzes.map(b => b.id)}
             onComplete={async (data) => {
               try {
+                // Save goals
                 await updateGoals({
                   monthly_expenses: data.monthlyExpenses,
                   months_off: data.monthsOff,
@@ -430,6 +432,35 @@ const Goals = () => {
                     }, {
                       onConflict: 'user_id'
                     });
+                }
+
+                // Handle blitz commitments if rookie selected any
+                if (isRookie && data.selectedBlitzIds && repData?.id && repData?.notion_page_id) {
+                  const selectedBlitzDetails = allBlitzes
+                    .filter(b => data.selectedBlitzIds?.includes(b.id))
+                    .map(b => ({
+                      id: b.id,
+                      name: b.name,
+                      date: b.date,
+                      endDate: b.endDate || undefined,
+                      location: b.location || undefined,
+                    }));
+                  
+                  // Update local Supabase
+                  await supabase
+                    .from('reps')
+                    .update({ committed_blitzes: selectedBlitzDetails as any })
+                    .eq('id', repData.id);
+                  
+                  // Sync to Notion
+                  await supabase.functions.invoke('update-blitz-commitment', {
+                    body: {
+                      repNotionPageId: repData.notion_page_id,
+                      blitzPageIds: data.selectedBlitzIds,
+                    },
+                  });
+                  
+                  await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
                 }
 
                 setShowSetupWizard(false);

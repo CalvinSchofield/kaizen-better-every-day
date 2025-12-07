@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Target, DollarSign, Calculator, Check, HelpCircle, Calendar as CalendarIcon, MapPin, Loader2 } from "lucide-react";
 import { 
   calculateMustDoFromExpenses, 
   calculateTakeHome, 
@@ -14,6 +14,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { differenceInDays, parseISO, format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useBlitzes } from "@/hooks/useBlitzes";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Parse date string as local date (not UTC) to avoid timezone offset issues
 const parseLocalDate = (dateString: string): Date => {
@@ -37,6 +39,7 @@ const HOUSING_OPTIONS = [
 
 interface GoalSetupWizardProps {
   isRookie: boolean;
+  committedBlitzIds?: string[];
   onComplete: (goals: {
     monthlyExpenses: number;
     monthsOff: number;
@@ -49,13 +52,18 @@ interface GoalSetupWizardProps {
     summerStart: string;
     summerEnd: string;
     preseasonFpGoal: number;
+    selectedBlitzIds?: string[];
   }) => void;
   onCancel?: () => void;
 }
 
-export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWizardProps) => {
+export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, onCancel }: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
-  const totalSteps = isRookie ? 4 : 3;
+  const totalSteps = isRookie ? 5 : 3; // Rookies get blitz commitment step
+  
+  // Blitz data for rookie commitment step
+  const { allBlitzes, loading: blitzesLoading } = useBlitzes();
+  const [selectedBlitzIds, setSelectedBlitzIds] = useState<string[]>(committedBlitzIds);
 
   // Vets use EFP terminology instead of FP+
   const isVet = !isRookie;
@@ -116,13 +124,22 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
     }, 150);
   };
 
+  const toggleBlitzSelection = (blitzId: string) => {
+    setSelectedBlitzIds(prev => 
+      prev.includes(blitzId) 
+        ? prev.filter(id => id !== blitzId)
+        : [...prev, blitzId]
+    );
+  };
+
   const getStepTitle = () => {
     if (isRookie) {
       switch (step) {
         case 1: return "Monthly Expenses";
         case 2: return "Summer Dates";
         case 3: return "Your Goals";
-        case 4: return "Review";
+        case 4: return "Commit to Blitzes";
+        case 5: return "Review";
         default: return "";
       }
     } else {
@@ -153,6 +170,7 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
       summerStart: summerStart ? format(summerStart, 'yyyy-MM-dd') : '2026-04-12',
       summerEnd: summerEnd ? format(summerEnd, 'yyyy-MM-dd') : '2026-09-27',
       preseasonFpGoal: Number(preseasonFpGoal) || 0,
+      selectedBlitzIds: isRookie ? selectedBlitzIds : undefined,
     });
   };
 
@@ -216,6 +234,8 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
         case 3:
           return renderGoalInputs();
         case 4:
+          return renderBlitzCommitment();
+        case 5:
           return renderReview();
         default:
           return null;
@@ -489,6 +509,84 @@ export const GoalSetupWizard = ({ isRookie, onComplete, onCancel }: GoalSetupWiz
             )}
           </div>
         </div>
+      </div>
+    );
+  };
+
+  const renderBlitzCommitment = () => {
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <MapPin className="h-12 w-12 mx-auto text-primary mb-3" />
+          <p className="text-muted-foreground">
+            Which blitzes will you attend?
+          </p>
+        </div>
+
+        {blitzesLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : allBlitzes.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No upcoming blitzes available</p>
+            <p className="text-sm mt-1">You can commit to blitzes later from the Goals page</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {allBlitzes.map((blitz) => {
+              const isSelected = selectedBlitzIds.includes(blitz.id);
+              const startDate = new Date(blitz.date);
+              const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
+              
+              return (
+                <button
+                  key={blitz.id}
+                  type="button"
+                  onClick={() => toggleBlitzSelection(blitz.id)}
+                  className={cn(
+                    "w-full p-4 rounded-xl border text-left transition-all",
+                    isSelected 
+                      ? "border-primary bg-primary/10 ring-2 ring-primary" 
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox 
+                      checked={isSelected} 
+                      className="mt-0.5 pointer-events-none"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{blitz.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(startDate, "MMM d")}
+                        {blitz.endDate && ` - ${format(endDate, "MMM d")}`}
+                      </p>
+                      {blitz.location && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3" />
+                          {blitz.location}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedBlitzIds.length > 0 && (
+          <div className="rounded-xl bg-primary/10 p-4 text-center">
+            <p className="font-semibold text-primary">
+              {selectedBlitzIds.length} blitz{selectedBlitzIds.length !== 1 ? 'es' : ''} selected
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground text-center">
+          You can change your blitz commitments anytime from the Goals page
+        </p>
       </div>
     );
   };
