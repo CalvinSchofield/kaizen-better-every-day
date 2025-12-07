@@ -603,13 +603,12 @@ export const AdminDataReviewCard = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Drawer */}
+      {/* Rep Detail Drawer */}
       {selectedIssue && (
         <RepDetailDrawer
           open={drawerOpen}
           onOpenChange={handleDrawerClose}
           rep={getRepDetailData(selectedIssue)}
-          entryDate={selectedIssue.entryDate}
         />
       )}
 
