@@ -1397,11 +1397,11 @@ export const RecruitDetailDrawer = ({
 
       {/* Log Activity Drawer - swipe to dismiss */}
       <Drawer open={logActivityOpen} onOpenChange={setLogActivityOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh] overflow-x-hidden">
           <DrawerHeader>
             <DrawerTitle>Log Activity</DrawerTitle>
           </DrawerHeader>
-          <div className="p-4 space-y-4 overflow-y-auto">
+          <div className="p-4 space-y-4 overflow-y-auto overflow-x-hidden">
             <div className="grid grid-cols-4 gap-2">
               {(['phone_call', 'in_person', 'note', 'next_step'] as const).map((type) => (
                 <Button
