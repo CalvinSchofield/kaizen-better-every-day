@@ -173,10 +173,26 @@ export const ScheduledInstallStep = ({
                         onOpenChange={(open) => setDatePickerOpen(open ? sale.id : null)}
                       >
                         <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" className="h-8 text-xs">
-                            <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                            {schedDate ? format(schedDate, 'MMM d') : 'Set Date'}
-                            <ChevronDown className="h-3 w-3 ml-1" />
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn(
+                              "h-8 text-xs transition-all",
+                              schedDate && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                            )}
+                          >
+                            {schedDate ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                                {format(schedDate, 'MMM d')}
+                              </>
+                            ) : (
+                              <>
+                                <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                                Set Date
+                                <ChevronDown className="h-3 w-3 ml-1" />
+                              </>
+                            )}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
