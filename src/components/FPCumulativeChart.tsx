@@ -123,6 +123,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     const willDoDailyPace = summerPlannedCount > 0 ? fundedWillDoGoal / summerPlannedCount : 0;
     const couldDoDailyPace = summerPlannedCount > 0 ? fundedCouldDoGoal / summerPlannedCount : 0;
 
+    console.log('Goal pace calculation:', {
+      fundedPreseasonGoal,
+      preseasonPlannedCount,
+      preseasonDailyPace,
+      cumulativeDataLength: cumulativeData.length,
+    });
+
     // Generate pace line data points matching chart data dates
     // For each worked day, calculate the expected cumulative goal at that point
     const pacePoints = cumulativeData.map((point, idx) => {
@@ -237,10 +244,10 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         // Keep the latest pace values for the group
-        if (pacePoint?.preseasonPace !== null) grouped[key].preseasonPace = pacePoint.preseasonPace;
-        if (pacePoint?.mustDoPace !== null) grouped[key].mustDoPace = pacePoint.mustDoPace;
-        if (pacePoint?.willDoPace !== null) grouped[key].willDoPace = pacePoint.willDoPace;
-        if (pacePoint?.couldDoPace !== null) grouped[key].couldDoPace = pacePoint.couldDoPace;
+        if (pacePoint?.preseasonPace !== undefined) grouped[key].preseasonPace = pacePoint.preseasonPace;
+        if (pacePoint?.mustDoPace !== undefined) grouped[key].mustDoPace = pacePoint.mustDoPace;
+        if (pacePoint?.willDoPace !== undefined) grouped[key].willDoPace = pacePoint.willDoPace;
+        if (pacePoint?.couldDoPace !== undefined) grouped[key].couldDoPace = pacePoint.couldDoPace;
       }
     });
 
@@ -521,20 +528,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                 </linearGradient>
               </defs>
               
-              {/* Goal Pace Line - subtle dashed line */}
-              {canShowGoalLine && showGoalLine && (
-                <Line
-                  type="linear"
-                  dataKey={getGoalLineKey()}
-                  stroke="hsl(var(--muted-foreground))"
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  dot={false}
-                  connectNulls={true}
-                  animationDuration={800}
-                />
-              )}
-              
               <Area
                 type="monotone"
                 dataKey="cumulative"
@@ -546,6 +539,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                 animationDuration={800}
                 animationEasing="ease-out"
               />
+              
+              {/* Goal Pace Line - rendered after Area so it's on top */}
+              {canShowGoalLine && showGoalLine && (
+                <Line
+                  type="linear"
+                  dataKey={getGoalLineKey()}
+                  stroke="hsl(var(--foreground))"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  connectNulls={true}
+                  animationDuration={800}
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
           </ChartContainer>
