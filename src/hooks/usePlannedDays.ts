@@ -96,6 +96,19 @@ export const usePlannedDays = () => {
     queryClient.invalidateQueries({ queryKey: ['planned-days'] });
   };
 
+  const removeMultipleDays = async (dates: string[]) => {
+    if (!repData?.user_id || dates.length === 0) return;
+
+    const { error } = await supabase
+      .from('planned_work_days')
+      .delete()
+      .eq('user_id', repData.user_id)
+      .in('planned_date', dates);
+
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+  };
+
   const clearAllPlannedDays = async () => {
     if (!repData?.user_id) return;
 
@@ -129,6 +142,7 @@ export const usePlannedDays = () => {
     refetch,
     togglePlannedDay,
     addMultipleDays,
+    removeMultipleDays,
     clearAllPlannedDays,
     isDatePlanned,
     getPlannedDaysCount,
