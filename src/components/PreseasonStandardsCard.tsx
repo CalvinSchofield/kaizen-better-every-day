@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useRepsWithSaleCount } from "@/hooks/useRepsWithSaleCount";
 import { cn } from "@/lib/utils";
 
 interface CommitmentItem {
@@ -25,6 +26,7 @@ export const PreseasonStandardsCard = () => {
   const { goals, isLoading, hasGoalsAccess } = useRepGoals();
   const { totalFP: preseasonFP, totalEFP: preseasonEFP } = usePreseasonFP();
   const { efpModeEnabled } = useEfpMode();
+  const { count: repsWithSaleCount } = useRepsWithSaleCount();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Don't show if no goals access or goals not set up
@@ -74,7 +76,7 @@ export const PreseasonStandardsCard = () => {
       key: "recruits",
       label: "Recruits w/ Sale",
       icon: <Users className="h-4 w-4" />,
-      current: goals.recruits_with_sale_progress || 0,
+      current: repsWithSaleCount, // Auto-calculated from My Group data
       goal: goals.recruits_with_sale_goal || 0,
     },
   ].filter(c => c.goal > 0); // Only show items with goals set

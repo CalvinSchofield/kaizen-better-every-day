@@ -56,7 +56,8 @@ const RECRUITING_STAGES = [
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
-  'Not Interested'
+  'Not Interested',
+  'Signed but Not Interested',
 ];
 
 export const useGroupRecruits = () => {
