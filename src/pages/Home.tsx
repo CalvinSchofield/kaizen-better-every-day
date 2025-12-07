@@ -1,8 +1,9 @@
-import { CheckCircle2, Circle, Lock, Loader2, ChevronDown, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key, Check, MessageCircle } from "lucide-react";
+import { CheckCircle2, Circle, Lock, Loader2, ChevronRight, RefreshCw, LogOut, MapPin, Wifi, Key, Check, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -1275,79 +1276,19 @@ const Home = () => {
               );
             }
             
-            // If no blitz, show expandable inline list
+            // If no blitz, show button that opens drawer
             if (!hasValidBlitz) {
               return (
-                <div className="mb-3">
-                  <button
-                    onClick={handleCtaClick}
-                    className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all"
-                  >
-                    <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
-                    <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                      {ctaText}
-                    </p>
-                    <ChevronDown className={`w-5 h-5 text-primary-foreground/60 transition-transform flex-shrink-0 ${blitzListExpanded ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {/* Inline Blitz List */}
-                  {blitzListExpanded && (
-                    <div className="mt-2 space-y-2 px-2">
-                      {futureAvailableBlitzes.length > 0 ? (
-                        futureAvailableBlitzes.map((blitz) => {
-                          const blitzDate = new Date(blitz.date);
-                          const formattedDate = blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                          
-                          return (
-                            <div 
-                              key={blitz.id}
-                              className="flex items-center justify-between p-3 rounded-lg bg-background/80"
-                            >
-                              <div>
-                                <p className="font-medium text-sm text-foreground">{blitz.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formattedDate}
-                                  {blitz.location && ` · ${blitz.location}`}
-                                </p>
-                              </div>
-                              <Button
-                                size="sm"
-                                onClick={() => handleCommitToBlitz(blitz)}
-                                disabled={isCommittingBlitz === blitz.id}
-                                className="min-w-[80px]"
-                              >
-                                {isCommittingBlitz === blitz.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <Check className="h-3 w-3 mr-1" />
-                                    Commit
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-sm text-primary-foreground/70 text-center py-2">
-                          No upcoming blitzes available
-                        </p>
-                      )}
-                      
-                      {/* Text Calvin option */}
-                      <button
-                        onClick={() => {
-                          const message = encodeURIComponent("Hey Calvin! I'd like to learn more about upcoming blitz trips and find the right one for me.");
-                          window.open(`sms:4697157056?body=${message}`, '_blank');
-                        }}
-                        className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-background/50 hover:bg-background/70 transition-all text-sm text-foreground"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Text Calvin about blitzes
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={handleCtaClick}
+                  className="group flex items-center gap-3 text-left w-full px-6 py-3 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 transition-all mb-3"
+                >
+                  <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
+                  <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
+                    {ctaText}
+                  </p>
+                  <ChevronRight className="w-5 h-5 text-primary-foreground/60 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                </button>
               );
             }
             
@@ -1798,6 +1739,69 @@ const Home = () => {
           })()}
         </SheetContent>
       </Sheet>
+      
+      {/* Blitz Commitment Drawer */}
+      <Drawer open={blitzListExpanded} onOpenChange={setBlitzListExpanded}>
+        <DrawerContent>
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Commit to a Blitz</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-2 max-h-[60vh] overflow-y-auto">
+            {futureAvailableBlitzes.length > 0 ? (
+              futureAvailableBlitzes.map((blitz) => {
+                const blitzDate = new Date(blitz.date);
+                const formattedDate = blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                return (
+                  <div 
+                    key={blitz.id}
+                    className="flex items-center justify-between p-4 rounded-xl bg-card border"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{blitz.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formattedDate}
+                        {blitz.location && ` · ${blitz.location}`}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCommitToBlitz(blitz)}
+                      disabled={isCommittingBlitz === blitz.id}
+                      className="min-w-[90px]"
+                    >
+                      {isCommittingBlitz === blitz.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-1.5" />
+                          Commit
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-muted-foreground text-center py-6">
+                No upcoming blitzes available
+              </p>
+            )}
+            
+            {/* Text Calvin option */}
+            <button
+              onClick={() => {
+                const message = encodeURIComponent("Hey Calvin! I'd like to learn more about upcoming blitz trips and find the right one for me.");
+                window.open(`sms:4697157056?body=${message}`, '_blank');
+              }}
+              className="flex items-center justify-center gap-2 w-full p-4 rounded-xl bg-muted hover:bg-muted/80 transition-all text-foreground"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Text Calvin about blitzes
+            </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
       
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
