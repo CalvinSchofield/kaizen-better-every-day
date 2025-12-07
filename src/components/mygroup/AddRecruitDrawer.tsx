@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -41,29 +41,6 @@ const RELATIONSHIPS = [
   'Other',
 ];
 
-// Recruitment source options for leaders
-const RECRUITMENT_SOURCES = [
-  'Referral',
-  'Social Media',
-  'Door Knock',
-  'Event',
-  'Cold Call',
-  'Previous Contact',
-  'Other',
-];
-
-// US States for location
-const US_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
-  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
-  'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
-  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
-  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
-  'Wisconsin', 'Wyoming'
-];
-
 // Format phone number as user types
 const formatPhoneNumber = (value: string) => {
   const digits = value.replace(/\D/g, '');
@@ -71,6 +48,9 @@ const formatPhoneNumber = (value: string) => {
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 };
+
+// Normalize string for comparison (lowercase, trim, remove extra spaces)
+const normalizeString = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ');
 
 export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) => {
   // Form state
@@ -93,6 +73,20 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
+
+  // Fetch Notion property options
+  const { data: notionOptions, isLoading: optionsLoading } = useQuery({
+    queryKey: ['notion-property-options'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('fetch-notion-property-options');
+      if (error) throw error;
+      return data as {
+        locationOptions: string[];
+        recruitmentSourceOptions: string[];
+      };
+    },
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
 
   // Get current user's rep data
   const { data: currentRep } = useQuery({
@@ -203,7 +197,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
   };
 
   const handleLocationChange = (value: string) => {
-    if (value === 'custom') {
+    if (value === '__custom__') {
       setShowCustomLocation(true);
       setLocation('');
     } else {
@@ -216,9 +210,11 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     const trimmed = value.trim();
     if (!trimmed) return false;
     
-    // Check if it matches an existing state (case-insensitive)
-    const existingMatch = US_STATES.find(
-      state => state.toLowerCase() === trimmed.toLowerCase()
+    const normalizedNew = normalizeString(trimmed);
+    
+    // Check if it matches an existing location (case-insensitive)
+    const existingMatch = notionOptions?.locationOptions.find(
+      loc => normalizeString(loc) === normalizedNew
     );
     
     if (existingMatch) {
@@ -227,11 +223,31 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
       });
       return false;
     }
+
+    // Check for similar/typo (Levenshtein distance or simple check)
+    const possibleTypo = notionOptions?.locationOptions.find(loc => {
+      const normalizedExisting = normalizeString(loc);
+      // Check if starts with same letters or is very similar
+      return normalizedExisting.startsWith(normalizedNew.slice(0, 3)) ||
+             normalizedNew.startsWith(normalizedExisting.slice(0, 3));
+    });
+
+    if (possibleTypo) {
+      const confirmed = window.confirm(
+        `Did you mean "${possibleTypo}"? Click OK to use "${possibleTypo}" or Cancel to add "${trimmed}" as a new location.`
+      );
+      if (confirmed) {
+        setLocation(possibleTypo);
+        setShowCustomLocation(false);
+        setCustomLocation('');
+        return false;
+      }
+    }
     
-    // Basic validation - should look like a state name (2+ chars, alpha only)
+    // Basic validation - should look like a location name (2+ chars, alpha only with spaces)
     if (!/^[A-Za-z\s]{2,}$/.test(trimmed)) {
       toast.error('Invalid location format', {
-        description: 'Location should contain only letters',
+        description: 'Location should contain only letters and spaces',
       });
       return false;
     }
@@ -239,13 +255,38 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     return true;
   };
 
+  // Check if leader form is valid
+  const isLeaderFormValid = useMemo(() => {
+    const finalLocation = showCustomLocation ? customLocation.trim() : location;
+    return (
+      name.trim() !== '' &&
+      phone.trim() !== '' &&
+      finalLocation !== '' &&
+      recruitmentSource !== '' &&
+      (selectedRecruiter || currentRep?.notion_page_id)
+    );
+  }, [name, phone, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.notion_page_id]);
+
   const handleLeaderSubmit = async () => {
+    const finalLocation = showCustomLocation ? customLocation.trim() : location;
+
+    // Validate all required fields
     if (!name.trim()) {
       toast.error('Please enter a name');
       return;
     }
-
-    const finalLocation = showCustomLocation ? customLocation.trim() : location;
+    if (!phone.trim()) {
+      toast.error('Please enter a phone number');
+      return;
+    }
+    if (!finalLocation) {
+      toast.error('Please select a location');
+      return;
+    }
+    if (!recruitmentSource) {
+      toast.error('Please select how you recruited them');
+      return;
+    }
     
     if (showCustomLocation && !validateCustomLocation(customLocation)) {
       return;
@@ -377,6 +418,13 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
           ) : isLeader ? (
             // Leader's direct add form
             <div className="space-y-4">
+              {optionsLoading && (
+                <div className="flex items-center justify-center py-4 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Loading options...
+                </div>
+              )}
+
               <div>
                 <Label>Name *</Label>
                 <Input
@@ -388,7 +436,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
               </div>
 
               <div>
-                <Label>Phone</Label>
+                <Label>Phone *</Label>
                 <Input
                   value={phone}
                   onChange={handlePhoneChange}
@@ -399,7 +447,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
               </div>
 
               <div>
-                <Label>Location (State)</Label>
+                <Label>Location (State) *</Label>
                 {showCustomLocation ? (
                   <div className="mt-1 space-y-2">
                     <Input
@@ -431,26 +479,26 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select state" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {US_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
+                    <SelectContent modal={false}>
+                      {notionOptions?.locationOptions.map((loc) => (
+                        <SelectItem key={loc} value={loc}>
+                          {loc}
                         </SelectItem>
                       ))}
-                      <SelectItem value="custom">+ Add new state...</SelectItem>
+                      <SelectItem value="__custom__">+ Add new state...</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
               </div>
 
               <div>
-                <Label>How did you recruit them?</Label>
+                <Label>How did you recruit them? *</Label>
                 <Select value={recruitmentSource} onValueChange={setRecruitmentSource}>
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {RECRUITMENT_SOURCES.map((source) => (
+                  <SelectContent modal={false}>
+                    {notionOptions?.recruitmentSourceOptions.map((source) => (
                       <SelectItem key={source} value={source}>
                         {source}
                       </SelectItem>
@@ -460,12 +508,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
               </div>
 
               <div>
-                <Label>Recruiter</Label>
+                <Label>Recruiter *</Label>
                 <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select recruiter" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent modal={false}>
                     {availableRecruiters?.map((recruiter) => (
                       <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
                         {recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}
@@ -483,7 +531,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select team" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent modal={false}>
                       {teamAccess.teams.map((team) => (
                         <SelectItem key={team.id} value={team.id}>
                           {team.name}
@@ -497,7 +545,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
               <Button 
                 className="w-full" 
                 onClick={handleLeaderSubmit}
-                disabled={createRecruitMutation.isPending || !name}
+                disabled={createRecruitMutation.isPending || !isLeaderFormValid}
               >
                 {createRecruitMutation.isPending ? 'Adding...' : 'Add Recruit'}
               </Button>
@@ -532,7 +580,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select relationship" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent modal={false}>
                     {RELATIONSHIPS.map((rel) => (
                       <SelectItem key={rel} value={rel}>
                         {rel}
