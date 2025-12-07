@@ -27,9 +27,30 @@ const MyGroup = () => {
   const activities = groupData?.activities || [];
 
   // Filter recruits by selected team if applicable
-  const filteredRecruits = selectedTeamFilter 
-    ? allRecruits.filter(r => r.teamName === selectedTeamFilter || r.recruiterName === selectedTeamFilter)
-    : allRecruits;
+  const filteredRecruits = (() => {
+    if (!selectedTeamFilter) return allRecruits;
+    
+    // Parse filter format: "team:id" or "mgmt:id"
+    if (selectedTeamFilter.startsWith('team:')) {
+      const teamId = selectedTeamFilter.replace('team:', '');
+      const team = teamAccess?.teams?.find(t => t.id === teamId);
+      if (team) {
+        // Match by team name (team leader name)
+        return allRecruits.filter(r => r.teamName === team.name || r.recruiterName === team.name);
+      }
+    } else if (selectedTeamFilter.startsWith('mgmt:')) {
+      const mgmtId = selectedTeamFilter.replace('mgmt:', '');
+      const mgmtGroup = teamAccess?.mgmtGroups?.find(g => g.id === mgmtId);
+      if (mgmtGroup) {
+        // Get all team names in this mgmt group
+        const teamNames = mgmtGroup.teamIds
+          .map(tid => teamAccess?.teams?.find(t => t.id === tid)?.name)
+          .filter(Boolean);
+        return allRecruits.filter(r => teamNames.includes(r.teamName) || teamNames.includes(r.recruiterName));
+      }
+    }
+    return allRecruits;
+  })();
 
   // Filter activities to match filtered recruits
   const filteredActivities = selectedTeamFilter
