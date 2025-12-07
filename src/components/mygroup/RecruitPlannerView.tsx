@@ -17,9 +17,14 @@ import {
   isSameDay,
   parseISO,
   isPast,
-  isToday as isDateToday
+  isToday as isDateToday,
+  isBefore,
+  startOfToday
 } from "date-fns";
 import { cn } from "@/lib/utils";
+
+// Stages that should be hidden unless follow-up is due
+const HIDDEN_STAGES = ['Not Interested', 'Signed but Not Interested'];
 
 interface RecruitPlannerViewProps {
   recruits: Recruit[];
@@ -33,10 +38,25 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const recommendations = useRecruitingRecommendations(recruits, activities);
+  // Filter recruits for recommendations - exclude hidden stages except due follow-ups
+  const filteredRecruits = useMemo(() => 
+    recruits.filter(r => {
+      if (HIDDEN_STAGES.includes(r.stage)) return false;
+      if (r.stage === 'Potential Follow Up') {
+        if (!r.nextActionDue) return false;
+        const dueDate = parseISO(r.nextActionDue);
+        const today = startOfToday();
+        return isBefore(dueDate, today) || isSameDay(dueDate, today);
+      }
+      return true;
+    }),
+    [recruits]
+  );
+
+  const recommendations = useRecruitingRecommendations(filteredRecruits, activities);
 
   // Get week days (starting Sunday)
-  const weekDays = useMemo(() => 
+  const weekDays = useMemo(() =>
     eachDayOfInterval({
       start: selectedWeekStart,
       end: endOfWeek(selectedWeekStart, { weekStartsOn: 0 }),
@@ -59,9 +79,9 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
       }
     });
 
-    // Group by date
+    // Group by date - use filteredRecruits to exclude hidden stages
     latestNextActions.forEach((activity, recruitId) => {
-      const recruit = recruits.find(r => r.notionPageId === recruitId);
+      const recruit = filteredRecruits.find(r => r.notionPageId === recruitId);
       if (!recruit) return;
 
       const dateKey = activity.next_action_due!;
@@ -72,7 +92,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
     });
 
     return tasksMap;
-  }, [activities, recruits]);
+  }, [activities, filteredRecruits]);
 
   // Count overdue tasks
   const overdueCount = useMemo(() => {
@@ -250,7 +270,13 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
         recruit={selectedRecruit}
         activities={selectedRecruit ? getActivitiesForRecruit(selectedRecruit) : []}
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open && selectedRecruit) {
+            const updated = recruits.find(r => r.notionPageId === selectedRecruit.notionPageId);
+            if (updated) setSelectedRecruit(updated);
+          }
+        }}
       />
     </div>
   );
