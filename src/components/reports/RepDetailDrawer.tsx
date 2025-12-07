@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/drawer";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useAllRepGoals } from "@/hooks/useRepGoals";
-import { Clock, TrendingUp, Zap, Target, Ban } from "lucide-react";
+import { Clock, TrendingUp, Target, Ban } from "lucide-react";
 import { HourlyActivityChart } from "./HourlyActivityChart";
 import { format, parseISO } from "date-fns";
 
@@ -140,31 +140,6 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
     return allGoals.find(g => g.user_id === rep.userId);
   }, [allGoals, rep]);
 
-  // Calculate most productive hour from timestamps
-  const mostProductiveHour = useMemo(() => {
-    if (!rep?.counterTimestamps) return null;
-    
-    const hourCounts: Record<number, number> = {};
-    Object.values(rep.counterTimestamps).flat().forEach(ts => {
-      try {
-        const hour = new Date(ts).getHours();
-        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-      } catch {}
-    });
-    
-    const entries = Object.entries(hourCounts);
-    if (entries.length === 0) return null;
-    
-    const [hour, count] = entries.reduce((max, curr) => 
-      curr[1] > max[1] ? curr : max
-    );
-    
-    const hourNum = parseInt(hour);
-    const period = hourNum >= 12 ? 'PM' : 'AM';
-    const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-    
-    return { hour: `${displayHour}${period}`, count };
-  }, [rep?.counterTimestamps]);
 
   if (!rep) return null;
 
@@ -216,7 +191,7 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
         {/* Clean Header */}
         <DrawerHeader className="text-left pb-3 pt-6">
           <DrawerTitle className="text-2xl font-bold">{rep.name}</DrawerTitle>
-          {rep.teamName && rep.teamName !== 'No Team' && (
+          {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
             <p className="text-sm text-muted-foreground mt-0.5">{rep.teamName}</p>
           )}
         </DrawerHeader>
@@ -271,15 +246,6 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
                   workStartTime={rep.workStartTime}
                   workEndTime={rep.workEndTime}
                 />
-                
-                {mostProductiveHour && (
-                  <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 text-sm">
-                    <Zap className="w-4 h-4 text-amber-500" />
-                    <span className="text-muted-foreground">Most active at</span>
-                    <span className="font-semibold text-foreground">{mostProductiveHour.hour}</span>
-                    <span className="text-muted-foreground">({mostProductiveHour.count} activities)</span>
-                  </div>
-                )}
               </div>
             </div>
           )}

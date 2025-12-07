@@ -165,9 +165,11 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         const timezone = repInfo?.timezone;
         const repToday = getTodayInTimezone(timezone);
         
-        // Use teamName from cache, or fallback to "Team [leader name]"
-        const teamName = teamInfo?.teamName || (repInfo?.team_leader ? `Team ${repInfo.team_leader}` : 'Unknown Team');
-        const mgmtGroupName = teamInfo?.mgmtGroupName || 'Unknown Group';
+        // Use teamName from cache, or fallback to "Team [leader name]", or finally "No Team"
+        const teamLeaderName = repInfo?.team_leader;
+        const teamName = teamInfo?.teamName || 
+                        (teamLeaderName ? `Team ${teamLeaderName}` : 'No Team');
+        const mgmtGroupName = teamInfo?.mgmtGroupName || '';
 
         // Calculate historical averages from past finalized entries
         const pastEntries = userEntries.filter(e => 
