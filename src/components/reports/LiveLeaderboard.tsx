@@ -1,12 +1,13 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles, AlertCircle } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles, AlertCircle, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface LiveRepData {
   userId: string;
@@ -14,6 +15,7 @@ interface LiveRepData {
   teamName: string;
   mgmtGroupName?: string;
   year?: string;
+  phone?: string;
   isWorking?: boolean;
   hasForgottenEntry?: boolean;
   forgottenDate?: string;
@@ -41,6 +43,55 @@ interface LiveRepData {
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
 }
+
+// Helper to get first name from full name
+const getFirstName = (name: string) => {
+  const stripped = name.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
+  return stripped.split(' ')[0] || stripped;
+};
+
+// Generate SMS message based on rep status
+const generateSmsMessage = (
+  rep: LiveRepData, 
+  type: 'outstanding' | 'attention' | 'forgotten'
+): string => {
+  const firstName = getFirstName(rep.name);
+  
+  switch (type) {
+    case 'outstanding':
+      if (rep.todayStats.fp > 0) {
+        return `Hey ${firstName}! Crushing it today - ${rep.todayStats.fp.toFixed(1)} FP+ and counting! Keep it up! 🔥`;
+      }
+      return `Hey ${firstName}! Love the hustle today - ${rep.todayStats.presentations} presentations! Let's close some deals! 💪`;
+    case 'attention':
+      return `Hey ${firstName}! How's it going out there? Checking in to see how I can help - anything you need?`;
+    case 'forgotten':
+      const dateStr = rep.forgottenDate ? format(new Date(rep.forgottenDate + 'T12:00:00'), 'MMM d') : 'recently';
+      return `Hey ${firstName}! Don't forget to save your entry from ${dateStr}! 📋`;
+    default:
+      return '';
+  }
+};
+
+// Open SMS with prefilled message
+const openSms = (phone: string, message: string) => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  const encodedMessage = encodeURIComponent(message);
+  window.open(`sms:${cleanPhone}?body=${encodedMessage}`, '_blank');
+};
+
+// Open group SMS
+const openGroupSms = (phones: string[], message: string) => {
+  const cleanPhones = phones.map(p => p.replace(/\D/g, '')).filter(Boolean);
+  if (cleanPhones.length === 0) {
+    toast.error("No valid phone numbers");
+    return;
+  }
+  const encodedMessage = encodeURIComponent(message);
+  // iOS uses comma, Android uses semicolon - using comma for broader support
+  const phoneList = cleanPhones.join(',');
+  window.open(`sms:${phoneList}?body=${encodedMessage}`, '_blank');
+};
 
 interface LiveLeaderboardProps {
   liveReps: LiveRepData[];
@@ -286,92 +337,123 @@ export const LiveLeaderboard = ({
     );
   }
 
-  const RepRow = ({ rep, showRank, rank, paceInfo, redFlags }: { 
+  const RepRow = ({ rep, showRank, rank, paceInfo, redFlags, smsType }: { 
     rep: LiveRepData & { durationMinutes: number }; 
     showRank?: boolean; 
     rank?: number;
     paceInfo?: { pitchPct: number | null; transPct: number | null };
     redFlags?: RedFlag[];
+    smsType?: 'outstanding' | 'attention' | 'forgotten';
   }) => {
     const hasSales = rep.todayStats.fp > 0;
     const flags = redFlags || detectRedFlags(rep.todayStats);
     
+    const handleTextClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!rep.phone) {
+        toast.error("No phone number available");
+        return;
+      }
+      const message = generateSmsMessage(rep, smsType || 'attention');
+      openSms(rep.phone, message);
+    };
+    
     return (
-      <button 
-        onClick={() => handleRepClick(rep)}
-        className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {showRank && rank !== undefined && (
-            <span className={cn(
-              "w-5 flex-shrink-0 text-center text-xs font-medium",
-              rank === 0 && "text-primary"
-            )}>
-              {rank === 0 ? <Trophy className="w-4 h-4" /> : rank + 1}
-            </span>
-          )}
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate font-medium">
-                {stripEmojis(rep.name)}
+      <div className="flex items-center gap-1">
+        <button 
+          onClick={() => handleRepClick(rep)}
+          className="flex items-center justify-between py-2 px-2 rounded-md text-sm flex-1 text-left transition-colors hover:bg-muted/50"
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {showRank && rank !== undefined && (
+              <span className={cn(
+                "w-5 flex-shrink-0 text-center text-xs font-medium",
+                rank === 0 && "text-primary"
+              )}>
+                {rank === 0 ? <Trophy className="w-4 h-4" /> : rank + 1}
               </span>
-              {/* Red flag badges */}
-              {flags.length > 0 && (
-                <div className="flex items-center gap-1">
-                  {flags.slice(0, 1).map((flag, i) => (
-                    <span 
-                      key={i}
-                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 whitespace-nowrap"
-                    >
-                      {flag.label}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {rep.workStartTime && (
-                <>
-                  <Clock className="w-2.5 h-2.5" />
-                  {formatTime(rep.workStartTime)}
-                </>
-              )}
-              {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}
-              {rep.todayStats.doors > 0 && ` · ${rep.todayStats.doors} doors`}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0 text-right">
-          {hasSales ? (
-            <>
-              <span className="font-semibold text-primary tabular-nums">
-                {rep.todayStats.fp.toFixed(1)} FP+
-              </span>
-              {rep.todayStats.prmr > 0 && (
-                <span className="font-semibold text-green-700 dark:text-green-500 tabular-nums text-xs">
-                  ${rep.todayStats.prmr.toLocaleString()}
+            )}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-medium">
+                  {stripEmojis(rep.name)}
                 </span>
-              )}
-            </>
-          ) : rep.todayStats.presentations > 0 ? (
-            <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
-              {rep.todayStats.presentations} pres
-            </span>
-          ) : paceInfo && (paceInfo.pitchPct !== null || paceInfo.transPct !== null) ? (
-            <span className="text-amber-600 dark:text-amber-500 text-xs">
-              {paceInfo.pitchPct !== null && `${paceInfo.pitchPct}% pitch`}
-              {paceInfo.pitchPct !== null && paceInfo.transPct !== null && ' · '}
-              {paceInfo.transPct !== null && `${paceInfo.transPct}% trans`}
-            </span>
-          ) : (
-            <span className="text-muted-foreground tabular-nums text-xs">
-              {rep.todayStats.transitions > 0 ? `${rep.todayStats.transitions} trans` : 
-               rep.todayStats.pitches > 0 ? `${rep.todayStats.pitches} pitch` : ''}
-            </span>
-          )}
-        </div>
-      </button>
+                {/* Red flag badges */}
+                {flags.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {flags.slice(0, 1).map((flag, i) => (
+                      <span 
+                        key={i}
+                        className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 whitespace-nowrap"
+                      >
+                        {flag.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                {rep.workStartTime && (
+                  <>
+                    <Clock className="w-2.5 h-2.5" />
+                    {formatTime(rep.workStartTime)}
+                  </>
+                )}
+                {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}
+                {rep.todayStats.doors > 0 && ` · ${rep.todayStats.doors} doors`}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 text-right">
+            {hasSales ? (
+              <>
+                <span className="font-semibold text-primary tabular-nums">
+                  {rep.todayStats.fp.toFixed(1)} FP+
+                </span>
+                {rep.todayStats.prmr > 0 && (
+                  <span className="font-semibold text-green-700 dark:text-green-500 tabular-nums text-xs">
+                    ${rep.todayStats.prmr.toLocaleString()}
+                  </span>
+                )}
+              </>
+            ) : rep.todayStats.presentations > 0 ? (
+              <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
+                {rep.todayStats.presentations} pres
+              </span>
+            ) : paceInfo && (paceInfo.pitchPct !== null || paceInfo.transPct !== null) ? (
+              <span className="text-amber-600 dark:text-amber-500 text-xs">
+                {paceInfo.pitchPct !== null && `${paceInfo.pitchPct}% pitch`}
+                {paceInfo.pitchPct !== null && paceInfo.transPct !== null && ' · '}
+                {paceInfo.transPct !== null && `${paceInfo.transPct}% trans`}
+              </span>
+            ) : (
+              <span className="text-muted-foreground tabular-nums text-xs">
+                {rep.todayStats.transitions > 0 ? `${rep.todayStats.transitions} trans` : 
+                 rep.todayStats.pitches > 0 ? `${rep.todayStats.pitches} pitch` : ''}
+              </span>
+            )}
+          </div>
+        </button>
+        
+        {/* Text button */}
+        {rep.phone && (
+          <button
+            onClick={handleTextClick}
+            className={cn(
+              "p-1.5 rounded-md transition-colors flex-shrink-0",
+              smsType === 'outstanding' 
+                ? "text-primary hover:bg-primary/10" 
+                : smsType === 'attention'
+                ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+            title={`Text ${getFirstName(rep.name)}`}
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -381,7 +463,9 @@ export const LiveLeaderboard = ({
     count, 
     color, 
     isOpen, 
-    onToggle 
+    onToggle,
+    onTextAll,
+    hasPhones
   }: { 
     icon: any; 
     title: string; 
@@ -389,24 +473,40 @@ export const LiveLeaderboard = ({
     color: string; 
     isOpen: boolean; 
     onToggle: () => void;
+    onTextAll?: () => void;
+    hasPhones?: boolean;
   }) => (
-    <CollapsibleTrigger 
-      onClick={onToggle}
-      className={cn(
-        "flex items-center justify-between w-full py-2 px-3 rounded-lg transition-colors",
-        color
-      )}
-    >
-      <div className="flex items-center gap-2">
+    <div className={cn(
+      "flex items-center justify-between w-full py-2 px-3 rounded-lg transition-colors",
+      color
+    )}>
+      <CollapsibleTrigger 
+        onClick={onToggle}
+        className="flex items-center gap-2 flex-1"
+      >
         <Icon className="w-4 h-4" />
         <span className="text-sm font-medium">{title}</span>
         <span className="text-xs text-muted-foreground">({count})</span>
-      </div>
-      <ChevronDown className={cn(
-        "w-4 h-4 transition-transform",
-        isOpen && "rotate-180"
-      )} />
-    </CollapsibleTrigger>
+        <ChevronDown className={cn(
+          "w-4 h-4 transition-transform ml-auto",
+          isOpen && "rotate-180"
+        )} />
+      </CollapsibleTrigger>
+      
+      {/* Text All button */}
+      {hasPhones && onTextAll && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onTextAll();
+          }}
+          className="ml-2 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-md bg-background/50 hover:bg-background/80 transition-colors"
+        >
+          <MessageSquare className="w-3 h-3" />
+          Text All
+        </button>
+      )}
+    </div>
   );
 
   return (
@@ -473,11 +573,16 @@ export const LiveLeaderboard = ({
                 color="bg-primary/10 hover:bg-primary/15 text-primary"
                 isOpen={outstandingOpen}
                 onToggle={() => setOutstandingOpen(!outstandingOpen)}
+                hasPhones={outstanding.some(r => r.phone)}
+                onTextAll={() => {
+                  const phones = outstanding.filter(r => r.phone).map(r => r.phone!);
+                  openGroupSms(phones, "Great work out there today! Keep crushing it! 🔥");
+                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {outstanding.map((rep, idx) => (
-                    <RepRow key={rep.userId} rep={rep} showRank rank={idx} />
+                    <RepRow key={rep.userId} rep={rep} showRank rank={idx} smsType="outstanding" />
                   ))}
                 </div>
               </CollapsibleContent>
@@ -498,7 +603,7 @@ export const LiveLeaderboard = ({
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {working.map((rep) => (
-                    <RepRow key={rep.userId} rep={rep} />
+                    <RepRow key={rep.userId} rep={rep} smsType="attention" />
                   ))}
                 </div>
               </CollapsibleContent>
@@ -515,6 +620,11 @@ export const LiveLeaderboard = ({
                 color="bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-500"
                 isOpen={attentionOpen}
                 onToggle={() => setAttentionOpen(!attentionOpen)}
+                hasPhones={needAttention.some(r => r.phone)}
+                onTextAll={() => {
+                  const phones = needAttention.filter(r => r.phone).map(r => r.phone!);
+                  openGroupSms(phones, "Hey team! Checking in - how's it going out there? Anything I can help with? 💪");
+                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
@@ -524,6 +634,7 @@ export const LiveLeaderboard = ({
                       rep={rep} 
                       paceInfo={{ pitchPct: rep.pitchPct, transPct: rep.transPct }}
                       redFlags={rep.redFlags}
+                      smsType="attention"
                     />
                   ))}
                 </div>
@@ -541,23 +652,51 @@ export const LiveLeaderboard = ({
                 color="bg-orange-500/10 hover:bg-orange-500/15 text-orange-600 dark:text-orange-400"
                 isOpen={forgottenOpen}
                 onToggle={() => setForgottenOpen(!forgottenOpen)}
+                hasPhones={forgottenReps.some(r => r.phone)}
+                onTextAll={() => {
+                  const phones = forgottenReps.filter(r => r.phone).map(r => r.phone!);
+                  openGroupSms(phones, "Hey! Don't forget to save your daily entries! 📋");
+                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-1 pl-1">
-                  {forgottenReps.map((rep) => (
-                    <div 
-                      key={rep.userId}
-                      className="flex items-center justify-between py-2 px-2 rounded-md text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-orange-500" />
-                        <span className="font-medium">{stripEmojis(rep.name)}</span>
+                  {forgottenReps.map((rep) => {
+                    const handleForgottenTextClick = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (!rep.phone) {
+                        toast.error("No phone number available");
+                        return;
+                      }
+                      const message = generateSmsMessage(rep, 'forgotten');
+                      openSms(rep.phone, message);
+                    };
+                    
+                    return (
+                      <div 
+                        key={rep.userId}
+                        className="flex items-center justify-between py-2 px-2 rounded-md text-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-orange-500" />
+                          <span className="font-medium">{stripEmojis(rep.name)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {rep.forgottenDate && format(new Date(rep.forgottenDate + 'T12:00:00'), 'MMM d')}
+                          </span>
+                          {rep.phone && (
+                            <button
+                              onClick={handleForgottenTextClick}
+                              className="p-1.5 rounded-md text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 transition-colors"
+                              title={`Text ${getFirstName(rep.name)}`}
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {rep.forgottenDate && format(new Date(rep.forgottenDate + 'T12:00:00'), 'MMM d')}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CollapsibleContent>
             </Collapsible>
