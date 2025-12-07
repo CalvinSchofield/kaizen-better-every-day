@@ -87,15 +87,6 @@ const Training = () => {
       ],
     },
     {
-      title: "Objections & Competitors",
-      description: "Handle any pushback with confidence",
-      icon: MessageSquare,
-      items: [
-        { title: "Common Objections & Responses", href: "https://calvinschofield.notion.site/common-objections" },
-        { title: "Competitor Cheat Sheet", href: "https://calvinschofield.notion.site/Competitor-Cheat-Sheet-19e070fe3bc2801eb801fbfea8622be0" },
-      ],
-    },
-    {
       title: "Product Knowledge",
       description: "Deep dive into Vivint systems",
       icon: Shield,
