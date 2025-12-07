@@ -1,9 +1,6 @@
 import { AggregatedRankingsCard } from "./AggregatedRankingsCard";
 import { LiveLeaderboard } from "./LiveLeaderboard";
 import { LiveActivityCard } from "./LiveActivityCard";
-import { LeaderGoalsCard } from "./LeaderGoalsCard";
-import { LeaderPreseasonStandardsCard } from "./LeaderPreseasonStandardsCard";
-import { TeamSummerAvailabilityCard } from "./TeamSummerAvailabilityCard";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 
 interface ReportsPeopleTabProps {
@@ -27,25 +24,7 @@ interface ReportsPeopleTabProps {
   repCount?: number;
   aggregatedLoading?: boolean;
   rankingsTitle?: string;
-  
-  // Goals & availability
-  userIds: string[];
-  excludeUserIds: string[];
-  accessibleReps: any[];
-  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
-  showSummerAvailability?: boolean;
-  
-  // Date range for goals
-  dateRange?: { start: string; end: string };
-  datePreset?: 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 }
-
-// Check if we're in preseason
-const isPreseason = () => {
-  const now = new Date();
-  const summerStart = new Date("2026-04-12");
-  return now < summerStart;
-};
 
 export const ReportsPeopleTab = ({
   viewType,
@@ -61,16 +40,7 @@ export const ReportsPeopleTab = ({
   repCount,
   aggregatedLoading,
   rankingsTitle,
-  userIds,
-  excludeUserIds,
-  accessibleReps,
-  accessLevel = 'none',
-  showSummerAvailability,
-  dateRange,
-  datePreset,
 }: ReportsPeopleTabProps) => {
-  const showPreseasonStandards = isPreseason();
-
   if (viewType === 'today') {
     return (
       <div className="space-y-4">
@@ -85,21 +55,6 @@ export const ReportsPeopleTab = ({
           isLoading={liveLoading}
           hasWorkingReps={(workingCount || 0) > 0}
         />
-        {showPreseasonStandards && (
-          <LeaderPreseasonStandardsCard
-            accessibleReps={accessibleReps}
-            excludeUserIds={excludeUserIds}
-            accessLevel={accessLevel}
-          />
-        )}
-        <LeaderGoalsCard
-          userIds={userIds}
-          excludeUserIds={excludeUserIds}
-          accessibleReps={accessibleReps}
-          dateRange={dateRange}
-          datePreset={datePreset}
-        />
-        {showSummerAvailability && <TeamSummerAvailabilityCard />}
       </div>
     );
   }
@@ -135,21 +90,6 @@ export const ReportsPeopleTab = ({
         isLoading={aggregatedLoading}
         title={rankingsTitle || "Rankings"}
       />
-      {showPreseasonStandards && (
-        <LeaderPreseasonStandardsCard
-          accessibleReps={accessibleReps}
-          excludeUserIds={excludeUserIds}
-          accessLevel={accessLevel}
-        />
-      )}
-      <LeaderGoalsCard
-        userIds={userIds}
-        excludeUserIds={excludeUserIds}
-        accessibleReps={accessibleReps}
-        dateRange={dateRange}
-        datePreset={datePreset}
-      />
-      {showSummerAvailability && <TeamSummerAvailabilityCard />}
     </div>
   );
 };

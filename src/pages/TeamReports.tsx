@@ -20,10 +20,12 @@ import { ReportsHeroCard } from "@/components/reports/ReportsHeroCard";
 import { ReportsPeopleTab } from "@/components/reports/ReportsPeopleTab";
 import { ReportsPerformanceTab } from "@/components/reports/ReportsPerformanceTab";
 import { ReportsPatternsTab } from "@/components/reports/ReportsPatternsTab";
+import { ReportsReadinessTab } from "@/components/reports/ReportsReadinessTab";
 import { LeaderAICoachFab } from "@/components/reports/LeaderAICoachFab";
+import { ClipboardCheck } from "lucide-react";
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
-type ReportTab = 'people' | 'performance' | 'patterns';
+type ReportTab = 'people' | 'performance' | 'patterns' | 'readiness';
 
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
@@ -336,7 +338,6 @@ const TeamReports = () => {
   }
 
   const isTodayOrYesterday = datePreset === 'today' || datePreset === 'yesterday';
-  const showSummerAvailability = datePreset === 'today' || datePreset === 'preseason' || datePreset === 'ytd';
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24 overflow-x-hidden">
@@ -464,7 +465,7 @@ const TeamReports = () => {
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReportTab)} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="people" className="gap-1.5">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">People</span>
@@ -480,6 +481,10 @@ const TeamReports = () => {
             >
               <Layers className="w-4 h-4" />
               <span className="hidden sm:inline">Patterns</span>
+            </TabsTrigger>
+            <TabsTrigger value="readiness" className="gap-1.5">
+              <ClipboardCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Readiness</span>
             </TabsTrigger>
           </TabsList>
 
@@ -499,13 +504,6 @@ const TeamReports = () => {
                 repCount={aggregatedRankings?.repCount}
                 aggregatedLoading={aggregatedLoading}
                 rankingsTitle={getRankingsTitle()}
-                userIds={effectiveUserIds}
-                excludeUserIds={excludeUserIds}
-                accessibleReps={accessData?.accessibleReps || []}
-                accessLevel={accessData?.accessLevel}
-                showSummerAvailability={showSummerAvailability}
-                dateRange={currentDateRange}
-                datePreset={datePreset}
               />
             </TabsContent>
 
@@ -542,6 +540,15 @@ const TeamReports = () => {
               <ReportsPatternsTab
                 insightsData={insightsData}
                 isLoading={insightsLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="readiness" className="mt-0">
+              <ReportsReadinessTab
+                userIds={effectiveUserIds}
+                excludeUserIds={excludeUserIds}
+                accessibleReps={accessData?.accessibleReps || []}
+                accessLevel={accessData?.accessLevel}
               />
             </TabsContent>
           </div>
