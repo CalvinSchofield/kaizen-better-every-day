@@ -134,11 +134,17 @@ export const CommitmentChips = ({
   };
 
   // Filter to only show chips with goals set
-  const activeChips = chipConfigs.filter(c => getGoal(c) > 0);
+  // For blitzes, show if there are any committed blitzes
+  const activeChips = chipConfigs.filter(c => {
+    if (c.key === 'blitzes_goal') {
+      return blitzStats.committed > 0; // Show if any blitzes committed
+    }
+    return getGoal(c) > 0;
+  });
   
   // Count unset commitments (goals that are 0 or undefined)
   const unsetCount = chipConfigs.filter(c => {
-    if (c.key === 'blitzes_goal') return false; // Blitzes always shows if committed
+    if (c.key === 'blitzes_goal') return blitzStats.committed === 0; // Count blitzes as unset if none committed
     const goalKey = c.key as keyof RepGoals;
     return !goals[goalKey] || Number(goals[goalKey]) === 0;
   }).length + (goals.preseason_fp_goal ? 0 : 1); // +1 if preseason FP not set
