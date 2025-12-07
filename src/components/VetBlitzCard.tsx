@@ -722,12 +722,18 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         </div>
       </CardHeader>
       <CardContent className="space-y-3 relative">
-        {/* Subtle loading overlay during scope changes - keeps content visible */}
+        {/* Professional loading overlay during sync */}
         {loadingAttendance && (
-          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-lg">
-            <div className="flex items-center gap-2 bg-background/90 px-4 py-2 rounded-full shadow-sm">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              <span className="text-xs text-muted-foreground">Updating...</span>
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+            <div className="flex flex-col items-center gap-3 bg-card/95 px-6 py-4 rounded-xl shadow-lg border border-border/50">
+              <div className="relative">
+                <div className="h-8 w-8 rounded-full border-2 border-primary/20"></div>
+                <div className="absolute inset-0 h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm font-medium text-foreground">Syncing from Notion</span>
+                <span className="text-xs text-muted-foreground">Fetching latest data...</span>
+              </div>
             </div>
           </div>
         )}
