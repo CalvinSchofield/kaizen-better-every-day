@@ -13,13 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
-  const { data: groupData, isLoading: recruitsLoading } = useGroupRecruits();
+  const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
 
-  const isLeader = teamAccess?.accessLevel !== 'none';
   const isLoading = accessLoading || recruitsLoading;
 
   // Filter recruits by selected team if applicable
