@@ -23,12 +23,14 @@ interface TrainingCategory {
 const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
-  const phase4Complete = repData?.ramp_phase_4_complete || false;
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
   
   // Check if user is a vet or sophomore
   const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
+  
+  // Check phase 4 completion
+  const phase4Complete = repData?.ramp_phase_4_complete || false;
 
   // Determine journey stage for dynamic recommendations
   const getJourneyStage = () => {
@@ -46,7 +48,8 @@ const Training = () => {
       return "motivation";
     }
     
-    if (phase === "phase 4 ✅" || phase4Complete) return "blitz-ready";
+    const isPhase4Complete = repData?.ramp_phase_4_complete || false;
+    if (phase === "phase 4 ✅" || isPhase4Complete) return "blitz-ready";
     if (phase === "phase 3 ✅" || phase === "phase 2 ✅") return "ramp-mid";
     if (phase === "phase 1 ✅" || phase === "trainings ✅") return "ramp-early";
     return "early";
