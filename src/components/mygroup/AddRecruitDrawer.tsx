@@ -21,7 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Clock, CheckCircle2, XCircle, AlertCircle, Loader2, Check, ChevronsUpDown, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -51,6 +65,134 @@ const formatPhoneNumber = (value: string) => {
 
 // Normalize string for comparison (lowercase, trim, remove extra spaces)
 const normalizeString = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ');
+
+// Location Combobox with search functionality
+interface LocationComboboxProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: string[];
+  showCustomLocation: boolean;
+  customLocation: string;
+  onCustomLocationChange: (value: string) => void;
+  onCancelCustom: () => void;
+  hasError: boolean;
+}
+
+const LocationCombobox = ({
+  value,
+  onValueChange,
+  options,
+  showCustomLocation,
+  customLocation,
+  onCustomLocationChange,
+  onCancelCustom,
+  hasError,
+}: LocationComboboxProps) => {
+  const [open, setOpen] = useState(false);
+
+  if (showCustomLocation) {
+    return (
+      <div>
+        <Label className={hasError ? 'text-destructive' : ''}>
+          Location (State) *
+        </Label>
+        <div className="mt-1 space-y-2">
+          <Input
+            value={customLocation}
+            onChange={(e) => onCustomLocationChange(e.target.value)}
+            placeholder="Enter new state name"
+            className={hasError ? 'border-destructive ring-destructive' : ''}
+          />
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancelCustom}
+            >
+              Cancel
+            </Button>
+            {customLocation && (
+              <p className="text-xs text-muted-foreground flex items-center">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                New location will be created
+              </p>
+            )}
+          </div>
+          {hasError && (
+            <p className="text-xs text-destructive">Location is required</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Label className={hasError ? 'text-destructive' : ''}>
+        Location (State) *
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between mt-1 font-normal",
+              !value && "text-muted-foreground",
+              hasError && "border-destructive ring-destructive"
+            )}
+          >
+            {value || "Search or select state..."}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Type to search states..." />
+            <CommandList>
+              <CommandEmpty>No state found.</CommandEmpty>
+              <CommandGroup>
+                {options.map((loc) => (
+                  <CommandItem
+                    key={loc}
+                    value={loc}
+                    onSelect={() => {
+                      onValueChange(loc);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === loc ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {loc}
+                  </CommandItem>
+                ))}
+                <CommandItem
+                  value="__add_new__"
+                  onSelect={() => {
+                    onValueChange('__custom__');
+                    setOpen(false);
+                  }}
+                  className="text-primary"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add new state...
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {hasError && (
+        <p className="text-xs text-destructive mt-1">Location is required</p>
+      )}
+    </div>
+  );
+};
 
 export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) => {
   // Form state
@@ -470,61 +612,28 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                 )}
               </div>
 
-              <div>
-                <Label className={getFieldError('location') ? 'text-destructive' : ''}>
-                  Location (State) *
-                </Label>
-                {showCustomLocation ? (
-                  <div className="mt-1 space-y-2">
-                    <Input
-                      value={customLocation}
-                      onChange={(e) => setCustomLocation(e.target.value)}
-                      placeholder="Enter new state name"
-                      className={getFieldError('location') ? 'border-destructive ring-destructive' : ''}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setShowCustomLocation(false);
-                          setCustomLocation('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      {customLocation && (
-                        <p className="text-xs text-muted-foreground flex items-center">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          New location will be created
-                        </p>
-                      )}
-                    </div>
-                    {getFieldError('location') && (
-                      <p className="text-xs text-destructive">Location is required</p>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <Select value={location} onValueChange={handleLocationChange}>
-                      <SelectTrigger className={`mt-1 ${getFieldError('location') ? 'border-destructive ring-destructive' : ''}`}>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent modal={false}>
-                        {notionOptions?.locationOptions.map((loc) => (
-                          <SelectItem key={loc} value={loc}>
-                            {loc}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__custom__">+ Add new state...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {getFieldError('location') && (
-                      <p className="text-xs text-destructive mt-1">Location is required</p>
-                    )}
-                  </>
-                )}
-              </div>
+              <LocationCombobox
+                value={showCustomLocation ? customLocation : location}
+                onValueChange={(val) => {
+                  if (val === '__custom__') {
+                    setShowCustomLocation(true);
+                    setLocation('');
+                  } else {
+                    setShowCustomLocation(false);
+                    setCustomLocation('');
+                    setLocation(val);
+                  }
+                }}
+                options={notionOptions?.locationOptions || []}
+                showCustomLocation={showCustomLocation}
+                customLocation={customLocation}
+                onCustomLocationChange={setCustomLocation}
+                onCancelCustom={() => {
+                  setShowCustomLocation(false);
+                  setCustomLocation('');
+                }}
+                hasError={getFieldError('location')}
+              />
 
               <div>
                 <Label className={getFieldError('recruitmentSource') ? 'text-destructive' : ''}>
