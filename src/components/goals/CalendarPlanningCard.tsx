@@ -168,7 +168,7 @@ export const CalendarPlanningCard = ({
 
       return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates };
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds - refresh quickly on save/delete
   });
 
   // Derived values from workedDaysData
