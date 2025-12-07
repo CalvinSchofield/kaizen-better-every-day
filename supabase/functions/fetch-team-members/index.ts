@@ -165,6 +165,19 @@ Deno.serve(async (req) => {
       return prop.select?.name || null;
     };
 
+    const getRollupText = (prop: any) => {
+      if (!prop || prop.type !== "rollup") return null;
+      const rollup = prop.rollup;
+      if (rollup?.type === "array" && rollup.array?.length > 0) {
+        // Get the first title from the array
+        const first = rollup.array[0];
+        if (first?.type === "title" && first.title?.length > 0) {
+          return first.title[0]?.plain_text || null;
+        }
+      }
+      return null;
+    };
+
     // Process each team member
     const teamMembers = await Promise.all(
       repsData.results.map(async (page: any) => {
@@ -178,6 +191,8 @@ Deno.serve(async (req) => {
         const preseasonTrips = getRelation(props["Preseason trips"]);
         const year = getSelect(props["Year"]);
         const stage = getSelect(props["Stage"]);
+        const recruiter = getSelect(props["Recruiter"]);
+        const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
 
         // Determine blitz readiness based on onboarding status
         const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
@@ -194,6 +209,8 @@ Deno.serve(async (req) => {
           committedBlitzes: preseasonTrips,
           year,
           stage,
+          recruiter,
+          teamName,
         };
       })
     );
