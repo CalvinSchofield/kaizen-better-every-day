@@ -1293,7 +1293,7 @@ const Home = () => {
                       <button
                         onClick={() => {
                           const message = encodeURIComponent("Hey Calvin! I'd like to learn more about upcoming blitz trips and find the right one for me.");
-                          window.open(`sms:8016870143?body=${message}`, '_blank');
+                          window.open(`sms:4697157056?body=${message}`, '_blank');
                         }}
                         className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-background/50 hover:bg-background/70 transition-all text-sm text-foreground"
                       >
@@ -1612,7 +1612,7 @@ const Home = () => {
               <button
                 onClick={() => {
                   const message = encodeURIComponent("Hey Calvin! I have a question about blitz trips.");
-                  window.open(`sms:8016870143?body=${message}`, '_blank');
+                  window.open(`sms:4697157056?body=${message}`, '_blank');
                 }}
                 className="flex items-center justify-center gap-2 w-full p-3 rounded-lg border border-dashed border-muted-foreground/30 hover:bg-muted/30 transition-all text-sm text-muted-foreground"
               >
