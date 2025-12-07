@@ -17,7 +17,8 @@ export const LeaderAICoachFab = () => {
       {/* Floating Action Button */}
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-105"
+        className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 transition-all duration-200 hover:scale-105"
+        style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 1rem)' }}
         size="icon"
       >
         <Sparkles className="h-6 w-6" />
