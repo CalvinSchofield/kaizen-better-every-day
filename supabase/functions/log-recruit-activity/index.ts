@@ -72,7 +72,7 @@ serve(async (req) => {
     if (insertError) throw insertError;
 
     // Update Notion with last contact, last phone call, and next action if applicable
-    if (notionApiKey && (updateLastContact || nextAction)) {
+    if (notionApiKey) {
       const properties: any = {};
       const today = new Date().toISOString().split('T')[0];
       
@@ -89,19 +89,24 @@ serve(async (req) => {
         }
       }
       
+      // Always update Next Action and Next Action Due when provided (for next_step activity type)
       if (nextAction) {
+        console.log(`Setting Next Action to: "${nextAction}"`);
         properties['Next Action'] = {
           rich_text: [{ text: { content: nextAction } }]
         };
       }
       
       if (nextActionDue) {
+        console.log(`Setting Next Action Due to: ${nextActionDue}`);
         properties['Next Action Due'] = {
           date: { start: nextActionDue }
         };
       }
 
       if (Object.keys(properties).length > 0) {
+        console.log(`Updating Notion page ${recruitNotionId} with properties:`, JSON.stringify(properties));
+        
         const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
           method: 'PATCH',
           headers: {
@@ -115,10 +120,15 @@ serve(async (req) => {
         if (!notionResponse.ok) {
           const errorText = await notionResponse.text();
           console.error('Notion API error:', errorText);
+          console.error('Response status:', notionResponse.status);
         } else {
-          console.log(`Updated Notion properties for ${recruitNotionId}:`, Object.keys(properties).join(', '));
+          console.log(`Successfully updated Notion properties for ${recruitNotionId}:`, Object.keys(properties).join(', '));
         }
+      } else {
+        console.log('No Notion properties to update');
       }
+    } else {
+      console.log('No NOTION_API_KEY found, skipping Notion update');
     }
 
     console.log(`Logged ${activityType} activity for recruit ${recruitNotionId}`);
