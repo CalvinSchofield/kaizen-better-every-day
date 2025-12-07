@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/drawer";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useAllRepGoals } from "@/hooks/useRepGoals";
-import { TrendingUp, Target, Ban, Play, Square, Coffee } from "lucide-react";
+import { TrendingUp, Target, Ban, Play, Square, Coffee, Users } from "lucide-react";
 import { HourlyActivityChart } from "./HourlyActivityChart";
 import { format, parseISO } from "date-fns";
 
@@ -195,9 +195,39 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
         {/* Clean Header */}
         <DrawerHeader className="text-left pb-3 pt-6">
           <DrawerTitle className="text-2xl font-bold">{rep.name}</DrawerTitle>
-          {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
-            <p className="text-sm text-muted-foreground mt-0.5">{rep.teamName}</p>
-          )}
+          
+          {/* Team and Time row */}
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1.5 flex-wrap">
+            {rep.teamName && rep.teamName !== 'No Team' && rep.teamName !== 'Unknown Team' && (
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                <span>{rep.teamName}</span>
+              </div>
+            )}
+            {rep.workStartTime && (
+              <div className="flex items-center gap-1">
+                <Play className="w-3 h-3 text-emerald-500" />
+                <span>{formatTime(rep.workStartTime)}</span>
+              </div>
+            )}
+            {rep.workEndTime && (
+              <div className="flex items-center gap-1">
+                <Square className="w-3 h-3 text-primary" />
+                <span>{formatTime(rep.workEndTime)}</span>
+              </div>
+            )}
+            {breakMinutes > 0 && (
+              <div className="flex items-center gap-1">
+                <Coffee className="w-3 h-3" />
+                <span>{Math.round(breakMinutes)}m</span>
+              </div>
+            )}
+            {rep.hoursWorked > 0 && (
+              <span className="text-foreground font-medium">
+                {Math.floor(rep.hoursWorked)}h {Math.round((rep.hoursWorked % 1) * 60)}m
+              </span>
+            )}
+          </div>
         </DrawerHeader>
 
         <div className="px-4 pb-8 space-y-5 overflow-y-auto">
@@ -306,34 +336,6 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
             )}
           </div>
 
-          {/* Time Details - Simplified inline display */}
-          {(rep.workStartTime || rep.workEndTime) && (
-            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-              {rep.workStartTime && (
-                <div className="flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{formatTime(rep.workStartTime)}</span>
-                </div>
-              )}
-              {rep.workEndTime && (
-                <div className="flex items-center gap-1.5">
-                  <Square className="w-3.5 h-3.5 text-primary" />
-                  <span>{formatTime(rep.workEndTime)}</span>
-                </div>
-              )}
-              {breakMinutes > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Coffee className="w-3.5 h-3.5" />
-                  <span>{Math.round(breakMinutes)}m break</span>
-                </div>
-              )}
-              {rep.hoursWorked > 0 && (
-                <span className="text-foreground font-medium">
-                  · {Math.floor(rep.hoursWorked)}h {Math.round((rep.hoursWorked % 1) * 60)}m total
-                </span>
-              )}
-            </div>
-          )}
 
           {/* Activity Inputs Section */}
           <div className="space-y-3">
