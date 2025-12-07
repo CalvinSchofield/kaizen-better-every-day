@@ -199,6 +199,13 @@ const Goals = () => {
       return { dailyGoal: 0, remainingDailyNeeded: 0 };
     }
     
+    // Apply cancel buffer - need to fund more to hit goal after cancellations
+    // If cancel_rate is 10% (0.1), we need to fund goal / 0.9 to end up with goal
+    const cancelRate = goals?.cancel_rate || 0;
+    const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1 
+      ? activeGoal / (1 - cancelRate) 
+      : activeGoal;
+    
     // Count future planned days (not including today)
     const futurePlannedCount = plannedDays?.filter(d => {
       const date = parseISO(d.planned_date);
@@ -209,11 +216,11 @@ const Goals = () => {
     const workedDays = workedDaysData?.workedDays || 0;
     const totalDays = workedDays + futurePlannedCount;
     
-    // Daily goal = total goal / total planned days
-    const dailyGoal = totalDays > 0 ? activeGoal / totalDays : 0;
+    // Daily goal = funded goal / total planned days
+    const dailyGoal = totalDays > 0 ? fundedGoalNeeded / totalDays : 0;
     
-    // Remaining needed = (goal - current progress) / remaining days
-    const remaining = Math.max(0, activeGoal - currentProgress);
+    // Remaining needed = (funded goal - current progress) / remaining days
+    const remaining = Math.max(0, fundedGoalNeeded - currentProgress);
     const remainingDays = futurePlannedCount + 1; // +1 for today
     const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     
