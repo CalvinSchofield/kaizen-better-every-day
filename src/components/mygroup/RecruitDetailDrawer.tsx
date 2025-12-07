@@ -179,7 +179,41 @@ export const RecruitDetailDrawer = ({
   const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || 
                             teamAccess?.accessLevel === 'area_director';
 
-  // Generate context-aware help message
+  // Fetch recruit's rep record for additional context (blitzes, ramp progress, etc.)
+  const { data: recruitRepData } = useQuery({
+    queryKey: ['recruit-rep-data', recruit?.notionPageId],
+    queryFn: async () => {
+      if (!recruit?.notionPageId) return null;
+      
+      const { data } = await supabase
+        .from('reps')
+        .select('*')
+        .eq('notion_page_id', recruit.notionPageId)
+        .maybeSingle();
+      
+      return data;
+    },
+    enabled: !!recruit?.notionPageId && open,
+  });
+
+  // Fetch recruit's goals for preseason standards tracking
+  const { data: recruitGoals } = useQuery({
+    queryKey: ['recruit-goals', recruitRepData?.user_id],
+    queryFn: async () => {
+      if (!recruitRepData?.user_id) return null;
+      
+      const { data } = await supabase
+        .from('rep_goals')
+        .select('*')
+        .eq('user_id', recruitRepData.user_id)
+        .maybeSingle();
+      
+      return data;
+    },
+    enabled: !!recruitRepData?.user_id && open,
+  });
+
+  // Generate context-aware help message with urgency-based priority matrix
   const helpMessage = useMemo(() => {
     if (!recruit || !contactForHelp) return '';
     
@@ -188,45 +222,222 @@ export const RecruitDetailDrawer = ({
       ? differenceInDays(new Date(), parseISO(recruit.lastContact))
       : null;
     
-    // Check various conditions and generate appropriate message
     const stage = recruit.stage?.toLowerCase() || '';
+    const now = new Date();
     
-    // 100 List - need introduction
-    if (stage.includes('100') || stage.includes('list')) {
-      return `Hey! I'm looking at ${recruitFirstName} on the list. Could you give me an intro or let me know how I can help reach out?`;
+    // Build context flags
+    const isSigned = stage.includes('signed');
+    const isShadowed = stage.includes('shadow');
+    const hasSold = stage.includes('sold');
+    const hasSold5Plus = stage.includes('5+');
+    const isEvaluating = stage.includes('evaluating');
+    const isReachedOut = stage.includes('reached');
+    const is100List = stage.includes('100') || stage.includes('list');
+    
+    // Rep data context
+    const committedBlitzes = recruitRepData?.committed_blitzes as string[] | null;
+    const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
+    const blitzTripDate = recruitRepData?.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
+    const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, now) : null;
+    const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 14;
+    
+    // Ramp to Blitz progress
+    const rampPhase = recruitRepData?.ramp_to_blitz_phase || 'Not started';
+    const isRampNotStarted = rampPhase === 'Not started';
+    const isRampPhase1 = rampPhase?.includes('Phase 1');
+    const isRampPhase2 = rampPhase?.includes('Phase 2');
+    const isRampPhase3 = rampPhase?.includes('Phase 3');
+    const isRampIncomplete = isRampNotStarted || isRampPhase1 || isRampPhase2 || isRampPhase3;
+    
+    // Onboarding status
+    const onboardingComplete = recruitRepData?.onboarding_complete ?? false;
+    const trainingsComplete = recruitRepData?.trainings_complete ?? false;
+    const ipadAssigned = recruitRepData?.ipad_assigned ?? false;
+    const slackJoined = recruitRepData?.slack_joined ?? false;
+    
+    // Preseason standards progress (from goals)
+    const trainingGoal = recruitGoals?.training_hours_goal || 0;
+    const trainingProgress = recruitGoals?.training_hours_progress || 0;
+    const booksGoal = recruitGoals?.books_goal || 0;
+    const booksProgress = recruitGoals?.books_progress || 0;
+    const rolePlaysGoal = recruitGoals?.role_plays_goal || 0;
+    const rolePlaysProgress = recruitGoals?.role_plays_progress || 0;
+    const blitzesGoal = recruitGoals?.blitzes_goal || 0;
+    const blitzesProgress = recruitGoals?.blitzes_progress || 0;
+    
+    // Calculate if behind on preseason standards
+    const trainingBehind = trainingGoal > 0 && trainingProgress < trainingGoal * 0.5;
+    const booksBehind = booksGoal > 0 && booksProgress < booksGoal * 0.5;
+    const rolePlaysBehind = rolePlaysGoal > 0 && rolePlaysProgress < rolePlaysGoal * 0.5;
+    const blitzesBehind = blitzesGoal > 0 && blitzesProgress < blitzesGoal * 0.5;
+    const isBehindOnStandards = trainingBehind || booksBehind || rolePlaysBehind || blitzesBehind;
+    
+    // Build urgency-prioritized scenarios (higher priority = more urgent/important)
+    interface Scenario {
+      priority: number; // Higher = more urgent/important
+      message: string;
     }
     
-    // Reached Out / Evaluating - follow up
-    if (stage.includes('reached') || stage.includes('evaluating')) {
-      if (daysSinceContact && daysSinceContact > 7) {
-        return `Hey! It's been ${daysSinceContact} days since we last touched base with ${recruitFirstName}. Any ideas on how to re-engage them?`;
-      }
-      return `Hey! How can I help move ${recruitFirstName} forward? What's holding them back from signing?`;
+    const scenarios: Scenario[] = [];
+    
+    // ===== PRIORITY 1: CRITICAL / URGENT (Blitz approaching + blockers) =====
+    
+    // Signed but no blitz commitment and blitz is approaching
+    if (isSigned && !hasBlitzCommitment && isBlitzApproaching) {
+      scenarios.push({
+        priority: 100,
+        message: `🚨 ${recruitFirstName} is signed but hasn't committed to a blitz and one starts in ${daysToBlitz} days! Can we get them locked in ASAP?`
+      });
     }
     
-    // Signed but no blitz commitments
-    if (stage.includes('signed')) {
-      return `Hey! ${recruitFirstName} is signed but I don't see them committed to any blitzes yet. Can we get them on a trip? How can I help?`;
+    // Signed with blitz approaching but not ready (missing iPad, ramp incomplete, etc.)
+    if (isSigned && hasBlitzCommitment && isBlitzApproaching && !ipadAssigned) {
+      scenarios.push({
+        priority: 95,
+        message: `🚨 ${recruitFirstName}'s blitz starts in ${daysToBlitz} days but they don't have an iPad assigned yet. Can we get that sorted?`
+      });
+    }
+    
+    if (isSigned && hasBlitzCommitment && isBlitzApproaching && isRampIncomplete) {
+      scenarios.push({
+        priority: 94,
+        message: `🚨 ${recruitFirstName}'s blitz is in ${daysToBlitz} days but they're still on ${rampPhase}. What can we do to accelerate their prep?`
+      });
+    }
+    
+    if (isSigned && hasBlitzCommitment && isBlitzApproaching && !trainingsComplete) {
+      scenarios.push({
+        priority: 93,
+        message: `🚨 ${recruitFirstName} has a blitz in ${daysToBlitz} days but hasn't finished required trainings. Can we help them get those done?`
+      });
+    }
+    
+    // ===== PRIORITY 2: HIGH (Critical stage issues) =====
+    
+    // Signed but never started onboarding
+    if (isSigned && !onboardingComplete) {
+      scenarios.push({
+        priority: 85,
+        message: `Hey! ${recruitFirstName} is signed but hasn't completed onboarding yet. What's blocking them from getting started?`
+      });
+    }
+    
+    // Behind on preseason standards
+    if (isSigned && isBehindOnStandards) {
+      const behindItems: string[] = [];
+      if (trainingBehind) behindItems.push('training hours');
+      if (booksBehind) behindItems.push('books');
+      if (rolePlaysBehind) behindItems.push('role plays');
+      if (blitzesBehind) behindItems.push('blitz attendance');
+      
+      scenarios.push({
+        priority: 80,
+        message: `Hey! ${recruitFirstName} is falling behind on preseason standards (${behindItems.join(', ')}). How can I help get them back on track?`
+      });
+    }
+    
+    // Signed but not on Slack
+    if (isSigned && !slackJoined) {
+      scenarios.push({
+        priority: 75,
+        message: `Hey! ${recruitFirstName} hasn't joined Slack yet. Can we get them connected so they don't miss important updates?`
+      });
+    }
+    
+    // Signed but no blitz commitment (not urgent if no blitz approaching)
+    if (isSigned && !hasBlitzCommitment && !isBlitzApproaching) {
+      scenarios.push({
+        priority: 70,
+        message: `Hey! ${recruitFirstName} is signed but I don't see them committed to any blitzes yet. Can we get them on a trip? How can I help?`
+      });
+    }
+    
+    // ===== PRIORITY 3: MEDIUM (Stale contacts, stuck in funnel) =====
+    
+    // Very stale contact (21+ days)
+    if (daysSinceContact && daysSinceContact >= 21) {
+      scenarios.push({
+        priority: 65,
+        message: `Hey! It's been ${daysSinceContact} days since anyone touched base with ${recruitFirstName}. Are they still interested? How can I help re-engage?`
+      });
+    }
+    
+    // Evaluating for too long (7+ days stale)
+    if (isEvaluating && daysSinceContact && daysSinceContact >= 7) {
+      scenarios.push({
+        priority: 60,
+        message: `Hey! ${recruitFirstName} has been evaluating for a while (${daysSinceContact} days since last contact). What's holding them back from signing?`
+      });
     }
     
     // Shadow complete but not sold yet
-    if (stage.includes('shadow')) {
-      return `Hey! ${recruitFirstName} has shadowed - how can I help them get their first sale? Any specific areas they need coaching on?`;
+    if (isShadowed && !hasSold) {
+      scenarios.push({
+        priority: 55,
+        message: `Hey! ${recruitFirstName} has shadowed - how can I help them get their first sale? Any specific areas they need coaching on?`
+      });
     }
     
     // Sold but not at 5+
-    if (stage.includes('sold') && !stage.includes('5+')) {
-      return `Hey! ${recruitFirstName} has a sale under their belt. What can I do to help them hit 5+ before summer?`;
+    if (hasSold && !hasSold5Plus) {
+      scenarios.push({
+        priority: 50,
+        message: `Hey! ${recruitFirstName} has a sale under their belt. What can I do to help them hit 5+ before summer?`
+      });
     }
     
-    // Generic stale contact
-    if (daysSinceContact && daysSinceContact > 14) {
-      return `Hey! It's been a while since we've connected with ${recruitFirstName}. How can I help get them re-engaged?`;
+    // ===== PRIORITY 4: LOWER (Pipeline building) =====
+    
+    // Reached out but stale
+    if (isReachedOut && daysSinceContact && daysSinceContact >= 5) {
+      scenarios.push({
+        priority: 45,
+        message: `Hey! We reached out to ${recruitFirstName} ${daysSinceContact} days ago. Any response? How can I help follow up?`
+      });
     }
     
-    // Default helpful message
-    return `Hey! What can I do to help ${recruitFirstName} sell 5+ before the summer?`;
-  }, [recruit, contactForHelp]);
+    // Evaluating - general progress check
+    if (isEvaluating) {
+      scenarios.push({
+        priority: 40,
+        message: `Hey! How can I help move ${recruitFirstName} forward? What's holding them back from signing?`
+      });
+    }
+    
+    // Moderately stale (14+ days)
+    if (daysSinceContact && daysSinceContact >= 14 && daysSinceContact < 21) {
+      scenarios.push({
+        priority: 35,
+        message: `Hey! It's been ${daysSinceContact} days since we connected with ${recruitFirstName}. How can I help get them re-engaged?`
+      });
+    }
+    
+    // 100 List - need introduction
+    if (is100List) {
+      scenarios.push({
+        priority: 30,
+        message: `Hey! I'm looking at ${recruitFirstName} on the list. Could you give me an intro or let me know how I can help reach out?`
+      });
+    }
+    
+    // Reached out - general
+    if (isReachedOut) {
+      scenarios.push({
+        priority: 25,
+        message: `Hey! How's ${recruitFirstName} responding? Anything I can do to help move them to evaluating?`
+      });
+    }
+    
+    // ===== DEFAULT =====
+    scenarios.push({
+      priority: 0,
+      message: `Hey! What can I do to help ${recruitFirstName} sell 5+ before the summer?`
+    });
+    
+    // Sort by priority (highest first) and return the top message
+    scenarios.sort((a, b) => b.priority - a.priority);
+    return scenarios[0].message;
+  }, [recruit, contactForHelp, recruitRepData, recruitGoals]);
 
   // Save phone number mutation
   const savePhoneMutation = useMutation({
