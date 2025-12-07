@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useGroupRecruits } from "@/hooks/useGroupRecruits";
+import { useGroupRecruits, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X } from "lucide-react";
+import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
 import { RecruitListView } from "@/components/mygroup/RecruitListView";
 import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
@@ -15,10 +15,12 @@ import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsC
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
+import { format, parseISO } from "date-fns";
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
+  const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const { allBlitzes } = useBlitzes();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'planner'>('board');
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -28,7 +30,7 @@ const MyGroup = () => {
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzes, isLeader);
 
-  const isLoading = accessLoading || recruitsLoading;
+  const isLoading = accessLoading || (isLeader ? recruitsLoading : suggestionsLoading);
 
   const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];
@@ -156,26 +158,77 @@ const MyGroup = () => {
             <RecruitPlannerView recruits={filteredRecruits} activities={filteredActivities} />
           )
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">Know someone who'd be great?</p>
-            <p className="text-sm mb-4">Suggest a recruit to your team leader</p>
-            <Button onClick={() => setAddSheetOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Someone
-            </Button>
+          // Non-leader view: Show their suggestions list
+          <div className="space-y-4">
+            {mySuggestions && mySuggestions.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Your suggestions to your team leader
+                </p>
+                <div className="space-y-3">
+                  {mySuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      className="bg-card rounded-xl p-4 border border-border"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{suggestion.name}</span>
+                        {suggestion.status === 'pending' && (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Pending
+                          </Badge>
+                        )}
+                        {suggestion.status === 'approved' && (
+                          <Badge className="bg-green-500 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Approved
+                          </Badge>
+                        )}
+                        {suggestion.status === 'rejected' && (
+                          <Badge variant="destructive" className="flex items-center gap-1">
+                            <XCircle className="h-3 w-3" /> Rejected
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {suggestion.phone}
+                      </p>
+                      {suggestion.relationship && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {suggestion.relationship}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Submitted {format(parseISO(suggestion.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">Know someone who'd be great?</p>
+                <p className="text-sm mb-4">Suggest a recruit to your team leader</p>
+                <Button onClick={() => setAddSheetOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Someone
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Floating Add Button */}
-      <Button
-        className="fixed right-4 h-14 w-14 rounded-full shadow-lg z-40"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
-        onClick={() => setAddSheetOpen(true)}
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Floating Add Button - only show for leaders OR non-leaders with suggestions */}
+      {(isLeader || (mySuggestions && mySuggestions.length > 0)) && (
+        <Button
+          className="fixed right-4 h-14 w-14 rounded-full shadow-lg z-40"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
+          onClick={() => setAddSheetOpen(true)}
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
 
       {/* Sheets */}
       <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />

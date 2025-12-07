@@ -252,7 +252,7 @@ export const useSubmitSuggestion = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('recruit_suggestions')
         .insert({
           suggested_by_user_id: user.id,
@@ -262,11 +262,46 @@ export const useSubmitSuggestion = () => {
           relationship: suggestion.relationship,
           notes: suggestion.notes,
           team_leader_notion_id: suggestion.teamLeaderNotionId,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onMutate: async (newSuggestion) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['my-suggestions'] });
+      
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['my-suggestions']);
+      
+      // Optimistically add the new suggestion
+      queryClient.setQueryData(['my-suggestions'], (old: RecruitSuggestion[] | undefined) => {
+        const optimisticSuggestion: RecruitSuggestion = {
+          id: `temp-${Date.now()}`,
+          suggested_by_user_id: 'optimistic',
+          suggested_by_name: newSuggestion.suggestedByName,
+          name: newSuggestion.name,
+          phone: newSuggestion.phone,
+          relationship: newSuggestion.relationship || null,
+          notes: newSuggestion.notes || null,
+          status: 'pending',
+          team_leader_notion_id: newSuggestion.teamLeaderNotionId,
+          created_at: new Date().toISOString(),
+        };
+        return [optimisticSuggestion, ...(old || [])];
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['my-suggestions'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['my-suggestions'] });
     },
