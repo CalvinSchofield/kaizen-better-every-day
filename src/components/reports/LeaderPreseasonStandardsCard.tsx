@@ -464,6 +464,25 @@ export const LeaderPreseasonStandardsCard = ({
     window.location.href = `sms:${phone.replace(/[^0-9]/g, "")}&body=${encodeURIComponent(message)}`;
   };
 
+  // Get all reps behind with phone numbers
+  const behindRepsWithPhone = useMemo(() => {
+    return repsWithGoals.filter(r => r.behindCount > 0 && r.phone);
+  }, [repsWithGoals]);
+
+  const handleTextAllBehind = () => {
+    if (behindRepsWithPhone.length === 0) return;
+    
+    // Clean phone numbers
+    const phones = behindRepsWithPhone
+      .map(r => r.phone?.replace(/[^0-9]/g, ""))
+      .filter(Boolean)
+      .join(",");
+    
+    const message = `Hey team! Just checking in on your preseason standards. Let me know if you need any help getting back on track before summer!`;
+    
+    window.location.href = `sms:${phones}&body=${encodeURIComponent(message)}`;
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -489,22 +508,36 @@ export const LeaderPreseasonStandardsCard = ({
           </div>
         </div>
         
-        {/* Filter pills */}
-        <div className="flex gap-1 pt-2 flex-wrap">
-          {(["all", "behind", "on-track", "no-goals"] as const).map((f) => (
+        {/* Filter pills and Text All Behind button */}
+        <div className="flex items-center justify-between pt-2 gap-2">
+          <div className="flex gap-1 flex-wrap flex-1">
+            {(["all", "behind", "on-track", "no-goals"] as const).map((f) => (
+              <Button
+                key={f}
+                variant={filter === f ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" && `All (${stats.total})`}
+                {f === "behind" && `Behind (${stats.behind})`}
+                {f === "on-track" && `On Track (${stats.onTrack})`}
+                {f === "no-goals" && `No Goals (${stats.noGoals})`}
+              </Button>
+            ))}
+          </div>
+          
+          {behindRepsWithPhone.length > 0 && (
             <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              className="h-7 text-xs"
-              onClick={() => setFilter(f)}
+              className="h-7 text-xs shrink-0 border-primary/50 text-primary"
+              onClick={handleTextAllBehind}
             >
-              {f === "all" && `All (${stats.total})`}
-              {f === "behind" && `Behind (${stats.behind})`}
-              {f === "on-track" && `On Track (${stats.onTrack})`}
-              {f === "no-goals" && `No Goals (${stats.noGoals})`}
+              <MessageSquare className="h-3 w-3 mr-1" />
+              Text All ({behindRepsWithPhone.length})
             </Button>
-          ))}
+          )}
         </div>
       </CardHeader>
       
