@@ -339,20 +339,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                     {isVetOrSoph ? (
                       <>
                         <Link
-                          to="/tools"
-                          onClick={() => setOpen(false)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                        >
-                          <Wrench className="w-5 h-5 text-primary" />
-                          <div className="flex flex-col flex-1 min-w-0">
-                            <span className="font-semibold text-sm">Tools</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Quick-access resources
-                            </span>
-                          </div>
-                        </Link>
-
-                        <Link
                           to="/training"
                           onClick={() => setOpen(false)}
                           className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
@@ -362,6 +348,20 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                             <span className="font-semibold text-sm">Training</span>
                             <span className="text-xs text-muted-foreground truncate">
                               Review resources
+                            </span>
+                          </div>
+                        </Link>
+
+                        <Link
+                          to="/tools"
+                          onClick={() => setOpen(false)}
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                        >
+                          <Wrench className="w-5 h-5 text-primary" />
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <span className="font-semibold text-sm">Tools</span>
+                            <span className="text-xs text-muted-foreground truncate">
+                              Quick-access resources
                             </span>
                           </div>
                         </Link>
