@@ -29,6 +29,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { TrainingTimer } from "./TrainingTimer";
+import { BooksSelectionDrawer } from "./BooksSelectionDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,7 @@ const baseCommitments: Omit<Commitment, 'label' | 'unit' | 'description' | 'maxV
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
     incrementBy: 1,
+    hasCustomEditor: true,
   },
   {
     key: 'role_plays_goal',
@@ -149,6 +151,7 @@ export const CommitmentsTracker = ({
   
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [isTrainingTimerOpen, setIsTrainingTimerOpen] = useState(false);
+  const [isBooksDrawerOpen, setIsBooksDrawerOpen] = useState(false);
   const [editingGoals, setEditingGoals] = useState<Record<string, number>>({});
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [isBlitzExpanded, setIsBlitzExpanded] = useState(false);
@@ -547,6 +550,19 @@ export const CommitmentsTracker = ({
                         </Button>
                       )}
 
+                      {/* Books log button */}
+                      {commitment.key === 'books_goal' && goal > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs gap-1"
+                          onClick={() => setIsBooksDrawerOpen(true)}
+                        >
+                          <BookOpen className="h-3 w-3" />
+                          Log Book
+                        </Button>
+                      )}
+
                       {/* Quick increment/decrement buttons (not for auto-tracked or custom editors) */}
                       {!isAutoTracked && !hasCustomEditor && goal > 0 && (
                         <div className="flex items-center gap-1">
@@ -826,6 +842,14 @@ export const CommitmentsTracker = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Books Selection Drawer */}
+      <BooksSelectionDrawer
+        isOpen={isBooksDrawerOpen}
+        onClose={() => setIsBooksDrawerOpen(false)}
+        currentProgress={Number(goals.books_progress) || 0}
+        onUpdateProgress={(newProgress) => onUpdateGoals({ books_progress: newProgress })}
+      />
     </>
   );
 };

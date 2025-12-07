@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
@@ -746,7 +747,16 @@ export const CalendarPlanningCard = ({
             </div>
           </CollapsibleTrigger>
           
-          <CollapsibleContent className="mt-3">
+          <AnimatePresence initial={false}>
+            {isPreseasonOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                style={{ overflow: "hidden" }}
+              >
+                <div className="mt-3">
             <div className="flex justify-end mb-2">
               <Button
                 variant="ghost"
@@ -932,7 +942,10 @@ export const CalendarPlanningCard = ({
                 )}
               </div>
             )}
-          </CollapsibleContent>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </Collapsible>
 
