@@ -1,6 +1,7 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Sun, Flame } from "lucide-react";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface CompetitorNudge {
   name: string;
@@ -23,14 +24,14 @@ interface EarlySaveConfirmSheetProps {
 }
 
 // Format gap for display
-const formatGap = (metric: CompetitorNudge['metric'], gap: number): string => {
+const formatGap = (metric: CompetitorNudge['metric'], gap: number, efpModeEnabled: boolean): string => {
   switch (metric) {
     case 'presentations':
       return gap === 1 ? '1 presentation' : `${gap} presentations`;
     case 'pitches':
       return gap === 1 ? '1 pitch' : `${gap} pitches`;
     case 'fp_plus':
-      return `${gap.toFixed(1)} FP+`;
+      return `${gap.toFixed(1)} ${efpModeEnabled ? 'EFP' : 'FP+'}`;
     case 'prmr':
       return `$${Math.round(gap)} in PRMR`;
     case 'decision_makers':
@@ -60,7 +61,7 @@ const formatValue = (metric: CompetitorNudge['metric'], value: number): string =
 };
 
 // Get metric display label
-const getMetricLabel = (metric: CompetitorNudge['metric']): string => {
+const getMetricLabel = (metric: CompetitorNudge['metric'], efpModeEnabled: boolean): string => {
   switch (metric) {
     case 'presentations':
       return 'presentations';
@@ -71,7 +72,7 @@ const getMetricLabel = (metric: CompetitorNudge['metric']): string => {
     case 'doors_knocked':
       return 'doors';
     case 'fp_plus':
-      return 'FP+';
+      return efpModeEnabled ? 'EFP' : 'FP+';
     case 'prmr':
       return 'PRMR';
     default:
@@ -88,6 +89,7 @@ export const EarlySaveConfirmSheet = ({
   competitor,
   loading,
 }: EarlySaveConfirmSheetProps) => {
+  const { efpModeEnabled } = useEfpMode();
   const hasCompetitor = competitor && !loading;
 
   return (
@@ -105,7 +107,7 @@ export const EarlySaveConfirmSheet = ({
             <>
               <DrawerTitle>{competitor.name} is still working!</DrawerTitle>
               <DrawerDescription>
-                They've got you beat by just {formatGap(competitor.metric, competitor.gap)} {competitor.timeframe}.
+                They've got you beat by just {formatGap(competitor.metric, competitor.gap, efpModeEnabled)} {competitor.timeframe}.
               </DrawerDescription>
             </>
           ) : (
@@ -129,11 +131,11 @@ export const EarlySaveConfirmSheet = ({
                   </span>
                   <span className="font-medium">{competitor.name}</span>
                 </div>
-                <span className="font-semibold">{formatValue(competitor.metric, competitor.competitorValue)} {getMetricLabel(competitor.metric)}</span>
+                <span className="font-semibold">{formatValue(competitor.metric, competitor.competitorValue)} {getMetricLabel(competitor.metric, efpModeEnabled)}</span>
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>You</span>
-                <span>{formatValue(competitor.metric, competitor.userValue)} {getMetricLabel(competitor.metric)}</span>
+                <span>{formatValue(competitor.metric, competitor.userValue)} {getMetricLabel(competitor.metric, efpModeEnabled)}</span>
               </div>
             </div>
           </div>
