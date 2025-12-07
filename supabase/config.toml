@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.create-notion-recruit]
 verify_jwt = false
+
+[functions.log-blitz-attendance]
+verify_jwt = false
