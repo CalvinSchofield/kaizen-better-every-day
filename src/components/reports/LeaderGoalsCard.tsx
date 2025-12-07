@@ -3,53 +3,94 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target, TrendingUp, TrendingDown, Minus, CheckCircle2, Clock } from "lucide-react";
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
-import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, parseISO, isWithinInterval, startOfDay } from "date-fns";
 
 interface LeaderGoalsCardProps {
   userIds: string[];
   excludeUserIds?: string[];
   accessibleReps?: any[];
+  dateRange?: { start: string; end: string };
+  datePreset?: 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 }
 
 interface RepWithGoals {
   userId: string;
-  name: string;
+  displayName: string;
   year: string;
   goals: RepGoals | null;
   currentFp: number;
-  mustDoProgress: number;
-  willDoProgress: number;
-  couldDoProgress: number;
+  preseasonGoal: number;
+  preseasonProgress: number;
   paceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal';
-  pacePercent: number;
+  paceDiff: number; // Absolute FP+ difference from expected
 }
 
-export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps = [] }: LeaderGoalsCardProps) => {
+// Strip emojis from name
+const stripEmojis = (str: string): string => {
+  return str.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
+};
+
+// Get clean first name without emojis
+const getCleanFirstName = (fullName: string): string => {
+  const cleaned = stripEmojis(fullName);
+  return cleaned.split(' ')[0] || cleaned;
+};
+
+// Get display name with optional last initial for duplicates
+const getDisplayName = (fullName: string, allNames: string[]): string => {
+  const cleanedFirst = getCleanFirstName(fullName);
+  const cleanedFull = stripEmojis(fullName);
+  
+  // Count how many reps have the same first name
+  const duplicateCount = allNames.filter(name => getCleanFirstName(name) === cleanedFirst).length;
+  
+  if (duplicateCount > 1) {
+    // Include last name or initial
+    const parts = cleanedFull.split(' ');
+    if (parts.length > 1) {
+      return `${parts[0]} ${parts[parts.length - 1]}`;
+    }
+  }
+  
+  return cleanedFirst;
+};
+
+export const LeaderGoalsCard = ({ 
+  userIds, 
+  excludeUserIds = [], 
+  accessibleReps = [],
+  dateRange,
+  datePreset = 'today'
+}: LeaderGoalsCardProps) => {
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
-  // Fetch preseason FP for all reps in scope
+  const summerStartDate = '2026-04-12';
+  const preseasonStartDate = '2025-09-28';
+  const isPreseason = new Date() < parseISO(summerStartDate);
+  
+  // Fetch FP for the selected date range
   const { data: repsFp, isLoading: fpLoading } = useQuery({
-    queryKey: ['team-preseason-fp', userIds],
+    queryKey: ['team-goals-fp', userIds, dateRange?.start, dateRange?.end],
     queryFn: async () => {
       if (userIds.length === 0) return {};
       
-      const summerStartDate = '2026-04-12';
+      const startDate = dateRange?.start || preseasonStartDate;
+      const endDate = dateRange?.end || new Date().toISOString().split('T')[0];
       
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('user_id, fp_plus, upgrade_prmr')
+        .select('user_id, fp_plus, upgrade_prmr, entry_date')
         .in('user_id', userIds)
-        .eq('is_finalized', true)
-        .lt('entry_date', summerStartDate);
+        .gte('entry_date', startDate)
+        .lte('entry_date', endDate);
       
       if (error) throw error;
       
-      // Sum FP+ per user
+      // Sum FP+ per user (include both finalized and unfinalized for complete data)
       const fpByUser: Record<string, number> = {};
       for (const entry of data || []) {
         const fpPlus = (entry.fp_plus || 0) + ((entry.upgrade_prmr || 0) / 85);
@@ -59,25 +100,43 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
       return fpByUser;
     },
     enabled: userIds.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
-  // Calculate expected pace based on summer start date
-  const getExpectedPace = (goal: number): number => {
-    if (!goal) return 0;
+  // Calculate expected FP+ for the selected date range based on preseason goal
+  const getExpectedFpForRange = (preseasonGoal: number): number => {
+    if (!preseasonGoal || preseasonGoal <= 0) return 0;
     
-    const summerStart = parseISO('2026-04-12');
-    const preseasonStart = parseISO('2025-09-28');
+    const summerStart = parseISO(summerStartDate);
+    const preseasonStart = parseISO(preseasonStartDate);
     const now = new Date();
     
-    const totalDays = differenceInDays(summerStart, preseasonStart);
-    const daysElapsed = differenceInDays(now, preseasonStart);
+    // Total preseason days
+    const totalPreseasonDays = differenceInDays(summerStart, preseasonStart);
+    if (totalPreseasonDays <= 0) return 0;
     
-    if (daysElapsed <= 0) return 0;
-    if (daysElapsed >= totalDays) return goal;
+    // Daily expected FP+
+    const dailyExpected = preseasonGoal / totalPreseasonDays;
     
-    return (goal * daysElapsed) / totalDays;
+    // Calculate days in the selected range
+    const rangeStart = dateRange?.start ? parseISO(dateRange.start) : preseasonStart;
+    const rangeEnd = dateRange?.end ? parseISO(dateRange.end) : now;
+    
+    // Clamp to preseason bounds
+    const effectiveStart = rangeStart < preseasonStart ? preseasonStart : rangeStart;
+    const effectiveEnd = rangeEnd > summerStart ? summerStart : rangeEnd;
+    
+    const daysInRange = differenceInDays(effectiveEnd, effectiveStart) + 1; // Include both start and end
+    
+    if (daysInRange <= 0) return 0;
+    
+    return dailyExpected * daysInRange;
   };
+
+  // Get all names for duplicate detection
+  const allRepNames = useMemo(() => {
+    return accessibleReps.map((r: any) => r.name || '');
+  }, [accessibleReps]);
 
   const repsWithGoals: RepWithGoals[] = useMemo(() => {
     if (!allGoals || !repsFp) return [];
@@ -88,23 +147,22 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
       const rep = accessibleReps.find((r: any) => r.userId === userId);
       const goals = allGoals.find(g => g.user_id === userId) || null;
       const currentFp = repsFp[userId] || 0;
+      const fullName = rep?.name || 'Unknown';
       
-      const mustDoGoal = goals?.must_do_fp_goal || 0;
-      const willDoGoal = goals?.will_do_fp_goal || 0;
-      const couldDoGoal = goals?.could_do_fp_goal || 0;
+      // In preseason, focus on preseason_fp_goal
+      const preseasonGoal = goals?.preseason_fp_goal || 0;
+      const preseasonProgress = preseasonGoal > 0 ? Math.min((currentFp / preseasonGoal) * 100, 100) : 0;
       
-      const mustDoProgress = mustDoGoal > 0 ? Math.min((currentFp / mustDoGoal) * 100, 100) : 0;
-      const willDoProgress = willDoGoal > 0 ? Math.min((currentFp / willDoGoal) * 100, 100) : 0;
-      const couldDoProgress = couldDoGoal > 0 ? Math.min((currentFp / couldDoGoal) * 100, 100) : 0;
-      
-      // Calculate pace status based on will_do goal
+      // Calculate pace status based on expected FP for the date range
       let paceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal' = 'no-goal';
-      let pacePercent = 0;
+      let paceDiff = 0;
       
-      if (willDoGoal > 0) {
-        const expectedFp = getExpectedPace(willDoGoal);
+      if (preseasonGoal > 0) {
+        const expectedFp = getExpectedFpForRange(preseasonGoal);
+        paceDiff = currentFp - expectedFp;
+        
         if (expectedFp > 0) {
-          pacePercent = ((currentFp - expectedFp) / expectedFp) * 100;
+          const pacePercent = (paceDiff / expectedFp) * 100;
           
           if (pacePercent >= 10) {
             paceStatus = 'ahead';
@@ -113,38 +171,53 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
           } else {
             paceStatus = 'behind';
           }
+        } else if (currentFp > 0) {
+          paceStatus = 'ahead';
         }
       }
       
       return {
         userId,
-        name: rep?.name || 'Unknown',
+        displayName: getDisplayName(fullName, allRepNames),
         year: rep?.year || 'Rookie',
         goals,
         currentFp,
-        mustDoProgress,
-        willDoProgress,
-        couldDoProgress,
+        preseasonGoal,
+        preseasonProgress,
         paceStatus,
-        pacePercent,
+        paceDiff,
       };
     }).sort((a, b) => {
-      // Sort by: has goals first, then by will_do progress descending
+      // Sort by: has goals first, then by preseason progress descending
       if (a.goals?.setup_complete && !b.goals?.setup_complete) return -1;
       if (!a.goals?.setup_complete && b.goals?.setup_complete) return 1;
-      return b.willDoProgress - a.willDoProgress;
+      return b.preseasonProgress - a.preseasonProgress;
     });
-  }, [allGoals, repsFp, userIds, excludeUserIds, accessibleReps]);
+  }, [allGoals, repsFp, userIds, excludeUserIds, accessibleReps, allRepNames, dateRange]);
 
   const stats = useMemo(() => {
-    const withGoals = repsWithGoals.filter(r => r.goals?.setup_complete);
+    const withGoals = repsWithGoals.filter(r => r.goals?.setup_complete && r.preseasonGoal > 0);
     const ahead = withGoals.filter(r => r.paceStatus === 'ahead').length;
     const onTrack = withGoals.filter(r => r.paceStatus === 'on-track').length;
     const behind = withGoals.filter(r => r.paceStatus === 'behind').length;
-    const noGoals = repsWithGoals.filter(r => !r.goals?.setup_complete).length;
+    const noGoals = repsWithGoals.filter(r => !r.goals?.setup_complete || r.preseasonGoal <= 0).length;
     
     return { withGoals: withGoals.length, ahead, onTrack, behind, noGoals };
   }, [repsWithGoals]);
+
+  // Format pace indicator text
+  const getPaceText = (rep: RepWithGoals) => {
+    if (rep.paceStatus === 'on-track') return 'On Pace';
+    
+    const absDiff = Math.abs(rep.paceDiff);
+    if (absDiff < 0.1) return 'On Pace';
+    
+    if (rep.paceStatus === 'ahead') {
+      return `+${absDiff.toFixed(1)} ahead`;
+    } else {
+      return `${absDiff.toFixed(1)} behind`;
+    }
+  };
 
   if (goalsLoading || fpLoading) {
     return (
@@ -152,7 +225,7 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            Team Goals
+            {isPreseason ? 'Preseason Goals' : 'Team Goals'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -173,7 +246,7 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
-          Team Goals
+          {isPreseason ? 'Preseason Goals' : 'Team Goals'}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -193,7 +266,7 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
           </div>
           <div className="p-2 rounded-lg bg-muted">
             <p className="text-lg font-bold text-muted-foreground">{stats.noGoals}</p>
-            <p className="text-[10px] text-muted-foreground">No Goals</p>
+            <p className="text-[10px] text-muted-foreground">No Goal</p>
           </div>
         </div>
 
@@ -203,12 +276,12 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
             <div key={rep.userId} className="p-3 rounded-lg border border-border/50 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{rep.name}</span>
+                  <span className="font-medium text-sm">{rep.displayName}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                     {rep.year}
                   </span>
                 </div>
-                {rep.goals?.setup_complete ? (
+                {rep.goals?.setup_complete && rep.preseasonGoal > 0 ? (
                   <div className={cn(
                     "flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full",
                     rep.paceStatus === 'ahead' && "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -218,83 +291,38 @@ export const LeaderGoalsCard = ({ userIds, excludeUserIds = [], accessibleReps =
                     {rep.paceStatus === 'ahead' && <TrendingUp className="h-3 w-3" />}
                     {rep.paceStatus === 'on-track' && <Minus className="h-3 w-3" />}
                     {rep.paceStatus === 'behind' && <TrendingDown className="h-3 w-3" />}
-                    {rep.paceStatus === 'ahead' && `+${Math.abs(rep.pacePercent).toFixed(0)}%`}
-                    {rep.paceStatus === 'on-track' && 'On Pace'}
-                    {rep.paceStatus === 'behind' && `-${Math.abs(rep.pacePercent).toFixed(0)}%`}
+                    {getPaceText(rep)}
                   </div>
                 ) : (
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    No goals set
+                    No goal set
                   </span>
                 )}
               </div>
               
-              {rep.goals?.setup_complete && (
+              {rep.goals?.setup_complete && rep.preseasonGoal > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="w-16 text-muted-foreground">Current:</span>
                     <span className="font-semibold">{rep.currentFp.toFixed(1)} FP+</span>
                   </div>
                   
-                  {/* Goal Ladder Progress */}
-                  <div className="space-y-1">
-                    {/* Must Do */}
-                    {rep.goals.must_do_fp_goal > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-16 text-[10px] text-muted-foreground">Must Do</span>
-                        <div className="flex-1 flex items-center gap-2">
-                          <Progress 
-                            value={rep.mustDoProgress} 
-                            className="h-1.5 flex-1"
-                          />
-                          {rep.mustDoProgress >= 100 && (
-                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          )}
-                        </div>
-                        <span className="text-[10px] w-10 text-right text-muted-foreground">
-                          {rep.goals.must_do_fp_goal}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Will Do */}
-                    {rep.goals.will_do_fp_goal > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-16 text-[10px] text-muted-foreground">Will Do</span>
-                        <div className="flex-1 flex items-center gap-2">
-                          <Progress 
-                            value={rep.willDoProgress} 
-                            className="h-1.5 flex-1"
-                          />
-                          {rep.willDoProgress >= 100 && (
-                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          )}
-                        </div>
-                        <span className="text-[10px] w-10 text-right text-muted-foreground">
-                          {rep.goals.will_do_fp_goal}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Could Do */}
-                    {rep.goals.could_do_fp_goal > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-16 text-[10px] text-muted-foreground">Could Do</span>
-                        <div className="flex-1 flex items-center gap-2">
-                          <Progress 
-                            value={rep.couldDoProgress} 
-                            className="h-1.5 flex-1"
-                          />
-                          {rep.couldDoProgress >= 100 && (
-                            <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          )}
-                        </div>
-                        <span className="text-[10px] w-10 text-right text-muted-foreground">
-                          {rep.goals.could_do_fp_goal}
-                        </span>
-                      </div>
-                    )}
+                  {/* Preseason Goal Progress */}
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-muted-foreground">Preseason</span>
+                    <div className="flex-1 flex items-center gap-2">
+                      <Progress 
+                        value={rep.preseasonProgress} 
+                        className="h-1.5 flex-1"
+                      />
+                      {rep.preseasonProgress >= 100 && (
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      )}
+                    </div>
+                    <span className="text-[10px] w-10 text-right text-muted-foreground">
+                      {rep.preseasonGoal}
+                    </span>
                   </div>
                 </div>
               )}
