@@ -22,8 +22,13 @@ import {
   PhoneCall,
   PhoneMissed,
   UserRound,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  Tablet,
+  CircleDot,
+  Circle
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -863,27 +868,167 @@ export const RecruitDetailDrawer = ({
               </Select>
             </div>
 
-            {/* Contact Info */}
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Phone</span>
-                <a href={`tel:${recruit.phone}`} className="text-primary">
-                  {recruit.phone || 'Not set'}
-                </a>
-              </div>
-              {recruit.email && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Email</span>
-                  <span>{recruit.email}</span>
+            {/* Blitz Readiness Warning */}
+            {recruitRepData && (() => {
+              const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
+              const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
+              const blitzTripDate = recruitRepData.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
+              const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, new Date()) : null;
+              const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
+              
+              // Check readiness issues
+              const isRampComplete = recruitRepData.ramp_phase_4_complete === true;
+              const isOnboardingComplete = recruitRepData.onboarding_complete === true;
+              const hasIpad = recruitRepData.ipad_assigned === true;
+              
+              const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || !hasIpad);
+              
+              if (!hasReadinessIssues) return null;
+              
+              const issues: string[] = [];
+              if (!isOnboardingComplete) issues.push('Onboarding incomplete');
+              if (!isRampComplete) issues.push('Ramp to Blitz incomplete');
+              if (!hasIpad) issues.push('No iPad assigned');
+              
+              return (
+                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    Blitz in {daysToBlitz} days - Not Ready!
+                  </div>
+                  <ul className="mt-1 text-xs text-destructive/80 list-disc list-inside">
+                    {issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
                 </div>
-              )}
-              {recruit.lastContact && (
+              );
+            })()}
+
+            {/* iPad Assignment Toggle - show warning if not assigned */}
+            {recruitRepData && (
+              <div className={`rounded-lg p-3 ${recruitRepData.ipad_assigned ? 'bg-muted/50' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Tablet className={`h-4 w-4 ${recruitRepData.ipad_assigned ? 'text-muted-foreground' : 'text-amber-600'}`} />
+                    <span className={`text-sm ${recruitRepData.ipad_assigned ? 'text-muted-foreground' : 'text-amber-700 font-medium'}`}>
+                      {recruitRepData.ipad_assigned ? 'iPad Assigned' : 'No iPad Assigned'}
+                    </span>
+                  </div>
+                  <Switch
+                    checked={recruitRepData.ipad_assigned ?? false}
+                    onCheckedChange={async (checked) => {
+                      const { error } = await supabase
+                        .from('reps')
+                        .update({ ipad_assigned: checked })
+                        .eq('notion_page_id', recruit.notionPageId);
+                      
+                      if (error) {
+                        toast.error("Couldn't update iPad status");
+                      } else {
+                        toast.success(checked ? 'iPad assigned' : 'iPad unassigned');
+                        queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
+                        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Onboarding Progress - Only for rookies who haven't completed Phase 4 */}
+            {recruitRepData && (
+              recruitRepData.year === 'Rookie' || !recruitRepData.year
+            ) && !recruitRepData.ramp_phase_4_complete && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  Onboarding Progress
+                </h4>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.onboarding_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.onboarding_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Onboarding Complete
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.trainings_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.trainings_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Trainings Complete
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.slack_joined ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.slack_joined ? 'text-foreground' : 'text-muted-foreground'}>
+                      Slack Joined
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.ramp_phase_1_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.ramp_phase_1_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Phase 1 ✅
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.ramp_phase_2_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.ramp_phase_2_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Phase 2 ✅
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.ramp_phase_3_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.ramp_phase_3_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Phase 3 ✅
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {recruitRepData.ramp_phase_4_complete ? (
+                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span className={recruitRepData.ramp_phase_4_complete ? 'text-foreground' : 'text-muted-foreground'}>
+                      Phase 4 ✅
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Last Contact Info */}
+            {recruit.lastContact && (
+              <div className="bg-muted/50 rounded-lg p-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Last Contact</span>
                   <span>{format(parseISO(recruit.lastContact), 'MMM d, yyyy')}</span>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Next Action */}
             {recruit.nextAction && (
