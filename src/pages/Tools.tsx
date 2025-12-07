@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,12 @@ const Tools = () => {
           description: "Quick reference for competitor products",
           href: "/tools/competitors",
           icon: Shield,
+        },
+        {
+          title: "Objections",
+          description: "Common objections & responses",
+          href: "https://calvinschofield.notion.site/common-objections",
+          icon: MessageSquare,
         },
         {
           title: "Useful Contacts",
