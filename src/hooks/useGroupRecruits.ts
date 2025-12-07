@@ -502,28 +502,16 @@ export const useDeleteRecruitActivity = () => {
       if (error) throw error;
       return { activityId };
     },
-    onMutate: async (activityId) => {
-      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
-      
-      const previousData = queryClient.getQueryData(['group-recruits']);
-      
-      // Optimistically remove the activity
+    // No optimistic update for delete - wait for success to update UI
+    onSuccess: (data) => {
+      // Remove from cache only after successful deletion
       queryClient.setQueryData(['group-recruits'], (old: any) => {
         if (!old) return old;
         return {
           ...old,
-          activities: old.activities.filter((a: any) => a.id !== activityId),
+          activities: old.activities.filter((a: any) => a.id !== data.activityId),
         };
       });
-      
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['group-recruits'], context.previousData);
-      }
-    },
-    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     },
   });
