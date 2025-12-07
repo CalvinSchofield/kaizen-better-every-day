@@ -18,6 +18,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
@@ -30,6 +40,7 @@ const MyGroup = () => {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
+  const [deletingSuggestionId, setDeletingSuggestionId] = useState<string | null>(null);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzes, isLeader);
@@ -192,14 +203,7 @@ const MyGroup = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={async () => {
-                                  try {
-                                    await deleteMutation.mutateAsync(suggestion.id);
-                                    toast.success('Suggestion deleted');
-                                  } catch {
-                                    toast.error('Failed to delete');
-                                  }
-                                }}
+                                onClick={() => setDeletingSuggestionId(suggestion.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -279,6 +283,37 @@ const MyGroup = () => {
         recruitCounts={teamRecruitCounts}
         totalRecruits={allRecruits.length}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingSuggestionId} onOpenChange={(open) => !open && setDeletingSuggestionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete suggestion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this recruit suggestion. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (deletingSuggestionId) {
+                  try {
+                    await deleteMutation.mutateAsync(deletingSuggestionId);
+                    toast.success('Suggestion deleted');
+                  } catch {
+                    toast.error('Failed to delete');
+                  }
+                  setDeletingSuggestionId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
