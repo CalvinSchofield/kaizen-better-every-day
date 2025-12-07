@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { useEfpMode } from "@/hooks/useEfpMode";
 
 type SortOption = 
   | 'default' 
@@ -30,30 +29,27 @@ type SortOption =
   | 'pitchesPerDay'
   | 'transitionsPerDay';
 
-// Sort options are generated dynamically based on EFP mode
-const getSortOptions = (efpModeEnabled: boolean): { value: SortOption; label: string }[] => {
-  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
-  return [
-    { value: 'default', label: 'Default' },
-    { value: 'fp', label: metricLabel },
-    { value: 'prmr', label: 'PRMR' },
-    { value: 'doors', label: 'Doors' },
-    { value: 'dms', label: 'Decision Makers' },
-    { value: 'pitches', label: 'Pitches' },
-    { value: 'transitions', label: 'Transitions' },
-    { value: 'presentations', label: 'Presentations' },
-    { value: 'closes', label: 'Closes' },
-    { value: 'hours', label: 'Hours Worked' },
-    { value: 'avgStart', label: 'Avg Start Time' },
-    { value: 'avgEnd', label: 'Avg End Time' },
-    { value: 'fpPerDay', label: `${metricLabel} / Day` },
-    { value: 'doorsPerDay', label: 'Doors / Day' },
-    { value: 'hoursPerDay', label: 'Hours / Day' },
-    { value: 'prmrPerDay', label: 'PRMR / Day' },
-    { value: 'pitchesPerDay', label: 'Pitches / Day' },
-    { value: 'transitionsPerDay', label: 'Trans / Day' },
-  ];
-};
+// Sort options - always use FP+ for reports
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'fp', label: 'FP+' },
+  { value: 'prmr', label: 'PRMR' },
+  { value: 'doors', label: 'Doors' },
+  { value: 'dms', label: 'Decision Makers' },
+  { value: 'pitches', label: 'Pitches' },
+  { value: 'transitions', label: 'Transitions' },
+  { value: 'presentations', label: 'Presentations' },
+  { value: 'closes', label: 'Closes' },
+  { value: 'hours', label: 'Hours Worked' },
+  { value: 'avgStart', label: 'Avg Start Time' },
+  { value: 'avgEnd', label: 'Avg End Time' },
+  { value: 'fpPerDay', label: 'FP+ / Day' },
+  { value: 'doorsPerDay', label: 'Doors / Day' },
+  { value: 'hoursPerDay', label: 'Hours / Day' },
+  { value: 'prmrPerDay', label: 'PRMR / Day' },
+  { value: 'pitchesPerDay', label: 'Pitches / Day' },
+  { value: 'transitionsPerDay', label: 'Trans / Day' },
+];
 
 const formatMinutesToTime = (minutes: number): string => {
   const h = Math.floor(minutes / 60);
@@ -154,9 +150,6 @@ export const AggregatedRankingsCard = ({
   isLoading, 
   title 
 }: AggregatedRankingsCardProps) => {
-  const { efpModeEnabled } = useEfpMode();
-  const SORT_OPTIONS = getSortOptions(efpModeEnabled);
-  
   const [selectedRep, setSelectedRep] = useState<RepRankingData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
