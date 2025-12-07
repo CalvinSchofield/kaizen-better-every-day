@@ -209,50 +209,42 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
             firstName={firstName}
           />
           
-          {/* Center/Content area */}
-          {location.pathname === "/my-group" && headerRightContent ? (
-            <div className="flex-1 flex items-center">
-              {headerRightContent}
-            </div>
-          ) : (
-            <>
-              <div className="flex-1 flex justify-center">
-                <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-                  {getPageTitle()}
-                </h1>
+          {/* Center - Page title */}
+          <div className="flex-1 flex justify-center">
+            <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
+              {getPageTitle()}
+            </h1>
+          </div>
+          
+          {/* Right side - action buttons */}
+          <div className="flex-shrink-0">
+            {headerRightContent ? (
+              headerRightContent
+            ) : location.pathname === "/track" && onSave && onReset ? (
+              <div className="flex items-center gap-2">
+                {syncIndicator}
+                <Button
+                  onClick={onSave}
+                  disabled={isSaving}
+                  size="icon"
+                  className="h-10 w-10 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
+                >
+                  <Save className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onReset}
+                  disabled={isResetting}
+                  className="h-10 w-10"
+                >
+                  <RotateCcw className="h-5 w-5" />
+                </Button>
               </div>
-              
-              {/* Right side - action buttons */}
-              <div className="flex-shrink-0">
-                {headerRightContent ? (
-                  headerRightContent
-                ) : location.pathname === "/track" && onSave && onReset ? (
-                  <div className="flex items-center gap-2">
-                    {syncIndicator}
-                    <Button
-                      onClick={onSave}
-                      disabled={isSaving}
-                      size="icon"
-                      className="h-10 w-10 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
-                    >
-                      <Save className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onReset}
-                      disabled={isResetting}
-                      className="h-10 w-10"
-                    >
-                      <RotateCcw className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="w-10" /> // Spacer for balance
-                )}
-              </div>
-            </>
-          )}
+            ) : (
+              <div className="w-10" /> 
+            )}
+          </div>
         </div>
       </header>
 
