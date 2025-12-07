@@ -73,8 +73,9 @@ export const CalendarPlanningCard = ({
   const [isEditingPreseasonGoal, setIsEditingPreseasonGoal] = useState(false);
   const [isSummerOpen, setIsSummerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean} | null>(null);
+  const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean; isTakingOffDay?: boolean} | null>(null);
   const [dismissedSummerBoundaryWarning, setDismissedSummerBoundaryWarning] = useState<'start' | 'end' | 'both' | null>(null);
+  const [dismissedTakeOffDayWarning, setDismissedTakeOffDayWarning] = useState(false);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { 
@@ -527,6 +528,28 @@ export const CalendarPlanningCard = ({
           await togglePlannedDay(dateStr);
         }
       } else {
+        // User is trying to mark a day OFF within their summer range
+        // Check if this is within first 10 knocking days of their summer start
+        // This is critical - they'll still be charged rent even if they take days off
+        let knockingDaysFromStart = 0;
+        let current = new Date(userSummerStart);
+        while (current <= date) {
+          const dow = getDay(current);
+          if (dow !== 0) knockingDaysFromStart++; // Count if not Sunday
+          current.setDate(current.getDate() + 1);
+        }
+        
+        // Show warning if within first 10 knocking days of start and not dismissed
+        if (knockingDaysFromStart <= 10 && !dismissedTakeOffDayWarning) {
+          setDateOutOfRangeSheet({ 
+            open: true, 
+            date: dateStr, 
+            isBeforeStart: true, 
+            isTakingOffDay: true 
+          });
+          return;
+        }
+        
         // Mark as off-day (add to exclusions)
         addSummerOffDay(dateStr);
         // Also remove from planned days if planned
@@ -1018,16 +1041,20 @@ export const CalendarPlanningCard = ({
             <div className="flex items-center gap-2 text-amber-500">
               <AlertCircle className="h-5 w-5" />
               <SheetTitle className="text-amber-500">
-                {dateOutOfRangeSheet?.isBeforeStart 
-                  ? "Working Before Your Official Summer Start?"
-                  : "Working After Your Official Summer End?"
+                {dateOutOfRangeSheet?.isTakingOffDay 
+                  ? "Taking Time Off at the Start of Summer?"
+                  : dateOutOfRangeSheet?.isBeforeStart 
+                    ? "Starting Earlier Than Your Official Date?"
+                    : "Working After Your Official Summer End?"
                 }
               </SheetTitle>
             </div>
             <SheetDescription className="text-left">
-              {dateOutOfRangeSheet?.isBeforeStart 
-                ? `This date is before your official summer start (${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}).`
-                : `This date is after your official summer end (${format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')}).`
+              {dateOutOfRangeSheet?.isTakingOffDay 
+                ? `This day is within the first days of your summer (starts ${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}). You'll still be charged rent for these days even if you're not working.`
+                : dateOutOfRangeSheet?.isBeforeStart 
+                  ? `This date is before your official summer start (${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}).`
+                  : `This date is after your official summer end (${format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')}).`
               }
             </SheetDescription>
           </SheetHeader>
@@ -1035,23 +1062,33 @@ export const CalendarPlanningCard = ({
           <div className="mt-4 space-y-4">
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <p className="text-sm text-foreground">
-                <strong>Important:</strong> Marking extra days here doesn't change your official summer dates with Vivint or affect your rent deductions. To officially change your start/end dates, coordinate with your leader.
+                {dateOutOfRangeSheet?.isTakingOffDay ? (
+                  <>
+                    <strong>Important:</strong> If you're arriving to the summer market later, you should update your official summer start date to avoid paying rent for days you're not there. If you're working locally (not at the summer market) on other days, you can mark this day off anyway.
+                  </>
+                ) : (
+                  <>
+                    <strong>Important:</strong> Marking extra days here doesn't change your official summer dates with Vivint or affect your rent deductions. To officially change your start/end dates, coordinate with your leader.
+                  </>
+                )}
               </p>
             </div>
 
             {/* Inline Date Picker for quick update */}
             <div className="space-y-2">
               <p className="text-sm font-medium">
-                {dateOutOfRangeSheet?.isBeforeStart 
-                  ? "Update your summer start date:"
-                  : "Update your summer end date:"
+                {dateOutOfRangeSheet?.isTakingOffDay 
+                  ? "Delay your summer start date to avoid extra rent:"
+                  : dateOutOfRangeSheet?.isBeforeStart 
+                    ? "Move up your summer start date:"
+                    : "Update your summer end date:"
                 }
               </p>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateOutOfRangeSheet?.isBeforeStart 
+                    {dateOutOfRangeSheet?.isBeforeStart || dateOutOfRangeSheet?.isTakingOffDay
                       ? format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')
                       : format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')
                     }
@@ -1060,7 +1097,7 @@ export const CalendarPlanningCard = ({
                 <PopoverContent className="w-auto p-0" align="center">
                   <CalendarPicker
                     mode="single"
-                    selected={dateOutOfRangeSheet?.isBeforeStart 
+                    selected={dateOutOfRangeSheet?.isBeforeStart || dateOutOfRangeSheet?.isTakingOffDay
                       ? parseLocalDate(personalSummerStart)
                       : parseLocalDate(personalSummerEnd)
                     }
@@ -1068,7 +1105,7 @@ export const CalendarPlanningCard = ({
                       if (!selectedDate || !repData?.user_id) return;
                       
                       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-                      const updateField = dateOutOfRangeSheet?.isBeforeStart 
+                      const updateField = (dateOutOfRangeSheet?.isBeforeStart || dateOutOfRangeSheet?.isTakingOffDay)
                         ? 'personal_summer_start' 
                         : 'personal_summer_end';
                       
@@ -1083,16 +1120,19 @@ export const CalendarPlanningCard = ({
                         toast.error('Failed to update summer dates');
                         console.error(error);
                       } else {
-                        toast.success(`Summer ${dateOutOfRangeSheet?.isBeforeStart ? 'start' : 'end'} date updated!`);
+                        toast.success(`Summer start date updated to ${format(selectedDate, 'MMM d, yyyy')}!`);
                         queryClient.invalidateQueries({ queryKey: ['season-config-for-goals'] });
                         queryClient.invalidateQueries({ queryKey: ['season-config'] });
                         
-                        // Now toggle the day since it's within range
-                        const clickedDate = dateOutOfRangeSheet?.date;
-                        setDateOutOfRangeSheet(null);
-                        if (clickedDate) {
-                          await togglePlannedDay(clickedDate);
+                        // For "taking off day" case, we don't toggle the day since they're delaying start
+                        // For "before start" case, we do toggle since they're starting earlier
+                        if (!dateOutOfRangeSheet?.isTakingOffDay) {
+                          const clickedDate = dateOutOfRangeSheet?.date;
+                          if (clickedDate) {
+                            await togglePlannedDay(clickedDate);
+                          }
                         }
+                        setDateOutOfRangeSheet(null);
                       }
                     }}
                     disabled={(date) => {
@@ -1100,7 +1140,7 @@ export const CalendarPlanningCard = ({
                       const summerEnd = parseLocalDate(SUMMER_END);
                       // For start date: must be within global summer bounds
                       // For end date: must be after personal start and within global bounds
-                      if (dateOutOfRangeSheet?.isBeforeStart) {
+                      if (dateOutOfRangeSheet?.isBeforeStart || dateOutOfRangeSheet?.isTakingOffDay) {
                         return date < summerStart || date > summerEnd;
                       } else {
                         return date < parseLocalDate(personalSummerStart) || date > summerEnd;
@@ -1121,9 +1161,11 @@ export const CalendarPlanningCard = ({
                   onClick={() => {
                     const phone = repData.team_leader_phone?.replace(/\D/g, '');
                     const message = encodeURIComponent(
-                      dateOutOfRangeSheet?.isBeforeStart 
-                        ? `Hey! I'd like to start working earlier than my current official summer start date. Can you help me get my dates changed with the company?`
-                        : `Hey! I'd like to extend my summer end date. Can you help me get my dates changed with the company?`
+                      dateOutOfRangeSheet?.isTakingOffDay 
+                        ? `Hey! I need to delay my summer start date because I won't be arriving until later. Can you help me get my official dates changed with the company so I don't get charged extra rent?`
+                        : dateOutOfRangeSheet?.isBeforeStart 
+                          ? `Hey! I'd like to start working earlier than my current official summer start date. Can you help me get my dates changed with the company?`
+                          : `Hey! I'd like to extend my summer end date. Can you help me get my dates changed with the company?`
                     );
                     window.open(`sms:${phone}?body=${message}`, '_blank');
                   }}
@@ -1137,26 +1179,42 @@ export const CalendarPlanningCard = ({
                 variant="secondary"
                 className="w-full"
                 onClick={async () => {
-                  // Mark the day and dismiss future warnings for this boundary
-                  const isBeforeStart = dateOutOfRangeSheet?.isBeforeStart;
                   const dateStr = dateOutOfRangeSheet?.date;
+                  const isTakingOff = dateOutOfRangeSheet?.isTakingOffDay;
+                  const isBeforeStart = dateOutOfRangeSheet?.isBeforeStart;
                   
-                  // Dismiss warnings for this boundary
-                  setDismissedSummerBoundaryWarning(prev => {
-                    if (prev === 'start' && !isBeforeStart) return 'both';
-                    if (prev === 'end' && isBeforeStart) return 'both';
-                    return isBeforeStart ? 'start' : 'end';
-                  });
-                  
-                  setDateOutOfRangeSheet(null);
-                  
-                  // Now toggle the day
-                  if (dateStr) {
-                    await togglePlannedDay(dateStr);
+                  if (isTakingOff) {
+                    // Dismiss the take-off warning and mark the day as off
+                    setDismissedTakeOffDayWarning(true);
+                    setDateOutOfRangeSheet(null);
+                    
+                    if (dateStr) {
+                      addSummerOffDay(dateStr);
+                      if (isDatePlanned(dateStr)) {
+                        await togglePlannedDay(dateStr);
+                      }
+                    }
+                  } else {
+                    // Dismiss warnings for this boundary
+                    setDismissedSummerBoundaryWarning(prev => {
+                      if (prev === 'start' && !isBeforeStart) return 'both';
+                      if (prev === 'end' && isBeforeStart) return 'both';
+                      return isBeforeStart ? 'start' : 'end';
+                    });
+                    
+                    setDateOutOfRangeSheet(null);
+                    
+                    // Now toggle the day
+                    if (dateStr) {
+                      await togglePlannedDay(dateStr);
+                    }
                   }
                 }}
               >
-                Keep Current Dates, Mark Day Anyway
+                {dateOutOfRangeSheet?.isTakingOffDay 
+                  ? "I'm Working Locally, Mark Day Off Anyway"
+                  : "Keep Current Dates, Mark Day Anyway"
+                }
               </Button>
               
               <Button 
