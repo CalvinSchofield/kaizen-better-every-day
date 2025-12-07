@@ -28,35 +28,27 @@ const MyGroup = () => {
   const activities = groupData?.activities || [];
 
   // Filter recruits by selected team if applicable
-  const filteredRecruits = (() => {
+  const filteredRecruits = useMemo(() => {
     if (!selectedTeamFilter) return allRecruits;
     
     // Parse filter format: "team:id" or "mgmt:id"
     if (selectedTeamFilter.startsWith('team:')) {
       const teamId = selectedTeamFilter.replace('team:', '');
-      const team = teamAccess?.teams?.find(t => t.id === teamId);
-      if (team) {
-        // Match by team name (team leader name)
-        return allRecruits.filter(r => r.teamName === team.name || r.recruiterName === team.name);
-      }
+      // Filter by teamId directly
+      return allRecruits.filter(r => r.teamId === teamId);
     } else if (selectedTeamFilter.startsWith('mgmt:')) {
       const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-      const mgmtGroup = teamAccess?.mgmtGroups?.find(g => g.id === mgmtId);
-      if (mgmtGroup) {
-        // Get all team names in this mgmt group
-        const teamNames = mgmtGroup.teamIds
-          .map(tid => teamAccess?.teams?.find(t => t.id === tid)?.name)
-          .filter(Boolean);
-        return allRecruits.filter(r => teamNames.includes(r.teamName) || teamNames.includes(r.recruiterName));
-      }
+      // Filter by mgmtGroupId directly
+      return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
     }
     return allRecruits;
-  })();
+  }, [selectedTeamFilter, allRecruits]);
 
   // Filter activities to match filtered recruits
-  const filteredActivities = selectedTeamFilter
-    ? activities.filter(a => filteredRecruits.some(r => r.notionPageId === a.rep_notion_page_id))
-    : activities;
+  const filteredActivities = useMemo(() => {
+    if (!selectedTeamFilter) return activities;
+    return activities.filter(a => filteredRecruits.some(r => r.notionPageId === a.rep_notion_page_id));
+  }, [selectedTeamFilter, activities, filteredRecruits]);
 
   // Get active filter name for display
   const activeFilterName = useMemo(() => {
@@ -75,19 +67,14 @@ const MyGroup = () => {
   const teamRecruitCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     
+    // Count by teamId
     teamAccess?.teams?.forEach(team => {
-      counts[`team:${team.id}`] = allRecruits.filter(
-        r => r.teamName === team.name || r.recruiterName === team.name
-      ).length;
+      counts[`team:${team.id}`] = allRecruits.filter(r => r.teamId === team.id).length;
     });
     
+    // Count by mgmtGroupId
     teamAccess?.mgmtGroups?.forEach(group => {
-      const teamNames = group.teamIds
-        .map(tid => teamAccess?.teams?.find(t => t.id === tid)?.name)
-        .filter(Boolean);
-      counts[`mgmt:${group.id}`] = allRecruits.filter(
-        r => teamNames.includes(r.teamName) || teamNames.includes(r.recruiterName)
-      ).length;
+      counts[`mgmt:${group.id}`] = allRecruits.filter(r => r.mgmtGroupId === group.id).length;
     });
     
     return counts;

@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       throw new Error("Leader Notion page ID is required");
     }
 
-    console.log(`Fetching team members for leader: ${leaderNotionPageId}, accessLevel: ${fetchAllForAccessLevel || 'team_lead'}`);
+    console.log(`Fetching team members for leader: ${leaderNotionPageId}, accessLevel: ${fetchAllForAccessLevel || 'team_lead'}, accessibleNotionIds count: ${accessibleNotionIds?.length || 0}`);
 
     // For area directors and mgmt group leads, fetch all reps from their accessible list
     if (fetchAllForAccessLevel === 'area_director' || fetchAllForAccessLevel === 'mgmt_group_lead') {
