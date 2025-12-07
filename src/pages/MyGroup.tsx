@@ -1,31 +1,35 @@
 import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useGroupRecruits, useMySuggestions } from "@/hooks/useGroupRecruits";
+import { useGroupRecruits, useMySuggestions, useUpdateMySuggestion, useDeleteMySuggestion, RecruitSuggestion } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X, Clock, CheckCircle2, XCircle, Pencil, Trash2 } from "lucide-react";
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
 import { RecruitListView } from "@/components/mygroup/RecruitListView";
 import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
+import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
 import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
+  const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes } = useBlitzes();
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'planner'>('board');
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+  const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzes, isLeader);
@@ -166,28 +170,55 @@ const MyGroup = () => {
                   Your suggestions to your team leader
                 </p>
                 <div className="space-y-3">
-                  {mySuggestions.map((suggestion) => (
+                {mySuggestions.map((suggestion) => (
                     <div
                       key={suggestion.id}
                       className="bg-card rounded-xl p-4 border border-border"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{suggestion.name}</span>
-                        {suggestion.status === 'pending' && (
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> Pending
-                          </Badge>
-                        )}
-                        {suggestion.status === 'approved' && (
-                          <Badge className="bg-green-500 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Approved
-                          </Badge>
-                        )}
-                        {suggestion.status === 'rejected' && (
-                          <Badge variant="destructive" className="flex items-center gap-1">
-                            <XCircle className="h-3 w-3" /> Rejected
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {suggestion.status === 'pending' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setEditingSuggestion(suggestion)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={async () => {
+                                  try {
+                                    await deleteMutation.mutateAsync(suggestion.id);
+                                    toast.success('Suggestion deleted');
+                                  } catch {
+                                    toast.error('Failed to delete');
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Badge variant="secondary" className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> Pending
+                              </Badge>
+                            </>
+                          )}
+                          {suggestion.status === 'approved' && (
+                            <Badge className="bg-green-500 flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" /> Approved
+                            </Badge>
+                          )}
+                          {suggestion.status === 'rejected' && (
+                            <Badge variant="destructive" className="flex items-center gap-1">
+                              <XCircle className="h-3 w-3" /> Rejected
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         {suggestion.phone}
@@ -232,6 +263,11 @@ const MyGroup = () => {
 
       {/* Sheets */}
       <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />
+      <EditSuggestionDrawer 
+        open={!!editingSuggestion} 
+        onOpenChange={(open) => !open && setEditingSuggestion(null)}
+        suggestion={editingSuggestion}
+      />
       <TeamFilterSheet 
         open={filterSheetOpen} 
         onOpenChange={setFilterSheetOpen}
