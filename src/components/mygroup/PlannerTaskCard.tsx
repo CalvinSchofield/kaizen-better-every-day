@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { format, parseISO, isPast, isToday, addDays } from "date-fns";
 import { toast } from "sonner";
@@ -149,8 +150,8 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
           </Badge>
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          <Popover open={completeOpen} onOpenChange={setCompleteOpen}>
-            <PopoverTrigger asChild>
+          <Drawer open={completeOpen} onOpenChange={setCompleteOpen}>
+            <DrawerTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
@@ -159,37 +160,38 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
               >
                 <CheckCircle2 className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent 
-              className="w-auto p-2" 
-              align="end"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-xs text-muted-foreground mb-2">Mark as completed via:</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => handleMarkComplete('phone_call')}
-                  disabled={logActivityMutation.isPending}
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  Call
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => handleMarkComplete('in_person')}
-                  disabled={logActivityMutation.isPending}
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  In Person
-                </Button>
+            </DrawerTrigger>
+            <DrawerContent onClick={(e) => e.stopPropagation()}>
+              <DrawerHeader className="pb-2">
+                <DrawerTitle className="text-center">Mark Complete</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4 pt-0">
+                <p className="text-sm text-muted-foreground text-center mb-4">
+                  How did you complete this task?
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-14 gap-2"
+                    onClick={() => handleMarkComplete('phone_call')}
+                    disabled={logActivityMutation.isPending}
+                  >
+                    <Phone className="h-5 w-5" />
+                    Call
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-14 gap-2"
+                    onClick={() => handleMarkComplete('in_person')}
+                    disabled={logActivityMutation.isPending}
+                  >
+                    <Users className="h-5 w-5" />
+                    In Person
+                  </Button>
+                </div>
               </div>
-            </PopoverContent>
-          </Popover>
+            </DrawerContent>
+          </Drawer>
           {showSnooze && (
             <Button
               variant="ghost"
