@@ -692,16 +692,18 @@ export const CalendarPlanningCard = ({
                 "aspect-square rounded-lg text-sm font-medium transition-all",
                 "flex items-center justify-center relative",
                 (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
-                // Past worked days - show with green/success style
+                // Future planned days (NOT past, NOT worked) - show as orange/primary
+                isPlanned && !isPast && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
+                // Past worked days - show with green/success style (takes precedence over planned)
                 isPast && isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
                 // Past non-worked days - muted
                 isPast && !isWorked && !isSunday && !isAfterPersonalSummerEnd && "opacity-30 cursor-not-allowed",
-                !isDisabled && "hover:bg-accent cursor-pointer",
-                // Planned and not excluded = solid primary
-                isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
+                // Hoverable future days
+                !isDisabled && !isPlanned && !isExcludedSummerDay && "hover:bg-accent cursor-pointer",
                 // Summer off-day (excluded) = strikethrough style
-                isExcludedSummerDay && !isDisabled && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
-                isTodayDate && !isPlanned && !isSunday && !isAfterPersonalSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                isExcludedSummerDay && !isPast && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
+                // Today indicator ring (only if not planned and not worked)
+                isTodayDate && !isPlanned && !isWorked && !isSunday && !isAfterPersonalSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 !isCurrentMonth && "opacity-30"
               )}
             >
