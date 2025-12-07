@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useToast } from "@/hooks/use-toast";
@@ -223,6 +224,17 @@ export const BooksSection = () => {
         <CardDescription>
           Check off books as you read them to track your commitment
         </CardDescription>
+        {booksGoal > 0 && (
+          <div className="mt-3 space-y-1">
+            <Progress 
+              value={Math.min((booksReadCount / booksGoal) * 100, 100)} 
+              className="h-2"
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {Math.round(Math.min((booksReadCount / booksGoal) * 100, 100))}% complete
+            </p>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {booksToShow.map((book) => {
