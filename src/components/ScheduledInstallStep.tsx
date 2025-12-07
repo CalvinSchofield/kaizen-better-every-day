@@ -51,8 +51,16 @@ export const ScheduledInstallStep = ({
 
   const handleDateSelect = (saleId: string, date: Date | undefined) => {
     if (!date) return;
-    setScheduledDates(prev => ({ ...prev, [saleId]: date }));
-    setDatePickerOpen(null);
+    // Update the date first, then close popover after a brief delay to ensure state updates
+    setScheduledDates(prev => {
+      const updated = { ...prev, [saleId]: date };
+      console.log('Date selected for sale', saleId, ':', format(date, 'MMM d, yyyy'));
+      return updated;
+    });
+    // Small delay to ensure the date state is updated before closing
+    setTimeout(() => {
+      setDatePickerOpen(null);
+    }, 50);
   };
 
   const handleConfirm = () => {
