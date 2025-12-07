@@ -288,32 +288,9 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
                 )}
               </div>
               {dayTasks.length === 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Nothing scheduled
-                  </p>
-                  {/* Show upcoming tasks when today has nothing */}
-                  {isToday && upcomingTasks.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">Coming up:</p>
-                      {upcomingTasks.map(({ recruit, activity, label }) => (
-                        <div 
-                          key={`upcoming-${recruit.notionPageId}-${activity.id}`}
-                          className="flex items-center justify-between bg-muted/50 rounded-lg p-2 cursor-pointer hover:bg-muted transition-colors"
-                          onClick={() => handleRecruitClick(recruit)}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="text-xs font-medium text-primary whitespace-nowrap">{label}</div>
-                            <span className="text-sm truncate">{getFirstName(recruit.name)}</span>
-                          </div>
-                          <Badge variant="secondary" className="text-xs shrink-0 ml-2">
-                            {recruit.stage}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Nothing scheduled
+                </p>
               ) : (
                 <div className="space-y-2">
                   {dayTasks.map(({ recruit, activity }) => (
