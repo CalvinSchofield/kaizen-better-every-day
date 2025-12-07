@@ -86,27 +86,25 @@ serve(async (req) => {
       };
     }
 
-    // Add location/state if provided
+    // Add location/state if provided (multi_select)
     if (location) {
       properties['Location'] = {
-        select: { name: location }
+        multi_select: [{ name: location }]
       };
     }
 
-    // Add recruitment source if provided
+    // Add recruitment source if provided (multi_select)
     if (recruitmentSource) {
       properties['How did you recruit them?'] = {
-        select: { name: recruitmentSource }
+        multi_select: [{ name: recruitmentSource }]
       };
     }
 
-    // Add recruiter relation if provided
+    // Add recruiter if provided (select, not relation)
     if (recruiterNotionId) {
-      properties['Recruiter'] = {
-        relation: [{ id: recruiterNotionId }]
-      };
+      // Note: Recruiter is a select field, we need the recruiter name not ID
+      // Skip for now - would need recruiter name passed in
     }
-
     // Add team relation if provided
     if (teamNotionId) {
       properties['Teams'] = {
@@ -121,12 +119,8 @@ serve(async (req) => {
       };
     }
 
-    // Add Downline relation if provided (person who added them)
-    if (downlineNotionId) {
-      properties['Downline'] = {
-        relation: [{ id: downlineNotionId }]
-      };
-    }
+    // Note: Downline is a people field, not relation - skip for now
+    // Would need the person's Notion user ID, not page ID
 
     console.log('Creating Notion page with properties:', JSON.stringify(properties, null, 2));
 
