@@ -435,7 +435,7 @@ const Goals = () => {
                 }
 
                 // Handle blitz commitments if rookie selected any
-                if (isRookie && data.selectedBlitzIds && repData?.id && repData?.notion_page_id) {
+                if (isRookie && data.selectedBlitzIds && data.selectedBlitzIds.length > 0 && repData?.id) {
                   const selectedBlitzDetails = allBlitzes
                     .filter(b => data.selectedBlitzIds?.includes(b.id))
                     .map(b => ({
@@ -447,18 +447,26 @@ const Goals = () => {
                     }));
                   
                   // Update local Supabase
-                  await supabase
+                  const { error: blitzError } = await supabase
                     .from('reps')
                     .update({ committed_blitzes: selectedBlitzDetails as any })
                     .eq('id', repData.id);
                   
-                  // Sync to Notion
-                  await supabase.functions.invoke('update-blitz-commitment', {
-                    body: {
-                      repNotionPageId: repData.notion_page_id,
-                      blitzPageIds: data.selectedBlitzIds,
-                    },
-                  });
+                  if (blitzError) {
+                    console.error('Error saving blitz commitments:', blitzError);
+                  } else {
+                    console.log('Saved blitz commitments:', selectedBlitzDetails);
+                  }
+                  
+                  // Sync to Notion if we have the page ID
+                  if (repData.notion_page_id) {
+                    await supabase.functions.invoke('update-blitz-commitment', {
+                      body: {
+                        repNotionPageId: repData.notion_page_id,
+                        blitzPageIds: data.selectedBlitzIds,
+                      },
+                    });
+                  }
                   
                   await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
                 }
