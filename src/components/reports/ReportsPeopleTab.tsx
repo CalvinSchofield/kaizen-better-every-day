@@ -32,6 +32,7 @@ interface ReportsPeopleTabProps {
   userIds: string[];
   excludeUserIds: string[];
   accessibleReps: any[];
+  accessLevel?: 'area_director' | 'mgmt_group_lead' | 'team_lead' | 'none';
   showSummerAvailability?: boolean;
   
   // Date range for goals
@@ -63,6 +64,7 @@ export const ReportsPeopleTab = ({
   userIds,
   excludeUserIds,
   accessibleReps,
+  accessLevel = 'none',
   showSummerAvailability,
   dateRange,
   datePreset,
@@ -87,6 +89,7 @@ export const ReportsPeopleTab = ({
           <LeaderPreseasonStandardsCard
             accessibleReps={accessibleReps}
             excludeUserIds={excludeUserIds}
+            accessLevel={accessLevel}
           />
         )}
         <LeaderGoalsCard
@@ -136,6 +139,7 @@ export const ReportsPeopleTab = ({
         <LeaderPreseasonStandardsCard
           accessibleReps={accessibleReps}
           excludeUserIds={excludeUserIds}
+          accessLevel={accessLevel}
         />
       )}
       <LeaderGoalsCard

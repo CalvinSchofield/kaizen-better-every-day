@@ -502,6 +502,7 @@ const TeamReports = () => {
                 userIds={effectiveUserIds}
                 excludeUserIds={excludeUserIds}
                 accessibleReps={accessData?.accessibleReps || []}
+                accessLevel={accessData?.accessLevel}
                 showSummerAvailability={showSummerAvailability}
                 dateRange={currentDateRange}
                 datePreset={datePreset}
