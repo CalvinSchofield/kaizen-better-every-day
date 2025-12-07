@@ -93,11 +93,56 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     }
   }, [calculatedDailyFpGoal]);
 
-  // Calculate today's progress
+  // Calculate today's progress - use sales_log for real-time FP+ if not finalized
   const todayTransitions = entry?.transitions || 0;
   const todayPresentations = entry?.presentations || 0;
-  const todayFP = entry?.fp_plus || 0;
-  const todayPRMR = entry?.prmr || 0;
+  
+  // Calculate real-time FP+ from sales_log when entry exists but isn't finalized
+  const todayFP = useMemo(() => {
+    if (!entry) return 0;
+    
+    // If finalized, use the stored fp_plus
+    if (entry.is_finalized) {
+      return entry.fp_plus || 0;
+    }
+    
+    // Otherwise calculate from sales_log for real-time display
+    const salesLog = entry.sales_log as Array<{ fp: number; upgrade_prmr?: number }> | null;
+    if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+      let totalFP = 0;
+      salesLog.forEach(sale => {
+        // FP+ = FP + (upgrade_prmr / 85)
+        totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
+      });
+      return totalFP;
+    }
+    
+    // Fallback to stored fp_plus if no sales_log
+    return entry.fp_plus || 0;
+  }, [entry]);
+  
+  // Calculate real-time PRMR from sales_log when entry exists but isn't finalized
+  const todayPRMR = useMemo(() => {
+    if (!entry) return 0;
+    
+    // If finalized, use stored values
+    if (entry.is_finalized) {
+      return (entry.prmr || 0) + (entry.upgrade_prmr || 0);
+    }
+    
+    // Otherwise calculate from sales_log for real-time display
+    const salesLog = entry.sales_log as Array<{ prmr?: number; upgrade_prmr?: number }> | null;
+    if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
+      let totalPRMR = 0;
+      salesLog.forEach(sale => {
+        totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
+      });
+      return totalPRMR;
+    }
+    
+    // Fallback to stored values
+    return (entry.prmr || 0) + ((entry as any).upgrade_prmr || 0);
+  }, [entry]);
   
   // For EFP mode, show EFP instead of FP+
   const displayValue = efpModeEnabled ? calculateEfp(todayPRMR) : todayFP;
