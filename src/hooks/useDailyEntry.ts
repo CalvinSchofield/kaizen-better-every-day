@@ -328,6 +328,21 @@ export const useDailyEntry = (date?: string) => {
         });
 
       if (error) throw error;
+      
+      // Check for automatic stage progression if FP+ is logged
+      if (data.fp_plus > 0) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await supabase.functions.invoke('check-auto-stage-progression', {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+          }
+        } catch (stageError) {
+          console.error('Error checking auto stage progression:', stageError);
+          // Don't throw - this is a non-critical enhancement
+        }
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
@@ -347,6 +362,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['season-leaderboard'] });
       // PROTECTION LAYER 4: Update today leaderboard to show finalized data
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
+      // Invalidate group-recruits in case stage was auto-progressed
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       toast.success('Entry saved successfully!');
     },
   });
