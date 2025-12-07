@@ -11,6 +11,7 @@ import { useWorkingStatus } from "@/hooks/useWorkingStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { RepDetailDrawer } from "@/components/reports/RepDetailDrawer";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface SelectedRepData {
   userId: string;
@@ -77,6 +78,7 @@ export const LeaderboardCard = () => {
   const [selectedRep, setSelectedRep] = useState<SelectedRepData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  const { efpModeEnabled } = useEfpMode();
   const { data: teamAccess } = useTeamAccess();
   
   // Check if current user is a leader with downline access
@@ -107,6 +109,9 @@ export const LeaderboardCard = () => {
   const { data: monthlyBoard } = useMonthlyLeaderboard(filterByYear);
   const { data: seasonBoard } = useSeasonLeaderboard(filterByYear);
   const { data: workingStatus } = useWorkingStatus();
+  
+  // Dynamic metric label
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   // Calculate weekly streaks - same person leads this week AND last week
   const weeklyStreaks = useMemo(() => {
@@ -161,9 +166,9 @@ export const LeaderboardCard = () => {
     ytdBoard;
 
   const categories = [
-    { key: 'mostFP', label: 'Highest FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+    { key: 'mostFP', label: `Highest ${metricLabel}`, format: (v: number) => `${v.toFixed(1)} ${metricLabel}` },
     { key: 'mostPRMR', label: 'Highest PRMR', format: (v: number) => `$${v.toFixed(0)}` },
-    { key: 'mostUpgradeFP', label: 'Highest Upgrade FP+', format: (v: number) => `${v.toFixed(1)} FP+` },
+    { key: 'mostUpgradeFP', label: `Highest Upgrade ${metricLabel}`, format: (v: number) => `${v.toFixed(1)} ${metricLabel}` },
     { key: 'mostHoursWorked', label: 'Most Hours', format: (v: number) => `${v.toFixed(1)} hrs` },
     { key: 'mostDoors', label: 'Most Doors', format: (v: number) => `${v}` },
     { key: 'mostTransitions', label: 'Most Transitions', format: (v: number) => `${v}` },
@@ -174,9 +179,9 @@ export const LeaderboardCard = () => {
 
   // Priority hierarchy for finding user highlights
   const priorityMetrics = [
-    { key: 'mostFP', label: 'FP+' },
+    { key: 'mostFP', label: metricLabel },
     { key: 'mostPRMR', label: 'PRMR' },
-    { key: 'mostUpgradeFP', label: 'upgrade FP+' },
+    { key: 'mostUpgradeFP', label: `upgrade ${metricLabel}` },
     { key: 'mostHoursWorked', label: 'hours' },
     { key: 'mostPresentations', label: 'presentations' },
     { key: 'mostTransitions', label: 'transitions' },

@@ -8,17 +8,18 @@ import { useYTDLeaderboard } from "@/hooks/useYTDLeaderboard";
 import { useTodayLeaderboard } from "@/hooks/useTodayLeaderboard";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface LeaderboardCTAProps {
   isOnActiveBlitz: boolean;
   onLeaderboardClick?: () => void;
 }
 
-// Metric labels for display
-const METRIC_LABELS: Record<string, string> = {
-  mostFP: 'FP+',
+// Metric labels for display - now a function that accepts efpModeEnabled
+const getMetricLabels = (efpModeEnabled: boolean): Record<string, string> => ({
+  mostFP: efpModeEnabled ? 'EFP' : 'FP+',
   mostPRMR: 'PRMR',
-  mostUpgradeFP: 'upgrade FP+',
+  mostUpgradeFP: efpModeEnabled ? 'upgrade EFP' : 'upgrade FP+',
   mostHoursWorked: 'hours worked',
   mostDoors: 'doors knocked',
   mostTransitions: 'transitions',
@@ -26,14 +27,14 @@ const METRIC_LABELS: Record<string, string> = {
   mostPitches: 'pitches',
   earliestDoor: 'earliest door',
   latestDoor: 'latest door',
-};
+});
 
 // Format value based on metric type - always 1 decimal for FP/hours
-const formatMetricValue = (metric: string, value: number, timeValue?: string): string => {
+const formatMetricValue = (metric: string, value: number, timeValue?: string, efpModeEnabled?: boolean): string => {
   if (metric === 'mostPRMR') {
     return `$${Math.round(value)}`;
   } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
-    return `${value.toFixed(1)} FP+`;
+    return `${value.toFixed(1)} ${efpModeEnabled ? 'EFP' : 'FP+'}`;
   } else if (metric === 'mostHoursWorked') {
     return `${value.toFixed(1)} hrs`;
   } else if (metric === 'earliestDoor' || metric === 'latestDoor') {
@@ -44,11 +45,11 @@ const formatMetricValue = (metric: string, value: number, timeValue?: string): s
 };
 
 // Format gap based on metric type - always 1 decimal for FP/hours
-const formatGap = (metric: string, gap: number): string => {
+const formatGap = (metric: string, gap: number, efpModeEnabled?: boolean): string => {
   if (metric === 'mostPRMR') {
     return `$${Math.round(gap)}`;
   } else if (metric === 'mostFP' || metric === 'mostUpgradeFP') {
-    return `${gap.toFixed(1)} FP+`;
+    return `${gap.toFixed(1)} ${efpModeEnabled ? 'EFP' : 'FP+'}`;
   } else if (metric === 'mostHoursWorked') {
     return `${gap.toFixed(1)} hrs`;
   } else {
@@ -59,6 +60,10 @@ const formatGap = (metric: string, gap: number): string => {
 export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: LeaderboardCTAProps) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
+  const { efpModeEnabled } = useEfpMode();
+  
+  // Get metric labels based on EFP mode
+  const metricLabels = getMetricLabels(efpModeEnabled);
   
   // Determine if we're in summer mode (after April 12, 2026)
   const isSummer = useMemo(() => {
@@ -260,11 +265,11 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
         
         // Check if USER is the leader for this metric
         if (entry && entry.value > 0 && entry.userId === currentUserId) {
-          const metricLabel = METRIC_LABELS[metric] || metric;
-          const formattedValue = formatMetricValue(metric, entry.value, entry.timeValue);
+          const label = metricLabels[metric] || metric;
+          const formattedValue = formatMetricValue(metric, entry.value, entry.timeValue, efpModeEnabled);
           
           return {
-            text: `You're leading the office in ${metricLabel} ${timeframe} at ${formattedValue}!`,
+            text: `You're leading the office in ${label} ${timeframe} at ${formattedValue}!`,
             isCurrentUser: true,
             filterKey,
           };
@@ -281,13 +286,13 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
         const leader = board[metric as keyof typeof board] as any;
         
         if (leader && leader.value > 0) {
-          const metricLabel = METRIC_LABELS[metric] || metric;
-          const formattedValue = formatMetricValue(metric, leader.value, leader.timeValue);
+          const label = metricLabels[metric] || metric;
+          const formattedValue = formatMetricValue(metric, leader.value, leader.timeValue, efpModeEnabled);
           
           // Skip time-based metrics for gap calculation (earliestDoor, latestDoor)
           if (metric === 'earliestDoor' || metric === 'latestDoor') {
             return {
-              text: `${leader.name} has the ${metricLabel} ${timeframe} at ${formattedValue}`,
+              text: `${leader.name} has the ${label} ${timeframe} at ${formattedValue}`,
               isCurrentUser: false,
               filterKey,
             };
@@ -295,10 +300,10 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
 
           // For numeric metrics, we need to find user's value to calculate gap
           // Since leaderboard hooks only return the leader, we show simple motivation
-          const gap = formatGap(metric, leader.value);
+          const gap = formatGap(metric, leader.value, efpModeEnabled);
           
           return {
-            text: `${leader.name} is leading ${metricLabel} ${timeframe} at ${formattedValue}`,
+            text: `${leader.name} is leading ${label} ${timeframe} at ${formattedValue}`,
             isCurrentUser: false,
             filterKey,
           };
@@ -307,7 +312,7 @@ export const LeaderboardCTA = ({ isOnActiveBlitz, onLeaderboardClick }: Leaderbo
     }
 
     return null;
-  }, [todayCallout, ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics]);
+  }, [todayCallout, ytdBoard, yesterdayBoard, weeklyBoard, monthlyBoard, seasonBoard, currentUserId, isSummer, priorityMetrics, metricLabels, efpModeEnabled]);
 
   // Show skeleton while loading
   if (isLoading) {

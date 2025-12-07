@@ -19,6 +19,7 @@ import {
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 type SortOption = "year" | "behind" | "name";
 
@@ -94,7 +95,7 @@ const getBehindStatus = (current: number, goal: number): "ahead" | "on-track" | 
 };
 
 // Get commitment statuses for a rep
-const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number): CommitmentStatus[] => {
+const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number, metricLabel: string): CommitmentStatus[] => {
   return [
     {
       key: "training",
@@ -127,7 +128,7 @@ const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number): Commitment
     },
     {
       key: "fp",
-      label: "FP+",
+      label: metricLabel,
       current: preseasonFP,
       goal: goals.preseason_fp_goal || 0,
       status: getBehindStatus(preseasonFP, goals.preseason_fp_goal || 0),
