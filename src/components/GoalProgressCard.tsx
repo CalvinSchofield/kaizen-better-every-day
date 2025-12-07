@@ -85,10 +85,8 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Count planned days in period (total and elapsed) - same logic for week AND month
-  const { plannedDaysInPeriod, elapsedPlannedDays } = useMemo(() => {
-    if (!plannedDays) return { plannedDaysInPeriod: 0, elapsedPlannedDays: 0 };
-    
+  // Count days in period: WORKED (from entries) + REMAINING PLANNED (future)
+  const { daysWorkedInPeriod, totalDaysInPeriod } = useMemo(() => {
     const periodStart = viewMode === "month" 
       ? startOfMonth(currentDate) 
       : startOfWeek(currentDate);
@@ -100,17 +98,24 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
     const todayStr = format(today, 'yyyy-MM-dd');
     
-    const allPlannedInPeriod = plannedDays.filter(d => 
-      d.planned_date >= periodStartStr && d.planned_date <= periodEndStr
-    );
+    // Count days ACTUALLY worked in this period (real knocking days from entries)
+    const workedDays = entries.filter(e => {
+      if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
+      // Real knocking day: doors >= 10 OR has work times
+      return (e.doors_knocked || 0) >= 10 || (e.work_start_time && e.work_end_time);
+    }).length;
     
-    const elapsed = allPlannedInPeriod.filter(d => d.planned_date <= todayStr);
+    // Count future planned days (from today forward to end of period)
+    const futurePlanned = plannedDays?.filter(d => 
+      d.planned_date > todayStr && d.planned_date <= periodEndStr
+    ).length || 0;
     
+    // Total = worked + future planned
     return {
-      plannedDaysInPeriod: allPlannedInPeriod.length,
-      elapsedPlannedDays: elapsed.length
+      daysWorkedInPeriod: workedDays,
+      totalDaysInPeriod: workedDays + futurePlanned
     };
-  }, [plannedDays, currentDate, viewMode, today]);
+  }, [entries, plannedDays, currentDate, viewMode, today]);
 
   // Calculate total planned days for the season (for ORIGINAL daily goal)
   const { totalSeasonPlannedDays, totalSeasonDaysWorked } = useMemo(() => {
@@ -227,11 +232,11 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     : 0;
 
   // PERIOD EXPECTED: What you SHOULD have done by now in this period
-  // Based on ORIGINAL daily goal × elapsed planned days
-  const periodExpected = originalDailyGoal * elapsedPlannedDays;
+  // Based on ORIGINAL daily goal × days worked so far
+  const periodExpected = originalDailyGoal * daysWorkedInPeriod;
   
   // PERIOD GOAL: What you need to do this ENTIRE period (based on remaining pace)
-  const periodGoalFromRemaining = remainingDailyGoal * plannedDaysInPeriod;
+  const periodGoalFromRemaining = remainingDailyGoal * totalDaysInPeriod;
 
   // Pace difference for the period (actual - expected by now)
   const periodPaceDiff = periodProgress - periodExpected;
@@ -246,9 +251,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const dailyWillDo = remainingSummerDays > 0 ? remainingWillDo / remainingSummerDays : 0;
   const dailyCouldDo = remainingSummerDays > 0 ? remainingCouldDo / remainingSummerDays : 0;
   
-  const weeklyMustDo = dailyMustDo * plannedDaysInPeriod;
-  const weeklyWillDo = dailyWillDo * plannedDaysInPeriod;
-  const weeklyCouldDo = dailyCouldDo * plannedDaysInPeriod;
+  const weeklyMustDo = dailyMustDo * totalDaysInPeriod;
+  const weeklyWillDo = dailyWillDo * totalDaysInPeriod;
+  const weeklyCouldDo = dailyCouldDo * totalDaysInPeriod;
 
   // Current target tier for summer
   const mustDoComplete = currentProgress >= displayMustDo;
@@ -269,9 +274,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   }
 
   // Period goal - use remaining pace calculation
-  const monthlyMustDo = dailyMustDo * plannedDaysInPeriod;
-  const monthlyWillDo = dailyWillDo * plannedDaysInPeriod;
-  const monthlyCouldDo = dailyCouldDo * plannedDaysInPeriod;
+  const monthlyMustDo = dailyMustDo * totalDaysInPeriod;
+  const monthlyWillDo = dailyWillDo * totalDaysInPeriod;
+  const monthlyCouldDo = dailyCouldDo * totalDaysInPeriod;
   
   let currentMonthlyTarget = monthlyMustDo;
   if (mustDoComplete && !willDoComplete) {
@@ -287,7 +292,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     : viewMode === "month" ? currentMonthlyTarget : currentWeeklyTarget;
 
   const periodRemaining = Math.max(0, periodGoal - periodProgress);
-  const remainingDaysInPeriod = Math.max(0, plannedDaysInPeriod - elapsedPlannedDays);
+  const remainingDaysInPeriod = Math.max(0, totalDaysInPeriod - daysWorkedInPeriod);
   const catchUpPerDay = remainingDaysInPeriod > 0 ? periodRemaining / remainingDaysInPeriod : 0;
 
   // Progress percentage (capped at 100 for display, but can exceed)
@@ -321,12 +326,12 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           <div>
             <h3 className="text-sm font-semibold text-foreground">{periodLabel} Goal</h3>
             <p className="text-[11px] text-muted-foreground">
-              {elapsedPlannedDays} of {plannedDaysInPeriod} planned days done
+              {daysWorkedInPeriod} of {totalDaysInPeriod} days done
             </p>
           </div>
         </div>
         {/* Show "On Pace" or "Behind" badge based on actual vs expected */}
-        {elapsedPlannedDays > 0 && (
+        {daysWorkedInPeriod > 0 && (
           isOnPaceForPeriod ? (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
               <Trophy className="h-3.5 w-3.5" />
@@ -385,7 +390,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
               {' '}Keep it up this {viewMode}.
             </p>
           </div>
-        ) : !isOnPaceForPeriod && elapsedPlannedDays > 0 ? (
+        ) : !isOnPaceForPeriod && daysWorkedInPeriod > 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
             <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
