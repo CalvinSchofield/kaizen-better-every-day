@@ -944,6 +944,18 @@ export const RecruitDetailDrawer = ({
     
     const { field, value } = pendingOnboardingStep;
     
+    // Map field names to Notion onboarding status values
+    const fieldToNotionStatus: Record<string, string> = {
+      'onboarding_complete': 'Onboarding ✅',
+      'trainings_complete': 'Trainings ✅',
+      'slack_joined': 'Slack Joined',
+      'ramp_phase_1_complete': 'Phase 1 ✅',
+      'ramp_phase_2_complete': 'Phase 2 ✅',
+      'ramp_phase_3_complete': 'Phase 3 ✅',
+      'ramp_phase_4_complete': 'Phase 4 ✅',
+    };
+    
+    // Update Supabase first
     const { error } = await supabase
       .from('reps')
       .update({ [field]: value })
@@ -951,15 +963,41 @@ export const RecruitDetailDrawer = ({
     
     if (error) {
       toast.error("Couldn't update - please try again");
-    } else {
-      toast.success(value ? 'Marked complete' : 'Marked incomplete');
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      
-      // Check for auto-stage progression
-      if (value && field === 'onboarding_complete') {
-        await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+      setOnboardingConfirmOpen(false);
+      setPendingOnboardingStep(null);
+      return;
+    }
+    
+    // Then sync to Notion if marking as complete
+    if (value && fieldToNotionStatus[field]) {
+      try {
+        const { error: notionError } = await supabase.functions.invoke('update-rookie-status', {
+          body: {
+            rookieNotionPageId: recruit.notionPageId,
+            onboardingStatus: fieldToNotionStatus[field],
+          },
+        });
+        
+        if (notionError) {
+          console.error('Notion sync error:', notionError);
+          toast.warning('Saved locally, but Notion sync may be delayed');
+        } else {
+          console.log('Successfully synced to Notion:', fieldToNotionStatus[field]);
+        }
+      } catch (e) {
+        console.error('Notion sync exception:', e);
       }
+    }
+    
+    toast.success(value ? 'Marked complete' : 'Marked incomplete');
+    
+    // Invalidate caches for immediate UI update
+    queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+    queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+    
+    // Check for auto-stage progression
+    if (value && field === 'onboarding_complete') {
+      await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
     }
     
     setOnboardingConfirmOpen(false);
