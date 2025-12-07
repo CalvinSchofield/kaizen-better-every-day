@@ -1,29 +1,21 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Clock, Target, TrendingUp, Pencil, Activity, ChevronDown } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { RepActivityTimeline } from "./RepActivityTimeline";
+import { useAllRepGoals } from "@/hooks/useRepGoals";
+import { Clock, TrendingUp, Zap, Target, Ban } from "lucide-react";
 import { HourlyActivityChart } from "./HourlyActivityChart";
-import { cn } from "@/lib/utils";
+import { format, parseISO } from "date-fns";
 
-const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
+// Check if we're in summer mode (after April 12, 2026)
+const SUMMER_START = new Date('2026-04-12');
+const isInSummer = () => new Date() >= SUMMER_START;
 
 interface RepDetailData {
-  id?: string; // Entry ID for admin edits
-  entryId?: string; // Alternative entry ID field
   userId: string;
   name: string;
   year: string;
@@ -41,23 +33,20 @@ interface RepDetailData {
   upgradePRMR: number;
   doorsToFpRatio: number;
   hoursWorked: number;
-  daysWorked?: number;
   workStartTime?: string;
   workEndTime?: string;
-  // Timeline data
   counterTimestamps?: Record<string, string[]>;
-  salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
-  isFinalized?: boolean;
+  salesLog?: Array<{ type: string; prmr: number; timestamp?: string; install_status?: string }>;
+  breakPeriods?: Array<{ start: string; end: string }>;
 }
 
 interface RepDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  rep: (RepDetailData & { entryDate?: string }) | null;
-  daysInRange?: number;
-  entryDate?: string; // For editing entries from specific dates
+  rep: RepDetailData | null;
 }
 
+// Format time from timestamp
 const formatTime = (timestamp: string | undefined) => {
   if (!timestamp) return null;
   try {
@@ -68,493 +57,324 @@ const formatTime = (timestamp: string | undefined) => {
   }
 };
 
-const formatTimeForInput = (timestamp: string | undefined) => {
-  if (!timestamp) return '';
-  try {
-    const date = new Date(timestamp);
-    return date.toTimeString().slice(0, 5); // HH:MM format
-  } catch {
-    return '';
-  }
+// Calculate break duration in minutes from break_periods array
+const calculateBreakMinutes = (breakPeriods?: Array<{ start: string; end: string }>): number => {
+  if (!breakPeriods || breakPeriods.length === 0) return 0;
+  
+  return breakPeriods.reduce((total, period) => {
+    if (period.start && period.end) {
+      const start = new Date(period.start).getTime();
+      const end = new Date(period.end).getTime();
+      return total + Math.max(0, (end - start) / 1000 / 60);
+    }
+    return total;
+  }, 0);
 };
 
-export const RepDetailDrawer = ({ open, onOpenChange, rep, daysInRange = 1, entryDate }: RepDetailDrawerProps) => {
+// Read-only sale chip component
+const ReadOnlySaleChip = ({ sale }: { 
+  sale: { type: string; prmr: number; timestamp?: string; install_status?: string } 
+}) => {
+  const isFP = sale.type === 'fp';
+  const isCancelled = sale.install_status === 'cancelled';
+  const timeStr = sale.timestamp 
+    ? format(parseISO(sale.timestamp), 'h:mm a')
+    : null;
+
+  return (
+    <div
+      className={`relative flex-shrink-0 rounded-xl p-3 min-w-[80px] ${
+        isCancelled
+          ? 'bg-destructive/5 border border-destructive/20 opacity-60'
+          : isFP
+            ? 'bg-primary/10 border border-primary/20'
+            : 'bg-emerald-500/10 border border-emerald-500/20'
+      }`}
+    >
+      {isCancelled && (
+        <div className="absolute top-1 right-1">
+          <Ban className="w-3 h-3 text-destructive" />
+        </div>
+      )}
+
+      <div className={`text-[10px] font-bold mb-1 ${
+        isCancelled
+          ? 'text-destructive/70'
+          : isFP 
+            ? 'text-primary' 
+            : 'text-emerald-600'
+      }`}>
+        {isFP ? 'FP' : 'UP'}
+      </div>
+
+      <div className={`text-lg font-bold ${
+        isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'
+      }`}>
+        ${sale.prmr}
+      </div>
+
+      {timeStr && (
+        <div className="text-[10px] text-muted-foreground mt-1">
+          {timeStr}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Stat row component
+const StatRow = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex justify-between items-center py-2.5 border-b border-border/30 last:border-0">
+    <span className="text-muted-foreground text-sm">{label}</span>
+    <span className="font-semibold text-foreground">{value}</span>
+  </div>
+);
+
+export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProps) => {
   const { efpModeEnabled } = useEfpMode();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { data: teamAccess } = useTeamAccess();
+  const { data: allGoals } = useAllRepGoals();
   
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [confirmSheetOpen, setConfirmSheetOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(true);
-  const [hourlyOpen, setHourlyOpen] = useState(false);
-  
-  // Check if user has access to view this rep's timeline
-  const canViewTimeline = teamAccess?.accessibleUserIds?.includes(rep?.userId || '') || false;
-  const hasTimelineData = rep?.counterTimestamps && Object.keys(rep.counterTimestamps).length > 0;
-  
-  // Editable fields state
-  const [editedValues, setEditedValues] = useState({
-    doors_knocked: 0,
-    decision_makers: 0,
-    pitches: 0,
-    transitions: 0,
-    presentations: 0,
-    closes: 0,
-    fp_plus: 0,
-    prmr: 0,
-    work_start_time: '',
-    work_end_time: '',
-  });
+  // Find this rep's goals
+  const repGoals = useMemo(() => {
+    if (!allGoals || !rep) return null;
+    return allGoals.find(g => g.user_id === rep.userId);
+  }, [allGoals, rep]);
 
-  // Check if current user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(user?.email === ADMIN_EMAIL);
-    };
-    checkAdmin();
-  }, []);
-
-  // Initialize edited values when rep changes
-  useEffect(() => {
-    if (rep) {
-      setEditedValues({
-        doors_knocked: rep.doors,
-        decision_makers: rep.dms,
-        pitches: rep.pitches,
-        transitions: rep.transitions,
-        presentations: rep.presentations,
-        closes: rep.closes,
-        fp_plus: rep.fp,
-        prmr: rep.prmr,
-        work_start_time: formatTimeForInput(rep.workStartTime),
-        work_end_time: formatTimeForInput(rep.workEndTime),
-      });
-    }
-  }, [rep]);
-
-  // Reset edit mode and timeline states when drawer closes
-  useEffect(() => {
-    if (!open) {
-      setIsEditMode(false);
-      setTimelineOpen(true);
-      setHourlyOpen(false);
-    }
-  }, [open]);
+  // Calculate most productive hour from timestamps
+  const mostProductiveHour = useMemo(() => {
+    if (!rep?.counterTimestamps) return null;
+    
+    const hourCounts: Record<number, number> = {};
+    Object.values(rep.counterTimestamps).flat().forEach(ts => {
+      try {
+        const hour = new Date(ts).getHours();
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+      } catch {}
+    });
+    
+    const entries = Object.entries(hourCounts);
+    if (entries.length === 0) return null;
+    
+    const [hour, count] = entries.reduce((max, curr) => 
+      curr[1] > max[1] ? curr : max
+    );
+    
+    const hourNum = parseInt(hour);
+    const period = hourNum >= 12 ? 'PM' : 'AM';
+    const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+    
+    return { hour: `${displayHour}${period}`, count };
+  }, [rep?.counterTimestamps]);
 
   if (!rep) return null;
 
-  const daysWorked = rep.daysWorked || Math.max(1, Math.ceil(rep.hoursWorked / 8));
-  const showDailyAverages = daysWorked > 1;
-  const avgHoursPerDay = daysWorked > 0 ? rep.hoursWorked / daysWorked : 0;
-  const avgFpPerDay = daysWorked > 0 ? rep.fp / daysWorked : 0;
-  const avgDoorsPerDay = daysWorked > 0 ? rep.doors / daysWorked : 0;
-  const avgDmsPerDay = daysWorked > 0 ? rep.dms / daysWorked : 0;
-  const avgPitchesPerDay = daysWorked > 0 ? rep.pitches / daysWorked : 0;
-  const avgTransitionsPerDay = daysWorked > 0 ? rep.transitions / daysWorked : 0;
-  const avgPresentationsPerDay = daysWorked > 0 ? rep.presentations / daysWorked : 0;
-  const avgClosesPerDay = daysWorked > 0 ? rep.closes / daysWorked : 0;
-  const efp = rep.prmr / 85;
-  const avgEfpPerDay = daysWorked > 0 ? efp / daysWorked : 0;
-  const avgPrmrPerDay = daysWorked > 0 ? rep.prmr / daysWorked : 0;
+  // Calculate values
+  const hasTimelineData = rep.counterTimestamps && Object.keys(rep.counterTimestamps).length > 0;
+  const breakMinutes = calculateBreakMinutes(rep.breakPeriods);
+  const efp = (rep.prmr + (rep.upgradePRMR || 0)) / 85;
+  const totalFPPlus = rep.fp + (rep.upgradePRMR ? rep.upgradePRMR / 85 : 0);
+  const totalPrmr = rep.prmr + (rep.upgradePRMR || 0);
+  
+  // Funded sales only
+  const fundedSales = (rep.salesLog || []).filter(s => s.install_status !== 'cancelled');
+  const cancelledCount = (rep.salesLog || []).filter(s => s.install_status === 'cancelled').length;
 
-  // Get changes for confirmation
-  const getChanges = () => {
-    const changes: { field: string; from: string; to: string }[] = [];
-    
-    if (editedValues.doors_knocked !== rep.doors) {
-      changes.push({ field: 'Doors', from: rep.doors.toString(), to: editedValues.doors_knocked.toString() });
-    }
-    if (editedValues.decision_makers !== rep.dms) {
-      changes.push({ field: 'Decision Makers', from: rep.dms.toString(), to: editedValues.decision_makers.toString() });
-    }
-    if (editedValues.pitches !== rep.pitches) {
-      changes.push({ field: 'Pitches', from: rep.pitches.toString(), to: editedValues.pitches.toString() });
-    }
-    if (editedValues.transitions !== rep.transitions) {
-      changes.push({ field: 'Transitions', from: rep.transitions.toString(), to: editedValues.transitions.toString() });
-    }
-    if (editedValues.presentations !== rep.presentations) {
-      changes.push({ field: 'Presentations', from: rep.presentations.toString(), to: editedValues.presentations.toString() });
-    }
-    if (editedValues.closes !== rep.closes) {
-      changes.push({ field: 'Closes', from: rep.closes.toString(), to: editedValues.closes.toString() });
-    }
-    if (editedValues.fp_plus !== rep.fp) {
-      changes.push({ field: 'FP+', from: rep.fp.toFixed(1), to: editedValues.fp_plus.toFixed(1) });
-    }
-    if (editedValues.prmr !== rep.prmr) {
-      changes.push({ field: 'PRMR', from: `$${rep.prmr.toFixed(0)}`, to: `$${editedValues.prmr.toFixed(0)}` });
-    }
-    if (editedValues.work_start_time !== formatTimeForInput(rep.workStartTime)) {
-      changes.push({ field: 'Start Time', from: formatTime(rep.workStartTime) || '-', to: editedValues.work_start_time || '-' });
-    }
-    if (editedValues.work_end_time !== formatTimeForInput(rep.workEndTime)) {
-      changes.push({ field: 'End Time', from: formatTime(rep.workEndTime) || '-', to: editedValues.work_end_time || '-' });
-    }
-    
-    return changes;
-  };
-
-  const handleSaveClick = () => {
-    const changes = getChanges();
-    if (changes.length === 0) {
-      toast({ title: "No changes", description: "No changes were made" });
-      return;
-    }
-    setConfirmSheetOpen(true);
-  };
-
-  const handleConfirmSave = async () => {
-    const entryIdToUse = rep.id || rep.entryId;
-    if (!entryIdToUse) {
-      toast({ title: "Error", description: "Entry ID not available", variant: "destructive" });
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Build updates object
-      const updates: Record<string, any> = {};
+  // Goal progress calculation
+  const inSummer = isInSummer();
+  let goalDisplay: { label: string; current: number; target: number; isComplete: boolean } | null = null;
+  
+  if (repGoals) {
+    if (!inSummer && repGoals.preseason_fp_goal > 0) {
+      // Preseason mode - show preseason goal
+      goalDisplay = {
+        label: 'Preseason Goal',
+        current: totalFPPlus,
+        target: repGoals.preseason_fp_goal,
+        isComplete: totalFPPlus >= repGoals.preseason_fp_goal
+      };
+    } else if (inSummer) {
+      // Summer mode - show the next incomplete tier
+      const mustDo = repGoals.must_do_fp_goal || 0;
+      const willDo = repGoals.will_do_fp_goal || 0;
+      const couldDo = repGoals.could_do_fp_goal || 0;
       
-      if (editedValues.doors_knocked !== rep.doors) updates.doors_knocked = editedValues.doors_knocked;
-      if (editedValues.decision_makers !== rep.dms) updates.decision_makers = editedValues.decision_makers;
-      if (editedValues.pitches !== rep.pitches) updates.pitches = editedValues.pitches;
-      if (editedValues.transitions !== rep.transitions) updates.transitions = editedValues.transitions;
-      if (editedValues.presentations !== rep.presentations) updates.presentations = editedValues.presentations;
-      if (editedValues.closes !== rep.closes) updates.closes = editedValues.closes;
-      if (editedValues.fp_plus !== rep.fp) updates.fp_plus = editedValues.fp_plus;
-      if (editedValues.prmr !== rep.prmr) updates.prmr = editedValues.prmr;
-      
-      // Handle time fields - need to convert to full timestamp using the entry's actual date
-      const dateToUse = entryDate || rep.entryDate || new Date().toISOString().split('T')[0];
-      
-      if (editedValues.work_start_time !== formatTimeForInput(rep.workStartTime)) {
-        if (editedValues.work_start_time) {
-          updates.work_start_time = `${dateToUse}T${editedValues.work_start_time}:00`;
-        } else {
-          updates.work_start_time = null;
-        }
+      if (totalFPPlus < mustDo) {
+        goalDisplay = { label: 'Must Do', current: totalFPPlus, target: mustDo, isComplete: false };
+      } else if (totalFPPlus < willDo) {
+        goalDisplay = { label: 'Will Do', current: totalFPPlus, target: willDo, isComplete: false };
+      } else if (totalFPPlus < couldDo) {
+        goalDisplay = { label: 'Could Do', current: totalFPPlus, target: couldDo, isComplete: false };
+      } else if (couldDo > 0) {
+        goalDisplay = { label: 'Could Do', current: totalFPPlus, target: couldDo, isComplete: true };
       }
-      if (editedValues.work_end_time !== formatTimeForInput(rep.workEndTime)) {
-        if (editedValues.work_end_time) {
-          updates.work_end_time = `${dateToUse}T${editedValues.work_end_time}:00`;
-        } else {
-          updates.work_end_time = null;
-        }
-      }
-
-      const { data, error } = await supabase.functions.invoke('update-rep-entry', {
-        body: { entryId: entryIdToUse, updates }
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      toast({ title: "Success", description: `${rep.name}'s entry has been updated` });
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
-      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-entry'] });
-
-      setConfirmSheetOpen(false);
-      setIsEditMode(false);
-      onOpenChange(false);
-
-    } catch (error: any) {
-      console.error('Error updating entry:', error);
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to update entry", 
-        variant: "destructive" 
-      });
-    } finally {
-      setIsSaving(false);
     }
-  };
-
-  const StatRow = ({ label, value, avgValue, field, type = 'number' }: { 
-    label: string; 
-    value: string; 
-    avgValue?: string;
-    field?: keyof typeof editedValues;
-    type?: 'number' | 'time' | 'currency';
-  }) => (
-    <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-      <span className="text-muted-foreground text-sm">{label}</span>
-      <div className="text-right">
-        {isEditMode && field ? (
-          <Input
-            type={type === 'time' ? 'time' : 'number'}
-            step={type === 'currency' ? '0.01' : type === 'number' ? '1' : undefined}
-            value={editedValues[field]}
-            onChange={(e) => setEditedValues(prev => ({
-              ...prev,
-              [field]: type === 'number' || type === 'currency' 
-                ? parseFloat(e.target.value) || 0 
-                : e.target.value
-            }))}
-            className="w-24 h-8 text-right text-sm"
-          />
-        ) : (
-          <>
-            <span className="font-bold text-lg">{value}</span>
-            {avgValue && showDailyAverages && (
-              <span className="text-xs text-muted-foreground block">{avgValue}/day</span>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  const changes = getChanges();
+  }
 
   return (
-    <>
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="text-left pb-2">
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[90vh]">
+        {/* Clean Header */}
+        <DrawerHeader className="text-left pb-3 pt-6">
+          <DrawerTitle className="text-2xl font-bold">{rep.name}</DrawerTitle>
+          {rep.teamName && rep.teamName !== 'No Team' && (
+            <p className="text-sm text-muted-foreground mt-0.5">{rep.teamName}</p>
+          )}
+        </DrawerHeader>
+
+        <div className="px-4 pb-8 space-y-5 overflow-y-auto">
+          
+          {/* Goal Progress Section */}
+          {goalDisplay && (
+            <div className="rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">
+                    {goalDisplay.isComplete ? '✓ ' : ''}{goalDisplay.label}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round((goalDisplay.current / goalDisplay.target) * 100)}%
+                </span>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="h-2.5 bg-muted/50 rounded-full overflow-hidden mb-2">
+                <div 
+                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, (goalDisplay.current / goalDisplay.target) * 100)}%` }}
+                />
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <span className="font-bold text-foreground">
+                  {goalDisplay.current.toFixed(1)} FP+
+                </span>
+                <span className="text-muted-foreground">
+                  / {goalDisplay.target.toFixed(0)} FP+
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Hourly Activity Section */}
+          {hasTimelineData && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium text-muted-foreground">Hourly Activity</h3>
+              </div>
+              
+              <div className="bg-muted/20 rounded-2xl p-4">
+                <HourlyActivityChart
+                  counterTimestamps={rep.counterTimestamps}
+                  workStartTime={rep.workStartTime}
+                  workEndTime={rep.workEndTime}
+                />
+                
+                {mostProductiveHour && (
+                  <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 text-sm">
+                    <Zap className="w-4 h-4 text-amber-500" />
+                    <span className="text-muted-foreground">Most active at</span>
+                    <span className="font-semibold text-foreground">{mostProductiveHour.hour}</span>
+                    <span className="text-muted-foreground">({mostProductiveHour.count} activities)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sales Section */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div>
-                <DrawerTitle className="text-xl">{rep.name}</DrawerTitle>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {rep.year && rep.year !== 'Unknown' && rep.year !== 'unknown' && (
-                    <span className="capitalize">{rep.year}</span>
-                  )}
-                  {rep.teamName && rep.teamName !== 'No Team' && (
+              <div className="flex items-center gap-2">
+                <span className="text-lg">💰</span>
+                <h3 className="text-sm font-medium text-muted-foreground">Sales</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-bold text-primary">${totalPrmr.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground ml-2">
+                  {efpModeEnabled ? efp.toFixed(2) : totalFPPlus.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'}
+                </span>
+              </div>
+            </div>
+            
+            {/* Sale chips or summary */}
+            {rep.salesLog && rep.salesLog.length > 0 ? (
+              <>
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                  {rep.salesLog.map((sale, idx) => (
+                    <ReadOnlySaleChip key={idx} sale={sale} />
+                  ))}
+                </div>
+                
+                {/* Summary breakdown */}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{fundedSales.filter(s => s.type === 'fp').length} FPs</span>
+                  {fundedSales.filter(s => s.type === 'upgrade').length > 0 && (
                     <>
-                      {rep.year && rep.year !== 'Unknown' && rep.year !== 'unknown' && <span>·</span>}
-                      <span>{rep.teamName}</span>
+                      <span>•</span>
+                      <span>{fundedSales.filter(s => s.type === 'upgrade').length} Upgrades</span>
+                    </>
+                  )}
+                  {cancelledCount > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-destructive/70">{cancelledCount} Cancelled</span>
                     </>
                   )}
                 </div>
-              </div>
-              {isAdmin && (rep.id || rep.entryId) && !isEditMode && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                  <Pencil className="h-4 w-4 mr-1.5" />
-                  Edit
-                </Button>
-              )}
-              {isAdmin && isEditMode && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsEditMode(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleSaveClick}>
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-          </DrawerHeader>
-
-          <div className="px-4 pb-6 space-y-4 overflow-y-auto">
-            {/* Results Section - FP+ and PRMR at top */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                <Target className="w-4 h-4" />
-                <span>Results</span>
-                {showDailyAverages && (
-                  <span className="text-xs">({daysWorked} day{daysWorked !== 1 ? 's' : ''} worked)</span>
+              </>
+            ) : (
+              <div className="bg-muted/20 rounded-xl p-4 text-center text-sm text-muted-foreground">
+                {rep.fp > 0 || rep.prmr > 0 ? (
+                  <span>{rep.fp} FP · ${rep.prmr.toLocaleString()} PRMR</span>
+                ) : (
+                  <span>No sales logged</span>
                 )}
               </div>
-              <div className="bg-muted/30 rounded-xl p-3">
-                <StatRow 
-                  label={efpModeEnabled ? "EFP" : "FP+"} 
-                  value={efpModeEnabled ? efp.toFixed(2) : rep.fp.toFixed(1)} 
-                  avgValue={efpModeEnabled ? avgEfpPerDay.toFixed(2) : avgFpPerDay.toFixed(1)}
-                  field={efpModeEnabled ? undefined : "fp_plus"}
-                  type="currency"
-                />
-                <StatRow 
-                  label={efpModeEnabled ? "FP+" : "PRMR"} 
-                  value={efpModeEnabled ? rep.fp.toFixed(1) : `$${rep.prmr.toFixed(0)}`} 
-                  avgValue={efpModeEnabled ? avgFpPerDay.toFixed(1) : `$${avgPrmrPerDay.toFixed(0)}`}
-                  field={efpModeEnabled ? "fp_plus" : "prmr"}
-                  type="currency"
-                />
-              </div>
-            </div>
-
-            {/* Time Section */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                <Clock className="w-4 h-4" />
-                <span>Time</span>
-              </div>
-              <div className="bg-muted/30 rounded-xl p-3">
-                <StatRow 
-                  label="Start Time" 
-                  value={formatTime(rep.workStartTime) || '-'}
-                  field="work_start_time"
-                  type="time"
-                />
-                <StatRow 
-                  label="End Time" 
-                  value={formatTime(rep.workEndTime) || '-'}
-                  field="work_end_time"
-                  type="time"
-                />
-                <StatRow 
-                  label="Hours Worked" 
-                  value={`${Math.floor(rep.hoursWorked)}h ${Math.round((rep.hoursWorked % 1) * 60)}m`} 
-                  avgValue={showDailyAverages ? `${avgHoursPerDay.toFixed(1)}h` : undefined}
-                />
-              </div>
-            </div>
-
-            {/* Activity Section */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-                <TrendingUp className="w-4 h-4" />
-                <span>Activity</span>
-              </div>
-              <div className="bg-muted/30 rounded-xl p-3">
-                <StatRow 
-                  label="Doors Knocked" 
-                  value={rep.doors.toString()} 
-                  avgValue={avgDoorsPerDay.toFixed(0)}
-                  field="doors_knocked"
-                />
-                <StatRow 
-                  label="Decision Makers" 
-                  value={rep.dms.toString()} 
-                  avgValue={avgDmsPerDay.toFixed(1)}
-                  field="decision_makers"
-                />
-                <StatRow 
-                  label="Pitches" 
-                  value={rep.pitches.toString()} 
-                  avgValue={avgPitchesPerDay.toFixed(1)}
-                  field="pitches"
-                />
-                <StatRow 
-                  label="Transitions" 
-                  value={rep.transitions.toString()} 
-                  avgValue={avgTransitionsPerDay.toFixed(1)}
-                  field="transitions"
-                />
-                <StatRow 
-                  label="Presentations" 
-                  value={rep.presentations.toString()} 
-                  avgValue={avgPresentationsPerDay.toFixed(1)}
-                  field="presentations"
-                />
-                <StatRow 
-                  label="Closes" 
-                  value={rep.closes.toString()} 
-                  avgValue={avgClosesPerDay.toFixed(1)}
-                  field="closes"
-                />
-                {rep.doorsToFpRatio > 0 && (
-                  <StatRow 
-                    label="Doors per FP+" 
-                    value={rep.doorsToFpRatio.toFixed(0)} 
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Activity Timeline Section - Only for leaders viewing their downline */}
-            {canViewTimeline && hasTimelineData && !isEditMode && (
-              <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Activity className="w-4 h-4" />
-                    <span>Activity Timeline</span>
-                  </div>
-                  <ChevronDown className={cn(
-                    "w-4 h-4 text-muted-foreground transition-transform",
-                    timelineOpen && "rotate-180"
-                  )} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <RepActivityTimeline
-                    counterTimestamps={rep.counterTimestamps}
-                    salesLog={rep.salesLog}
-                    workStartTime={rep.workStartTime}
-                    workEndTime={rep.workEndTime}
-                    isFinalized={rep.isFinalized}
-                  />
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
-            {/* Hourly Activity Chart - Only for leaders viewing their downline */}
-            {canViewTimeline && hasTimelineData && !isEditMode && (
-              <Collapsible open={hourlyOpen} onOpenChange={setHourlyOpen}>
-                <CollapsibleTrigger className="flex items-center justify-between w-full py-2 px-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Hourly Activity</span>
-                  </div>
-                  <ChevronDown className={cn(
-                    "w-4 h-4 text-muted-foreground transition-transform",
-                    hourlyOpen && "rotate-180"
-                  )} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <HourlyActivityChart
-                    counterTimestamps={rep.counterTimestamps}
-                    workStartTime={rep.workStartTime}
-                    workEndTime={rep.workEndTime}
-                  />
-                </CollapsibleContent>
-              </Collapsible>
             )}
           </div>
-        </DrawerContent>
-      </Drawer>
 
-      {/* Confirmation Sheet */}
-      <Sheet open={confirmSheetOpen} onOpenChange={setConfirmSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle>Confirm Changes</SheetTitle>
-            <SheetDescription>
-              You're about to update {rep.name}'s entry
-            </SheetDescription>
-          </SheetHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-3">Changes to be made:</p>
-            <div className="space-y-2">
-              {changes.map((change, idx) => (
-                <div key={idx} className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-2">
-                  <span className="font-medium">{change.field}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground line-through">{change.from}</span>
-                    <span>→</span>
-                    <span className="font-semibold text-primary">{change.to}</span>
-                  </div>
-                </div>
-              ))}
+          {/* Time Details Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-muted-foreground">Time</h3>
+            </div>
+            
+            <div className="bg-muted/20 rounded-2xl p-4">
+              <StatRow label="Started" value={formatTime(rep.workStartTime) || '—'} />
+              <StatRow label="Ended" value={formatTime(rep.workEndTime) || '—'} />
+              <StatRow label="Breaks" value={breakMinutes > 0 ? `${Math.round(breakMinutes)} min` : '—'} />
+              <StatRow 
+                label="Total" 
+                value={rep.hoursWorked > 0 
+                  ? `${Math.floor(rep.hoursWorked)}h ${Math.round((rep.hoursWorked % 1) * 60)}m`
+                  : '—'
+                } 
+              />
             </div>
           </div>
-          <div className="flex gap-3 mt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setConfirmSheetOpen(false)}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleConfirmSave}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Confirm Changes"}
-            </Button>
+
+          {/* Activity Inputs Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-muted-foreground">Activity</h3>
+            </div>
+            
+            <div className="bg-muted/20 rounded-2xl p-4">
+              <StatRow label="Doors" value={rep.doors.toString()} />
+              <StatRow label="Decision Makers" value={rep.dms.toString()} />
+              <StatRow label="Pitches" value={rep.pitches.toString()} />
+              <StatRow label="Transitions" value={rep.transitions.toString()} />
+              <StatRow label="Presentations" value={rep.presentations.toString()} />
+              <StatRow label="Closes" value={rep.closes.toString()} />
+            </div>
           </div>
-        </SheetContent>
-      </Sheet>
-    </>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 };
