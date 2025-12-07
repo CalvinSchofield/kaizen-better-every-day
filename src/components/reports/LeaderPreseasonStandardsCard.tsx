@@ -19,7 +19,6 @@ import {
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { useEfpMode } from "@/hooks/useEfpMode";
 
 type SortOption = "year" | "behind" | "name";
 
@@ -94,8 +93,8 @@ const getBehindStatus = (current: number, goal: number): "ahead" | "on-track" | 
   return "behind";
 };
 
-// Get commitment statuses for a rep
-const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number, metricLabel: string): CommitmentStatus[] => {
+// Get commitment statuses for a rep - always use FP+ for reports
+const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number): CommitmentStatus[] => {
   return [
     {
       key: "training",
@@ -128,7 +127,7 @@ const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number, metricLabel
     },
     {
       key: "fp",
-      label: metricLabel,
+      label: "FP+",
       current: preseasonFP,
       goal: goals.preseason_fp_goal || 0,
       status: getBehindStatus(preseasonFP, goals.preseason_fp_goal || 0),
@@ -217,9 +216,6 @@ export const LeaderPreseasonStandardsCard = ({
   const [sortBy, setSortBy] = useState<SortOption>("year");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
-  const { efpModeEnabled } = useEfpMode();
-  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
-  
   const { data: allGoals, isLoading: goalsLoading } = useAllRepGoals();
   
   // Get preseason FP for all accessible users
@@ -252,7 +248,7 @@ export const LeaderPreseasonStandardsCard = ({
           };
         }
         
-        const commitments = getCommitmentStatuses(goals, preseasonFP, metricLabel);
+        const commitments = getCommitmentStatuses(goals, preseasonFP);
         const behindCount = commitments.filter(c => c.status === "behind").length;
         
         return {
