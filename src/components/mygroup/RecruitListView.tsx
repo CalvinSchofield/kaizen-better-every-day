@@ -37,7 +37,19 @@ const getLastContactFromActivities = (recruitNotionId: string, activities: Recru
   return sorted[0].created_at;
 };
 
-// Stage order follows the recruiting flow from early to late stage
+// Stage priority for tiebreaker (lower = needs more attention)
+const STAGE_PRIORITY: Record<string, number> = {
+  'Evaluating': 1,
+  'Signed': 2,
+  'Shadow ✅': 3,
+  '100 List': 4,
+  'Reached Out': 5,
+  'Potential Follow Up': 6,
+  'Sold 💲': 7,
+  'Sold (5+) 💰': 8,
+};
+
+// Stage order for stage sorting (recruiting flow)
 const STAGE_ORDER = [
   '100 List',
   'Reached Out',
@@ -123,23 +135,50 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
           break;
         case 'stage':
           // Sort by recruiting flow: 100 List → Sold 5+ (early to late)
-          const aIndex = STAGE_ORDER.indexOf(a.stage);
-          const bIndex = STAGE_ORDER.indexOf(b.stage);
-          comparison = (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-          // When descending, show later stages first (Sold 5+ → 100 List)
-          // When ascending, show earlier stages first (100 List → Sold 5+)
+          const aStageIndex = STAGE_ORDER.indexOf(a.stage);
+          const bStageIndex = STAGE_ORDER.indexOf(b.stage);
+          comparison = (aStageIndex === -1 ? 999 : aStageIndex) - (bStageIndex === -1 ? 999 : bStageIndex);
           break;
         case 'lastContact':
-          // Sort by who needs contact most (longest time since last contact first)
-          // null/undefined = never contacted = most urgent
-          const aEffectiveContact = getEffectiveLastContact(a);
-          const bEffectiveContact = getEffectiveLastContact(b);
-          const aContactDate = aEffectiveContact ? parseISO(aEffectiveContact).getTime() : 0;
-          const bContactDate = bEffectiveContact ? parseISO(bEffectiveContact).getTime() : 0;
-          // Oldest contacts first (smallest time = contacted longest ago)
-          comparison = aContactDate - bContactDate;
-          // Default sort (desc=true): show oldest contacts first (needs contact most)
-          break;
+          // Sort by who needs contact most:
+          // 1. No contact yet (null) = most urgent
+          // 2. Longest time since contact = more urgent
+          // 3. Tiebreaker: stage priority (Evaluating/Signed/Shadow need more attention)
+          // 4. Tiebreaker: year (Rookie needs more attention than Vet/Sophomore)
+          const aContact = getEffectiveLastContact(a);
+          const bContact = getEffectiveLastContact(b);
+          
+          // No contact = most urgent (sort to top)
+          if (!aContact && bContact) return -1;
+          if (aContact && !bContact) return 1;
+          if (!aContact && !bContact) {
+            // Both have no contact - use tiebreakers
+            const aStagePriority = STAGE_PRIORITY[a.stage] ?? 99;
+            const bStagePriority = STAGE_PRIORITY[b.stage] ?? 99;
+            if (aStagePriority !== bStagePriority) return aStagePriority - bStagePriority;
+            // Year tiebreaker: Rookie > Sophomore > Vet
+            const aIsRookie = a.year === 'Rookie' || !a.year;
+            const bIsRookie = b.year === 'Rookie' || !b.year;
+            if (aIsRookie && !bIsRookie) return -1;
+            if (!aIsRookie && bIsRookie) return 1;
+            return 0;
+          }
+          
+          // Both have contact - sort by date (oldest first = needs contact most)
+          const aTime = parseISO(aContact!).getTime();
+          const bTime = parseISO(bContact!).getTime();
+          if (aTime !== bTime) return aTime - bTime; // Oldest first
+          
+          // Same contact date - use tiebreakers
+          const aPriority = STAGE_PRIORITY[a.stage] ?? 99;
+          const bPriority = STAGE_PRIORITY[b.stage] ?? 99;
+          if (aPriority !== bPriority) return aPriority - bPriority;
+          
+          const aRookie = a.year === 'Rookie' || !a.year;
+          const bRookie = b.year === 'Rookie' || !b.year;
+          if (aRookie && !bRookie) return -1;
+          if (!aRookie && bRookie) return 1;
+          return 0;
         case 'nextActionDue':
           // Sort by soonest due date first (most urgent)
           const aDue = a.nextActionDue ? parseISO(a.nextActionDue).getTime() : Infinity;
