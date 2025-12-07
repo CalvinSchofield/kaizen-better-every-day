@@ -1,7 +1,11 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, BarChart3 } from "lucide-react";
+import { CheckCircle2, Calendar, BarChart3, Target, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useEffect, useMemo } from "react";
+import confetti from "canvas-confetti";
 
 interface PostSaveSuccessSheetProps {
   open: boolean;
@@ -23,6 +27,43 @@ export const PostSaveSuccessSheet = ({
   onKeepWorking,
 }: PostSaveSuccessSheetProps) => {
   const navigate = useNavigate();
+  const { goals } = useRepGoals();
+  const { plannedDays } = usePlannedDays();
+  
+  // Calculate daily goal based on remaining planned days
+  const dailyGoal = useMemo(() => {
+    if (!goals?.setup_complete) return null;
+    
+    const today = new Date();
+    const remainingDays = plannedDays?.filter(d => new Date(d.planned_date) >= today).length || 0;
+    
+    if (remainingDays === 0) return null;
+    
+    // Use will_do as default goal tier, fallback to must_do
+    const targetGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
+    const currentProgress = goals.preseason_fp_goal || 0; // This should be current FP+ total
+    const remaining = Math.max(0, targetGoal - currentProgress);
+    
+    return remaining / remainingDays;
+  }, [goals, plannedDays]);
+
+  const goalMet = dailyGoal !== null && summary.fpPlus >= dailyGoal;
+  const progressPercent = dailyGoal ? Math.min(100, (summary.fpPlus / dailyGoal) * 100) : 0;
+
+  // Trigger confetti when goal is met
+  useEffect(() => {
+    if (open && goalMet) {
+      const timer = setTimeout(() => {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9']
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open, goalMet]);
   
   const handleDone = () => {
     onOpenChange(false);
@@ -43,14 +84,53 @@ export const PostSaveSuccessSheet = ({
       <DrawerContent className="pb-safe">
         <DrawerHeader className="mb-2">
           <div className="flex items-center gap-2 justify-center mb-2">
-            <CheckCircle2 className="h-8 w-8 text-green-500" />
+            {goalMet ? (
+              <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+            ) : (
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            )}
           </div>
-          <DrawerTitle>Great work today!</DrawerTitle>
+          <DrawerTitle>
+            {goalMet ? "You crushed it!" : "Great work today!"}
+          </DrawerTitle>
           <DrawerDescription>
-            Your entry has been saved successfully.
+            {goalMet 
+              ? "You hit your daily goal!" 
+              : "Your entry has been saved successfully."}
           </DrawerDescription>
         </DrawerHeader>
         
+        {/* Daily Goal Progress */}
+        {dailyGoal !== null && summary.fpPlus > 0 && (
+          <div className="px-4 mb-4">
+            <div className={`rounded-xl p-4 ${goalMet ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <Target className={`h-4 w-4 ${goalMet ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="text-sm font-medium">Daily Goal Progress</span>
+              </div>
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className={`text-2xl font-bold ${goalMet ? 'text-primary' : 'text-foreground'}`}>
+                  {summary.fpPlus.toFixed(1)}
+                </span>
+                <span className="text-muted-foreground">/ {dailyGoal.toFixed(1)} FP+</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${goalMet ? 'bg-primary' : 'bg-muted-foreground/50'}`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {goalMet && (
+                <p className="text-sm text-primary mt-2 font-medium">
+                  {summary.fpPlus > dailyGoal 
+                    ? `+${(summary.fpPlus - dailyGoal).toFixed(1)} FP+ ahead of pace!` 
+                    : "Right on target!"}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Summary Stats */}
         <div className="px-4 mb-6">
           <div className="bg-muted/50 rounded-xl p-4 space-y-2">
