@@ -11,6 +11,8 @@ export interface Recruit {
   recruiterNotionId: string;
   recruiterName: string | null;
   teamName: string | null;
+  teamId: string | null;
+  mgmtGroupId: string | null;
   year: string;
   lastContact: string | null;
   nextAction: string | null;
@@ -62,7 +64,7 @@ export const useGroupRecruits = () => {
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
 
   const query = useQuery({
-    queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.[0]?.notionPageId],
+    queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.length],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -71,6 +73,8 @@ export const useGroupRecruits = () => {
       // These already contain all reps they have access to
       const accessLevel = teamAccess?.accessLevel;
       const accessibleReps = teamAccess?.accessibleReps || [];
+      
+      console.log('[useGroupRecruits] Running query with accessLevel:', accessLevel, 'accessibleReps count:', accessibleReps.length);
 
       // Get the current user's rep notion page ID
       const { data: currentRep } = await supabase
@@ -85,6 +89,16 @@ export const useGroupRecruits = () => {
       }
 
       let recruits: Recruit[] = [];
+
+      // Create lookup map from accessibleReps for team info
+      const repTeamInfoMap = new Map<string, { teamId: string | null; mgmtGroupId: string | null; teamName: string | null }>();
+      for (const rep of accessibleReps) {
+        repTeamInfoMap.set(rep.notionPageId, {
+          teamId: (rep as any).teamId || null,
+          mgmtGroupId: (rep as any).mgmtGroupId || null,
+          teamName: (rep as any).teamName || null,
+        });
+      }
 
       if (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') {
         // For higher-level leaders, use accessibleReps from teamAccess which already has all their reps
@@ -102,39 +116,49 @@ export const useGroupRecruits = () => {
           // Fallback to accessibleReps if edge function fails
           recruits = accessibleReps
             .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
-            .map((member: any) => ({
-              notionPageId: member.notionPageId,
-              name: member.name,
-              phone: member.phone || '',
-              email: '',
-              stage: member.stage || '',
-              recruiterNotionId: leaderNotionId,
-              recruiterName: member.teamName || null,
-              teamName: member.teamName || null,
-              year: member.year || '',
-              lastContact: null,
-              nextAction: null,
-              nextActionDue: null,
-              createdAt: new Date().toISOString(),
-            }));
+            .map((member: any) => {
+              const teamInfo = repTeamInfoMap.get(member.notionPageId);
+              return {
+                notionPageId: member.notionPageId,
+                name: member.name,
+                phone: member.phone || '',
+                email: '',
+                stage: member.stage || '',
+                recruiterNotionId: leaderNotionId,
+                recruiterName: member.teamName || null,
+                teamName: teamInfo?.teamName || member.teamName || null,
+                teamId: teamInfo?.teamId || null,
+                mgmtGroupId: teamInfo?.mgmtGroupId || null,
+                year: member.year || '',
+                lastContact: null,
+                nextAction: null,
+                nextActionDue: null,
+                createdAt: new Date().toISOString(),
+              };
+            });
         } else {
           recruits = (teamData?.teamMembers || [])
             .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
-            .map((member: any) => ({
-              notionPageId: member.notionPageId,
-              name: member.name,
-              phone: member.phone || '',
-              email: member.email || '',
-              stage: member.stage,
-              recruiterNotionId: leaderNotionId,
-              recruiterName: member.recruiter || null,
-              teamName: member.teamName || null,
-              year: member.year || '',
-              lastContact: null,
-              nextAction: null,
-              nextActionDue: null,
-              createdAt: new Date().toISOString(),
-            }));
+            .map((member: any) => {
+              const teamInfo = repTeamInfoMap.get(member.notionPageId);
+              return {
+                notionPageId: member.notionPageId,
+                name: member.name,
+                phone: member.phone || '',
+                email: member.email || '',
+                stage: member.stage,
+                recruiterNotionId: leaderNotionId,
+                recruiterName: member.recruiter || null,
+                teamName: teamInfo?.teamName || member.teamName || null,
+                teamId: teamInfo?.teamId || null,
+                mgmtGroupId: teamInfo?.mgmtGroupId || null,
+                year: member.year || '',
+                lastContact: null,
+                nextAction: null,
+                nextActionDue: null,
+                createdAt: new Date().toISOString(),
+              };
+            });
         }
       } else {
         // For team leads, use the existing fetch-team-members logic
@@ -146,21 +170,26 @@ export const useGroupRecruits = () => {
 
         recruits = (teamData?.teamMembers || [])
           .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
-          .map((member: any) => ({
-            notionPageId: member.notionPageId,
-            name: member.name,
-            phone: member.phone || '',
-            email: member.email || '',
-            stage: member.stage,
-            recruiterNotionId: leaderNotionId,
-            recruiterName: member.recruiter || null,
-            teamName: member.teamName || null,
-            year: member.year || '',
-            lastContact: null,
-            nextAction: null,
-            nextActionDue: null,
-            createdAt: new Date().toISOString(),
-          }));
+          .map((member: any) => {
+            const teamInfo = repTeamInfoMap.get(member.notionPageId);
+            return {
+              notionPageId: member.notionPageId,
+              name: member.name,
+              phone: member.phone || '',
+              email: member.email || '',
+              stage: member.stage,
+              recruiterNotionId: leaderNotionId,
+              recruiterName: member.recruiter || null,
+              teamName: teamInfo?.teamName || member.teamName || null,
+              teamId: teamInfo?.teamId || null,
+              mgmtGroupId: teamInfo?.mgmtGroupId || null,
+              year: member.year || '',
+              lastContact: null,
+              nextAction: null,
+              nextActionDue: null,
+              createdAt: new Date().toISOString(),
+            };
+          });
       }
 
       // Fetch activities for these recruits
