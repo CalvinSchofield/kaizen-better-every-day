@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { useMemo } from 'react';
+import { format } from 'date-fns';
 
 interface InsightsSummaryHeroProps {
   totalFp: number;
@@ -13,6 +14,10 @@ interface InsightsSummaryHeroProps {
   totalCloses: number;
   efpModeEnabled: boolean;
 }
+
+// Season boundaries
+const PRESEASON_END = '2026-04-11';
+const SUMMER_END = '2026-09-27';
 
 export const InsightsSummaryHero = ({
   totalFp,
@@ -30,30 +35,62 @@ export const InsightsSummaryHero = ({
   
   // Calculate pace status based on goals
   const paceStatus = useMemo(() => {
-    if (!goals?.setup_complete) return null;
+    if (!goals?.setup_complete || !plannedDays) return null;
     
     const today = new Date();
-    const totalPlannedDays = plannedDays?.length || 0;
-    const remainingDays = plannedDays?.filter(d => new Date(d.planned_date) >= today).length || 0;
-    const daysElapsed = totalPlannedDays - remainingDays;
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const preseasonEndDate = new Date(PRESEASON_END);
+    const isInPreseason = today <= preseasonEndDate;
     
-    if (daysElapsed === 0 || totalPlannedDays === 0) return null;
+    // Get the correct goal based on season
+    const seasonEndStr = isInPreseason ? PRESEASON_END : SUMMER_END;
+    const seasonStartStr = isInPreseason ? '2025-09-28' : '2026-04-12';
     
-    // Use will_do as primary goal, fallback to must_do
-    const targetGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
+    // Use preseason goal in preseason, summer goal otherwise
+    const targetGoal = isInPreseason 
+      ? (goals.preseason_fp_goal || 0)
+      : (goals.will_do_fp_goal || goals.must_do_fp_goal || 0);
+    
     if (targetGoal === 0) return null;
     
-    const currentFp = efpModeEnabled ? totalEfp : totalFp;
-    const expectedAtThisPoint = (targetGoal / totalPlannedDays) * daysElapsed;
-    const difference = currentFp - expectedAtThisPoint;
-    const percentOfPace = expectedAtThisPoint > 0 ? (currentFp / expectedAtThisPoint) * 100 : 0;
+    // Convert to EFP if needed
+    const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
+    const displayTargetGoal = efpModeEnabled ? targetGoal * conversionFactor : targetGoal;
+    
+    // Count total planned days for the season
+    const totalPlannedDays = plannedDays.filter(d => 
+      d.planned_date >= seasonStartStr && d.planned_date <= seasonEndStr
+    ).length;
+    
+    // Count elapsed planned days (up to today)
+    const elapsedPlannedDays = plannedDays.filter(d => 
+      d.planned_date >= seasonStartStr && d.planned_date <= todayStr
+    ).length;
+    
+    if (elapsedPlannedDays === 0 || totalPlannedDays === 0) return null;
+    
+    // ORIGINAL daily goal (what was committed at start)
+    const originalDailyGoal = displayTargetGoal / totalPlannedDays;
+    
+    // Expected progress by now (based on elapsed planned days × original daily goal)
+    const expectedAtThisPoint = originalDailyGoal * elapsedPlannedDays;
+    
+    const currentProgress = efpModeEnabled ? totalEfp : totalFp;
+    const difference = currentProgress - expectedAtThisPoint;
+    
+    // Calculate remaining pace (what's needed per day going forward)
+    const remainingGoal = Math.max(0, displayTargetGoal - currentProgress);
+    const remainingDays = totalPlannedDays - elapsedPlannedDays;
+    const remainingDailyNeeded = remainingDays > 0 ? remainingGoal / remainingDays : 0;
     
     return {
       isOnTrack: difference >= 0,
       difference: Math.abs(difference),
-      percentOfPace,
-      targetGoal,
-      expectedAtThisPoint
+      targetGoal: displayTargetGoal,
+      expectedAtThisPoint,
+      originalDailyGoal,
+      remainingDailyNeeded,
+      isInPreseason
     };
   }, [goals, plannedDays, totalFp, totalEfp, efpModeEnabled]);
   
@@ -64,7 +101,7 @@ export const InsightsSummaryHero = ({
         <div className={`flex items-center justify-between p-3 rounded-lg mb-4 ${
           paceStatus.isOnTrack 
             ? 'bg-green-500/10 border border-green-500/20' 
-            : 'bg-destructive/10 border border-destructive/20'
+            : 'bg-amber-500/10 border border-amber-500/20'
         }`}>
           <div className="flex items-center gap-2">
             {paceStatus.isOnTrack ? (
@@ -79,11 +116,11 @@ export const InsightsSummaryHero = ({
               </>
             ) : (
               <>
-                <TrendingDown className="w-5 h-5 text-destructive" />
+                <TrendingDown className="w-5 h-5 text-amber-500" />
                 <div>
-                  <span className="text-sm font-medium text-destructive">Behind Pace</span>
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Behind Pace</span>
                   <span className="text-xs text-muted-foreground ml-2">
-                    {paceStatus.difference.toFixed(1)} to catch up
+                    {paceStatus.difference.toFixed(1)} behind · Need {paceStatus.remainingDailyNeeded.toFixed(1)}/day
                   </span>
                 </div>
               </>
@@ -91,7 +128,7 @@ export const InsightsSummaryHero = ({
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Target className="w-3 h-3" />
-            <span>{paceStatus.targetGoal} goal</span>
+            <span>{paceStatus.isInPreseason ? 'Preseason' : 'Season'}: {paceStatus.targetGoal.toFixed(0)}</span>
           </div>
         </div>
       )}
