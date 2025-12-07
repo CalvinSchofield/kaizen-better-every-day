@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X } from "lucide-react";
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
@@ -14,6 +14,7 @@ import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import Layout from "@/components/Layout";
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
@@ -88,66 +89,57 @@ const MyGroup = () => {
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <Layout>
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </Layout>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/50 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold">My Group</h1>
-            {pendingSuggestions.length > 0 && (
-              <span className="bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
-                {pendingSuggestions.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {activeFilterName && (
-              <Badge 
-                variant="secondary" 
-                className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
-                onClick={() => setSelectedTeamFilter(null)}
-              >
-                {activeFilterName}
-                <X className="h-3 w-3" />
-              </Badge>
-            )}
-            {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
-              <Button 
-                variant={selectedTeamFilter ? 'default' : 'ghost'} 
-                size="icon" 
-                onClick={() => setFilterSheetOpen(true)}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-            )}
-            {isLeader && (
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="board" className="px-2">
-                    <LayoutGrid className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="list" className="px-2">
-                    <List className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="planner" className="px-2">
-                    <CalendarDays className="h-4 w-4" />
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-          </div>
-        </div>
-      </div>
+  // Pass header controls to Layout via children pattern - we'll render content directly
+  const headerControls = (
+    <div className="flex items-center gap-2">
+      {activeFilterName && (
+        <Badge 
+          variant="secondary" 
+          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
+          onClick={() => setSelectedTeamFilter(null)}
+        >
+          {activeFilterName}
+          <X className="h-3 w-3" />
+        </Badge>
+      )}
+      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+        <Button 
+          variant={selectedTeamFilter ? 'default' : 'ghost'} 
+          size="icon" 
+          onClick={() => setFilterSheetOpen(true)}
+        >
+          <Filter className="h-4 w-4" />
+        </Button>
+      )}
+      {isLeader && (
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
+          <TabsList className="h-8">
+            <TabsTrigger value="board" className="px-2">
+              <LayoutGrid className="h-4 w-4" />
+            </TabsTrigger>
+            <TabsTrigger value="list" className="px-2">
+              <List className="h-4 w-4" />
+            </TabsTrigger>
+            <TabsTrigger value="planner" className="px-2">
+              <CalendarDays className="h-4 w-4" />
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+    </div>
+  );
 
+  return (
+    <Layout headerRightContent={headerControls}>
       <div className="p-4 space-y-4">
         {/* Pending Suggestions for Leaders */}
         {isLeader && pendingSuggestions.length > 0 && (
@@ -198,7 +190,7 @@ const MyGroup = () => {
         recruitCounts={teamRecruitCounts}
         totalRecruits={allRecruits.length}
       />
-    </div>
+    </Layout>
   );
 };
 

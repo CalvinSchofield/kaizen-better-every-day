@@ -14,9 +14,10 @@ interface LayoutProps {
   isSaving?: boolean;
   isResetting?: boolean;
   syncIndicator?: ReactNode;
+  headerRightContent?: ReactNode;
 }
 
-const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator }: LayoutProps) => {
+const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicator, headerRightContent }: LayoutProps) => {
   const location = useLocation();
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
@@ -175,6 +176,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "Reports";
       case "/goals":
         return "Goals";
+      case "/my-group":
+        return "My Group";
       default:
         return "Kaizen";
     }
@@ -215,7 +218,9 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           
           {/* Right side - action buttons (absolute positioned) */}
           <div className="absolute right-0 flex justify-end">
-            {location.pathname === "/track" && onSave && onReset ? (
+            {headerRightContent ? (
+              headerRightContent
+            ) : location.pathname === "/track" && onSave && onReset ? (
               <div className="flex items-center gap-2">
                 {syncIndicator}
                 <Button

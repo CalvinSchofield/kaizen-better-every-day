@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Stage progression order - higher index = more advanced
-// We NEVER move backward automatically, only forward
+// Used for AUTOMATIC progression checks only - manual changes always allowed
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
   'Reached Out',
@@ -17,16 +17,12 @@ const STAGE_PROGRESSION_ORDER = [
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
-];
-
-// Exit stages that can be reached from any stage (not part of forward progression)
-const EXIT_STAGES = [
   'Potential Follow Up',
   'Not Interested',
   'Signed but Not Interested',
 ];
 
-// Get stage index (returns -1 for terminal/unknown stages)
+// Get stage index (returns -1 for unknown stages)
 const getStageIndex = (stage: string | null): number => {
   if (!stage) return -1;
   const normalizedStage = stage.trim();
@@ -35,23 +31,15 @@ const getStageIndex = (stage: string | null): number => {
   );
 };
 
-// Check if a stage is an exit stage
-const isExitStage = (stage: string): boolean => {
-  return EXIT_STAGES.some(s => s.toLowerCase() === stage.trim().toLowerCase());
-};
-
-// Check if stage change is a forward progression or valid exit
+// Check if stage change is a forward progression (for automatic changes only)
 const isForwardProgression = (currentStage: string | null, newStage: string): boolean => {
-  // Exit stages can be reached from any stage
-  if (isExitStage(newStage)) return true;
-  
   const currentIndex = getStageIndex(currentStage);
   const newIndex = getStageIndex(newStage);
   
-  // If either stage is not in progression order (terminal states), allow any change
+  // If either stage is not in progression order, allow any change
   if (currentIndex === -1 || newIndex === -1) return true;
   
-  // Only allow forward progression
+  // Only allow forward progression for automatic changes
   return newIndex >= currentIndex;
 };
 
@@ -86,7 +74,7 @@ serve(async (req) => {
       });
     }
 
-    const { recruitNotionId, newStage, notes, forceUpdate = false } = await req.json();
+    const { recruitNotionId, newStage, notes, forceUpdate = false, isAutomatic = false } = await req.json();
 
     if (!recruitNotionId || !newStage) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -113,11 +101,11 @@ serve(async (req) => {
       }
     }
 
-    // Check if this is a valid forward progression (unless forced)
-    if (!forceUpdate && !isForwardProgression(currentStage, newStage)) {
-      console.log(`Blocked backward stage change: ${currentStage} -> ${newStage}`);
+    // Check if this is a valid forward progression (only for automatic changes, not manual)
+    if (isAutomatic && !forceUpdate && !isForwardProgression(currentStage, newStage)) {
+      console.log(`Blocked backward automatic stage change: ${currentStage} -> ${newStage}`);
       return new Response(JSON.stringify({ 
-        error: 'Cannot move stage backward',
+        error: 'Cannot move stage backward automatically',
         currentStage,
         requestedStage: newStage 
       }), {
