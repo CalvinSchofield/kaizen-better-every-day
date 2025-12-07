@@ -94,6 +94,8 @@ export const RecruitDetailDrawer = ({
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
   const [potentialFollowUpOpen, setPotentialFollowUpOpen] = useState(false);
   const [list100ConnectedOpen, setList100ConnectedOpen] = useState(false);
+  const [quickCallOpen, setQuickCallOpen] = useState(false);
+  const [quickCallNotes, setQuickCallNotes] = useState('');
   const [followUpNextStep, setFollowUpNextStep] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
@@ -830,6 +832,41 @@ export const RecruitDetailDrawer = ({
     });
   };
 
+  // Handle quick "Called Today" action
+  const handleQuickCall = () => {
+    const is100List = recruit.stage?.toLowerCase().includes('100') || 
+                      recruit.stage?.toLowerCase().includes('list');
+    
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: 'phone_call',
+      notes: quickCallNotes.trim() ? `Connected: ${quickCallNotes}` : 'Connected',
+      updateLastContact: true,
+    }, {
+      onSuccess: async () => {
+        toast.success('Call logged');
+        setQuickCallOpen(false);
+        setQuickCallNotes('');
+        
+        // Invalidate the live activities query for immediate UI update
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+        
+        // If connected with someone in 100 List, show stage selection popup
+        if (is100List) {
+          setList100ConnectedOpen(true);
+        } else {
+          // Auto-check for stage progression based on metrics
+          await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+        }
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't log call - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
+  };
+
   const getActivityIcon = (type: string, notes?: string | null) => {
     if (type === 'phone_call') {
       if (notes === 'Connected') return <PhoneCall className="h-4 w-4 text-green-500" />;
@@ -1226,15 +1263,28 @@ export const RecruitDetailDrawer = ({
               </div>
             )}
 
-            {/* Log Activity Button */}
-            <Button 
-              variant="outline" 
-              className="w-full" 
-              onClick={() => setLogActivityOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Log Activity
-            </Button>
+            {/* Quick Action Buttons */}
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={() => setLogActivityOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Log Activity
+              </Button>
+              <Button 
+                variant="default" 
+                className="flex-1 gap-2" 
+                onClick={() => {
+                  setQuickCallNotes('');
+                  setQuickCallOpen(true);
+                }}
+              >
+                <PhoneCall className="h-4 w-4" />
+                Called Today
+              </Button>
+            </div>
 
             {/* Activity Timeline */}
             <div className={activityShake ? 'animate-shake' : ''}>
@@ -1728,6 +1778,40 @@ export const RecruitDetailDrawer = ({
               onClick={() => setList100ConnectedOpen(false)}
             >
               Decide Later
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Quick "Called Today" Drawer */}
+      <Drawer open={quickCallOpen} onOpenChange={setQuickCallOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Log Call with {recruitFirstName}</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+              <PhoneCall className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-medium text-green-700">Call Connected</span>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>What did you talk about? (optional)</Label>
+              <Textarea
+                placeholder="e.g., Discussed upcoming blitz, they're excited..."
+                value={quickCallNotes}
+                onChange={(e) => setQuickCallNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              className="w-full gap-2"
+              onClick={handleQuickCall}
+              disabled={logActivityMutation.isPending}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {logActivityMutation.isPending ? 'Saving...' : 'Save Call'}
             </Button>
           </div>
         </DrawerContent>
