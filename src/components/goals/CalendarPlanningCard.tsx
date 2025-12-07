@@ -116,25 +116,17 @@ export const CalendarPlanningCard = ({
   const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // Helper to determine if an entry counts as a "worked day" for calendar display
-  // A worked day has: doors_knocked >= 5 OR has work times OR has any FP+/PRMR results
-  const isRealKnockingDay = (entry: { 
-    doors_knocked: number | null; 
-    work_start_time: string | null; 
-    work_end_time: string | null;
-    fp_plus: number | null;
-    prmr: number | null;
-    upgrade_prmr: number | null;
-  }): boolean => {
-    const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 5;
-    const hasWorkSession = entry.work_start_time || entry.work_end_time;
-    const hasResults = (entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0 || (entry.upgrade_prmr || 0) > 0;
-    return hasMeaningfulActivity || !!hasWorkSession || hasResults;
+  // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
+  // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
+  const isRealKnockingDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null }): boolean => {
+    const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
+    const hasWorkSession = entry.work_start_time && entry.work_end_time;
+    return hasMeaningfulActivity || !!hasWorkSession;
   };
 
   // Query to get actual days worked (finalized entries with real activity)
-  const { data: workedDaysData } = useQuery({
-    queryKey: ['worked-days-data', personalSummerStart, personalSummerEnd],
+  const { data: workedDaysData, refetch: refetchWorkedDays } = useQuery({
+    queryKey: ['worked-days-data', repData?.user_id, personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
@@ -150,6 +142,8 @@ export const CalendarPlanningCard = ({
         console.error('Error fetching worked days:', error);
         return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
       }
+
+      console.log('Fetched worked days entries:', entries?.length, 'for user:', user.id);
 
       const preseasonStart = parseLocalDate(PRESEASON_START);
       const preseasonEnd = parseLocalDate(PRESEASON_END);
@@ -174,9 +168,12 @@ export const CalendarPlanningCard = ({
         }
       });
 
+      console.log('Worked dates set:', Array.from(workedDates));
+
       return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates };
     },
-    staleTime: 1000 * 30, // 30 seconds - refresh quickly on save/delete
+    staleTime: 0, // Always refetch - important for accurate calendar display
+    enabled: !!repData?.user_id,
   });
 
   // Derived values from workedDaysData
