@@ -24,9 +24,7 @@ import {
   UserRound,
   AlertCircle,
   AlertTriangle,
-  Tablet,
-  CircleDot,
-  Circle
+  Tablet
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, parseISO, differenceInDays } from "date-fns";
@@ -105,6 +103,13 @@ export const RecruitDetailDrawer = ({
   const [editDate, setEditDate] = useState('');
   const [pendingPhoneAction, setPendingPhoneAction] = useState<'ask_help' | 'call' | 'text' | null>(null);
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
+  
+  // Stage/onboarding change confirmation
+  const [stageConfirmOpen, setStageConfirmOpen] = useState(false);
+  const [pendingStage, setPendingStage] = useState<string | null>(null);
+  const [onboardingConfirmOpen, setOnboardingConfirmOpen] = useState(false);
+  const [pendingOnboardingStep, setPendingOnboardingStep] = useState<{ field: string; label: string; value: boolean } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Error shake state
   const [stageShake, setStageShake] = useState(false);
@@ -584,19 +589,47 @@ export const RecruitDetailDrawer = ({
       return;
     }
     
+    // Show confirmation for all other stage changes
+    setPendingStage(newStage);
+    setStageConfirmOpen(true);
+  };
+
+  const handleConfirmStageChange = () => {
+    if (!pendingStage) return;
+    
     updateStageMutation.mutate({
       recruitNotionId: recruit.notionPageId,
-      newStage,
+      newStage: pendingStage,
     }, {
       onSuccess: () => {
-        toast.success(`Moved to ${newStage}`);
+        toast.success(`Moved to ${pendingStage}`);
+        setStageConfirmOpen(false);
+        setPendingStage(null);
       },
       onError: () => {
         triggerErrorToast("Couldn't update stage - please try again");
         setStageShake(true);
         setTimeout(() => setStageShake(false), 500);
+        setStageConfirmOpen(false);
+        setPendingStage(null);
       }
     });
+  };
+
+  const getStageDescription = (stage: string): string => {
+    switch (stage) {
+      case '100 List': return 'A potential recruit on the initial list who hasn\'t been contacted yet.';
+      case 'Reached Out': return 'You\'ve made initial contact but haven\'t had a meaningful conversation yet.';
+      case 'Evaluating': return 'They\'re interested and actively considering the opportunity.';
+      case 'Signed': return 'They\'ve committed to join and are starting onboarding!';
+      case 'Shadow ✅': return 'They\'ve attended a blitz and shadowed in the field.';
+      case 'Sold 💲': return 'They\'ve made their first sale!';
+      case 'Sold (5+) 💰': return 'They\'ve sold 5 or more FP+ and are on track!';
+      case 'Not Interested': return 'They declined the opportunity.';
+      case 'Signed but Not Interested': return 'They signed but later decided not to continue.';
+      case 'Potential Follow Up': return 'Not ready now but worth following up later.';
+      default: return '';
+    }
   };
 
   const handleConfirmPotentialFollowUp = () => {
@@ -753,17 +786,67 @@ export const RecruitDetailDrawer = ({
   const handleDeleteActivity = () => {
     if (!selectedActivity) return;
     
+    setIsDeleting(true);
     deleteActivityMutation.mutate(selectedActivity.id, {
       onSuccess: () => {
         toast.success('Activity deleted');
         setDeleteConfirmOpen(false);
         setEditActivityOpen(false);
         setSelectedActivity(null);
+        setIsDeleting(false);
       },
       onError: () => {
         triggerErrorToast("Couldn't delete activity - please try again");
+        setIsDeleting(false);
       }
     });
+  };
+
+  // Handle onboarding step change
+  const handleOnboardingStepClick = (field: string, label: string, currentValue: boolean) => {
+    setPendingOnboardingStep({ field, label, value: !currentValue });
+    setOnboardingConfirmOpen(true);
+  };
+
+  const handleConfirmOnboardingChange = async () => {
+    if (!pendingOnboardingStep || !recruitRepData) return;
+    
+    const { field, value } = pendingOnboardingStep;
+    
+    const { error } = await supabase
+      .from('reps')
+      .update({ [field]: value })
+      .eq('notion_page_id', recruit.notionPageId);
+    
+    if (error) {
+      toast.error("Couldn't update - please try again");
+    } else {
+      toast.success(value ? 'Marked complete' : 'Marked incomplete');
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      
+      // Check for auto-stage progression
+      if (value && field === 'onboarding_complete') {
+        await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+      }
+    }
+    
+    setOnboardingConfirmOpen(false);
+    setPendingOnboardingStep(null);
+  };
+
+  const getOnboardingStepDescription = (field: string, markingComplete: boolean): string => {
+    const action = markingComplete ? 'This confirms that' : 'This will mark that';
+    switch (field) {
+      case 'onboarding_complete': return `${action} ${recruitFirstName} has finished the initial onboarding steps and is ready to proceed.`;
+      case 'trainings_complete': return `${action} ${recruitFirstName} has completed all required training videos and materials.`;
+      case 'slack_joined': return `${action} ${recruitFirstName} has joined the team Slack workspace.`;
+      case 'ramp_phase_1_complete': return `${action} ${recruitFirstName} has completed Phase 1: Onboard and get ready.`;
+      case 'ramp_phase_2_complete': return `${action} ${recruitFirstName} has completed Phase 2: Start training.`;
+      case 'ramp_phase_3_complete': return `${action} ${recruitFirstName} has completed Phase 3: Practice.`;
+      case 'ramp_phase_4_complete': return `${action} ${recruitFirstName} has completed Phase 4: Saddle up and is blitz-ready!`;
+      default: return '';
+    }
   };
 
   const handleMarkCallStatus = (status: 'Connected' | 'No Answer') => {
@@ -940,83 +1023,48 @@ export const RecruitDetailDrawer = ({
             {recruitRepData && (
               recruitRepData.year === 'Rookie' || !recruitRepData.year
             ) && !recruitRepData.ramp_phase_4_complete && (
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  Onboarding Progress
-                </h4>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.onboarding_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.onboarding_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Onboarding Complete
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.trainings_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.trainings_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Trainings Complete
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.slack_joined ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.slack_joined ? 'text-foreground' : 'text-muted-foreground'}>
-                      Slack Joined
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.ramp_phase_1_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.ramp_phase_1_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Phase 1 ✅
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.ramp_phase_2_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.ramp_phase_2_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Phase 2 ✅
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.ramp_phase_3_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.ramp_phase_3_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Phase 3 ✅
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {recruitRepData.ramp_phase_4_complete ? (
-                      <CircleDot className="h-3.5 w-3.5 text-green-500" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className={recruitRepData.ramp_phase_4_complete ? 'text-foreground' : 'text-muted-foreground'}>
-                      Phase 4 ✅
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Onboarding Step Completed</Label>
+                <Select 
+                  value={
+                    recruitRepData.ramp_phase_4_complete ? 'ramp_phase_4_complete' :
+                    recruitRepData.ramp_phase_3_complete ? 'ramp_phase_3_complete' :
+                    recruitRepData.ramp_phase_2_complete ? 'ramp_phase_2_complete' :
+                    recruitRepData.ramp_phase_1_complete ? 'ramp_phase_1_complete' :
+                    recruitRepData.slack_joined ? 'slack_joined' :
+                    recruitRepData.trainings_complete ? 'trainings_complete' :
+                    recruitRepData.onboarding_complete ? 'onboarding_complete' :
+                    'none'
+                  }
+                  onValueChange={(value) => {
+                    const stepLabels: Record<string, string> = {
+                      'onboarding_complete': 'Onboarding ✅',
+                      'trainings_complete': 'Trainings ✅',
+                      'slack_joined': 'Slack Joined',
+                      'ramp_phase_1_complete': 'Phase 1 ✅',
+                      'ramp_phase_2_complete': 'Phase 2 ✅',
+                      'ramp_phase_3_complete': 'Phase 3 ✅',
+                      'ramp_phase_4_complete': 'Phase 4 ✅',
+                    };
+                    if (value !== 'none') {
+                      handleOnboardingStepClick(value, stepLabels[value] || value, false);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select completed step..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not started</SelectItem>
+                    <SelectItem value="onboarding_complete">Onboarding ✅</SelectItem>
+                    <SelectItem value="trainings_complete">Trainings ✅</SelectItem>
+                    <SelectItem value="slack_joined">Slack Joined</SelectItem>
+                    <SelectItem value="ramp_phase_1_complete">Phase 1 ✅</SelectItem>
+                    <SelectItem value="ramp_phase_2_complete">Phase 2 ✅</SelectItem>
+                    <SelectItem value="ramp_phase_3_complete">Phase 3 ✅</SelectItem>
+                    <SelectItem value="ramp_phase_4_complete">Phase 4 ✅</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -1306,7 +1354,7 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={(open) => !isDeleting && setDeleteConfirmOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
@@ -1315,16 +1363,94 @@ export const RecruitDetailDrawer = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteActivity}
+              disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Stage Change Confirmation */}
+      <Drawer open={stageConfirmOpen} onOpenChange={setStageConfirmOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Confirm Stage Change</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-1">
+                Move {recruitFirstName} to: <span className="text-primary">{pendingStage}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {pendingStage && getStageDescription(pendingStage)}
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  setStageConfirmOpen(false);
+                  setPendingStage(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={handleConfirmStageChange}
+                disabled={updateStageMutation.isPending}
+              >
+                {updateStageMutation.isPending ? 'Saving...' : 'Confirm'}
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Onboarding Step Confirmation */}
+      <Drawer open={onboardingConfirmOpen} onOpenChange={setOnboardingConfirmOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Confirm Onboarding Update</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-1">
+                Mark as: <span className="text-primary">{pendingOnboardingStep?.label}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {pendingOnboardingStep && getOnboardingStepDescription(pendingOnboardingStep.field, pendingOnboardingStep.value)}
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  setOnboardingConfirmOpen(false);
+                  setPendingOnboardingStep(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={handleConfirmOnboardingChange}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Potential Follow Up Drawer - requires next step + date */}
       <Drawer open={potentialFollowUpOpen} onOpenChange={setPotentialFollowUpOpen}>
