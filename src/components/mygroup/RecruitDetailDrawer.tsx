@@ -75,14 +75,14 @@ const STAGES = [
 
 interface RecruitDetailDrawerProps {
   recruit: Recruit | null;
-  activities: RecruitActivity[];
+  activities: RecruitActivity[]; // Kept for initial data, but we'll refetch live
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export const RecruitDetailDrawer = ({ 
   recruit, 
-  activities, 
+  activities: initialActivities, 
   open, 
   onOpenChange 
 }: RecruitDetailDrawerProps) => {
@@ -123,6 +123,28 @@ export const RecruitDetailDrawer = ({
   const { data: teamAccess } = useTeamAccess();
   const queryClient = useQueryClient();
   const { checkAndUpdateStage, checkReachedOutProgression } = useAutoStageProgression();
+
+  // Fetch activities directly for this recruit to get live updates
+  const { data: liveActivities } = useQuery({
+    queryKey: ['recruit-activities', recruit?.notionPageId],
+    queryFn: async () => {
+      if (!recruit?.notionPageId) return [];
+      
+      const { data } = await supabase
+        .from('recruit_activities')
+        .select('*')
+        .eq('rep_notion_page_id', recruit.notionPageId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      return (data || []) as RecruitActivity[];
+    },
+    enabled: !!recruit?.notionPageId && open,
+    staleTime: 0, // Always refetch when drawer opens
+  });
+
+  // Use live activities if available, otherwise fall back to initial
+  const activities = liveActivities ?? initialActivities;
 
   // Auto-check stage progression when drawer opens
   useEffect(() => {
@@ -768,6 +790,9 @@ export const RecruitDetailDrawer = ({
         setNextAction('');
         setNextActionDue('');
         
+        // Invalidate the live activities query for immediate UI update
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+        
         // If connected with someone in 100 List, show stage selection popup
         if (is100List && isConnectedActivity) {
           setList100ConnectedOpen(true);
@@ -837,6 +862,8 @@ export const RecruitDetailDrawer = ({
         toast.success('Activity updated');
         setEditActivityOpen(false);
         setSelectedActivity(null);
+        // Invalidate for immediate UI update
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
       },
       onError: () => {
         triggerErrorToast("Couldn't update activity - please try again");
@@ -857,6 +884,8 @@ export const RecruitDetailDrawer = ({
         setEditActivityOpen(false);
         setSelectedActivity(null);
         setIsDeleting(false);
+        // Invalidate for immediate UI update
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
       },
       onError: () => {
         triggerErrorToast("Couldn't delete activity - please try again");
