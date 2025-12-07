@@ -176,44 +176,50 @@ export const ScheduledInstallStep = ({
                     </div>
 
                     {isSelected && (
-                      <Popover
-                        open={datePickerOpen === sale.id}
-                        onOpenChange={(open) => setDatePickerOpen(open ? sale.id : null)}
-                      >
-                        <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className={cn(
-                              "h-8 text-xs transition-all",
-                              schedDate && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                            )}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Popover
+                          open={datePickerOpen === sale.id}
+                          onOpenChange={(open) => setDatePickerOpen(open ? sale.id : null)}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={cn(
+                                "h-8 text-xs transition-all",
+                                schedDate && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              )}
+                            >
+                              {schedDate ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                                  {format(schedDate, 'MMM d')}
+                                </>
+                              ) : (
+                                <>
+                                  <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                                  Set Date
+                                  <ChevronDown className="h-3 w-3 ml-1" />
+                                </>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-auto p-0" 
+                            align="end"
+                            onInteractOutside={(e) => e.preventDefault()}
                           >
-                            {schedDate ? (
-                              <>
-                                <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
-                                {format(schedDate, 'MMM d')}
-                              </>
-                            ) : (
-                              <>
-                                <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                                Set Date
-                                <ChevronDown className="h-3 w-3 ml-1" />
-                              </>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={schedDate}
-                            onSelect={(date) => handleDateSelect(sale.id, date)}
-                            disabled={(date) => date <= new Date()}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                          />
-                        </PopoverContent>
-                      </Popover>
+                            <Calendar
+                              mode="single"
+                              selected={schedDate}
+                              onSelect={(date) => handleDateSelect(sale.id, date)}
+                              disabled={(date) => date <= new Date()}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     )}
                   </div>
                 );
