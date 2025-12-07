@@ -89,6 +89,7 @@ export const RecruitDetailDrawer = ({
   onOpenChange 
 }: RecruitDetailDrawerProps) => {
   const [logActivityOpen, setLogActivityOpen] = useState(false);
+  const [isDirectSchedule, setIsDirectSchedule] = useState(false);
   const [editActivityOpen, setEditActivityOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
@@ -1315,12 +1316,14 @@ export const RecruitDetailDrawer = ({
               </div>
             )}
 
-            {/* Quick Action Buttons */}
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 className="flex-1" 
-                onClick={() => setLogActivityOpen(true)}
+                onClick={() => {
+                  setIsDirectSchedule(false);
+                  setLogActivityOpen(true);
+                }}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Log Activity
@@ -1333,6 +1336,7 @@ export const RecruitDetailDrawer = ({
                   setNextAction('');
                   setNextActionDue('');
                   setActivityNotes('');
+                  setIsDirectSchedule(true);
                   setLogActivityOpen(true);
                 }}
               >
@@ -1396,12 +1400,16 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Log Activity Drawer - swipe to dismiss */}
-      <Drawer open={logActivityOpen} onOpenChange={setLogActivityOpen}>
+      <Drawer open={logActivityOpen} onOpenChange={(open) => {
+        setLogActivityOpen(open);
+        if (!open) setIsDirectSchedule(false);
+      }}>
         <DrawerContent className="max-h-[85vh] overflow-x-hidden">
           <DrawerHeader>
-            <DrawerTitle>Log Activity</DrawerTitle>
+            <DrawerTitle>{isDirectSchedule ? 'Schedule Follow-up' : 'Log Activity'}</DrawerTitle>
           </DrawerHeader>
           <div className="p-4 space-y-4 overflow-y-auto overflow-x-hidden">
+            {!isDirectSchedule && (
             <div className="grid grid-cols-4 gap-2">
               {(['phone_call', 'in_person', 'note', 'next_step'] as const).map((type) => (
                 <Button
@@ -1418,6 +1426,7 @@ export const RecruitDetailDrawer = ({
                 </Button>
               ))}
             </div>
+            )}
 
             {activityType === 'next_step' ? (
               <>
