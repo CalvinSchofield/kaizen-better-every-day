@@ -10,7 +10,6 @@ const corsHeaders = {
 // We NEVER move backward automatically, only forward
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
-  'Potential Follow Up',
   'Reached Out',
   'Reached out',
   'Evaluating',
@@ -18,6 +17,13 @@ const STAGE_PROGRESSION_ORDER = [
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
+];
+
+// Exit stages that can be reached from any stage (not part of forward progression)
+const EXIT_STAGES = [
+  'Potential Follow Up',
+  'Not Interested',
+  'Signed but Not Interested',
 ];
 
 // Get stage index (returns -1 for terminal/unknown stages)
@@ -29,8 +35,16 @@ const getStageIndex = (stage: string | null): number => {
   );
 };
 
-// Check if stage change is a forward progression
+// Check if a stage is an exit stage
+const isExitStage = (stage: string): boolean => {
+  return EXIT_STAGES.some(s => s.toLowerCase() === stage.trim().toLowerCase());
+};
+
+// Check if stage change is a forward progression or valid exit
 const isForwardProgression = (currentStage: string | null, newStage: string): boolean => {
+  // Exit stages can be reached from any stage
+  if (isExitStage(newStage)) return true;
+  
   const currentIndex = getStageIndex(currentStage);
   const newIndex = getStageIndex(newStage);
   
