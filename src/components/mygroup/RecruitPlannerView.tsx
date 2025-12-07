@@ -287,11 +287,12 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
                   </Badge>
                 )}
               </div>
-              {dayTasks.length === 0 ? (
+              {dayTasks.length === 0 && !isToday && (
                 <p className="text-sm text-muted-foreground">
                   Nothing scheduled
                 </p>
-              ) : (
+              )}
+              {dayTasks.length > 0 && (
                 <div className="space-y-2">
                   {dayTasks.map(({ recruit, activity }) => (
                     <PlannerTaskCard
@@ -303,17 +304,18 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
                   ))}
                 </div>
               )}
+              {/* Show recommendations under Today */}
+              {isToday && (
+                <div className={cn(dayTasks.length > 0 && "mt-3")}>
+                  <RecommendationsSection 
+                    recommendations={recommendations}
+                    onRecruitClick={handleRecruitClick}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
-      </div>
-
-      {/* Recommendations Section */}
-      <div className="pt-4 border-t">
-        <RecommendationsSection 
-          recommendations={recommendations}
-          onRecruitClick={handleRecruitClick}
-        />
       </div>
 
       {/* Recruit Detail Drawer */}
