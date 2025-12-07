@@ -239,6 +239,25 @@ export const RecruitDetailDrawer = ({
     enabled: !!recruitRepData?.user_id && open,
   });
 
+  // Fetch recruit's YTD FP+ from daily_entries
+  const { data: recruitYtdFP } = useQuery({
+    queryKey: ['recruit-ytd-fp', recruitRepData?.user_id],
+    queryFn: async () => {
+      if (!recruitRepData?.user_id) return 0;
+      
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('fp_plus')
+        .eq('user_id', recruitRepData.user_id)
+        .eq('is_finalized', true);
+      
+      if (!data) return 0;
+      
+      return data.reduce((sum, entry) => sum + (entry.fp_plus || 0), 0);
+    },
+    enabled: !!recruitRepData?.user_id && open,
+  });
+
   // Generate context-aware help message with urgency-based priority matrix
   const helpMessage = useMemo(() => {
     if (!recruit || !contactForHelp) return '';
@@ -934,15 +953,20 @@ export const RecruitDetailDrawer = ({
               )}
             </div>
 
-            {/* FP+ Display for Sold reps */}
-            {(recruit.stage === 'Sold 💲' || recruit.stage === 'Sold (5+) 💰') && recruitRepData && (
+            {/* FP+ Display for reps with sales */}
+            {recruitYtdFP !== undefined && recruitYtdFP > 0 && (
               <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Total FP+</span>
+                  <span className="text-sm text-muted-foreground">YTD FP+</span>
                   <span className="text-lg font-semibold text-emerald-600">
-                    {recruitRepData.personal_fp ?? 0}
+                    {recruitYtdFP.toFixed(1)}
                   </span>
                 </div>
+                {recruitYtdFP >= 5 && recruit.stage === 'Sold 💲' && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Has 5+ FP+ - should be "Sold (5+) 💰"
+                  </p>
+                )}
               </div>
             )}
 
