@@ -3,9 +3,10 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits } from "@/hooks/useGroupRecruits";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, LayoutGrid, List, Plus, Filter } from "lucide-react";
+import { Users, LayoutGrid, List, Plus, Filter, CalendarDays } from "lucide-react";
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
 import { RecruitListView } from "@/components/mygroup/RecruitListView";
+import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
 import { AddRecruitSheet } from "@/components/mygroup/AddRecruitSheet";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
@@ -14,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [viewMode, setViewMode] = useState<'board' | 'list' | 'planner'>('board');
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
@@ -56,13 +57,16 @@ const MyGroup = () => {
               </Button>
             ) : null}
             {isLeader && (
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list')}>
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
                 <TabsList className="h-8">
                   <TabsTrigger value="board" className="px-2">
                     <LayoutGrid className="h-4 w-4" />
                   </TabsTrigger>
                   <TabsTrigger value="list" className="px-2">
                     <List className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="planner" className="px-2">
+                    <CalendarDays className="h-4 w-4" />
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -81,8 +85,10 @@ const MyGroup = () => {
         {isLeader ? (
           viewMode === 'board' ? (
             <RecruitKanbanBoard recruits={filteredRecruits} activities={activities} />
-          ) : (
+          ) : viewMode === 'list' ? (
             <RecruitListView recruits={filteredRecruits} activities={activities} />
+          ) : (
+            <RecruitPlannerView recruits={filteredRecruits} activities={activities} />
           )
         ) : (
           <div className="text-center py-12 text-muted-foreground">
