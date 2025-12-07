@@ -70,11 +70,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     // Calculate planned days in the relevant period
     const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
     
-    // For preseason goal line
+    // Get raw goals
     const preseasonGoal = goals.preseason_fp_goal || 0;
     const mustDoGoal = goals.must_do_fp_goal || 0;
     const willDoGoal = goals.will_do_fp_goal || 0;
     const couldDoGoal = goals.could_do_fp_goal || 0;
+    
+    // Apply cancel buffer - need to fund more to hit goal after cancellations
+    const cancelRate = goals.cancel_rate || 0;
+    const cancelMultiplier = cancelRate > 0 && cancelRate < 1 ? 1 / (1 - cancelRate) : 1;
+    
+    const fundedPreseasonGoal = preseasonGoal * cancelMultiplier;
+    const fundedMustDoGoal = mustDoGoal * cancelMultiplier;
+    const fundedWillDoGoal = willDoGoal * cancelMultiplier;
+    const fundedCouldDoGoal = couldDoGoal * cancelMultiplier;
 
     // Count total planned days for the season
     const preseasonStartDate = parseLocalDate(PRESEASON_START);
@@ -108,11 +117,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
       }
     });
 
-    // Calculate daily pace for each goal
-    const preseasonDailyPace = preseasonPlannedCount > 0 ? preseasonGoal / preseasonPlannedCount : 0;
-    const mustDoDailyPace = summerPlannedCount > 0 ? mustDoGoal / summerPlannedCount : 0;
-    const willDoDailyPace = summerPlannedCount > 0 ? willDoGoal / summerPlannedCount : 0;
-    const couldDoDailyPace = summerPlannedCount > 0 ? couldDoGoal / summerPlannedCount : 0;
+    // Calculate daily pace for each goal (using funded goals that account for cancellations)
+    const preseasonDailyPace = preseasonPlannedCount > 0 ? fundedPreseasonGoal / preseasonPlannedCount : 0;
+    const mustDoDailyPace = summerPlannedCount > 0 ? fundedMustDoGoal / summerPlannedCount : 0;
+    const willDoDailyPace = summerPlannedCount > 0 ? fundedWillDoGoal / summerPlannedCount : 0;
+    const couldDoDailyPace = summerPlannedCount > 0 ? fundedCouldDoGoal / summerPlannedCount : 0;
 
     // Generate pace line data points matching chart data dates
     let preseasonDayIndex = 0;
@@ -141,14 +150,16 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
 
     return {
       pacePoints,
-      preseasonGoal,
-      mustDoGoal,
-      willDoGoal,
-      couldDoGoal,
+      preseasonGoal: fundedPreseasonGoal,
+      mustDoGoal: fundedMustDoGoal,
+      willDoGoal: fundedWillDoGoal,
+      couldDoGoal: fundedCouldDoGoal,
       preseasonDailyPace,
       mustDoDailyPace,
       willDoDailyPace,
       couldDoDailyPace,
+      preseasonPlannedCount,
+      summerPlannedCount,
     };
   }, [goals, cumulativeData, plannedDays]);
 
@@ -334,10 +345,10 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
         ? cumulativeData[cumulativeData.length - 1].cumulativeFp  // FP+ when in EFP mode secondary
         : cumulativeData[cumulativeData.length - 1].cumulativePrmr);  // PRMR when in FP+ mode secondary
 
-  // Check if goal line should be available (only for FP+ primary mode when there's a goal set)
+  // Check if goal line should be available (for primary metric when there's a goal set)
   const hasPreseasonGoal = (goals?.preseason_fp_goal || 0) > 0;
   const hasSummerGoals = (goals?.must_do_fp_goal || 0) > 0;
-  const canShowGoalLine = metricType === 'primary' && !efpModeEnabled && (hasPreseasonGoal || hasSummerGoals);
+  const canShowGoalLine = metricType === 'primary' && (hasPreseasonGoal || hasSummerGoals);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
