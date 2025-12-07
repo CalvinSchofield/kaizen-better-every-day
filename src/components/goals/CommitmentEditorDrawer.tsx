@@ -199,6 +199,12 @@ export const CommitmentEditorDrawer = ({
       
       const updatedCommitments = [...committedBlitzes, newCommitment];
       
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: updatedCommitments };
+      });
+      
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: updatedCommitments as unknown as null })
@@ -206,10 +212,13 @@ export const CommitmentEditorDrawer = ({
       
       if (error) throw error;
       
-      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      // Invalidate planned days to trigger calendar update
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
       toast.success(`Committed to ${blitz.name}!`);
     } catch (error) {
       console.error('Error committing to blitz:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       toast.error("Failed to commit to blitz");
     } finally {
       setIsCommitting(null);
@@ -223,6 +232,12 @@ export const CommitmentEditorDrawer = ({
     try {
       const updatedCommitments = committedBlitzes.filter(b => b.id !== blitzId);
       
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: updatedCommitments };
+      });
+      
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: updatedCommitments as unknown as null })
@@ -230,10 +245,13 @@ export const CommitmentEditorDrawer = ({
       
       if (error) throw error;
       
-      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      // Invalidate planned days to trigger calendar update
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
       toast.success("Uncommitted from blitz");
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       toast.error("Failed to uncommit");
     } finally {
       setIsCommitting(null);
