@@ -21,8 +21,7 @@ import {
   PhoneCall,
   PhoneMissed,
   UserRound,
-  AlertCircle,
-  HelpCircle
+  AlertCircle
 } from "lucide-react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -59,12 +58,15 @@ const getFirstName = (name: string | null): string => {
 
 const STAGES = [
   '100 List',
+  'Potential Follow Up',
   'Reached Out',
   'Evaluating',
   'Signed',
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
+  'Signed but Not Interested',
+  'Not Interested',
 ];
 
 interface RecruitDetailDrawerProps {
@@ -84,6 +86,9 @@ export const RecruitDetailDrawer = ({
   const [editActivityOpen, setEditActivityOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
+  const [potentialFollowUpOpen, setPotentialFollowUpOpen] = useState(false);
+  const [followUpNextStep, setFollowUpNextStep] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
   const [activityType, setActivityType] = useState<'phone_call' | 'in_person' | 'note' | 'next_step'>('phone_call');
   const [activityNotes, setActivityNotes] = useState('');
@@ -122,9 +127,9 @@ export const RecruitDetailDrawer = ({
     },
   });
 
-  // Get leader/recruiter phone number for the "Ask for Help" button
-  const { data: contactForHelp } = useQuery({
-    queryKey: ['contact-for-help', recruit?.recruiterName, recruit?.teamName],
+  // Get leader/recruiter phone number for the "Ask for Help" button - eager loading with staleTime
+  const { data: contactForHelp, isLoading: contactForHelpLoading } = useQuery({
+    queryKey: ['contact-for-help', recruit?.recruiterName, recruit?.teamName, currentUserRep?.name, teamAccess?.accessLevel],
     queryFn: async () => {
       if (!recruit) return null;
       
@@ -166,13 +171,14 @@ export const RecruitDetailDrawer = ({
       if (!repData) return null;
       
       return {
-        name: stripEmojis(repData.name),
+        name: getFirstName(repData.name),
         phone: repData.phone,
         notionPageId: repData.notion_page_id,
         role,
       };
     },
-    enabled: !!recruit && open,
+    enabled: !!recruit && !!teamAccess && !!currentUserRep,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to prevent loading delay
   });
 
   // Check if current user is a leader of leaders (MGMT or AD)
@@ -557,6 +563,12 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleStageChange = (newStage: string) => {
+    // Require next step + date for Potential Follow Up
+    if (newStage === 'Potential Follow Up') {
+      setPotentialFollowUpOpen(true);
+      return;
+    }
+    
     updateStageMutation.mutate({
       recruitNotionId: recruit.notionPageId,
       newStage,
@@ -568,6 +580,50 @@ export const RecruitDetailDrawer = ({
         triggerErrorToast("Couldn't update stage - please try again");
         setStageShake(true);
         setTimeout(() => setStageShake(false), 500);
+      }
+    });
+  };
+
+  const handleConfirmPotentialFollowUp = () => {
+    if (!followUpNextStep.trim()) {
+      toast.error('Please describe the next step');
+      return;
+    }
+    if (!followUpDate) {
+      toast.error('Please select a follow-up date');
+      return;
+    }
+
+    // First log the scheduled activity
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: 'next_step',
+      notes: `Marked as Potential Follow Up`,
+      nextAction: followUpNextStep,
+      nextActionDue: followUpDate,
+      updateLastContact: false,
+    }, {
+      onSuccess: () => {
+        // Then update the stage
+        updateStageMutation.mutate({
+          recruitNotionId: recruit.notionPageId,
+          newStage: 'Potential Follow Up',
+        }, {
+          onSuccess: () => {
+            toast.success('Moved to Potential Follow Up');
+            setPotentialFollowUpOpen(false);
+            setFollowUpNextStep('');
+            setFollowUpDate('');
+          },
+          onError: () => {
+            triggerErrorToast("Couldn't update stage - please try again");
+            setStageShake(true);
+            setTimeout(() => setStageShake(false), 500);
+          }
+        });
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't save follow-up - please try again");
       }
     });
   };
@@ -715,29 +771,27 @@ export const RecruitDetailDrawer = ({
           </DrawerHeader>
 
           <div className="p-4 space-y-4 overflow-y-auto">
-            {/* Contact Actions */}
+            {/* Contact Actions - 3 buttons inline */}
             <div className="flex gap-2">
               <Button className="flex-1" onClick={handleCall}>
-                <Phone className="h-4 w-4 mr-2" />
+                <Phone className="h-4 w-4 mr-1" />
                 Call
               </Button>
               <Button variant="outline" className="flex-1" onClick={handleText}>
-                <MessageSquare className="h-4 w-4 mr-2" />
+                <MessageSquare className="h-4 w-4 mr-1" />
                 Text
               </Button>
+              {contactForHelp && (
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={handleAskForHelp}
+                >
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Text {contactForHelp.name}
+                </Button>
+              )}
             </div>
-
-            {/* Ask for Help Button - context-aware */}
-            {contactForHelp && (
-              <Button 
-                variant="secondary" 
-                className="w-full"
-                onClick={handleAskForHelp}
-              >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Ask {contactForHelp.name} for Help
-              </Button>
-            )}
 
             {/* Stage Selector */}
             <div className={stageShake ? 'animate-shake' : ''}>
@@ -1073,6 +1127,50 @@ export const RecruitDetailDrawer = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Potential Follow Up Drawer - requires next step + date */}
+      <Drawer open={potentialFollowUpOpen} onOpenChange={setPotentialFollowUpOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Schedule Follow Up</DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              When should we follow up with {recruitFirstName}?
+            </p>
+            
+            <div className="space-y-2">
+              <Label>Follow-up Date *</Label>
+              <Input
+                type="date"
+                value={followUpDate}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Next Step *</Label>
+              <Textarea
+                placeholder="What's the plan for following up?"
+                value={followUpNextStep}
+                onChange={(e) => setFollowUpNextStep(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              className="w-full"
+              onClick={handleConfirmPotentialFollowUp}
+              disabled={logActivityMutation.isPending || updateStageMutation.isPending}
+            >
+              {logActivityMutation.isPending || updateStageMutation.isPending 
+                ? 'Saving...' 
+                : 'Mark as Potential Follow Up'}
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
