@@ -165,9 +165,7 @@ const App = () => {
               path="/my-group"
               element={
                 <ProtectedRoute>
-                  <Layout>
-                    <MyGroup />
-                  </Layout>
+                  <MyGroup />
                 </ProtectedRoute>
               }
             />
