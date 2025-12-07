@@ -60,23 +60,20 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     return activities.filter(a => a.rep_notion_page_id === recruitNotionId);
   };
 
-  // Only show stale warning for active recruiting stages (not Sold reps)
+  // Show stale warning based on stage-specific thresholds
   const isStale = (recruit: Recruit) => {
     const stage = recruit.stage?.toLowerCase() || '';
-    
-    // Don't show warning for Sold reps - they've made it!
-    if (stage.includes('sold') || stage.includes('5+')) return false;
     
     // Don't show warning for completed/closed stages
     if (stage.includes('not interested')) return false;
     
-    // For Signed/Shadow stages, require contact within 14 days (less urgent)
-    if (stage.includes('signed') || stage.includes('shadow')) {
-      if (!recruit.lastContact) return false; // No contact is OK initially
+    // For Sold reps, 14 day threshold (they need less frequent check-ins)
+    if (stage.includes('sold') || stage.includes('5+')) {
+      if (!recruit.lastContact) return false;
       return differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 14;
     }
     
-    // For active recruiting stages (100 List, Reached Out, Evaluating), 7 days
+    // For all other stages (100 List, Reached Out, Evaluating, Signed, Shadow), 7 days
     if (!recruit.lastContact) return true; // Never contacted = needs attention
     return differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 7;
   };
