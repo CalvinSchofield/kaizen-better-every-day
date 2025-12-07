@@ -198,58 +198,60 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           minHeight: 'calc(var(--header-height) + var(--header-padding-top))'
         }}
       >
-        <div className="relative flex items-center justify-center h-10">
-          {/* Left side - menu button (absolute positioned) */}
-          <div className="absolute left-0 flex justify-start">
-            <AppDrawer
-              trigger={
-                <Button variant="ghost" size="icon" className={`h-10 w-10 ${isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}`}>
-                  <Menu className="h-6 w-6" />
-                </Button>
-              }
-              firstName={firstName}
-            />
-          </div>
+        <div className="flex items-center h-10 gap-2">
+          {/* Left side - menu button */}
+          <AppDrawer
+            trigger={
+              <Button variant="ghost" size="icon" className={`h-10 w-10 flex-shrink-0 ${isHomePage ? "text-primary-foreground hover:bg-primary-foreground/10" : ""}`}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            }
+            firstName={firstName}
+          />
           
-          {/* Center - title (always centered, hidden when headerRightContent on My Group) */}
-          {!(location.pathname === "/my-group" && headerRightContent) && (
-            <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-              {getPageTitle()}
-            </h1>
-          )}
-          
-          {/* Right side - action buttons (absolute positioned, or full width for My Group) */}
+          {/* Center/Content area */}
           {location.pathname === "/my-group" && headerRightContent ? (
-            <div className="absolute inset-x-0 flex items-center px-12">
+            <div className="flex-1 flex items-center">
               {headerRightContent}
             </div>
           ) : (
-            <div className="absolute right-0 flex justify-end">
-              {headerRightContent ? (
-                headerRightContent
-              ) : location.pathname === "/track" && onSave && onReset ? (
-                <div className="flex items-center gap-2">
-                  {syncIndicator}
-                  <Button
-                    onClick={onSave}
-                    disabled={isSaving}
-                    size="icon"
-                    className="h-10 w-10 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
-                  >
-                    <Save className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onReset}
-                    disabled={isResetting}
-                    className="h-10 w-10"
-                  >
-                    <RotateCcw className="h-5 w-5" />
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+            <>
+              <div className="flex-1 flex justify-center">
+                <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
+                  {getPageTitle()}
+                </h1>
+              </div>
+              
+              {/* Right side - action buttons */}
+              <div className="flex-shrink-0">
+                {headerRightContent ? (
+                  headerRightContent
+                ) : location.pathname === "/track" && onSave && onReset ? (
+                  <div className="flex items-center gap-2">
+                    {syncIndicator}
+                    <Button
+                      onClick={onSave}
+                      disabled={isSaving}
+                      size="icon"
+                      className="h-10 w-10 bg-primary hover:bg-primary-dark text-primary-foreground shadow-md"
+                    >
+                      <Save className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onReset}
+                      disabled={isResetting}
+                      className="h-10 w-10"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-10" /> // Spacer for balance
+                )}
+              </div>
+            </>
           )}
         </div>
       </header>
