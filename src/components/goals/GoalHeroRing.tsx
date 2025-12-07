@@ -23,10 +23,11 @@ interface GoalHeroRingProps {
     willDo: { goal: number; complete: boolean };
     couldDo: { goal: number; complete: boolean };
   };
-  // Dynamic pace tracking props
+  // Dynamic pace tracking props - only show when relevant to active tier
   dailyGoal?: number;
   todayProgress?: number;
   remainingDailyNeeded?: number;
+  isSummer?: boolean; // Whether summer season has started
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -81,10 +82,14 @@ export const GoalHeroRing = ({
   dailyGoal = 0,
   todayProgress = 0,
   remainingDailyNeeded,
+  isSummer = false,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
   const metricLabel = efpMode ? 'EFP' : 'FP+';
+  
+  // Only show pace tracking for: preseason tier during preseason, OR summer tiers during summer
+  const showPaceTracking = activeTier === 'preseason' ? !isSummer : isSummer;
   
   // Calculate earnings
   const result = calculateTakeHome({
@@ -228,8 +233,8 @@ export const GoalHeroRing = ({
                       {remaining.toFixed(1)} to go
                     </span>
                   </div>
-                  {/* Today's pace indicator */}
-                  {dailyGoal > 0 && (
+                  {/* Today's pace indicator - only show when pace tracking is relevant */}
+                  {showPaceTracking && dailyGoal > 0 && (
                     <div className={cn(
                       "mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium",
                       isTodayAhead && "bg-emerald-500/10 text-emerald-600",
@@ -280,8 +285,8 @@ export const GoalHeroRing = ({
         </div>
       </motion.div>
 
-      {/* Remaining daily needed - shows dynamic pace */}
-      {remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && !isComplete && (
+      {/* Remaining daily needed - only show when pace tracking is relevant */}
+      {showPaceTracking && remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && !isComplete && (
         <motion.p 
           className="mt-2 text-xs text-muted-foreground"
           initial={{ opacity: 0 }}
