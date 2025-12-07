@@ -503,6 +503,8 @@ const TeamReports = () => {
                 excludeUserIds={excludeUserIds}
                 accessibleReps={accessData?.accessibleReps || []}
                 showSummerAvailability={showSummerAvailability}
+                dateRange={currentDateRange}
+                datePreset={datePreset}
               />
             </TabsContent>
 

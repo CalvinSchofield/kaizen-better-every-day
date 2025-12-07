@@ -32,6 +32,10 @@ interface ReportsPeopleTabProps {
   excludeUserIds: string[];
   accessibleReps: any[];
   showSummerAvailability?: boolean;
+  
+  // Date range for goals
+  dateRange?: { start: string; end: string };
+  datePreset?: 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 }
 
 export const ReportsPeopleTab = ({
@@ -52,6 +56,8 @@ export const ReportsPeopleTab = ({
   excludeUserIds,
   accessibleReps,
   showSummerAvailability,
+  dateRange,
+  datePreset,
 }: ReportsPeopleTabProps) => {
   if (viewType === 'today') {
     return (
@@ -71,6 +77,8 @@ export const ReportsPeopleTab = ({
           userIds={userIds}
           excludeUserIds={excludeUserIds}
           accessibleReps={accessibleReps}
+          dateRange={dateRange}
+          datePreset={datePreset}
         />
         {showSummerAvailability && <TeamSummerAvailabilityCard />}
       </div>
@@ -112,6 +120,8 @@ export const ReportsPeopleTab = ({
         userIds={userIds}
         excludeUserIds={excludeUserIds}
         accessibleReps={accessibleReps}
+        dateRange={dateRange}
+        datePreset={datePreset}
       />
       {showSummerAvailability && <TeamSummerAvailabilityCard />}
     </div>
