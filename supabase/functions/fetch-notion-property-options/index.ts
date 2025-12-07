@@ -43,18 +43,22 @@ serve(async (req) => {
     const data = await response.json();
     const properties = data.properties;
 
-    // Extract Location options (select property)
+    // Extract Location options (can be select or multi_select)
     const locationProp = properties['Location'];
     let locationOptions: string[] = [];
     if (locationProp?.type === 'select' && locationProp.select?.options) {
       locationOptions = locationProp.select.options.map((opt: any) => opt.name).sort();
+    } else if (locationProp?.type === 'multi_select' && locationProp.multi_select?.options) {
+      locationOptions = locationProp.multi_select.options.map((opt: any) => opt.name).sort();
     }
 
-    // Extract "How did you recruit them?" options (select property)
+    // Extract "How did you recruit them?" options (can be select or multi_select)
     const recruitmentSourceProp = properties['How did you recruit them?'];
     let recruitmentSourceOptions: string[] = [];
     if (recruitmentSourceProp?.type === 'select' && recruitmentSourceProp.select?.options) {
       recruitmentSourceOptions = recruitmentSourceProp.select.options.map((opt: any) => opt.name);
+    } else if (recruitmentSourceProp?.type === 'multi_select' && recruitmentSourceProp.multi_select?.options) {
+      recruitmentSourceOptions = recruitmentSourceProp.multi_select.options.map((opt: any) => opt.name);
     }
 
     console.log(`Found ${locationOptions.length} location options, ${recruitmentSourceOptions.length} recruitment source options`);
