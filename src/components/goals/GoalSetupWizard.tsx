@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 // Parse date string as local date (not UTC) to avoid timezone offset issues
 const parseLocalDate = (dateString: string): Date => {
@@ -65,8 +66,9 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   const [selectedBlitzIds, setSelectedBlitzIds] = useState<string[]>(committedBlitzIds);
 
-  // Vets use EFP terminology instead of FP+
-  const isVet = !isRookie;
+  // Use EFP mode hook to determine metric label
+  const { efpModeEnabled } = useEfpMode();
+  const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
 
   // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
@@ -397,7 +399,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         <div className="text-center mb-6">
           <Target className="h-12 w-12 mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">
-            Set your {isVet ? 'EFP' : 'FP+'} goals
+            Set your {metricLabel} goals
           </p>
         </div>
 
@@ -406,7 +408,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
           <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
             <div className="flex items-center gap-2 mb-3">
               <Target className="h-4 w-4 text-blue-500" />
-              <span className="font-semibold text-blue-500">Preseason {isVet ? 'EFP' : 'FP+'} Goal</span>
+              <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
               <span className="text-xs text-muted-foreground">(Optional)</span>
             </div>
             <Input
@@ -418,7 +420,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
               className="bg-background/50"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              {isVet ? 'EFP' : 'FP+'} you want to earn before summer starts
+              {metricLabel} you want to earn before summer starts
             </p>
           </div>
         )}
@@ -430,7 +432,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
               <span className="font-semibold text-amber-500">Must Do (Minimum)</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">{mustDoFpGoal} {isVet ? 'EFP' : 'FP+'}</span>
+              <span className="text-2xl font-bold">{mustDoFpGoal} {metricLabel}</span>
               <span className="text-muted-foreground">{formatCurrency(mustDoResult.takeHomePay)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -453,7 +455,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
                 value={mustDoFpGoalInput}
                 onChange={(e) => handleNumberInput(e.target.value, setMustDoFpGoalInput)}
                 className="flex-1"
-                placeholder={`Enter ${isVet ? 'EFP' : 'FP+'} goal`}
+                placeholder={`Enter ${metricLabel} goal`}
               />
               {mustDoFpGoalInput && (
                 <span className="text-muted-foreground whitespace-nowrap text-sm">
@@ -477,7 +479,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
               value={willDoFpGoal}
               onChange={(e) => handleNumberInput(e.target.value, setWillDoFpGoal)}
               className="flex-1"
-              placeholder={`Enter ${isVet ? 'EFP' : 'FP+'} goal`}
+              placeholder={`Enter ${metricLabel} goal`}
             />
             {willDoFpGoal && (
               <span className="text-muted-foreground whitespace-nowrap text-sm">
@@ -500,7 +502,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
               value={couldDoFpGoal}
               onChange={(e) => handleNumberInput(e.target.value, setCouldDoFpGoal)}
               className="flex-1"
-              placeholder={`Enter ${isVet ? 'EFP' : 'FP+'} goal`}
+              placeholder={`Enter ${metricLabel} goal`}
             />
             {couldDoFpGoal && (
               <span className="text-muted-foreground whitespace-nowrap text-sm">
@@ -625,7 +627,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
             <div className="rounded-xl bg-amber-500/10 p-4 flex items-center justify-between">
               <div>
                 <p className="font-semibold text-amber-500">Must Do</p>
-                <p className="text-lg font-bold">{mustDoFpGoal} FP+</p>
+                <p className="text-lg font-bold">{mustDoFpGoal} {metricLabel}</p>
               </div>
               <p className="text-lg font-bold">{formatCurrency(mustDoResult.takeHomePay)}</p>
             </div>
@@ -635,7 +637,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
             <div className="rounded-xl bg-primary/10 p-4 flex items-center justify-between">
               <div>
                 <p className="font-semibold text-primary">Will Do</p>
-                <p className="text-lg font-bold">{willDoFpGoal} FP+</p>
+                <p className="text-lg font-bold">{willDoFpGoal} {metricLabel}</p>
               </div>
               <p className="text-lg font-bold">{formatCurrency(willDoResult.takeHomePay)}</p>
             </div>
@@ -645,7 +647,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
             <div className="rounded-xl bg-green-500/10 p-4 flex items-center justify-between">
               <div>
                 <p className="font-semibold text-green-500">Could Do</p>
-                <p className="text-lg font-bold">{couldDoFpGoal} FP+</p>
+                <p className="text-lg font-bold">{couldDoFpGoal} {metricLabel}</p>
               </div>
               <p className="text-lg font-bold">{formatCurrency(couldDoResult.takeHomePay)}</p>
             </div>
