@@ -1,11 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { format } from "date-fns";
 
 interface LiveRepData {
   userId: string;
@@ -13,6 +14,9 @@ interface LiveRepData {
   teamName: string;
   mgmtGroupName?: string;
   year?: string;
+  isWorking?: boolean;
+  hasForgottenEntry?: boolean;
+  forgottenDate?: string;
   todayStats: {
     doors: number;
     dms: number;
@@ -43,7 +47,41 @@ interface LiveLeaderboardProps {
   isLoading?: boolean;
   hasWorkingReps?: boolean;
   title?: string;
+  workingCount?: number;
+  forgottenCount?: number;
 }
+
+// Red flag pattern detection
+interface RedFlag {
+  type: 'low-pitch-rate' | 'not-transitioning' | 'not-closing' | 'timing-issue';
+  label: string;
+}
+
+const detectRedFlags = (stats: LiveRepData['todayStats']): RedFlag[] => {
+  const flags: RedFlag[] = [];
+  
+  // Lots of doors, no pitches (doors > 20 AND pitches < doors × 0.1)
+  if (stats.doors > 20 && stats.pitches < stats.doors * 0.1) {
+    flags.push({ type: 'low-pitch-rate', label: 'Low pitch rate' });
+  }
+  
+  // Pitches but no transitions (pitches > 5 AND transitions < pitches × 0.2)
+  if (stats.pitches > 5 && stats.transitions < stats.pitches * 0.2) {
+    flags.push({ type: 'not-transitioning', label: 'Not transitioning' });
+  }
+  
+  // Presentations no closes (presentations > 2 AND closes === 0)
+  if (stats.presentations > 2 && stats.closes === 0) {
+    flags.push({ type: 'not-closing', label: 'Not closing' });
+  }
+  
+  // High doors, no DMs (doors > 30 AND dms < doors × 0.05)
+  if (stats.doors > 30 && stats.dms < stats.doors * 0.05) {
+    flags.push({ type: 'timing-issue', label: 'Timing issue?' });
+  }
+  
+  return flags;
+};
 
 const stripEmojis = (text: string) => {
   return text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
@@ -66,13 +104,21 @@ const formatDuration = (minutes: number) => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, title = "Today's Activity" }: LiveLeaderboardProps) => {
+export const LiveLeaderboard = ({ 
+  liveReps, 
+  isLoading, 
+  hasWorkingReps = true, 
+  title = "Team Activity",
+  workingCount,
+  forgottenCount 
+}: LiveLeaderboardProps) => {
   const navigate = useNavigate();
   const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
   const [workingOpen, setWorkingOpen] = useState(true);
   const [attentionOpen, setAttentionOpen] = useState(true);
+  const [forgottenOpen, setForgottenOpen] = useState(true);
 
   const handleRepClick = (rep: LiveRepData) => {
     setSelectedRep(rep);
@@ -127,6 +173,7 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
   }
 
   const workingReps = liveReps.filter(r => r.todayStats.doors > 0 || r.todayStats.fp > 0);
+  const forgottenReps = liveReps.filter(r => r.hasForgottenEntry && !r.isWorking);
 
   // Calculate work duration for each rep
   const repsWithDuration = workingReps.map(rep => {
@@ -153,10 +200,15 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
 
   // Need Attention: Working significantly below their historical average (pitches/transitions per hour)
   // Or if no history, under 5 doors after 30+ minutes
+  // Or has red flags
   const needAttention = repsWithDuration
     .filter(r => {
       // Skip if they have sales/presentations (they're doing fine)
       if (r.todayStats.fp > 0 || r.todayStats.presentations > 0) return false;
+      
+      // Check for red flags first
+      const redFlags = detectRedFlags(r.todayStats);
+      if (redFlags.length > 0) return true;
       
       const hoursWorked = r.durationMinutes / 60;
       if (hoursWorked < 0.5) return false; // Need at least 30 min to judge
@@ -185,7 +237,8 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
       const currentTransitionsPerHour = hoursWorked > 0 ? r.todayStats.transitions / hoursWorked : 0;
       const pitchPct = r.avgPitchesPerHour ? Math.round((currentPitchesPerHour / r.avgPitchesPerHour) * 100) : null;
       const transPct = r.avgTransitionsPerHour ? Math.round((currentTransitionsPerHour / r.avgTransitionsPerHour) * 100) : null;
-      return { ...r, pitchPct, transPct };
+      const redFlags = detectRedFlags(r.todayStats);
+      return { ...r, pitchPct, transPct, redFlags };
     })
     .sort((a, b) => {
       // Sort by worst performance first (lowest percentage of average)
@@ -205,7 +258,11 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
   const totalFP = repsWithDuration.reduce((sum, r) => sum + r.todayStats.fp, 0);
   const totalPRMR = repsWithDuration.reduce((sum, r) => sum + r.todayStats.prmr, 0);
 
-  if (workingReps.length === 0) {
+  // Derived counts if not provided
+  const actualWorkingCount = workingCount ?? workingReps.length;
+  const actualForgottenCount = forgottenCount ?? forgottenReps.length;
+
+  if (workingReps.length === 0 && forgottenReps.length === 0) {
     return (
       <Card className="p-4">
         <h3 className="font-semibold mb-4">{title}</h3>
@@ -229,13 +286,16 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
     );
   }
 
-  const RepRow = ({ rep, showRank, rank, paceInfo }: { 
+  const RepRow = ({ rep, showRank, rank, paceInfo, redFlags }: { 
     rep: LiveRepData & { durationMinutes: number }; 
     showRank?: boolean; 
     rank?: number;
     paceInfo?: { pitchPct: number | null; transPct: number | null };
+    redFlags?: RedFlag[];
   }) => {
     const hasSales = rep.todayStats.fp > 0;
+    const flags = redFlags || detectRedFlags(rep.todayStats);
+    
     return (
       <button 
         onClick={() => handleRepClick(rep)}
@@ -251,9 +311,24 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
             </span>
           )}
           <div className="flex flex-col min-w-0">
-            <span className="truncate font-medium">
-              {stripEmojis(rep.name)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="truncate font-medium">
+                {stripEmojis(rep.name)}
+              </span>
+              {/* Red flag badges */}
+              {flags.length > 0 && (
+                <div className="flex items-center gap-1">
+                  {flags.slice(0, 1).map((flag, i) => (
+                    <span 
+                      key={i}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 whitespace-nowrap"
+                    >
+                      {flag.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               {rep.workStartTime && (
                 <>
@@ -285,9 +360,9 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
             </span>
           ) : paceInfo && (paceInfo.pitchPct !== null || paceInfo.transPct !== null) ? (
             <span className="text-amber-600 dark:text-amber-500 text-xs">
-              {paceInfo.pitchPct !== null && `${paceInfo.pitchPct}% pitch pace`}
+              {paceInfo.pitchPct !== null && `${paceInfo.pitchPct}% pitch`}
               {paceInfo.pitchPct !== null && paceInfo.transPct !== null && ' · '}
-              {paceInfo.transPct !== null && `${paceInfo.transPct}% trans pace`}
+              {paceInfo.transPct !== null && `${paceInfo.transPct}% trans`}
             </span>
           ) : (
             <span className="text-muted-foreground tabular-nums text-xs">
@@ -337,18 +412,39 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
   return (
     <>
       <Card className="p-4">
-        {/* Header */}
+        {/* Header with summary */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              {hasWorkingReps && (
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                actualWorkingCount > 0 ? "bg-green-500" : "bg-muted"
+              )} />
+              {hasWorkingReps && actualWorkingCount > 0 && (
                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500 animate-ping opacity-75" />
               )}
             </div>
             <h3 className="font-semibold">{title}</h3>
           </div>
-          <span className="text-xs text-muted-foreground">{workingReps.length} reps</span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn(
+              actualWorkingCount > 0 && "text-green-600 dark:text-green-400 font-medium"
+            )}>
+              {actualWorkingCount} working
+            </span>
+            {outstanding.length > 0 && (
+              <>
+                <span>·</span>
+                <span className="text-primary font-medium">{outstanding.length} outstanding</span>
+              </>
+            )}
+            {needAttention.length > 0 && (
+              <>
+                <span>·</span>
+                <span className="text-amber-600 dark:text-amber-400 font-medium">{needAttention.length} attention</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Team Totals */}
@@ -427,7 +523,40 @@ export const LiveLeaderboard = ({ liveReps, isLoading, hasWorkingReps = true, ti
                       key={rep.userId} 
                       rep={rep} 
                       paceInfo={{ pitchPct: rep.pitchPct, transPct: rep.transPct }}
+                      redFlags={rep.redFlags}
                     />
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {/* Forgotten Entries */}
+          {forgottenReps.length > 0 && (
+            <Collapsible open={forgottenOpen} onOpenChange={setForgottenOpen}>
+              <SectionHeader
+                icon={AlertCircle}
+                title="Forgotten Entries"
+                count={forgottenReps.length}
+                color="bg-orange-500/10 hover:bg-orange-500/15 text-orange-600 dark:text-orange-400"
+                isOpen={forgottenOpen}
+                onToggle={() => setForgottenOpen(!forgottenOpen)}
+              />
+              <CollapsibleContent className="pt-1">
+                <div className="space-y-1 pl-1">
+                  {forgottenReps.map((rep) => (
+                    <div 
+                      key={rep.userId}
+                      className="flex items-center justify-between py-2 px-2 rounded-md text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-500" />
+                        <span className="font-medium">{stripEmojis(rep.name)}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {rep.forgottenDate && format(new Date(rep.forgottenDate + 'T12:00:00'), 'MMM d')}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </CollapsibleContent>
