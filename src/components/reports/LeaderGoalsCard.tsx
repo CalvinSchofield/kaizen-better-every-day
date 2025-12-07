@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { differenceInDays, parseISO } from "date-fns";
+import { parseISO, isBefore, isAfter, eachDayOfInterval, format, differenceInDays } from "date-fns";
 
 interface LeaderGoalsCardProps {
   userIds: string[];
@@ -90,18 +90,18 @@ export const LeaderGoalsCard = ({
   // Summer goal tier filter (only used after summer starts)
   const [selectedTier, setSelectedTier] = useState<GoalTier>('will_do');
   
-  // Fetch FP for the selected date range
-  const { data: repsFp, isLoading: fpLoading } = useQuery({
+  // Fetch FP and worked days for the selected date range
+  const { data: repsFpData, isLoading: fpLoading } = useQuery({
     queryKey: ['team-goals-fp', userIds, dateRange?.start, dateRange?.end],
     queryFn: async () => {
-      if (userIds.length === 0) return {};
+      if (userIds.length === 0) return { fpByUser: {}, workedDaysByUser: {} };
       
       const startDate = dateRange?.start || preseasonStartDate;
       const endDate = dateRange?.end || now.toISOString().split('T')[0];
       
       const { data, error } = await supabase
         .from('daily_entries')
-        .select('user_id, fp_plus, upgrade_prmr, entry_date')
+        .select('user_id, fp_plus, upgrade_prmr, entry_date, doors_knocked, work_start_time, work_end_time')
         .in('user_id', userIds)
         .gte('entry_date', startDate)
         .lte('entry_date', endDate);
@@ -109,37 +109,162 @@ export const LeaderGoalsCard = ({
       if (error) throw error;
       
       const fpByUser: Record<string, number> = {};
+      const workedDaysByUser: Record<string, Set<string>> = {};
+      
       for (const entry of data || []) {
+        // FP+ calculation
         const fpPlus = (entry.fp_plus || 0) + ((entry.upgrade_prmr || 0) / 85);
         fpByUser[entry.user_id] = (fpByUser[entry.user_id] || 0) + fpPlus;
+        
+        // Count as worked day if doors >= 10 OR has start and end time (real knocking day)
+        const isRealWorkDay = (entry.doors_knocked || 0) >= 10 || 
+                              (entry.work_start_time && entry.work_end_time);
+        if (isRealWorkDay) {
+          if (!workedDaysByUser[entry.user_id]) {
+            workedDaysByUser[entry.user_id] = new Set();
+          }
+          workedDaysByUser[entry.user_id].add(entry.entry_date);
+        }
       }
       
-      return fpByUser;
+      // Convert Sets to counts
+      const workedDaysCount: Record<string, number> = {};
+      for (const userId of Object.keys(workedDaysByUser)) {
+        workedDaysCount[userId] = workedDaysByUser[userId].size;
+      }
+      
+      return { fpByUser, workedDaysByUser: workedDaysCount };
     },
     enabled: userIds.length > 0,
     staleTime: 2 * 60 * 1000,
   });
 
-  // Calculate expected FP+ for the selected date range
-  const getExpectedFpForRange = (goal: number, seasonStart: Date, seasonEnd: Date): number => {
+  // Fetch planned work days for all reps
+  const { data: allPlannedDays, isLoading: plannedLoading } = useQuery({
+    queryKey: ['team-planned-days', userIds],
+    queryFn: async () => {
+      if (userIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from('planned_work_days')
+        .select('user_id, planned_date')
+        .in('user_id', userIds);
+      
+      if (error) throw error;
+      
+      const plannedByUser: Record<string, string[]> = {};
+      for (const row of data || []) {
+        if (!plannedByUser[row.user_id]) {
+          plannedByUser[row.user_id] = [];
+        }
+        plannedByUser[row.user_id].push(row.planned_date);
+      }
+      
+      return plannedByUser;
+    },
+    enabled: userIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch blitz commitments from reps table
+  const { data: repsBlitzData, isLoading: blitzLoading } = useQuery({
+    queryKey: ['team-blitz-commitments', userIds],
+    queryFn: async () => {
+      if (userIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from('reps')
+        .select('user_id, committed_blitzes')
+        .in('user_id', userIds);
+      
+      if (error) throw error;
+      
+      const blitzByUser: Record<string, any[]> = {};
+      for (const row of data || []) {
+        blitzByUser[row.user_id] = (row.committed_blitzes as any[]) || [];
+      }
+      
+      return blitzByUser;
+    },
+    enabled: userIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Calculate total planned + worked days for a user within season
+  const getTotalWorkDays = (userId: string, seasonStart: Date, seasonEnd: Date): { total: number; elapsed: number } => {
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // Get worked days (past)
+    const workedDays = repsFpData?.workedDaysByUser[userId] || 0;
+    
+    // Get planned days (future, within season)
+    const plannedDates = allPlannedDays?.[userId] || [];
+    const futurePlannedDays = plannedDates.filter(d => {
+      const date = parseISO(d);
+      return isAfter(date, today) && !isAfter(date, seasonEnd) && !isBefore(date, seasonStart);
+    }).length;
+    
+    // Get blitz days (future, within season, Mon-Sat only)
+    const blitzes = repsBlitzData?.[userId] || [];
+    let blitzDays = 0;
+    
+    for (const blitz of blitzes) {
+      if (!blitz.startDate || !blitz.endDate) continue;
+      
+      try {
+        const blitzStart = parseISO(blitz.startDate);
+        const blitzEnd = parseISO(blitz.endDate);
+        
+        // Only count future blitz days within season
+        const effectiveStart = isAfter(blitzStart, today) ? blitzStart : 
+                               isAfter(today, blitzEnd) ? null : today;
+        if (!effectiveStart) continue;
+        
+        const effectiveEnd = isAfter(blitzEnd, seasonEnd) ? seasonEnd : blitzEnd;
+        
+        if (!isBefore(effectiveStart, effectiveEnd)) continue;
+        
+        // Count Mon-Sat days in this range
+        const days = eachDayOfInterval({ start: effectiveStart, end: effectiveEnd });
+        const workDays = days.filter(d => d.getDay() !== 0); // Exclude Sundays
+        blitzDays += workDays.length;
+      } catch {
+        // Skip invalid blitz dates
+      }
+    }
+    
+    // Total = worked + future planned + future blitz days (avoid double counting)
+    const futurePlannedSet = new Set(plannedDates.filter(d => {
+      const date = parseISO(d);
+      return isAfter(date, today) && !isAfter(date, seasonEnd);
+    }));
+    
+    // Blitz days might overlap with planned days, so we use max of the two for future
+    const totalFutureDays = Math.max(futurePlannedDays, blitzDays);
+    const totalDays = workedDays + totalFutureDays;
+    
+    // Elapsed = just the worked days so far
+    return { total: totalDays, elapsed: workedDays };
+  };
+
+  // Calculate expected FP+ based on planned work days
+  const getExpectedFpByWorkDays = (userId: string, goal: number, seasonStart: Date, seasonEnd: Date): number => {
     if (!goal || goal <= 0) return 0;
     
-    const totalDays = differenceInDays(seasonEnd, seasonStart);
-    if (totalDays <= 0) return 0;
+    const { total, elapsed } = getTotalWorkDays(userId, seasonStart, seasonEnd);
     
-    const dailyExpected = goal / totalDays;
+    if (total <= 0) {
+      // Fallback to linear if no planned days
+      const totalCalendarDays = differenceInDays(seasonEnd, seasonStart);
+      const daysElapsed = differenceInDays(new Date(), seasonStart);
+      if (totalCalendarDays <= 0 || daysElapsed <= 0) return 0;
+      return (goal / totalCalendarDays) * daysElapsed;
+    }
     
-    const rangeStart = dateRange?.start ? parseISO(dateRange.start) : seasonStart;
-    const rangeEnd = dateRange?.end ? parseISO(dateRange.end) : now;
-    
-    const effectiveStart = rangeStart < seasonStart ? seasonStart : rangeStart;
-    const effectiveEnd = rangeEnd > seasonEnd ? seasonEnd : rangeEnd;
-    
-    const daysInRange = differenceInDays(effectiveEnd, effectiveStart) + 1;
-    
-    if (daysInRange <= 0) return 0;
-    
-    return dailyExpected * daysInRange;
+    // Expected = goal distributed across total work days × days already worked
+    const dailyExpected = goal / total;
+    return dailyExpected * elapsed;
   };
 
   const allRepNames = useMemo(() => {
@@ -147,14 +272,14 @@ export const LeaderGoalsCard = ({
   }, [accessibleReps]);
 
   const repsWithGoals: RepWithGoals[] = useMemo(() => {
-    if (!allGoals || !repsFp) return [];
+    if (!allGoals || !repsFpData) return [];
     
     const filteredUserIds = userIds.filter(id => !excludeUserIds.includes(id));
     
     return filteredUserIds.map(userId => {
       const rep = accessibleReps.find((r: any) => r.userId === userId);
       const goals = allGoals.find(g => g.user_id === userId) || null;
-      const currentFp = repsFp[userId] || 0;
+      const currentFp = repsFpData.fpByUser[userId] || 0;
       const fullName = rep?.name || 'Unknown';
       
       // Goals
@@ -169,14 +294,14 @@ export const LeaderGoalsCard = ({
       const willDoProgress = willDoGoal > 0 ? Math.min((currentFp / willDoGoal) * 100, 100) : 0;
       const couldDoProgress = couldDoGoal > 0 ? Math.min((currentFp / couldDoGoal) * 100, 100) : 0;
       
-      // Pace calculation - use appropriate goal based on season
+      // Pace calculation - use planned work days instead of linear calendar days
       let paceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal' = 'no-goal';
       let paceDiff = 0;
       
       if (isPreseason) {
-        // Preseason pace
+        // Preseason pace based on planned/worked days
         if (preseasonGoal > 0) {
-          const expectedFp = getExpectedFpForRange(preseasonGoal, parseISO(preseasonStartDate), parseISO(summerStartDate));
+          const expectedFp = getExpectedFpByWorkDays(userId, preseasonGoal, parseISO(preseasonStartDate), parseISO(summerStartDate));
           paceDiff = currentFp - expectedFp;
           
           if (expectedFp > 0) {
@@ -189,12 +314,12 @@ export const LeaderGoalsCard = ({
           }
         }
       } else {
-        // Summer pace - based on selected tier
+        // Summer pace - based on selected tier and planned days
         const tierGoal = selectedTier === 'must_do' ? mustDoGoal : 
                          selectedTier === 'will_do' ? willDoGoal : couldDoGoal;
         
         if (tierGoal > 0) {
-          const expectedFp = getExpectedFpForRange(tierGoal, parseISO(summerStartDate), parseISO(summerEndDate));
+          const expectedFp = getExpectedFpByWorkDays(userId, tierGoal, parseISO(summerStartDate), parseISO(summerEndDate));
           paceDiff = currentFp - expectedFp;
           
           if (expectedFp > 0) {
@@ -239,7 +364,7 @@ export const LeaderGoalsCard = ({
         return bProgress - aProgress;
       }
     });
-  }, [allGoals, repsFp, userIds, excludeUserIds, accessibleReps, allRepNames, dateRange, isPreseason, selectedTier]);
+  }, [allGoals, repsFpData, allPlannedDays, repsBlitzData, userIds, excludeUserIds, accessibleReps, allRepNames, isPreseason, selectedTier]);
 
   // Get active goal for a rep based on season/tier
   const getActiveGoal = (rep: RepWithGoals) => {
@@ -283,7 +408,7 @@ export const LeaderGoalsCard = ({
     }
   };
 
-  if (goalsLoading || fpLoading) {
+  if (goalsLoading || fpLoading || plannedLoading || blitzLoading) {
     return (
       <Card className="border-border/50">
         <CardHeader className="pb-2">
