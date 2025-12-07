@@ -8,6 +8,7 @@ export interface RepRankingData {
   teamName?: string;
   mgmtGroupName?: string;
   year?: string;
+  phone?: string;
   stats: {
     doors: number;
     dms: number;
@@ -108,7 +109,7 @@ export const useTeamAggregatedRankings = ({
       // Fetch reps data
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, year, team_leader, timezone")
+        .select("user_id, name, year, team_leader, timezone, phone")
         .in("user_id", effectiveUserIds);
 
       if (repsError) throw repsError;
@@ -119,7 +120,8 @@ export const useTeamAggregatedRankings = ({
           name: r.name?.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim() || 'Unknown',
           year: r.year,
           teamName: r.team_leader,
-          timezone: r.timezone || 'America/Los_Angeles'
+          timezone: r.timezone || 'America/Los_Angeles',
+          phone: r.phone || undefined,
         }
       ]) || []);
 
@@ -414,6 +416,7 @@ export const useTeamAggregatedRankings = ({
           name: repInfo.name,
           teamName: repInfo.teamName,
           year: repInfo.year,
+          phone: repInfo.phone,
           stats: {
             doors: totals.doors,
             dms: totals.dms,

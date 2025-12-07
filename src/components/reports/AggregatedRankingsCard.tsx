@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown, AlertTriangle, Info } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, Sparkles, ArrowUpDown, AlertTriangle, Info, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { RepDetailDrawer } from "./RepDetailDrawer";
@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 type SortOption = 
   | 'default' 
@@ -71,6 +72,73 @@ const formatDuration = (hours: number) => {
   const m = Math.round((hours - h) * 60);
   if (h === 0) return `${m}m`;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+};
+
+// Red flag pattern detection
+interface RedFlag {
+  type: 'low-pitch-rate' | 'not-transitioning' | 'not-closing' | 'timing-issue';
+  label: string;
+}
+
+const detectRedFlags = (stats: RepRankingData['stats']): RedFlag[] => {
+  const flags: RedFlag[] = [];
+  
+  // Lots of doors, no pitches (doors > 20 AND pitches < doors × 0.1)
+  if (stats.doors > 20 && stats.pitches < stats.doors * 0.1) {
+    flags.push({ type: 'low-pitch-rate', label: 'Low pitch rate' });
+  }
+  
+  // Pitches but no transitions (pitches > 5 AND transitions < pitches × 0.2)
+  if (stats.pitches > 5 && stats.transitions < stats.pitches * 0.2) {
+    flags.push({ type: 'not-transitioning', label: 'Not transitioning' });
+  }
+  
+  // Presentations no closes (presentations > 2 AND closes === 0)
+  if (stats.presentations > 2 && stats.closes === 0) {
+    flags.push({ type: 'not-closing', label: 'Not closing' });
+  }
+  
+  // High doors, no DMs (doors > 30 AND dms < doors × 0.05)
+  if (stats.doors > 30 && stats.dms < stats.doors * 0.05) {
+    flags.push({ type: 'timing-issue', label: 'Timing issue?' });
+  }
+  
+  return flags;
+};
+
+// Helper to get first name from full name
+const getFirstName = (name: string) => {
+  const stripped = name.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
+  return stripped.split(' ')[0] || stripped;
+};
+
+// Generate SMS message based on rep status
+const generateSmsMessage = (
+  rep: RepRankingData, 
+  type: 'outstanding' | 'attention' | 'working'
+): string => {
+  const firstName = getFirstName(rep.name);
+  
+  switch (type) {
+    case 'outstanding':
+      if (rep.stats.fp > 0) {
+        return `Hey ${firstName}! Crushing it - ${rep.stats.fp.toFixed(1)} FP+! Keep it up! 🔥`;
+      }
+      return `Hey ${firstName}! Love the hustle - ${rep.stats.presentations} presentations! Let's close some deals! 💪`;
+    case 'attention':
+      return `Hey ${firstName}! How's it going out there? Checking in to see how I can help - anything you need?`;
+    case 'working':
+      return `Hey ${firstName}! Keep pushing - you got this! 💪`;
+    default:
+      return '';
+  }
+};
+
+// Open SMS with prefilled message
+const openSms = (phone: string, message: string) => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  const encodedMessage = encodeURIComponent(message);
+  window.open(`sms:${cleanPhone}?body=${encodedMessage}`, '_blank');
 };
 
 export const AggregatedRankingsCard = ({ 
@@ -291,72 +359,119 @@ export const AggregatedRankingsCard = ({
     );
   }
 
-  const RepRow = ({ rep, showRank, rank }: { 
+  const RepRow = ({ rep, showRank, rank, smsType }: { 
     rep: RepRankingData; 
     showRank?: boolean; 
     rank?: number;
+    smsType?: 'outstanding' | 'attention' | 'working';
   }) => {
     const hasSales = rep.stats.fp > 0;
     const sortMetric = getSortMetricDisplay(rep);
+    const redFlags = detectRedFlags(rep.stats);
+    
+    const handleTextClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!rep.phone) {
+        toast.error("No phone number available");
+        return;
+      }
+      const message = generateSmsMessage(rep, smsType || 'working');
+      openSms(rep.phone, message);
+    };
     
     return (
-      <button 
-        onClick={() => handleRepClick(rep)}
-        className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {showRank && rank !== undefined && (
-            <span className={cn(
-              "w-5 flex-shrink-0 text-center text-xs font-medium",
-              rank === 0 && "text-primary"
-            )}>
-              {rank === 0 ? <Trophy className="w-4 h-4" /> : rank + 1}
-            </span>
-          )}
-          <div className="flex flex-col min-w-0">
-            <span className="truncate font-medium flex items-center gap-1.5">
-              {rep.name}
-              {rep.hasUnfinalizedEntry && (
-                <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Has unsaved entry" />
-              )}
-            </span>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              {formatDuration(rep.hoursWorked)}
-              {rep.stats.doors > 0 && ` · ${rep.stats.doors} doors`}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0 text-right">
-          {/* Show sort metric when sorting, otherwise show default display */}
-          {sortBy !== 'default' && sortMetric ? (
-            <span className="font-semibold text-primary tabular-nums">
-              {sortMetric}
-            </span>
-          ) : hasSales ? (
-            <>
-              <span className="font-semibold text-primary tabular-nums">
-                {rep.stats.fp.toFixed(1)} FP+
+      <div className="flex items-center gap-1">
+        <button 
+          onClick={() => handleRepClick(rep)}
+          className="flex items-center justify-between py-2 px-2 rounded-md text-sm flex-1 text-left transition-colors hover:bg-muted/50"
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {showRank && rank !== undefined && (
+              <span className={cn(
+                "w-5 flex-shrink-0 text-center text-xs font-medium",
+                rank === 0 && "text-primary"
+              )}>
+                {rank === 0 ? <Trophy className="w-4 h-4" /> : rank + 1}
               </span>
-              {rep.stats.prmr > 0 && (
-                <span className="font-semibold text-green-700 dark:text-green-500 tabular-nums text-xs">
-                  ${rep.stats.prmr.toLocaleString()}
+            )}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-medium">
+                  {rep.name}
                 </span>
-              )}
-            </>
-          ) : rep.stats.presentations > 0 ? (
-            <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
-              {rep.stats.presentations} pres
-            </span>
-          ) : (
-            <span className="text-muted-foreground tabular-nums text-xs">
-              {rep.stats.transitions > 0 ? `${rep.stats.transitions} trans` : 
-               rep.stats.pitches > 0 ? `${rep.stats.pitches} pitch` : ''}
-            </span>
-          )}
-        </div>
-      </button>
+                {rep.hasUnfinalizedEntry && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Has unsaved entry" />
+                )}
+                {/* Red flag badges */}
+                {redFlags.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {redFlags.slice(0, 1).map((flag, i) => (
+                      <span 
+                        key={i}
+                        className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 whitespace-nowrap"
+                      >
+                        {flag.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" />
+                {formatDuration(rep.hoursWorked)}
+                {rep.stats.doors > 0 && ` · ${rep.stats.doors} doors`}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0 text-right">
+            {/* Show sort metric when sorting, otherwise show default display */}
+            {sortBy !== 'default' && sortMetric ? (
+              <span className="font-semibold text-primary tabular-nums">
+                {sortMetric}
+              </span>
+            ) : hasSales ? (
+              <>
+                <span className="font-semibold text-primary tabular-nums">
+                  {rep.stats.fp.toFixed(1)} FP+
+                </span>
+                {rep.stats.prmr > 0 && (
+                  <span className="font-semibold text-green-700 dark:text-green-500 tabular-nums text-xs">
+                    ${rep.stats.prmr.toLocaleString()}
+                  </span>
+                )}
+              </>
+            ) : rep.stats.presentations > 0 ? (
+              <span className="font-medium text-amber-600 dark:text-amber-500 tabular-nums">
+                {rep.stats.presentations} pres
+              </span>
+            ) : (
+              <span className="text-muted-foreground tabular-nums text-xs">
+                {rep.stats.transitions > 0 ? `${rep.stats.transitions} trans` : 
+                 rep.stats.pitches > 0 ? `${rep.stats.pitches} pitch` : ''}
+              </span>
+            )}
+          </div>
+        </button>
+        
+        {/* Text button */}
+        {rep.phone && (
+          <button
+            onClick={handleTextClick}
+            className={cn(
+              "p-1.5 rounded-md transition-colors flex-shrink-0",
+              smsType === 'outstanding' 
+                ? "text-primary hover:bg-primary/10" 
+                : smsType === 'attention'
+                ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                : "text-muted-foreground hover:bg-muted"
+            )}
+            title="Send text"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -478,7 +593,7 @@ export const AggregatedRankingsCard = ({
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {outstanding.map((rep, idx) => (
-                    <RepRow key={rep.userId} rep={rep} showRank rank={idx} />
+                    <RepRow key={rep.userId} rep={rep} showRank rank={idx} smsType="outstanding" />
                   ))}
                 </div>
               </CollapsibleContent>
@@ -499,7 +614,7 @@ export const AggregatedRankingsCard = ({
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {working.map((rep) => (
-                    <RepRow key={rep.userId} rep={rep} />
+                    <RepRow key={rep.userId} rep={rep} smsType="working" />
                   ))}
                 </div>
               </CollapsibleContent>
@@ -520,31 +635,7 @@ export const AggregatedRankingsCard = ({
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
                   {needsAttention.map((rep: any) => (
-                    <button 
-                      key={rep.userId}
-                      onClick={() => handleRepClick(rep)}
-                      className="flex items-center justify-between py-2 px-2 rounded-md text-sm w-full text-left transition-colors hover:bg-muted/50"
-                    >
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate font-medium flex items-center gap-1.5">
-                          {rep.name}
-                          {rep.hasUnfinalizedEntry && (
-                            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Has unsaved entry" />
-                          )}
-                        </span>
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                          {rep.pitchPct}% pitch · {rep.transPct}% trans
-                          <span className="text-muted-foreground ml-1">
-                            (vs {rep.hasHistory ? 'own avg' : 'team'})
-                          </span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 text-right">
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {rep.stats.doors} doors · {formatDuration(rep.hoursWorked)}
-                        </span>
-                      </div>
-                    </button>
+                    <RepRow key={rep.userId} rep={rep} smsType="attention" />
                   ))}
                 </div>
               </CollapsibleContent>
