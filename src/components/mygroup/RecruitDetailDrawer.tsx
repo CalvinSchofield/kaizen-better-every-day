@@ -1043,60 +1043,6 @@ export const RecruitDetailDrawer = ({
               </div>
             )}
 
-            {/* Stage Selector */}
-            <div className={stageShake ? 'animate-shake' : ''}>
-              <Label className="text-sm text-muted-foreground">Stage</Label>
-              <Select value={recruit.stage} onValueChange={handleStageChange}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STAGES.map((stage) => (
-                    <SelectItem key={stage} value={stage}>
-                      {stage}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Blitz Readiness Warning */}
-            {recruitRepData && (() => {
-              const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
-              const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
-              const blitzTripDate = recruitRepData.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
-              const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, new Date()) : null;
-              const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
-              
-              // Check readiness issues
-              const isRampComplete = recruitRepData.ramp_phase_4_complete === true;
-              const isOnboardingComplete = recruitRepData.onboarding_complete === true;
-              const hasIpad = recruitRepData.ipad_assigned === true;
-              
-              const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || !hasIpad);
-              
-              if (!hasReadinessIssues) return null;
-              
-              const issues: string[] = [];
-              if (!isOnboardingComplete) issues.push('Onboarding incomplete');
-              if (!isRampComplete) issues.push('Ramp to Blitz incomplete');
-              if (!hasIpad) issues.push('No iPad assigned');
-              
-              return (
-                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    Blitz in {daysToBlitz} days - Not Ready!
-                  </div>
-                  <ul className="mt-1 text-xs text-destructive/80 list-disc list-inside">
-                    {issues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })()}
-
             {/* iPad Assignment Toggle - only show for pre-blitz rookies */}
             {recruitRepData && (
               (recruitRepData.year === 'Rookie' || !recruitRepData.year) && 
@@ -1179,6 +1125,78 @@ export const RecruitDetailDrawer = ({
                 </Select>
               </div>
             )}
+
+            {/* Stage Selector - locked to "Signed" until onboarding complete for rookies */}
+            {(() => {
+              const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
+              const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
+              const stageLocked = isRookie && !hasCompletedOnboarding;
+              const displayedStage = stageLocked ? 'Signed' : recruit.stage;
+              
+              return (
+                <div className={stageShake ? 'animate-shake' : ''}>
+                  <Label className="text-sm text-muted-foreground">Stage</Label>
+                  <Select 
+                    value={displayedStage} 
+                    onValueChange={handleStageChange}
+                    disabled={stageLocked}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STAGES.map((stage) => (
+                        <SelectItem key={stage} value={stage}>
+                          {stage}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {stageLocked && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Stage locked until Onboarding ✅ is complete
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Blitz Readiness Warning */}
+            {recruitRepData && (() => {
+              const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
+              const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
+              const blitzTripDate = recruitRepData.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
+              const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, new Date()) : null;
+              const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
+              
+              // Check readiness issues
+              const isRampComplete = recruitRepData.ramp_phase_4_complete === true;
+              const isOnboardingComplete = recruitRepData.onboarding_complete === true;
+              const hasIpad = recruitRepData.ipad_assigned === true;
+              
+              const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || !hasIpad);
+              
+              if (!hasReadinessIssues) return null;
+              
+              const issues: string[] = [];
+              if (!isOnboardingComplete) issues.push('Onboarding incomplete');
+              if (!isRampComplete) issues.push('Ramp to Blitz incomplete');
+              if (!hasIpad) issues.push('No iPad assigned');
+              
+              return (
+                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    Blitz in {daysToBlitz} days - Not Ready!
+                  </div>
+                  <ul className="mt-1 text-xs text-destructive/80 list-disc list-inside">
+                    {issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             {/* Last Contact Info */}
             {recruit.lastContact && (
