@@ -1,6 +1,5 @@
 import { AggregatedRankingsCard } from "./AggregatedRankingsCard";
 import { LiveLeaderboard } from "./LiveLeaderboard";
-import { LiveActivityCard } from "./LiveActivityCard";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 
 interface ReportsPeopleTabProps {
@@ -44,16 +43,12 @@ export const ReportsPeopleTab = ({
   if (viewType === 'today') {
     return (
       <div className="space-y-4">
-        <LiveActivityCard
-          liveReps={liveReps || []}
-          workingCount={workingCount || 0}
-          forgottenCount={forgottenCount || 0}
-          isLoading={liveLoading}
-        />
         <LiveLeaderboard
           liveReps={liveReps || []}
           isLoading={liveLoading}
           hasWorkingReps={(workingCount || 0) > 0}
+          workingCount={workingCount}
+          forgottenCount={forgottenCount}
         />
       </div>
     );
