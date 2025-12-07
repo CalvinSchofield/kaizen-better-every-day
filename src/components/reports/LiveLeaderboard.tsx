@@ -1,13 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles, AlertCircle, MessageSquare } from "lucide-react";
+import { Trophy, Clock, ChevronDown, Star, Activity, AlertTriangle, Sparkles, AlertCircle, MessageSquare, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { RepDetailDrawer } from "./RepDetailDrawer";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface LiveRepData {
   userId: string;
@@ -16,9 +21,11 @@ interface LiveRepData {
   mgmtGroupName?: string;
   year?: string;
   phone?: string;
+  notionPageId?: string;
   isWorking?: boolean;
   hasForgottenEntry?: boolean;
   forgottenDate?: string;
+  forgottenEntryId?: string;
   todayStats: {
     doors: number;
     dms: number;
@@ -93,6 +100,9 @@ const openGroupSms = (phones: string[], message: string) => {
   window.open(`sms:${phoneList}?body=${encodedMessage}`, '_blank');
 };
 
+// Admin email
+const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
+
 interface LiveLeaderboardProps {
   liveReps: LiveRepData[];
   isLoading?: boolean;
@@ -164,12 +174,86 @@ export const LiveLeaderboard = ({
   forgottenCount 
 }: LiveLeaderboardProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedRep, setSelectedRep] = useState<LiveRepData | null>(null);
   const [repDrawerOpen, setRepDrawerOpen] = useState(false);
   const [outstandingOpen, setOutstandingOpen] = useState(true);
   const [workingOpen, setWorkingOpen] = useState(true);
   const [attentionOpen, setAttentionOpen] = useState(true);
   const [forgottenOpen, setForgottenOpen] = useState(true);
+  
+  // Phone entry drawer state
+  const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
+  const [pendingTextRep, setPendingTextRep] = useState<LiveRepData | null>(null);
+  const [pendingSmsType, setPendingSmsType] = useState<'outstanding' | 'attention' | 'forgotten'>('attention');
+  const [newPhoneNumber, setNewPhoneNumber] = useState('');
+
+  // Check if current user is admin
+  const { data: currentUserEmail } = useQuery({
+    queryKey: ['current-user-email'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.email || null;
+    },
+    staleTime: 60000,
+  });
+
+  const isAdmin = currentUserEmail === ADMIN_EMAIL;
+
+  // Save phone mutation
+  const savePhoneMutation = useMutation({
+    mutationFn: async ({ notionPageId, phone }: { notionPageId: string; phone: string }) => {
+      // Update in Supabase
+      const { error } = await supabase
+        .from('reps')
+        .update({ phone })
+        .eq('notion_page_id', notionPageId);
+      
+      if (error) throw error;
+      
+      // Also update in Notion via edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.functions.invoke('update-recruit-phone', {
+          body: { recruitNotionId: notionPageId, phone }
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success('Phone number saved');
+      queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
+    },
+    onError: () => {
+      toast.error('Failed to save phone number');
+    }
+  });
+
+  // Finalize entry mutation (admin only)
+  const finalizeEntryMutation = useMutation({
+    mutationFn: async ({ entryId, userId }: { entryId: string; userId: string }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
+      // Use edge function to bypass RLS
+      const { error } = await supabase.functions.invoke('update-rep-entry', {
+        body: {
+          entryId,
+          userId,
+          updates: { is_finalized: true }
+        }
+      });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Entry finalized');
+      queryClient.invalidateQueries({ queryKey: ['team-live-data'] });
+      queryClient.invalidateQueries({ queryKey: ['team-yesterday-data'] });
+    },
+    onError: () => {
+      toast.error('Failed to finalize entry');
+    }
+  });
 
   const handleRepClick = (rep: LiveRepData) => {
     setSelectedRep(rep);
@@ -205,6 +289,61 @@ export const LiveLeaderboard = ({
       salesLog: rep.salesLog,
       isFinalized: rep.todayStats.isFinalized,
     };
+  };
+
+  const handleTextClick = (rep: LiveRepData, smsType: 'outstanding' | 'attention' | 'forgotten') => {
+    if (!rep.phone) {
+      // Open phone entry drawer
+      setPendingTextRep(rep);
+      setPendingSmsType(smsType);
+      setPhoneEntryOpen(true);
+      return;
+    }
+    const message = generateSmsMessage(rep, smsType);
+    openSms(rep.phone, message);
+  };
+
+  const handleSavePhoneAndText = async () => {
+    if (!newPhoneNumber.trim() || !pendingTextRep) return;
+    
+    // Get notion page ID from reps table
+    const { data: repData } = await supabase
+      .from('reps')
+      .select('notion_page_id')
+      .eq('user_id', pendingTextRep.userId)
+      .maybeSingle();
+    
+    if (!repData?.notion_page_id) {
+      toast.error('Could not find rep record');
+      return;
+    }
+    
+    savePhoneMutation.mutate({
+      notionPageId: repData.notion_page_id,
+      phone: newPhoneNumber.trim(),
+    }, {
+      onSuccess: () => {
+        setPhoneEntryOpen(false);
+        const savedPhone = newPhoneNumber.trim();
+        setNewPhoneNumber('');
+        
+        // Now send the text
+        const message = generateSmsMessage(pendingTextRep, pendingSmsType);
+        openSms(savedPhone, message);
+        setPendingTextRep(null);
+      }
+    });
+  };
+
+  const handleFinalizeEntry = (rep: LiveRepData) => {
+    if (!rep.entryId) {
+      toast.error('No entry to finalize');
+      return;
+    }
+    finalizeEntryMutation.mutate({
+      entryId: rep.entryId,
+      userId: rep.userId
+    });
   };
 
   if (isLoading) {
@@ -347,15 +486,16 @@ export const LiveLeaderboard = ({
   }) => {
     const hasSales = rep.todayStats.fp > 0;
     const flags = redFlags || detectRedFlags(rep.todayStats);
+    const isUnfinalized = !rep.todayStats.isFinalized && (rep.todayStats.doors > 0 || rep.todayStats.fp > 0);
     
-    const handleTextClick = (e: React.MouseEvent) => {
+    const onTextClick = (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!rep.phone) {
-        toast.error("No phone number available");
-        return;
-      }
-      const message = generateSmsMessage(rep, smsType || 'attention');
-      openSms(rep.phone, message);
+      handleTextClick(rep, smsType || 'attention');
+    };
+
+    const onFinalizeClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      handleFinalizeEntry(rep);
     };
     
     return (
@@ -378,6 +518,12 @@ export const LiveLeaderboard = ({
                 <span className="truncate font-medium">
                   {stripEmojis(rep.name)}
                 </span>
+                {/* Not finalized badge */}
+                {isUnfinalized && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 whitespace-nowrap">
+                    not saved
+                  </span>
+                )}
                 {/* Red flag badges */}
                 {flags.length > 0 && (
                   <div className="flex items-center gap-1">
@@ -436,23 +582,38 @@ export const LiveLeaderboard = ({
           </div>
         </button>
         
-        {/* Text button */}
-        {rep.phone && (
+        {/* Action buttons */}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {/* Text button - always show */}
           <button
-            onClick={handleTextClick}
+            onClick={onTextClick}
             className={cn(
-              "p-1.5 rounded-md transition-colors flex-shrink-0",
+              "p-1.5 rounded-md transition-colors",
               smsType === 'outstanding' 
                 ? "text-primary hover:bg-primary/10" 
                 : smsType === 'attention'
                 ? "text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-                : "text-muted-foreground hover:bg-muted"
+                : rep.phone 
+                ? "text-muted-foreground hover:bg-muted"
+                : "text-muted-foreground/50 hover:bg-muted"
             )}
-            title={`Text ${getFirstName(rep.name)}`}
+            title={rep.phone ? `Text ${getFirstName(rep.name)}` : `Add phone & text ${getFirstName(rep.name)}`}
           >
             <MessageSquare className="w-4 h-4" />
           </button>
-        )}
+          
+          {/* Finalize button - admin only, unfinalized entries only */}
+          {isAdmin && isUnfinalized && rep.entryId && (
+            <button
+              onClick={onFinalizeClick}
+              disabled={finalizeEntryMutation.isPending}
+              className="p-1.5 rounded-md text-green-600 dark:text-green-400 hover:bg-green-500/10 transition-colors"
+              title={`Finalize ${getFirstName(rep.name)}'s entry`}
+            >
+              <Check className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -661,14 +822,21 @@ export const LiveLeaderboard = ({
               <CollapsibleContent className="pt-1">
                 <div className="space-y-1 pl-1">
                   {forgottenReps.map((rep) => {
+                    const isUnfinalized = true; // Forgotten entries are by definition unfinalized
+                    
                     const handleForgottenTextClick = (e: React.MouseEvent) => {
                       e.stopPropagation();
-                      if (!rep.phone) {
-                        toast.error("No phone number available");
-                        return;
+                      handleTextClick(rep as LiveRepData & { durationMinutes: number }, 'forgotten');
+                    };
+
+                    const handleForgottenFinalizeClick = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (rep.forgottenEntryId) {
+                        finalizeEntryMutation.mutate({
+                          entryId: rep.forgottenEntryId,
+                          userId: rep.userId
+                        });
                       }
-                      const message = generateSmsMessage(rep, 'forgotten');
-                      openSms(rep.phone, message);
                     };
                     
                     return (
@@ -680,17 +848,32 @@ export const LiveLeaderboard = ({
                           <div className="w-2 h-2 rounded-full bg-orange-500" />
                           <span className="font-medium">{stripEmojis(rep.name)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground mr-1">
                             {rep.forgottenDate && format(new Date(rep.forgottenDate + 'T12:00:00'), 'MMM d')}
                           </span>
-                          {rep.phone && (
+                          {/* Text button - always show */}
+                          <button
+                            onClick={handleForgottenTextClick}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              rep.phone 
+                                ? "text-orange-600 dark:text-orange-400 hover:bg-orange-500/10"
+                                : "text-orange-600/50 dark:text-orange-400/50 hover:bg-orange-500/10"
+                            )}
+                            title={rep.phone ? `Text ${getFirstName(rep.name)}` : `Add phone & text ${getFirstName(rep.name)}`}
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                          {/* Finalize button - admin only */}
+                          {isAdmin && rep.forgottenEntryId && (
                             <button
-                              onClick={handleForgottenTextClick}
-                              className="p-1.5 rounded-md text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 transition-colors"
-                              title={`Text ${getFirstName(rep.name)}`}
+                              onClick={handleForgottenFinalizeClick}
+                              disabled={finalizeEntryMutation.isPending}
+                              className="p-1.5 rounded-md text-green-600 dark:text-green-400 hover:bg-green-500/10 transition-colors"
+                              title={`Finalize ${getFirstName(rep.name)}'s entry`}
                             >
-                              <MessageSquare className="w-4 h-4" />
+                              <Check className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -712,6 +895,60 @@ export const LiveLeaderboard = ({
           rep={getRepDetailData(selectedRep)}
         />
       )}
+
+      {/* Phone Entry Drawer */}
+      <Drawer open={phoneEntryOpen} onOpenChange={(open) => {
+        setPhoneEntryOpen(open);
+        if (!open) {
+          setNewPhoneNumber('');
+          setPendingTextRep(null);
+        }
+      }}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>
+              Add {pendingTextRep ? getFirstName(pendingTextRep.name) : ''}'s Phone Number
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter {pendingTextRep ? getFirstName(pendingTextRep.name) : 'their'}'s phone number to text them.
+            </p>
+            <div>
+              <Label>Phone Number</Label>
+              <Input
+                value={newPhoneNumber}
+                onChange={(e) => {
+                  // Auto-format phone number as user types
+                  const input = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  let formatted = '';
+                  if (input.length > 0) {
+                    formatted = '(' + input.slice(0, 3);
+                    if (input.length > 3) {
+                      formatted += ') ' + input.slice(3, 6);
+                      if (input.length > 6) {
+                        formatted += '-' + input.slice(6, 10);
+                      }
+                    }
+                  }
+                  setNewPhoneNumber(formatted || input);
+                }}
+                placeholder="(555) 123-4567"
+                type="tel"
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+            <Button 
+              className="w-full"
+              onClick={handleSavePhoneAndText}
+              disabled={savePhoneMutation.isPending || !newPhoneNumber.trim()}
+            >
+              {savePhoneMutation.isPending ? 'Saving...' : 'Save & Text'}
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
