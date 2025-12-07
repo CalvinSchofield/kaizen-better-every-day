@@ -326,7 +326,33 @@ export const useUpdateRecruitStage = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onMutate: async ({ recruitNotionId, newStage }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
+      
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['group-recruits']);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData(['group-recruits'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          recruits: old.recruits.map((r: any) =>
+            r.notionPageId === recruitNotionId ? { ...r, stage: newStage } : r
+          ),
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['group-recruits'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     },
   });
@@ -360,9 +386,42 @@ export const useLogRecruitActivity = () => {
       });
 
       if (error) throw error;
-      return data;
+      return { ...data, tempId: `temp-${Date.now()}`, recruitNotionId, activityType, notes, nextAction, nextActionDue };
     },
-    onSuccess: () => {
+    onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue }) => {
+      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
+      
+      const previousData = queryClient.getQueryData(['group-recruits']);
+      const tempId = `temp-${Date.now()}`;
+      
+      // Optimistically add the activity
+      queryClient.setQueryData(['group-recruits'], (old: any) => {
+        if (!old) return old;
+        const newActivity = {
+          id: tempId,
+          rep_notion_page_id: recruitNotionId,
+          activity_type: activityType,
+          logged_by_user_id: 'optimistic',
+          notes: notes || null,
+          next_action: nextAction || null,
+          next_action_due: nextActionDue || null,
+          completed_at: null,
+          created_at: new Date().toISOString(),
+        };
+        return {
+          ...old,
+          activities: [newActivity, ...old.activities],
+        };
+      });
+      
+      return { previousData, tempId };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['group-recruits'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     },
   });
@@ -395,8 +454,33 @@ export const useUpdateRecruitActivity = () => {
         .eq('logged_by_user_id', session.user.id);
 
       if (error) throw error;
+      return { activityId, notes, createdAt };
     },
-    onSuccess: () => {
+    onMutate: async ({ activityId, notes, createdAt }) => {
+      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
+      
+      const previousData = queryClient.getQueryData(['group-recruits']);
+      
+      queryClient.setQueryData(['group-recruits'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          activities: old.activities.map((a: any) =>
+            a.id === activityId
+              ? { ...a, notes: notes ?? a.notes, created_at: createdAt ?? a.created_at }
+              : a
+          ),
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['group-recruits'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     },
   });
@@ -410,17 +494,36 @@ export const useDeleteRecruitActivity = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Note: RLS policy doesn't allow DELETE, so we use service role via edge function
-      // For now, we'll update with a "deleted" flag approach or call an edge function
-      // Since there's no DELETE policy, let's add soft delete via notes
       const { error } = await supabase
         .from('recruit_activities')
         .delete()
         .eq('id', activityId);
 
       if (error) throw error;
+      return { activityId };
     },
-    onSuccess: () => {
+    onMutate: async (activityId) => {
+      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
+      
+      const previousData = queryClient.getQueryData(['group-recruits']);
+      
+      // Optimistically remove the activity
+      queryClient.setQueryData(['group-recruits'], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          activities: old.activities.filter((a: any) => a.id !== activityId),
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['group-recruits'], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     },
   });
