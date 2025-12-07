@@ -26,7 +26,13 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
   const [completeOpen, setCompleteOpen] = useState(false);
   const logActivityMutation = useLogRecruitActivity();
   
-  const isOverdue = activity.next_action_due && isPast(parseISO(activity.next_action_due)) && !isToday(parseISO(activity.next_action_due));
+  // Parse the date - handle both date-only strings and datetime strings
+  const dueDate = activity.next_action_due ? parseISO(activity.next_action_due) : null;
+  const isDueToday = dueDate && isToday(dueDate);
+  const isOverdue = dueDate && isPast(dueDate) && !isDueToday;
+  
+  // Only show snooze for today's tasks or overdue tasks
+  const showSnooze = isDueToday || isOverdue;
 
   const handleCall = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -184,16 +190,18 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
               </div>
             </PopoverContent>
           </Popover>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-amber-600"
-            onClick={handleSnooze}
-            disabled={logActivityMutation.isPending}
-            title="Snooze to tomorrow"
-          >
-            <Clock className="h-4 w-4" />
-          </Button>
+          {showSnooze && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-amber-600"
+              onClick={handleSnooze}
+              disabled={logActivityMutation.isPending}
+              title="Snooze to tomorrow"
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          )}
           <Popover open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
             <PopoverTrigger asChild>
               <Button
