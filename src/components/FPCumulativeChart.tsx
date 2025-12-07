@@ -124,27 +124,22 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     const couldDoDailyPace = summerPlannedCount > 0 ? fundedCouldDoGoal / summerPlannedCount : 0;
 
     // Generate pace line data points matching chart data dates
-    let preseasonDayIndex = 0;
-    let summerDayIndex = 0;
-    
+    // For each worked day, calculate the expected cumulative goal at that point
     const pacePoints = cumulativeData.map((point, idx) => {
       const pointDate = parseLocalDate(point.date);
       const isInPreseason = !isBefore(pointDate, preseasonStartDate) && !isAfter(pointDate, preseasonEndDate);
       const isInSummer = !isBefore(pointDate, summerStart);
 
-      if (isInPreseason) {
-        preseasonDayIndex++;
-      }
-      if (isInSummer) {
-        summerDayIndex++;
-      }
+      // For pace line, we calculate based on day number in the period
+      // Day 1 = first worked day, Day 2 = second worked day, etc.
+      const dayNumber = idx + 1; // 1-indexed day number
 
       return {
         date: point.date,
-        preseasonPace: isInPreseason ? preseasonDayIndex * preseasonDailyPace : null,
-        mustDoPace: isInSummer ? summerDayIndex * mustDoDailyPace : null,
-        willDoPace: isInSummer ? summerDayIndex * willDoDailyPace : null,
-        couldDoPace: isInSummer ? summerDayIndex * couldDoDailyPace : null,
+        preseasonPace: isInPreseason && preseasonDailyPace > 0 ? dayNumber * preseasonDailyPace : undefined,
+        mustDoPace: isInSummer && mustDoDailyPace > 0 ? dayNumber * mustDoDailyPace : undefined,
+        willDoPace: isInSummer && willDoDailyPace > 0 ? dayNumber * willDoDailyPace : undefined,
+        couldDoPace: isInSummer && couldDoDailyPace > 0 ? dayNumber * couldDoDailyPace : undefined,
       };
     });
 
@@ -326,11 +321,11 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   : data.cumulative.toFixed(1)}
             </span>
           </div>
-          {showGoalLine && goalPaceValue != null && metricType === 'primary' && !efpModeEnabled && (
+          {showGoalLine && goalPaceValue != null && metricType === 'primary' && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">{getGoalLineLabel()} Pace:</span>
               <span className="font-medium text-muted-foreground">
-                {goalPaceValue.toFixed(1)}
+                {efpModeEnabled ? goalPaceValue.toFixed(2) : goalPaceValue.toFixed(1)}
               </span>
             </div>
           )}
@@ -529,13 +524,13 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
               {/* Goal Pace Line - subtle dashed line */}
               {canShowGoalLine && showGoalLine && (
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey={getGoalLineKey()}
                   stroke="hsl(var(--muted-foreground))"
-                  strokeWidth={1.5}
+                  strokeWidth={2}
                   strokeDasharray="6 4"
                   dot={false}
-                  connectNulls={false}
+                  connectNulls={true}
                   animationDuration={800}
                 />
               )}
@@ -555,17 +550,60 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           </ResponsiveContainer>
           </ChartContainer>
           
-          {/* Legend */}
-          {canShowGoalLine && showGoalLine && (
-            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
-              <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded bg-primary" />
-                Actual
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
-                {getGoalLineLabel()} Pace
-              </span>
+          {/* Legend with daily pace info */}
+          {canShowGoalLine && showGoalLine && goalPaceData && (
+            <div className="flex flex-col items-center gap-1 pt-2">
+              {/* Daily pace label */}
+              <div className="text-xs text-muted-foreground">
+                {isPreseason ? (
+                  goalPaceData.preseasonDailyPace > 0 && (
+                    <span>
+                      {efpModeEnabled 
+                        ? `${goalPaceData.preseasonDailyPace.toFixed(2)} EFP/day`
+                        : `${goalPaceData.preseasonDailyPace.toFixed(2)} FP+/day`}
+                      {' to fund '}
+                      {efpModeEnabled 
+                        ? `${goalPaceData.preseasonGoal.toFixed(1)} EFP`
+                        : `${goalPaceData.preseasonGoal.toFixed(1)} FP+`}
+                      {' over '}
+                      {goalPaceData.preseasonPlannedCount} days
+                    </span>
+                  )
+                ) : (
+                  (() => {
+                    const dailyPace = selectedGoalLine === 'mustDo' ? goalPaceData.mustDoDailyPace
+                      : selectedGoalLine === 'willDo' ? goalPaceData.willDoDailyPace
+                      : goalPaceData.couldDoDailyPace;
+                    const goalAmount = selectedGoalLine === 'mustDo' ? goalPaceData.mustDoGoal
+                      : selectedGoalLine === 'willDo' ? goalPaceData.willDoGoal
+                      : goalPaceData.couldDoGoal;
+                    return dailyPace > 0 && (
+                      <span>
+                        {efpModeEnabled 
+                          ? `${dailyPace.toFixed(2)} EFP/day`
+                          : `${dailyPace.toFixed(2)} FP+/day`}
+                        {' to fund '}
+                        {efpModeEnabled 
+                          ? `${goalAmount.toFixed(1)} EFP`
+                          : `${goalAmount.toFixed(1)} FP+`}
+                        {' over '}
+                        {goalPaceData.summerPlannedCount} days
+                      </span>
+                    );
+                  })()
+                )}
+              </div>
+              {/* Legend icons */}
+              <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-0.5 rounded bg-primary" />
+                  Actual
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
+                  {getGoalLineLabel()} Pace
+                </span>
+              </div>
             </div>
           )}
         </div>
