@@ -505,9 +505,9 @@ export const CalendarPlanningCard = ({
 
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
-    const globalSummerEnd = parseLocalDate(SUMMER_END);
-    // Don't allow Sundays, past days, or days after global summer end
-    if (dayOfWeek === 0 || isBefore(date, today) || date > globalSummerEnd) return;
+    const userSummerEndDate = parseLocalDate(personalSummerEnd);
+    // Don't allow Sundays, past days, or days after personal summer end
+    if (dayOfWeek === 0 || isBefore(date, today) || date > userSummerEndDate) return;
     
     const dateStr = format(date, 'yyyy-MM-dd');
     const isCurrentlyPlanned = isDatePlanned(dateStr);
@@ -666,16 +666,15 @@ export const CalendarPlanningCard = ({
           const isTodayDate = isSameDay(day, today);
           const dayOfWeek = getDay(day);
           const isSunday = dayOfWeek === 0;
-          const summerEnd = parseLocalDate(SUMMER_END);
-          const isAfterSummerEnd = day > summerEnd;
-          const isDisabled = isPast || isSunday || isAfterSummerEnd;
+          const userSummerStart = parseLocalDate(personalSummerStart);
+          const userSummerEnd = parseLocalDate(personalSummerEnd);
+          const isAfterPersonalSummerEnd = day > userSummerEnd;
+          const isDisabled = isPast || isSunday || isAfterPersonalSummerEnd;
           
           // Check if this is a summer off-day (excluded)
           const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
           
           // Check if this is within summer range
-          const userSummerStart = parseLocalDate(personalSummerStart);
-          const userSummerEnd = parseLocalDate(personalSummerEnd);
           const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
 
           return (
@@ -686,17 +685,17 @@ export const CalendarPlanningCard = ({
               className={cn(
                 "aspect-square rounded-lg text-sm font-medium transition-all",
                 "flex items-center justify-center relative",
-                (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
+                (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
                 // Past worked days - show with green/success style
                 isPast && isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
                 // Past non-worked days - muted
-                isPast && !isWorked && !isSunday && !isAfterSummerEnd && "opacity-30 cursor-not-allowed",
+                isPast && !isWorked && !isSunday && !isAfterPersonalSummerEnd && "opacity-30 cursor-not-allowed",
                 !isDisabled && "hover:bg-accent cursor-pointer",
                 // Planned and not excluded = solid primary
                 isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
                 // Summer off-day (excluded) = strikethrough style
                 isExcludedSummerDay && !isDisabled && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
-                isTodayDate && !isPlanned && !isSunday && !isAfterSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                isTodayDate && !isPlanned && !isSunday && !isAfterPersonalSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 !isCurrentMonth && "opacity-30"
               )}
             >

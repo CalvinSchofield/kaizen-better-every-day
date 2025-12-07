@@ -122,6 +122,7 @@ const Home = () => {
   const [isNudging, setIsNudging] = useState(false);
   const [blitzListExpanded, setBlitzListExpanded] = useState(false);
   const [isCommittingBlitz, setIsCommittingBlitz] = useState<string | null>(null);
+  const [isUncommittingBlitz, setIsUncommittingBlitz] = useState<string | null>(null);
   const [nextBlitz, setNextBlitz] = useState<{ 
     name: string; 
     date: string; 
@@ -470,6 +471,50 @@ const Home = () => {
       });
     } finally {
       setIsCommittingBlitz(null);
+    }
+  };
+
+  // Handler to uncommit from a blitz
+  const handleUncommitFromBlitz = async (blitzId: string, blitzName: string) => {
+    if (!repData?.id) return;
+    setIsUncommittingBlitz(blitzId);
+    
+    try {
+      const currentCommitments = (repData.committed_blitzes as any[]) || [];
+      const updatedCommitments = currentCommitments.filter((b: any) => b.id !== blitzId);
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: updatedCommitments as unknown as null })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Sync to Notion if we have the page ID
+      if (repData.notion_page_id) {
+        await supabase.functions.invoke('update-blitz-commitment', {
+          body: {
+            repNotionPageId: repData.notion_page_id,
+            blitzPageIds: updatedCommitments.map((b: any) => b.id),
+          },
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: "Uncommitted",
+        description: `You're no longer committed to ${blitzName}`,
+      });
+    } catch (error) {
+      console.error('Error uncommitting from blitz:', error);
+      toast({
+        title: "Failed to uncommit",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUncommittingBlitz(null);
     }
   };
 
@@ -1560,10 +1605,19 @@ const Home = () => {
                               {blitz.location && ` · ${blitz.location}`}
                             </p>
                           </div>
-                          <Badge className="bg-success/20 text-success border-success/30">
-                            <Check className="h-3 w-3 mr-1" />
-                            Going
-                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleUncommitFromBlitz(blitz.id, blitz.name)}
+                            disabled={isUncommittingBlitz === blitz.id}
+                          >
+                            {isUncommittingBlitz === blitz.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Uncommit"
+                            )}
+                          </Button>
                         </div>
                       );
                     })}
