@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.update-recruit-phone]
 verify_jwt = false
+
+[functions.create-notion-recruit]
+verify_jwt = false
