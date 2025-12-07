@@ -116,12 +116,13 @@ export const CalendarPlanningCard = ({
   const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
-  // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
-  const isRealKnockingDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null }): boolean => {
-    const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
-    const hasWorkSession = entry.work_start_time && entry.work_end_time;
-    return hasMeaningfulActivity || !!hasWorkSession;
+  // Helper to determine if an entry is a "worked day" - aligns with memory definition
+  // A worked day has: doors_knocked >= 5 OR work times set OR any FP+/PRMR/upgrade_prmr results
+  const isWorkedDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null; fp_plus: number | null; prmr: number | null; upgrade_prmr: number | null }): boolean => {
+    const hasDoors = (entry.doors_knocked || 0) >= 5;
+    const hasWorkSession = entry.work_start_time || entry.work_end_time;
+    const hasResults = (entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0 || (entry.upgrade_prmr || 0) > 0;
+    return hasDoors || !!hasWorkSession || hasResults;
   };
 
   // Query to get actual days worked (finalized entries with real activity)
@@ -154,9 +155,9 @@ export const CalendarPlanningCard = ({
       let summerCount = 0;
       const workedDates = new Set<string>();
 
-      // Only count entries that are "real knocking days" (not referral-only days)
+      // Count entries that are "worked days" per the memory definition
       entries?.forEach(entry => {
-        if (!isRealKnockingDay(entry)) return; // Skip result-only days
+        if (!isWorkedDay(entry)) return; // Skip non-worked days
         
         workedDates.add(entry.entry_date);
         
