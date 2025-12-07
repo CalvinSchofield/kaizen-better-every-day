@@ -480,6 +480,7 @@ const Goals = () => {
             dailyGoal={paceData.dailyGoal}
             todayProgress={todayProgress}
             remainingDailyNeeded={paceData.remainingDailyNeeded}
+            isSummer={!isPreseason}
           />
         </motion.div>
 
