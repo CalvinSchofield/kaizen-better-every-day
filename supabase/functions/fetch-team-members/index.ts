@@ -37,6 +37,89 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
   throw lastError || new Error(`Failed after ${maxRetries} attempts`);
 }
 
+// Helper function to process rep data from Notion
+function processReps(reps: any[]): any[] {
+  const getTitle = (prop: any) => {
+    if (!prop || prop.type !== "title") return null;
+    return prop.title?.[0]?.plain_text || null;
+  };
+
+  const getEmail = (prop: any) => {
+    if (!prop || prop.type !== "email") return null;
+    return prop.email || null;
+  };
+
+  const getPhone = (prop: any) => {
+    if (!prop || prop.type !== "phone_number") return null;
+    return prop.phone_number || null;
+  };
+
+  const getStatus = (prop: any) => {
+    if (!prop || prop.type !== "status") return null;
+    return prop.status?.name || null;
+  };
+
+  const getCheckbox = (prop: any) => {
+    if (!prop || prop.type !== "checkbox") return false;
+    return prop.checkbox || false;
+  };
+
+  const getRelation = (prop: any) => {
+    if (!prop || prop.type !== "relation") return [];
+    return prop.relation?.map((r: any) => r.id) || [];
+  };
+
+  const getSelect = (prop: any) => {
+    if (!prop || prop.type !== "select") return null;
+    return prop.select?.name || null;
+  };
+
+  const getRollupText = (prop: any) => {
+    if (!prop || prop.type !== "rollup") return null;
+    const rollup = prop.rollup;
+    if (rollup?.type === "array" && rollup.array?.length > 0) {
+      const first = rollup.array[0];
+      if (first?.type === "title" && first.title?.length > 0) {
+        return first.title[0]?.plain_text || null;
+      }
+    }
+    return null;
+  };
+
+  return reps.map((page: any) => {
+    const props = page.properties;
+
+    const name = getTitle(props["Name"]);
+    const email = getEmail(props["Email"]);
+    const phone = getPhone(props["Phone"]);
+    const onboardingStatus = getStatus(props["Onboarding Step Completed"]);
+    const ipadAssigned = getCheckbox(props["iPad Assigned"]);
+    const preseasonTrips = getRelation(props["Preseason trips"]);
+    const year = getSelect(props["Year"]);
+    const stage = getSelect(props["Stage"]);
+    const recruiter = getSelect(props["Recruiter"]);
+    const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
+
+    const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
+                      onboardingStatus === "Blitz ready";
+
+    return {
+      notionPageId: page.id,
+      name,
+      email,
+      phone,
+      onboardingStatus,
+      blitzReady,
+      ipadAssigned,
+      committedBlitzes: preseasonTrips,
+      year,
+      stage,
+      recruiter,
+      teamName,
+    };
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -48,16 +131,69 @@ Deno.serve(async (req) => {
       throw new Error("NOTION_API_KEY not configured");
     }
 
-    const { leaderNotionPageId } = await req.json();
+    const { leaderNotionPageId, fetchAllForAccessLevel, accessibleNotionIds } = await req.json();
 
     if (!leaderNotionPageId) {
       throw new Error("Leader Notion page ID is required");
     }
 
-    console.log(`Fetching team members for leader: ${leaderNotionPageId}`);
+    console.log(`Fetching team members for leader: ${leaderNotionPageId}, accessLevel: ${fetchAllForAccessLevel || 'team_lead'}`);
 
-    // Step 1: Find teams where this leader is the Group Lead
-    // Query the Teams database with retry logic
+    // For area directors and mgmt group leads, fetch all reps from their accessible list
+    if (fetchAllForAccessLevel === 'area_director' || fetchAllForAccessLevel === 'mgmt_group_lead') {
+      // Query all reps from the Notion database with pagination
+      let allReps: any[] = [];
+      let hasMore = true;
+      let startCursor: string | undefined;
+
+      while (hasMore) {
+        const repsResponse = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${notionApiKey}`,
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              start_cursor: startCursor,
+              page_size: 100,
+            }),
+          }
+        );
+
+        if (!repsResponse.ok) {
+          throw new Error(`Failed to query reps database: ${repsResponse.status}`);
+        }
+
+        const repsData = await repsResponse.json();
+        
+        // Filter to only include accessible reps if list provided
+        const filteredResults = accessibleNotionIds && accessibleNotionIds.length > 0
+          ? repsData.results.filter((r: any) => accessibleNotionIds.includes(r.id))
+          : repsData.results;
+        
+        allReps = [...allReps, ...filteredResults];
+        hasMore = repsData.has_more;
+        startCursor = repsData.next_cursor;
+      }
+
+      console.log(`Found ${allReps.length} reps for ${fetchAllForAccessLevel}`);
+
+      // Process and return all reps
+      const teamMembers = processReps(allReps);
+      
+      return new Response(
+        JSON.stringify({ teamMembers, isTeamLead: true }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
+    // For team leads: Find teams where this leader is the Group Lead
     const teamsResponse = await fetchNotionWithRetry(
       `https://api.notion.com/v1/databases/287070fe3bc280e1ab5fec17d5582878/query`,
       {
@@ -99,7 +235,7 @@ Deno.serve(async (req) => {
     const teamIds = teamsData.results.map((team: any) => team.id);
     console.log(`Team IDs: ${teamIds.join(", ")}`);
 
-    // Step 2: Find all reps that belong to these teams with retry logic
+    // Find all reps that belong to these teams
     const repsResponse = await fetchNotionWithRetry(
       `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
       {
@@ -129,91 +265,8 @@ Deno.serve(async (req) => {
     const repsData = await repsResponse.json();
     console.log(`Found ${repsData.results.length} team members`);
 
-    // Helper functions to extract data
-    const getTitle = (prop: any) => {
-      if (!prop || prop.type !== "title") return null;
-      return prop.title?.[0]?.plain_text || null;
-    };
-
-    const getEmail = (prop: any) => {
-      if (!prop || prop.type !== "email") return null;
-      return prop.email || null;
-    };
-
-    const getPhone = (prop: any) => {
-      if (!prop || prop.type !== "phone_number") return null;
-      return prop.phone_number || null;
-    };
-
-    const getStatus = (prop: any) => {
-      if (!prop || prop.type !== "status") return null;
-      return prop.status?.name || null;
-    };
-
-    const getCheckbox = (prop: any) => {
-      if (!prop || prop.type !== "checkbox") return false;
-      return prop.checkbox || false;
-    };
-
-    const getRelation = (prop: any) => {
-      if (!prop || prop.type !== "relation") return [];
-      return prop.relation?.map((r: any) => r.id) || [];
-    };
-
-    const getSelect = (prop: any) => {
-      if (!prop || prop.type !== "select") return null;
-      return prop.select?.name || null;
-    };
-
-    const getRollupText = (prop: any) => {
-      if (!prop || prop.type !== "rollup") return null;
-      const rollup = prop.rollup;
-      if (rollup?.type === "array" && rollup.array?.length > 0) {
-        // Get the first title from the array
-        const first = rollup.array[0];
-        if (first?.type === "title" && first.title?.length > 0) {
-          return first.title[0]?.plain_text || null;
-        }
-      }
-      return null;
-    };
-
     // Process each team member
-    const teamMembers = await Promise.all(
-      repsData.results.map(async (page: any) => {
-        const props = page.properties;
-
-        const name = getTitle(props["Name"]);
-        const email = getEmail(props["Email"]);
-        const phone = getPhone(props["Phone"]);
-        const onboardingStatus = getStatus(props["Onboarding Step Completed"]);
-        const ipadAssigned = getCheckbox(props["iPad Assigned"]);
-        const preseasonTrips = getRelation(props["Preseason trips"]);
-        const year = getSelect(props["Year"]);
-        const stage = getSelect(props["Stage"]);
-        const recruiter = getSelect(props["Recruiter"]);
-        const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
-
-        // Determine blitz readiness based on onboarding status
-        const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
-                          onboardingStatus === "Blitz ready";
-
-        return {
-          notionPageId: page.id,
-          name,
-          email,
-          phone,
-          onboardingStatus,
-          blitzReady,
-          ipadAssigned,
-          committedBlitzes: preseasonTrips,
-          year,
-          stage,
-          recruiter,
-          teamName,
-        };
-      })
-    );
+    const teamMembers = processReps(repsData.results);
 
     console.log(`Processed ${teamMembers.length} team members`);
 
