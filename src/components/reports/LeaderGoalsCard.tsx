@@ -41,6 +41,8 @@ interface RepWithGoals {
   // Pace
   paceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal';
   paceDiff: number;
+  // Dynamic pace tracking
+  remainingDailyNeeded: number;
 }
 
 // Strip emojis from name
@@ -418,6 +420,19 @@ export const LeaderGoalsCard = ({
         }
       }
       
+      // Calculate remaining daily needed
+      const activeGoal = isPreseason ? preseasonGoal : 
+                         selectedTier === 'must_do' ? mustDoGoal : 
+                         selectedTier === 'will_do' ? willDoGoal : couldDoGoal;
+      const remaining = Math.max(0, activeGoal - currentFp);
+      const { total } = getTotalWorkDays(userId, 
+        isPreseason ? parseISO(preseasonStartDate) : parseISO(summerStartDate),
+        isPreseason ? parseISO(summerStartDate) : parseISO(summerEndDate)
+      );
+      const workedDays = repsFpData?.workedDaysByUser[userId] || 0;
+      const remainingDays = Math.max(1, total - workedDays);
+      const remainingDailyNeeded = remaining / remainingDays;
+      
       return {
         userId,
         displayName: getDisplayName(fullName, allRepNames),
@@ -434,6 +449,7 @@ export const LeaderGoalsCard = ({
         couldDoProgress,
         paceStatus,
         paceDiff,
+        remainingDailyNeeded,
       };
     }).sort((a, b) => {
       if (a.goals?.setup_complete && !b.goals?.setup_complete) return -1;
@@ -641,6 +657,13 @@ export const LeaderGoalsCard = ({
                         {activeGoal}
                       </span>
                     </div>
+                    
+                    {/* Remaining daily needed */}
+                    {rep.remainingDailyNeeded > 0.01 && activeProgress < 100 && (
+                      <div className="text-[10px] text-muted-foreground text-right">
+                        Need <span className="font-medium text-foreground">{rep.remainingDailyNeeded.toFixed(2)}</span>/day
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

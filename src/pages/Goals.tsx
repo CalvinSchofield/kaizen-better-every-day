@@ -7,6 +7,8 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { GoalSetupWizard } from "@/components/goals/GoalSetupWizard";
 import { GoalHeroRing, GoalTier } from "@/components/goals/GoalHeroRing";
 import { CommitmentChips } from "@/components/goals/CommitmentChips";
@@ -23,10 +25,10 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
-// Import commitment editing components from the old tracker
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { isBefore, parseISO, format } from "date-fns";
 
 interface CommittedBlitz {
   id: string;
@@ -35,6 +37,9 @@ interface CommittedBlitz {
   endDate?: string;
   location?: string;
 }
+
+const PRESEASON_START = '2025-09-28';
+const PRESEASON_END = '2026-04-11';
 
 const Goals = () => {
   const { 
@@ -55,6 +60,8 @@ const Goals = () => {
     fundedPRMR 
   } = usePreseasonFP();
   const { allBlitzes } = useBlitzes();
+  const { plannedDays } = usePlannedDays();
+  const { entry: todayEntry } = useDailyEntry();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
@@ -67,6 +74,34 @@ const Goals = () => {
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
+
+  // Fetch worked days count for pace calculation
+  const { data: workedDaysData } = useQuery({
+    queryKey: ['goals-worked-days', repData?.user_id],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { workedDays: 0 };
+      
+      const { data: entries, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, doors_knocked, work_start_time, work_end_time')
+        .eq('user_id', user.id)
+        .eq('is_finalized', true)
+        .gte('entry_date', PRESEASON_START)
+        .lte('entry_date', PRESEASON_END);
+      
+      if (error) return { workedDays: 0 };
+      
+      // Count only "real knocking days" (doors >= 10 OR has work times)
+      const realDays = entries?.filter(e => 
+        (e.doors_knocked || 0) >= 10 || (e.work_start_time && e.work_end_time)
+      ).length || 0;
+      
+      return { workedDays: realDays };
+    },
+    enabled: !!repData?.user_id,
+    staleTime: 2 * 60 * 1000,
+  });
 
   // Check and reset weekly training progress on new week
   useEffect(() => {
@@ -123,11 +158,58 @@ const Goals = () => {
   const currentProgress = efpModeEnabled ? calculateEfp(totalPRMR) : totalFpPlus;
   const fundedProgress = efpModeEnabled ? calculateEfp(fundedPRMR) : fundedFP;
 
+  // Today's progress from entry (EFP or FP+ based on mode)
+  const todayUpgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
+  const todayFpPlus = (todayEntry?.fp_plus || 0) + (todayUpgradePrmr / 85);
+  const todayProgress = efpModeEnabled 
+    ? calculateEfp((todayEntry?.prmr || 0) + todayUpgradePrmr)
+    : todayFpPlus;
+
   // Check if we're in preseason (before April 12, 2026)
   const isPreseason = new Date() < new Date('2026-04-12');
 
   // Convert goals to display values (EFP if enabled) - always use $85 for PRMR per FP
   const conversionFactor = efpModeEnabled ? 85 / 85 : 1; // Simplified since we're using $85
+
+  // Calculate daily goal and remaining daily needed based on planned days
+  const paceData = useMemo(() => {
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const preseasonEnd = parseISO(PRESEASON_END);
+    
+    // Get active goal based on tier
+    const activeGoal = activeTier === 'preseason' 
+      ? (goals?.preseason_fp_goal || 0) * conversionFactor
+      : activeTier === 'mustDo'
+        ? (goals?.must_do_fp_goal || 0) * conversionFactor
+        : activeTier === 'willDo'
+          ? (goals?.will_do_fp_goal || 0) * conversionFactor
+          : (goals?.could_do_fp_goal || 0) * conversionFactor;
+    
+    if (!activeGoal || activeGoal <= 0) {
+      return { dailyGoal: 0, remainingDailyNeeded: 0 };
+    }
+    
+    // Count future planned days (not including today)
+    const futurePlannedCount = plannedDays?.filter(d => {
+      const date = parseISO(d.planned_date);
+      return date > today && !isBefore(preseasonEnd, date);
+    }).length || 0;
+    
+    // Total days = worked + future planned
+    const workedDays = workedDaysData?.workedDays || 0;
+    const totalDays = workedDays + futurePlannedCount;
+    
+    // Daily goal = total goal / total planned days
+    const dailyGoal = totalDays > 0 ? activeGoal / totalDays : 0;
+    
+    // Remaining needed = (goal - current progress) / remaining days
+    const remaining = Math.max(0, activeGoal - currentProgress);
+    const remainingDays = futurePlannedCount + 1; // +1 for today
+    const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
+    
+    return { dailyGoal, remainingDailyNeeded };
+  }, [goals, activeTier, conversionFactor, plannedDays, workedDaysData, currentProgress]);
 
   // Goal tiers data
   const tiers = useMemo(() => ({
@@ -395,6 +477,9 @@ const Goals = () => {
             efpMode={efpModeEnabled}
             onTierChange={setActiveTier}
             tiers={tiers}
+            dailyGoal={paceData.dailyGoal}
+            todayProgress={todayProgress}
+            remainingDailyNeeded={paceData.remainingDailyNeeded}
           />
         </motion.div>
 

@@ -383,6 +383,62 @@ export const CalendarPlanningCard = ({
     };
   }, [selectedSummerGoal, preseasonCurrentFP, preseasonCurrentEFP, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, cancelRate]);
 
+  // Calculate weekly pace stats
+  const weeklyPaceStats = useMemo(() => {
+    if (!preseasonStats) return null;
+    
+    const now = new Date();
+    // Get start of this week (Monday)
+    const dayOfWeek = now.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // Get end of this week (Saturday)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 5);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+    
+    // Count planned days this week that are in the future
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const plannedThisWeek = (plannedDays || []).filter(d => {
+      return d.planned_date >= weekStartStr && d.planned_date <= weekEndStr;
+    });
+    
+    // Days already worked this week (approximation - days before today that are planned)
+    const workedThisWeek = plannedThisWeek.filter(d => d.planned_date < todayStr).length;
+    const totalDaysThisWeek = plannedThisWeek.length;
+    
+    if (totalDaysThisWeek === 0) return null;
+    
+    // Weekly goal = daily goal × planned days this week
+    const dailyGoal = parseFloat(preseasonStats.goalDaily);
+    const weeklyGoal = dailyGoal * totalDaysThisWeek;
+    
+    // Expected progress by now = daily goal × days already worked this week
+    const expectedByNow = dailyGoal * workedThisWeek;
+    
+    // We'd need this week's actual FP+ - for now use days worked ratio as approximation
+    // In reality, the user can see their week progress in the main preseasonStats
+    const weekPaceDiff = preseasonStats.currentFPRaw - expectedByNow;
+    const isAheadThisWeek = weekPaceDiff >= 0.1;
+    const isBehindThisWeek = weekPaceDiff <= -0.1;
+    
+    return {
+      weeklyGoal: weeklyGoal.toFixed(1),
+      totalDaysThisWeek,
+      workedThisWeek,
+      expectedByNow: expectedByNow.toFixed(1),
+      paceDiff: weekPaceDiff,
+      isAheadThisWeek,
+      isBehindThisWeek,
+    };
+  }, [preseasonStats, plannedDays]);
+
   // Save preseason goal to database with debounce
   const savePreseasonGoal = (value: number) => {
     if (saveTimeoutRef.current) {
@@ -682,6 +738,30 @@ export const CalendarPlanningCard = ({
                   <span>{preseasonStats.currentFP} / {preseasonStats.goalTotal} {metricLabel}</span>
                   <span>{preseasonStats.daysLeft} days left</span>
                 </div>
+                
+                {/* Weekly pace indicator */}
+                {weeklyPaceStats && (
+                  <div className={cn(
+                    "flex items-center justify-between text-xs px-3 py-2 rounded-lg",
+                    weeklyPaceStats.isAheadThisWeek && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                    weeklyPaceStats.isBehindThisWeek && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                    !weeklyPaceStats.isAheadThisWeek && !weeklyPaceStats.isBehindThisWeek && "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                  )}>
+                    <span className="font-medium">This Week</span>
+                    <span>
+                      {weeklyPaceStats.isAheadThisWeek && `+${weeklyPaceStats.paceDiff.toFixed(1)} ahead`}
+                      {weeklyPaceStats.isBehindThisWeek && `${Math.abs(weeklyPaceStats.paceDiff).toFixed(1)} behind`}
+                      {!weeklyPaceStats.isAheadThisWeek && !weeklyPaceStats.isBehindThisWeek && "On pace"}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Remaining daily needed */}
+                {parseFloat(preseasonStats.neededDaily) > 0 && parseFloat(preseasonStats.remainingGoal) > 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-1">
+                    Need <span className="font-semibold text-foreground">{preseasonStats.neededDaily}</span> {metricLabel}/day to finish
+                  </div>
+                )}
                 
                 {/* Note about what's included */}
                 <p className="text-[10px] text-muted-foreground/70 italic">
