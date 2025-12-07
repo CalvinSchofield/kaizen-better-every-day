@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
@@ -70,6 +70,7 @@ export const CalendarPlanningCard = ({
   const [isSummerOpen, setIsSummerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean} | null>(null);
+  const [dismissedSummerBoundaryWarning, setDismissedSummerBoundaryWarning] = useState<'start' | 'end' | 'both' | null>(null);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { 
@@ -531,15 +532,38 @@ export const CalendarPlanningCard = ({
       return;
     }
     
-    // If ADDING a day (not currently planned) that's outside their summer range, show popup
+    // If ADDING a day (not currently planned) that's outside their summer range
+    // Only show popup if within 10 knocking days (Mon-Sat) of summer boundary and not dismissed
     if (!isCurrentlyPlanned) {
-      if (date < userSummerStart) {
-        setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart: true });
-        return;
-      }
-      if (date > userSummerEnd) {
-        setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart: false });
-        return;
+      const isBeforeStart = date < userSummerStart;
+      const isAfterEnd = date > userSummerEnd;
+      
+      if (isBeforeStart || isAfterEnd) {
+        // Calculate knocking days distance to boundary
+        const boundaryDate = isBeforeStart ? userSummerStart : userSummerEnd;
+        let knockingDaysDistance = 0;
+        const startDate = isBeforeStart ? date : userSummerEnd;
+        const endDate = isBeforeStart ? userSummerStart : date;
+        
+        // Count Mon-Sat days between the dates
+        let current = new Date(startDate);
+        while (current < endDate) {
+          const dow = getDay(current);
+          if (dow !== 0) knockingDaysDistance++; // Count if not Sunday
+          current.setDate(current.getDate() + 1);
+        }
+        
+        // Only show popup if within 10 knocking days AND not already dismissed for this boundary
+        const shouldShowPopup = knockingDaysDistance <= 10 && (
+          (isBeforeStart && dismissedSummerBoundaryWarning !== 'start' && dismissedSummerBoundaryWarning !== 'both') ||
+          (isAfterEnd && dismissedSummerBoundaryWarning !== 'end' && dismissedSummerBoundaryWarning !== 'both')
+        );
+        
+        if (shouldShowPopup) {
+          setDateOutOfRangeSheet({ open: true, date: dateStr, isBeforeStart });
+          return;
+        }
+        // If dismissed or too far from boundary, just toggle the day normally
       }
     }
     
@@ -979,7 +1003,7 @@ export const CalendarPlanningCard = ({
         </p>
       )}
 
-      {/* Date Out of Range Sheet */}
+      {/* Date Near Summer Boundary Sheet */}
       <Sheet 
         open={dateOutOfRangeSheet?.open || false} 
         onOpenChange={(open) => !open && setDateOutOfRangeSheet(null)}
@@ -988,46 +1012,83 @@ export const CalendarPlanningCard = ({
           <SheetHeader>
             <div className="flex items-center gap-2 text-amber-500">
               <AlertCircle className="h-5 w-5" />
-              <SheetTitle className="text-amber-500">Date Outside Your Summer</SheetTitle>
+              <SheetTitle className="text-amber-500">
+                {dateOutOfRangeSheet?.isBeforeStart 
+                  ? "Working Before Your Official Summer Start?"
+                  : "Working After Your Official Summer End?"
+                }
+              </SheetTitle>
             </div>
-            <SheetDescription>
+            <SheetDescription className="text-left">
               {dateOutOfRangeSheet?.isBeforeStart 
-                ? `This date is before your summer start date (${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}).`
-                : `This date is after your summer end date (${format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')}).`
+                ? `This date is before your official summer start (${format(parseLocalDate(personalSummerStart), 'MMM d, yyyy')}).`
+                : `This date is after your official summer end (${format(parseLocalDate(personalSummerEnd), 'MMM d, yyyy')}).`
               }
             </SheetDescription>
           </SheetHeader>
           
-          <div className="mt-6 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Would you like to update your official summer dates, or mark specific days as off-days?
-            </p>
+          <div className="mt-4 space-y-4">
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <p className="text-sm text-foreground">
+                <strong>Important:</strong> Marking extra days here doesn't change your official summer dates with Vivint or affect your rent deductions. To officially change your start/end dates, you need to coordinate with your leader.
+              </p>
+            </div>
             
             <div className="space-y-2">
-              <Button 
-                variant="default"
-                className="w-full"
-                onClick={() => {
-                  setDateOutOfRangeSheet(null);
-                  // Navigate to settings/setup to change dates
-                  // For now, just close - user can use the setup wizard
-                }}
-              >
-                Update Summer Dates in Settings
-              </Button>
+              {repData?.team_leader_phone && (
+                <Button 
+                  variant="default"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    const phone = repData.team_leader_phone?.replace(/\D/g, '');
+                    const message = encodeURIComponent(
+                      dateOutOfRangeSheet?.isBeforeStart 
+                        ? `Hey! I'd like to start working earlier than my current official summer start date. Can you help me get my dates changed with the company?`
+                        : `Hey! I'd like to extend my summer end date. Can you help me get my dates changed with the company?`
+                    );
+                    window.open(`sms:${phone}?body=${message}`, '_blank');
+                    setDateOutOfRangeSheet(null);
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Text {repData.team_leader || 'My Leader'}
+                </Button>
+              )}
               
               <Button 
                 variant="outline"
                 className="w-full"
+                onClick={async () => {
+                  // Mark the day and dismiss future warnings for this boundary
+                  const isBeforeStart = dateOutOfRangeSheet?.isBeforeStart;
+                  const dateStr = dateOutOfRangeSheet?.date;
+                  
+                  // Dismiss warnings for this boundary
+                  setDismissedSummerBoundaryWarning(prev => {
+                    if (prev === 'start' && !isBeforeStart) return 'both';
+                    if (prev === 'end' && isBeforeStart) return 'both';
+                    return isBeforeStart ? 'start' : 'end';
+                  });
+                  
+                  setDateOutOfRangeSheet(null);
+                  
+                  // Now toggle the day
+                  if (dateStr) {
+                    await togglePlannedDay(dateStr);
+                  }
+                }}
+              >
+                I Understand, Mark Day Anyway
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                className="w-full text-muted-foreground"
                 onClick={() => setDateOutOfRangeSheet(null)}
               >
                 Cancel
               </Button>
             </div>
-            
-            <p className="text-xs text-center text-muted-foreground pt-2">
-              Off-days feature coming soon
-            </p>
           </div>
         </SheetContent>
       </Sheet>
