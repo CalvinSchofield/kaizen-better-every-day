@@ -38,7 +38,7 @@ serve(async (req) => {
       });
     }
 
-    const { suggestionId, action, recruiterNotionId } = await req.json();
+    const { suggestionId, action } = await req.json();
 
     if (!suggestionId || !action) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -83,8 +83,45 @@ serve(async (req) => {
     if (action === 'approve') {
       let notionPageId = null;
 
+      // Get the suggester's notion page ID to use as recruiter
+      const { data: suggesterRep } = await supabase
+        .from('reps')
+        .select('notion_page_id')
+        .eq('user_id', suggestion.suggested_by_user_id)
+        .maybeSingle();
+
+      const recruiterNotionId = suggesterRep?.notion_page_id;
+
       // Create in Notion if API key available
-      if (notionApiKey && notionRepsDbId && recruiterNotionId) {
+      if (notionApiKey && notionRepsDbId) {
+        const properties: Record<string, any> = {
+          'Name': {
+            title: [{ text: { content: suggestion.name } }]
+          },
+          'Phone': {
+            phone_number: suggestion.phone
+          },
+          'Stage': {
+            select: { name: '100 List' }
+          },
+          'Year': {
+            select: { name: 'Rookie' }
+          }
+        };
+
+        // Add recruiter relation using suggester's notion page ID
+        if (recruiterNotionId) {
+          properties['Recruiter'] = {
+            relation: [{ id: recruiterNotionId }]
+          };
+          // Also set Downline to the suggester
+          properties['Downline'] = {
+            relation: [{ id: recruiterNotionId }]
+          };
+        }
+
+        console.log(`Creating Notion page for approved suggestion: ${suggestion.name}, recruiter: ${recruiterNotionId}`);
+
         const notionResponse = await fetch(`https://api.notion.com/v1/pages`, {
           method: 'POST',
           headers: {
@@ -94,23 +131,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             parent: { database_id: notionRepsDbId },
-            properties: {
-              'Name': {
-                title: [{ text: { content: suggestion.name } }]
-              },
-              'Phone': {
-                phone_number: suggestion.phone
-              },
-              'Stage': {
-                select: { name: '100 List' }
-              },
-              'Recruiter': {
-                relation: [{ id: recruiterNotionId }]
-              },
-              'Year': {
-                select: { name: 'Rookie' }
-              }
-            }
+            properties,
           }),
         });
 

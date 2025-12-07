@@ -8,7 +8,7 @@ import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X } from "lucide-r
 import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
 import { RecruitListView } from "@/components/mygroup/RecruitListView";
 import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
-import { AddRecruitSheet } from "@/components/mygroup/AddRecruitSheet";
+import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -179,7 +179,7 @@ const MyGroup = () => {
       </Button>
 
       {/* Sheets */}
-      <AddRecruitSheet open={addSheetOpen} onOpenChange={setAddSheetOpen} />
+      <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />
       <TeamFilterSheet 
         open={filterSheetOpen} 
         onOpenChange={setFilterSheetOpen}

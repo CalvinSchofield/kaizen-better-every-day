@@ -1,4 +1,9 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle 
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Users } from "lucide-react";
@@ -45,13 +50,13 @@ export const TeamFilterSheet = ({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-auto max-h-[70vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Filter by Team</SheetTitle>
-        </SheetHeader>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[70vh]">
+        <DrawerHeader>
+          <DrawerTitle>Filter by Team</DrawerTitle>
+        </DrawerHeader>
 
-        <div className="mt-4 space-y-4">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto">
           {/* All Teams Option */}
           <Button
             variant={selectedFilter === null ? 'default' : 'outline'}
@@ -122,7 +127,7 @@ export const TeamFilterSheet = ({
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 };

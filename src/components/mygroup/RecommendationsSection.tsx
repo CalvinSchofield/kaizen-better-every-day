@@ -7,7 +7,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle 
+} from "@/components/ui/drawer";
 
 // Helper to strip emojis from names
 const stripEmojis = (text: string | null): string | null => {
@@ -152,15 +157,15 @@ export const RecommendationsSection = ({
         </div>
       </div>
 
-      {/* Schedule Sheet */}
-      <Sheet open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <SheetContent side="bottom" className="h-auto">
-          <SheetHeader>
-            <SheetTitle>
+      {/* Schedule Drawer */}
+      <Drawer open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>
               Schedule Follow-up with {selectedRec && stripEmojis(selectedRec.recruit.name)}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 mt-4">
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
             <div>
               <label className="text-sm font-medium">What to do</label>
               <Input
@@ -187,8 +192,8 @@ export const RecommendationsSection = ({
               {logActivityMutation.isPending ? 'Saving...' : 'Schedule'}
             </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };
