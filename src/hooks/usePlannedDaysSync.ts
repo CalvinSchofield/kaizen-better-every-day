@@ -52,7 +52,7 @@ const findBlitzForDate = (dateStr: string, blitzes: CommittedBlitz[]): Committed
 };
 
 export const usePlannedDaysSync = () => {
-  const { plannedDays, addMultipleDays, isLoading: isLoadingPlanned } = usePlannedDays();
+  const { plannedDays, addMultipleDays, removeMultipleDays, isLoading: isLoadingPlanned } = usePlannedDays();
   const { repData } = useRepData();
   const queryClient = useQueryClient();
   
@@ -60,6 +60,7 @@ export const usePlannedDaysSync = () => {
   const [pendingExclusions, setPendingExclusions] = useState<ExcludedBlitzDays>({});
   
   // Track previous values to detect changes
+  const prevCommittedBlitzesRef = useRef<CommittedBlitz[]>([]);
   const prevCommittedBlitzIdsRef = useRef<string[]>([]);
   const prevPlannedDaysRef = useRef<string[]>([]);
   const prevSummerStartRef = useRef<string | null>(null);
@@ -276,6 +277,7 @@ export const usePlannedDaysSync = () => {
     
     const currentBlitzIds = committedBlitzIds;
     const prevBlitzIds = prevCommittedBlitzIdsRef.current;
+    const prevBlitzes = prevCommittedBlitzesRef.current;
     
     // Check if blitzes changed
     const blitzesChanged = JSON.stringify(currentBlitzIds.sort()) !== JSON.stringify(prevBlitzIds.sort());
@@ -286,9 +288,32 @@ export const usePlannedDaysSync = () => {
       // Find removed blitzes
       const removedIds = prevBlitzIds.filter(id => !currentBlitzIds.includes(id));
       
-      // Clear exclusions for removed blitzes (so if they re-commit, all days show)
-      for (const removedId of removedIds) {
-        clearBlitzExclusions(removedId);
+      // Remove planned days for removed blitzes
+      if (removedIds.length > 0) {
+        const daysToRemove: string[] = [];
+        
+        // Use the PREVIOUS blitz data to find the date ranges
+        for (const removedId of removedIds) {
+          const removedBlitz = prevBlitzes.find(b => b.id === removedId);
+          if (removedBlitz) {
+            const startDate = parseLocalDate(removedBlitz.date);
+            const endDate = removedBlitz.endDate ? parseLocalDate(removedBlitz.endDate) : startDate;
+            const blitzDays = getWorkDaysInRange(startDate, endDate);
+            
+            // Only remove days that are in this blitz range AND currently planned
+            const currentPlannedDates = plannedDays?.map(d => d.planned_date) || [];
+            const plannedBlitzDays = blitzDays.filter(d => currentPlannedDates.includes(d));
+            daysToRemove.push(...plannedBlitzDays);
+          }
+          
+          // Clear exclusions for this blitz (so if they re-commit, all days show)
+          clearBlitzExclusions(removedId);
+        }
+        
+        // Remove the blitz days from planned days
+        if (daysToRemove.length > 0) {
+          removeMultipleDays(daysToRemove);
+        }
       }
       
       if (newlyAddedIds.length > 0) {
@@ -316,27 +341,52 @@ export const usePlannedDaysSync = () => {
       }
     }
     
+    // Always update the refs
     prevCommittedBlitzIdsRef.current = currentBlitzIds;
+    prevCommittedBlitzesRef.current = [...committedBlitzes];
     hasInitializedRef.current = true;
-  }, [committedBlitzIds, committedBlitzes, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id, today, excludedBlitzDays, clearBlitzExclusions]);
+  }, [committedBlitzIds, committedBlitzes, plannedDays, isLoadingPlanned, addMultipleDays, removeMultipleDays, repData?.user_id, today, excludedBlitzDays, clearBlitzExclusions]);
 
-  // Sync summer dates when they change
+  // Sync summer dates when they change - recalculate planned days based on new range
   useEffect(() => {
     if (isLoadingPlanned || !repData?.user_id) return;
     
     const currentStart = seasonConfig?.personal_summer_start || null;
     const currentEnd = seasonConfig?.personal_summer_end || null;
+    const prevStart = prevSummerStartRef.current;
+    const prevEnd = prevSummerEndRef.current;
     
-    const summerChanged = currentStart !== prevSummerStartRef.current || 
-                          currentEnd !== prevSummerEndRef.current;
+    const summerChanged = currentStart !== prevStart || currentEnd !== prevEnd;
     
     if (summerChanged && hasInitializedRef.current && currentStart && currentEnd) {
-      const summerDays = getSummerDays;
+      const currentPlannedDates = plannedDays?.map(d => d.planned_date) || [];
       
-      // Add only new summer days (not already planned)
-      const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
-      const daysToAdd = summerDays.filter(d => !plannedSet.has(d));
+      // Calculate old summer days (if we had previous dates)
+      let oldSummerDays: string[] = [];
+      if (prevStart && prevEnd) {
+        const prevSummerStart = parseLocalDate(prevStart);
+        const prevSummerEnd = parseLocalDate(prevEnd);
+        oldSummerDays = getWorkDaysInRange(prevSummerStart, prevSummerEnd);
+      }
       
+      // New summer days from current settings
+      const newSummerDays = getSummerDays;
+      
+      // Days to remove: old summer days that aren't in new range
+      const daysToRemove = oldSummerDays.filter(d => 
+        currentPlannedDates.includes(d) && !newSummerDays.includes(d)
+      );
+      
+      // Days to add: new summer days that aren't already planned
+      const plannedSet = new Set(currentPlannedDates);
+      const daysToAdd = newSummerDays.filter(d => !plannedSet.has(d));
+      
+      // Remove old days first
+      if (daysToRemove.length > 0) {
+        removeMultipleDays(daysToRemove);
+      }
+      
+      // Then add new days
       if (daysToAdd.length > 0) {
         addMultipleDays(daysToAdd);
       }
@@ -344,7 +394,7 @@ export const usePlannedDaysSync = () => {
     
     prevSummerStartRef.current = currentStart;
     prevSummerEndRef.current = currentEnd;
-  }, [seasonConfig, getSummerDays, plannedDays, isLoadingPlanned, addMultipleDays, repData?.user_id]);
+  }, [seasonConfig, getSummerDays, plannedDays, isLoadingPlanned, addMultipleDays, removeMultipleDays, repData?.user_id]);
 
   // Initial population on first load - ONLY runs once
   useEffect(() => {
@@ -366,7 +416,8 @@ export const usePlannedDaysSync = () => {
     
     hasInitializedRef.current = true;
     prevCommittedBlitzIdsRef.current = committedBlitzIds;
-  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds]);
+    prevCommittedBlitzesRef.current = [...committedBlitzes];
+  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds, committedBlitzes]);
 
   // Mutation to update excluded summer days
   const updateExcludedSummerDaysMutation = useMutation({
