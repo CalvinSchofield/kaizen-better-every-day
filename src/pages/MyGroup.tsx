@@ -100,41 +100,44 @@ const MyGroup = () => {
 
   // Pass header controls to Layout via children pattern - we'll render content directly
   const headerControls = (
-    <div className="flex items-center gap-2">
-      {activeFilterName && (
-        <Badge 
-          variant="secondary" 
-          className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
-          onClick={() => setSelectedTeamFilter(null)}
-        >
-          {activeFilterName}
-          <X className="h-3 w-3" />
-        </Badge>
-      )}
-      {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
-        <Button 
-          variant={selectedTeamFilter ? 'default' : 'ghost'} 
-          size="icon" 
-          onClick={() => setFilterSheetOpen(true)}
-        >
-          <Filter className="h-4 w-4" />
-        </Button>
-      )}
-      {isLeader && (
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
-          <TabsList className="h-8">
-            <TabsTrigger value="board" className="px-2">
-              <LayoutGrid className="h-4 w-4" />
-            </TabsTrigger>
-            <TabsTrigger value="list" className="px-2">
-              <List className="h-4 w-4" />
-            </TabsTrigger>
-            <TabsTrigger value="planner" className="px-2">
-              <CalendarDays className="h-4 w-4" />
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+    <div className="flex items-center justify-between w-full">
+      <h1 className="text-lg font-semibold text-foreground">My Group</h1>
+      <div className="flex items-center gap-2">
+        {activeFilterName && (
+          <Badge 
+            variant="secondary" 
+            className="flex items-center gap-1 cursor-pointer hover:bg-secondary/80"
+            onClick={() => setSelectedTeamFilter(null)}
+          >
+            {activeFilterName}
+            <X className="h-3 w-3" />
+          </Badge>
+        )}
+        {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
+          <Button 
+            variant={selectedTeamFilter ? 'default' : 'ghost'} 
+            size="icon" 
+            onClick={() => setFilterSheetOpen(true)}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+        )}
+        {isLeader && (
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
+            <TabsList className="h-8">
+              <TabsTrigger value="board" className="px-2">
+                <LayoutGrid className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="list" className="px-2">
+                <List className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="planner" className="px-2">
+                <CalendarDays className="h-4 w-4" />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 
