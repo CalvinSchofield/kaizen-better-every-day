@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RepData } from "@/hooks/useRepData";
 import { RecruitingFlowCarousel } from "@/components/RecruitingFlowCarousel";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
@@ -86,6 +87,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   
   // Get team access data for passing to VetBlitzCard
   const { data: teamAccessData } = useTeamAccess();
+  const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
+  
+  // Auto-log blitz attendance for leaders
+  useBlitzAttendanceLogger(allBlitzes, isLeader);
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();

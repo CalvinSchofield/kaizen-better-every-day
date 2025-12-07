@@ -55,31 +55,43 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     }
   }, []);
 
-  // Auto-log for recently ended blitzes (within last 2 days)
+  // Auto-log for ended or ending-today blitzes (after 6 PM local on end date)
   useEffect(() => {
     if (!enabled || allBlitzes.length === 0) return;
 
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const twoDaysAgo = new Date(today);
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-    const recentlyEndedBlitzes = allBlitzes.filter(blitz => {
+    const currentHour = now.getHours();
+
+    const blitzesToLog = allBlitzes.filter(blitz => {
+      if (processedBlitzesRef.current.has(blitz.id)) return false;
+      
       const endDate = new Date(blitz.endDate || blitz.date);
       endDate.setHours(0, 0, 0, 0);
       
-      // Blitz ended within last 2 days and not already processed
-      return endDate >= twoDaysAgo && 
-             endDate < today && 
-             !processedBlitzesRef.current.has(blitz.id);
+      // Blitz ended in past 2 days - always eligible
+      if (endDate >= twoDaysAgo && endDate < today) {
+        return true;
+      }
+      
+      // Blitz ends TODAY and it's after 6 PM - eligible
+      if (endDate.getTime() === today.getTime() && currentHour >= 18) {
+        return true;
+      }
+      
+      return false;
     });
 
-    if (recentlyEndedBlitzes.length > 0) {
-      console.log(`Found ${recentlyEndedBlitzes.length} recently ended blitzes to log attendance for`);
+    if (blitzesToLog.length > 0) {
+      console.log(`Found ${blitzesToLog.length} blitzes to log attendance for`);
       
       // Process each one
-      recentlyEndedBlitzes.forEach(async (blitz) => {
+      blitzesToLog.forEach(async (blitz) => {
         const result = await logBlitzAttendance(blitz);
         if (result.success) {
           toast({
