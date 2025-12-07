@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart, ReferenceLine } from "recharts";
+import { ComposedChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import { format, parseISO, startOfWeek, startOfMonth, isBefore, isAfter, differenceInDays } from "date-fns";
 import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
@@ -123,12 +123,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     const willDoDailyPace = summerPlannedCount > 0 ? fundedWillDoGoal / summerPlannedCount : 0;
     const couldDoDailyPace = summerPlannedCount > 0 ? fundedCouldDoGoal / summerPlannedCount : 0;
 
-    console.log('Goal pace calculation:', {
-      fundedPreseasonGoal,
-      preseasonPlannedCount,
-      preseasonDailyPace,
-      cumulativeDataLength: cumulativeData.length,
-    });
 
     // Generate pace line data points matching chart data dates
     // For each worked day, calculate the expected cumulative goal at that point
@@ -508,7 +502,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           <div className="px-4 pb-4">
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <XAxis
                 dataKey="displayDate"
                 tick={{ fontSize: 12 }}
@@ -553,7 +547,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
                   animationDuration={800}
                 />
               )}
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
           </ChartContainer>
           
