@@ -91,7 +91,11 @@ export const GoalHeroRing = ({
   // Only show pace tracking for: preseason tier during preseason, OR summer tiers during summer
   const showPaceTracking = activeTier === 'preseason' ? !isSummer : isSummer;
   
-  // Calculate earnings
+  // Calculate earnings - for preseason, just show upfront pay (4x PRMR)
+  const isPreseasonTier = activeTier === 'preseason';
+  const preseasonPrmr = fpGoal * avgPrmrPerFp;
+  const preseasonUpfrontPay = preseasonPrmr * 4; // Upfront is 4x PRMR
+  
   const result = calculateTakeHome({
     fpGoal,
     avgPrmrPerFp,
@@ -99,6 +103,11 @@ export const GoalHeroRing = ({
     rentType,
     weeksWorking,
   });
+  
+  // Use preseason upfront pay for preseason tier, otherwise use full take-home calculation
+  // Never show negative numbers
+  const displayedPay = isPreseasonTier ? preseasonUpfrontPay : Math.max(0, result.takeHomePay);
+  const displayedRate = isPreseasonTier ? 4 : result.rate;
 
   // Progress calculations
   const progress = fpGoal > 0 ? Math.min((currentProgress / fpGoal) * 100, 100) : 0;
@@ -276,17 +285,17 @@ export const GoalHeroRing = ({
           </div>
           <div>
             <p className="text-2xl font-bold tracking-tight">
-              {formatCurrency(result.takeHomePay)}
+              {formatCurrency(displayedPay)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Projected take-home · ${result.rate}/PRMR
+              {isPreseasonTier ? 'Upfront pay · $4/PRMR' : `Projected take-home · $${displayedRate}/PRMR`}
             </p>
           </div>
         </div>
       </motion.div>
 
-      {/* Remaining daily needed - only show when pace tracking is relevant */}
-      {showPaceTracking && remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && !isComplete && (
+      {/* Remaining daily needed - only show when pace tracking is relevant AND we have planned days */}
+      {showPaceTracking && remainingDailyNeeded !== undefined && remainingDailyNeeded > 0 && remainingDailyNeeded !== Infinity && !isComplete && (
         <motion.p 
           className="mt-2 text-xs text-muted-foreground"
           initial={{ opacity: 0 }}
@@ -294,6 +303,18 @@ export const GoalHeroRing = ({
           transition={{ delay: 0.2 }}
         >
           Need <span className="font-semibold text-foreground">{remainingDailyNeeded.toFixed(2)}</span> {metricLabel}/day
+        </motion.p>
+      )}
+      
+      {/* Show CTA to plan days when no days are planned */}
+      {showPaceTracking && (remainingDailyNeeded === undefined || remainingDailyNeeded === Infinity || isNaN(remainingDailyNeeded)) && !isComplete && fpGoal > 0 && (
+        <motion.p 
+          className="mt-2 text-xs text-amber-500"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          Plan your work days below to see daily pace
         </motion.p>
       )}
 

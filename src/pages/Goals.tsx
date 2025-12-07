@@ -279,7 +279,7 @@ const Goals = () => {
   };
 
   const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
-    if (!repData?.id) return;
+    if (!repData?.id || !repData?.notion_page_id) return;
     setIsCommitting(blitz.id);
     
     try {
@@ -292,13 +292,23 @@ const Goals = () => {
       };
       
       const newCommitments = [...committedBlitzes, newCommitment];
+      const newBlitzIds = newCommitments.map(b => b.id);
       
+      // Update local Supabase first
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: newCommitments as any })
         .eq('id', repData.id);
       
       if (error) throw error;
+      
+      // Also sync to Notion via edge function
+      await supabase.functions.invoke('update-blitz-commitment', {
+        body: {
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds: newBlitzIds,
+        },
+      });
       
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       toastHook({ title: "Committed!", description: `You're going to ${blitz.name}` });
@@ -311,18 +321,28 @@ const Goals = () => {
   };
 
   const handleUncommitFromBlitz = async (blitzId: string) => {
-    if (!repData?.id) return;
+    if (!repData?.id || !repData?.notion_page_id) return;
     setIsCommitting(blitzId);
     
     try {
       const newCommitments = committedBlitzes.filter(b => b.id !== blitzId);
+      const newBlitzIds = newCommitments.map(b => b.id);
       
+      // Update local Supabase first
       const { error } = await supabase
         .from('reps')
         .update({ committed_blitzes: newCommitments as any })
         .eq('id', repData.id);
       
       if (error) throw error;
+      
+      // Also sync to Notion via edge function
+      await supabase.functions.invoke('update-blitz-commitment', {
+        body: {
+          repNotionPageId: repData.notion_page_id,
+          blitzPageIds: newBlitzIds,
+        },
+      });
       
       await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       toastHook({ title: "Uncommitted", description: "You've been removed from this trip" });
