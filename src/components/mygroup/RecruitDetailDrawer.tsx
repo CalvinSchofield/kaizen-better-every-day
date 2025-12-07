@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Phone, 
   MessageSquare, 
@@ -1413,12 +1415,26 @@ export const RecruitDetailDrawer = ({
 
             <div>
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                className="mt-1"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full mt-1 justify-start text-left font-normal"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {editDate ? format(new Date(editDate + 'T12:00:00'), 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={editDate ? new Date(editDate + 'T12:00:00') : undefined}
+                    onSelect={(date) => date && setEditDate(format(date, 'yyyy-MM-dd'))}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div>
