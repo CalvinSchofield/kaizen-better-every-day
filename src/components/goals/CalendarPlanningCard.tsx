@@ -1127,7 +1127,19 @@ export const CalendarPlanningCard = ({
                         toast.error('Failed to update summer dates');
                         console.error(error);
                       } else {
-                        toast.success(`Summer start date updated to ${format(selectedDate, 'MMM d, yyyy')}!`);
+                        // Sync to Notion
+                        if (repData?.notion_page_id) {
+                          const isStart = updateField === 'personal_summer_start';
+                          await supabase.functions.invoke('update-summer-dates', {
+                            body: {
+                              notionPageId: repData.notion_page_id,
+                              startDate: isStart ? dateStr : undefined,
+                              endDate: isStart ? undefined : dateStr,
+                            },
+                          });
+                        }
+                        
+                        toast.success(`Summer ${updateField === 'personal_summer_start' ? 'start' : 'end'} date updated to ${format(selectedDate, 'MMM d, yyyy')}!`);
                         queryClient.invalidateQueries({ queryKey: ['season-config-for-goals'] });
                         queryClient.invalidateQueries({ queryKey: ['season-config'] });
                         

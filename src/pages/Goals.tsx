@@ -448,6 +448,17 @@ const Goals = () => {
                     }, {
                       onConflict: 'user_id'
                     });
+                  
+                  // Sync summer dates to Notion
+                  if (repData?.notion_page_id) {
+                    await supabase.functions.invoke('update-summer-dates', {
+                      body: {
+                        notionPageId: repData.notion_page_id,
+                        startDate: data.summerStart,
+                        endDate: data.summerEnd,
+                      },
+                    });
+                  }
                 }
 
                 // Handle blitz commitments if rookie selected any
