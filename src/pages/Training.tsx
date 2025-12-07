@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { BookOpen, FileText, Users, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Target, Lock, BookMarked, ExternalLink, Download, DollarSign } from "lucide-react";
+import { FileText, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Lock, ExternalLink, Download, DollarSign } from "lucide-react";
+import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useRepData } from "@/hooks/useRepData";
 import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarousel";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,8 @@ interface TrainingCategory {
   }>;
 }
 
-interface Book {
-  title: string;
-  author: string;
-  summary: string;
-}
-
 const Training = () => {
-  const { repData, loading } = useRepData();
+  const { repData } = useRepData();
   const { toast } = useToast();
   const phase4Complete = repData?.ramp_phase_4_complete || false;
   const [animateRecommended, setAnimateRecommended] = useState(false);
@@ -68,104 +62,6 @@ const Training = () => {
     }
     setPreviousStage(journeyStage);
   }, [journeyStage, previousStage]);
-
-  const books: Book[] = [
-    {
-      title: "The Compound Effect",
-      author: "Darren Hardy",
-      summary: "Small, consistent daily actions create massive results over time. Shows how tiny improvements in your pitch, attitude, and work ethic compound into huge commission checks by summer's end."
-    },
-    {
-      title: "Atomic Habits",
-      author: "James Clear",
-      summary: "Build systems that make success automatic. Learn to stack habits that turn you into a closing machine—one small improvement at a time."
-    },
-    {
-      title: "Go for No!",
-      author: "Richard Fenton & Andrea Waltz",
-      summary: "Reframe rejection as progress toward yes. The more doors that close in your face, the closer you are to your next sale. This mindset shift is a game-changer for D2D."
-    },
-    {
-      title: "The Miracle Morning",
-      author: "Hal Elrod",
-      summary: "Start every day with intention before you hit the doors. A powerful morning routine gives you the energy and focus to outwork everyone else."
-    },
-    {
-      title: "The 10X Rule",
-      author: "Grant Cardone",
-      summary: "Whatever effort you think is required, multiply it by 10. Massive action = massive results. Perfect for crushing sales goals."
-    },
-    {
-      title: "Door to Door Millionaire",
-      author: "Lenny Gray",
-      summary: "Written specifically for D2D sales. Real strategies from someone who built an empire knocking doors—exactly what you're doing this summer."
-    },
-    {
-      title: "The Happiness Advantage",
-      author: "Shawn Achor",
-      summary: "Positivity isn't just feel-good—it's a competitive edge. Happy salespeople outsell negative ones by 37%. Learn to stay energized through the grind."
-    },
-    {
-      title: "The Magic of Thinking Big",
-      author: "David Schwartz",
-      summary: "Your results are limited only by your thinking. Expand what you believe is possible and watch your sales follow."
-    },
-    {
-      title: "Never Split the Difference",
-      author: "Chris Voss",
-      summary: "FBI hostage negotiator tactics for sales. Master tactical empathy and get customers to say yes without feeling pressured."
-    },
-    {
-      title: "Extreme Ownership",
-      author: "Jocko Willink & Leif Babin",
-      summary: "Take 100% responsibility for your results. No excuses, no blame—just solutions. The mindset that separates top performers."
-    },
-    {
-      title: "The Power of One More",
-      author: "Ed Mylett",
-      summary: "One more door, one more attempt, one more day of effort. The philosophy that turns good summers into legendary ones."
-    },
-    {
-      title: "ABC'$ of Closing",
-      author: "Sam Taggart",
-      summary: "The D2D bible. Proven closing techniques from the founder of D2D Experts—mandatory reading for any serious rep."
-    },
-    {
-      title: "As a Man Thinketh",
-      author: "James Allen",
-      summary: "Your thoughts shape your reality. A short, powerful read on mastering your mindset to achieve any goal."
-    },
-    {
-      title: "The Psychology of Selling",
-      author: "Brian Tracy",
-      summary: "Understand why people buy. When you know the psychology, objections become opportunities."
-    },
-    {
-      title: "Above the Line",
-      author: "Urban Meyer",
-      summary: "Championship-level discipline and accountability. Build the mental toughness to perform when it matters most."
-    },
-    {
-      title: "How to Win Friends and Influence People",
-      author: "Dale Carnegie",
-      summary: "The classic guide to connecting with anyone. Build instant rapport at the door and turn strangers into customers."
-    },
-    {
-      title: "Millionaire Success Habits",
-      author: "Dean Graziosi",
-      summary: "Daily habits that separate the wealthy from everyone else. Apply these to your sales career starting day one."
-    },
-    {
-      title: "The One Thing",
-      author: "Gary Keller",
-      summary: "Focus beats multitasking every time. Identify the ONE thing that moves the needle most and dominate it."
-    },
-    {
-      title: "Can't Hurt Me",
-      author: "David Goggins",
-      summary: "Push past every mental barrier. When you're tired, hot, and want to quit—this book teaches you to keep going."
-    }
-  ];
 
   const categories: TrainingCategory[] = [
     {
@@ -459,37 +355,8 @@ const Training = () => {
           );
         })}
 
-        {/* Recommended Sales Books */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <BookMarked className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Recommended Sales Books</CardTitle>
-            </div>
-            <CardDescription>
-              Build the mindset and skills to have your best summer yet
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {books.map((book, index) => (
-                <AccordionItem key={index} value={`book-${index}`}>
-                  <AccordionTrigger className="text-left hover:no-underline">
-                    <div>
-                      <div className="font-medium">{book.title}</div>
-                      <div className="text-xs text-muted-foreground">{book.author}</div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {book.summary}
-                    </p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-        </Card>
+        {/* Sales Books Section with Checkboxes */}
+        <BooksSection />
       </div>
     </div>
   );
