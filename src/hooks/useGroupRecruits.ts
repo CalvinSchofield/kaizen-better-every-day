@@ -572,3 +572,109 @@ export const useMySuggestions = () => {
     staleTime: 1000 * 60 * 2,
   });
 };
+
+export const useUpdateMySuggestion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      suggestionId, 
+      name, 
+      phone, 
+      relationship, 
+      notes 
+    }: { 
+      suggestionId: string; 
+      name: string;
+      phone: string;
+      relationship?: string;
+      notes?: string;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('recruit_suggestions')
+        .update({
+          name,
+          phone,
+          relationship,
+          notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', suggestionId)
+        .eq('suggested_by_user_id', user.id)
+        .eq('status', 'pending')
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onMutate: async ({ suggestionId, name, phone, relationship, notes }) => {
+      await queryClient.cancelQueries({ queryKey: ['my-suggestions'] });
+      
+      const previousData = queryClient.getQueryData(['my-suggestions']);
+      
+      queryClient.setQueryData(['my-suggestions'], (old: RecruitSuggestion[] | undefined) => {
+        if (!old) return old;
+        return old.map(s => 
+          s.id === suggestionId 
+            ? { ...s, name, phone, relationship: relationship || null, notes: notes || null }
+            : s
+        );
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['my-suggestions'], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-suggestions'] });
+    },
+  });
+};
+
+export const useDeleteMySuggestion = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (suggestionId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('recruit_suggestions')
+        .delete()
+        .eq('id', suggestionId)
+        .eq('suggested_by_user_id', user.id)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+      return { suggestionId };
+    },
+    onMutate: async (suggestionId) => {
+      await queryClient.cancelQueries({ queryKey: ['my-suggestions'] });
+      
+      const previousData = queryClient.getQueryData(['my-suggestions']);
+      
+      queryClient.setQueryData(['my-suggestions'], (old: RecruitSuggestion[] | undefined) => {
+        if (!old) return old;
+        return old.filter(s => s.id !== suggestionId);
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['my-suggestions'], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-suggestions'] });
+    },
+  });
+};
