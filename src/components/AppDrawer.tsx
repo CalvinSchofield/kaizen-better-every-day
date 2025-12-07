@@ -251,9 +251,23 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             {/* POST-BLITZ ROOKIES & VETS/SOPHS */}
             {!isCalendarLocked && (
               <>
-                {/* KNOCKING MODE OFF: Show Calendar, Insights, Reports (if leader) */}
+                {/* KNOCKING MODE OFF: Show Track, Calendar, Insights, Reports (if leader) */}
                 {!isKnockingMode && (
                   <>
+                    <Link
+                      to="/track"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <Target className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Track</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Log your activity
+                        </span>
+                      </div>
+                    </Link>
+
                     <Link
                       to="/calendar"
                       onClick={() => setOpen(false)}
