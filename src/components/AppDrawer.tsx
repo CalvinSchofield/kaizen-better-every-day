@@ -318,7 +318,22 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 {/* KNOCKING MODE ON */}
                 {isKnockingMode && (
                   <>
-                    {/* Team Reports - Leaders only, show first */}
+                    {/* Goals - show first in knocking mode */}
+                    <Link
+                      to="/goals"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <Trophy className="w-5 h-5 text-primary" />
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-sm">Goals</span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          Set your summer goals
+                        </span>
+                      </div>
+                    </Link>
+
+                    {/* Team Reports - Leaders only */}
                     {isLeader && (
                       <Link
                         to="/team-reports"
@@ -399,27 +414,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                     )}
                   </>
                 )}
-              </>
-            )}
-
-            {/* Goals - only show in menu when knocking mode is ON (since it's in bottom tabs when OFF) */}
-            {isKnockingMode && (
-              <>
-                <Separator />
-
-                <Link
-                  to="/goals"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-                >
-                  <Trophy className="w-5 h-5 text-primary" />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-semibold text-sm">Goals</span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      Set your summer goals
-                    </span>
-                  </div>
-                </Link>
               </>
             )}
 
