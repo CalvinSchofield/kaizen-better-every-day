@@ -118,22 +118,22 @@ export const CalendarPlanningCard = ({
   };
 
   // Query to get actual days worked (finalized entries with real activity)
-  const { data: workedDays } = useQuery({
-    queryKey: ['worked-days-count', personalSummerStart, personalSummerEnd],
+  const { data: workedDaysData } = useQuery({
+    queryKey: ['worked-days-data', personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
+      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
 
       // Get all finalized entries with activity fields
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('entry_date, doors_knocked, work_start_time, work_end_time')
+        .select('entry_date, doors_knocked, work_start_time, work_end_time, fp_plus, prmr, upgrade_prmr')
         .eq('user_id', user.id)
         .eq('is_finalized', true);
 
       if (error) {
         console.error('Error fetching worked days:', error);
-        return { preseasonDaysWorked: 0, summerDaysWorked: 0 };
+        return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
       }
 
       const preseasonStart = parseLocalDate(PRESEASON_START);
@@ -143,10 +143,13 @@ export const CalendarPlanningCard = ({
 
       let preseasonCount = 0;
       let summerCount = 0;
+      const workedDates = new Set<string>();
 
       // Only count entries that are "real knocking days" (not referral-only days)
       entries?.forEach(entry => {
         if (!isRealKnockingDay(entry)) return; // Skip result-only days
+        
+        workedDates.add(entry.entry_date);
         
         const date = parseLocalDate(entry.entry_date);
         if (date >= preseasonStart && date <= preseasonEnd) {
@@ -156,10 +159,19 @@ export const CalendarPlanningCard = ({
         }
       });
 
-      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount };
+      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates };
     },
     staleTime: 1000 * 60 * 5,
   });
+
+  // Derived values from workedDaysData
+  const workedDays = workedDaysData ? {
+    preseasonDaysWorked: workedDaysData.preseasonDaysWorked,
+    summerDaysWorked: workedDaysData.summerDaysWorked
+  } : undefined;
+  
+  const workedDatesSet = workedDaysData?.workedDates || new Set<string>();
+  const isDateWorked = (dateStr: string) => workedDatesSet.has(dateStr);
 
   const today = getLocalToday();
   const isViewingToday = isSameMonth(currentMonth, today);
@@ -597,6 +609,7 @@ export const CalendarPlanningCard = ({
           const dateStr = format(day, 'yyyy-MM-dd');
           const isPlanned = isDatePlanned(dateStr);
           const isPast = isBefore(day, today);
+          const isWorked = isDateWorked(dateStr); // Check if this is a past day where user worked
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isTodayDate = isSameDay(day, today);
           const dayOfWeek = getDay(day);
@@ -622,7 +635,10 @@ export const CalendarPlanningCard = ({
                 "aspect-square rounded-lg text-sm font-medium transition-all",
                 "flex items-center justify-center relative",
                 (isSunday || isAfterSummerEnd) && "opacity-30 cursor-not-allowed",
-                isPast && !isSunday && !isAfterSummerEnd && "opacity-40 cursor-not-allowed",
+                // Past worked days - show with green/success style
+                isPast && isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
+                // Past non-worked days - muted
+                isPast && !isWorked && !isSunday && !isAfterSummerEnd && "opacity-30 cursor-not-allowed",
                 !isDisabled && "hover:bg-accent cursor-pointer",
                 // Planned and not excluded = solid primary
                 isPlanned && !isDisabled && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -636,6 +652,18 @@ export const CalendarPlanningCard = ({
             </button>
           );
         })}
+      </div>
+
+      {/* Calendar Legend */}
+      <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-emerald-500/30" />
+          Worked
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-primary" />
+          Planned
+        </span>
       </div>
 
       {/* Preseason Goal - Collapsible */}
