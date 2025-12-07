@@ -208,51 +208,65 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
 
       {/* List */}
       <div className="space-y-2">
-        {sortedRecruits.map((recruit) => (
-          <Card
-            key={recruit.notionPageId}
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => {
-              setSelectedRecruit(recruit);
-              setDrawerOpen(true);
-            }}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium truncate">{recruit.name}</p>
-                    {isStale(recruit) && (
-                      <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                    )}
+        {sortedRecruits.map((recruit) => {
+          const lastContact = getEffectiveLastContact(recruit);
+          const daysSinceContact = lastContact 
+            ? differenceInDays(new Date(), parseISO(lastContact))
+            : null;
+          
+          return (
+            <Card
+              key={recruit.notionPageId}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setSelectedRecruit(recruit);
+                setDrawerOpen(true);
+              }}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{recruit.name}</p>
+                      <Badge variant={getStageBadgeColor(recruit.stage) as any} className="text-xs">
+                        {recruit.stage}
+                      </Badge>
+                      {isStale(recruit) && (
+                        <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <Phone className="h-3 w-3" />
+                      {lastContact ? (
+                        <span>
+                          {daysSinceContact === 0 
+                            ? 'Called today' 
+                            : daysSinceContact === 1 
+                              ? 'Called yesterday'
+                              : `${daysSinceContact}d ago`}
+                        </span>
+                      ) : (
+                        <span className="text-amber-600">No contact yet</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={getStageBadgeColor(recruit.stage) as any} className="text-xs">
-                      {recruit.stage}
-                    </Badge>
-                    {recruit.lastContact && (
-                      <span className="text-xs text-muted-foreground">
-                        Last: {format(parseISO(recruit.lastContact), 'MMM d')}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {recruit.nextAction && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-2 py-1">
+                    <Calendar className="h-3 w-3" />
+                    <span className="truncate">{recruit.nextAction}</span>
+                    {recruit.nextActionDue && (
+                      <span className="text-primary ml-auto">
+                        {format(parseISO(recruit.nextActionDue), 'MMM d')}
                       </span>
                     )}
                   </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </div>
-              {recruit.nextAction && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-2 py-1">
-                  <Calendar className="h-3 w-3" />
-                  <span className="truncate">{recruit.nextAction}</span>
-                  {recruit.nextActionDue && (
-                    <span className="text-primary ml-auto">
-                      {format(parseISO(recruit.nextActionDue), 'MMM d')}
-                    </span>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
         {sortedRecruits.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <p>No recruits found</p>
