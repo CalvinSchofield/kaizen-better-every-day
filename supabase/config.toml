@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.update-rep-entry]
 verify_jwt = false
+
+[functions.update-summer-dates]
+verify_jwt = false

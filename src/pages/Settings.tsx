@@ -332,18 +332,32 @@ export default function Settings() {
     
     setIsSavingSummer(true);
     
+    const startDateStr = format(summerStart, 'yyyy-MM-dd');
+    const endDateStr = format(summerEnd, 'yyyy-MM-dd');
+    
     try {
       const { error } = await supabase
         .from('season_config')
         .upsert({
           user_id: repData?.user_id,
-          personal_summer_start: format(summerStart, 'yyyy-MM-dd'),
-          personal_summer_end: format(summerEnd, 'yyyy-MM-dd'),
+          personal_summer_start: startDateStr,
+          personal_summer_end: endDateStr,
         }, {
           onConflict: 'user_id'
         });
       
       if (error) throw error;
+      
+      // Sync to Notion if rep has a notion page
+      if (repData?.notion_page_id) {
+        await supabase.functions.invoke('update-summer-dates', {
+          body: {
+            notionPageId: repData.notion_page_id,
+            startDate: startDateStr,
+            endDate: endDateStr,
+          },
+        });
+      }
       
       toast({
         title: "Summer dates saved",
@@ -365,33 +379,16 @@ export default function Settings() {
     setIsSavingEfp(true);
     
     try {
-      // Optimistically update the UI immediately
-      queryClient.setQueryData(['rep-data'], (old: any) => {
-        if (!old) return old;
-        return { ...old, efp_mode_enabled: enabled };
-      });
-
-      // Update localStorage cache immediately
-      const cachedRep = localStorage.getItem('rep-data-cache');
-      if (cachedRep) {
-        try {
-          const { data } = JSON.parse(cachedRep);
-          localStorage.setItem('rep-data-cache', JSON.stringify({
-            data: { ...data, efp_mode_enabled: enabled },
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.error('Failed to update cache:', e);
-        }
-      }
-      
-      // Update database
+      // Update database first
       const { error } = await supabase
         .from('reps')
         .update({ efp_mode_enabled: enabled })
         .eq('id', repData?.id);
       
       if (error) throw error;
+      
+      // Invalidate queries to refetch with new value (uses correct key with userId)
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       
       toast({
         title: enabled ? "EFP mode enabled" : "EFP mode disabled",
@@ -401,9 +398,6 @@ export default function Settings() {
       });
     } catch (error: any) {
       console.error("Error toggling EFP mode:", error);
-      
-      // Revert optimistic update on error
-      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       
       toast({
         title: "Failed to update EFP mode",
