@@ -58,10 +58,14 @@ const SelectScrollDownButton = React.forwardRef<
 ));
 SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
 
+interface SelectContentProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> {
+  modal?: boolean;
+}
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
+  SelectContentProps
+>(({ className, children, position = "popper", modal = true, ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -72,6 +76,12 @@ const SelectContent = React.forwardRef<
         className,
       )}
       position={position}
+      onPointerDownOutside={(e) => {
+        // When modal is false, prevent closing parent dialogs/drawers
+        if (!modal) {
+          e.preventDefault();
+        }
+      }}
       {...props}
     >
       <SelectScrollUpButton />

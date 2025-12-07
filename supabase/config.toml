@@ -1,5 +1,8 @@
 project_id = "wjxlzcuqpoamrwumszau"
 
+[functions.fetch-notion-property-options]
+verify_jwt = false
+
 [functions.sync-notion-reps]
 verify_jwt = false
 
