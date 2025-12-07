@@ -70,6 +70,9 @@ All colors MUST be HSL.
     /* Animations */
     --transition-base: all 0.2s ease;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Shake animation for error states */
+    --shake-duration: 0.5s;
     --chart-1: 18 65% 58%;
     --chart-2: 40 70% 58%;
     --chart-3: 120 30% 50%;
@@ -256,6 +259,16 @@ All colors MUST be HSL.
   100% {
     transform: translateX(100%);
   }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
 .animate-shimmer {

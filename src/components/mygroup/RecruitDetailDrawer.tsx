@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -19,10 +19,12 @@ import {
   Trash2,
   PhoneCall,
   PhoneMissed,
-  UserRound
+  UserRound,
+  AlertCircle
 } from "lucide-react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Select,
   SelectContent,
@@ -86,6 +88,10 @@ export const RecruitDetailDrawer = ({
   const [nextActionDue, setNextActionDue] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editDate, setEditDate] = useState('');
+  
+  // Error shake state
+  const [stageShake, setStageShake] = useState(false);
+  const [activityShake, setActivityShake] = useState(false);
 
   const updateStageMutation = useUpdateRecruitStage();
   const logActivityMutation = useLogRecruitActivity();
@@ -103,73 +109,92 @@ export const RecruitDetailDrawer = ({
     ? differenceInDays(new Date(), parseISO(recruit.lastContact)) >= 7 
     : true;
 
+  const triggerErrorToast = (message: string) => {
+    toast.error(message, {
+      icon: <AlertCircle className="h-5 w-5 text-destructive" />,
+      duration: 4000,
+    });
+  };
+
   const handleCall = async () => {
-    // Auto-log call attempt
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
+    // Auto-log call attempt - optimistic, so show success immediately
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: 'phone_call',
+      notes: 'Call attempt',
+      updateLastContact: true,
+    }, {
+      onError: () => {
+        triggerErrorToast("Couldn't save call - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
+    toast.success('Call logged');
     window.location.href = `tel:${recruit.phone}`;
   };
 
   const handleText = async () => {
-    // Auto-log text attempt
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Text sent',
-        updateLastContact: true,
-      });
-      toast.success('Text logged');
-    } catch (error) {
-      console.error('Failed to log text:', error);
-    }
+    // Auto-log text attempt - optimistic
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: 'phone_call',
+      notes: 'Text sent',
+      updateLastContact: true,
+    }, {
+      onError: () => {
+        triggerErrorToast("Couldn't save text - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
+    toast.success('Text logged');
     window.location.href = `sms:${recruit.phone}`;
   };
 
-  const handleStageChange = async (newStage: string) => {
-    try {
-      await updateStageMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        newStage,
-      });
-      toast.success(`Moved to ${newStage}`);
-    } catch (error) {
-      toast.error('Failed to update stage');
-    }
+  const handleStageChange = (newStage: string) => {
+    updateStageMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      newStage,
+    }, {
+      onSuccess: () => {
+        toast.success(`Moved to ${newStage}`);
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't update stage - please try again");
+        setStageShake(true);
+        setTimeout(() => setStageShake(false), 500);
+      }
+    });
   };
 
-  const handleLogActivity = async () => {
+  const handleLogActivity = () => {
     if (!activityNotes && activityType !== 'next_step') {
       toast.error('Please add some notes');
       return;
     }
 
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        activityType,
-        notes: activityNotes,
-        nextAction: activityType === 'next_step' ? nextAction : undefined,
-        nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
-        updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
-      });
-      toast.success('Activity logged');
-      setLogActivityOpen(false);
-      setActivityNotes('');
-      setNextAction('');
-      setNextActionDue('');
-    } catch (error) {
-      toast.error('Failed to log activity');
-    }
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType,
+      notes: activityNotes,
+      nextAction: activityType === 'next_step' ? nextAction : undefined,
+      nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
+      updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
+    }, {
+      onSuccess: () => {
+        toast.success('Activity logged');
+        setLogActivityOpen(false);
+        setActivityNotes('');
+        setNextAction('');
+        setNextActionDue('');
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't save activity - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
   };
 
   const getActivityIcon = (type: string, notes?: string | null) => {
@@ -194,51 +219,61 @@ export const RecruitDetailDrawer = ({
     setEditActivityOpen(true);
   };
 
-  const handleUpdateActivity = async () => {
+  const handleUpdateActivity = () => {
     if (!selectedActivity) return;
     
-    try {
-      await updateActivityMutation.mutateAsync({
-        activityId: selectedActivity.id,
-        notes: editNotes,
-        createdAt: new Date(editDate).toISOString(),
-      });
-      toast.success('Activity updated');
-      setEditActivityOpen(false);
-      setSelectedActivity(null);
-    } catch (error) {
-      toast.error('Failed to update activity');
-    }
+    updateActivityMutation.mutate({
+      activityId: selectedActivity.id,
+      notes: editNotes,
+      createdAt: new Date(editDate).toISOString(),
+    }, {
+      onSuccess: () => {
+        toast.success('Activity updated');
+        setEditActivityOpen(false);
+        setSelectedActivity(null);
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't update activity - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
   };
 
-  const handleDeleteActivity = async () => {
+  const handleDeleteActivity = () => {
     if (!selectedActivity) return;
     
-    try {
-      await deleteActivityMutation.mutateAsync(selectedActivity.id);
-      toast.success('Activity deleted');
-      setDeleteConfirmOpen(false);
-      setEditActivityOpen(false);
-      setSelectedActivity(null);
-    } catch (error) {
-      toast.error('Failed to delete activity');
-    }
+    deleteActivityMutation.mutate(selectedActivity.id, {
+      onSuccess: () => {
+        toast.success('Activity deleted');
+        setDeleteConfirmOpen(false);
+        setEditActivityOpen(false);
+        setSelectedActivity(null);
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't delete activity - please try again");
+      }
+    });
   };
 
-  const handleMarkCallStatus = async (status: 'Connected' | 'No Answer') => {
+  const handleMarkCallStatus = (status: 'Connected' | 'No Answer') => {
     if (!selectedActivity) return;
     
-    try {
-      await updateActivityMutation.mutateAsync({
-        activityId: selectedActivity.id,
-        notes: status,
-      });
-      toast.success(`Marked as ${status}`);
-      setEditActivityOpen(false);
-      setSelectedActivity(null);
-    } catch (error) {
-      toast.error('Failed to update status');
-    }
+    updateActivityMutation.mutate({
+      activityId: selectedActivity.id,
+      notes: status,
+    }, {
+      onSuccess: () => {
+        toast.success(`Marked as ${status}`);
+        setEditActivityOpen(false);
+        setSelectedActivity(null);
+      },
+      onError: () => {
+        triggerErrorToast("Couldn't update status - please try again");
+        setActivityShake(true);
+        setTimeout(() => setActivityShake(false), 500);
+      }
+    });
   };
 
   return (
@@ -287,7 +322,7 @@ export const RecruitDetailDrawer = ({
             </div>
 
             {/* Stage Selector */}
-            <div>
+            <div className={stageShake ? 'animate-shake' : ''}>
               <Label className="text-sm text-muted-foreground">Stage</Label>
               <Select value={recruit.stage} onValueChange={handleStageChange}>
                 <SelectTrigger className="mt-1">
@@ -352,40 +387,52 @@ export const RecruitDetailDrawer = ({
             </Button>
 
             {/* Activity Timeline */}
-            <div>
+            <div className={activityShake ? 'animate-shake' : ''}>
               <h3 className="text-sm font-medium mb-2">Activity Timeline</h3>
               {activities.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No activities logged yet
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {activities.slice(0, 10).map((activity) => (
-                    <div 
-                      key={activity.id} 
-                      className="flex gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => handleActivityClick(activity)}
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                        {getActivityIcon(activity.activity_type, activity.notes)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium capitalize">
-                            {activity.activity_type.replace('_', ' ')}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(parseISO(activity.created_at), 'MMM d')}
-                          </span>
+                <div className="space-y-2">
+                  <AnimatePresence mode="popLayout">
+                    {activities.slice(0, 10).map((activity) => (
+                      <motion.div 
+                        key={activity.id}
+                        layout
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                        transition={{ 
+                          type: "spring", 
+                          stiffness: 500, 
+                          damping: 30,
+                          opacity: { duration: 0.2 }
+                        }}
+                        className="flex gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => handleActivityClick(activity)}
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                          {getActivityIcon(activity.activity_type, activity.notes)}
                         </div>
-                        {activity.notes && (
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            {activity.notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium capitalize">
+                              {activity.activity_type.replace('_', ' ')}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(parseISO(activity.created_at), 'MMM d')}
+                            </span>
+                          </div>
+                          {activity.notes && (
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              {activity.notes}
+                            </p>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
