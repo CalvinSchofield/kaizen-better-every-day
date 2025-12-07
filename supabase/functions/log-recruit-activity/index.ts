@@ -42,9 +42,11 @@ serve(async (req) => {
       activityType, 
       notes, 
       nextAction, 
-      nextActionDue,
-      updateLastContact = false 
+      nextActionDue
     } = await req.json();
+
+    // Auto-set updateLastContact for phone_call and in_person activities
+    const updateLastContact = activityType === 'phone_call' || activityType === 'in_person';
 
     if (!recruitNotionId || !activityType) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
