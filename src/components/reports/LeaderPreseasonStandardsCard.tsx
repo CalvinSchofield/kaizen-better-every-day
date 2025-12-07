@@ -429,6 +429,11 @@ export const LeaderPreseasonStandardsCard = ({
     };
   }, [repsWithGoals]);
 
+  // Get all reps behind with phone numbers - must be before early returns
+  const behindRepsWithPhone = useMemo(() => {
+    return repsWithGoals.filter(r => r.behindCount > 0 && r.phone);
+  }, [repsWithGoals]);
+
   // Only show during preseason
   const now = new Date();
   const summerStart = new Date("2026-04-12");
@@ -464,10 +469,6 @@ export const LeaderPreseasonStandardsCard = ({
     window.location.href = `sms:${phone.replace(/[^0-9]/g, "")}&body=${encodeURIComponent(message)}`;
   };
 
-  // Get all reps behind with phone numbers
-  const behindRepsWithPhone = useMemo(() => {
-    return repsWithGoals.filter(r => r.behindCount > 0 && r.phone);
-  }, [repsWithGoals]);
 
   const handleTextAllBehind = () => {
     if (behindRepsWithPhone.length === 0) return;
