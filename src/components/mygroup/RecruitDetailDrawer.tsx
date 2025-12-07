@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,10 @@ import {
   ChevronDown,
   Clock,
   CheckCircle2,
-  Plus
+  Plus,
+  Trash2,
+  PhoneCall,
+  PhoneMissed
 } from "lucide-react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -31,6 +34,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STAGES = [
   '100 List',
@@ -56,13 +69,20 @@ export const RecruitDetailDrawer = ({
   onOpenChange 
 }: RecruitDetailDrawerProps) => {
   const [logActivityOpen, setLogActivityOpen] = useState(false);
+  const [editActivityOpen, setEditActivityOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
   const [activityType, setActivityType] = useState<'phone_call' | 'in_person' | 'note' | 'next_step'>('phone_call');
   const [activityNotes, setActivityNotes] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [nextActionDue, setNextActionDue] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editDate, setEditDate] = useState('');
 
   const updateStageMutation = useUpdateRecruitStage();
   const logActivityMutation = useLogRecruitActivity();
+  const updateActivityMutation = useUpdateRecruitActivity();
+  const deleteActivityMutation = useDeleteRecruitActivity();
 
   if (!recruit) return null;
 
@@ -139,14 +159,72 @@ export const RecruitDetailDrawer = ({
     }
   };
 
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = (type: string, notes?: string | null) => {
+    if (type === 'phone_call') {
+      if (notes === 'Connected') return <PhoneCall className="h-4 w-4 text-green-500" />;
+      if (notes === 'No Answer' || notes === 'Call attempt') return <PhoneMissed className="h-4 w-4 text-muted-foreground" />;
+      return <Phone className="h-4 w-4" />;
+    }
     switch (type) {
-      case 'phone_call': return <Phone className="h-4 w-4" />;
       case 'in_person': return <Users className="h-4 w-4" />;
       case 'note': return <MessageSquare className="h-4 w-4" />;
       case 'next_step': return <Calendar className="h-4 w-4" />;
       case 'stage_change': return <CheckCircle2 className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  const handleActivityClick = (activity: RecruitActivity) => {
+    setSelectedActivity(activity);
+    setEditNotes(activity.notes || '');
+    setEditDate(format(parseISO(activity.created_at), 'yyyy-MM-dd'));
+    setEditActivityOpen(true);
+  };
+
+  const handleUpdateActivity = async () => {
+    if (!selectedActivity) return;
+    
+    try {
+      await updateActivityMutation.mutateAsync({
+        activityId: selectedActivity.id,
+        notes: editNotes,
+        createdAt: new Date(editDate).toISOString(),
+      });
+      toast.success('Activity updated');
+      setEditActivityOpen(false);
+      setSelectedActivity(null);
+    } catch (error) {
+      toast.error('Failed to update activity');
+    }
+  };
+
+  const handleDeleteActivity = async () => {
+    if (!selectedActivity) return;
+    
+    try {
+      await deleteActivityMutation.mutateAsync(selectedActivity.id);
+      toast.success('Activity deleted');
+      setDeleteConfirmOpen(false);
+      setEditActivityOpen(false);
+      setSelectedActivity(null);
+    } catch (error) {
+      toast.error('Failed to delete activity');
+    }
+  };
+
+  const handleMarkCallStatus = async (status: 'Connected' | 'No Answer') => {
+    if (!selectedActivity) return;
+    
+    try {
+      await updateActivityMutation.mutateAsync({
+        activityId: selectedActivity.id,
+        notes: status,
+      });
+      toast.success(`Marked as ${status}`);
+      setEditActivityOpen(false);
+      setSelectedActivity(null);
+    } catch (error) {
+      toast.error('Failed to update status');
     }
   };
 
@@ -251,9 +329,13 @@ export const RecruitDetailDrawer = ({
               ) : (
                 <div className="space-y-3">
                   {activities.slice(0, 10).map((activity) => (
-                    <div key={activity.id} className="flex gap-3">
+                    <div 
+                      key={activity.id} 
+                      className="flex gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleActivityClick(activity)}
+                    >
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                        {getActivityIcon(activity.activity_type)}
+                        {getActivityIcon(activity.activity_type, activity.notes)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
@@ -295,7 +377,7 @@ export const RecruitDetailDrawer = ({
                   onClick={() => setActivityType(type)}
                   className="flex-col h-auto py-2"
                 >
-                  {getActivityIcon(type)}
+                  {getActivityIcon(type, null)}
                   <span className="text-xs mt-1 capitalize">
                     {type.replace('_', ' ')}
                   </span>
@@ -347,6 +429,106 @@ export const RecruitDetailDrawer = ({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Edit Activity Sheet */}
+      <Sheet open={editActivityOpen} onOpenChange={setEditActivityOpen}>
+        <SheetContent side="bottom" className="h-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              Edit Activity
+              {selectedActivity && (
+                <Badge variant="outline" className="capitalize">
+                  {selectedActivity.activity_type.replace('_', ' ')}
+                </Badge>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            {/* Quick status buttons for phone calls */}
+            {selectedActivity?.activity_type === 'phone_call' && (
+              <div className="flex gap-2">
+                <Button
+                  variant={editNotes === 'Connected' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => handleMarkCallStatus('Connected')}
+                  disabled={updateActivityMutation.isPending}
+                >
+                  <PhoneCall className="h-4 w-4 mr-2" />
+                  Connected
+                </Button>
+                <Button
+                  variant={editNotes === 'No Answer' ? 'secondary' : 'outline'}
+                  className="flex-1"
+                  onClick={() => handleMarkCallStatus('No Answer')}
+                  disabled={updateActivityMutation.isPending}
+                >
+                  <PhoneMissed className="h-4 w-4 mr-2" />
+                  No Answer
+                </Button>
+              </div>
+            )}
+
+            <div>
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Activity notes..."
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1" 
+                onClick={handleUpdateActivity}
+                disabled={updateActivityMutation.isPending}
+              >
+                {updateActivityMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button 
+                variant="destructive"
+                size="icon"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this activity from the timeline. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteActivity}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
