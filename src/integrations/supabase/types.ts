@@ -38,6 +38,30 @@ export type Database = {
         }
         Relationships: []
       }
+      blitz_declines: {
+        Row: {
+          blitz_id: string
+          declined_at: string | null
+          declined_by: string | null
+          id: string
+          rep_notion_page_id: string
+        }
+        Insert: {
+          blitz_id: string
+          declined_at?: string | null
+          declined_by?: string | null
+          id?: string
+          rep_notion_page_id: string
+        }
+        Update: {
+          blitz_id?: string
+          declined_at?: string | null
+          declined_by?: string | null
+          id?: string
+          rep_notion_page_id?: string
+        }
+        Relationships: []
+      }
       blitz_invites: {
         Row: {
           blitz_id: string

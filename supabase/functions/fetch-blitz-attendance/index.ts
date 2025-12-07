@@ -221,10 +221,31 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch declined status from blitz_declines table
+    const { data: declineData, error: declineError } = await supabase
+      .from("blitz_declines")
+      .select("*");
+
+    if (declineError) {
+      console.error("Error fetching blitz declines:", declineError);
+    }
+
+    // Transform decline data into format expected by frontend
+    const declinedForBlitz: { [blitzId: string]: string[] } = {};
+    if (declineData) {
+      for (const decline of declineData) {
+        if (!declinedForBlitz[decline.blitz_id]) {
+          declinedForBlitz[decline.blitz_id] = [];
+        }
+        declinedForBlitz[decline.blitz_id].push(decline.rep_notion_page_id);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         teamMembers: accessibleReps,
         contactedForBlitz,
+        declinedForBlitz,
         accessibleUserIds,
       }),
       {

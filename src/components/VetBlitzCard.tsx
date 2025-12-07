@@ -73,6 +73,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(propTeamMembers);
   const [contactedMembers, setContactedMembers] = useState<{ [blitzId: string]: string[] }>({});
+  const [declinedMembers, setDeclinedMembers] = useState<{ [blitzId: string]: string[] }>({});
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
@@ -137,6 +138,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         
         // Set contacted members from shared blitz_invites table
         setContactedMembers(data.contactedForBlitz || {});
+        
+        // Set declined members from shared blitz_declines table
+        setDeclinedMembers(data.declinedForBlitz || {});
       }
     } catch (error: any) {
       console.error('Error fetching attendance data:', error);
@@ -364,6 +368,23 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       });
 
       if (error) throw error;
+
+      // If committing (not uncommitting), clear any decline record
+      if (!isCommitted) {
+        await supabase.functions.invoke('toggle-blitz-decline', {
+          body: {
+            blitzId,
+            repNotionPageId: member.notionPageId,
+            isDeclined: false,
+          },
+        });
+        
+        // Update local declinedMembers state
+        setDeclinedMembers(prev => ({
+          ...prev,
+          [blitzId]: (prev[blitzId] || []).filter(id => id !== member.notionPageId),
+        }));
+      }
 
       // Update local state
       setTeamMembers(prev =>
@@ -972,20 +993,43 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         ) : (
                           uncommittedMembers.map((member) => {
                             const isContactedForThisBlitz = (contactedMembers[blitz.id] || []).includes(member.notionPageId);
+                            const isDeclinedForThisBlitz = (declinedMembers[blitz.id] || []).includes(member.notionPageId);
+                            
                             return (
                               <div
                                 key={member.notionPageId}
-                                className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${isContactedForThisBlitz ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
+                                className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
+                                  isDeclinedForThisBlitz 
+                                    ? 'bg-destructive/10 border-destructive/30 opacity-60' 
+                                    : isContactedForThisBlitz 
+                                      ? 'bg-muted/50 opacity-60' 
+                                      : 'bg-card'
+                                }`}
                               >
                                 <button
-                                  onClick={() => toggleContactedStatus(member.notionPageId, blitz.id)}
-                                  className="flex items-center gap-2 flex-1 text-left min-w-0"
+                                  onClick={() => !isDeclinedForThisBlitz && toggleContactedStatus(member.notionPageId, blitz.id)}
+                                  className={`flex items-center gap-2 flex-1 text-left min-w-0 ${isDeclinedForThisBlitz ? 'cursor-default' : ''}`}
+                                  disabled={isDeclinedForThisBlitz}
                                 >
-                                  <span className={`font-medium text-sm truncate transition-all ${isContactedForThisBlitz ? 'line-through text-muted-foreground' : ''} ${!isContactedForThisBlitz && member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                  {isDeclinedForThisBlitz && (
+                                    <span className="text-destructive text-xs">✕</span>
+                                  )}
+                                  <span className={`font-medium text-sm truncate transition-all ${
+                                    isDeclinedForThisBlitz 
+                                      ? 'line-through text-muted-foreground' 
+                                      : isContactedForThisBlitz 
+                                        ? 'line-through text-muted-foreground' 
+                                        : member.year === "Rookie" 
+                                          ? "text-orange-600 dark:text-orange-400" 
+                                          : ""
+                                  }`}>
                                     {member.name}
                                   </span>
+                                  {isDeclinedForThisBlitz && (
+                                    <span className="text-xs text-muted-foreground">(declined)</span>
+                                  )}
                                 </button>
-                                {!isContactedForThisBlitz && (
+                                {!isContactedForThisBlitz && !isDeclinedForThisBlitz && (
                                   <Button
                                     size="sm"
                                     variant="default"
