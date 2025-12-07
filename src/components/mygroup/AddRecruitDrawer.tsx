@@ -65,6 +65,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
   const [relationship, setRelationship] = useState('');
   const [notes, setNotes] = useState('');
   const [showMySuggestions, setShowMySuggestions] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const queryClient = useQueryClient();
   const submitMutation = useSubmitSuggestion();
@@ -189,6 +190,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     setSelectedTeam('');
     setRelationship('');
     setNotes('');
+    setAttemptedSubmit(false);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,34 +269,41 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     );
   }, [name, phone, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.notion_page_id]);
 
-  const handleLeaderSubmit = async () => {
+  // Validation helpers
+  const getFieldError = (field: 'name' | 'phone' | 'location' | 'recruitmentSource' | 'recruiter') => {
+    if (!attemptedSubmit) return false;
     const finalLocation = showCustomLocation ? customLocation.trim() : location;
+    switch (field) {
+      case 'name': return !name.trim();
+      case 'phone': return !phone.trim();
+      case 'location': return !finalLocation;
+      case 'recruitmentSource': return !recruitmentSource;
+      case 'recruiter': return !(selectedRecruiter || currentRep?.notion_page_id);
+      default: return false;
+    }
+  };
+
+  const handleLeaderSubmit = async () => {
+    setAttemptedSubmit(true);
+    const finalLocation = showCustomLocation ? customLocation.trim() : location;
+    const recruiterNotionId = selectedRecruiter || currentRep?.notion_page_id;
 
     // Validate all required fields
-    if (!name.trim()) {
-      toast.error('Please enter a name');
-      return;
-    }
-    if (!phone.trim()) {
-      toast.error('Please enter a phone number');
-      return;
-    }
-    if (!finalLocation) {
-      toast.error('Please select a location');
-      return;
-    }
-    if (!recruitmentSource) {
-      toast.error('Please select how you recruited them');
+    const missingFields: string[] = [];
+    if (!name.trim()) missingFields.push('Name');
+    if (!phone.trim()) missingFields.push('Phone');
+    if (!finalLocation) missingFields.push('Location');
+    if (!recruitmentSource) missingFields.push('Recruitment source');
+    if (!recruiterNotionId) missingFields.push('Recruiter');
+
+    if (missingFields.length > 0) {
+      toast.error('Missing required fields', {
+        description: missingFields.join(', '),
+      });
       return;
     }
     
     if (showCustomLocation && !validateCustomLocation(customLocation)) {
-      return;
-    }
-
-    const recruiterNotionId = selectedRecruiter || currentRep?.notion_page_id;
-    if (!recruiterNotionId) {
-      toast.error('Could not determine recruiter');
       return;
     }
 
@@ -306,21 +315,26 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
       phone: cleanPhone ? `+1${cleanPhone}` : '',
       location: finalLocation,
       recruitmentSource,
-      recruiterNotionId,
+      recruiterNotionId: recruiterNotionId!,
       teamNotionId: selectedTeam || undefined,
       downlineNotionId: currentRep?.notion_page_id,
     });
   };
 
   const handleRepSubmit = async () => {
-    if (!name.trim()) {
-      toast.error('Please enter a name');
+    setAttemptedSubmit(true);
+
+    const missingFields: string[] = [];
+    if (!name.trim()) missingFields.push('Name');
+    if (!phone.trim()) missingFields.push('Phone');
+    
+    if (missingFields.length > 0) {
+      toast.error('Missing required fields', {
+        description: missingFields.join(', '),
+      });
       return;
     }
-    if (!phone.trim()) {
-      toast.error('Please enter a phone number');
-      return;
-    }
+    
     if (!teamLeaderData?.notion_page_id) {
       toast.error('Could not find your team leader');
       return;
@@ -426,34 +440,47 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
               )}
 
               <div>
-                <Label>Name *</Label>
+                <Label className={getFieldError('name') ? 'text-destructive' : ''}>
+                  Name *
+                </Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Their full name"
-                  className="mt-1"
+                  className={`mt-1 ${getFieldError('name') ? 'border-destructive ring-destructive' : ''}`}
                 />
+                {getFieldError('name') && (
+                  <p className="text-xs text-destructive mt-1">Name is required</p>
+                )}
               </div>
 
               <div>
-                <Label>Phone *</Label>
+                <Label className={getFieldError('phone') ? 'text-destructive' : ''}>
+                  Phone *
+                </Label>
                 <Input
                   value={phone}
                   onChange={handlePhoneChange}
                   placeholder="(555) 123-4567"
                   type="tel"
-                  className="mt-1"
+                  className={`mt-1 ${getFieldError('phone') ? 'border-destructive ring-destructive' : ''}`}
                 />
+                {getFieldError('phone') && (
+                  <p className="text-xs text-destructive mt-1">Phone is required</p>
+                )}
               </div>
 
               <div>
-                <Label>Location (State) *</Label>
+                <Label className={getFieldError('location') ? 'text-destructive' : ''}>
+                  Location (State) *
+                </Label>
                 {showCustomLocation ? (
                   <div className="mt-1 space-y-2">
                     <Input
                       value={customLocation}
                       onChange={(e) => setCustomLocation(e.target.value)}
                       placeholder="Enter new state name"
+                      className={getFieldError('location') ? 'border-destructive ring-destructive' : ''}
                     />
                     <div className="flex gap-2">
                       <Button
@@ -473,28 +500,38 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                         </p>
                       )}
                     </div>
+                    {getFieldError('location') && (
+                      <p className="text-xs text-destructive">Location is required</p>
+                    )}
                   </div>
                 ) : (
-                  <Select value={location} onValueChange={handleLocationChange}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent modal={false}>
-                      {notionOptions?.locationOptions.map((loc) => (
-                        <SelectItem key={loc} value={loc}>
-                          {loc}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__custom__">+ Add new state...</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <>
+                    <Select value={location} onValueChange={handleLocationChange}>
+                      <SelectTrigger className={`mt-1 ${getFieldError('location') ? 'border-destructive ring-destructive' : ''}`}>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent modal={false}>
+                        {notionOptions?.locationOptions.map((loc) => (
+                          <SelectItem key={loc} value={loc}>
+                            {loc}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__custom__">+ Add new state...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {getFieldError('location') && (
+                      <p className="text-xs text-destructive mt-1">Location is required</p>
+                    )}
+                  </>
                 )}
               </div>
 
               <div>
-                <Label>How did you recruit them? *</Label>
+                <Label className={getFieldError('recruitmentSource') ? 'text-destructive' : ''}>
+                  How did you recruit them? *
+                </Label>
                 <Select value={recruitmentSource} onValueChange={setRecruitmentSource}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className={`mt-1 ${getFieldError('recruitmentSource') ? 'border-destructive ring-destructive' : ''}`}>
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent modal={false}>
@@ -505,12 +542,17 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                     ))}
                   </SelectContent>
                 </Select>
+                {getFieldError('recruitmentSource') && (
+                  <p className="text-xs text-destructive mt-1">Recruitment source is required</p>
+                )}
               </div>
 
               <div>
-                <Label>Recruiter *</Label>
+                <Label className={getFieldError('recruiter') ? 'text-destructive' : ''}>
+                  Recruiter *
+                </Label>
                 <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className={`mt-1 ${getFieldError('recruiter') ? 'border-destructive ring-destructive' : ''}`}>
                     <SelectValue placeholder="Select recruiter" />
                   </SelectTrigger>
                   <SelectContent modal={false}>
@@ -521,6 +563,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
                     ))}
                   </SelectContent>
                 </Select>
+                {getFieldError('recruiter') && (
+                  <p className="text-xs text-destructive mt-1">Recruiter is required</p>
+                )}
               </div>
 
               {/* Team selection for MGMT leads */}
