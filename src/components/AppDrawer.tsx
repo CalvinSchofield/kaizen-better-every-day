@@ -402,22 +402,26 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
               </>
             )}
 
-            <Separator />
+            {/* Goals - only show in menu when knocking mode is ON (since it's in bottom tabs when OFF) */}
+            {isKnockingMode && (
+              <>
+                <Separator />
 
-            {/* Goals */}
-            <Link
-              to="/goals"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <Trophy className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">Goals</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  Set your summer goals
-                </span>
-              </div>
-            </Link>
+                <Link
+                  to="/goals"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Trophy className="w-5 h-5 text-primary" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm">Goals</span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Set your summer goals
+                    </span>
+                  </div>
+                </Link>
+              </>
+            )}
 
             <Separator />
 
