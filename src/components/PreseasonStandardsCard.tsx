@@ -7,6 +7,7 @@ import { ChevronRight, BookOpen, Dumbbell, Phone, Target, Users, Timer, ChevronD
 import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import { cn } from "@/lib/utils";
 
 interface CommitmentItem {
@@ -22,7 +23,8 @@ interface CommitmentItem {
 export const PreseasonStandardsCard = () => {
   const navigate = useNavigate();
   const { goals, isLoading, hasGoalsAccess } = useRepGoals();
-  const { totalFP: preseasonFP } = usePreseasonFP();
+  const { totalFP: preseasonFP, totalEFP: preseasonEFP } = usePreseasonFP();
+  const { efpModeEnabled } = useEfpMode();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Don't show if no goals access or goals not set up
@@ -63,9 +65,9 @@ export const PreseasonStandardsCard = () => {
     },
     {
       key: "fp",
-      label: "FP+ Before Summer",
+      label: efpModeEnabled ? "EFP Before Summer" : "FP+ Before Summer",
       icon: <Target className="h-4 w-4" />,
-      current: preseasonFP,
+      current: efpModeEnabled ? preseasonEFP : preseasonFP,
       goal: goals.preseason_fp_goal || 0,
     },
     {

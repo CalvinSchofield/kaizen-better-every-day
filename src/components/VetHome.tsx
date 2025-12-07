@@ -18,7 +18,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { YourProgressCard } from "@/components/YourProgressCard";
+
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -700,14 +700,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Weekly Progress Prompt - Monday evenings */}
         <WeeklyProgressPromptCard />
 
-        {/* Status Dashboard Card - Your Progress */}
-        <YourProgressCard 
-          repData={repData}
-          personalFP={personalFP}
-          ytdPRMR={ytdPRMR}
-          efpModeEnabled={efpModeEnabled}
-          loadingFP={loadingFP}
-        />
 
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
