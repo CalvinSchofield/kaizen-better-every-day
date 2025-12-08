@@ -57,6 +57,7 @@ export const useRecruitingRecommendations = (
 
       // Check if this recruit is a "rookie" (year === 'Rookie' or similar indicator)
       const isRookie = recruit.year === 'Rookie' || recruit.year === '2025';
+      const firstName = recruit.name?.split(' ')[0] || 'Recruit';
 
       // Tier 1: Signed reps (highest priority) - rookies get higher priority within signed
       if (recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅') {
@@ -64,7 +65,9 @@ export const useRecruitingRecommendations = (
           // Rookies get +50 priority boost within signed tier
           const rookieBoost = isRookie ? 50 : 0;
           priority = 100 + rookieBoost - (daysSinceContact || 30); // More overdue = higher priority
-          reason = isRookie ? 'Rookie check-in due' : 'Weekly check-in due';
+          reason = isRookie 
+            ? `Check in with ${firstName}—weekly rookie touch base` 
+            : `Weekly check-in with ${firstName}`;
           reasonBadge = 'signed';
         }
       }
@@ -72,26 +75,28 @@ export const useRecruitingRecommendations = (
       else if (recruit.stage === 'Evaluating') {
         if (daysSinceContact === null || daysSinceContact >= 3) {
           priority = 80 - (daysSinceContact || 20);
-          reason = 'Hot lead - follow up';
+          reason = daysSinceContact !== null 
+            ? `${firstName} is hot—${daysSinceContact}d since contact, follow up!`
+            : `${firstName} is evaluating—reach out and close!`;
           reasonBadge = 'hot-lead';
         }
       }
       // Tier 3: 100 List (never contacted)
       else if (recruit.stage === '100 List' && daysSinceContact === null) {
         priority = 40;
-        reason = 'Ready to reach out';
+        reason = `Time to reach out to ${firstName}`;
         reasonBadge = 'pipeline';
       }
       // Tier 4: Stale contacts (any stage, 14+ days)
       else if (daysSinceContact !== null && daysSinceContact >= 14) {
         priority = 20 + Math.min(daysSinceContact, 30);
-        reason = 'Needs attention';
+        reason = `${firstName} needs attention—${daysSinceContact}d since contact`;
         reasonBadge = 'stale';
       }
       // Tier 5: Overdue based on cadence
       else if (daysSinceContact !== null && daysSinceContact >= cadence) {
         priority = 30;
-        reason = `${daysSinceContact}d since contact`;
+        reason = `Follow up with ${firstName}—${daysSinceContact}d since last contact`;
         reasonBadge = 'overdue';
       }
 
