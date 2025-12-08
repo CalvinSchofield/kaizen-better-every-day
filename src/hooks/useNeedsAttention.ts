@@ -210,6 +210,10 @@ export const useNeedsAttention = (
         const ipadAssigned = repData.ipad_assigned ?? false;
         const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
 
+        // REQUIREMENT: Must have completed foundational onboarding (Slack ✅ = steps 1-3 done)
+        // This means: onboarding complete, trainings complete, and slack joined
+        if (!slackJoined) return;
+
         // Check ramp phases
         const phase1Complete = repData.ramp_phase_1_complete ?? false;
         const phase2Complete = repData.ramp_phase_2_complete ?? false;
