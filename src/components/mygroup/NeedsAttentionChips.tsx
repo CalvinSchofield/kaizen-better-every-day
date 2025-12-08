@@ -13,7 +13,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'stale-contacts': 'bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20',
   'no-commitment': 'bg-red-500/10 text-red-600 border-red-500/30 hover:bg-red-500/20',
   'hot-leads': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20',
-  'training-progress': 'bg-purple-500/10 text-purple-600 border-purple-500/30 hover:bg-purple-500/20',
+  'training-progress': 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20', // Onboarding
 };
 
 export const NeedsAttentionChips = ({ 

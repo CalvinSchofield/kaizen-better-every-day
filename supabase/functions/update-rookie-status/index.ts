@@ -16,17 +16,39 @@ Deno.serve(async (req) => {
       throw new Error("NOTION_API_KEY not configured");
     }
 
-    const { rookieNotionPageId, onboardingStatus, ipadAssigned } = await req.json();
+    const { 
+      rookieNotionPageId, 
+      onboardingStatus, 
+      ipadAssigned,
+      rampPhase1Complete,
+      rampPhase2Complete,
+      rampPhase3Complete,
+      rampPhase4Complete
+    } = await req.json();
 
     if (!rookieNotionPageId) {
       throw new Error("rookieNotionPageId is required");
     }
 
-    if (!onboardingStatus && ipadAssigned === undefined) {
-      throw new Error("At least one of onboardingStatus or ipadAssigned must be provided");
+    const hasOnboardingUpdate = onboardingStatus !== undefined;
+    const hasIpadUpdate = ipadAssigned !== undefined;
+    const hasRampPhaseUpdate = rampPhase1Complete !== undefined || 
+                               rampPhase2Complete !== undefined || 
+                               rampPhase3Complete !== undefined || 
+                               rampPhase4Complete !== undefined;
+
+    if (!hasOnboardingUpdate && !hasIpadUpdate && !hasRampPhaseUpdate) {
+      throw new Error("At least one field must be provided for update");
     }
 
-    console.log(`Updating rookie ${rookieNotionPageId}`, { onboardingStatus, ipadAssigned });
+    console.log(`Updating rookie ${rookieNotionPageId}`, { 
+      onboardingStatus, 
+      ipadAssigned,
+      rampPhase1Complete,
+      rampPhase2Complete,
+      rampPhase3Complete,
+      rampPhase4Complete
+    });
 
     // Build the properties object dynamically
     const properties: any = {};
@@ -42,6 +64,31 @@ Deno.serve(async (req) => {
     if (ipadAssigned !== undefined) {
       properties["iPad Assigned"] = {
         checkbox: ipadAssigned
+      };
+    }
+
+    // Ramp phase checkboxes - using the Notion property names
+    if (rampPhase1Complete !== undefined) {
+      properties["Ramp Phase 1 Complete"] = {
+        checkbox: rampPhase1Complete
+      };
+    }
+
+    if (rampPhase2Complete !== undefined) {
+      properties["Ramp Phase 2 Complete"] = {
+        checkbox: rampPhase2Complete
+      };
+    }
+
+    if (rampPhase3Complete !== undefined) {
+      properties["Ramp Phase 3 Complete"] = {
+        checkbox: rampPhase3Complete
+      };
+    }
+
+    if (rampPhase4Complete !== undefined) {
+      properties["Ramp Phase 4 Complete"] = {
+        checkbox: rampPhase4Complete
       };
     }
 

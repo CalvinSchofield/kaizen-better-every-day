@@ -6,19 +6,39 @@ interface UpdateRookieStatusParams {
   rookieNotionPageId: string;
   onboardingStatus?: string;
   ipadAssigned?: boolean;
+  rampPhase1Complete?: boolean;
+  rampPhase2Complete?: boolean;
+  rampPhase3Complete?: boolean;
+  rampPhase4Complete?: boolean;
 }
 
 export const useUpdateRookieStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ rookieNotionPageId, onboardingStatus, ipadAssigned }: UpdateRookieStatusParams) => {
+    mutationFn: async ({ 
+      rookieNotionPageId, 
+      onboardingStatus, 
+      ipadAssigned,
+      rampPhase1Complete,
+      rampPhase2Complete,
+      rampPhase3Complete,
+      rampPhase4Complete
+    }: UpdateRookieStatusParams) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { rookieNotionPageId, onboardingStatus, ipadAssigned },
+        body: { 
+          rookieNotionPageId, 
+          onboardingStatus, 
+          ipadAssigned,
+          rampPhase1Complete,
+          rampPhase2Complete,
+          rampPhase3Complete,
+          rampPhase4Complete
+        },
       });
 
       if (error) throw error;
