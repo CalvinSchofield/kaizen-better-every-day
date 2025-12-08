@@ -803,69 +803,99 @@ export const CalendarPlanningCard = ({
         ))}
       </div>
 
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {/* Empty cells for offset */}
-        {Array.from({ length: firstDayOffset }).map((_, i) => (
-          <div key={`empty-${i}`} className="aspect-square" />
-        ))}
-        
-        {/* Day cells */}
-        {monthDays.map((day) => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const isPlanned = isDatePlanned(dateStr);
-          const isPast = isBefore(day, today);
-          const isWorked = isDateWorked(dateStr); // Check if this is a past day where user worked
-          const isCurrentMonth = isSameMonth(day, currentMonth);
-          const isTodayDate = isSameDay(day, today);
-          const dayOfWeek = getDay(day);
-          const isSunday = dayOfWeek === 0;
-          const userSummerStart = parseLocalDate(personalSummerStart);
-          const userSummerEnd = parseLocalDate(personalSummerEnd);
-          const isAfterPersonalSummerEnd = day > userSummerEnd;
-          const isDisabled = isPast || isSunday || isAfterPersonalSummerEnd;
+      {/* Calendar Grid - Rendered by week rows for blitz range highlighting */}
+      <div className="space-y-1">
+        {(() => {
+          // Build week rows with empty cells for offset
+          const allCells: (Date | null)[] = [
+            ...Array.from({ length: firstDayOffset }, () => null),
+            ...monthDays
+          ];
           
-          // Check if this is a summer off-day (excluded)
-          const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
+          // Split into weeks (7 cells each)
+          const weeks: (Date | null)[][] = [];
+          for (let i = 0; i < allCells.length; i += 7) {
+            weeks.push(allCells.slice(i, i + 7));
+          }
           
-          // Check if this is within summer range
-          const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
-          
-          // Check if this day is part of a committed blitz
-          const isPartOfBlitz = isBlitzDay(dateStr);
+          return weeks.map((week, weekIndex) => {
+            // Find blitz range within this week row
+            const weekBlitzDays = week.map((day, idx) => {
+              if (!day) return { idx, isBlitz: false };
+              const dateStr = format(day, 'yyyy-MM-dd');
+              return { idx, isBlitz: isBlitzDay(dateStr), day };
+            });
+            
+            // Find first and last blitz day indices in this week
+            const blitzIndices = weekBlitzDays.filter(d => d.isBlitz).map(d => d.idx);
+            const hasBlitzInWeek = blitzIndices.length > 0;
+            const firstBlitzIdx = hasBlitzInWeek ? Math.min(...blitzIndices) : -1;
+            const lastBlitzIdx = hasBlitzInWeek ? Math.max(...blitzIndices) : -1;
+            
+            return (
+              <div key={weekIndex} className="grid grid-cols-7 gap-1 relative">
+                {/* Subtle connecting background for blitz range */}
+                {hasBlitzInWeek && (
+                  <div 
+                    className="absolute top-1 bottom-1 bg-sky-500/10 dark:bg-sky-400/10 rounded-lg pointer-events-none z-0"
+                    style={{
+                      left: `calc(${(firstBlitzIdx / 7) * 100}% + 2px)`,
+                      right: `calc(${((6 - lastBlitzIdx) / 7) * 100}% + 2px)`,
+                    }}
+                  />
+                )}
+                
+                {week.map((day, dayIdx) => {
+                  if (!day) {
+                    return <div key={`empty-${weekIndex}-${dayIdx}`} className="aspect-square" />;
+                  }
+                  
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const isPlanned = isDatePlanned(dateStr);
+                  const isPast = isBefore(day, today);
+                  const isWorked = isDateWorked(dateStr);
+                  const isCurrentMonth = isSameMonth(day, currentMonth);
+                  const isTodayDate = isSameDay(day, today);
+                  const dayOfWeek = getDay(day);
+                  const isSunday = dayOfWeek === 0;
+                  const userSummerStart = parseLocalDate(personalSummerStart);
+                  const userSummerEnd = parseLocalDate(personalSummerEnd);
+                  const isAfterPersonalSummerEnd = day > userSummerEnd;
+                  const isDisabled = isPast || isSunday || isAfterPersonalSummerEnd;
+                  
+                  const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
+                  const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
+                  const isPartOfBlitz = isBlitzDay(dateStr);
 
-          return (
-            <button
-              key={dateStr}
-              onClick={() => handleDayClick(day)}
-              disabled={isDisabled || isToggling}
-              className={cn(
-                "aspect-square rounded-lg text-sm font-medium transition-all",
-                "flex flex-col items-center justify-center relative",
-                (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
-                // Finalized/worked days - show with green/success style (finalized = done, regardless of date)
-                isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
-                // Future planned days (NOT worked) - show as orange/primary
-                isPlanned && !isWorked && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
-                // Past non-worked days - muted
-                isPast && !isWorked && !isSunday && !isAfterPersonalSummerEnd && "opacity-30 cursor-not-allowed",
-                // Hoverable future days (not planned, not worked)
-                !isDisabled && !isPlanned && !isWorked && !isExcludedSummerDay && "hover:bg-accent cursor-pointer",
-                // Summer off-day (excluded) = strikethrough style
-                isExcludedSummerDay && !isWorked && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
-                // Today indicator ring (only if not planned and not worked)
-                isTodayDate && !isPlanned && !isWorked && !isSunday && !isAfterPersonalSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                !isCurrentMonth && "opacity-30"
-              )}
-            >
-              <span>{format(day, 'd')}</span>
-              {/* Blitz trip indicator - small plane icon */}
-              {isPartOfBlitz && !isPast && !isSunday && (
-                <Plane className="h-2.5 w-2.5 text-sky-500 dark:text-sky-400 absolute bottom-0.5" />
-              )}
-            </button>
-          );
-        })}
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => handleDayClick(day)}
+                      disabled={isDisabled || isToggling}
+                      className={cn(
+                        "aspect-square rounded-lg text-sm font-medium transition-all relative z-10",
+                        "flex flex-col items-center justify-center",
+                        (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
+                        isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
+                        isPlanned && !isWorked && !isExcludedSummerDay && "bg-primary text-primary-foreground hover:bg-primary/90",
+                        isPast && !isWorked && !isSunday && !isAfterPersonalSummerEnd && "opacity-30 cursor-not-allowed",
+                        !isDisabled && !isPlanned && !isWorked && !isExcludedSummerDay && "hover:bg-accent cursor-pointer",
+                        isExcludedSummerDay && !isWorked && "bg-destructive/20 text-destructive line-through hover:bg-destructive/30",
+                        isTodayDate && !isPlanned && !isWorked && !isSunday && !isAfterPersonalSummerEnd && !isExcludedSummerDay && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                        !isCurrentMonth && "opacity-30"
+                      )}
+                    >
+                      <span>{format(day, 'd')}</span>
+                      {isPartOfBlitz && !isPast && !isSunday && (
+                        <Plane className="h-2.5 w-2.5 text-sky-500 dark:text-sky-400 absolute bottom-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          });
+        })()}
       </div>
 
       {/* Calendar Legend */}
