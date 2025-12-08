@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy } from "lucide-react";
+import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDrawer } from "@/components/AppDrawer";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,6 +23,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const { repData } = useRepData();
   const { isKnockingMode } = useAppMode(repData);
   const isNavVisible = useScrollDirection();
+  const { data: teamAccess } = useTeamAccess();
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
@@ -121,7 +124,16 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
 
     // KNOCKING MODE OFF (Preseason)
     if (isVetOrSoph || isPostBlitzRookie) {
-      // Vets/Sophomores & Post-blitz Rookies: HOME, TRAINING, TOOLS, GOALS
+      // Leaders: HOME, TOOLS, MY GROUP, GOALS
+      if (isLeader) {
+        return [
+          { path: "/", icon: Home, label: "Home" },
+          { path: "/tools", icon: Wrench, label: "Tools" },
+          { path: "/my-group", icon: UserPlus, label: "My Group" },
+          { path: "/goals", icon: Trophy, label: "Goals" },
+        ];
+      }
+      // Non-leaders: HOME, TRAINING, TOOLS, GOALS
       return [
         { path: "/", icon: Home, label: "Home" },
         { path: "/training", icon: BookOpen, label: "Training" },

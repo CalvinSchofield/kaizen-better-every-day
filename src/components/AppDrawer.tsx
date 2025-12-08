@@ -251,7 +251,7 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             {/* POST-BLITZ ROOKIES & VETS/SOPHS */}
             {!isCalendarLocked && (
               <>
-                {/* KNOCKING MODE OFF: Show Track, Calendar, Insights, Reports (if leader) */}
+                {/* KNOCKING MODE OFF: Show Track, Calendar, Insights, Reports (if leader), Training (for leaders since it's not in tabs) */}
                 {!isKnockingMode && (
                   <>
                     <Link
@@ -308,6 +308,23 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                           <span className="font-semibold text-sm">Reports</span>
                           <span className="text-xs text-muted-foreground truncate">
                             View team performance
+                          </span>
+                        </div>
+                      </Link>
+                    )}
+
+                    {/* Training - Show for leaders in knocking mode OFF since it's not in tabs */}
+                    {isLeader && (
+                      <Link
+                        to="/training"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <BookOpen className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="font-semibold text-sm">Training</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            Review resources
                           </span>
                         </div>
                       </Link>
@@ -419,20 +436,22 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
 
             <Separator />
 
-            {/* My Group - Available for everyone */}
-            <Link
-              to="/my-group"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
-            >
-              <UserPlus className="w-5 h-5 text-primary" />
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold text-sm">My Group</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {isLeader ? "Manage recruits" : "Suggest recruits"}
-                </span>
-              </div>
-            </Link>
+            {/* My Group - Available for everyone EXCEPT leaders when knocking mode is OFF (it's in tabs for them) */}
+            {!(isLeader && !isKnockingMode && !isCalendarLocked) && (
+              <Link
+                to="/my-group"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+              >
+                <UserPlus className="w-5 h-5 text-primary" />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold text-sm">My Group</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {isLeader ? "Manage recruits" : "Suggest recruits"}
+                  </span>
+                </div>
+              </Link>
+            )}
 
             <Separator />
             <a
