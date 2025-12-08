@@ -970,53 +970,78 @@ export const RecruitDetailDrawer = ({
       'ramp_phase_4_complete': 'Phase 4 ✅',
     };
     
-    // Update Supabase first
-    const { error } = await supabase
-      .from('reps')
-      .update({ [field]: value })
-      .eq('notion_page_id', recruit.notionPageId);
+    // Map field names to edge function param names for ramp phases
+    const fieldToEdgeFunctionParam: Record<string, string> = {
+      'ramp_phase_1_complete': 'rampPhase1Complete',
+      'ramp_phase_2_complete': 'rampPhase2Complete',
+      'ramp_phase_3_complete': 'rampPhase3Complete',
+      'ramp_phase_4_complete': 'rampPhase4Complete',
+    };
     
-    if (error) {
-      toast.error("Couldn't update - please try again");
-      setOnboardingConfirmOpen(false);
-      setPendingOnboardingStep(null);
-      return;
-    }
-    
-    // Then sync to Notion if marking as complete
-    if (value && fieldToNotionStatus[field]) {
-      try {
-        const { error: notionError } = await supabase.functions.invoke('update-rookie-status', {
-          body: {
-            rookieNotionPageId: recruit.notionPageId,
-            onboardingStatus: fieldToNotionStatus[field],
-          },
-        });
-        
-        if (notionError) {
-          console.error('Notion sync error:', notionError);
-          toast.warning('Saved locally, but Notion sync may be delayed');
-        } else {
-          console.log('Successfully synced to Notion:', fieldToNotionStatus[field]);
-        }
-      } catch (e) {
-        console.error('Notion sync exception:', e);
-      }
-    }
-    
-    toast.success(value ? 'Marked complete' : 'Marked incomplete');
-    
-    // Invalidate caches for immediate UI update
-    queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
-    queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-    
-    // Check for auto-stage progression
-    if (value && field === 'onboarding_complete') {
-      await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
-    }
+    // Optimistic update - immediately update the cache
+    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+      old ? { ...old, [field]: value } : old
+    );
     
     setOnboardingConfirmOpen(false);
     setPendingOnboardingStep(null);
+    
+    try {
+      // Update Supabase first
+      const { error } = await supabase
+        .from('reps')
+        .update({ [field]: value })
+        .eq('notion_page_id', recruit.notionPageId);
+      
+      if (error) throw error;
+      
+      // Then sync to Notion if marking as complete
+      if (value) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Build edge function body based on field type
+          const edgeBody: Record<string, any> = {
+            rookieNotionPageId: recruit.notionPageId,
+          };
+          
+          // For ramp phases, use the checkbox params
+          if (fieldToEdgeFunctionParam[field]) {
+            edgeBody[fieldToEdgeFunctionParam[field]] = value;
+          } else if (fieldToNotionStatus[field]) {
+            // For onboarding status fields
+            edgeBody.onboardingStatus = fieldToNotionStatus[field];
+          }
+          
+          const { error: notionError } = await supabase.functions.invoke('update-rookie-status', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            body: edgeBody,
+          });
+          
+          if (notionError) {
+            console.error('Notion sync error:', notionError);
+          } else {
+            console.log('Successfully synced to Notion');
+          }
+        }
+      }
+      
+      toast.success(value ? 'Marked complete' : 'Marked incomplete');
+      
+      // Invalidate caches for consistency
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      
+      // Check for auto-stage progression
+      if (value && field === 'onboarding_complete') {
+        await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+      }
+    } catch (error) {
+      // Revert on error
+      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+        old ? { ...old, [field]: !value } : old
+      );
+      toast.error("Couldn't update - please try again");
+    }
   };
 
   const getOnboardingStepDescription = (field: string, markingComplete: boolean): string => {
@@ -1151,17 +1176,40 @@ export const RecruitDetailDrawer = ({
                   <Switch
                     checked={recruitRepData.ipad_assigned ?? false}
                     onCheckedChange={async (checked) => {
-                      const { error } = await supabase
-                        .from('reps')
-                        .update({ ipad_assigned: checked })
-                        .eq('notion_page_id', recruit.notionPageId);
+                      // Optimistic update - immediately update the cache
+                      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+                        old ? { ...old, ipad_assigned: checked } : old
+                      );
                       
-                      if (error) {
-                        toast.error("Couldn't update iPad status");
-                      } else {
+                      try {
+                        // Update Supabase
+                        const { error: supabaseError } = await supabase
+                          .from('reps')
+                          .update({ ipad_assigned: checked })
+                          .eq('notion_page_id', recruit.notionPageId);
+                        
+                        if (supabaseError) throw supabaseError;
+                        
+                        // Sync to Notion via edge function
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (session) {
+                          await supabase.functions.invoke('update-rookie-status', {
+                            headers: { Authorization: `Bearer ${session.access_token}` },
+                            body: { rookieNotionPageId: recruit.notionPageId, ipadAssigned: checked },
+                          });
+                        }
+                        
                         toast.success(checked ? 'iPad assigned' : 'iPad unassigned');
-                        queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
+                        
+                        // Invalidate related queries for consistency
+                        queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
                         queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+                      } catch (error) {
+                        // Revert on error
+                        queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+                          old ? { ...old, ipad_assigned: !checked } : old
+                        );
+                        toast.error("Couldn't update iPad status");
                       }
                     }}
                   />
