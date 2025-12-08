@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, List, CalendarDays, ClipboardCheck, Sun } from "lucide-react";
+import { LayoutGrid, List, CalendarDays, Sun } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -11,11 +11,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
 import { RecruitListView } from "./RecruitListView";
 import { RecruitPlannerView } from "./RecruitPlannerView";
-import { RecruitReadinessView } from "./RecruitReadinessView";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
-type ViewMode = 'board' | 'list' | 'planner' | 'readiness' | 'availability';
+type ViewMode = 'board' | 'list' | 'planner' | 'availability';
 
 interface QuickViewDrawerProps {
   open: boolean;
@@ -26,7 +25,6 @@ interface QuickViewDrawerProps {
 
 const getDrawerTitle = (viewMode: ViewMode) => {
   switch (viewMode) {
-    case 'readiness': return 'Team Readiness';
     case 'availability': return 'Summer Availability';
     default: return 'All Recruits';
   }
@@ -64,9 +62,6 @@ export const QuickViewDrawer = ({
                 <TabsTrigger value="planner" className="px-2" title="Planner">
                   <CalendarDays className="h-4 w-4" />
                 </TabsTrigger>
-                <TabsTrigger value="readiness" className="px-2" title="Readiness">
-                  <ClipboardCheck className="h-4 w-4" />
-                </TabsTrigger>
                 <TabsTrigger value="availability" className="px-2" title="Availability">
                   <Sun className="h-4 w-4" />
                 </TabsTrigger>
@@ -82,8 +77,6 @@ export const QuickViewDrawer = ({
             <RecruitListView recruits={recruits} activities={activities} />
           ) : viewMode === 'planner' ? (
             <RecruitPlannerView recruits={recruits} activities={activities} />
-          ) : viewMode === 'readiness' ? (
-            <RecruitReadinessView />
           ) : (
             <SummerAvailabilityView />
           )}

@@ -576,16 +576,15 @@ export const useNeedsAttention = (
       let reason = '';
       let urgency: 'high' | 'medium' | 'low' = 'low';
       
+      // Determine reason - blitz commitments don't affect "on track" status, only goals do
       if (committedBlitzIds.length === 0) {
         reason = `${firstName} hasn't committed to any blitz yet`;
         urgency = 'high';
       } else if (behindCount > 0) {
         reason = `${firstName} is behind on ${behindAreas.slice(0, 2).join(' & ')}${behindAreas.length > 2 ? ` +${behindAreas.length - 2}` : ''}`;
         urgency = behindCount >= 3 ? 'high' : behindCount >= 2 ? 'medium' : 'low';
-      } else if (futureCommittedBlitzes.length > 0) {
-        reason = `${firstName} committed to ${futureCommittedBlitzes.length} blitz${futureCommittedBlitzes.length > 1 ? 'es' : ''}`;
-        urgency = 'low';
       } else {
+        // On track - not behind on any goals (preseason trips not considered for on-track status)
         reason = `${firstName} is on track`;
         urgency = 'low';
       }
