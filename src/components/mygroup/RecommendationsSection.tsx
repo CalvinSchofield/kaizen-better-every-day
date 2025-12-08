@@ -1,19 +1,13 @@
-import { Phone, MessageSquare, Calendar, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Phone, MessageSquare, Calendar, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { 
-  Drawer, 
-  DrawerContent, 
-  DrawerHeader, 
-  DrawerTitle 
-} from "@/components/ui/drawer";
-import { useLogRecruitActivity, Recruit } from "@/hooks/useGroupRecruits";
+import { Recruit } from "@/hooks/useGroupRecruits";
 import { PostContactDrawer } from "./PostContactDrawer";
-import { toast } from "sonner";
+import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
+import { SwipeableRecommendationItem } from "./SwipeableRecommendationItem";
 
 // Helper to strip emojis from names
 const stripEmojis = (text: string | null): string | null => {
@@ -40,17 +34,14 @@ export const RecommendationsSection = ({
   onRecruitClick,
   maxItems = 5 
 }: RecommendationsSectionProps) => {
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [selectedRec, setSelectedRec] = useState<RecruitRecommendation | null>(null);
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledAction, setScheduledAction] = useState('Follow up');
-  
   // Post-contact drawer state
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
-  const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
+  const [contactMethod, setContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
   
-  const logActivityMutation = useLogRecruitActivity();
+  // Schedule drawer state
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [schedulingRecruit, setSchedulingRecruit] = useState<Recruit | null>(null);
 
   if (recommendations.length === 0) {
     return null;
@@ -58,54 +49,19 @@ export const RecommendationsSection = ({
 
   const topRecommendations = recommendations.slice(0, maxItems);
 
-  const handleCall = (rec: RecruitRecommendation, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Open phone dialer
-    window.location.href = `tel:${rec.recruit.phone}`;
-    // Then show post-contact drawer
-    setContactingRecruit(rec.recruit);
+  const handleContact = (recruit: Recruit) => {
+    setContactingRecruit(recruit);
     setContactMethod('call');
     setPostContactOpen(true);
   };
 
-  const handleText = (rec: RecruitRecommendation, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Open SMS app
-    window.location.href = `sms:${rec.recruit.phone}`;
-    // Then show post-contact drawer
-    setContactingRecruit(rec.recruit);
-    setContactMethod('text');
-    setPostContactOpen(true);
+  const handleSchedule = (recruit: Recruit) => {
+    setSchedulingRecruit(recruit);
+    setScheduleOpen(true);
   };
 
   const handlePostContactComplete = () => {
     setContactingRecruit(null);
-  };
-
-  const handleSchedule = (rec: RecruitRecommendation, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedRec(rec);
-    setScheduledDate(new Date().toISOString().split('T')[0]);
-    setScheduledAction('Follow up');
-    setScheduleOpen(true);
-  };
-
-  const handleSaveSchedule = async () => {
-    if (!selectedRec || !scheduledDate) return;
-    
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: selectedRec.recruit.notionPageId,
-        activityType: 'next_step',
-        nextAction: scheduledAction,
-        nextActionDue: scheduledDate,
-      });
-      toast.success('Scheduled!');
-      setScheduleOpen(false);
-      setSelectedRec(null);
-    } catch (error) {
-      toast.error('Failed to schedule');
-    }
   };
 
   return (
@@ -115,107 +71,22 @@ export const RecommendationsSection = ({
           <Sparkles className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Recommended Today</h3>
         </div>
+        <p className="text-xs text-muted-foreground -mt-1">
+          Swipe right to contact, left to schedule
+        </p>
         
         <div className="space-y-2">
           {topRecommendations.map((rec) => (
-            <div
+            <SwipeableRecommendationItem
               key={rec.recruit.notionPageId}
-              className="bg-card rounded-lg p-3 border shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => onRecruitClick(rec.recruit)}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">
-                      {stripEmojis(rec.recruit.name)}
-                    </span>
-                    <Badge 
-                      variant="outline" 
-                      className={cn("text-xs px-1.5 py-0", BADGE_STYLES[rec.reasonBadge])}
-                    >
-                      {rec.reason}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="text-xs">
-                      {rec.recruit.stage}
-                    </Badge>
-                    {rec.daysSinceContact !== null && (
-                      <span className="text-xs text-muted-foreground">
-                        {rec.daysSinceContact}d ago
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => handleCall(rec, e)}
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => handleText(rec, e)}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => handleSchedule(rec, e)}
-                  >
-                    <Calendar className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+              recommendation={rec}
+              onRecruitClick={onRecruitClick}
+              onContact={handleContact}
+              onSchedule={handleSchedule}
+            />
           ))}
         </div>
       </div>
-
-      {/* Schedule Drawer */}
-      <Drawer open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>
-              Schedule Follow-up with {selectedRec && stripEmojis(selectedRec.recruit.name)}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4 pb-6 space-y-4">
-            <div>
-              <label className="text-sm font-medium">What to do</label>
-              <Input
-                value={scheduledAction}
-                onChange={(e) => setScheduledAction(e.target.value)}
-                placeholder="e.g., Follow up about training"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">When</label>
-              <Input
-                type="date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <Button 
-              className="w-full" 
-              onClick={handleSaveSchedule}
-              disabled={logActivityMutation.isPending}
-            >
-              {logActivityMutation.isPending ? 'Saving...' : 'Schedule'}
-            </Button>
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       {/* Post-Contact Drawer */}
       <PostContactDrawer
@@ -224,6 +95,16 @@ export const RecommendationsSection = ({
         recruit={contactingRecruit}
         contactMethod={contactMethod}
         onComplete={handlePostContactComplete}
+      />
+
+      {/* Schedule Follow-up Drawer */}
+      <ScheduleFollowUpDrawer
+        open={scheduleOpen}
+        onOpenChange={(open) => {
+          setScheduleOpen(open);
+          if (!open) setSchedulingRecruit(null);
+        }}
+        recruit={schedulingRecruit}
       />
     </>
   );

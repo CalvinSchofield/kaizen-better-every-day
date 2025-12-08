@@ -14,6 +14,7 @@ import { AttentionCategory, AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useUpdateRookieStatus } from "@/hooks/useUpdateRookieStatus";
 import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
+import { SwipeableBlitzItem } from "./SwipeableBlitzItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
@@ -770,7 +771,7 @@ export const NeedsAttentionDrawer = ({
             )}
             {isNoBlitzCategory && (
               <p className="text-xs text-muted-foreground mt-1">
-                Tap "Manage" to commit or uncommit reps from blitzes
+                Swipe right to contact, left to schedule. Tap "Manage" for blitzes.
               </p>
             )}
           </DrawerHeader>
@@ -801,13 +802,13 @@ export const NeedsAttentionDrawer = ({
 
               if (isNoBlitzCategory) {
                 return (
-                  <BlitzRecruitItem
+                  <SwipeableBlitzItem
                     key={item.recruit.notionPageId}
                     item={item}
                     onRecruitClick={onRecruitClick}
-                    onOpenChange={onOpenChange}
-                    onCall={handleCall}
-                    onText={handleText}
+                    onDrawerClose={() => onOpenChange(false)}
+                    onSchedule={(recruit) => setScheduleRecruit(recruit)}
+                    onContact={(recruit) => setContactRecruit(recruit)}
                     blitzes={blitzes}
                     repDataMap={repDataMap}
                   />

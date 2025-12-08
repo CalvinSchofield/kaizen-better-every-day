@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, UserCheck, PhoneMissed, Loader2 } from "lucide-react";
+import { UserCheck, PhoneMissed, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -17,7 +17,7 @@ interface PostContactDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
-  contactMethod: 'call' | 'text';
+  contactMethod: 'call' | 'text' | 'in_person';
   onComplete: () => void;
 }
 
@@ -46,19 +46,19 @@ export const PostContactDrawer = ({
     setIsLoading(true);
     try {
       const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
-      const actionLabel = contactMethod === 'call' ? 'Called' : 'Texted';
+      const actionLabel = contactMethod === 'call' ? 'Called' : contactMethod === 'text' ? 'Texted' : 'Met with';
       const outcomeLabel = outcome === 'connected' ? 'Connected' : 'No answer';
       
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
-        activityType: outcome === 'connected' ? 'phone_call' : 'phone_call',
+        activityType: contactMethod === 'in_person' ? 'in_person' : 'phone_call',
         notes: notes || `${actionLabel} ${firstName} - ${outcomeLabel}`,
         updateLastContact: outcome === 'connected', // Only update last contact if connected
       });
       
       toast.success(
         outcome === 'connected' 
-          ? `Great! Logged call with ${firstName}` 
+          ? `Great! Logged ${contactMethod === 'in_person' ? 'meeting' : 'call'} with ${firstName}` 
           : `Logged attempt to reach ${firstName}`
       );
       

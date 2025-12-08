@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, Loader2 } from "lucide-react";
+import { Phone, MessageSquare, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -30,7 +30,7 @@ export const ContactMethodDrawer = ({
   onOpenChange,
   recruit,
 }: ContactMethodDrawerProps) => {
-  const [contactMethod, setContactMethod] = useState<'phone_call' | 'text' | null>(null);
+  const [contactMethod, setContactMethod] = useState<'phone_call' | 'text' | 'in_person' | null>(null);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -43,8 +43,8 @@ export const ContactMethodDrawer = ({
     try {
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
-        activityType: contactMethod === 'text' ? 'phone_call' : 'phone_call', // both log as phone_call for Last Contact
-        notes: notes || `${contactMethod === 'phone_call' ? 'Phone call' : 'Text message'}`,
+        activityType: contactMethod === 'in_person' ? 'in_person' : 'phone_call',
+        notes: notes || `${contactMethod === 'phone_call' ? 'Phone call' : contactMethod === 'text' ? 'Text message' : 'Met in person'}`,
         updateLastContact: true,
       });
       toast.success(`Contact logged for ${stripEmojis(recruit.name)}`);
@@ -82,7 +82,7 @@ export const ContactMethodDrawer = ({
             <label className="text-sm font-medium mb-2 block">
               How did you contact them?
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Button
                 variant="outline"
                 className={cn(
@@ -92,7 +92,7 @@ export const ContactMethodDrawer = ({
                 onClick={() => setContactMethod('phone_call')}
               >
                 <Phone className="h-6 w-6" />
-                <span>Phone Call</span>
+                <span className="text-xs">Phone Call</span>
               </Button>
               <Button
                 variant="outline"
@@ -103,7 +103,18 @@ export const ContactMethodDrawer = ({
                 onClick={() => setContactMethod('text')}
               >
                 <MessageSquare className="h-6 w-6" />
-                <span>Text Message</span>
+                <span className="text-xs">Text</span>
+              </Button>
+              <Button
+                variant="outline"
+                className={cn(
+                  "h-20 flex-col gap-2",
+                  contactMethod === 'in_person' && "border-primary bg-primary/10"
+                )}
+                onClick={() => setContactMethod('in_person')}
+              >
+                <Users className="h-6 w-6" />
+                <span className="text-xs">In Person</span>
               </Button>
             </div>
           </div>
