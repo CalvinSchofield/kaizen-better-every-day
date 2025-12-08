@@ -87,11 +87,11 @@ export const useNeedsAttention = (
       }
     });
 
-    // Find upcoming blitzes within 21 days
+    // Find upcoming blitzes within 30 days
     const upcomingBlitzes = blitzes.filter(b => {
       const blitzDate = parseISO(b.date);
       const daysUntil = differenceInDays(blitzDate, now);
-      return daysUntil >= 0 && daysUntil <= 21;
+      return daysUntil >= 0 && daysUntil <= 30;
     });
 
     // 1. Onboarding - Signed recruits with incomplete foundational onboarding items
@@ -126,9 +126,9 @@ export const useNeedsAttention = (
         }
       });
 
-      // Now populate onboarding (exclude those going to Blitz Prep)
+      // Now populate onboarding (exclude those going to Blitz Prep, only Rookies)
       const signedRecruits = recruits.filter(r => 
-        r.stage === 'Signed' || r.stage === 'Shadow ✅'
+        (r.stage === 'Signed' || r.stage === 'Shadow ✅') && r.year === 'Rookie'
       );
 
       signedRecruits.forEach(recruit => {
@@ -229,13 +229,13 @@ export const useNeedsAttention = (
           ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
           : [];
 
-        // Find the nearest committed blitz within 21 days
+        // Find the nearest committed blitz within 30 days
         let nearestCommittedBlitz: { blitz: typeof upcomingBlitzes[0]; daysUntil: number } | null = null;
         
         for (const blitz of upcomingBlitzes) {
           if (committedBlitzIds.includes(blitz.id)) {
             const daysUntil = differenceInDays(parseISO(blitz.date), now);
-            if (daysUntil >= 0 && daysUntil <= 21) {
+            if (daysUntil >= 0 && daysUntil <= 30) {
               if (!nearestCommittedBlitz || daysUntil < nearestCommittedBlitz.daysUntil) {
                 nearestCommittedBlitz = { blitz, daysUntil };
               }
@@ -243,7 +243,7 @@ export const useNeedsAttention = (
           }
         }
 
-        // Only add if committed to upcoming blitz within 21 days
+        // Only add if committed to upcoming blitz within 30 days
         if (!nearestCommittedBlitz) return;
 
         // Get incomplete phases list (for display)
