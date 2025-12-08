@@ -63,36 +63,51 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const twoDaysAgo = new Date(today);
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    // Extend window to 7 days to catch any missed blitzes
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const currentHour = now.getHours();
 
+    console.log(`[BlitzAttendance] Checking ${allBlitzes.length} blitzes for auto-logging (enabled: ${enabled})`);
+    console.log(`[BlitzAttendance] Already processed: ${[...processedBlitzesRef.current].join(', ') || 'none'}`);
+
     const blitzesToLog = allBlitzes.filter(blitz => {
-      if (processedBlitzesRef.current.has(blitz.id)) return false;
+      if (processedBlitzesRef.current.has(blitz.id)) {
+        console.log(`[BlitzAttendance] Skipping ${blitz.name} - already processed`);
+        return false;
+      }
       
-      const endDate = new Date(blitz.endDate || blitz.date);
+      const endDateStr = blitz.endDate || blitz.date;
+      const endDate = new Date(endDateStr);
       endDate.setHours(0, 0, 0, 0);
       
-      // Blitz ended in past 2 days - always eligible
-      if (endDate >= twoDaysAgo && endDate < today) {
+      console.log(`[BlitzAttendance] Checking ${blitz.name}: endDate=${endDateStr}, parsed=${endDate.toISOString()}, today=${today.toISOString()}`);
+      
+      // Blitz ended in past 7 days - always eligible
+      if (endDate >= sevenDaysAgo && endDate < today) {
+        console.log(`[BlitzAttendance] ${blitz.name} eligible - ended within last 7 days`);
         return true;
       }
       
       // Blitz ends TODAY and it's after 6 PM - eligible
       if (endDate.getTime() === today.getTime() && currentHour >= 18) {
+        console.log(`[BlitzAttendance] ${blitz.name} eligible - ends today and it's after 6 PM`);
         return true;
       }
       
+      console.log(`[BlitzAttendance] ${blitz.name} not eligible - future blitz or too old`);
       return false;
     });
 
     if (blitzesToLog.length > 0) {
-      console.log(`Found ${blitzesToLog.length} blitzes to log attendance for`);
+      console.log(`[BlitzAttendance] Found ${blitzesToLog.length} blitzes to log attendance for:`, blitzesToLog.map(b => b.name));
       
       // Process each one
       blitzesToLog.forEach(async (blitz) => {
+        console.log(`[BlitzAttendance] Calling edge function for ${blitz.name}...`);
         const result = await logBlitzAttendance(blitz);
+        console.log(`[BlitzAttendance] Result for ${blitz.name}:`, result);
         if (result.success) {
           toast({
             title: "Blitz Attendance Logged",
@@ -100,6 +115,8 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
           });
         }
       });
+    } else {
+      console.log(`[BlitzAttendance] No blitzes need attendance logging`);
     }
   }, [allBlitzes, enabled, logBlitzAttendance, toast]);
 
