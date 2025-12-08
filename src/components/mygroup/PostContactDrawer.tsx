@@ -17,8 +17,9 @@ interface PostContactDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
-  contactMethod: 'call' | 'text' | 'in_person';
-  onComplete: () => void;
+  contactMethod?: 'call' | 'text' | 'in_person';
+  defaultMethod?: 'call' | 'text' | 'in_person';
+  onComplete?: () => void;
 }
 
 // Strip emojis from name
@@ -32,8 +33,11 @@ export const PostContactDrawer = ({
   onOpenChange,
   recruit,
   contactMethod,
+  defaultMethod,
   onComplete,
 }: PostContactDrawerProps) => {
+  // Use contactMethod if provided, otherwise use defaultMethod
+  const method = contactMethod || defaultMethod || 'call';
   const [outcome, setOutcome] = useState<'connected' | 'no_answer' | null>(null);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,19 +50,19 @@ export const PostContactDrawer = ({
     setIsLoading(true);
     try {
       const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
-      const actionLabel = contactMethod === 'call' ? 'Called' : contactMethod === 'text' ? 'Texted' : 'Met with';
+      const actionLabel = method === 'call' ? 'Called' : method === 'text' ? 'Texted' : 'Met with';
       const outcomeLabel = outcome === 'connected' ? 'Connected' : 'No answer';
       
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
-        activityType: contactMethod === 'in_person' ? 'in_person' : 'phone_call',
+        activityType: method === 'in_person' ? 'in_person' : 'phone_call',
         notes: notes || `${actionLabel} ${firstName} - ${outcomeLabel}`,
         updateLastContact: outcome === 'connected', // Only update last contact if connected
       });
       
       toast.success(
         outcome === 'connected' 
-          ? `Great! Logged ${contactMethod === 'in_person' ? 'meeting' : 'call'} with ${firstName}` 
+          ? `Great! Logged ${method === 'in_person' ? 'meeting' : 'call'} with ${firstName}` 
           : `Logged attempt to reach ${firstName}`
       );
       
@@ -66,7 +70,7 @@ export const PostContactDrawer = ({
       setOutcome(null);
       setNotes('');
       onOpenChange(false);
-      onComplete();
+      onComplete?.();
     } catch (error) {
       console.error('Failed to log contact:', error);
       toast.error('Failed to log contact');
