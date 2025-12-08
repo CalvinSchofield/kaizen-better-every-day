@@ -1,9 +1,8 @@
-import { Phone, ChevronRight, Sparkles, Check } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
-import { useLogRecruitActivity, Recruit } from "@/hooks/useGroupRecruits";
-import { toast } from "sonner";
+import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 
 interface TodaysFocusHeroProps {
@@ -11,7 +10,9 @@ interface TodaysFocusHeroProps {
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
   onViewAll: () => void;
-  onDismiss?: (recruitNotionId: string) => void;
+  onCallClick?: (recruit: Recruit) => void;
+  onTextClick?: (recruit: Recruit) => void;
+  animatingOut?: boolean;
 }
 
 // Strip emojis from name
@@ -25,31 +26,25 @@ export const TodaysFocusHero = ({
   totalNeedsAttention,
   onRecruitClick,
   onViewAll,
-  onDismiss
+  onCallClick,
+  onTextClick,
+  animatingOut = false
 }: TodaysFocusHeroProps) => {
-  const logActivityMutation = useLogRecruitActivity();
 
-  const handleCall = async () => {
+  const handleCall = () => {
     if (!topPriority) return;
-    
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: topPriority.recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
+    // Open phone dialer
     window.location.href = `tel:${topPriority.recruit.phone}`;
+    // Trigger post-call drawer
+    onCallClick?.(topPriority.recruit);
   };
 
-  const handleDismiss = () => {
-    if (!topPriority || !onDismiss) return;
-    onDismiss(topPriority.recruit.notionPageId);
-    toast.success(`${stripEmojis(topPriority.recruit.name)?.split(' ')[0]} marked as done for today`);
+  const handleText = () => {
+    if (!topPriority) return;
+    // Open SMS
+    window.location.href = `sms:${topPriority.recruit.phone}`;
+    // Trigger post-text drawer
+    onTextClick?.(topPriority.recruit);
   };
 
   if (!topPriority) {
@@ -75,11 +70,14 @@ export const TodaysFocusHero = ({
     low: 'border-green-500/30 bg-green-500/5',
   };
 
+  const firstName = stripEmojis(topPriority.recruit.name)?.split(' ')[0];
+
   return (
     <div 
       className={cn(
-        "rounded-2xl p-5 border-2 transition-all",
-        urgencyColors[topPriority.urgency]
+        "rounded-2xl p-5 border-2 transition-all duration-300",
+        urgencyColors[topPriority.urgency],
+        animatingOut && "animate-fade-out opacity-0 scale-95"
       )}
     >
       <div className="flex items-center justify-between mb-4">
@@ -136,19 +134,18 @@ export const TodaysFocusHero = ({
           disabled={!topPriority.recruit.phone}
         >
           <Phone className="h-4 w-4" />
-          Call {stripEmojis(topPriority.recruit.name)?.split(' ')[0]}
+          Call {firstName}
         </Button>
-        {onDismiss && (
-          <Button 
-            variant="outline"
-            size="lg"
-            onClick={handleDismiss}
-            className="gap-2"
-          >
-            <Check className="h-4 w-4" />
-            Done
-          </Button>
-        )}
+        <Button 
+          variant="outline"
+          size="lg"
+          onClick={handleText}
+          disabled={!topPriority.recruit.phone}
+          className="gap-2"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Text
+        </Button>
       </div>
     </div>
   );
