@@ -9,7 +9,10 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepsWithSaleCount } from "@/hooks/useRepsWithSaleCount";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 
 interface CommitmentItem {
   key: string;
@@ -29,6 +32,26 @@ export const PreseasonStandardsCard = () => {
   const { count: repsWithSaleCount } = useRepsWithSaleCount();
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Fetch user's personal summer start date
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-pace'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data } = await supabase
+        .from('season_config')
+        .select('personal_summer_start')
+        .eq('user_id', user.id)
+        .single();
+      
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const personalSummerStart = seasonConfig?.personal_summer_start;
+
   // Don't show if no goals access or goals not set up
   if (!hasGoalsAccess || isLoading) return null;
   if (!goals?.setup_complete) return null;
@@ -39,8 +62,8 @@ export const PreseasonStandardsCard = () => {
       key: "training",
       label: "Training",
       icon: <Timer className="h-4 w-4" />,
-      current: Math.round((goals.training_hours_progress || 0) / 60), // Convert minutes to hours
-      goal: goals.training_hours_goal || 0,
+      current: goals.training_hours_progress || 0, // Keep in minutes for pace calc
+      goal: (goals.training_hours_goal || 0) * 60, // Convert goal hours to minutes
       unit: "hrs/wk",
       weeklyReset: true,
     },
@@ -83,30 +106,28 @@ export const PreseasonStandardsCard = () => {
 
   if (commitments.length === 0) return null;
 
-  // Calculate which commitments are behind pace
-  const getBehindStatus = (current: number, goal: number): "ahead" | "on-track" | "behind" => {
-    if (goal === 0) return "on-track";
-    const progress = current / goal;
-    
-    // For preseason, calculate based on time elapsed
-    // April 12, 2026 is summer start
-    const summerStart = new Date("2026-04-12");
-    const preseasonStart = new Date("2025-09-28");
-    const now = new Date();
-    
-    const totalDays = (summerStart.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24);
-    const elapsedDays = Math.max(0, (now.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24));
-    const expectedProgress = elapsedDays / totalDays;
-    
-    if (progress >= 1) return "ahead";
-    if (progress >= expectedProgress * 0.9) return "on-track";
-    return "behind";
+  // Use the new pace calculator
+  const getPaceStatus = (commitment: CommitmentItem): PaceStatus => {
+    return getCommitmentPaceStatus(
+      commitment.key,
+      commitment.current,
+      commitment.goal,
+      personalSummerStart
+    );
   };
 
-  const behindCount = commitments.filter(c => getBehindStatus(c.current, c.goal) === "behind").length;
+  const behindCount = commitments.filter(c => getPaceStatus(c) === "behind").length;
 
   // Show condensed view (first 3 items) or expanded view
   const visibleCommitments = isExpanded ? commitments : commitments.slice(0, 3);
+
+  // Helper to format display values (convert minutes back to hours for training)
+  const getDisplayValue = (commitment: CommitmentItem, value: number): string => {
+    if (commitment.key === "training") {
+      return Math.round(value / 60).toString();
+    }
+    return value.toString();
+  };
 
   return (
     <Card 
@@ -125,8 +146,10 @@ export const PreseasonStandardsCard = () => {
       </CardHeader>
       <CardContent className="space-y-3">
         {visibleCommitments.map((commitment) => {
-          const status = getBehindStatus(commitment.current, commitment.goal);
+          const status = getPaceStatus(commitment);
           const progress = commitment.goal > 0 ? (commitment.current / commitment.goal) * 100 : 0;
+          const displayCurrent = getDisplayValue(commitment, commitment.current);
+          const displayGoal = getDisplayValue(commitment, commitment.goal);
           
           return (
             <div key={commitment.key} className="space-y-1">
@@ -150,7 +173,7 @@ export const PreseasonStandardsCard = () => {
                   status === "ahead" && "text-green-600 dark:text-green-400",
                   status === "behind" && "text-destructive"
                 )}>
-                  {commitment.current}/{commitment.goal}
+                  {displayCurrent}/{displayGoal}
                   {commitment.unit && <span className="text-xs text-muted-foreground ml-0.5">{commitment.unit}</span>}
                 </span>
               </div>

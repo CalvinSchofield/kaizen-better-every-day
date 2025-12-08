@@ -19,6 +19,7 @@ import {
 import { useAllRepGoals, RepGoals } from "@/hooks/useRepGoals";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 
 type SortOption = "year" | "behind" | "name";
 
@@ -44,7 +45,7 @@ interface CommitmentStatus {
   label: string;
   current: number;
   goal: number;
-  status: "ahead" | "on-track" | "behind" | "no-goal";
+  status: PaceStatus;
   unit?: string;
 }
 
@@ -74,35 +75,20 @@ const getDisplayName = (name: string, allNames: string[]): string => {
   return firstName;
 };
 
-// Calculate pace status for a commitment
-const getBehindStatus = (current: number, goal: number, asOfDate?: Date): "ahead" | "on-track" | "behind" | "no-goal" => {
-  if (goal === 0) return "no-goal";
-  const progress = current / goal;
-  
-  // Calculate based on time elapsed in preseason
-  const summerStart = new Date("2026-04-12");
-  const preseasonStart = new Date("2025-09-28");
-  // Use provided date (e.g., yesterday) or default to today
-  const referenceDate = asOfDate || new Date();
-  
-  const totalDays = (summerStart.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24);
-  const elapsedDays = Math.max(0, (referenceDate.getTime() - preseasonStart.getTime()) / (1000 * 60 * 60 * 24));
-  const expectedProgress = elapsedDays / totalDays;
-  
-  if (progress >= 1) return "ahead";
-  if (progress >= expectedProgress * 0.9) return "on-track";
-  return "behind";
-};
-
 // Get commitment statuses for a rep - always use FP+ for reports
-const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number): CommitmentStatus[] => {
+// Now accepts personalSummerStart per user
+const getCommitmentStatuses = (
+  goals: RepGoals, 
+  preseasonFP: number,
+  personalSummerStart: string | null | undefined
+): CommitmentStatus[] => {
   return [
     {
       key: "training",
       label: "Training",
-      current: Math.round((goals.training_hours_progress || 0) / 60),
-      goal: goals.training_hours_goal || 0,
-      status: getBehindStatus(Math.round((goals.training_hours_progress || 0) / 60), goals.training_hours_goal || 0),
+      current: goals.training_hours_progress || 0, // Keep in minutes
+      goal: (goals.training_hours_goal || 0) * 60, // Convert hours to minutes for calc
+      status: getCommitmentPaceStatus("training", goals.training_hours_progress || 0, (goals.training_hours_goal || 0) * 60, personalSummerStart),
       unit: "hrs/wk",
     },
     {
@@ -110,37 +96,48 @@ const getCommitmentStatuses = (goals: RepGoals, preseasonFP: number): Commitment
       label: "Books",
       current: goals.books_progress || 0,
       goal: goals.books_goal || 0,
-      status: getBehindStatus(goals.books_progress || 0, goals.books_goal || 0),
+      status: getCommitmentPaceStatus("books", goals.books_progress || 0, goals.books_goal || 0, personalSummerStart),
     },
     {
       key: "roleplays",
       label: "Role Plays",
       current: goals.role_plays_progress || 0,
       goal: goals.role_plays_goal || 0,
-      status: getBehindStatus(goals.role_plays_progress || 0, goals.role_plays_goal || 0),
+      status: getCommitmentPaceStatus("roleplays", goals.role_plays_progress || 0, goals.role_plays_goal || 0, personalSummerStart),
     },
     {
       key: "mnl",
       label: "MNL",
       current: goals.monday_night_lights_progress || 0,
       goal: goals.monday_night_lights_goal || 0,
-      status: getBehindStatus(goals.monday_night_lights_progress || 0, goals.monday_night_lights_goal || 0),
+      status: getCommitmentPaceStatus("mnl", goals.monday_night_lights_progress || 0, goals.monday_night_lights_goal || 0, personalSummerStart),
     },
     {
       key: "fp",
       label: "FP+",
       current: preseasonFP,
       goal: goals.preseason_fp_goal || 0,
-      status: getBehindStatus(preseasonFP, goals.preseason_fp_goal || 0),
+      status: getCommitmentPaceStatus("fp", preseasonFP, goals.preseason_fp_goal || 0, personalSummerStart),
     },
     {
       key: "recruits",
       label: "Recruits",
       current: goals.recruits_with_sale_progress || 0,
       goal: goals.recruits_with_sale_goal || 0,
-      status: getBehindStatus(goals.recruits_with_sale_progress || 0, goals.recruits_with_sale_goal || 0),
+      status: getCommitmentPaceStatus("recruits", goals.recruits_with_sale_progress || 0, goals.recruits_with_sale_goal || 0, personalSummerStart),
     },
   ].filter(c => c.goal > 0);
+};
+
+// Helper to format display values (training is in minutes, display as hours)
+const formatCommitmentValue = (key: string, value: number): string | number => {
+  if (key === 'training') {
+    return Math.round(value / 60);
+  }
+  if (key === 'fp') {
+    return Math.round(value * 10) / 10;
+  }
+  return value;
 };
 
 // Generate SMS message based on behind commitments
@@ -226,6 +223,33 @@ export const LeaderPreseasonStandardsCard = ({
   
   const { data: fpByUser } = useAllPreseasonFP(userIds);
 
+  // Fetch summer configs for all accessible users
+  const { data: summerConfigByUser } = useQuery({
+    queryKey: ['all-summer-configs', userIds.sort().join(',')],
+    queryFn: async () => {
+      if (userIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('user_id, personal_summer_start')
+        .in('user_id', userIds);
+      
+      if (error) {
+        console.error('Error fetching summer configs:', error);
+        return {};
+      }
+      
+      const configByUser: Record<string, string | null> = {};
+      data?.forEach(config => {
+        configByUser[config.user_id] = config.personal_summer_start;
+      });
+      
+      return configByUser;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: userIds.length > 0,
+  });
+
   // Build rep data with goals and status
   const repsWithGoals = useMemo(() => {
     if (!allGoals) return [];
@@ -237,6 +261,7 @@ export const LeaderPreseasonStandardsCard = ({
       .map(rep => {
         const goals = allGoals.find(g => g.user_id === rep.userId);
         const preseasonFP = fpByUser?.[rep.userId] || 0;
+        const personalSummerStart = summerConfigByUser?.[rep.userId] || null;
         
         if (!goals || !goals.setup_complete) {
           return {
@@ -249,7 +274,7 @@ export const LeaderPreseasonStandardsCard = ({
           };
         }
         
-        const commitments = getCommitmentStatuses(goals, preseasonFP);
+        const commitments = getCommitmentStatuses(goals, preseasonFP, personalSummerStart);
         const behindCount = commitments.filter(c => c.status === "behind").length;
         
         return {
@@ -261,7 +286,7 @@ export const LeaderPreseasonStandardsCard = ({
           hasGoals: true,
         };
       });
-  }, [accessibleReps, allGoals, fpByUser, excludeUserIds]);
+  }, [accessibleReps, allGoals, fpByUser, summerConfigByUser, excludeUserIds]);
 
   // Determine if we should show grouping (MGMT or Area Director level)
   const showGrouping = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead';
@@ -716,7 +741,7 @@ const RepCard = ({
             >
               <div className="font-medium truncate">{c.label}</div>
               <div className="text-[10px] opacity-80">
-                {c.key === 'fp' ? Math.round(c.current * 10) / 10 : c.current}/{c.goal}
+                {formatCommitmentValue(c.key, c.current)}/{formatCommitmentValue(c.key, c.goal)}
               </div>
             </div>
           ))}
@@ -744,7 +769,7 @@ const RepCard = ({
                     c.status === "behind" && "text-destructive",
                     c.status === "ahead" && "text-green-600 dark:text-green-400"
                   )}>
-                    {c.key === 'fp' ? Math.round(c.current * 10) / 10 : c.current}/{c.goal}
+                    {formatCommitmentValue(c.key, c.current)}/{formatCommitmentValue(c.key, c.goal)}
                     {c.unit && <span className="text-muted-foreground ml-0.5">{c.unit}</span>}
                   </span>
                 </div>
