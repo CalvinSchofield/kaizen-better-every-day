@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle, Plane, CalendarDays } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle, Plane, CalendarDays, Sparkles, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays, isAfter } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -22,10 +22,12 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { useRepData } from "@/hooks/useRepData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { CalendarIcon, Check } from "lucide-react";
+import { CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 // Define season boundaries
+// October 2025 is the earliest visible month (season start)
+const EARLIEST_VISIBLE_MONTH = new Date(2025, 9, 1); // October 2025
 const PRESEASON_START = '2025-09-28';
 const PRESEASON_END = '2026-04-11';
 const SUMMER_START = '2026-04-12';
@@ -99,6 +101,7 @@ export const CalendarPlanningCard = ({
   const [showBlitzDrawer, setShowBlitzDrawer] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [dismissedTakeOffDayWarning, setDismissedTakeOffDayWarning] = useState(false);
+  const [blitzCommitPrompt, setBlitzCommitPrompt] = useState<{ blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null } } | null>(null);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { 
@@ -149,12 +152,12 @@ export const CalendarPlanningCard = ({
     return hasDoors || !!hasWorkSession || hasResults;
   };
 
-  // Query to get actual days worked (finalized entries with real activity)
+  // Query to get actual days worked (finalized entries with real activity) AND FP+ data
   const { data: workedDaysData, refetch: refetchWorkedDays } = useQuery({
     queryKey: ['worked-days-data', repData?.user_id, personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
+      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>(), fpByDate: new Map<string, number>() };
 
       // Get all finalized entries with activity fields
       const { data: entries, error } = await supabase
@@ -165,7 +168,7 @@ export const CalendarPlanningCard = ({
 
       if (error) {
         console.error('Error fetching worked days:', error);
-        return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>() };
+        return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>(), fpByDate: new Map<string, number>() };
       }
 
       console.log('Fetched worked days entries:', entries?.length, 'for user:', user.id);
@@ -178,12 +181,18 @@ export const CalendarPlanningCard = ({
       let preseasonCount = 0;
       let summerCount = 0;
       const workedDates = new Set<string>();
+      const fpByDate = new Map<string, number>(); // Store FP+ by date
 
       // Count entries that are "worked days" per the memory definition
       entries?.forEach(entry => {
         if (!isWorkedDay(entry)) return; // Skip non-worked days
         
         workedDates.add(entry.entry_date);
+        
+        // Store FP+ (or calculate EFP from PRMR)
+        const fpValue = entry.fp_plus || 0;
+        const prmrValue = entry.prmr || 0;
+        fpByDate.set(entry.entry_date, isEfpMode ? prmrValue / 85 : fpValue);
         
         const date = parseLocalDate(entry.entry_date);
         if (date >= preseasonStart && date <= preseasonEnd) {
@@ -195,7 +204,7 @@ export const CalendarPlanningCard = ({
 
       console.log('Worked dates set:', Array.from(workedDates));
 
-      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates };
+      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates, fpByDate };
     },
     staleTime: 0, // Always refetch - important for accurate calendar display
     enabled: !!repData?.user_id,
@@ -208,7 +217,9 @@ export const CalendarPlanningCard = ({
   } : undefined;
   
   const workedDatesSet = workedDaysData?.workedDates || new Set<string>();
+  const fpByDateMap = workedDaysData?.fpByDate || new Map<string, number>();
   const isDateWorked = (dateStr: string) => workedDatesSet.has(dateStr);
+  const getFpForDate = (dateStr: string): number | undefined => fpByDateMap.get(dateStr);
 
   const today = getLocalToday();
   const isViewingToday = isSameMonth(currentMonth, today);
@@ -527,7 +538,7 @@ export const CalendarPlanningCard = ({
   const hasAnyFutureBlitzes = allFutureBlitzes.length > 0;
 
   // Check if a date is part of a committed blitz
-  const getBlitzForDate = (dateStr: string): CommittedBlitz | undefined => {
+  const getCommittedBlitzForDate = (dateStr: string): CommittedBlitz | undefined => {
     const date = parseLocalDate(dateStr);
     return committedBlitzes.find(blitz => {
       const start = parseLocalDate(blitz.date);
@@ -536,7 +547,29 @@ export const CalendarPlanningCard = ({
     });
   };
 
-  const isBlitzDay = (dateStr: string): boolean => !!getBlitzForDate(dateStr);
+  const isCommittedBlitzDay = (dateStr: string): boolean => !!getCommittedBlitzForDate(dateStr);
+
+  // Check if a date is part of ANY blitz (committed or not)
+  const getAnyBlitzForDate = (dateStr: string): typeof allBlitzes[0] | undefined => {
+    const date = parseLocalDate(dateStr);
+    return allBlitzes.find(blitz => {
+      const start = parseLocalDate(blitz.date);
+      const end = blitz.endDate ? parseLocalDate(blitz.endDate) : start;
+      return date >= start && date <= end;
+    });
+  };
+
+  const isAnyBlitzDay = (dateStr: string): boolean => !!getAnyBlitzForDate(dateStr);
+  
+  // Check if a date is an UNCOMMITTED blitz day (blitz day user hasn't committed to)
+  const getUncommittedBlitzForDate = (dateStr: string): typeof allBlitzes[0] | undefined => {
+    const anyBlitz = getAnyBlitzForDate(dateStr);
+    if (!anyBlitz) return undefined;
+    const isCommitted = committedBlitzes.some(c => c.id === anyBlitz.id);
+    return isCommitted ? undefined : anyBlitz;
+  };
+  
+  const isUncommittedBlitzDay = (dateStr: string): boolean => !!getUncommittedBlitzForDate(dateStr);
 
   const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
     if (!repData?.id || !repData?.user_id) return;
@@ -708,7 +741,33 @@ export const CalendarPlanningCard = ({
         addSummerOffDay(dateStr);
         // Also remove from planned days if planned
         if (isCurrentlyPlanned) {
-          await togglePlannedDay(dateStr);
+    // Check if this day is part of an uncommitted blitz
+    // If user is marking 2+ days in that blitz range as planned, prompt to commit
+    const uncommittedBlitz = getUncommittedBlitzForDate(dateStr);
+    if (uncommittedBlitz && !isCurrentlyPlanned) {
+      // Count how many days the user has already marked within this blitz range
+      const blitzStart = parseLocalDate(uncommittedBlitz.date);
+      const blitzEnd = uncommittedBlitz.endDate ? parseLocalDate(uncommittedBlitz.endDate) : blitzStart;
+      
+      let markedDaysInBlitz = 0;
+      const allPlanned = plannedDays?.map(d => d.planned_date) || [];
+      for (const pd of allPlanned) {
+        const pDate = parseLocalDate(pd);
+        if (pDate >= blitzStart && pDate <= blitzEnd && getDay(pDate) !== 0) {
+          markedDaysInBlitz++;
+        }
+      }
+      
+      // If this would make 2+ days marked in the blitz week, show prompt
+      if (markedDaysInBlitz >= 1) {
+        setBlitzCommitPrompt({ blitz: uncommittedBlitz });
+        // Still toggle the day immediately
+        await togglePlannedDay(dateStr);
+        return;
+      }
+    }
+    
+    await togglePlannedDay(dateStr);
         }
       }
       return;
@@ -762,13 +821,14 @@ export const CalendarPlanningCard = ({
 
   return (
     <div className="space-y-3">
-      {/* Period Navigation */}
+      {/* Period Navigation - Limit to October 2025 and later */}
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8"
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          disabled={isBefore(startOfMonth(subMonths(currentMonth, 1)), EARLIEST_VISIBLE_MONTH)}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -819,25 +879,45 @@ export const CalendarPlanningCard = ({
           }
           
           return weeks.map((week, weekIndex) => {
-            // Find blitz range within this week row
+            // Find blitz range within this week row (show ALL blitzes, not just committed)
             const weekBlitzDays = week.map((day, idx) => {
-              if (!day) return { idx, isBlitz: false };
+              if (!day) return { idx, isBlitz: false, isCommitted: false, isSunday: false, blitz: null };
               const dateStr = format(day, 'yyyy-MM-dd');
-              return { idx, isBlitz: isBlitzDay(dateStr), day };
+              const isSunday = getDay(day) === 0;
+              const anyBlitz = getAnyBlitzForDate(dateStr);
+              const isCommitted = isCommittedBlitzDay(dateStr);
+              return { idx, isBlitz: !!anyBlitz, isCommitted, isSunday, blitz: anyBlitz, day };
             });
             
             // Find first and last blitz day indices in this week
-            const blitzIndices = weekBlitzDays.filter(d => d.isBlitz).map(d => d.idx);
-            const hasBlitzInWeek = blitzIndices.length > 0;
-            const firstBlitzIdx = hasBlitzInWeek ? Math.min(...blitzIndices) : -1;
-            const lastBlitzIdx = hasBlitzInWeek ? Math.max(...blitzIndices) : -1;
+            // BUT only include a Sunday if there are non-Sunday blitz days in the same week row
+            const nonSundayBlitzDays = weekBlitzDays.filter(d => d.isBlitz && !d.isSunday);
+            const hasNonSundayBlitzDays = nonSundayBlitzDays.length > 0;
+            
+            // If only Sundays are blitz days (no working days in this row), don't show the highlight
+            const blitzIndicesToShow = hasNonSundayBlitzDays 
+              ? weekBlitzDays.filter(d => d.isBlitz).map(d => d.idx)
+              : [];
+            
+            const hasBlitzInWeek = blitzIndicesToShow.length > 0;
+            const firstBlitzIdx = hasBlitzInWeek ? Math.min(...blitzIndicesToShow) : -1;
+            const lastBlitzIdx = hasBlitzInWeek ? Math.max(...blitzIndicesToShow) : -1;
+            
+            // Check if any blitz day in this week is committed vs uncommitted
+            const hasCommittedBlitz = weekBlitzDays.some(d => d.isBlitz && d.isCommitted);
+            const hasUncommittedBlitz = weekBlitzDays.some(d => d.isBlitz && !d.isCommitted);
             
             return (
               <div key={weekIndex} className="grid grid-cols-7 gap-1 relative">
                 {/* Subtle connecting background for blitz range */}
                 {hasBlitzInWeek && (
                   <div 
-                    className="absolute top-1 bottom-1 bg-sky-500/10 dark:bg-sky-400/10 rounded-lg pointer-events-none z-0"
+                    className={cn(
+                      "absolute top-1 bottom-1 rounded-lg pointer-events-none z-0",
+                      hasCommittedBlitz && !hasUncommittedBlitz && "bg-sky-500/10 dark:bg-sky-400/10",
+                      hasUncommittedBlitz && !hasCommittedBlitz && "bg-amber-500/10 dark:bg-amber-400/10 border border-dashed border-amber-500/30",
+                      hasCommittedBlitz && hasUncommittedBlitz && "bg-gradient-to-r from-sky-500/10 to-amber-500/10"
+                    )}
                     style={{
                       left: `calc(${(firstBlitzIdx / 7) * 100}% + 2px)`,
                       right: `calc(${((6 - lastBlitzIdx) / 7) * 100}% + 2px)`,
@@ -854,6 +934,7 @@ export const CalendarPlanningCard = ({
                   const isPlanned = isDatePlanned(dateStr);
                   const isPast = isBefore(day, today);
                   const isWorked = isDateWorked(dateStr);
+                  const fpValue = getFpForDate(dateStr);
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isTodayDate = isSameDay(day, today);
                   const dayOfWeek = getDay(day);
@@ -865,7 +946,8 @@ export const CalendarPlanningCard = ({
                   
                   const isExcludedSummerDay = excludedSummerDays.includes(dateStr);
                   const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
-                  const isPartOfBlitz = isBlitzDay(dateStr);
+                  const isPartOfCommittedBlitz = isCommittedBlitzDay(dateStr);
+                  const isPartOfUncommittedBlitz = isUncommittedBlitzDay(dateStr);
 
                   return (
                     <button
@@ -886,8 +968,19 @@ export const CalendarPlanningCard = ({
                       )}
                     >
                       <span>{format(day, 'd')}</span>
-                      {isPartOfBlitz && !isPast && !isSunday && (
+                      {/* Show FP+/EFP on past worked days */}
+                      {isWorked && isPast && fpValue !== undefined && fpValue > 0 && (
+                        <span className="text-[8px] font-bold text-emerald-700 dark:text-emerald-300 absolute bottom-0">
+                          {Math.floor(fpValue) === fpValue ? fpValue : fpValue.toFixed(1)}
+                        </span>
+                      )}
+                      {/* Committed blitz indicator */}
+                      {isPartOfCommittedBlitz && !isPast && !isSunday && (
                         <Plane className="h-2.5 w-2.5 text-sky-500 dark:text-sky-400 absolute bottom-0.5" />
+                      )}
+                      {/* Uncommitted blitz indicator - different style */}
+                      {isPartOfUncommittedBlitz && !isPast && !isSunday && (
+                        <MapPin className="h-2.5 w-2.5 text-amber-500 dark:text-amber-400 absolute bottom-0.5" />
                       )}
                     </button>
                   );
@@ -911,7 +1004,13 @@ export const CalendarPlanningCard = ({
         {committedBlitzes.length > 0 && (
           <span className="flex items-center gap-1.5">
             <Plane className="h-3 w-3 text-sky-500" />
-            Blitz Trip
+            Your Blitz
+          </span>
+        )}
+        {futureAvailableBlitzes.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 text-amber-500" />
+            Available Blitz
           </span>
         )}
       </div>
@@ -996,16 +1095,25 @@ export const CalendarPlanningCard = ({
                   </div>
                 )}
                 
-                {/* Main focus: What you need today */}
-                <div className="flex justify-between items-center pt-2 border-t border-border/30">
-                  <span className="text-sm font-medium">Need Today</span>
-                  <span className={cn(
-                    "text-lg font-bold",
-                    preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-primary"
-                  )}>
-                    {preseasonStats.neededDaily} {metricLabel}
-                  </span>
-                </div>
+                {/* Main focus: What you need today or daily - based on whether today is a planned day */}
+                {(() => {
+                  const todayStr = format(today, 'yyyy-MM-dd');
+                  const isTodayPlanned = isDatePlanned(todayStr);
+                  
+                  return (
+                    <div className="flex justify-between items-center pt-2 border-t border-border/30">
+                      <span className="text-sm font-medium">
+                        {isTodayPlanned ? 'Need Today' : 'Need Daily'}
+                      </span>
+                      <span className={cn(
+                        "text-lg font-bold",
+                        preseasonStats.onPace ? "text-green-600 dark:text-green-400" : "text-primary"
+                      )}>
+                        {preseasonStats.neededDaily} {metricLabel}
+                      </span>
+                    </div>
+                  );
+                })()}
                 
                 {/* Progress bar */}
                 {parseFloat(preseasonStats.goalTotal) > 0 && (
@@ -1055,12 +1163,37 @@ export const CalendarPlanningCard = ({
                   Includes unfunded sales (installed but cancelled). Never-installed sales should be deleted.
                 </p>
                 
-                {/* Catch-up message when behind pace */}
-                {!preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0 && (
-                  <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-md">
-                    You need to sell an extra <span className="font-semibold">{preseasonStats.extraPerWeek} {metricLabel}/week</span> to get back on pace
-                  </div>
-                )}
+                {/* Catch-up or encouragement message based on whether working today */}
+                {(() => {
+                  const todayStr = format(today, 'yyyy-MM-dd');
+                  const isTodayPlanned = isDatePlanned(todayStr);
+                  
+                  // If not working today, show encouraging prep message instead of catch-up pressure
+                  if (!isTodayPlanned && !preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0) {
+                    return (
+                      <div className="text-xs bg-primary/10 p-3 rounded-md space-y-1">
+                        <div className="flex items-center gap-2 text-primary font-medium">
+                          <Sparkles className="h-3 w-3" />
+                          Rest Day Prep
+                        </div>
+                        <p className="text-muted-foreground">
+                          Use today to prepare—review your pitch, study competitors, or practice. Good prep makes each selling day more productive!
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  // If working today and behind pace, show the catch-up message
+                  if (isTodayPlanned && !preseasonStats.onPace && parseFloat(preseasonStats.extraPerWeek) > 0) {
+                    return (
+                      <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-md">
+                        You need to sell an extra <span className="font-semibold">{preseasonStats.extraPerWeek} {metricLabel}/week</span> to get back on pace
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
                 
                 {/* Edit mode - goal inputs */}
                 {isEditingPreseasonGoal && (
@@ -1578,6 +1711,56 @@ export const CalendarPlanningCard = ({
               size="lg"
             >
               Done
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Blitz Commitment Prompt - appears when user marks 2+ days in an uncommitted blitz week */}
+      <Drawer open={!!blitzCommitPrompt} onOpenChange={(open) => !open && setBlitzCommitPrompt(null)}>
+        <DrawerContent className="max-h-[70vh]">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle className="flex items-center justify-center gap-2">
+              <MapPin className="h-5 w-5 text-amber-500" />
+              Attending {blitzCommitPrompt?.blitz.name}?
+            </DrawerTitle>
+            <DrawerDescription>
+              You're marking multiple days during this blitz trip. Would you like to commit?
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <div className="px-4 pb-6 space-y-3">
+            {blitzCommitPrompt?.blitz && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+                <p className="font-medium">{blitzCommitPrompt.blitz.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(blitzCommitPrompt.blitz.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {blitzCommitPrompt.blitz.endDate && ` - ${new Date(blitzCommitPrompt.blitz.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  {blitzCommitPrompt.blitz.location && ` · ${blitzCommitPrompt.blitz.location}`}
+                </p>
+              </div>
+            )}
+
+            <Button
+              className="w-full gap-2"
+              onClick={async () => {
+                if (blitzCommitPrompt?.blitz) {
+                  await handleCommitToBlitz(blitzCommitPrompt.blitz);
+                  setBlitzCommitPrompt(null);
+                }
+              }}
+              disabled={isCommitting === blitzCommitPrompt?.blitz.id}
+            >
+              <Plane className="h-4 w-4" />
+              {isCommitting === blitzCommitPrompt?.blitz.id ? "Committing..." : "Yes, I'm Going!"}
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setBlitzCommitPrompt(null)}
+            >
+              No, Just Knocking Elsewhere
             </Button>
           </div>
         </DrawerContent>
