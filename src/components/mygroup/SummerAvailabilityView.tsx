@@ -5,8 +5,12 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sun, AlertCircle, Calendar, MessageSquare, CalendarOff } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Sun, AlertCircle, Calendar, MessageSquare, CalendarOff, 
+  Users, Clock, Plane, ChevronRight 
+} from "lucide-react";
+import { format, differenceInDays, isAfter, isBefore, parseISO, isWithinInterval, addDays } from "date-fns";
 import { toast } from "sonner";
 
 // Default summer dates
@@ -18,6 +22,8 @@ const parseLocalDate = (dateString: string): Date => {
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day);
 };
+
+type ViewFilter = 'all' | 'missing' | 'ready' | 'off';
 
 interface PersonSummerInfo {
   userId: string;
@@ -31,7 +37,15 @@ interface PersonSummerInfo {
 }
 
 export const SummerAvailabilityView = () => {
+  const [filter, setFilter] = useState<ViewFilter>('all');
   const { data: teamAccess, isLoading: teamAccessLoading } = useTeamAccess();
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  
+  // Check if we're in summer season
+  const summerStartDate = parseLocalDate(DEFAULT_SUMMER_START);
+  const summerEndDate = parseLocalDate(DEFAULT_SUMMER_END);
+  const isSummerActive = isAfter(today, summerStartDate) && isBefore(today, summerEndDate);
 
   // Get current user's data
   const { data: currentUserData } = useQuery({
@@ -110,25 +124,81 @@ export const SummerAvailabilityView = () => {
       });
     });
 
-    // Sort: missing dates first, then by start date
-    return list.sort((a, b) => {
+    return list;
+  }, [currentUserData, teamData, teamAccess]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const missingDates = people.filter(p => !p.personalSummerStart || !p.personalSummerEnd);
+    const hasDatesPeople = people.filter(p => p.personalSummerStart && p.personalSummerEnd);
+    const earlyStarters = hasDatesPeople.filter(p => p.personalSummerStart! < DEFAULT_SUMMER_START);
+    
+    // People off today (during summer)
+    const offToday = hasDatesPeople.filter(p => {
+      // Check if today is within their summer range
+      const start = p.personalSummerStart!;
+      const end = p.personalSummerEnd!;
+      if (todayStr < start || todayStr > end) return true; // Outside their summer = off
+      return p.excludedSummerDays.includes(todayStr);
+    });
+
+    // Upcoming off days in next 7 days
+    const upcomingOffDays = hasDatesPeople.reduce((acc, p) => {
+      const upcoming = p.excludedSummerDays.filter(d => {
+        const dayDate = parseLocalDate(d);
+        return isAfter(dayDate, today) && isBefore(dayDate, addDays(today, 7));
+      });
+      return acc + upcoming.length;
+    }, 0);
+
+    return {
+      total: people.length,
+      missing: missingDates.length,
+      ready: hasDatesPeople.length,
+      earlyStarters: earlyStarters.length,
+      offToday: offToday.length,
+      upcomingOffDays,
+    };
+  }, [people, todayStr, today]);
+
+  // Filter people
+  const filteredPeople = useMemo(() => {
+    let filtered = [...people];
+    
+    switch (filter) {
+      case 'missing':
+        filtered = filtered.filter(p => !p.personalSummerStart || !p.personalSummerEnd);
+        break;
+      case 'ready':
+        filtered = filtered.filter(p => p.personalSummerStart && p.personalSummerEnd);
+        break;
+      case 'off':
+        filtered = filtered.filter(p => {
+          if (!p.personalSummerStart || !p.personalSummerEnd) return false;
+          // Off today or has off days scheduled
+          if (todayStr < p.personalSummerStart || todayStr > p.personalSummerEnd) return true;
+          return p.excludedSummerDays.length > 0;
+        });
+        break;
+    }
+
+    // Sort: missing dates first, then by start date (earliest first)
+    return filtered.sort((a, b) => {
       const aMissing = !a.personalSummerStart || !a.personalSummerEnd;
       const bMissing = !b.personalSummerStart || !b.personalSummerEnd;
       if (aMissing && !bMissing) return -1;
       if (!aMissing && bMissing) return 1;
-      return (a.personalSummerStart || '').localeCompare(b.personalSummerStart || '');
+      return (a.personalSummerStart || '9999').localeCompare(b.personalSummerStart || '9999');
     });
-  }, [currentUserData, teamData, teamAccess]);
+  }, [people, filter, todayStr]);
 
   const isLoading = teamAccessLoading || teamLoading;
-
-  // Stats
-  const missingCount = people.filter(p => !p.personalSummerStart || !p.personalSummerEnd).length;
-  const earlyStarters = people.filter(p => p.personalSummerStart && p.personalSummerStart < DEFAULT_SUMMER_START).length;
 
   if (isLoading) {
     return (
       <div className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-10 w-full rounded-lg" />
         {[1, 2, 3].map(i => (
           <Skeleton key={i} className="h-20 w-full rounded-xl" />
         ))}
@@ -146,100 +216,269 @@ export const SummerAvailabilityView = () => {
 
   return (
     <div className="space-y-4">
-      {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-muted/30 rounded-lg p-2">
-          <div className="text-lg font-bold text-foreground">{people.length}</div>
-          <div className="text-[10px] text-muted-foreground leading-tight">Total</div>
-        </div>
-        <div className={`rounded-lg p-2 ${missingCount > 0 ? 'bg-destructive/10' : 'bg-success/10'}`}>
-          <div className={`text-lg font-bold ${missingCount > 0 ? 'text-destructive' : 'text-success'}`}>
-            {missingCount}
+      {/* Hero summary */}
+      <div className="bg-gradient-to-br from-warning/20 to-warning/5 border border-warning/20 rounded-2xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-10 w-10 rounded-full bg-warning/20 flex items-center justify-center">
+            <Sun className="h-5 w-5 text-warning" />
           </div>
-          <div className="text-[10px] text-muted-foreground leading-tight">Missing Dates</div>
+          <div>
+            <h3 className="font-semibold text-foreground">Summer 2026</h3>
+            <p className="text-xs text-muted-foreground">
+              {format(summerStartDate, 'MMM d')} – {format(summerEndDate, 'MMM d')}
+            </p>
+          </div>
         </div>
-        <div className="bg-primary/10 rounded-lg p-2">
-          <div className="text-lg font-bold text-primary">{earlyStarters}</div>
-          <div className="text-[10px] text-muted-foreground leading-tight">Early Start</div>
+        
+        {/* Quick stats row */}
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={() => setFilter('all')}
+            className={`rounded-xl p-2.5 text-center transition-all ${
+              filter === 'all' 
+                ? 'bg-background shadow-sm ring-1 ring-border' 
+                : 'bg-background/50 hover:bg-background/80'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-lg font-bold text-foreground">{stats.total}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Team</div>
+          </button>
+          
+          <button
+            onClick={() => setFilter('missing')}
+            className={`rounded-xl p-2.5 text-center transition-all ${
+              filter === 'missing'
+                ? 'bg-destructive/10 shadow-sm ring-1 ring-destructive/30'
+                : stats.missing > 0 
+                  ? 'bg-destructive/5 hover:bg-destructive/10' 
+                  : 'bg-background/50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <AlertCircle className={`h-3.5 w-3.5 ${stats.missing > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+              <span className={`text-lg font-bold ${stats.missing > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                {stats.missing}
+              </span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">No Dates</div>
+          </button>
+          
+          <button
+            onClick={() => setFilter('off')}
+            className={`rounded-xl p-2.5 text-center transition-all ${
+              filter === 'off'
+                ? 'bg-primary/10 shadow-sm ring-1 ring-primary/30'
+                : 'bg-background/50 hover:bg-background/80'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <CalendarOff className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-lg font-bold text-foreground">{stats.upcomingOffDays}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">Off Days</div>
+          </button>
         </div>
       </div>
 
+      {/* Filter indicator */}
+      {filter !== 'all' && (
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs text-muted-foreground">
+            Showing {filteredPeople.length} {filter === 'missing' ? 'without dates' : filter === 'off' ? 'with time off' : 'ready'}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 text-xs px-2"
+            onClick={() => setFilter('all')}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
+
       {/* People list */}
       <div className="space-y-2">
-        {people.map(person => (
-          <PersonSummerCard key={person.userId} person={person} />
+        {filteredPeople.map(person => (
+          <PersonSummerCard key={person.userId} person={person} todayStr={todayStr} />
         ))}
       </div>
+
+      {filteredPeople.length === 0 && (
+        <div className="text-center py-6 text-muted-foreground text-sm">
+          No one matches this filter
+        </div>
+      )}
     </div>
   );
 };
 
 interface PersonSummerCardProps {
   person: PersonSummerInfo;
+  todayStr: string;
 }
 
-const PersonSummerCard = ({ person }: PersonSummerCardProps) => {
+const PersonSummerCard = ({ person, todayStr }: PersonSummerCardProps) => {
   const hasDates = person.personalSummerStart && person.personalSummerEnd;
   const offDaysCount = person.excludedSummerDays.length;
 
-  // Calculate working days
-  const workingDays = useMemo(() => {
-    if (!hasDates) return null;
+  // Calculate working days and status
+  const { workingDays, status, daysUntilStart, isOffToday, nextOffDay } = useMemo(() => {
+    if (!hasDates) {
+      return { workingDays: null, status: 'missing', daysUntilStart: null, isOffToday: false, nextOffDay: null };
+    }
+    
     const start = parseLocalDate(person.personalSummerStart!);
     const end = parseLocalDate(person.personalSummerEnd!);
+    const today = parseLocalDate(todayStr);
     const totalDays = differenceInDays(end, start) + 1;
     // Rough estimate excluding Sundays (1/7 of days)
     const workDays = Math.round(totalDays * (6/7)) - offDaysCount;
-    return Math.max(0, workDays);
-  }, [person, hasDates, offDaysCount]);
+    
+    // Days until they start
+    const daysUntil = differenceInDays(start, today);
+    
+    // Check if off today
+    const offToday = todayStr < person.personalSummerStart! || 
+                     todayStr > person.personalSummerEnd! ||
+                     person.excludedSummerDays.includes(todayStr);
+    
+    // Find next off day
+    const sortedOffDays = [...person.excludedSummerDays].sort();
+    const nextOff = sortedOffDays.find(d => d > todayStr);
+    
+    let statusVal: 'not-started' | 'active' | 'ended' | 'missing' = 'not-started';
+    if (todayStr >= person.personalSummerStart! && todayStr <= person.personalSummerEnd!) {
+      statusVal = 'active';
+    } else if (todayStr > person.personalSummerEnd!) {
+      statusVal = 'ended';
+    }
+    
+    return { 
+      workingDays: Math.max(0, workDays), 
+      status: statusVal, 
+      daysUntilStart: daysUntil,
+      isOffToday: offToday,
+      nextOffDay: nextOff,
+    };
+  }, [person, hasDates, offDaysCount, todayStr]);
 
   const handleText = () => {
     if (person.phone) {
-      window.open(`sms:${person.phone}`, '_blank');
+      const message = !hasDates 
+        ? "Hey! Can you set your summer dates in the app when you get a chance?"
+        : "";
+      window.open(`sms:${person.phone}${message ? `?body=${encodeURIComponent(message)}` : ''}`, '_blank');
     } else {
       toast.error('No phone number available');
     }
   };
 
+  // Format the date range display
+  const getDateDisplay = () => {
+    if (!hasDates) return null;
+    
+    const startFormatted = format(parseLocalDate(person.personalSummerStart!), 'MMM d');
+    const endFormatted = format(parseLocalDate(person.personalSummerEnd!), 'MMM d');
+    
+    return `${startFormatted} – ${endFormatted}`;
+  };
+
+  // Get status badge
+  const getStatusBadge = () => {
+    if (!hasDates) {
+      return (
+        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+          Needs dates
+        </Badge>
+      );
+    }
+    
+    if (isOffToday && status === 'active') {
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-warning text-warning">
+          Off today
+        </Badge>
+      );
+    }
+    
+    if (daysUntilStart !== null && daysUntilStart > 0) {
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+          Starts in {daysUntilStart}d
+        </Badge>
+      );
+    }
+    
+    if (status === 'active') {
+      return (
+        <Badge className="text-[10px] px-1.5 py-0 bg-success/20 text-success border-0">
+          Active
+        </Badge>
+      );
+    }
+    
+    return null;
+  };
+
   return (
-    <div className={`bg-card border rounded-xl p-3 ${
-      hasDates ? 'border-border' : 'border-destructive/30 bg-destructive/5'
+    <div className={`bg-card border rounded-xl p-3 transition-all ${
+      !hasDates 
+        ? 'border-destructive/30 bg-destructive/5' 
+        : isOffToday 
+          ? 'border-warning/30 bg-warning/5'
+          : 'border-border'
     }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          {/* Name row */}
-          <div className="flex items-center gap-2 mb-1.5">
-            <Sun className={`h-4 w-4 ${hasDates ? 'text-warning' : 'text-destructive'}`} />
+          {/* Name row with badges */}
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <span className="font-medium text-sm truncate">{person.name}</span>
             {person.isSelf && (
-              <Badge variant="secondary" className="text-xs">You</Badge>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">You</Badge>
             )}
             {person.year && (
-              <Badge variant="outline" className="text-xs">{person.year}</Badge>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">{person.year}</Badge>
             )}
+            {getStatusBadge()}
           </div>
 
-          {/* Dates row */}
+          {/* Dates and details row */}
           {hasDates ? (
-            <div className="flex items-center gap-3 text-xs text-muted-foreground ml-6">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {format(parseLocalDate(person.personalSummerStart!), 'MMM d')} – {format(parseLocalDate(person.personalSummerEnd!), 'MMM d')}
+                <span>{getDateDisplay()}</span>
               </div>
+              
               {offDaysCount > 0 && (
                 <div className="flex items-center gap-1 text-warning">
                   <CalendarOff className="h-3 w-3" />
-                  {offDaysCount} off
+                  <span>{offDaysCount} day{offDaysCount !== 1 ? 's' : ''} off</span>
                 </div>
               )}
+              
               {workingDays !== null && (
-                <span className="text-muted-foreground/70">~{workingDays} work days</span>
+                <span className="text-muted-foreground/70">
+                  ~{workingDays} work days
+                </span>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-xs text-destructive ml-6">
+            <p className="text-xs text-destructive flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
-              Missing summer dates
+              No summer dates set yet
+            </p>
+          )}
+
+          {/* Upcoming off days preview */}
+          {hasDates && offDaysCount > 0 && nextOffDay && (
+            <div className="mt-2 text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-2 py-1 inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Next off: {format(parseLocalDate(nextOffDay), 'MMM d')}
             </div>
           )}
         </div>
@@ -249,7 +488,7 @@ const PersonSummerCard = ({ person }: PersonSummerCardProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-2"
+            className="h-8 w-8 p-0 shrink-0"
             onClick={handleText}
           >
             <MessageSquare className="h-4 w-4" />
