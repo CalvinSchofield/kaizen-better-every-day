@@ -320,11 +320,14 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
               <h3 className="font-semibold text-lg">
                 Monday Night Lights — {(() => {
                   const now = new Date();
-                  const mstOffset = -7 * 60;
-                  const localOffset = now.getTimezoneOffset();
-                  const mstTime = new Date(now.getTime() + (localOffset - mstOffset) * 60000);
-                  const hours = mstTime.getHours();
-                  return hours >= 17 ? "Happening Now!" : "This Evening!";
+                  const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+                  const hour = mstTime.getHours();
+                  const minutes = mstTime.getMinutes();
+                  const totalMinutes = hour * 60 + minutes;
+                  // MNL starts at 6pm MST (1080 minutes), "Happening Now" = within 1 hour of start (5pm+)
+                  const mnlStartMinutes = 18 * 60; // 6pm = 1080 minutes
+                  const isWithinOneHourOfStart = totalMinutes >= mnlStartMinutes - 60; // 5pm or later
+                  return isWithinOneHourOfStart ? "Happening Now!" : "Later Today";
                 })()}
               </h3>
             </div>
