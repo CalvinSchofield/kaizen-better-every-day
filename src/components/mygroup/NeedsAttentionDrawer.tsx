@@ -7,7 +7,8 @@ import {
   Drawer, 
   DrawerContent, 
   DrawerHeader, 
-  DrawerTitle 
+  DrawerTitle,
+  DrawerFooter
 } from "@/components/ui/drawer";
 import { AttentionCategory, AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
@@ -34,6 +35,88 @@ const URGENCY_STYLES = {
   low: 'border-l-green-500',
 };
 
+const ONBOARDING_PHASES = [
+  { value: 'Phase 1 ✅', label: 'Phase 1', description: 'Onboard & Get Ready' },
+  { value: 'Phase 2 ✅', label: 'Phase 2', description: 'Start Training' },
+  { value: 'Phase 3 ✅', label: 'Phase 3', description: 'Practice' },
+  { value: 'Phase 4 ✅', label: 'Phase 4', description: 'Saddle Up' },
+];
+
+// Phase update confirmation drawer
+const PhaseConfirmationDrawer = ({
+  open,
+  onOpenChange,
+  recruitName,
+  currentPhase,
+  targetPhase,
+  onConfirm,
+  isLoading
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  recruitName: string;
+  currentPhase: string | null;
+  targetPhase: typeof ONBOARDING_PHASES[0] | null;
+  onConfirm: () => void;
+  isLoading: boolean;
+}) => (
+  <Drawer open={open} onOpenChange={onOpenChange}>
+    <DrawerContent>
+      <DrawerHeader className="border-b">
+        <DrawerTitle>Confirm Phase Update</DrawerTitle>
+      </DrawerHeader>
+      <div className="p-4 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Update <span className="font-medium text-foreground">{recruitName}</span>'s 
+          onboarding status to:
+        </p>
+        
+        {targetPhase && (
+          <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              <span className="font-medium">{targetPhase.label}</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {targetPhase.description}
+            </p>
+          </div>
+        )}
+        
+        {currentPhase && (
+          <p className="text-xs text-muted-foreground">
+            Current status: {currentPhase}
+          </p>
+        )}
+      </div>
+      <DrawerFooter className="border-t">
+        <Button 
+          onClick={onConfirm} 
+          disabled={isLoading}
+          className="w-full"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            'Confirm Update'
+          )}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => onOpenChange(false)}
+          disabled={isLoading}
+          className="w-full"
+        >
+          Cancel
+        </Button>
+      </DrawerFooter>
+    </DrawerContent>
+  </Drawer>
+);
+
 // Training progress item component
 const TrainingProgressItem = ({ 
   item,
@@ -46,6 +129,8 @@ const TrainingProgressItem = ({
 }) => {
   const updateStatusMutation = useUpdateRookieStatus();
   const [updatingField, setUpdatingField] = useState<string | null>(null);
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
+  const [selectedPhase, setSelectedPhase] = useState<typeof ONBOARDING_PHASES[0] | null>(null);
 
   const progress = item.trainingProgress;
   if (!progress) return null;
@@ -65,6 +150,32 @@ const TrainingProgressItem = ({
       setUpdatingField(null);
     }
   };
+
+  const handlePhaseClick = (phase: typeof ONBOARDING_PHASES[0]) => {
+    setSelectedPhase(phase);
+    setConfirmDrawerOpen(true);
+  };
+
+  const handlePhaseConfirm = async () => {
+    if (!selectedPhase) return;
+    
+    setUpdatingField('phase');
+    try {
+      await updateStatusMutation.mutateAsync({
+        rookieNotionPageId: item.recruit.notionPageId,
+        onboardingStatus: selectedPhase.value,
+      });
+      toast.success(`Updated to ${selectedPhase.label}`);
+      setConfirmDrawerOpen(false);
+    } finally {
+      setUpdatingField(null);
+    }
+  };
+
+  // Determine current phase index
+  const currentPhaseIndex = ONBOARDING_PHASES.findIndex(
+    p => item.onboardingStatus?.includes(p.label.replace('Phase ', ''))
+  );
 
   const progressItems = [
     { 
@@ -98,79 +209,119 @@ const TrainingProgressItem = ({
   ];
 
   return (
-    <div
-      className={cn(
-        "bg-card rounded-lg p-4 border border-l-4 shadow-sm",
-        URGENCY_STYLES[item.urgency]
-      )}
-    >
-      {/* Header - clickable to open detail */}
-      <div 
-        className="flex items-start justify-between gap-3 cursor-pointer"
-        onClick={() => {
-          onRecruitClick(item.recruit);
-          onOpenChange(false);
-        }}
+    <>
+      <div
+        className={cn(
+          "bg-card rounded-lg p-4 border border-l-4 shadow-sm",
+          URGENCY_STYLES[item.urgency]
+        )}
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-medium">
-              {stripEmojis(item.recruit.name)}
-            </span>
-            <Badge variant="outline" className="text-xs">
-              {item.recruit.stage}
-            </Badge>
+        {/* Header - clickable to open detail */}
+        <div 
+          className="flex items-start justify-between gap-3 cursor-pointer"
+          onClick={() => {
+            onRecruitClick(item.recruit);
+            onOpenChange(false);
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium">
+                {stripEmojis(item.recruit.name)}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {item.recruit.stage}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {item.onboardingStatus || 'Not started'}
+            </p>
+            {item.daysUntilBlitz && (
+              <Badge variant="secondary" className="mt-1 text-xs">
+                Blitz in {item.daysUntilBlitz}d
+              </Badge>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {item.onboardingStatus || 'Not started'}
-          </p>
-          {item.daysUntilBlitz && (
-            <Badge variant="secondary" className="mt-1 text-xs">
-              Blitz in {item.daysUntilBlitz}d
-            </Badge>
-          )}
+          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
+
+        {/* Phase buttons */}
+        <div className="mt-4 pt-3 border-t border-border/50">
+          <p className="text-xs text-muted-foreground mb-2">Update Phase:</p>
+          <div className="flex flex-wrap gap-2">
+            {ONBOARDING_PHASES.map((phase, idx) => {
+              const isCompleted = idx < currentPhaseIndex;
+              const isCurrent = idx === currentPhaseIndex;
+              
+              return (
+                <Button
+                  key={phase.value}
+                  variant={isCurrent ? "default" : isCompleted ? "secondary" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "text-xs",
+                    isCompleted && "opacity-60"
+                  )}
+                  onClick={() => handlePhaseClick(phase)}
+                  disabled={updatingField === 'phase'}
+                >
+                  {isCompleted && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                  {phase.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Progress checklist */}
+        <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
+          {progressItems.map(({ key, label, value, icon: Icon, editable }) => (
+            <div 
+              key={key}
+              className={cn(
+                "flex items-center justify-between p-2 rounded-lg",
+                value ? "bg-green-500/10" : "bg-muted/50"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                {value ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Circle className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className={cn(
+                  "text-sm",
+                  value ? "text-green-600" : "text-muted-foreground"
+                )}>
+                  {label}
+                </span>
+              </div>
+              {editable && (
+                updatingField === key ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Switch
+                    checked={value}
+                    onCheckedChange={() => handleToggle(key, value)}
+                    className="scale-75"
+                  />
+                )
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Progress checklist */}
-      <div className="mt-4 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
-        {progressItems.map(({ key, label, value, icon: Icon, editable }) => (
-          <div 
-            key={key}
-            className={cn(
-              "flex items-center justify-between p-2 rounded-lg",
-              value ? "bg-green-500/10" : "bg-muted/50"
-            )}
-          >
-            <div className="flex items-center gap-2">
-              {value ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={cn(
-                "text-sm",
-                value ? "text-green-600" : "text-muted-foreground"
-              )}>
-                {label}
-              </span>
-            </div>
-            {editable && (
-              updatingField === key ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <Switch
-                  checked={value}
-                  onCheckedChange={() => handleToggle(key, value)}
-                  className="scale-75"
-                />
-              )
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+      <PhaseConfirmationDrawer
+        open={confirmDrawerOpen}
+        onOpenChange={setConfirmDrawerOpen}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        currentPhase={item.onboardingStatus}
+        targetPhase={selectedPhase}
+        onConfirm={handlePhaseConfirm}
+        isLoading={updatingField === 'phase'}
+      />
+    </>
   );
 };
 
