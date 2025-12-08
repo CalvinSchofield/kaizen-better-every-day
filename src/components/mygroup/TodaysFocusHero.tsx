@@ -88,7 +88,7 @@ export const TodaysFocusHero = ({
             className="text-xs text-muted-foreground"
             onClick={onViewAll}
           >
-            +{totalNeedsAttention - 1} more
+            View all
             <ChevronRight className="h-3 w-3 ml-1" />
           </Button>
         )}
