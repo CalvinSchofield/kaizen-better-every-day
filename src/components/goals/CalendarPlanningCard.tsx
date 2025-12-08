@@ -526,7 +526,7 @@ export const CalendarPlanningCard = ({
   const hasAnyFutureBlitzes = allFutureBlitzes.length > 0;
 
   const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
-    if (!repData?.id) return;
+    if (!repData?.id || !repData?.user_id) return;
     setIsCommitting(blitz.id);
     
     try {
@@ -540,8 +540,8 @@ export const CalendarPlanningCard = ({
       
       const updatedCommitments = [...committedBlitzes, newCommitment];
       
-      // Optimistically update the cache immediately
-      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+      // Optimistically update the cache immediately - use the correct query key with userId
+      queryClient.setQueryData(['rep-data', repData.user_id], (old: typeof repData) => {
         if (!old) return old;
         return { ...old, committed_blitzes: updatedCommitments };
       });
@@ -559,7 +559,7 @@ export const CalendarPlanningCard = ({
     } catch (error) {
       console.error('Error committing to blitz:', error);
       // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['rep-data', repData.user_id] });
       toast.error("Failed to commit to blitz");
     } finally {
       setIsCommitting(null);
@@ -567,14 +567,14 @@ export const CalendarPlanningCard = ({
   };
 
   const handleUncommitFromBlitz = async (blitzId: string) => {
-    if (!repData?.id) return;
+    if (!repData?.id || !repData?.user_id) return;
     setIsCommitting(blitzId);
     
     try {
       const updatedCommitments = committedBlitzes.filter(b => b.id !== blitzId);
       
-      // Optimistically update the cache immediately
-      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+      // Optimistically update the cache immediately - use the correct query key with userId
+      queryClient.setQueryData(['rep-data', repData.user_id], (old: typeof repData) => {
         if (!old) return old;
         return { ...old, committed_blitzes: updatedCommitments };
       });
@@ -592,7 +592,7 @@ export const CalendarPlanningCard = ({
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);
       // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['rep-data', repData.user_id] });
       toast.error("Failed to uncommit");
     } finally {
       setIsCommitting(null);
