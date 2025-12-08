@@ -380,7 +380,7 @@ export const useNeedsAttention = (
       });
     }
 
-    // 4. No Blitz History - Signed/Shadow/Sold reps with NO blitzes (past or future)
+    // 4. No Blitz History - Signed/Shadow/Sold reps with NO blitzes at all (never attended any)
     const noBlitzRecruits: AttentionRecruit[] = [];
     
     // Include all signed, shadow, and sold stages
@@ -391,18 +391,33 @@ export const useNeedsAttention = (
       r.stage === 'Sold (5+) 💰'
     );
 
-    // Get all blitz IDs (past and future)
-    const allBlitzIds = new Set(blitzes.map(b => b.id));
+    // Build a set of past blitz IDs (blitzes that have already ended)
+    const pastBlitzIds = new Set(
+      blitzes
+        .filter(b => {
+          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
+          return endDate < now;
+        })
+        .map(b => b.id)
+    );
 
     blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
-      const committedBlitzes = repData?.committed_blitzes as string[] | null;
+      const rawCommitments = repData?.committed_blitzes || [];
+      const committedBlitzIds: string[] = Array.isArray(rawCommitments)
+        ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+        : [];
       
-      // Check if they have ANY blitz commitment (past or future)
-      const hasAnyBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
+      // Check if they have attended ANY past blitz
+      const hasAttendedPastBlitz = committedBlitzIds.some(id => pastBlitzIds.has(id));
       
-      // Only add if they have ZERO blitz history
-      if (!hasAnyBlitzCommitment) {
+      // Only show if they have NEVER attended any blitz
+      if (hasAttendedPastBlitz) return;
+      
+      // Also skip if they have no blitz commitments at all OR only have future blitzes
+      const hasAnyCommitment = committedBlitzIds.length > 0;
+      
+      if (!hasAnyCommitment) {
         const firstName = recruit.name?.split(' ')[0] || 'Recruit';
         noBlitzRecruits.push({
           recruit,
