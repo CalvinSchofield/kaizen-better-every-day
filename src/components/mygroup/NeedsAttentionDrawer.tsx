@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail, Calendar } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail, Calendar, Clock, Theater, Moon, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { 
   Drawer, 
   DrawerContent, 
@@ -705,6 +706,190 @@ const DefaultRecruitItem = ({
   </div>
 );
 
+// Readiness Item Component - shows rookie's preseason progress and blitz commitments
+const ReadinessItem = ({
+  item,
+  onRecruitClick,
+  onOpenChange,
+  blitzes,
+  repDataMap
+}: {
+  item: AttentionRecruit;
+  onRecruitClick: (recruit: Recruit) => void;
+  onOpenChange: (open: boolean) => void;
+  blitzes: BlitzEvent[];
+  repDataMap?: Map<string, any>;
+}) => {
+  const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
+  
+  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const rawCommitments = repData?.committed_blitzes || [];
+  const currentCommitments: string[] = Array.isArray(rawCommitments)
+    ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+    : [];
+
+  const readiness = item.readinessProgress;
+  const blitzInfo = item.blitzCommitments;
+  
+  const getProgressStatus = (goal: number, progress: number) => {
+    if (goal === 0) return 'no-goal';
+    const pct = (progress / goal) * 100;
+    if (pct >= 100) return 'complete';
+    if (pct >= 70) return 'on-track';
+    return 'behind';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'complete': return 'text-green-600';
+      case 'on-track': return 'text-green-500';
+      case 'behind': return 'text-amber-500';
+      default: return 'text-muted-foreground';
+    }
+  };
+
+  const trainingStatus = getProgressStatus(readiness?.trainingHoursGoal || 0, readiness?.trainingHoursProgress || 0);
+  const booksStatus = getProgressStatus(readiness?.booksGoal || 0, readiness?.booksProgress || 0);
+  const rolePlaysStatus = getProgressStatus(readiness?.rolePlaysGoal || 0, readiness?.rolePlaysProgress || 0);
+  const mnlStatus = getProgressStatus(readiness?.mnlGoal || 0, readiness?.mnlProgress || 0);
+
+  const handleText = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.recruit.phone) {
+      window.location.href = `sms:${item.recruit.phone}`;
+    } else {
+      toast.error('No phone number available');
+    }
+  };
+
+  return (
+    <>
+      <div className={cn(
+        "bg-card rounded-lg p-4 border border-l-4 shadow-sm",
+        URGENCY_STYLES[item.urgency]
+      )}>
+        {/* Header */}
+        <div 
+          className="flex items-start justify-between gap-3 cursor-pointer"
+          onClick={() => {
+            onRecruitClick(item.recruit);
+            onOpenChange(false);
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium">{stripEmojis(item.recruit.name)}</span>
+              <Badge variant="outline" className="text-xs">{item.recruit.stage}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">{item.reason}</p>
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            {item.recruit.phone && (
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleText}>
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground mt-2" />
+          </div>
+        </div>
+
+        {/* Progress Grid */}
+        {readiness && (
+          <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
+            {/* Training */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+              <Clock className={cn("h-4 w-4", getStatusColor(trainingStatus))} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Training</span>
+                  <span className={cn("font-medium", getStatusColor(trainingStatus))}>
+                    {readiness.trainingHoursGoal > 0 ? `${readiness.trainingHoursProgress}/${readiness.trainingHoursGoal}` : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Books */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+              <BookOpen className={cn("h-4 w-4", getStatusColor(booksStatus))} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Books</span>
+                  <span className={cn("font-medium", getStatusColor(booksStatus))}>
+                    {readiness.booksGoal > 0 ? `${readiness.booksProgress}/${readiness.booksGoal}` : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Role Plays */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+              <Theater className={cn("h-4 w-4", getStatusColor(rolePlaysStatus))} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Role Plays</span>
+                  <span className={cn("font-medium", getStatusColor(rolePlaysStatus))}>
+                    {readiness.rolePlaysGoal > 0 ? `${readiness.rolePlaysProgress}/${readiness.rolePlaysGoal}` : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* MNL */}
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+              <Moon className={cn("h-4 w-4", getStatusColor(mnlStatus))} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">MNL</span>
+                  <span className={cn("font-medium", getStatusColor(mnlStatus))}>
+                    {readiness.mnlGoal > 0 ? `${readiness.mnlProgress}/${readiness.mnlGoal}` : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Blitz Commitments */}
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plane className="h-4 w-4 text-primary" />
+              <span className="text-sm text-muted-foreground">
+                {currentCommitments.length === 0 
+                  ? 'No blitzes committed' 
+                  : blitzInfo?.upcomingBlitzNames && blitzInfo.upcomingBlitzNames.length > 0
+                    ? blitzInfo.upcomingBlitzNames.slice(0, 2).join(', ')
+                    : `${currentCommitments.length} committed`
+                }
+              </span>
+            </div>
+            <Button
+              variant={currentCommitments.length === 0 ? "default" : "outline"}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlitzDrawerOpen(true);
+              }}
+            >
+              {currentCommitments.length === 0 ? 'Add Blitz' : 'Manage'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <BlitzCommitmentDrawer
+        open={blitzDrawerOpen}
+        onOpenChange={setBlitzDrawerOpen}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        recruitNotionPageId={item.recruit.notionPageId}
+        currentCommitments={currentCommitments}
+        availableBlitzes={blitzes}
+      />
+    </>
+  );
+};
+
 export const NeedsAttentionDrawer = ({ 
   open, 
   onOpenChange, 
@@ -744,6 +929,7 @@ export const NeedsAttentionDrawer = ({
   const isOnboardingCategory = category.id === 'training-progress';
   const isBlitzPrepCategory = category.id === 'blitz-prep';
   const isNoBlitzCategory = category.id === 'no-commitment';
+  const isReadinessCategory = category.id === 'readiness';
 
   return (
     <>
@@ -759,7 +945,7 @@ export const NeedsAttentionDrawer = ({
                 </Badge>
               </DrawerTitle>
             </div>
-            {!isOnboardingCategory && !isBlitzPrepCategory && !isNoBlitzCategory && (
+            {!isOnboardingCategory && !isBlitzPrepCategory && !isNoBlitzCategory && !isReadinessCategory && (
               <p className="text-xs text-muted-foreground mt-1">
                 Swipe right to mark contacted, left to schedule
               </p>
@@ -772,6 +958,11 @@ export const NeedsAttentionDrawer = ({
             {isNoBlitzCategory && (
               <p className="text-xs text-muted-foreground mt-1">
                 Swipe right to contact, left to schedule. Tap "Manage" for blitzes.
+              </p>
+            )}
+            {isReadinessCategory && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Rookies with their preseason progress and blitz commitments
               </p>
             )}
           </DrawerHeader>
@@ -809,6 +1000,19 @@ export const NeedsAttentionDrawer = ({
                     onDrawerClose={() => onOpenChange(false)}
                     onSchedule={(recruit) => setScheduleRecruit(recruit)}
                     onContact={(recruit) => setContactRecruit(recruit)}
+                    blitzes={blitzes}
+                    repDataMap={repDataMap}
+                  />
+                );
+              }
+
+              if (isReadinessCategory) {
+                return (
+                  <ReadinessItem
+                    key={item.recruit.notionPageId}
+                    item={item}
+                    onRecruitClick={onRecruitClick}
+                    onOpenChange={onOpenChange}
                     blitzes={blitzes}
                     repDataMap={repDataMap}
                   />

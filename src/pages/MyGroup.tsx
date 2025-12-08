@@ -82,7 +82,7 @@ const MyGroup = () => {
       const notionIds = allRecruits.map(r => r.notionPageId);
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
+        .select('notion_page_id, user_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
         .in('notion_page_id', notionIds);
       
       return data || [];
@@ -102,6 +102,40 @@ const MyGroup = () => {
     });
     return map;
   }, [recruitsRepData]);
+
+  // Get user IDs from rep data for goals lookup
+  const recruitUserIds = useMemo(() => {
+    return recruitsRepData?.filter(r => r.user_id).map(r => r.user_id!) || [];
+  }, [recruitsRepData]);
+
+  // Fetch goals data for readiness category
+  const { data: recruitsGoalsData } = useQuery({
+    queryKey: ['recruits-goals-data', recruitUserIds.join(',')],
+    queryFn: async () => {
+      if (recruitUserIds.length === 0) return [];
+      
+      const { data } = await supabase
+        .from('rep_goals')
+        .select('user_id, training_hours_goal, training_hours_progress, books_goal, books_progress, role_plays_goal, role_plays_progress, monday_night_lights_goal, monday_night_lights_progress, blitzes_goal, blitzes_progress')
+        .in('user_id', recruitUserIds);
+      
+      return data || [];
+    },
+    enabled: recruitUserIds.length > 0 && isLeader,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Build repGoalsMap for useNeedsAttention
+  const repGoalsMap = useMemo(() => {
+    if (!recruitsGoalsData) return undefined;
+    const map = new Map<string, any>();
+    recruitsGoalsData.forEach(goals => {
+      if (goals.user_id) {
+        map.set(goals.user_id, goals);
+      }
+    });
+    return map;
+  }, [recruitsGoalsData]);
 
   // Filter recruits by selected team if applicable
   const filteredRecruits = useMemo(() => {
@@ -159,7 +193,8 @@ const MyGroup = () => {
     filteredRecruits,
     filteredActivities,
     allBlitzes,
-    repDataMap
+    repDataMap,
+    repGoalsMap
   );
 
   // Filter out dismissed recruits from top priority
