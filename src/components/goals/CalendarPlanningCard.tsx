@@ -12,6 +12,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { Skeleton } from "@/components/ui/skeleton";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -110,7 +111,7 @@ export const CalendarPlanningCard = ({
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
-  const { allBlitzes } = useBlitzes();
+  const { allBlitzes, loading: blitzesLoading } = useBlitzes();
   const queryClient = useQueryClient();
   
   // Debounce timer ref for saving preseason goal
@@ -525,6 +526,18 @@ export const CalendarPlanningCard = ({
 
   const hasAnyFutureBlitzes = allFutureBlitzes.length > 0;
 
+  // Check if a date is part of a committed blitz
+  const getBlitzForDate = (dateStr: string): CommittedBlitz | undefined => {
+    const date = parseLocalDate(dateStr);
+    return committedBlitzes.find(blitz => {
+      const start = parseLocalDate(blitz.date);
+      const end = blitz.endDate ? parseLocalDate(blitz.endDate) : start;
+      return date >= start && date <= end;
+    });
+  };
+
+  const isBlitzDay = (dateStr: string): boolean => !!getBlitzForDate(dateStr);
+
   const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
     if (!repData?.id || !repData?.user_id) return;
     setIsCommitting(blitz.id);
@@ -817,6 +830,9 @@ export const CalendarPlanningCard = ({
           
           // Check if this is within summer range
           const isInSummerRange = day >= userSummerStart && day <= userSummerEnd && !isPast;
+          
+          // Check if this day is part of a committed blitz
+          const isPartOfBlitz = isBlitzDay(dateStr);
 
           return (
             <button
@@ -825,7 +841,7 @@ export const CalendarPlanningCard = ({
               disabled={isDisabled || isToggling}
               className={cn(
                 "aspect-square rounded-lg text-sm font-medium transition-all",
-                "flex items-center justify-center relative",
+                "flex flex-col items-center justify-center relative",
                 (isSunday || isAfterPersonalSummerEnd) && "opacity-30 cursor-not-allowed",
                 // Finalized/worked days - show with green/success style (finalized = done, regardless of date)
                 isWorked && !isSunday && "bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 cursor-default",
@@ -842,14 +858,18 @@ export const CalendarPlanningCard = ({
                 !isCurrentMonth && "opacity-30"
               )}
             >
-              {format(day, 'd')}
+              <span>{format(day, 'd')}</span>
+              {/* Blitz trip indicator - small plane icon */}
+              {isPartOfBlitz && !isPast && !isSunday && (
+                <Plane className="h-2.5 w-2.5 text-sky-500 dark:text-sky-400 absolute bottom-0.5" />
+              )}
             </button>
           );
         })}
       </div>
 
       {/* Calendar Legend */}
-      <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+      <div className="flex items-center justify-center gap-3 text-[10px] text-muted-foreground pt-2 flex-wrap">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-emerald-500/30" />
           Worked
@@ -858,6 +878,12 @@ export const CalendarPlanningCard = ({
           <span className="w-3 h-3 rounded bg-primary" />
           Planned
         </span>
+        {committedBlitzes.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <Plane className="h-3 w-3 text-sky-500" />
+            Blitz Trip
+          </span>
+        )}
       </div>
 
       {/* Preseason Goal - Collapsible */}
@@ -1077,8 +1103,23 @@ export const CalendarPlanningCard = ({
               </div>
             )}
             
-            {/* Empty state when no preseason planned days */}
-            {!preseasonStats && (
+            {/* Loading skeleton while blitz data is loading */}
+            {!preseasonStats && blitzesLoading && (
+              <div className="p-4 rounded-xl bg-muted/50 border-2 border-dashed border-muted-foreground/20 space-y-3">
+                <div className="flex justify-center">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4 mx-auto" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3 mx-auto" />
+                </div>
+                <Skeleton className="h-8 w-32 mx-auto" />
+              </div>
+            )}
+            
+            {/* Empty state when no preseason planned days - only show after loading */}
+            {!preseasonStats && !blitzesLoading && (
               <div className="p-4 rounded-xl bg-muted/50 border-2 border-dashed border-muted-foreground/20 text-center space-y-3">
                 <div className="flex justify-center">
                   <CalendarDays className="h-8 w-8 text-muted-foreground/50" />
