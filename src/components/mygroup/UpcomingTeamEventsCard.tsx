@@ -90,7 +90,7 @@ const UpcomingTeamEventsCard = ({ teamLeaderPhone }: UpcomingTeamEventsCardProps
           <div className="flex items-start gap-2 mb-3 p-2 rounded-lg bg-accent/30">
             <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
             <p className="text-xs text-muted-foreground">
-              Get together with your group often! Team events build momentum and drive recruiting success.
+              Getting together regularly builds team culture and strengthens relationships.
             </p>
           </div>
 
@@ -151,8 +151,7 @@ const UpcomingTeamEventsCard = ({ teamLeaderPhone }: UpcomingTeamEventsCardProps
               <div>
                 <p className="text-sm font-medium text-foreground">Build team culture!</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Leaders who connect with their group regularly see 2x better recruiting results. 
-                  Use these events to bond and motivate!
+                  Strong teams are built through consistent connection. Use these events to bond and build culture!
                 </p>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +16,7 @@ import { useUpdateRookieStatus } from "@/hooks/useUpdateRookieStatus";
 import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
+import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +28,21 @@ const sendIpadRequestEmail = (recruitName: string, email: string | null, phone: 
   window.location.href = mailtoLink;
 };
 
+interface BlitzEvent {
+  id: string;
+  name: string;
+  date: string;
+  endDate: string | null;
+  location?: string;
+}
+
 interface NeedsAttentionDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category: AttentionCategory | null;
   onRecruitClick: (recruit: Recruit) => void;
+  blitzes?: BlitzEvent[];
+  repDataMap?: Map<string, any>;
 }
 
 // Strip emojis from name
@@ -361,6 +372,127 @@ const TrainingProgressItem = ({
   );
 };
 
+// Blitz recruit item with commit/uncommit functionality
+const BlitzRecruitItem = ({
+  item,
+  onRecruitClick,
+  onOpenChange,
+  onCall,
+  onText,
+  blitzes,
+  repDataMap
+}: {
+  item: AttentionRecruit;
+  onRecruitClick: (recruit: Recruit) => void;
+  onOpenChange: (open: boolean) => void;
+  onCall: (recruit: Recruit, e: React.MouseEvent) => void;
+  onText: (recruit: Recruit, e: React.MouseEvent) => void;
+  blitzes: BlitzEvent[];
+  repDataMap?: Map<string, any>;
+}) => {
+  const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
+  
+  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const currentCommitments = (repData?.committed_blitzes as string[]) || [];
+
+  return (
+    <>
+      <div
+        className={cn(
+          "bg-card rounded-lg p-4 border border-l-4 shadow-sm",
+          URGENCY_STYLES[item.urgency]
+        )}
+      >
+        {/* Header - clickable to open detail */}
+        <div 
+          className="flex items-start justify-between gap-3 cursor-pointer"
+          onClick={() => {
+            onRecruitClick(item.recruit);
+            onOpenChange(false);
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium">
+                {stripEmojis(item.recruit.name)}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {item.recruit.stage}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {item.reason}
+            </p>
+            {item.recruit.teamName && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {item.recruit.teamName}
+              </p>
+            )}
+          </div>
+          
+          <div className="flex gap-1 flex-shrink-0">
+            {item.recruit.phone && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={(e) => onCall(item.recruit, e)}
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={(e) => onText(item.recruit, e)}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground mt-2.5" />
+          </div>
+        </div>
+
+        {/* Blitz commitment section */}
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {currentCommitments.length === 0 
+                  ? 'No blitzes committed' 
+                  : `${currentCommitments.length} blitz${currentCommitments.length > 1 ? 'es' : ''} committed`
+                }
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlitzDrawerOpen(true);
+              }}
+            >
+              {currentCommitments.length === 0 ? 'Commit to Blitz' : 'Manage'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <BlitzCommitmentDrawer
+        open={blitzDrawerOpen}
+        onOpenChange={setBlitzDrawerOpen}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        recruitNotionPageId={item.recruit.notionPageId}
+        currentCommitments={currentCommitments}
+        availableBlitzes={blitzes}
+      />
+    </>
+  );
+};
+
 // Default recruit item component
 const DefaultRecruitItem = ({
   item,
@@ -436,7 +568,9 @@ export const NeedsAttentionDrawer = ({
   open, 
   onOpenChange, 
   category,
-  onRecruitClick 
+  onRecruitClick,
+  blitzes = [],
+  repDataMap
 }: NeedsAttentionDrawerProps) => {
   const [scheduleRecruit, setScheduleRecruit] = useState<Recruit | null>(null);
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
@@ -467,12 +601,13 @@ export const NeedsAttentionDrawer = ({
   };
 
   const isTrainingCategory = category.id === 'training-progress';
+  const isBlitzCategory = category.id === 'blitz-prep' || category.id === 'no-commitment';
 
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="border-b">
+        <DrawerContent className="max-h-[85vh] flex flex-col">
+          <DrawerHeader className="border-b flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle className="flex items-center gap-2">
                 <span>{category.emoji}</span>
@@ -482,23 +617,47 @@ export const NeedsAttentionDrawer = ({
                 </Badge>
               </DrawerTitle>
             </div>
-            {!isTrainingCategory && (
+            {!isTrainingCategory && !isBlitzCategory && (
               <p className="text-xs text-muted-foreground mt-1">
                 Swipe right to mark contacted, left to schedule
               </p>
             )}
+            {isBlitzCategory && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Tap "Manage" to commit or uncommit reps from blitzes
+              </p>
+            )}
           </DrawerHeader>
           
-          <div className="overflow-y-auto p-4 space-y-3">
-            {category.recruits.map((item) => (
-              isTrainingCategory ? (
-                <TrainingProgressItem
-                  key={item.recruit.notionPageId}
-                  item={item}
-                  onRecruitClick={onRecruitClick}
-                  onOpenChange={onOpenChange}
-                />
-              ) : (
+          <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-3">
+            {category.recruits.map((item) => {
+              if (isTrainingCategory) {
+                return (
+                  <TrainingProgressItem
+                    key={item.recruit.notionPageId}
+                    item={item}
+                    onRecruitClick={onRecruitClick}
+                    onOpenChange={onOpenChange}
+                  />
+                );
+              }
+              
+              if (isBlitzCategory) {
+                return (
+                  <BlitzRecruitItem
+                    key={item.recruit.notionPageId}
+                    item={item}
+                    onRecruitClick={onRecruitClick}
+                    onOpenChange={onOpenChange}
+                    onCall={handleCall}
+                    onText={handleText}
+                    blitzes={blitzes}
+                    repDataMap={repDataMap}
+                  />
+                );
+              }
+              
+              return (
                 <SwipeableRecruitItem
                   key={item.recruit.notionPageId}
                   item={item}
@@ -507,8 +666,8 @@ export const NeedsAttentionDrawer = ({
                   onSchedule={(recruit) => setScheduleRecruit(recruit)}
                   onContact={(recruit) => setContactRecruit(recruit)}
                 />
-              )
-            ))}
+              );
+            })}
           </div>
         </DrawerContent>
       </Drawer>

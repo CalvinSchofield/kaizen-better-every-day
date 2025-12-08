@@ -241,34 +241,49 @@ export const useNeedsAttention = (
       });
     }
 
-    // 4. No Commitment - Signed reps without blitz commitment
-    const noCommitmentRecruits: AttentionRecruit[] = [];
+    // 4. No Blitz History - Signed/Shadow/Sold reps with NO blitzes (past or future)
+    const noBlitzRecruits: AttentionRecruit[] = [];
     
-    const signedWithoutCommitment = recruits.filter(r => 
-      (r.stage === 'Signed' || r.stage === 'Shadow ✅') &&
-      (r.year === 'Rookie' || r.year === '2025')
+    // Include all signed, shadow, and sold stages
+    const blitzEligibleRecruits = recruits.filter(r => 
+      r.stage === 'Signed' || 
+      r.stage === 'Shadow ✅' || 
+      r.stage === 'Sold 💲' || 
+      r.stage === 'Sold (5+) 💰'
     );
 
-    signedWithoutCommitment.forEach(recruit => {
+    // Get all blitz IDs (past and future)
+    const allBlitzIds = new Set(blitzes.map(b => b.id));
+
+    blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
       const committedBlitzes = repData?.committed_blitzes as string[] | null;
       
-      if (!committedBlitzes || committedBlitzes.length === 0) {
-        noCommitmentRecruits.push({
+      // Check if they have ANY blitz commitment (past or future)
+      const hasAnyBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
+      
+      // Only add if they have ZERO blitz history
+      if (!hasAnyBlitzCommitment) {
+        noBlitzRecruits.push({
           recruit,
-          reason: 'No blitz commitment',
-          urgency: 'medium',
+          reason: 'No blitz history',
+          urgency: recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅' ? 'high' : 'medium',
         });
       }
     });
 
-    if (noCommitmentRecruits.length > 0) {
+    if (noBlitzRecruits.length > 0) {
       categories.push({
         id: 'no-commitment',
         label: 'No Blitz',
         emoji: '⚠️',
-        count: noCommitmentRecruits.length,
-        recruits: noCommitmentRecruits,
+        count: noBlitzRecruits.length,
+        recruits: noBlitzRecruits.sort((a, b) => {
+          // Prioritize Signed/Shadow over Sold stages
+          const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
+          return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - 
+                 (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
+        }),
         priority: 60,
       });
     }

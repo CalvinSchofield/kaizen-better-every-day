@@ -386,6 +386,8 @@ const MyGroup = () => {
         onOpenChange={setAttentionDrawerOpen}
         category={selectedCategory}
         onRecruitClick={handleRecruitClick}
+        blitzes={allBlitzes}
+        repDataMap={repDataMap}
       />
       <QuickViewDrawer
         open={quickViewOpen}
