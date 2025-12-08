@@ -30,6 +30,7 @@ interface GoalHeroRingProps {
   isSummer?: boolean; // Whether summer season has started
   isTodayPlanned?: boolean; // Whether today is a planned knocking day
   hasAnyPlannedDays?: boolean; // Whether user has any planned days at all
+  isUserSummerStarted?: boolean; // Whether user's personal summer has started (hides preseason tier)
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -87,6 +88,7 @@ export const GoalHeroRing = ({
   isSummer = false,
   isTodayPlanned = false,
   hasAnyPlannedDays = true,
+  isUserSummerStarted = false,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
@@ -136,12 +138,16 @@ export const GoalHeroRing = ({
   const fundedPercent = showFunded && fpGoal > 0 ? Math.min((fundedProgress / fpGoal) * 100, 100) : 0;
   const fundedDashoffset = circumference - (fundedPercent / 100) * circumference;
 
-  // Available tiers (only show tiers with goals > 0)
+  // Available tiers (only show tiers with goals > 0, hide preseason after user's summer starts)
   const availableTiers = useMemo(() => {
     return (['preseason', 'mustDo', 'willDo', 'couldDo'] as GoalTier[]).filter(
-      tier => tiers[tier].goal > 0
+      tier => {
+        // Hide preseason tier once user's personal summer has started
+        if (tier === 'preseason' && isUserSummerStarted) return false;
+        return tiers[tier].goal > 0;
+      }
     );
-  }, [tiers]);
+  }, [tiers, isUserSummerStarted]);
 
   return (
     <div className="relative flex flex-col items-center">
