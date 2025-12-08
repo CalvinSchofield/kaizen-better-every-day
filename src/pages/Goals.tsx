@@ -103,6 +103,32 @@ const Goals = () => {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Fetch user's personal summer dates to determine if their summer has started
+  const { data: seasonConfig } = useQuery({
+    queryKey: ['season-config-for-goals-page', repData?.user_id],
+    queryFn: async () => {
+      if (!repData?.user_id) return null;
+      const { data, error } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end')
+        .eq('user_id', repData.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!repData?.user_id,
+  });
+
+  // Calculate if user's personal summer has started (based on their personal_summer_start, not global date)
+  const isUserSummerStarted = useMemo(() => {
+    const personalStart = seasonConfig?.personal_summer_start;
+    if (!personalStart) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = parseISO(personalStart);
+    return today >= startDate;
+  }, [seasonConfig?.personal_summer_start]);
+
   // Check and reset weekly training progress on new week
   useEffect(() => {
     if (needsWeeklyCheck && goals) {
@@ -255,7 +281,22 @@ const Goals = () => {
   useEffect(() => {
     if (!goals) return;
     
-    // During preseason, default to preseason tier if goal exists and not complete
+    // Once user's personal summer has started, never select preseason tier
+    if (isUserSummerStarted) {
+      // Select the lowest incomplete summer tier
+      if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
+        setActiveTier('mustDo');
+      } else if (!tiers.willDo.complete && tiers.willDo.goal > 0) {
+        setActiveTier('willDo');
+      } else if (!tiers.couldDo.complete && tiers.couldDo.goal > 0) {
+        setActiveTier('couldDo');
+      } else if (tiers.willDo.goal > 0) {
+        setActiveTier('willDo');
+      }
+      return;
+    }
+    
+    // During preseason (before user's summer starts), default to preseason tier if goal exists and not complete
     if (isPreseason && !tiers.preseason.complete && tiers.preseason.goal > 0) {
       setActiveTier('preseason');
     } else if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
@@ -269,7 +310,7 @@ const Goals = () => {
     } else if (tiers.willDo.goal > 0) {
       setActiveTier('willDo');
     }
-  }, [goals, tiers, isPreseason]);
+  }, [goals, tiers, isPreseason, isUserSummerStarted]);
 
   const handleQuickIncrement = async (progressKey: string) => {
     // Check if this is a reset action (wrap-around)
@@ -569,6 +610,7 @@ const Goals = () => {
             isSummer={!isPreseason}
             isTodayPlanned={isTodayPlanned}
             hasAnyPlannedDays={hasAnyPlannedDays}
+            isUserSummerStarted={isUserSummerStarted}
           />
         </motion.div>
 
@@ -626,6 +668,8 @@ const Goals = () => {
                   preseasonFpGoal={goals.preseason_fp_goal || 0}
                   cancelRate={goals.cancel_rate ?? (isRookie ? 0.10 : 0.10)}
                   onPreseasonGoalChange={(goal) => updateGoals({ preseason_fp_goal: goal })}
+                  activeTier={activeTier}
+                  isUserSummerStarted={isUserSummerStarted}
                 />
               </div>
             </CollapsibleContent>
