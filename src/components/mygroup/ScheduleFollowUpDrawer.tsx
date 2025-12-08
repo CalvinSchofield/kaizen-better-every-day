@@ -81,19 +81,38 @@ export const ScheduleFollowUpDrawer = ({
         </DrawerHeader>
         
         <div className="p-4 space-y-4">
+          {/* Next steps - required */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              What's the next step?
+            </label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g., Call to discuss blitz dates, Follow up on signing paperwork..."
+              className="resize-none"
+              rows={3}
+            />
+          </div>
+
           {/* Quick date buttons */}
-          <div className="flex gap-2">
-            {quickDates.map(({ label, date }) => (
-              <Button
-                key={label}
-                variant={selectedDate?.toDateString() === date.toDateString() ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => setSelectedDate(date)}
-              >
-                {label}
-              </Button>
-            ))}
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              When will you do it?
+            </label>
+            <div className="flex gap-2">
+              {quickDates.map(({ label, date }) => (
+                <Button
+                  key={label}
+                  variant={selectedDate?.toDateString() === date.toDateString() ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setSelectedDate(date)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {/* Custom date picker */}
@@ -117,23 +136,10 @@ export const ScheduleFollowUpDrawer = ({
                 onSelect={setSelectedDate}
                 disabled={(date) => date < new Date()}
                 initialFocus
+                className="pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
-
-          {/* Notes */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Notes (optional)
-            </label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="What should you discuss?"
-              className="resize-none"
-              rows={3}
-            />
-          </div>
         </div>
 
         <DrawerFooter className="border-t">
