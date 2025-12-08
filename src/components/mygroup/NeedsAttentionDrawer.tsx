@@ -15,6 +15,7 @@ import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useUpdateRookieStatus } from "@/hooks/useUpdateRookieStatus";
 import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
+import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -438,6 +439,7 @@ export const NeedsAttentionDrawer = ({
   onRecruitClick 
 }: NeedsAttentionDrawerProps) => {
   const [scheduleRecruit, setScheduleRecruit] = useState<Recruit | null>(null);
+  const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
   const logActivityMutation = useLogRecruitActivity();
 
   if (!category) return null;
@@ -482,7 +484,7 @@ export const NeedsAttentionDrawer = ({
             </div>
             {!isTrainingCategory && (
               <p className="text-xs text-muted-foreground mt-1">
-                Swipe right to mark contacted, left to drop
+                Swipe right to mark contacted, left to schedule
               </p>
             )}
           </DrawerHeader>
@@ -503,6 +505,7 @@ export const NeedsAttentionDrawer = ({
                   onRecruitClick={onRecruitClick}
                   onDrawerClose={() => onOpenChange(false)}
                   onSchedule={(recruit) => setScheduleRecruit(recruit)}
+                  onContact={(recruit) => setContactRecruit(recruit)}
                 />
               )
             ))}
@@ -514,6 +517,12 @@ export const NeedsAttentionDrawer = ({
         open={!!scheduleRecruit}
         onOpenChange={(open) => !open && setScheduleRecruit(null)}
         recruit={scheduleRecruit}
+      />
+
+      <ContactMethodDrawer
+        open={!!contactRecruit}
+        onOpenChange={(open) => !open && setContactRecruit(null)}
+        recruit={contactRecruit}
       />
     </>
   );

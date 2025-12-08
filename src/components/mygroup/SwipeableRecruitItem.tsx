@@ -1,14 +1,16 @@
 import { useState, useRef } from "react";
-import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
-import { Phone, MessageSquare, ChevronRight, Check, Calendar, X } from "lucide-react";
+import { motion, useMotionValue, useTransform, PanInfo, useAnimation } from "framer-motion";
+import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
-import { Recruit, useLogRecruitActivity, useUpdateRecruitStage } from "@/hooks/useGroupRecruits";
-import { toast } from "sonner";
+import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 
-const SWIPE_THRESHOLD = 80;
+// Sticky threshold - must drag past this to commit
+const SWIPE_COMMIT_THRESHOLD = 100;
+// Visual feedback starts at this point
+const SWIPE_VISUAL_THRESHOLD = 40;
 
 const URGENCY_STYLES = {
   high: 'border-l-red-500',
@@ -27,6 +29,7 @@ interface SwipeableRecruitItemProps {
   onRecruitClick: (recruit: Recruit) => void;
   onDrawerClose: () => void;
   onSchedule?: (recruit: Recruit) => void;
+  onContact?: (recruit: Recruit) => void;
 }
 
 export const SwipeableRecruitItem = ({
@@ -34,71 +37,50 @@ export const SwipeableRecruitItem = ({
   onRecruitClick,
   onDrawerClose,
   onSchedule,
+  onContact,
 }: SwipeableRecruitItemProps) => {
-  const [isActioning, setIsActioning] = useState(false);
+  const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
   const x = useMotionValue(0);
-  
-  const logActivityMutation = useLogRecruitActivity();
-  const updateStageMutation = useUpdateRecruitStage();
+  const controls = useAnimation();
 
   // Transform for background action indicators
-  const leftBgOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1]);
-  const rightBgOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0]);
-  const leftScale = useTransform(x, [0, SWIPE_THRESHOLD], [0.5, 1]);
-  const rightScale = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0.5]);
+  const leftBgOpacity = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.5, 1]);
+  const rightBgOpacity = useTransform(x, [-SWIPE_COMMIT_THRESHOLD, -SWIPE_VISUAL_THRESHOLD], [1, 0.5]);
+  const leftScale = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.8, 1.1]);
+  const rightScale = useTransform(x, [-SWIPE_COMMIT_THRESHOLD, -SWIPE_VISUAL_THRESHOLD], [1.1, 0.8]);
+
+  // Track if we've crossed the commit threshold
+  x.on("change", (latest) => {
+    if (latest > SWIPE_COMMIT_THRESHOLD) {
+      setIsCommitted('right');
+    } else if (latest < -SWIPE_COMMIT_THRESHOLD) {
+      setIsCommitted('left');
+    } else {
+      setIsCommitted(null);
+    }
+  });
 
   const handleDragEnd = async (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const offset = info.offset.x;
     
-    if (offset > SWIPE_THRESHOLD) {
-      // Swipe right = Contacted
-      setIsActioning(true);
-      try {
-        await logActivityMutation.mutateAsync({
-          recruitNotionId: item.recruit.notionPageId,
-          activityType: 'phone_call',
-          notes: 'Contacted via quick action',
-          updateLastContact: true,
-        });
-        toast.success(`Marked ${stripEmojis(item.recruit.name)} as contacted`);
-      } catch (error) {
-        console.error('Failed to log contact:', error);
-        toast.error('Failed to log contact');
-      } finally {
-        setIsActioning(false);
-      }
-    } else if (offset < -SWIPE_THRESHOLD) {
-      // Swipe left = Drop (move to Potential Follow Up)
-      setIsActioning(true);
-      try {
-        await updateStageMutation.mutateAsync({
-          recruitNotionId: item.recruit.notionPageId,
-          newStage: 'Potential Follow Up',
-        });
-        toast.success(`Moved ${stripEmojis(item.recruit.name)} to Follow Up`);
-      } catch (error) {
-        console.error('Failed to update stage:', error);
-        toast.error('Failed to update stage');
-      } finally {
-        setIsActioning(false);
-      }
+    if (offset > SWIPE_COMMIT_THRESHOLD) {
+      // Swipe right = Open contact drawer
+      await controls.start({ x: 0 });
+      onContact?.(item.recruit);
+    } else if (offset < -SWIPE_COMMIT_THRESHOLD) {
+      // Swipe left = Open schedule drawer
+      await controls.start({ x: 0 });
+      onSchedule?.(item.recruit);
+    } else {
+      // Snap back if not committed
+      controls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 } });
     }
+    setIsCommitted(null);
   };
 
-  const handleCall = async (e: React.MouseEvent) => {
+  const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: item.recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
     window.location.href = `tel:${item.recruit.phone}`;
   };
 
@@ -107,110 +89,51 @@ export const SwipeableRecruitItem = ({
     window.location.href = `sms:${item.recruit.phone}`;
   };
 
-  const handleScheduleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onSchedule?.(item.recruit);
-  };
-
   return (
     <div ref={constraintsRef} className="relative overflow-hidden rounded-lg">
-      {/* Left action background (Contacted) */}
+      {/* Left action background (Contacted) - swipe right */}
       <motion.div 
-        className="absolute inset-y-0 left-0 w-24 bg-green-500 flex items-center justify-center rounded-l-lg"
-        style={{ opacity: leftBgOpacity }}
+        className={cn(
+          "absolute inset-y-0 left-0 w-28 flex items-center justify-center rounded-l-lg transition-colors",
+          isCommitted === 'right' ? "bg-green-600" : "bg-green-500"
+        )}
+        style={{ opacity: useTransform(x, [0, SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0, 0.7, 1]) }}
       >
-        <motion.div style={{ scale: leftScale }}>
+        <motion.div style={{ scale: leftScale }} className="flex flex-col items-center gap-1">
           <Check className="h-6 w-6 text-white" />
+          <span className="text-xs text-white font-medium">Contacted</span>
         </motion.div>
       </motion.div>
 
-      {/* Right action background (Drop) */}
+      {/* Right action background (Schedule) - swipe left */}
       <motion.div 
-        className="absolute inset-y-0 right-0 w-24 bg-red-500 flex items-center justify-center rounded-r-lg"
-        style={{ opacity: rightBgOpacity }}
+        className={cn(
+          "absolute inset-y-0 right-0 w-28 flex items-center justify-center rounded-r-lg transition-colors",
+          isCommitted === 'left' ? "bg-blue-600" : "bg-blue-500"
+        )}
+        style={{ opacity: useTransform(x, [-SWIPE_COMMIT_THRESHOLD, -SWIPE_VISUAL_THRESHOLD, 0], [1, 0.7, 0]) }}
       >
-        <motion.div style={{ scale: rightScale }}>
-          <X className="h-6 w-6 text-white" />
+        <motion.div style={{ scale: rightScale }} className="flex flex-col items-center gap-1">
+          <Calendar className="h-6 w-6 text-white" />
+          <span className="text-xs text-white font-medium">Schedule</span>
         </motion.div>
       </motion.div>
 
       {/* Swipeable card */}
       <motion.div
         drag="x"
-        dragConstraints={{ left: -120, right: 120 }}
-        dragElastic={0.1}
+        dragConstraints={{ left: -140, right: 140 }}
+        dragElastic={0.15}
         onDragEnd={handleDragEnd}
         style={{ x }}
+        animate={controls}
         whileTap={{ cursor: 'grabbing' }}
         className={cn(
           "bg-card rounded-lg p-4 border border-l-4 shadow-sm cursor-grab active:cursor-grabbing relative",
           URGENCY_STYLES[item.urgency],
-          isActioning && "opacity-50 pointer-events-none"
+          isCommitted && "shadow-lg"
         )}
       >
-        {/* Quick action buttons row */}
-        <div className="flex gap-1.5 mb-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="flex-1 h-8 text-xs gap-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-600"
-            onClick={async (e) => {
-              e.stopPropagation();
-              setIsActioning(true);
-              try {
-                await logActivityMutation.mutateAsync({
-                  recruitNotionId: item.recruit.notionPageId,
-                  activityType: 'phone_call',
-                  notes: 'Contacted via quick action',
-                  updateLastContact: true,
-                });
-                toast.success('Marked as contacted');
-              } catch (error) {
-                toast.error('Failed to log contact');
-              } finally {
-                setIsActioning(false);
-              }
-            }}
-          >
-            <Check className="h-3.5 w-3.5" />
-            Contacted
-          </Button>
-          
-          <Button
-            variant="secondary"
-            size="sm"
-            className="flex-1 h-8 text-xs gap-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600"
-            onClick={handleScheduleClick}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Schedule
-          </Button>
-          
-          <Button
-            variant="secondary"
-            size="sm"
-            className="flex-1 h-8 text-xs gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600"
-            onClick={async (e) => {
-              e.stopPropagation();
-              setIsActioning(true);
-              try {
-                await updateStageMutation.mutateAsync({
-                  recruitNotionId: item.recruit.notionPageId,
-                  newStage: 'Potential Follow Up',
-                });
-                toast.success('Moved to Follow Up');
-              } catch (error) {
-                toast.error('Failed to update');
-              } finally {
-                setIsActioning(false);
-              }
-            }}
-          >
-            <X className="h-3.5 w-3.5" />
-            Drop
-          </Button>
-        </div>
-
         {/* Main content */}
         <div 
           className="flex items-start justify-between gap-3"
