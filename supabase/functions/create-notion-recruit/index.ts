@@ -52,6 +52,7 @@ serve(async (req) => {
       location, 
       recruitmentSource, 
       recruiterNotionId,
+      recruiterName,
       teamNotionId,
       mgmtNotionId,
       downlineNotionId 
@@ -100,10 +101,44 @@ serve(async (req) => {
       };
     }
 
-    // Add recruiter if provided (select, not relation)
-    if (recruiterNotionId) {
-      // Note: Recruiter is a select field, we need the recruiter name not ID
-      // Skip for now - would need recruiter name passed in
+    // Add recruiter if provided (select field - needs name, not ID)
+    if (recruiterName) {
+      // Triple check: Fetch existing options to verify if this name already exists
+      const dbResponse = await fetch(`https://api.notion.com/v1/databases/${notionRepsDbId}`, {
+        headers: {
+          'Authorization': `Bearer ${notionApiKey}`,
+          'Notion-Version': '2022-06-28',
+        },
+      });
+      
+      if (dbResponse.ok) {
+        const dbData = await dbResponse.json();
+        const recruiterProperty = dbData.properties?.['Recruiter'];
+        
+        if (recruiterProperty?.type === 'select' && recruiterProperty?.select?.options) {
+          const existingOptions = recruiterProperty.select.options.map((o: { name: string }) => o.name);
+          
+          // Case-insensitive check for existing option
+          const normalizedInput = recruiterName.trim().toLowerCase();
+          const existingMatch = existingOptions.find((opt: string) => 
+            opt.toLowerCase() === normalizedInput
+          );
+          
+          if (existingMatch) {
+            // Use the existing option's exact name
+            console.log(`Found existing recruiter option: "${existingMatch}"`);
+            properties['Recruiter'] = {
+              select: { name: existingMatch }
+            };
+          } else {
+            // Create new option with the provided name
+            console.log(`Creating new recruiter option: "${recruiterName}"`);
+            properties['Recruiter'] = {
+              select: { name: recruiterName.trim() }
+            };
+          }
+        }
+      }
     }
     // Add team relation if provided
     if (teamNotionId) {

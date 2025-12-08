@@ -39,9 +39,21 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
+interface SuggestionPrefill {
+  suggestionId: string;
+  name: string;
+  phone: string;
+  suggestedByNotionId?: string;
+  suggestedByName: string;
+  relationship?: string;
+  notes?: string;
+}
+
 interface AddRecruitDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  suggestionPrefill?: SuggestionPrefill;
+  onSuggestionApproved?: () => void;
 }
 
 // Relationship options for rep suggestions
@@ -194,7 +206,7 @@ const LocationCombobox = ({
   );
 };
 
-export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) => {
+export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSuggestionApproved }: AddRecruitDrawerProps) => {
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -280,12 +292,22 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     enabled: isLeader && !!teamAccess?.accessibleReps,
   });
 
-  // Set default recruiter to current user when drawer opens
+  // Pre-fill form when opening with suggestion data
   useEffect(() => {
-    if (open && isLeader && currentRep?.notion_page_id && !selectedRecruiter) {
+    if (open && suggestionPrefill) {
+      setName(suggestionPrefill.name);
+      setPhone(formatPhoneNumber(suggestionPrefill.phone.replace(/^\+1/, '')));
+      setRelationship(suggestionPrefill.relationship || '');
+      setNotes(suggestionPrefill.notes || '');
+      // Set recruiter to the suggester's notion page ID if available
+      if (suggestionPrefill.suggestedByNotionId) {
+        setSelectedRecruiter(suggestionPrefill.suggestedByNotionId);
+      }
+    } else if (open && isLeader && currentRep?.notion_page_id && !selectedRecruiter) {
+      // Default to current user when no prefill
       setSelectedRecruiter(currentRep.notion_page_id);
     }
-  }, [open, isLeader, currentRep?.notion_page_id, selectedRecruiter]);
+  }, [open, suggestionPrefill, isLeader, currentRep?.notion_page_id]);
 
   // Create recruit mutation for leaders
   const createRecruitMutation = useMutation({
@@ -295,6 +317,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
       location: string;
       recruitmentSource: string;
       recruiterNotionId: string;
+      recruiterName?: string;
       teamNotionId?: string;
       mgmtNotionId?: string;
       downlineNotionId?: string;
@@ -315,6 +338,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
         description: `${data.name} has been added to your pipeline`,
       });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      
+      // If this was from a suggestion, notify parent to mark it approved
+      if (suggestionPrefill && onSuggestionApproved) {
+        onSuggestionApproved();
+      }
+      
       resetForm();
       onOpenChange(false);
     },
@@ -457,12 +486,17 @@ export const AddRecruitDrawer = ({ open, onOpenChange }: AddRecruitDrawerProps) 
     // Clean phone number for storage
     const cleanPhone = phone.replace(/\D/g, '');
 
+    // Find recruiter name from availableRecruiters
+    const selectedRecruiterData = availableRecruiters?.find(r => r.notionPageId === recruiterNotionId);
+    const recruiterNameToSend = selectedRecruiterData?.name || suggestionPrefill?.suggestedByName;
+
     await createRecruitMutation.mutateAsync({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
       location: finalLocation,
       recruitmentSource,
       recruiterNotionId: recruiterNotionId!,
+      recruiterName: recruiterNameToSend,
       teamNotionId: selectedTeam || undefined,
       downlineNotionId: currentRep?.notion_page_id,
     });
