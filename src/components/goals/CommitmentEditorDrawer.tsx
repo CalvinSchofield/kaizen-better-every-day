@@ -31,31 +31,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-// Books list - synced with BooksSection
-const BOOKS = [
-  { id: "compound-effect", title: "The Compound Effect", author: "Darren Hardy" },
-  { id: "atomic-habits", title: "Atomic Habits", author: "James Clear" },
-  { id: "go-for-no", title: "Go for No!", author: "Richard Fenton & Andrea Waltz" },
-  { id: "miracle-morning", title: "The Miracle Morning", author: "Hal Elrod" },
-  { id: "10x-rule", title: "The 10X Rule", author: "Grant Cardone" },
-  { id: "d2d-millionaire", title: "Door to Door Millionaire", author: "Lenny Gray" },
-  { id: "happiness-advantage", title: "The Happiness Advantage", author: "Shawn Achor" },
-  { id: "thinking-big", title: "The Magic of Thinking Big", author: "David Schwartz" },
-  { id: "never-split", title: "Never Split the Difference", author: "Chris Voss" },
-  { id: "extreme-ownership", title: "Extreme Ownership", author: "Jocko Willink & Leif Babin" },
-  { id: "power-one-more", title: "The Power of One More", author: "Ed Mylett" },
-  { id: "abcs-closing", title: "ABC'$ of Closing", author: "Sam Taggart" },
-  { id: "man-thinketh", title: "As a Man Thinketh", author: "James Allen" },
-  { id: "psychology-selling", title: "The Psychology of Selling", author: "Brian Tracy" },
-  { id: "above-line", title: "Above the Line", author: "Urban Meyer" },
-  { id: "win-friends", title: "How to Win Friends and Influence People", author: "Dale Carnegie" },
-  { id: "success-habits", title: "Millionaire Success Habits", author: "Dean Graziosi" },
-  { id: "one-thing", title: "The One Thing", author: "Gary Keller" },
-  { id: "cant-hurt-me", title: "Can't Hurt Me", author: "David Goggins" },
-];
+import { 
+  BOOKS, 
+  BOOKS_COMMITTED_KEY, 
+  OTHER_BOOKS_COMMITTED_KEY 
+} from "./BooksSelectionDrawer";
 
-const BOOKS_READ_KEY = "kaizen-books-read";
-const OTHER_BOOKS_KEY = "kaizen-other-books";
+// Calculate Mondays remaining until summer start (April 13, 2026)
+const getMondaysRemaining = (): number => {
+  const summerStart = new Date('2026-04-13');
+  const today = new Date();
+  let count = 0;
+  let current = new Date(today);
+  
+  while (current < summerStart) {
+    if (current.getDay() === 1) { // Monday
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
+};
 
 interface CommitmentEditorDrawerProps {
   open: boolean;
@@ -126,6 +123,7 @@ const commitmentConfigs: CommitmentConfig[] = [
     bgColor: 'bg-amber-500/10',
     description: 'Weekly team calls',
     incrementBy: 1,
+    maxValue: undefined, // Will be set dynamically
   },
 ];
 
@@ -147,18 +145,21 @@ export const CommitmentEditorDrawer = ({
   const [isBlitzExpanded, setIsBlitzExpanded] = useState(false);
   const [isBooksExpanded, setIsBooksExpanded] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
-  const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
+  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
   const [otherBooks, setOtherBooks] = useState<string[]>([]);
   const [newOtherBook, setNewOtherBook] = useState("");
+
+  // MNL max value
+  const mnlMaxValue = useMemo(() => getMondaysRemaining(), []);
 
   // Load books from localStorage on mount
   useEffect(() => {
     try {
-      const storedBooks = localStorage.getItem(BOOKS_READ_KEY);
+      const storedBooks = localStorage.getItem(BOOKS_COMMITTED_KEY);
       if (storedBooks) {
-        setBooksRead(new Set(JSON.parse(storedBooks)));
+        setBooksCommitted(new Set(JSON.parse(storedBooks)));
       }
-      const storedOther = localStorage.getItem(OTHER_BOOKS_KEY);
+      const storedOther = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
       if (storedOther) {
         setOtherBooks(JSON.parse(storedOther));
       }
@@ -167,7 +168,7 @@ export const CommitmentEditorDrawer = ({
     }
   }, [open]);
 
-  const totalBooksRead = booksRead.size + otherBooks.length;
+  const totalBooksCommitted = booksCommitted.size + otherBooks.length;
 
   // Get committed blitzes
   const committedBlitzes = useMemo(() => {
@@ -300,26 +301,22 @@ export const CommitmentEditorDrawer = ({
   };
 
   const handleBookToggle = async (bookId: string) => {
-    const newBooksRead = new Set(booksRead);
+    const newBooksCommitted = new Set(booksCommitted);
     
-    if (newBooksRead.has(bookId)) {
-      newBooksRead.delete(bookId);
+    if (newBooksCommitted.has(bookId)) {
+      newBooksCommitted.delete(bookId);
     } else {
-      newBooksRead.add(bookId);
+      newBooksCommitted.add(bookId);
     }
     
-    setBooksRead(newBooksRead);
-    localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
+    setBooksCommitted(newBooksCommitted);
+    localStorage.setItem(BOOKS_COMMITTED_KEY, JSON.stringify([...newBooksCommitted]));
     
-    const newCount = newBooksRead.size + otherBooks.length;
+    const newCount = newBooksCommitted.size + otherBooks.length;
     try {
-      await onUpdateGoals({ books_progress: newCount });
-      if (newBooksRead.has(bookId)) {
-        const book = BOOKS.find(b => b.id === bookId);
-        toast.success(`"${book?.title}" marked as read!`);
-      }
+      await onUpdateGoals({ books_goal: newCount });
     } catch (error) {
-      toast.error("Failed to update progress");
+      toast.error("Failed to update");
     }
   };
 
@@ -328,15 +325,15 @@ export const CommitmentEditorDrawer = ({
     
     const updatedOther = [...otherBooks, newOtherBook.trim()];
     setOtherBooks(updatedOther);
-    localStorage.setItem(OTHER_BOOKS_KEY, JSON.stringify(updatedOther));
+    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(updatedOther));
     setNewOtherBook("");
     
-    const newCount = booksRead.size + updatedOther.length;
+    const newCount = booksCommitted.size + updatedOther.length;
     try {
-      await onUpdateGoals({ books_progress: newCount });
+      await onUpdateGoals({ books_goal: newCount });
       toast.success(`"${newOtherBook.trim()}" added!`);
     } catch (error) {
-      toast.error("Failed to update progress");
+      toast.error("Failed to update");
     }
   };
 
@@ -344,14 +341,14 @@ export const CommitmentEditorDrawer = ({
     const bookName = otherBooks[index];
     const updatedOther = otherBooks.filter((_, i) => i !== index);
     setOtherBooks(updatedOther);
-    localStorage.setItem(OTHER_BOOKS_KEY, JSON.stringify(updatedOther));
+    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(updatedOther));
     
-    const newCount = booksRead.size + updatedOther.length;
+    const newCount = booksCommitted.size + updatedOther.length;
     try {
-      await onUpdateGoals({ books_progress: newCount });
+      await onUpdateGoals({ books_goal: newCount });
       toast.success(`"${bookName}" removed`);
     } catch (error) {
-      toast.error("Failed to update progress");
+      toast.error("Failed to update");
     }
   };
 
@@ -468,12 +465,12 @@ export const CommitmentEditorDrawer = ({
                 <BookOpen className="h-5 w-5 text-purple-500" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-sm">Books Read</p>
+                <p className="font-semibold text-sm">Books to Read</p>
                 <p className="text-xs text-muted-foreground">
-                  {totalBooksRead} of {BOOKS.length}+ available
+                  {totalBooksCommitted} committed
                 </p>
               </div>
-              <span className="text-2xl font-bold tabular-nums mr-2">{totalBooksRead}</span>
+              <span className="text-2xl font-bold tabular-nums mr-2">{totalBooksCommitted}</span>
               <ChevronRight className={cn(
                 "h-5 w-5 text-muted-foreground transition-transform",
                 isBooksExpanded && "rotate-90"
@@ -483,33 +480,30 @@ export const CommitmentEditorDrawer = ({
             {isBooksExpanded && (
               <div className="space-y-2 mt-3 max-h-64 overflow-y-auto">
                 {BOOKS.map((book) => {
-                  const isRead = booksRead.has(book.id);
+                  const isCommitted = booksCommitted.has(book.id);
                   
                   return (
                     <div 
                       key={book.id}
                       className={cn(
                         "flex items-center gap-3 p-2 rounded-lg transition-all",
-                        isRead ? "bg-green-500/20" : "bg-background/50"
+                        isCommitted ? "bg-purple-500/20" : "bg-background/50"
                       )}
                     >
                       <Checkbox
                         id={`drawer-${book.id}`}
-                        checked={isRead}
+                        checked={isCommitted}
                         onCheckedChange={() => handleBookToggle(book.id)}
                         disabled={isUpdating}
                       />
                       <label 
                         htmlFor={`drawer-${book.id}`}
-                        className={cn(
-                          "flex-1 cursor-pointer",
-                          isRead && "line-through text-muted-foreground"
-                        )}
+                        className="flex-1 cursor-pointer"
                       >
                         <p className="font-medium text-sm">{book.title}</p>
                         <p className="text-xs text-muted-foreground">{book.author}</p>
                       </label>
-                      {isRead && <Check className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                      {isCommitted && <Check className="h-4 w-4 text-purple-500 flex-shrink-0" />}
                     </div>
                   );
                 })}

@@ -28,6 +28,7 @@ interface CommitmentChipsProps {
   onQuickIncrement: (key: string) => Promise<void>;
   onTrainingClick: () => void;
   onBlitzClick: () => void;
+  onBooksClick: () => void;
   isUpdating?: boolean;
 }
 
@@ -60,7 +61,7 @@ const chipConfigs: ChipConfig[] = [
     icon: BookOpen,
     gradient: 'from-purple-400 to-purple-600',
     textColor: 'text-purple-500',
-    incrementBy: 1,
+    hasCustomEditor: true,
   },
   {
     key: 'role_plays_goal',
@@ -107,6 +108,7 @@ export const CommitmentChips = ({
   onQuickIncrement,
   onTrainingClick,
   onBlitzClick,
+  onBooksClick,
   isUpdating = false,
 }: CommitmentChipsProps) => {
   const { efpModeEnabled } = useEfpMode();
@@ -161,6 +163,8 @@ export const CommitmentChips = ({
         onTrainingClick();
       } else if (config.key === 'blitzes_goal') {
         onBlitzClick();
+      } else if (config.key === 'books_goal') {
+        onBooksClick();
       }
       return;
     }

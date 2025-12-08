@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Check, Plus, X } from "lucide-react";
+import { BookOpen, Check, Plus, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
+import confetti from "canvas-confetti";
 
 interface Book {
   id: string;
@@ -19,7 +20,7 @@ interface Book {
   author: string;
 }
 
-const BOOKS: Book[] = [
+export const BOOKS: Book[] = [
   { id: "compound-effect", title: "The Compound Effect", author: "Darren Hardy" },
   { id: "atomic-habits", title: "Atomic Habits", author: "James Clear" },
   { id: "go-for-no", title: "Go for No!", author: "Richard Fenton & Andrea Waltz" },
@@ -41,67 +42,61 @@ const BOOKS: Book[] = [
   { id: "cant-hurt-me", title: "Can't Hurt Me", author: "David Goggins" },
 ];
 
-const BOOKS_READ_KEY = "kaizen-books-read";
-const OTHER_BOOKS_KEY = "kaizen-other-books";
+export const BOOKS_COMMITTED_KEY = "kaizen-books-committed";
+export const BOOKS_READ_KEY = "kaizen-books-read";
+export const OTHER_BOOKS_COMMITTED_KEY = "kaizen-other-books-committed";
+export const OTHER_BOOKS_READ_KEY = "kaizen-other-books-read";
 
-interface BooksSelectionDrawerProps {
+// Drawer for SELECTING books to commit to (goal setting)
+interface BooksCommitmentDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  currentProgress: number;
-  onUpdateProgress: (newProgress: number) => Promise<unknown>;
+  onUpdateGoal: (newGoal: number) => Promise<unknown>;
 }
 
-export const BooksSelectionDrawer = ({
+export const BooksCommitmentDrawer = ({
   isOpen,
   onClose,
-  currentProgress,
-  onUpdateProgress,
-}: BooksSelectionDrawerProps) => {
+  onUpdateGoal,
+}: BooksCommitmentDrawerProps) => {
   const { toast } = useToast();
-  const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
-  const [otherBooks, setOtherBooks] = useState<string[]>([]);
+  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
+  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
   const [newOtherBook, setNewOtherBook] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(BOOKS_READ_KEY);
+      const stored = localStorage.getItem(BOOKS_COMMITTED_KEY);
       if (stored) {
-        setBooksRead(new Set(JSON.parse(stored)));
+        setBooksCommitted(new Set(JSON.parse(stored)));
       }
-      const otherStored = localStorage.getItem(OTHER_BOOKS_KEY);
+      const otherStored = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
       if (otherStored) {
-        setOtherBooks(JSON.parse(otherStored));
+        setOtherBooksCommitted(JSON.parse(otherStored));
       }
     } catch {
       // Ignore parse errors
     }
-  }, []);
+  }, [isOpen]);
 
   const handleBookToggle = async (bookId: string) => {
     setIsSaving(true);
-    const newBooksRead = new Set(booksRead);
+    const newBooksCommitted = new Set(booksCommitted);
     
-    if (newBooksRead.has(bookId)) {
-      newBooksRead.delete(bookId);
+    if (newBooksCommitted.has(bookId)) {
+      newBooksCommitted.delete(bookId);
     } else {
-      newBooksRead.add(bookId);
+      newBooksCommitted.add(bookId);
     }
     
-    setBooksRead(newBooksRead);
-    localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
+    setBooksCommitted(newBooksCommitted);
+    localStorage.setItem(BOOKS_COMMITTED_KEY, JSON.stringify([...newBooksCommitted]));
     
-    const newCount = newBooksRead.size + otherBooks.length;
+    const newCount = newBooksCommitted.size + otherBooksCommitted.length;
     try {
-      await onUpdateProgress(newCount);
-      if (newBooksRead.has(bookId)) {
-        const book = BOOKS.find(b => b.id === bookId);
-        toast({
-          title: "Book logged! 📚",
-          description: book?.title,
-        });
-      }
+      await onUpdateGoal(newCount);
     } catch {
       toast({
         title: "Error saving",
@@ -116,17 +111,13 @@ export const BooksSelectionDrawer = ({
     if (!newOtherBook.trim()) return;
     
     setIsSaving(true);
-    const newOtherBooks = [...otherBooks, newOtherBook.trim()];
-    setOtherBooks(newOtherBooks);
-    localStorage.setItem(OTHER_BOOKS_KEY, JSON.stringify(newOtherBooks));
+    const newOtherBooks = [...otherBooksCommitted, newOtherBook.trim()];
+    setOtherBooksCommitted(newOtherBooks);
+    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(newOtherBooks));
     
-    const newCount = booksRead.size + newOtherBooks.length;
+    const newCount = booksCommitted.size + newOtherBooks.length;
     try {
-      await onUpdateProgress(newCount);
-      toast({
-        title: "Book logged! 📚",
-        description: newOtherBook.trim(),
-      });
+      await onUpdateGoal(newCount);
       setNewOtherBook("");
     } catch {
       toast({
@@ -140,13 +131,13 @@ export const BooksSelectionDrawer = ({
 
   const handleRemoveOtherBook = async (index: number) => {
     setIsSaving(true);
-    const newOtherBooks = otherBooks.filter((_, i) => i !== index);
-    setOtherBooks(newOtherBooks);
-    localStorage.setItem(OTHER_BOOKS_KEY, JSON.stringify(newOtherBooks));
+    const newOtherBooks = otherBooksCommitted.filter((_, i) => i !== index);
+    setOtherBooksCommitted(newOtherBooks);
+    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(newOtherBooks));
     
-    const newCount = booksRead.size + newOtherBooks.length;
+    const newCount = booksCommitted.size + newOtherBooks.length;
     try {
-      await onUpdateProgress(newCount);
+      await onUpdateGoal(newCount);
     } catch {
       toast({
         title: "Error saving",
@@ -157,7 +148,7 @@ export const BooksSelectionDrawer = ({
     }
   };
 
-  const totalRead = booksRead.size + otherBooks.length;
+  const totalCommitted = booksCommitted.size + otherBooksCommitted.length;
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
@@ -165,10 +156,10 @@ export const BooksSelectionDrawer = ({
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="flex items-center justify-center gap-2">
             <BookOpen className="h-5 w-5 text-purple-500" />
-            Log a Book
+            Books to Read
           </DrawerTitle>
           <DrawerDescription>
-            {totalRead} book{totalRead !== 1 ? 's' : ''} read
+            {totalCommitted} book{totalCommitted !== 1 ? 's' : ''} committed
           </DrawerDescription>
         </DrawerHeader>
 
@@ -177,7 +168,7 @@ export const BooksSelectionDrawer = ({
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Recommended Books</h4>
             {BOOKS.map((book) => {
-              const isRead = booksRead.has(book.id);
+              const isCommitted = booksCommitted.has(book.id);
               return (
                 <button
                   key={book.id}
@@ -185,20 +176,15 @@ export const BooksSelectionDrawer = ({
                   disabled={isSaving}
                   className={cn(
                     "flex items-center gap-3 w-full p-3 rounded-lg text-left transition-all",
-                    isRead ? "bg-green-500/10 ring-1 ring-green-500/50" : "bg-muted/50 hover:bg-muted"
+                    isCommitted ? "bg-purple-500/10 ring-1 ring-purple-500/50" : "bg-muted/50 hover:bg-muted"
                   )}
                 >
-                  <Checkbox checked={isRead} className="pointer-events-none" />
+                  <Checkbox checked={isCommitted} className="pointer-events-none" />
                   <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "font-medium text-sm",
-                      isRead && "text-muted-foreground line-through"
-                    )}>
-                      {book.title}
-                    </p>
+                    <p className="font-medium text-sm">{book.title}</p>
                     <p className="text-xs text-muted-foreground">{book.author}</p>
                   </div>
-                  {isRead && <Check className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                  {isCommitted && <Check className="h-4 w-4 text-purple-500 flex-shrink-0" />}
                 </button>
               );
             })}
@@ -206,14 +192,14 @@ export const BooksSelectionDrawer = ({
 
           {/* Other Books */}
           <div className="space-y-2 pt-4 border-t">
-            <h4 className="text-sm font-medium text-muted-foreground">Other Books</h4>
+            <h4 className="text-sm font-medium text-muted-foreground">Add Your Own</h4>
             
-            {otherBooks.map((book, index) => (
+            {otherBooksCommitted.map((book, index) => (
               <div 
                 key={index}
-                className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 ring-1 ring-green-500/50"
+                className="flex items-center gap-3 p-3 rounded-lg bg-purple-500/10 ring-1 ring-purple-500/50"
               >
-                <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <Check className="h-4 w-4 text-purple-500 flex-shrink-0" />
                 <span className="flex-1 text-sm">{book}</span>
                 <Button
                   variant="ghost"
@@ -260,3 +246,223 @@ export const BooksSelectionDrawer = ({
     </Drawer>
   );
 };
+
+// Drawer for MARKING committed books as READ (progress tracking)
+interface BooksCompletionDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentProgress: number;
+  onUpdateProgress: (newProgress: number) => Promise<unknown>;
+}
+
+export const BooksCompletionDrawer = ({
+  isOpen,
+  onClose,
+  currentProgress,
+  onUpdateProgress,
+}: BooksCompletionDrawerProps) => {
+  const { toast } = useToast();
+  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
+  const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
+  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
+  const [otherBooksRead, setOtherBooksRead] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load from localStorage
+  useEffect(() => {
+    try {
+      const committed = localStorage.getItem(BOOKS_COMMITTED_KEY);
+      if (committed) {
+        setBooksCommitted(new Set(JSON.parse(committed)));
+      }
+      const read = localStorage.getItem(BOOKS_READ_KEY);
+      if (read) {
+        setBooksRead(new Set(JSON.parse(read)));
+      }
+      const otherCommitted = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
+      if (otherCommitted) {
+        setOtherBooksCommitted(JSON.parse(otherCommitted));
+      }
+      const otherRead = localStorage.getItem(OTHER_BOOKS_READ_KEY);
+      if (otherRead) {
+        setOtherBooksRead(JSON.parse(otherRead));
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [isOpen]);
+
+  const handleMarkBookRead = async (bookId: string) => {
+    if (booksRead.has(bookId)) return; // Already read
+    
+    setIsSaving(true);
+    const newBooksRead = new Set(booksRead);
+    newBooksRead.add(bookId);
+    
+    setBooksRead(newBooksRead);
+    localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
+    
+    const newCount = newBooksRead.size + otherBooksRead.length;
+    try {
+      await onUpdateProgress(newCount);
+      const book = BOOKS.find(b => b.id === bookId);
+      
+      // Celebration!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      toast({
+        title: "📚 Book finished!",
+        description: book?.title || "Great job!",
+      });
+      
+      onClose();
+    } catch {
+      toast({
+        title: "Error saving",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMarkOtherBookRead = async (bookTitle: string, index: number) => {
+    if (otherBooksRead.includes(bookTitle)) return; // Already read
+    
+    setIsSaving(true);
+    const newOtherBooksRead = [...otherBooksRead, bookTitle];
+    setOtherBooksRead(newOtherBooksRead);
+    localStorage.setItem(OTHER_BOOKS_READ_KEY, JSON.stringify(newOtherBooksRead));
+    
+    const newCount = booksRead.size + newOtherBooksRead.length;
+    try {
+      await onUpdateProgress(newCount);
+      
+      // Celebration!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      toast({
+        title: "📚 Book finished!",
+        description: bookTitle,
+      });
+      
+      onClose();
+    } catch {
+      toast({
+        title: "Error saving",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Get committed books that haven't been read yet
+  const unreadCommittedBooks = BOOKS.filter(
+    book => booksCommitted.has(book.id) && !booksRead.has(book.id)
+  );
+  const unreadOtherBooks = otherBooksCommitted.filter(
+    book => !otherBooksRead.includes(book)
+  );
+
+  const hasUnreadBooks = unreadCommittedBooks.length > 0 || unreadOtherBooks.length > 0;
+  const totalRead = booksRead.size + otherBooksRead.length;
+
+  return (
+    <Drawer open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="max-h-[90vh]">
+        <DrawerHeader className="text-center pb-2">
+          <DrawerTitle className="flex items-center justify-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            Mark Book as Finished
+          </DrawerTitle>
+          <DrawerDescription>
+            {totalRead} of {booksCommitted.size + otherBooksCommitted.length} books completed
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
+          {!hasUnreadBooks ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium mb-1">No unread books!</p>
+              <p className="text-sm">Commit to more books in the editor</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Which book did you finish?
+              </h4>
+              
+              {unreadCommittedBooks.map((book) => (
+                <button
+                  key={book.id}
+                  onClick={() => handleMarkBookRead(book.id)}
+                  disabled={isSaving}
+                  className={cn(
+                    "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
+                    "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
+                    "active:scale-[0.98]"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{book.title}</p>
+                    <p className="text-xs text-muted-foreground">{book.author}</p>
+                  </div>
+                  <Check className="h-5 w-5 text-muted-foreground/30" />
+                </button>
+              ))}
+              
+              {unreadOtherBooks.map((book, index) => (
+                <button
+                  key={`other-${index}`}
+                  onClick={() => handleMarkOtherBookRead(book, index)}
+                  disabled={isSaving}
+                  className={cn(
+                    "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
+                    "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
+                    "active:scale-[0.98]"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{book}</p>
+                    <p className="text-xs text-muted-foreground">Custom book</p>
+                  </div>
+                  <Check className="h-5 w-5 text-muted-foreground/30" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 pb-6">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full"
+            size="lg"
+          >
+            Cancel
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
+// Legacy export for backwards compatibility
+export const BooksSelectionDrawer = BooksCompletionDrawer;

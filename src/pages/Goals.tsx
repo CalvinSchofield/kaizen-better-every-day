@@ -16,6 +16,7 @@ import { PayscaleCalculator } from "@/components/goals/PayscaleCalculator";
 import { CalendarPlanningCard } from "@/components/goals/CalendarPlanningCard";
 import { CanceledStatsCard } from "@/components/goals/CanceledStatsCard";
 import { TrainingTimer } from "@/components/goals/TrainingTimer";
+import { BooksCompletionDrawer } from "@/components/goals/BooksSelectionDrawer";
 import { CommitmentEditorDrawer } from "@/components/goals/CommitmentEditorDrawer";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -71,6 +72,7 @@ const Goals = () => {
   const [showCommitmentEditor, setShowCommitmentEditor] = useState(false);
   const [showTrainingTimer, setShowTrainingTimer] = useState(false);
   const [showBlitzEditor, setShowBlitzEditor] = useState(false);
+  const [showBooksDrawer, setShowBooksDrawer] = useState(false);
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
@@ -629,6 +631,7 @@ const Goals = () => {
             onQuickIncrement={handleQuickIncrement}
             onTrainingClick={() => setShowTrainingTimer(true)}
             onBlitzClick={() => setShowBlitzEditor(true)}
+            onBooksClick={() => setShowBooksDrawer(true)}
             isUpdating={isUpdating}
           />
         </motion.div>
@@ -798,6 +801,14 @@ const Goals = () => {
         onUpdateGoals={updateGoals}
         isUpdating={isUpdating}
         preseasonFpProgress={totalFpPlus}
+      />
+
+      {/* Books Completion Drawer */}
+      <BooksCompletionDrawer
+        isOpen={showBooksDrawer}
+        onClose={() => setShowBooksDrawer(false)}
+        currentProgress={Number(goals.books_progress) || 0}
+        onUpdateProgress={(newProgress) => updateGoals({ books_progress: newProgress })}
       />
     </Layout>
   );
