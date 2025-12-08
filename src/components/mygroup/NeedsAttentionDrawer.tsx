@@ -393,7 +393,11 @@ const BlitzRecruitItem = ({
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
   
   const repData = repDataMap?.get(item.recruit.notionPageId);
-  const currentCommitments = (repData?.committed_blitzes as string[]) || [];
+  // Extract just IDs from committed_blitzes (may be strings or objects with id property)
+  const rawCommitments = repData?.committed_blitzes || [];
+  const currentCommitments: string[] = Array.isArray(rawCommitments)
+    ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+    : [];
 
   return (
     <>
