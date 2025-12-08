@@ -66,6 +66,7 @@ export const usePlannedDaysSync = () => {
   const prevSummerStartRef = useRef<string | null>(null);
   const prevSummerEndRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
+  const hasBlitzesLoadedRef = useRef(false); // Track if we've seen non-empty blitzes
   
   // Fetch season config for summer dates, excluded blitz days, and excluded summer days
   const { data: seasonConfig } = useQuery({
@@ -281,6 +282,41 @@ export const usePlannedDaysSync = () => {
     
     // Check if blitzes changed
     const blitzesChanged = JSON.stringify(currentBlitzIds.sort()) !== JSON.stringify(prevBlitzIds.sort());
+    
+    // CRITICAL FIX: Also detect when blitzes load for the first time (from empty to populated)
+    // This handles the case where cached data was empty but fresh data has blitzes
+    const blitzesJustLoaded = !hasBlitzesLoadedRef.current && currentBlitzIds.length > 0;
+    
+    if (blitzesJustLoaded) {
+      hasBlitzesLoadedRef.current = true;
+      // This is the first time we're seeing blitzes - add their days to planned
+      const newBlitzDays: string[] = [];
+      for (const blitz of committedBlitzes) {
+        const startDate = parseLocalDate(blitz.date);
+        const endDate = blitz.endDate ? parseLocalDate(blitz.endDate) : startDate;
+        const blitzDays = getWorkDaysInRange(startDate, endDate);
+        const excludedForBlitz = excludedBlitzDays[blitz.id] || [];
+        
+        const includedDays = blitzDays.filter(d => 
+          !excludedForBlitz.includes(d) && !isBefore(parseLocalDate(d), today)
+        );
+        newBlitzDays.push(...includedDays);
+      }
+      
+      // Add only new days (not already planned)
+      const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
+      const daysToAdd = newBlitzDays.filter(d => !plannedSet.has(d));
+      
+      if (daysToAdd.length > 0) {
+        console.log('Blitzes just loaded, adding days:', daysToAdd);
+        addMultipleDays(daysToAdd);
+      }
+      
+      // Update refs
+      prevCommittedBlitzIdsRef.current = currentBlitzIds;
+      prevCommittedBlitzesRef.current = [...committedBlitzes];
+      return;
+    }
     
     if (blitzesChanged && hasInitializedRef.current) {
       // Find newly added blitzes
