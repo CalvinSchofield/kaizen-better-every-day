@@ -2,8 +2,6 @@ import { Phone, MessageSquare, Calendar, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
-import { useLogRecruitActivity } from "@/hooks/useGroupRecruits";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -13,6 +11,9 @@ import {
   DrawerHeader, 
   DrawerTitle 
 } from "@/components/ui/drawer";
+import { useLogRecruitActivity, Recruit } from "@/hooks/useGroupRecruits";
+import { PostContactDrawer } from "./PostContactDrawer";
+import { toast } from "sonner";
 
 // Helper to strip emojis from names
 const stripEmojis = (text: string | null): string | null => {
@@ -44,6 +45,11 @@ export const RecommendationsSection = ({
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledAction, setScheduledAction] = useState('Follow up');
   
+  // Post-contact drawer state
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
+  const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
+  
   const logActivityMutation = useLogRecruitActivity();
 
   if (recommendations.length === 0) {
@@ -52,20 +58,28 @@ export const RecommendationsSection = ({
 
   const topRecommendations = recommendations.slice(0, maxItems);
 
-  const handleCall = async (rec: RecruitRecommendation, e: React.MouseEvent) => {
+  const handleCall = (rec: RecruitRecommendation, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: rec.recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
+    // Open phone dialer
     window.location.href = `tel:${rec.recruit.phone}`;
+    // Then show post-contact drawer
+    setContactingRecruit(rec.recruit);
+    setContactMethod('call');
+    setPostContactOpen(true);
+  };
+
+  const handleText = (rec: RecruitRecommendation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Open SMS app
+    window.location.href = `sms:${rec.recruit.phone}`;
+    // Then show post-contact drawer
+    setContactingRecruit(rec.recruit);
+    setContactMethod('text');
+    setPostContactOpen(true);
+  };
+
+  const handlePostContactComplete = () => {
+    setContactingRecruit(null);
   };
 
   const handleSchedule = (rec: RecruitRecommendation, e: React.MouseEvent) => {
@@ -146,6 +160,14 @@ export const RecommendationsSection = ({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    onClick={(e) => handleText(rec, e)}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
                     onClick={(e) => handleSchedule(rec, e)}
                   >
                     <Calendar className="h-4 w-4" />
@@ -194,6 +216,15 @@ export const RecommendationsSection = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Post-Contact Drawer */}
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={setPostContactOpen}
+        recruit={contactingRecruit}
+        contactMethod={contactMethod}
+        onComplete={handlePostContactComplete}
+      />
     </>
   );
 };
