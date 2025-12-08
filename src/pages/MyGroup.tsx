@@ -1,15 +1,19 @@
 import { useState, useMemo } from "react";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useGroupRecruits, useMySuggestions, useUpdateMySuggestion, useDeleteMySuggestion, RecruitSuggestion } from "@/hooks/useGroupRecruits";
+import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
+import { useNeedsAttention } from "@/hooks/useNeedsAttention";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Users, LayoutGrid, List, Plus, Filter, CalendarDays, X, Clock, CheckCircle2, XCircle, Pencil, Trash2 } from "lucide-react";
-import { RecruitKanbanBoard } from "@/components/mygroup/RecruitKanbanBoard";
-import { RecruitListView } from "@/components/mygroup/RecruitListView";
-import { RecruitPlannerView } from "@/components/mygroup/RecruitPlannerView";
+import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
+import { TodaysFocusHero } from "@/components/mygroup/TodaysFocusHero";
+import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
+import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
+import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
+import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
+import { RecommendationsSection } from "@/components/mygroup/RecommendationsSection";
+import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
@@ -35,12 +39,19 @@ const MyGroup = () => {
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes } = useBlitzes();
-  const [viewMode, setViewMode] = useState<'board' | 'list' | 'planner'>('board');
+  
+  // UI State
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   const [editingSuggestion, setEditingSuggestion] = useState<RecruitSuggestion | null>(null);
   const [deletingSuggestionId, setDeletingSuggestionId] = useState<string | null>(null);
+  
+  // New Phase 1 state
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzes, isLeader);
@@ -55,14 +66,11 @@ const MyGroup = () => {
   const filteredRecruits = useMemo(() => {
     if (!selectedTeamFilter) return allRecruits;
     
-    // Parse filter format: "team:id" or "mgmt:id"
     if (selectedTeamFilter.startsWith('team:')) {
       const teamId = selectedTeamFilter.replace('team:', '');
-      // Filter by teamId directly
       return allRecruits.filter(r => r.teamId === teamId);
     } else if (selectedTeamFilter.startsWith('mgmt:')) {
       const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-      // Filter by mgmtGroupId directly
       return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
     }
     return allRecruits;
@@ -91,12 +99,10 @@ const MyGroup = () => {
   const teamRecruitCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     
-    // Count by teamId
     teamAccess?.teams?.forEach(team => {
       counts[`team:${team.id}`] = allRecruits.filter(r => r.teamId === team.id).length;
     });
     
-    // Count by mgmtGroupId
     teamAccess?.mgmtGroups?.forEach(group => {
       counts[`mgmt:${group.id}`] = allRecruits.filter(r => r.mgmtGroupId === group.id).length;
     });
@@ -104,18 +110,44 @@ const MyGroup = () => {
     return counts;
   }, [allRecruits, teamAccess]);
 
+  // Calculate needs attention metrics
+  const { categories, topPriority, totalCount } = useNeedsAttention(
+    filteredRecruits,
+    filteredActivities,
+    allBlitzes
+  );
+
+  // Get smart recommendations
+  const recommendations = useRecruitingRecommendations(filteredRecruits, filteredActivities);
+
+  // Get selected category for drawer
+  const selectedCategory = useMemo(() => {
+    if (!selectedCategoryId) return null;
+    return categories.find(c => c.id === selectedCategoryId) || null;
+  }, [selectedCategoryId, categories]);
+
+  const handleCategoryClick = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setAttentionDrawerOpen(true);
+  };
+
+  const handleRecruitClick = (recruit: Recruit) => {
+    setSelectedRecruit(recruit);
+  };
+
   if (isLoading) {
     return (
       <Layout>
         <div className="p-4 space-y-4">
-          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-10 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
       </Layout>
     );
   }
 
-  // Header controls - just the right-side controls, Layout handles title
+  // Simplified header - just filter button for higher-level leaders
   const headerControls = (
     <div className="flex items-center gap-2">
       {activeFilterName && (
@@ -138,40 +170,69 @@ const MyGroup = () => {
         </Button>
       )}
       {isLeader && (
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'board' | 'list' | 'planner')}>
-          <TabsList className="h-8">
-            <TabsTrigger value="board" className="px-2">
-              <LayoutGrid className="h-4 w-4" />
-            </TabsTrigger>
-            <TabsTrigger value="list" className="px-2">
-              <List className="h-4 w-4" />
-            </TabsTrigger>
-            <TabsTrigger value="planner" className="px-2">
-              <CalendarDays className="h-4 w-4" />
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={() => setQuickViewOpen(true)}
+        >
+          <LayoutGrid className="h-4 w-4" />
+        </Button>
       )}
     </div>
   );
 
   return (
     <Layout headerRightContent={headerControls}>
-      <div className="p-4 space-y-4">
-        {/* Pending Suggestions for Leaders */}
-        {isLeader && pendingSuggestions.length > 0 && (
-          <PendingSuggestionsCard suggestions={pendingSuggestions} />
-        )}
-
-        {/* Main Content */}
+      <div className="p-4 space-y-5">
+        {/* Leader View */}
         {isLeader ? (
-          viewMode === 'board' ? (
-            <RecruitKanbanBoard recruits={filteredRecruits} activities={filteredActivities} />
-          ) : viewMode === 'list' ? (
-            <RecruitListView recruits={filteredRecruits} activities={filteredActivities} />
-          ) : (
-            <RecruitPlannerView recruits={filteredRecruits} activities={filteredActivities} />
-          )
+          <>
+            {/* Today's Focus Hero */}
+            <TodaysFocusHero
+              topPriority={topPriority}
+              totalNeedsAttention={totalCount}
+              onRecruitClick={handleRecruitClick}
+              onViewAll={() => setQuickViewOpen(true)}
+            />
+
+            {/* Needs Attention Chips */}
+            <NeedsAttentionChips
+              categories={categories}
+              selectedCategory={selectedCategoryId}
+              onCategoryClick={handleCategoryClick}
+            />
+
+            {/* Smart Recommendations */}
+            {recommendations.length > 0 && (
+              <RecommendationsSection
+                recommendations={recommendations}
+                onRecruitClick={handleRecruitClick}
+                maxItems={4}
+              />
+            )}
+
+            {/* Pending Suggestions */}
+            {pendingSuggestions.length > 0 && (
+              <PendingSuggestionsCard suggestions={pendingSuggestions} />
+            )}
+
+            {/* Quick Stats Summary */}
+            <div className="bg-card rounded-xl p-4 border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Recruits</p>
+                  <p className="text-2xl font-semibold">{filteredRecruits.length}</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setQuickViewOpen(true)}
+                >
+                  View All
+                </Button>
+              </div>
+            </div>
+          </>
         ) : (
           // Non-leader view: Show their suggestions list
           <div className="space-y-4">
@@ -254,7 +315,7 @@ const MyGroup = () => {
         )}
       </div>
 
-      {/* Floating Add Button - only show for leaders OR non-leaders with suggestions */}
+      {/* Floating Add Button */}
       {(isLeader || (mySuggestions && mySuggestions.length > 0)) && (
         <Button
           className="fixed right-4 h-14 w-14 rounded-full shadow-lg z-40"
@@ -265,7 +326,7 @@ const MyGroup = () => {
         </Button>
       )}
 
-      {/* Sheets */}
+      {/* Drawers */}
       <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />
       <EditSuggestionDrawer 
         open={!!editingSuggestion} 
@@ -282,6 +343,24 @@ const MyGroup = () => {
         accessLevel={teamAccess?.accessLevel || 'none'}
         recruitCounts={teamRecruitCounts}
         totalRecruits={allRecruits.length}
+      />
+      <NeedsAttentionDrawer
+        open={attentionDrawerOpen}
+        onOpenChange={setAttentionDrawerOpen}
+        category={selectedCategory}
+        onRecruitClick={handleRecruitClick}
+      />
+      <QuickViewDrawer
+        open={quickViewOpen}
+        onOpenChange={setQuickViewOpen}
+        recruits={filteredRecruits}
+        activities={filteredActivities}
+      />
+      <RecruitDetailDrawer
+        open={!!selectedRecruit}
+        onOpenChange={(open) => !open && setSelectedRecruit(null)}
+        recruit={selectedRecruit}
+        activities={filteredActivities.filter(a => a.rep_notion_page_id === selectedRecruit?.notionPageId)}
       />
 
       {/* Delete Confirmation Dialog */}
