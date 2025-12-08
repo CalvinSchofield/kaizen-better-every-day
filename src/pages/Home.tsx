@@ -1116,11 +1116,12 @@ const Home = () => {
             
             // Check if it's Monday between 4 AM - 8:30 PM MST
             const now = new Date();
-            const mstOffset = -7 * 60; // MST is UTC-7
-            const mstTime = new Date(now.getTime() + (now.getTimezoneOffset() + mstOffset) * 60000);
+            const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
             const mstHour = mstTime.getHours();
+            const mstMinutes = mstTime.getMinutes();
             const mstDay = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
-            const isMondayNightLights = mstDay === 1 && mstHour >= 4 && mstHour < 20.5; // 4 AM to 8:30 PM
+            const totalMinutesMst = mstHour * 60 + mstMinutes;
+            const isMondayNightLights = mstDay === 1 && totalMinutesMst >= 240 && totalMinutesMst <= 1230; // 4 AM (240) to 8:30 PM (1230)
             
             // Check if we're currently during a blitz week
             const isBlitzWeek = nextBlitz && (() => {
