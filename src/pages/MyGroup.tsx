@@ -16,6 +16,7 @@ import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { RecommendationsSection } from "@/components/mygroup/RecommendationsSection";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
+import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
@@ -248,6 +249,9 @@ const MyGroup = () => {
             {pendingSuggestions.length > 0 && (
               <PendingSuggestionsCard suggestions={pendingSuggestions} />
             )}
+
+            {/* Upcoming Team Events */}
+            <UpcomingTeamEventsCard />
 
             {/* Quick Stats Summary */}
             <div className="bg-card rounded-xl p-4 border">
