@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
 import { differenceInDays, parseISO } from "date-fns";
+import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 
 export interface AttentionCategory {
   id: string;
@@ -88,12 +89,18 @@ export interface RepGoalsData {
   blitzes_progress: number | null;
 }
 
+export interface RepSummerConfigData {
+  user_id: string;
+  personal_summer_start: string | null;
+}
+
 export const useNeedsAttention = (
   recruits: Recruit[],
   activities: RecruitActivity[],
   blitzes: BlitzEvent[],
   repDataMap?: Map<string, RepData>,
-  repGoalsMap?: Map<string, RepGoalsData>
+  repGoalsMap?: Map<string, RepGoalsData>,
+  repSummerConfigMap?: Map<string, RepSummerConfigData>
 ) => {
   return useMemo(() => {
     if (!recruits.length) {
@@ -528,6 +535,8 @@ export const useNeedsAttention = (
       if (!repData?.user_id) return;
       
       const goalsData = repGoalsMap?.get(repData.user_id);
+      const summerConfig = repSummerConfigMap?.get(repData.user_id);
+      const personalSummerStart = summerConfig?.personal_summer_start || null;
       
       // Get blitz commitments
       const rawCommitments = repData.committed_blitzes || [];
@@ -541,8 +550,8 @@ export const useNeedsAttention = (
         return blitzDate >= now && committedBlitzIds.includes(b.id);
       });
       
-      // Calculate behind status for each goal
-      const trainingGoal = goalsData?.training_hours_goal || 0;
+      // Get goal values
+      const trainingGoal = (goalsData?.training_hours_goal || 0) * 60; // Convert hours to minutes
       const trainingProgress = goalsData?.training_hours_progress || 0;
       const booksGoal = goalsData?.books_goal || 0;
       const booksProgress = goalsData?.books_progress || 0;
@@ -551,23 +560,34 @@ export const useNeedsAttention = (
       const mnlGoal = goalsData?.monday_night_lights_goal || 0;
       const mnlProgress = goalsData?.monday_night_lights_progress || 0;
       
+      // Use pace calculator to determine if behind
       let behindCount = 0;
       const behindAreas: string[] = [];
       
-      // Check if behind on each goal (less than 70% completion)
-      if (trainingGoal > 0 && (trainingProgress / trainingGoal) < 0.7) {
+      // Training hours use weekly pace (resets Sunday)
+      const trainingPaceStatus = getCommitmentPaceStatus('training', trainingProgress, trainingGoal, personalSummerStart);
+      if (trainingGoal > 0 && trainingPaceStatus === 'behind') {
         behindCount++;
         behindAreas.push('Training');
       }
-      if (booksGoal > 0 && (booksProgress / booksGoal) < 0.7) {
+      
+      // Books use preseason pace (until summer start)
+      const booksPaceStatus = getCommitmentPaceStatus('books', booksProgress, booksGoal, personalSummerStart);
+      if (booksGoal > 0 && booksPaceStatus === 'behind') {
         behindCount++;
         behindAreas.push('Books');
       }
-      if (rolePlaysGoal > 0 && (rolePlaysProgress / rolePlaysGoal) < 0.7) {
+      
+      // Role plays use preseason pace
+      const rolePLaysPaceStatus = getCommitmentPaceStatus('role_plays', rolePlaysProgress, rolePlaysGoal, personalSummerStart);
+      if (rolePlaysGoal > 0 && rolePLaysPaceStatus === 'behind') {
         behindCount++;
         behindAreas.push('Role Plays');
       }
-      if (mnlGoal > 0 && (mnlProgress / mnlGoal) < 0.7) {
+      
+      // MNL uses preseason pace
+      const mnlPaceStatus = getCommitmentPaceStatus('monday_night_lights', mnlProgress, mnlGoal, personalSummerStart);
+      if (mnlGoal > 0 && mnlPaceStatus === 'behind') {
         behindCount++;
         behindAreas.push('MNL');
       }
@@ -659,5 +679,5 @@ export const useNeedsAttention = (
       topPriority,
       totalCount,
     };
-  }, [recruits, activities, blitzes, repDataMap]);
+  }, [recruits, activities, blitzes, repDataMap, repGoalsMap, repSummerConfigMap]);
 };
