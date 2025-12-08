@@ -725,6 +725,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           const isWithinOneHourOfStart = totalMinutes >= mnlStartMinutes - 60; // 5pm or later
           const statusText = isWithinOneHourOfStart ? "Happening Now!" : "Later Today";
           
+          // Calculate countdown to 6pm MST
+          const minutesUntilStart = mnlStartMinutes - totalMinutes;
+          const hoursUntil = Math.floor(minutesUntilStart / 60);
+          const minsUntil = minutesUntilStart % 60;
+          const countdownText = hoursUntil > 0 
+            ? `${hoursUntil}h ${minsUntil}m` 
+            : `${minsUntil}m`;
+          
           return shouldShowMondayNights ? (
             <Card className="mb-6 shadow-sm border-2 border-orange-500 bg-orange-50 dark:bg-orange-950/20">
               <CardContent className="p-6">
@@ -735,7 +743,10 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   <div className="flex-1">
                     <h3 className="font-semibold text-lg mb-2">Monday Night Lights — {statusText}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {isWithinOneHourOfStart ? "Watch Slack for the link!" : "Starting at"} <strong>6pm MST</strong>{!isWithinOneHourOfStart && " — watch Slack for the link!"}
+                      {isWithinOneHourOfStart 
+                        ? "Watch Slack for the link!" 
+                        : <>Starts in <strong>{countdownText}</strong> — watch Slack for the link!</>
+                      }
                     </p>
                   </div>
                 </div>
