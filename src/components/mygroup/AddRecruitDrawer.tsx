@@ -547,9 +547,14 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       case 'pending':
         return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
       case 'approved':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" /> Approved</Badge>;
+        return (
+          <div className="flex flex-col items-end gap-0.5">
+            <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" /> They're doing it!</Badge>
+            <span className="text-[10px] text-muted-foreground">Help them prepare!</span>
+          </div>
+        );
       case 'rejected':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" /> Rejected</Badge>;
+        return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" /> Not interested for now</Badge>;
       default:
         return null;
     }

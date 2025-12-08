@@ -371,13 +371,16 @@ const MyGroup = () => {
                             </>
                           )}
                           {suggestion.status === 'approved' && (
-                            <Badge className="bg-green-500 flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" /> Approved
-                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge className="bg-green-500 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> They're doing it!
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">Help them practice & prepare!</span>
+                            </div>
                           )}
                           {suggestion.status === 'rejected' && (
-                            <Badge variant="destructive" className="flex items-center gap-1">
-                              <XCircle className="h-3 w-3" /> Rejected
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <XCircle className="h-3 w-3" /> Not interested for now
                             </Badge>
                           )}
                         </div>
