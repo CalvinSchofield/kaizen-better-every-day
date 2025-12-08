@@ -155,8 +155,7 @@ const BlitzManagementSection = ({
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           repNotionPageId: recruit.notionPageId,
-          blitzId,
-          committed: !isCurrentlyCommitted,
+          blitzPageIds: newCommittedBlitzes,
         },
       });
       
