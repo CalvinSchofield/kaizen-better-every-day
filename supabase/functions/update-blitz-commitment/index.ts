@@ -27,7 +27,16 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Updating blitz commitments for rep ${repNotionPageId}`);
-    console.log(`New blitz commitments:`, blitzPageIds);
+    console.log(`Raw blitz commitments received:`, blitzPageIds);
+
+    // Normalize blitzPageIds - extract IDs if objects were passed
+    const normalizedIds: string[] = blitzPageIds.map((item: string | { id: string }) => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object' && 'id' in item) return item.id;
+      throw new Error(`Invalid blitz item format: ${JSON.stringify(item)}`);
+    });
+
+    console.log(`Normalized blitz IDs:`, normalizedIds);
 
     // Update the rep's Notion page with the new blitz commitments
     // The "Preseason trips" property is a relation to the Preseason Trips database
@@ -43,7 +52,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           properties: {
             "Preseason trips": {
-              relation: blitzPageIds.map(id => ({ id }))
+              relation: normalizedIds.map(id => ({ id }))
             }
           }
         }),
