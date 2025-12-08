@@ -488,15 +488,23 @@ export const useNeedsAttention = (
     // Sort categories by priority
     categories.sort((a, b) => b.priority - a.priority);
 
-    // Get top priority recruit across all categories
+    // Get top priority recruit across ALL categories (not just the first)
     let topPriority: AttentionRecruit | null = null;
+    let topPriorityScore = -1;
+
+    const urgencyScore: Record<string, number> = { 'high': 3, 'medium': 2, 'low': 1 };
+
     for (const category of categories) {
       if (category.recruits.length > 0) {
-        const topInCategory = category.recruits.find(r => r.urgency === 'high') || category.recruits[0];
-        if (!topPriority || (topInCategory.urgency === 'high' && topPriority.urgency !== 'high')) {
+        const topInCategory = category.recruits[0]; // Already sorted within category by urgency
+        
+        // Calculate combined score: urgency weight (×100) + category priority
+        const score = (urgencyScore[topInCategory.urgency] * 100) + category.priority;
+        
+        if (score > topPriorityScore) {
+          topPriorityScore = score;
           topPriority = topInCategory;
         }
-        break;
       }
     }
 
