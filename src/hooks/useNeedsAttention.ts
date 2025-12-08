@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, parseISO, addDays } from "date-fns";
+import { differenceInDays, parseISO } from "date-fns";
 
 export interface AttentionCategory {
   id: string;
@@ -18,6 +18,14 @@ export interface AttentionRecruit {
   daysUntilBlitz?: number;
   daysSinceContact?: number;
   missingItems?: string[];
+  onboardingStatus?: string;
+  trainingProgress?: {
+    onboardingComplete: boolean;
+    trainingsComplete: boolean;
+    slackJoined: boolean;
+    ipadAssigned: boolean;
+    rampPhase: string;
+  };
 }
 
 interface BlitzEvent {
@@ -27,10 +35,21 @@ interface BlitzEvent {
   endDate: string | null;
 }
 
+export interface RepData {
+  notion_page_id: string;
+  onboarding_complete: boolean | null;
+  trainings_complete: boolean | null;
+  slack_joined: boolean | null;
+  ipad_assigned: boolean | null;
+  ramp_to_blitz_phase: string | null;
+  committed_blitzes: any;
+}
+
 export const useNeedsAttention = (
   recruits: Recruit[],
   activities: RecruitActivity[],
-  blitzes: BlitzEvent[]
+  blitzes: BlitzEvent[],
+  repDataMap?: Map<string, RepData>
 ) => {
   return useMemo(() => {
     if (!recruits.length) {
@@ -56,9 +75,6 @@ export const useNeedsAttention = (
       }
     });
 
-    // 1. Blitz Prep - recruits with upcoming blitz but missing readiness
-    const blitzPrepRecruits: AttentionRecruit[] = [];
-    
     // Find upcoming blitzes within 21 days
     const upcomingBlitzes = blitzes.filter(b => {
       const blitzDate = parseISO(b.date);
@@ -66,26 +82,101 @@ export const useNeedsAttention = (
       return daysUntil >= 0 && daysUntil <= 21;
     });
 
-    if (upcomingBlitzes.length > 0) {
-      // Find signed/shadow recruits who might need blitz prep
+    // 1. Training Progress - Signed recruits with incomplete training/onboarding
+    const trainingRecruits: AttentionRecruit[] = [];
+    
+    if (repDataMap) {
       const signedRecruits = recruits.filter(r => 
         r.stage === 'Signed' || r.stage === 'Shadow ✅'
       );
 
       signedRecruits.forEach(recruit => {
-        // Check if recruit is a rookie (likely needs more prep)
+        const repData = repDataMap.get(recruit.notionPageId);
+        if (!repData) return;
+
+        const onboardingComplete = repData.onboarding_complete ?? false;
+        const trainingsComplete = repData.trainings_complete ?? false;
+        const slackJoined = repData.slack_joined ?? false;
+        const ipadAssigned = repData.ipad_assigned ?? false;
+        const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
+
+        const missingItems: string[] = [];
+        if (!onboardingComplete) missingItems.push('Onboarding');
+        if (!trainingsComplete) missingItems.push('Trainings');
+        if (!slackJoined) missingItems.push('Slack');
+        if (!ipadAssigned) missingItems.push('iPad');
+
+        // Only add if something is missing
+        if (missingItems.length > 0) {
+          // Check if they have an upcoming blitz
+          const hasUpcomingBlitz = upcomingBlitzes.length > 0;
+          const nearestBlitz = hasUpcomingBlitz ? upcomingBlitzes[0] : null;
+          const daysUntilBlitz = nearestBlitz ? differenceInDays(parseISO(nearestBlitz.date), now) : undefined;
+
+          trainingRecruits.push({
+            recruit,
+            reason: missingItems.length === 1 
+              ? `Missing: ${missingItems[0]}`
+              : `${missingItems.length} items incomplete`,
+            urgency: daysUntilBlitz && daysUntilBlitz <= 7 ? 'high' : missingItems.length >= 3 ? 'high' : 'medium',
+            daysUntilBlitz,
+            missingItems,
+            onboardingStatus: rampPhase,
+            trainingProgress: {
+              onboardingComplete,
+              trainingsComplete,
+              slackJoined,
+              ipadAssigned,
+              rampPhase,
+            },
+          });
+        }
+      });
+    }
+
+    if (trainingRecruits.length > 0) {
+      categories.push({
+        id: 'training-progress',
+        label: 'Training',
+        emoji: '📚',
+        count: trainingRecruits.length,
+        recruits: trainingRecruits.sort((a, b) => {
+          // Sort by urgency then by missing items count
+          if (a.urgency !== b.urgency) {
+            return a.urgency === 'high' ? -1 : b.urgency === 'high' ? 1 : 0;
+          }
+          return (b.missingItems?.length || 0) - (a.missingItems?.length || 0);
+        }),
+        priority: 95,
+      });
+    }
+
+    // 2. Blitz Prep - recruits with upcoming blitz but missing readiness
+    const blitzPrepRecruits: AttentionRecruit[] = [];
+    
+    if (upcomingBlitzes.length > 0) {
+      const signedRecruits = recruits.filter(r => 
+        r.stage === 'Signed' || r.stage === 'Shadow ✅'
+      );
+
+      signedRecruits.forEach(recruit => {
         const isRookie = recruit.year === 'Rookie' || recruit.year === '2025';
         
         if (isRookie) {
           const nearestBlitz = upcomingBlitzes[0];
           const daysUntilBlitz = differenceInDays(parseISO(nearestBlitz.date), now);
           
-          blitzPrepRecruits.push({
-            recruit,
-            reason: `${nearestBlitz.name} in ${daysUntilBlitz} days`,
-            urgency: daysUntilBlitz <= 7 ? 'high' : daysUntilBlitz <= 14 ? 'medium' : 'low',
-            daysUntilBlitz,
-          });
+          // Check if they have training issues - don't duplicate if already in training category
+          const hasTrainingIssues = trainingRecruits.some(t => t.recruit.notionPageId === recruit.notionPageId);
+          
+          if (!hasTrainingIssues) {
+            blitzPrepRecruits.push({
+              recruit,
+              reason: `${nearestBlitz.name} in ${daysUntilBlitz} days`,
+              urgency: daysUntilBlitz <= 7 ? 'high' : daysUntilBlitz <= 14 ? 'medium' : 'low',
+              daysUntilBlitz,
+            });
+          }
         }
       });
     }
@@ -101,11 +192,10 @@ export const useNeedsAttention = (
       });
     }
 
-    // 2. Stale Contacts - haven't been contacted in 7+ days (stage-dependent)
+    // 3. Stale Contacts - haven't been contacted in 7+ days (stage-dependent)
     const staleRecruits: AttentionRecruit[] = [];
     
     recruits.forEach(recruit => {
-      // Skip certain stages
       if (recruit.stage === 'Not Interested' || recruit.stage === 'Signed but Not Interested') {
         return;
       }
@@ -113,7 +203,6 @@ export const useNeedsAttention = (
       const lastContact = lastContactMap.get(recruit.notionPageId);
       const daysSince = lastContact ? differenceInDays(now, lastContact) : null;
 
-      // Different thresholds by stage
       const thresholds: Record<string, number> = {
         'Signed': 7,
         'Shadow ✅': 7,
@@ -144,7 +233,6 @@ export const useNeedsAttention = (
         emoji: '🕐',
         count: staleRecruits.length,
         recruits: staleRecruits.sort((a, b) => {
-          // Never contacted first, then by days since contact
           if (a.daysSinceContact === undefined) return -1;
           if (b.daysSinceContact === undefined) return 1;
           return b.daysSinceContact - a.daysSinceContact;
@@ -153,7 +241,7 @@ export const useNeedsAttention = (
       });
     }
 
-    // 3. No Commitment - Signed reps without blitz commitment (simplified check)
+    // 4. No Commitment - Signed reps without blitz commitment
     const noCommitmentRecruits: AttentionRecruit[] = [];
     
     const signedWithoutCommitment = recruits.filter(r => 
@@ -161,14 +249,17 @@ export const useNeedsAttention = (
       (r.year === 'Rookie' || r.year === '2025')
     );
 
-    // For simplicity, flag all signed rookies as potentially needing commitment check
-    // In real implementation, you'd check their committed_blitzes from reps table
     signedWithoutCommitment.forEach(recruit => {
-      noCommitmentRecruits.push({
-        recruit,
-        reason: 'Check blitz commitment',
-        urgency: 'medium',
-      });
+      const repData = repDataMap?.get(recruit.notionPageId);
+      const committedBlitzes = repData?.committed_blitzes as string[] | null;
+      
+      if (!committedBlitzes || committedBlitzes.length === 0) {
+        noCommitmentRecruits.push({
+          recruit,
+          reason: 'No blitz commitment',
+          urgency: 'medium',
+        });
+      }
     });
 
     if (noCommitmentRecruits.length > 0) {
@@ -182,7 +273,7 @@ export const useNeedsAttention = (
       });
     }
 
-    // 4. Hot Leads - Evaluating stage recruits
+    // 5. Hot Leads - Evaluating stage recruits
     const hotLeadRecruits: AttentionRecruit[] = [];
     
     recruits.filter(r => r.stage === 'Evaluating').forEach(recruit => {
@@ -219,7 +310,7 @@ export const useNeedsAttention = (
         if (!topPriority || (topInCategory.urgency === 'high' && topPriority.urgency !== 'high')) {
           topPriority = topInCategory;
         }
-        break; // Just use highest priority category
+        break;
       }
     }
 
@@ -230,5 +321,5 @@ export const useNeedsAttention = (
       topPriority,
       totalCount,
     };
-  }, [recruits, activities, blitzes]);
+  }, [recruits, activities, blitzes, repDataMap]);
 };

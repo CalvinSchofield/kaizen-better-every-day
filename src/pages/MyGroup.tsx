@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
-import { useNeedsAttention } from "@/hooks/useNeedsAttention";
+import { useNeedsAttention, RepData } from "@/hooks/useNeedsAttention";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
@@ -62,6 +64,36 @@ const MyGroup = () => {
   const pendingSuggestions = groupData?.pendingSuggestions || [];
   const activities = groupData?.activities || [];
 
+  // Fetch rep data for training progress tracking
+  const { data: recruitsRepData } = useQuery({
+    queryKey: ['recruits-rep-data', allRecruits.map(r => r.notionPageId).join(',')],
+    queryFn: async () => {
+      if (allRecruits.length === 0) return [];
+      
+      const notionIds = allRecruits.map(r => r.notionPageId);
+      const { data } = await supabase
+        .from('reps')
+        .select('notion_page_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, committed_blitzes')
+        .in('notion_page_id', notionIds);
+      
+      return data || [];
+    },
+    enabled: allRecruits.length > 0 && isLeader,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Build repDataMap for useNeedsAttention
+  const repDataMap = useMemo(() => {
+    if (!recruitsRepData) return undefined;
+    const map = new Map<string, RepData>();
+    recruitsRepData.forEach(rep => {
+      if (rep.notion_page_id) {
+        map.set(rep.notion_page_id, rep as RepData);
+      }
+    });
+    return map;
+  }, [recruitsRepData]);
+
   // Filter recruits by selected team if applicable
   const filteredRecruits = useMemo(() => {
     if (!selectedTeamFilter) return allRecruits;
@@ -114,7 +146,8 @@ const MyGroup = () => {
   const { categories, topPriority, totalCount } = useNeedsAttention(
     filteredRecruits,
     filteredActivities,
-    allBlitzes
+    allBlitzes,
+    repDataMap
   );
 
   // Get smart recommendations
