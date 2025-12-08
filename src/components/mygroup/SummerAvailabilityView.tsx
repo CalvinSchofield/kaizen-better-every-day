@@ -5,12 +5,12 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { 
   Sun, AlertCircle, Calendar, MessageSquare, CalendarOff, 
-  Users, Clock, Plane, ChevronRight 
+  Users, Clock, LayoutList, GanttChart
 } from "lucide-react";
-import { format, differenceInDays, isAfter, isBefore, parseISO, isWithinInterval, addDays } from "date-fns";
+import { format, differenceInDays, isAfter, isBefore, addDays } from "date-fns";
 import { toast } from "sonner";
 
 // Default summer dates
@@ -24,6 +24,7 @@ const parseLocalDate = (dateString: string): Date => {
 };
 
 type ViewFilter = 'all' | 'missing' | 'ready' | 'off';
+type ViewMode = 'list' | 'timeline';
 
 interface PersonSummerInfo {
   userId: string;
@@ -38,6 +39,7 @@ interface PersonSummerInfo {
 
 export const SummerAvailabilityView = () => {
   const [filter, setFilter] = useState<ViewFilter>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const { data: teamAccess, isLoading: teamAccessLoading } = useTeamAccess();
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -283,12 +285,34 @@ export const SummerAvailabilityView = () => {
         </div>
       </div>
 
-      {/* Filter indicator */}
-      {filter !== 'all' && (
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs text-muted-foreground">
-            Showing {filteredPeople.length} {filter === 'missing' ? 'without dates' : filter === 'off' ? 'with time off' : 'ready'}
-          </span>
+      {/* View mode toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'timeline'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <GanttChart className="h-3.5 w-3.5" />
+            Timeline
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+              viewMode === 'list'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            List
+          </button>
+        </div>
+        
+        {filter !== 'all' && (
           <Button 
             variant="ghost" 
             size="sm" 
@@ -297,21 +321,233 @@ export const SummerAvailabilityView = () => {
           >
             Clear filter
           </Button>
+        )}
+      </div>
+
+      {/* Filter indicator */}
+      {filter !== 'all' && (
+        <div className="text-xs text-muted-foreground px-1">
+          Showing {filteredPeople.length} {filter === 'missing' ? 'without dates' : filter === 'off' ? 'with time off' : 'ready'}
         </div>
       )}
 
-      {/* People list */}
-      <div className="space-y-2">
-        {filteredPeople.map(person => (
-          <PersonSummerCard key={person.userId} person={person} todayStr={todayStr} />
-        ))}
-      </div>
+      {/* Timeline view */}
+      {viewMode === 'timeline' && (
+        <SummerTimeline 
+          people={filteredPeople} 
+          summerStart={DEFAULT_SUMMER_START} 
+          summerEnd={DEFAULT_SUMMER_END}
+          todayStr={todayStr}
+        />
+      )}
+
+      {/* List view */}
+      {viewMode === 'list' && (
+        <div className="space-y-2">
+          {filteredPeople.map(person => (
+            <PersonSummerCard key={person.userId} person={person} todayStr={todayStr} />
+          ))}
+        </div>
+      )}
 
       {filteredPeople.length === 0 && (
         <div className="text-center py-6 text-muted-foreground text-sm">
           No one matches this filter
         </div>
       )}
+    </div>
+  );
+};
+
+// Timeline visualization component
+interface SummerTimelineProps {
+  people: PersonSummerInfo[];
+  summerStart: string;
+  summerEnd: string;
+  todayStr: string;
+}
+
+const SummerTimeline = ({ people, summerStart, summerEnd, todayStr }: SummerTimelineProps) => {
+  const summerStartDate = parseLocalDate(summerStart);
+  const summerEndDate = parseLocalDate(summerEnd);
+  const totalSeasonDays = differenceInDays(summerEndDate, summerStartDate) + 1;
+  
+  // Generate month markers
+  const months = useMemo(() => {
+    const markers: { label: string; position: number }[] = [];
+    const current = new Date(summerStartDate);
+    
+    while (current <= summerEndDate) {
+      const daysSinceStart = differenceInDays(current, summerStartDate);
+      const position = (daysSinceStart / totalSeasonDays) * 100;
+      markers.push({
+        label: format(current, 'MMM'),
+        position,
+      });
+      current.setMonth(current.getMonth() + 1);
+      current.setDate(1);
+    }
+    
+    return markers;
+  }, [summerStartDate, summerEndDate, totalSeasonDays]);
+
+  // Today marker position
+  const todayPosition = useMemo(() => {
+    const today = parseLocalDate(todayStr);
+    if (isBefore(today, summerStartDate) || isAfter(today, summerEndDate)) return null;
+    return (differenceInDays(today, summerStartDate) / totalSeasonDays) * 100;
+  }, [todayStr, summerStartDate, summerEndDate, totalSeasonDays]);
+
+  // People with dates sorted by start date
+  const sortedPeople = useMemo(() => {
+    return [...people]
+      .filter(p => p.personalSummerStart && p.personalSummerEnd)
+      .sort((a, b) => (a.personalSummerStart || '').localeCompare(b.personalSummerStart || ''));
+  }, [people]);
+
+  // People without dates
+  const missingPeople = useMemo(() => {
+    return people.filter(p => !p.personalSummerStart || !p.personalSummerEnd);
+  }, [people]);
+
+  const getBarPosition = (start: string, end: string) => {
+    const startDate = parseLocalDate(start);
+    const endDate = parseLocalDate(end);
+    
+    const startPos = Math.max(0, (differenceInDays(startDate, summerStartDate) / totalSeasonDays) * 100);
+    const endPos = Math.min(100, ((differenceInDays(endDate, summerStartDate) + 1) / totalSeasonDays) * 100);
+    
+    return { left: startPos, width: endPos - startPos };
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Timeline header with month markers */}
+      <div className="relative h-6 bg-muted/30 rounded-lg overflow-hidden">
+        {months.map((month, i) => (
+          <div
+            key={i}
+            className="absolute top-0 h-full flex items-center"
+            style={{ left: `${month.position}%` }}
+          >
+            <div className="h-full w-px bg-border/50" />
+            <span className="text-[10px] text-muted-foreground ml-1">{month.label}</span>
+          </div>
+        ))}
+        
+        {/* Today marker */}
+        {todayPosition !== null && (
+          <div
+            className="absolute top-0 h-full w-0.5 bg-primary z-10"
+            style={{ left: `${todayPosition}%` }}
+          >
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[8px] px-1 rounded">
+              Today
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* People timeline bars */}
+      <ScrollArea className="h-[280px]">
+        <div className="space-y-1.5 pr-4">
+          {sortedPeople.map(person => {
+            const { left, width } = getBarPosition(person.personalSummerStart!, person.personalSummerEnd!);
+            const isActive = todayStr >= person.personalSummerStart! && todayStr <= person.personalSummerEnd!;
+            const hasOffDays = person.excludedSummerDays.length > 0;
+            
+            return (
+              <div key={person.userId} className="flex items-center gap-2 h-8">
+                {/* Name */}
+                <div className="w-24 shrink-0 truncate text-xs font-medium text-foreground">
+                  {person.name.split(' ')[0]}
+                  {person.isSelf && <span className="text-muted-foreground ml-1">(You)</span>}
+                </div>
+                
+                {/* Timeline bar */}
+                <div className="flex-1 relative h-6 bg-muted/20 rounded-md overflow-hidden">
+                  {/* Person's summer range */}
+                  <div
+                    className={`absolute h-full rounded-md transition-all ${
+                      isActive 
+                        ? 'bg-success/40 border border-success/50' 
+                        : 'bg-primary/30 border border-primary/40'
+                    }`}
+                    style={{ 
+                      left: `${left}%`, 
+                      width: `${width}%`,
+                    }}
+                  >
+                    {/* Off days markers */}
+                    {hasOffDays && person.excludedSummerDays.map(offDay => {
+                      if (offDay < person.personalSummerStart! || offDay > person.personalSummerEnd!) return null;
+                      const offDayPos = ((differenceInDays(parseLocalDate(offDay), summerStartDate) - differenceInDays(parseLocalDate(person.personalSummerStart!), summerStartDate)) / (differenceInDays(parseLocalDate(person.personalSummerEnd!), parseLocalDate(person.personalSummerStart!)) + 1)) * 100;
+                      return (
+                        <div
+                          key={offDay}
+                          className="absolute top-0 h-full w-0.5 bg-warning/80"
+                          style={{ left: `${offDayPos}%` }}
+                          title={`Off: ${format(parseLocalDate(offDay), 'MMM d')}`}
+                        />
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Today marker on individual bar */}
+                  {todayPosition !== null && (
+                    <div
+                      className="absolute top-0 h-full w-px bg-primary/50"
+                      style={{ left: `${todayPosition}%` }}
+                    />
+                  )}
+                </div>
+                
+                {/* Quick info */}
+                <div className="w-12 shrink-0 text-[10px] text-muted-foreground text-right">
+                  {hasOffDays && (
+                    <span className="text-warning">{person.excludedSummerDays.length} off</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Missing dates section */}
+          {missingPeople.length > 0 && (
+            <div className="pt-3 mt-2 border-t border-border/50">
+              <div className="text-[10px] text-destructive font-medium mb-2">
+                No dates set ({missingPeople.length})
+              </div>
+              {missingPeople.map(person => (
+                <div key={person.userId} className="flex items-center gap-2 h-7">
+                  <div className="w-24 shrink-0 truncate text-xs text-muted-foreground">
+                    {person.name.split(' ')[0]}
+                    {person.isSelf && <span className="ml-1">(You)</span>}
+                  </div>
+                  <div className="flex-1 h-5 bg-destructive/10 rounded-md border border-dashed border-destructive/30 flex items-center justify-center">
+                    <span className="text-[10px] text-destructive">Needs dates</span>
+                  </div>
+                  <div className="w-12 shrink-0">
+                    {person.phone && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          window.open(`sms:${person.phone}?body=${encodeURIComponent("Hey! Can you set your summer dates in the app when you get a chance?")}`, '_blank');
+                        }}
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <ScrollBar orientation="vertical" />
+      </ScrollArea>
     </div>
   );
 };
