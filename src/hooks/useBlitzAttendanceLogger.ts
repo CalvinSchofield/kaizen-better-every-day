@@ -62,10 +62,6 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    // Extend window to 7 days to catch any missed blitzes
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const currentHour = now.getHours();
 
@@ -84,9 +80,9 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
       
       console.log(`[BlitzAttendance] Checking ${blitz.name}: endDate=${endDateStr}, parsed=${endDate.toISOString()}, today=${today.toISOString()}`);
       
-      // Blitz ended in past 7 days - always eligible
-      if (endDate >= sevenDaysAgo && endDate < today) {
-        console.log(`[BlitzAttendance] ${blitz.name} eligible - ended within last 7 days`);
+      // Any blitz that has already ended (before today) is eligible
+      if (endDate < today) {
+        console.log(`[BlitzAttendance] ${blitz.name} eligible - past blitz`);
         return true;
       }
       
@@ -96,7 +92,7 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
         return true;
       }
       
-      console.log(`[BlitzAttendance] ${blitz.name} not eligible - future blitz or too old`);
+      console.log(`[BlitzAttendance] ${blitz.name} not eligible - future blitz`);
       return false;
     });
 
