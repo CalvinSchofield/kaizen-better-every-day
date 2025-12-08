@@ -74,9 +74,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
     // Check Monday Night Lights (Monday 9 AM - 8:30 PM MST)
     const checkMondayNightLights = () => {
       const now = new Date();
-      const mstOffset = -7 * 60; // MST is UTC-7
-      const localOffset = now.getTimezoneOffset();
-      const mstTime = new Date(now.getTime() + (localOffset - mstOffset) * 60000);
+      const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
       
       const day = mstTime.getDay();
       const hours = mstTime.getHours();
