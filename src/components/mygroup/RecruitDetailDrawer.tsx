@@ -32,8 +32,12 @@ import {
   Plane,
   MapPin,
   Check,
-  X
+  X,
+  ChevronDown,
+  ChevronUp,
+  History,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
@@ -81,7 +85,7 @@ const STAGES = [
   'Not Interested',
 ];
 
-// Blitz Management Sub-component
+// Blitz Management Sub-component - Collapsible with Past + Future blitzes
 const BlitzManagementSection = ({ 
   recruit, 
   recruitRepData, 
@@ -93,21 +97,41 @@ const BlitzManagementSection = ({
 }) => {
   const { allBlitzes } = useBlitzes();
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   
   const committedBlitzes = useMemo(() => {
     return (recruitRepData?.committed_blitzes as string[] | null) || [];
   }, [recruitRepData?.committed_blitzes]);
   
-  // Get next 3 upcoming blitzes (that haven't ended yet)
-  const upcomingBlitzes = useMemo(() => {
-    const now = new Date();
-    return allBlitzes
-      .filter(blitz => {
-        const endDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-        return endDate >= now;
-      })
-      .slice(0, 3);
-  }, [allBlitzes]);
+  const now = new Date();
+  
+  // Split blitzes into past and future
+  const { pastBlitzes, futureBlitzes } = useMemo(() => {
+    const past: typeof allBlitzes = [];
+    const future: typeof allBlitzes = [];
+    
+    allBlitzes.forEach(blitz => {
+      const endDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+      if (endDate < now) {
+        // Only show past blitzes they attended
+        if (committedBlitzes.includes(blitz.id)) {
+          past.push(blitz);
+        }
+      } else {
+        future.push(blitz);
+      }
+    });
+    
+    // Sort past by date descending (most recent first)
+    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Sort future by date ascending (soonest first)
+    future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    return { pastBlitzes: past, futureBlitzes: future };
+  }, [allBlitzes, committedBlitzes, now]);
+  
+  // Count committed future blitzes
+  const committedFutureCount = futureBlitzes.filter(b => committedBlitzes.includes(b.id)).length;
   
   const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
     if (!recruit?.notionPageId) return;
@@ -157,63 +181,150 @@ const BlitzManagementSection = ({
     }
   };
   
-  if (upcomingBlitzes.length === 0) return null;
+  // Summary text for collapsed state
+  const getSummaryText = () => {
+    if (committedFutureCount === 0 && pastBlitzes.length === 0) {
+      return "No blitz history yet";
+    }
+    const parts: string[] = [];
+    if (committedFutureCount > 0) {
+      parts.push(`${committedFutureCount} upcoming`);
+    }
+    if (pastBlitzes.length > 0) {
+      parts.push(`${pastBlitzes.length} attended`);
+    }
+    return parts.join(' · ');
+  };
+  
+  if (futureBlitzes.length === 0 && pastBlitzes.length === 0) return null;
   
   return (
-    <div className="space-y-2">
-      <Label className="text-sm text-muted-foreground">Blitz Commitments</Label>
-      <div className="space-y-2">
-        {upcomingBlitzes.map((blitz) => {
-          const isCommitted = committedBlitzes.includes(blitz.id);
-          const blitzDate = new Date(blitz.date);
-          const isLoading = isUpdating === blitz.id;
-          
-          return (
-            <div 
-              key={blitz.id}
-              className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                isCommitted 
-                  ? 'bg-primary/5 border-primary/30' 
-                  : 'bg-muted/50 border-border'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isCommitted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {isCommitted ? <Plane className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{blitz.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(blitzDate, 'MMM d')}
-                    {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant={isCommitted ? 'default' : 'outline'}
-                size="sm"
-                disabled={isLoading}
-                onClick={() => handleToggleBlitz(blitz.id, blitz.name, isCommitted)}
-                className="min-w-[80px]"
-              >
-                {isLoading ? (
-                  <span className="animate-pulse">...</span>
-                ) : isCommitted ? (
-                  <>
-                    <Check className="h-3 w-3 mr-1" />
-                    Going
-                  </>
-                ) : (
-                  'Commit'
-                )}
-              </Button>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Plane className="h-4 w-4 text-primary" />
             </div>
-          );
-        })}
-      </div>
-    </div>
+            <div className="text-left">
+              <p className="text-sm font-medium">Blitz Commitments</p>
+              <p className="text-xs text-muted-foreground">{getSummaryText()}</p>
+            </div>
+          </div>
+          {isOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent>
+        <div className="mt-3 space-y-4">
+          {/* Past Blitzes Section */}
+          {pastBlitzes.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <History className="h-3 w-3" />
+                <span>Previous Blitzes</span>
+              </div>
+              <div className="space-y-2">
+                {pastBlitzes.map((blitz) => {
+                  const blitzDate = new Date(blitz.date);
+                  return (
+                    <div 
+                      key={blitz.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">{blitz.name}</p>
+                          <p className="text-xs text-muted-foreground/70">
+                            {format(blitzDate, 'MMM d')}
+                            {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs text-green-600 border-green-600/30">
+                        Attended
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Future Blitzes Section */}
+          {futureBlitzes.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span>Upcoming Blitzes</span>
+              </div>
+              <div className="space-y-2">
+                {futureBlitzes.map((blitz) => {
+                  const isCommitted = committedBlitzes.includes(blitz.id);
+                  const blitzDate = new Date(blitz.date);
+                  const isLoading = isUpdating === blitz.id;
+                  const daysUntil = differenceInDays(blitzDate, now);
+                  
+                  return (
+                    <div 
+                      key={blitz.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                        isCommitted 
+                          ? 'bg-primary/5 border-primary/30' 
+                          : 'bg-muted/50 border-border'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          isCommitted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {isCommitted ? <Plane className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{blitz.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(blitzDate, 'MMM d')}
+                            {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                            {daysUntil <= 14 && daysUntil >= 0 && (
+                              <span className="ml-1 text-amber-500">· {daysUntil}d away</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant={isCommitted ? 'default' : 'outline'}
+                        size="sm"
+                        disabled={isLoading}
+                        onClick={() => handleToggleBlitz(blitz.id, blitz.name, isCommitted)}
+                        className="min-w-[80px]"
+                      >
+                        {isLoading ? (
+                          <span className="animate-pulse">...</span>
+                        ) : isCommitted ? (
+                          <>
+                            <Check className="h-3 w-3 mr-1" />
+                            Going
+                          </>
+                        ) : (
+                          'Commit'
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
 
