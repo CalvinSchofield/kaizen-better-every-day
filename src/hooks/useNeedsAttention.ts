@@ -433,17 +433,7 @@ export const useNeedsAttention = (
       r.stage === 'Sold (5+) 💰'
     );
 
-    // Build a set of past blitz IDs (blitzes that have already ended)
-    const pastBlitzIds = new Set(
-      blitzes
-        .filter(b => {
-          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
-          return endDate < now;
-        })
-        .map(b => b.id)
-    );
-
-    // Build a set of current blitz IDs (blitzes happening right now)
+    // Build sets for current and future blitzes (the blitzes array only contains future/current ones)
     const currentBlitzIds = new Set(
       blitzes
         .filter(b => {
@@ -455,7 +445,6 @@ export const useNeedsAttention = (
         .map(b => b.id)
     );
 
-    // Build a set of future blitz IDs (blitzes that haven't started yet)
     const futureBlitzIds = new Set(
       blitzes
         .filter(b => {
@@ -465,6 +454,9 @@ export const useNeedsAttention = (
         .map(b => b.id)
     );
 
+    // All blitz IDs we know about (current + future from the blitzes array)
+    const knownBlitzIds = new Set([...currentBlitzIds, ...futureBlitzIds]);
+
     blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
       const rawCommitments = repData?.committed_blitzes || [];
@@ -472,8 +464,11 @@ export const useNeedsAttention = (
         ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
         : [];
       
-      // Check if they have attended ANY past blitz
-      const hasAttendedPastBlitz = committedBlitzIds.some(id => pastBlitzIds.has(id));
+      // Check if they have ANY committed blitzes at all (past, current, or future)
+      const hasAnyBlitzCommitment = committedBlitzIds.length > 0;
+      
+      // Check if any of their commitments are past blitzes (not in current/future sets)
+      const hasPastBlitz = committedBlitzIds.some(id => !knownBlitzIds.has(id));
       
       // Check if they are on a CURRENT blitz (happening now)
       const isOnCurrentBlitz = committedBlitzIds.some(id => currentBlitzIds.has(id));
@@ -483,18 +478,18 @@ export const useNeedsAttention = (
       
       const firstName = recruit.name?.split(' ')[0] || 'Recruit';
       
-      // If they're on a current blitz, they definitely don't belong here
-      if (isOnCurrentBlitz) return;
+      // If they're on a current blitz or have a future blitz, skip them entirely
+      if (isOnCurrentBlitz || hasFutureBlitzCommitment) return;
       
-      if (!hasAttendedPastBlitz && !hasFutureBlitzCommitment) {
-        // NEVER attended any blitz and no future commitment - highest priority
+      if (!hasAnyBlitzCommitment) {
+        // NEVER committed to any blitz ever - highest priority
         noBlitzRecruits.push({
           recruit,
           reason: `${firstName} hasn't been on any blitz yet—help them pick one!`,
           urgency: recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅' ? 'high' : 'medium',
         });
-      } else if (hasAttendedPastBlitz && !hasFutureBlitzCommitment) {
-        // Has attended past blitzes but no future ones planned - secondary priority
+      } else if (hasPastBlitz && !hasFutureBlitzCommitment) {
+        // Has been on past blitzes but no future ones planned - secondary priority
         noFutureBlitzRecruits.push({
           recruit,
           reason: `${firstName} has no more blitzes planned for the season`,
