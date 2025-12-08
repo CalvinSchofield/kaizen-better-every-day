@@ -331,9 +331,28 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
                 })()}
               </h3>
             </div>
-            <p className="text-sm text-muted-foreground">
-              6:00 PM - 8:30 PM MST • Team training and Q&A session
-            </p>
+            {(() => {
+              const now = new Date();
+              const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
+              const hour = mstTime.getHours();
+              const minutes = mstTime.getMinutes();
+              const totalMinutes = hour * 60 + minutes;
+              const mnlStartMinutes = 18 * 60; // 6pm = 1080 minutes
+              const isWithinOneHourOfStart = totalMinutes >= mnlStartMinutes - 60;
+              const minutesUntilStart = mnlStartMinutes - totalMinutes;
+              const hoursUntil = Math.floor(minutesUntilStart / 60);
+              const minsUntil = minutesUntilStart % 60;
+              const countdownText = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
+              
+              return (
+                <p className="text-sm text-muted-foreground">
+                  {isWithinOneHourOfStart 
+                    ? "6:00 PM - 8:30 PM MST • Team training and Q&A session"
+                    : <>Starts in <strong>{countdownText}</strong> • 6:00 PM - 8:30 PM MST</>
+                  }
+                </p>
+              );
+            })()}
             <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <p className="text-sm font-medium mb-2">💡 Team Lead & MGMT Reminder:</p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
