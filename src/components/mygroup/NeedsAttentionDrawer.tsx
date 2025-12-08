@@ -19,6 +19,7 @@ import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 // iPad request email helper
 const sendIpadRequestEmail = (recruitName: string, email: string | null, phone: string | null) => {
@@ -173,7 +174,7 @@ const PhaseConfirmationDrawer = ({
   );
 };
 
-// Training progress item component
+// Training progress item component (Onboarding - no phase updates, just toggle items)
 const TrainingProgressItem = ({ 
   item,
   onRecruitClick,
@@ -184,54 +185,38 @@ const TrainingProgressItem = ({
   onOpenChange: (open: boolean) => void;
 }) => {
   const updateStatusMutation = useUpdateRookieStatus();
-  const [updatingField, setUpdatingField] = useState<string | null>(null);
-  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
-  const [selectedPhase, setSelectedPhase] = useState<typeof ONBOARDING_PHASES[0] | null>(null);
+  const queryClient = useQueryClient();
+  const [localProgress, setLocalProgress] = useState<typeof item.trainingProgress | null>(null);
 
-  const progress = item.trainingProgress;
+  // Use local state for optimistic UI, fall back to prop
+  const progress = localProgress ?? item.trainingProgress;
   if (!progress) return null;
 
   const handleToggle = async (field: string, currentValue: boolean) => {
-    setUpdatingField(field);
+    const newValue = !currentValue;
+    
+    // Optimistic update
+    setLocalProgress({
+      ...progress,
+      [field]: newValue,
+    });
     
     try {
       if (field === 'ipadAssigned') {
         await updateStatusMutation.mutateAsync({
           rookieNotionPageId: item.recruit.notionPageId,
-          ipadAssigned: !currentValue,
+          ipadAssigned: newValue,
         });
-        toast.success(`iPad ${!currentValue ? 'assigned' : 'unassigned'}`);
+        toast.success(`iPad ${newValue ? 'assigned' : 'unassigned'}`);
       }
-    } finally {
-      setUpdatingField(null);
-    }
-  };
-
-  const handlePhaseClick = (phase: typeof ONBOARDING_PHASES[0]) => {
-    setSelectedPhase(phase);
-    setConfirmDrawerOpen(true);
-  };
-
-  const handlePhaseConfirm = async () => {
-    if (!selectedPhase) return;
-    
-    setUpdatingField('phase');
-    try {
-      await updateStatusMutation.mutateAsync({
-        rookieNotionPageId: item.recruit.notionPageId,
-        onboardingStatus: selectedPhase.value,
+    } catch (error) {
+      // Revert on error
+      setLocalProgress({
+        ...progress,
+        [field]: currentValue,
       });
-      toast.success(`Updated to ${selectedPhase.label}`);
-      setConfirmDrawerOpen(false);
-    } finally {
-      setUpdatingField(null);
     }
   };
-
-  // Determine current phase index
-  const currentPhaseIndex = ONBOARDING_PHASES.findIndex(
-    p => item.onboardingStatus?.includes(p.label.replace('Phase ', ''))
-  );
 
   const progressItems = [
     { 
@@ -301,34 +286,6 @@ const TrainingProgressItem = ({
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
 
-        {/* Phase buttons */}
-        <div className="mt-4 pt-3 border-t border-border/50">
-          <p className="text-xs text-muted-foreground mb-2">Update Phase:</p>
-          <div className="flex flex-wrap gap-2">
-            {ONBOARDING_PHASES.map((phase, idx) => {
-              const isCompleted = idx < currentPhaseIndex;
-              const isCurrent = idx === currentPhaseIndex;
-              
-              return (
-                <Button
-                  key={phase.value}
-                  variant={isCurrent ? "default" : isCompleted ? "secondary" : "outline"}
-                  size="sm"
-                  className={cn(
-                    "text-xs",
-                    isCompleted && "opacity-60"
-                  )}
-                  onClick={() => handlePhaseClick(phase)}
-                  disabled={updatingField === 'phase'}
-                >
-                  {isCompleted && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                  {phase.label}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Progress checklist */}
         <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
           {progressItems.map(({ key, label, value, icon: Icon, editable }) => (
@@ -353,7 +310,7 @@ const TrainingProgressItem = ({
                 </span>
               </div>
               {editable && (
-                updatingField === key ? (
+                updateStatusMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
                   <Switch
@@ -392,16 +349,6 @@ const TrainingProgressItem = ({
           </div>
         )}
       </div>
-
-      <PhaseConfirmationDrawer
-        open={confirmDrawerOpen}
-        onOpenChange={setConfirmDrawerOpen}
-        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        currentPhase={item.onboardingStatus}
-        targetPhase={selectedPhase}
-        onConfirm={handlePhaseConfirm}
-        isLoading={updatingField === 'phase'}
-      />
     </>
   );
 };
