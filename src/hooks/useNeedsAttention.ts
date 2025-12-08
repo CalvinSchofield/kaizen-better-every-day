@@ -152,11 +152,14 @@ export const useNeedsAttention = (
 
         // Only add if something is missing (these are foundational items)
         if (missingItems.length > 0) {
+          const firstName = recruit.name?.split(' ')[0] || 'Recruit';
+          const missingText = missingItems.length === 1 
+            ? missingItems[0]
+            : missingItems.slice(0, 2).join(' & ') + (missingItems.length > 2 ? ` +${missingItems.length - 2}` : '');
+          
           onboardingRecruits.push({
             recruit,
-            reason: missingItems.length === 1 
-              ? `Missing: ${missingItems[0]}`
-              : `${missingItems.length} items incomplete`,
+            reason: `${firstName} needs ${missingText} before they can start ramp to blitz`,
             urgency: missingItems.length >= 3 ? 'high' : 'medium',
             missingItems,
             onboardingStatus: rampPhase,
@@ -272,12 +275,13 @@ export const useNeedsAttention = (
           urgency = 'low'; // MEDIUM (15-21 days)
         }
 
-        // Build reason based on what's incomplete
+        // Build reason based on what's incomplete - more descriptive
+        const firstName = recruit.name?.split(' ')[0] || 'Rookie';
         let reason = '';
         if (incompletePhases.length > 0) {
-          reason = `${incompletePhases.length} phase${incompletePhases.length > 1 ? 's' : ''} to go`;
+          reason = `${firstName} has ${incompletePhases.length} phase${incompletePhases.length > 1 ? 's' : ''} left and blitz is in ${daysUntilBlitz} day${daysUntilBlitz !== 1 ? 's' : ''}!`;
         } else if (missingItems.length > 0) {
-          reason = `${missingItems.length} item${missingItems.length > 1 ? 's' : ''} to complete`;
+          reason = `${firstName} needs ${missingItems.length} item${missingItems.length > 1 ? 's' : ''} before ${nearestCommittedBlitz.blitz.name}`;
         }
 
         blitzPrepRecruits.push({
@@ -341,9 +345,17 @@ export const useNeedsAttention = (
       const threshold = thresholds[recruit.stage] || 7;
 
       if (daysSince === null || daysSince >= threshold) {
+        const firstName = recruit.name?.split(' ')[0] || 'Recruit';
+        let reason: string;
+        if (daysSince === null) {
+          reason = `Reach out to ${firstName}—they've never been contacted`;
+        } else {
+          reason = `It's been ${daysSince} days since you contacted ${firstName}`;
+        }
+        
         staleRecruits.push({
           recruit,
-          reason: daysSince === null ? 'Never contacted' : `${daysSince}d since contact`,
+          reason,
           urgency: daysSince === null ? 'high' : daysSince >= 14 ? 'high' : 'medium',
           daysSinceContact: daysSince || undefined,
         });
@@ -388,9 +400,10 @@ export const useNeedsAttention = (
       
       // Only add if they have ZERO blitz history
       if (!hasAnyBlitzCommitment) {
+        const firstName = recruit.name?.split(' ')[0] || 'Recruit';
         noBlitzRecruits.push({
           recruit,
-          reason: 'No blitz history',
+          reason: `${firstName} hasn't committed to any blitz yet—help them pick one!`,
           urgency: recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅' ? 'high' : 'medium',
         });
       }
@@ -419,9 +432,19 @@ export const useNeedsAttention = (
       const lastContact = lastContactMap.get(recruit.notionPageId);
       const daysSince = lastContact ? differenceInDays(now, lastContact) : null;
 
+      const firstName = recruit.name?.split(' ')[0] || 'Recruit';
+      let reason: string;
+      if (daysSince === null) {
+        reason = `${firstName} is evaluating—reach out and close them!`;
+      } else if (daysSince >= 3) {
+        reason = `${firstName} is hot—it's been ${daysSince} days, follow up now!`;
+      } else {
+        reason = `${firstName} is evaluating—keep the momentum going`;
+      }
+      
       hotLeadRecruits.push({
         recruit,
-        reason: daysSince !== null ? `${daysSince}d ago` : 'Ready to close',
+        reason,
         urgency: daysSince === null || daysSince >= 3 ? 'high' : 'medium',
         daysSinceContact: daysSince || undefined,
       });
