@@ -3,6 +3,7 @@ import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity,
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
+import { useBlitzes } from "@/hooks/useBlitzes";
 import { supabase } from "@/integrations/supabase/client";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import { 
   Phone, 
   MessageSquare, 
@@ -26,7 +28,11 @@ import {
   UserRound,
   AlertCircle,
   AlertTriangle,
-  Tablet
+  Tablet,
+  Plane,
+  MapPin,
+  Check,
+  X
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, parseISO, differenceInDays } from "date-fns";
@@ -74,6 +80,142 @@ const STAGES = [
   'Signed but Not Interested',
   'Not Interested',
 ];
+
+// Blitz Management Sub-component
+const BlitzManagementSection = ({ 
+  recruit, 
+  recruitRepData, 
+  queryClient 
+}: { 
+  recruit: Recruit; 
+  recruitRepData: any; 
+  queryClient: any;
+}) => {
+  const { allBlitzes } = useBlitzes();
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  
+  const committedBlitzes = useMemo(() => {
+    return (recruitRepData?.committed_blitzes as string[] | null) || [];
+  }, [recruitRepData?.committed_blitzes]);
+  
+  // Get next 3 upcoming blitzes (that haven't ended yet)
+  const upcomingBlitzes = useMemo(() => {
+    const now = new Date();
+    return allBlitzes
+      .filter(blitz => {
+        const endDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+        return endDate >= now;
+      })
+      .slice(0, 3);
+  }, [allBlitzes]);
+  
+  const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
+    if (!recruit?.notionPageId) return;
+    
+    setIsUpdating(blitzId);
+    
+    // Optimistic update
+    const newCommittedBlitzes = isCurrentlyCommitted
+      ? committedBlitzes.filter(id => id !== blitzId)
+      : [...committedBlitzes, blitzId];
+    
+    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+      old ? { ...old, committed_blitzes: newCommittedBlitzes } : old
+    );
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+      
+      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          repNotionPageId: recruit.notionPageId,
+          blitzId,
+          committed: !isCurrentlyCommitted,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast.success(isCurrentlyCommitted 
+        ? `Removed from ${blitzName}` 
+        : `Committed to ${blitzName}`
+      );
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
+    } catch (error) {
+      // Revert on error
+      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+        old ? { ...old, committed_blitzes: committedBlitzes } : old
+      );
+      toast.error("Couldn't update blitz commitment");
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+  
+  if (upcomingBlitzes.length === 0) return null;
+  
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm text-muted-foreground">Blitz Commitments</Label>
+      <div className="space-y-2">
+        {upcomingBlitzes.map((blitz) => {
+          const isCommitted = committedBlitzes.includes(blitz.id);
+          const blitzDate = new Date(blitz.date);
+          const isLoading = isUpdating === blitz.id;
+          
+          return (
+            <div 
+              key={blitz.id}
+              className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                isCommitted 
+                  ? 'bg-primary/5 border-primary/30' 
+                  : 'bg-muted/50 border-border'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  isCommitted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {isCommitted ? <Plane className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{blitz.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(blitzDate, 'MMM d')}
+                    {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={isCommitted ? 'default' : 'outline'}
+                size="sm"
+                disabled={isLoading}
+                onClick={() => handleToggleBlitz(blitz.id, blitz.name, isCommitted)}
+                className="min-w-[80px]"
+              >
+                {isLoading ? (
+                  <span className="animate-pulse">...</span>
+                ) : isCommitted ? (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    Going
+                  </>
+                ) : (
+                  'Commit'
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface RecruitDetailDrawerProps {
   recruit: Recruit | null;
@@ -1121,6 +1263,29 @@ export const RecruitDetailDrawer = ({
           </DrawerHeader>
 
           <div className="p-4 space-y-4 overflow-y-auto">
+            {/* Preseason FP+ Goal Progress - always shows FP+ regardless of EFP mode */}
+            {recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0 && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Preseason FP+ Goal</span>
+                  <span className="text-sm">
+                    <span className="font-semibold text-primary">{(recruitYtdFP || 0).toFixed(1)}</span>
+                    <span className="text-muted-foreground"> / {recruitGoals.preseason_fp_goal}</span>
+                  </span>
+                </div>
+                <Progress 
+                  value={Math.min(((recruitYtdFP || 0) / recruitGoals.preseason_fp_goal) * 100, 100)} 
+                  className="h-2"
+                />
+                {(recruitYtdFP || 0) >= recruitGoals.preseason_fp_goal && (
+                  <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Goal reached!
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Contact Actions - 3 buttons inline */}
             <div className="flex gap-2">
               <Button className="flex-1" onClick={handleCall}>
@@ -1143,8 +1308,8 @@ export const RecruitDetailDrawer = ({
               )}
             </div>
 
-            {/* FP+ Display for reps with sales */}
-            {recruitYtdFP !== undefined && recruitYtdFP > 0 && (
+            {/* FP+ Display for reps with sales - only show if no preseason goal or different from YTD display */}
+            {recruitYtdFP !== undefined && recruitYtdFP > 0 && !(recruitGoals?.preseason_fp_goal && recruitGoals.preseason_fp_goal > 0) && (
               <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">YTD FP+</span>
@@ -1159,6 +1324,13 @@ export const RecruitDetailDrawer = ({
                 )}
               </div>
             )}
+
+            {/* Blitz Management Section */}
+            <BlitzManagementSection 
+              recruit={recruit}
+              recruitRepData={recruitRepData}
+              queryClient={queryClient}
+            />
 
             {/* iPad Assignment Toggle - only show for pre-blitz rookies */}
             {recruitRepData && (
