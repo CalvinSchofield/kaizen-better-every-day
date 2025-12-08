@@ -61,7 +61,7 @@ const MyGroup = () => {
   // Post-contact drawer state
   const [postContactDrawerOpen, setPostContactDrawerOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
-  const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
+  const [contactMethod, setContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
