@@ -102,6 +102,7 @@ export const CalendarPlanningCard = ({
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [dismissedTakeOffDayWarning, setDismissedTakeOffDayWarning] = useState(false);
   const [blitzCommitPrompt, setBlitzCommitPrompt] = useState<{ blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null } } | null>(null);
+  const [declinedBlitzPrompts, setDeclinedBlitzPrompts] = useState<Set<string>>(new Set());
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
   const { 
@@ -703,6 +704,9 @@ export const CalendarPlanningCard = ({
   const checkBlitzCommitmentPrompt = async (dateStr: string): Promise<boolean> => {
     const uncommittedBlitz = getUncommittedBlitzForDate(dateStr);
     if (!uncommittedBlitz) return false;
+    
+    // Skip if user already declined this blitz prompt
+    if (declinedBlitzPrompts.has(uncommittedBlitz.id)) return false;
     
     // Count how many days the user has already marked within this blitz range (excluding this one)
     const blitzStart = parseLocalDate(uncommittedBlitz.date);
@@ -1776,7 +1780,12 @@ export const CalendarPlanningCard = ({
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setBlitzCommitPrompt(null)}
+              onClick={() => {
+                if (blitzCommitPrompt?.blitz) {
+                  setDeclinedBlitzPrompts(prev => new Set([...prev, blitzCommitPrompt.blitz.id]));
+                }
+                setBlitzCommitPrompt(null);
+              }}
             >
               No, Just Knocking Elsewhere
             </Button>
