@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, DollarSign, TrendingUp, TrendingDown, Loader2, Pencil, AlertCircle, MessageCircle, Plane, CalendarDays } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameMonth, getDay, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
@@ -11,15 +11,17 @@ import { usePlannedDaysSync } from "@/hooks/usePlannedDaysSync";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useBlitzes } from "@/hooks/useBlitzes";
 import { calculateTakeHome, formatCurrency } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useRepData } from "@/hooks/useRepData";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Check } from "lucide-react";
 import { toast } from "sonner";
 
 // Define season boundaries
@@ -93,6 +95,8 @@ export const CalendarPlanningCard = ({
   const showSummerSection = activeTier !== 'preseason';
   const [dateOutOfRangeSheet, setDateOutOfRangeSheet] = useState<{open: boolean; date: string; isBeforeStart: boolean; isTakingOffDay?: boolean} | null>(null);
   const [dismissedSummerBoundaryWarning, setDismissedSummerBoundaryWarning] = useState<'start' | 'end' | 'both' | null>(null);
+  const [showBlitzDrawer, setShowBlitzDrawer] = useState(false);
+  const [isCommitting, setIsCommitting] = useState<string | null>(null);
   const [dismissedTakeOffDayWarning, setDismissedTakeOffDayWarning] = useState(false);
   
   const { plannedDays, togglePlannedDay, isDatePlanned, isToggling } = usePlannedDays();
@@ -106,6 +110,7 @@ export const CalendarPlanningCard = ({
   const { efpModeEnabled: isEfpMode, calculateEfp } = useEfpMode();
   const { updateGoals, isUpdating } = useRepGoals();
   const { repData } = useRepData();
+  const { allBlitzes } = useBlitzes();
   const queryClient = useQueryClient();
   
   // Debounce timer ref for saving preseason goal
@@ -481,6 +486,118 @@ export const CalendarPlanningCard = ({
       isBehindThisWeek,
     };
   }, [preseasonStats, plannedDays]);
+
+  // Get committed blitzes
+  interface CommittedBlitz {
+    id: string;
+    name: string;
+    date: string;
+    endDate?: string;
+    location?: string;
+  }
+
+  const committedBlitzes = useMemo(() => {
+    return (repData?.committed_blitzes as CommittedBlitz[]) || [];
+  }, [repData?.committed_blitzes]);
+
+  // Future available blitzes (not yet committed)
+  const futureAvailableBlitzes = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return allBlitzes.filter(blitz => {
+      const blitzStart = new Date(blitz.date);
+      blitzStart.setHours(0, 0, 0, 0);
+      const isNotCommitted = !committedBlitzes.some(c => c.id === blitz.id);
+      return blitzStart >= today && isNotCommitted;
+    });
+  }, [allBlitzes, committedBlitzes]);
+
+  // All future blitzes (committed or not)
+  const allFutureBlitzes = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return allBlitzes.filter(blitz => {
+      const blitzStart = new Date(blitz.date);
+      blitzStart.setHours(0, 0, 0, 0);
+      return blitzStart >= today;
+    });
+  }, [allBlitzes]);
+
+  const hasAnyFutureBlitzes = allFutureBlitzes.length > 0;
+
+  const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
+    if (!repData?.id) return;
+    setIsCommitting(blitz.id);
+    
+    try {
+      const newCommitment: CommittedBlitz = {
+        id: blitz.id,
+        name: blitz.name,
+        date: blitz.date,
+        endDate: blitz.endDate || undefined,
+        location: blitz.location || undefined,
+      };
+      
+      const updatedCommitments = [...committedBlitzes, newCommitment];
+      
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: updatedCommitments };
+      });
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: updatedCommitments as unknown as null })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Invalidate planned days to trigger calendar update
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      toast.success(`Committed to ${blitz.name}!`);
+    } catch (error) {
+      console.error('Error committing to blitz:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      toast.error("Failed to commit to blitz");
+    } finally {
+      setIsCommitting(null);
+    }
+  };
+
+  const handleUncommitFromBlitz = async (blitzId: string) => {
+    if (!repData?.id) return;
+    setIsCommitting(blitzId);
+    
+    try {
+      const updatedCommitments = committedBlitzes.filter(b => b.id !== blitzId);
+      
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['rep-data'], (old: typeof repData) => {
+        if (!old) return old;
+        return { ...old, committed_blitzes: updatedCommitments };
+      });
+      
+      const { error } = await supabase
+        .from('reps')
+        .update({ committed_blitzes: updatedCommitments as unknown as null })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      // Invalidate planned days to trigger calendar update
+      queryClient.invalidateQueries({ queryKey: ['planned-days'] });
+      toast.success("Uncommitted from blitz");
+    } catch (error) {
+      console.error('Error uncommitting from blitz:', error);
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      toast.error("Failed to uncommit");
+    } finally {
+      setIsCommitting(null);
+    }
+  };
 
   // Save preseason goal to database with debounce
   const savePreseasonGoal = (value: number) => {
@@ -959,6 +1076,34 @@ export const CalendarPlanningCard = ({
                 )}
               </div>
             )}
+            
+            {/* Empty state when no preseason planned days */}
+            {!preseasonStats && (
+              <div className="p-4 rounded-xl bg-muted/50 border-2 border-dashed border-muted-foreground/20 text-center space-y-3">
+                <div className="flex justify-center">
+                  <CalendarDays className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-1">No preseason days planned</p>
+                  <p className="text-xs text-muted-foreground">
+                    Tap dates in the calendar above to plan your knocking days, or commit to a blitz trip below.
+                  </p>
+                </div>
+                
+                {/* Blitz commitment CTA - only if blitzes exist */}
+                {hasAnyFutureBlitzes && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setShowBlitzDrawer(true)}
+                  >
+                    <Plane className="h-4 w-4 mr-1.5" />
+                    Commit to a Blitz
+                  </Button>
+                )}
+              </div>
+            )}
                 </div>
               </motion.div>
             )}
@@ -1001,25 +1146,7 @@ export const CalendarPlanningCard = ({
                 </div>
               )}
               
-              {/* Show selected tier info (read-only since selection is in hero) */}
-              <div className="p-3 rounded-lg bg-accent/50 border border-border/50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">
-                    {selectedTier === 'must' ? 'Must Do' : selectedTier === 'will' ? 'Will Do' : 'Could Do'} Goal
-                  </span>
-                  <span className="text-lg font-bold">
-                    {((() => {
-                      const tierGoalFp = selectedTier === 'must' ? mustDoFpGoal : selectedTier === 'will' ? willDoFpGoal : couldDoFpGoal;
-                      const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
-                      return (tierGoalFp * conversionFactor).toFixed(1);
-                    })())} {metricLabel}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Change your goal tier in the hero section above
-                </p>
-              </div>
-              
+              {/* Daily/Weekly goal card - keep this useful card */}
               {summerStats && (
                 <div className="p-3 rounded-lg bg-accent/30 space-y-2">
                   <div className="flex justify-between items-center">
@@ -1046,7 +1173,9 @@ export const CalendarPlanningCard = ({
           <h4 className="text-sm font-semibold mb-2">Total Summary</h4>
           <div className="p-3 rounded-lg bg-primary/10 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Goal Total</span>
+              <span className="text-sm text-muted-foreground">
+                Goal Total{activeTier === 'preseason' && ' (Will Do)'}
+              </span>
               <span className="text-lg font-bold">{totalStats.baseGoal} {metricLabel}</span>
             </div>
             <div className="pt-2 border-t border-border/30 flex justify-between items-center">
@@ -1278,6 +1407,110 @@ export const CalendarPlanningCard = ({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Blitz Commitment Drawer */}
+      <Drawer open={showBlitzDrawer} onOpenChange={setShowBlitzDrawer}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle className="flex items-center justify-center gap-2">
+              <Plane className="h-5 w-5 text-red-500" />
+              Commit to a Blitz
+            </DrawerTitle>
+            <DrawerDescription>
+              {committedBlitzes.length} committed · {futureAvailableBlitzes.length} available
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
+            {/* Committed blitzes */}
+            {committedBlitzes.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Your Committed Blitzes</h4>
+                {committedBlitzes.map((blitz) => {
+                  const blitzDate = new Date(blitz.date);
+                  return (
+                    <div 
+                      key={blitz.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-green-500/10 ring-1 ring-green-500/30"
+                    >
+                      <div>
+                        <p className="font-medium">{blitz.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {blitz.location && ` · ${blitz.location}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-green-500/50 text-green-600"
+                        onClick={() => handleUncommitFromBlitz(blitz.id)}
+                        disabled={isCommitting === blitz.id}
+                      >
+                        {isCommitting === blitz.id ? "..." : (
+                          <>
+                            <Check className="h-3 w-3 mr-1" />
+                            Going
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Available blitzes */}
+            {futureAvailableBlitzes.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Available Blitzes</h4>
+                {futureAvailableBlitzes.map((blitz) => {
+                  const blitzDate = new Date(blitz.date);
+                  return (
+                    <div 
+                      key={blitz.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-muted/50 border border-border/50"
+                    >
+                      <div>
+                        <p className="font-medium">{blitz.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {blitzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {blitz.location && ` · ${blitz.location}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleCommitToBlitz(blitz)}
+                        disabled={isCommitting === blitz.id}
+                      >
+                        {isCommitting === blitz.id ? "..." : "Commit"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {futureAvailableBlitzes.length === 0 && committedBlitzes.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No upcoming blitzes scheduled
+              </p>
+            )}
+          </div>
+
+          <div className="px-4 pb-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowBlitzDrawer(false)}
+              className="w-full"
+              size="lg"
+            >
+              Done
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };
