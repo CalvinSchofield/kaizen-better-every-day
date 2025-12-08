@@ -324,7 +324,10 @@ export const useNeedsAttention = (
     const staleRecruits: AttentionRecruit[] = [];
     
     recruits.forEach(recruit => {
-      if (recruit.stage === 'Not Interested' || recruit.stage === 'Signed but Not Interested') {
+      // Exclude stages that don't need active contact tracking
+      if (recruit.stage === 'Not Interested' || 
+          recruit.stage === 'Signed but Not Interested' ||
+          recruit.stage === 'Potential Follow Up') {
         return;
       }
 
@@ -416,7 +419,13 @@ export const useNeedsAttention = (
         emoji: '⚠️',
         count: noBlitzRecruits.length,
         recruits: noBlitzRecruits.sort((a, b) => {
-          // Prioritize Signed/Shadow over Sold stages
+          // First sort by year: Rookies first, then Sophomores, then Vets
+          const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
+          const yearA = yearOrder[a.recruit.year || ''] ?? 99;
+          const yearB = yearOrder[b.recruit.year || ''] ?? 99;
+          if (yearA !== yearB) return yearA - yearB;
+          
+          // Then by stage: Signed/Shadow over Sold stages
           const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
           return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - 
                  (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
