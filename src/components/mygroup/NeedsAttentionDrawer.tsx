@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2 } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,14 @@ import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+// iPad request email helper
+const sendIpadRequestEmail = (recruitName: string, email: string | null, phone: string | null) => {
+  const subject = `iPad Request for ${recruitName}`;
+  const body = `Team,\n\nI'd like to request an iPad for ${recruitName}.\n\nContact:\nEmail: ${email || 'N/A'}\nPhone: ${phone || 'N/A'}\n\nBadge ID:\nAddress to ship to:\n\nThanks!`;
+  const mailtoLink = `mailto:salesassets@vivint.com?cc=Calvin.Schofield@vivint.com&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailtoLink;
+};
 
 interface NeedsAttentionDrawerProps {
   open: boolean;
@@ -312,6 +320,31 @@ const TrainingProgressItem = ({
             </div>
           ))}
         </div>
+
+        {/* iPad Request Button - show when iPad not assigned */}
+        {!progress.ipadAssigned && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Tablet className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-400">Need to request an iPad?</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-500/50 hover:bg-amber-500/10"
+                onClick={() => sendIpadRequestEmail(
+                  stripEmojis(item.recruit.name) || item.recruit.name,
+                  item.recruit.email,
+                  item.recruit.phone
+                )}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Request iPad via Email
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <PhaseConfirmationDrawer

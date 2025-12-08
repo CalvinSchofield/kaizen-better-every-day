@@ -2,10 +2,17 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, AlertCircle, Moon, MessageSquare } from "lucide-react";
+import { Mail, AlertCircle, Moon, Tablet } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter
+} from "@/components/ui/drawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -408,18 +415,18 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       </CardContent>
     </Card>
 
-    {/* Update Dialog */}
-    <Sheet open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
-      <SheetContent side="bottom" className="rounded-t-2xl">
+    {/* Update Drawer */}
+    <Drawer open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+      <DrawerContent>
         {selectedAlert && (
           <>
-            <SheetHeader>
-              <SheetTitle>Update {selectedAlert.rookie.name}</SheetTitle>
-              <SheetDescription>
+            <DrawerHeader className="border-b">
+              <DrawerTitle>Update {selectedAlert.rookie.name}</DrawerTitle>
+              <DrawerDescription>
                 Update their preparation status for the {getSimplifiedLocation(selectedAlert.blitz)} blitz
-              </SheetDescription>
-            </SheetHeader>
-            <div className="space-y-4 py-6">
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 space-y-4">
               {selectedAlert.needsOnboarding && (
                 <div className="space-y-2">
                   <Label>Onboarding Stage</Label>
@@ -441,9 +448,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
                 </div>
               )}
               {selectedAlert.needsIpad && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label>iPad Assignment</Label>
-                  <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
                     <Checkbox 
                       id="ipad-checkbox"
                       checked={ipadAssigned}
@@ -454,31 +461,39 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
                     </label>
                   </div>
                   {!ipadAssigned && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => sendIpadRequestEmail(selectedAlert.rookie)}
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Request iPad via Email
-                    </Button>
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Tablet className="h-4 w-4 text-amber-600" />
+                        <span className="text-sm font-medium text-amber-700 dark:text-amber-400">Need to request an iPad?</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-amber-500/50 hover:bg-amber-500/10"
+                        onClick={() => sendIpadRequestEmail(selectedAlert.rookie)}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Request iPad via Email
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
             </div>
-            <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setUpdateDialogOpen(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={updateRookieInfo} className="flex-1">
-                Update
-              </Button>
-            </div>
+            <DrawerFooter className="border-t pt-4">
+              <div className="flex gap-3 w-full">
+                <Button variant="outline" onClick={() => setUpdateDialogOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={updateRookieInfo} className="flex-1">
+                  Update
+                </Button>
+              </div>
+            </DrawerFooter>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
     </>
   );
 };
