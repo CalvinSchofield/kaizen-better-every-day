@@ -5,7 +5,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
-import { useNeedsAttention, RepData } from "@/hooks/useNeedsAttention";
+import { useNeedsAttention, RepData, RepSummerConfigData } from "@/hooks/useNeedsAttention";
 import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +125,23 @@ const MyGroup = () => {
     staleTime: 1000 * 60 * 2,
   });
 
+  // Fetch summer config data for pace calculations
+  const { data: recruitsSummerConfigData } = useQuery({
+    queryKey: ['recruits-summer-config', recruitUserIds.join(',')],
+    queryFn: async () => {
+      if (recruitUserIds.length === 0) return [];
+      
+      const { data } = await supabase
+        .from('season_config')
+        .select('user_id, personal_summer_start')
+        .in('user_id', recruitUserIds);
+      
+      return data || [];
+    },
+    enabled: recruitUserIds.length > 0 && isLeader,
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Build repGoalsMap for useNeedsAttention
   const repGoalsMap = useMemo(() => {
     if (!recruitsGoalsData) return undefined;
@@ -136,6 +153,18 @@ const MyGroup = () => {
     });
     return map;
   }, [recruitsGoalsData]);
+
+  // Build repSummerConfigMap for useNeedsAttention
+  const repSummerConfigMap = useMemo(() => {
+    if (!recruitsSummerConfigData) return undefined;
+    const map = new Map<string, RepSummerConfigData>();
+    recruitsSummerConfigData.forEach(config => {
+      if (config.user_id) {
+        map.set(config.user_id, config as RepSummerConfigData);
+      }
+    });
+    return map;
+  }, [recruitsSummerConfigData]);
 
   // Filter recruits by selected team if applicable
   const filteredRecruits = useMemo(() => {
@@ -194,7 +223,8 @@ const MyGroup = () => {
     filteredActivities,
     allBlitzes,
     repDataMap,
-    repGoalsMap
+    repGoalsMap,
+    repSummerConfigMap
   );
 
   // Filter out dismissed recruits from top priority
