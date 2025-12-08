@@ -549,10 +549,19 @@ export const CalendarPlanningCard = ({
 
   const isCommittedBlitzDay = (dateStr: string): boolean => !!getCommittedBlitzForDate(dateStr);
 
-  // Check if a date is part of ANY blitz (committed or not)
+  // Filter to only future blitzes (end date >= today) for display purposes
+  const futureBlitzesForDisplay = useMemo(() => {
+    const todayDate = getLocalToday();
+    return allBlitzes.filter(blitz => {
+      const end = blitz.endDate ? parseLocalDate(blitz.endDate) : parseLocalDate(blitz.date);
+      return end >= todayDate;
+    });
+  }, [allBlitzes]);
+
+  // Check if a date is part of ANY future blitz (committed or not)
   const getAnyBlitzForDate = (dateStr: string): typeof allBlitzes[0] | undefined => {
     const date = parseLocalDate(dateStr);
-    return allBlitzes.find(blitz => {
+    return futureBlitzesForDisplay.find(blitz => {
       const start = parseLocalDate(blitz.date);
       const end = blitz.endDate ? parseLocalDate(blitz.endDate) : start;
       return date >= start && date <= end;
