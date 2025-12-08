@@ -64,7 +64,34 @@ const ONBOARDING_PHASES = [
   { value: 'Phase 4 ✅', label: 'Phase 4', description: 'Saddle Up' },
 ];
 
-// Phase update confirmation drawer
+// Phase tasks for confirmation drawers
+const PHASE_TASKS = {
+  'Phase 1': [
+    'Watched: What is a blitz and how do you get paid?',
+    'Scheduled a Goals & Gameplan call with leaders',
+    'Added Vivint calendar and committed to first blitz',
+  ],
+  'Phase 2': [
+    'Learned Product basics',
+    'Passed the Product Quiz',
+    'Studied Upgrades 101',
+    'Studied the Takeover Door Approach',
+    'Sent pitch video to leaders',
+  ],
+  'Phase 3': [
+    'Got iPad ready with Tools to Sell guide',
+    'Wrote and shared "Why am I going on the blitz?"',
+    'Completed 1-on-1 pitch practice with a vet',
+  ],
+  'Phase 4': [
+    'Reviewed Packing List for Blitz Trips',
+    'Watched: How to Dominate Your First Blitz',
+    'Received iPad, badge, and knocking jerseys',
+    'Shared "When It Gets Tough - Your Playbook" with leaders',
+  ],
+};
+
+// Phase update confirmation drawer with task checklist
 const PhaseConfirmationDrawer = ({
   open,
   onOpenChange,
@@ -81,63 +108,70 @@ const PhaseConfirmationDrawer = ({
   targetPhase: typeof ONBOARDING_PHASES[0] | null;
   onConfirm: () => void;
   isLoading: boolean;
-}) => (
-  <Drawer open={open} onOpenChange={onOpenChange}>
-    <DrawerContent>
-      <DrawerHeader className="border-b">
-        <DrawerTitle>Confirm Phase Update</DrawerTitle>
-      </DrawerHeader>
-      <div className="p-4 space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Update <span className="font-medium text-foreground">{recruitName}</span>'s 
-          onboarding status to:
-        </p>
-        
-        {targetPhase && (
-          <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              <span className="font-medium">{targetPhase.label}</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {targetPhase.description}
-            </p>
-          </div>
-        )}
-        
-        {currentPhase && (
-          <p className="text-xs text-muted-foreground">
-            Current status: {currentPhase}
+}) => {
+  const phaseKey = targetPhase?.label as keyof typeof PHASE_TASKS;
+  const tasks = phaseKey ? PHASE_TASKS[phaseKey] : [];
+  
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader className="border-b">
+          <DrawerTitle>Mark {targetPhase?.label} ✅ as Complete?</DrawerTitle>
+        </DrawerHeader>
+        <div className="p-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Confirm that <span className="font-medium text-foreground">{recruitName}</span> has 
+            completed all items for <span className="font-medium text-foreground">{targetPhase?.label}: {targetPhase?.description}</span>
           </p>
-        )}
-      </div>
-      <DrawerFooter className="border-t">
-        <Button 
-          onClick={onConfirm} 
-          disabled={isLoading}
-          className="w-full"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            'Confirm Update'
+          
+          {tasks.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-4 border space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Checklist Overview
+              </p>
+              {tasks.map((task, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-foreground">{task}</span>
+                </div>
+              ))}
+            </div>
           )}
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={() => onOpenChange(false)}
-          disabled={isLoading}
-          className="w-full"
-        >
-          Cancel
-        </Button>
-      </DrawerFooter>
-    </DrawerContent>
-  </Drawer>
-);
+          
+          {currentPhase && (
+            <p className="text-xs text-muted-foreground">
+              Current status: {currentPhase}
+            </p>
+          )}
+        </div>
+        <DrawerFooter className="border-t">
+          <Button 
+            onClick={onConfirm} 
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Confirm Complete'
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+            className="w-full"
+          >
+            Cancel
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+};
 
 // Training progress item component
 const TrainingProgressItem = ({ 
@@ -497,6 +531,161 @@ const BlitzRecruitItem = ({
   );
 };
 
+// Blitz Prep Progress Item - shows ramp phases with toggles for recruits who graduated from onboarding
+const BlitzPrepProgressItem = ({
+  item,
+  onRecruitClick,
+  onOpenChange
+}: {
+  item: AttentionRecruit;
+  onRecruitClick: (recruit: Recruit) => void;
+  onOpenChange: (open: boolean) => void;
+}) => {
+  const updateStatusMutation = useUpdateRookieStatus();
+  const [updatingPhase, setUpdatingPhase] = useState<string | null>(null);
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
+  const [selectedPhase, setSelectedPhase] = useState<typeof ONBOARDING_PHASES[0] | null>(null);
+
+  const rampProgress = item.rampPhaseProgress;
+  if (!rampProgress) return null;
+
+  const handlePhaseClick = (phase: typeof ONBOARDING_PHASES[0], isComplete: boolean) => {
+    if (isComplete) return; // Already complete
+    setSelectedPhase(phase);
+    setConfirmDrawerOpen(true);
+  };
+
+  const handlePhaseConfirm = async () => {
+    if (!selectedPhase) return;
+    
+    setUpdatingPhase(selectedPhase.label);
+    try {
+      // Map phase label to the correct update field
+      const updateData: Record<string, boolean | string> = {
+        rookieNotionPageId: item.recruit.notionPageId,
+      };
+      
+      if (selectedPhase.label === 'Phase 1') {
+        updateData.rampPhase1Complete = true;
+      } else if (selectedPhase.label === 'Phase 2') {
+        updateData.rampPhase2Complete = true;
+      } else if (selectedPhase.label === 'Phase 3') {
+        updateData.rampPhase3Complete = true;
+      } else if (selectedPhase.label === 'Phase 4') {
+        updateData.rampPhase4Complete = true;
+      }
+
+      await updateStatusMutation.mutateAsync(updateData as any);
+      toast.success(`${selectedPhase.label} marked complete`);
+      setConfirmDrawerOpen(false);
+    } finally {
+      setUpdatingPhase(null);
+    }
+  };
+
+  const phases = [
+    { ...ONBOARDING_PHASES[0], complete: rampProgress.phase1Complete },
+    { ...ONBOARDING_PHASES[1], complete: rampProgress.phase2Complete },
+    { ...ONBOARDING_PHASES[2], complete: rampProgress.phase3Complete },
+    { ...ONBOARDING_PHASES[3], complete: rampProgress.phase4Complete },
+  ];
+
+  return (
+    <>
+      <div
+        className={cn(
+          "bg-card rounded-lg p-4 border border-l-4 shadow-sm",
+          URGENCY_STYLES[item.urgency]
+        )}
+      >
+        {/* Header - clickable to open detail */}
+        <div 
+          className="flex items-start justify-between gap-3 cursor-pointer"
+          onClick={() => {
+            onRecruitClick(item.recruit);
+            onOpenChange(false);
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium">
+                {stripEmojis(item.recruit.name)}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {item.recruit.stage}
+              </Badge>
+            </div>
+            {item.blitzName && item.daysUntilBlitz !== undefined && (
+              <Badge 
+                variant={item.daysUntilBlitz <= 7 ? "destructive" : item.daysUntilBlitz <= 14 ? "default" : "secondary"}
+                className="text-xs"
+              >
+                {item.blitzName} in {item.daysUntilBlitz}d
+              </Badge>
+            )}
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
+        </div>
+
+        {/* Ramp Phase Progress */}
+        <div className="mt-4 pt-3 border-t border-border/50">
+          <p className="text-xs text-muted-foreground mb-3">Ramp to Blitz Progress:</p>
+          <div className="grid grid-cols-2 gap-2">
+            {phases.map((phase) => (
+              <Button
+                key={phase.value}
+                variant={phase.complete ? "secondary" : "outline"}
+                size="sm"
+                className={cn(
+                  "justify-start text-xs h-auto py-2 px-3",
+                  phase.complete && "bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20",
+                  !phase.complete && "hover:bg-primary/10"
+                )}
+                onClick={() => handlePhaseClick(phase, phase.complete)}
+                disabled={updatingPhase === phase.label}
+              >
+                {updatingPhase === phase.label ? (
+                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                ) : phase.complete ? (
+                  <CheckCircle2 className="h-3 w-3 mr-2" />
+                ) : (
+                  <Circle className="h-3 w-3 mr-2" />
+                )}
+                <div className="text-left">
+                  <div className="font-medium">{phase.label}</div>
+                  <div className="text-[10px] opacity-70">{phase.description}</div>
+                </div>
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Progress summary */}
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              {4 - (rampProgress.incompletePhases?.length || 0)}/4 phases complete
+            </span>
+            <Badge variant="outline" className="text-[10px]">
+              {item.reason}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <PhaseConfirmationDrawer
+        open={confirmDrawerOpen}
+        onOpenChange={setConfirmDrawerOpen}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        currentPhase={null}
+        targetPhase={selectedPhase}
+        onConfirm={handlePhaseConfirm}
+        isLoading={!!updatingPhase}
+      />
+    </>
+  );
+};
+
 // Default recruit item component
 const DefaultRecruitItem = ({
   item,
@@ -604,8 +793,9 @@ export const NeedsAttentionDrawer = ({
     window.location.href = `sms:${recruit.phone}`;
   };
 
-  const isTrainingCategory = category.id === 'training-progress';
-  const isBlitzCategory = category.id === 'blitz-prep' || category.id === 'no-commitment';
+  const isOnboardingCategory = category.id === 'training-progress';
+  const isBlitzPrepCategory = category.id === 'blitz-prep';
+  const isNoBlitzCategory = category.id === 'no-commitment';
 
   return (
     <>
@@ -621,12 +811,17 @@ export const NeedsAttentionDrawer = ({
                 </Badge>
               </DrawerTitle>
             </div>
-            {!isTrainingCategory && !isBlitzCategory && (
+            {!isOnboardingCategory && !isBlitzPrepCategory && !isNoBlitzCategory && (
               <p className="text-xs text-muted-foreground mt-1">
                 Swipe right to mark contacted, left to schedule
               </p>
             )}
-            {isBlitzCategory && (
+            {isBlitzPrepCategory && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Mark phases complete as they finish ramp-to-blitz
+              </p>
+            )}
+            {isNoBlitzCategory && (
               <p className="text-xs text-muted-foreground mt-1">
                 Tap "Manage" to commit or uncommit reps from blitzes
               </p>
@@ -635,7 +830,7 @@ export const NeedsAttentionDrawer = ({
           
           <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-3">
             {category.recruits.map((item) => {
-              if (isTrainingCategory) {
+              if (isOnboardingCategory) {
                 return (
                   <TrainingProgressItem
                     key={item.recruit.notionPageId}
@@ -646,7 +841,18 @@ export const NeedsAttentionDrawer = ({
                 );
               }
               
-              if (isBlitzCategory) {
+              if (isBlitzPrepCategory) {
+                return (
+                  <BlitzPrepProgressItem
+                    key={item.recruit.notionPageId}
+                    item={item}
+                    onRecruitClick={onRecruitClick}
+                    onOpenChange={onOpenChange}
+                  />
+                );
+              }
+
+              if (isNoBlitzCategory) {
                 return (
                   <BlitzRecruitItem
                     key={item.recruit.notionPageId}
