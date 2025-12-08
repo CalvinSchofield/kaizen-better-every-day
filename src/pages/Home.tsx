@@ -1042,8 +1042,7 @@ const Home = () => {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-6 pb-10">
         <div className="max-w-lg mx-auto">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1 min-w-0 pr-4">
+          <div className="flex-1 min-w-0">
               {!onboardingComplete || !trainingsComplete ? (
                 <h1 className="text-3xl font-bold tracking-tight">👋 Welcome back, {repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0]}</h1>
               ) : (
@@ -1067,18 +1066,6 @@ const Home = () => {
                   })()}
                 </>
               )}
-            </div>
-            <div className="flex gap-2 flex-shrink-0 self-start">
-              <Button 
-                onClick={() => setLogoutSheetOpen(true)}
-                variant="ghost" 
-                size="sm"
-                className="rounded-full text-primary-foreground hover:bg-primary-foreground/10"
-                aria-label="Log out"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
           </div>
 
           {/* Subtitle for pre-onboarding */}
