@@ -74,7 +74,7 @@ const MyGroup = () => {
       const notionIds = allRecruits.map(r => r.notionPageId);
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, committed_blitzes')
+        .select('notion_page_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
         .in('notion_page_id', notionIds);
       
       return data || [];
