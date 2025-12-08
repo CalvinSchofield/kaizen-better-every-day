@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, List, CalendarDays, Sun } from "lucide-react";
+import { LayoutGrid, CalendarDays, Sun } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -9,12 +9,11 @@ import {
 } from "@/components/ui/drawer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
-import { RecruitListView } from "./RecruitListView";
 import { RecruitPlannerView } from "./RecruitPlannerView";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
-type ViewMode = 'board' | 'list' | 'planner' | 'availability';
+type ViewMode = 'board' | 'planner' | 'availability';
 
 interface QuickViewDrawerProps {
   open: boolean;
@@ -38,7 +37,7 @@ export const QuickViewDrawer = ({
 }: QuickViewDrawerProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('board');
 
-  const showBadge = ['board', 'list', 'planner'].includes(viewMode);
+  const showBadge = ['board', 'planner'].includes(viewMode);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -56,9 +55,6 @@ export const QuickViewDrawer = ({
                 <TabsTrigger value="board" className="px-2" title="Board">
                   <LayoutGrid className="h-4 w-4" />
                 </TabsTrigger>
-                <TabsTrigger value="list" className="px-2" title="List">
-                  <List className="h-4 w-4" />
-                </TabsTrigger>
                 <TabsTrigger value="planner" className="px-2" title="Planner">
                   <CalendarDays className="h-4 w-4" />
                 </TabsTrigger>
@@ -73,8 +69,6 @@ export const QuickViewDrawer = ({
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
           {viewMode === 'board' ? (
             <RecruitKanbanBoard recruits={recruits} activities={activities} />
-          ) : viewMode === 'list' ? (
-            <RecruitListView recruits={recruits} activities={activities} />
           ) : viewMode === 'planner' ? (
             <RecruitPlannerView recruits={recruits} activities={activities} />
           ) : (
