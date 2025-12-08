@@ -1,4 +1,4 @@
-import { Phone, ChevronRight, Sparkles } from "lucide-react";
+import { Phone, ChevronRight, Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
@@ -11,6 +11,7 @@ interface TodaysFocusHeroProps {
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
   onViewAll: () => void;
+  onDismiss?: (recruitNotionId: string) => void;
 }
 
 // Strip emojis from name
@@ -23,7 +24,8 @@ export const TodaysFocusHero = ({
   topPriority, 
   totalNeedsAttention,
   onRecruitClick,
-  onViewAll
+  onViewAll,
+  onDismiss
 }: TodaysFocusHeroProps) => {
   const logActivityMutation = useLogRecruitActivity();
 
@@ -42,6 +44,12 @@ export const TodaysFocusHero = ({
       console.error('Failed to log call:', error);
     }
     window.location.href = `tel:${topPriority.recruit.phone}`;
+  };
+
+  const handleDismiss = () => {
+    if (!topPriority || !onDismiss) return;
+    onDismiss(topPriority.recruit.notionPageId);
+    toast.success(`${stripEmojis(topPriority.recruit.name)?.split(' ')[0]} marked as done for today`);
   };
 
   if (!topPriority) {
@@ -120,15 +128,28 @@ export const TodaysFocusHero = ({
         </p>
       </div>
 
-      <Button 
-        className="w-full gap-2"
-        size="lg"
-        onClick={handleCall}
-        disabled={!topPriority.recruit.phone}
-      >
-        <Phone className="h-4 w-4" />
-        Call {stripEmojis(topPriority.recruit.name)?.split(' ')[0]}
-      </Button>
+      <div className="flex gap-2">
+        <Button 
+          className="flex-1 gap-2"
+          size="lg"
+          onClick={handleCall}
+          disabled={!topPriority.recruit.phone}
+        >
+          <Phone className="h-4 w-4" />
+          Call {stripEmojis(topPriority.recruit.name)?.split(' ')[0]}
+        </Button>
+        {onDismiss && (
+          <Button 
+            variant="outline"
+            size="lg"
+            onClick={handleDismiss}
+            className="gap-2"
+          >
+            <Check className="h-4 w-4" />
+            Done
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

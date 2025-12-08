@@ -6,6 +6,7 @@ import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSugge
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useNeedsAttention, RepData } from "@/hooks/useNeedsAttention";
+import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
@@ -143,16 +144,36 @@ const MyGroup = () => {
     return counts;
   }, [allRecruits, teamAccess]);
 
+  // Dismissed recruits for Today's Focus
+  const { dismissRecruit, isRecuitDismissed } = useDismissedRecruits();
+
   // Calculate needs attention metrics
-  const { categories, topPriority, totalCount } = useNeedsAttention(
+  const { categories, topPriority: rawTopPriority, totalCount } = useNeedsAttention(
     filteredRecruits,
     filteredActivities,
     allBlitzes,
     repDataMap
   );
 
-  // Get smart recommendations
-  const recommendations = useRecruitingRecommendations(filteredRecruits, filteredActivities);
+  // Filter out dismissed recruits from top priority
+  const topPriority = useMemo(() => {
+    if (!rawTopPriority) return null;
+    if (isRecuitDismissed(rawTopPriority.recruit.notionPageId)) {
+      // Find next non-dismissed priority from categories
+      for (const category of categories) {
+        const nextPriority = category.recruits.find(r => !isRecuitDismissed(r.recruit.notionPageId));
+        if (nextPriority) return nextPriority;
+      }
+      return null;
+    }
+    return rawTopPriority;
+  }, [rawTopPriority, categories, isRecuitDismissed]);
+
+  // Get smart recommendations, filtering out dismissed ones
+  const rawRecommendations = useRecruitingRecommendations(filteredRecruits, filteredActivities);
+  const recommendations = useMemo(() => {
+    return rawRecommendations.filter(r => !isRecuitDismissed(r.recruit.notionPageId));
+  }, [rawRecommendations, isRecuitDismissed]);
 
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
@@ -227,6 +248,7 @@ const MyGroup = () => {
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onViewAll={() => setQuickViewOpen(true)}
+              onDismiss={dismissRecruit}
             />
 
             {/* Needs Attention Chips */}
