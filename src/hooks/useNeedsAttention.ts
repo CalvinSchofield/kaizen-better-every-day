@@ -34,6 +34,22 @@ export interface AttentionRecruit {
     phase4Complete: boolean;
     incompletePhases: string[];
   };
+  // Readiness-specific fields
+  readinessProgress?: {
+    trainingHoursGoal: number;
+    trainingHoursProgress: number;
+    booksGoal: number;
+    booksProgress: number;
+    rolePlaysGoal: number;
+    rolePlaysProgress: number;
+    mnlGoal: number;
+    mnlProgress: number;
+    behindCount: number;
+  };
+  blitzCommitments?: {
+    committedCount: number;
+    upcomingBlitzNames: string[];
+  };
 }
 
 interface BlitzEvent {
@@ -55,13 +71,29 @@ export interface RepData {
   ramp_phase_3_complete: boolean | null;
   ramp_phase_4_complete: boolean | null;
   committed_blitzes: any;
+  user_id?: string;
+}
+
+export interface RepGoalsData {
+  user_id: string;
+  training_hours_goal: number | null;
+  training_hours_progress: number | null;
+  books_goal: number | null;
+  books_progress: number | null;
+  role_plays_goal: number | null;
+  role_plays_progress: number | null;
+  monday_night_lights_goal: number | null;
+  monday_night_lights_progress: number | null;
+  blitzes_goal: number | null;
+  blitzes_progress: number | null;
 }
 
 export const useNeedsAttention = (
   recruits: Recruit[],
   activities: RecruitActivity[],
   blitzes: BlitzEvent[],
-  repDataMap?: Map<string, RepData>
+  repDataMap?: Map<string, RepData>,
+  repGoalsMap?: Map<string, RepGoalsData>
 ) => {
   return useMemo(() => {
     if (!recruits.length) {
@@ -482,6 +514,119 @@ export const useNeedsAttention = (
         count: hotLeadRecruits.length,
         recruits: hotLeadRecruits.sort((a, b) => (a.daysSinceContact || 99) - (b.daysSinceContact || 99)),
         priority: 90,
+      });
+    }
+
+    // 6. Readiness - Rookies with their preseason progress and blitz commitments
+    const readinessRecruits: AttentionRecruit[] = [];
+    
+    // Only rookies
+    const rookiesForReadiness = recruits.filter(r => r.year === 'Rookie');
+    
+    rookiesForReadiness.forEach(recruit => {
+      const repData = repDataMap?.get(recruit.notionPageId);
+      if (!repData?.user_id) return;
+      
+      const goalsData = repGoalsMap?.get(repData.user_id);
+      
+      // Get blitz commitments
+      const rawCommitments = repData.committed_blitzes || [];
+      const committedBlitzIds: string[] = Array.isArray(rawCommitments)
+        ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+        : [];
+      
+      // Find future committed blitzes
+      const futureCommittedBlitzes = blitzes.filter(b => {
+        const blitzDate = parseISO(b.date);
+        return blitzDate >= now && committedBlitzIds.includes(b.id);
+      });
+      
+      // Calculate behind status for each goal
+      const trainingGoal = goalsData?.training_hours_goal || 0;
+      const trainingProgress = goalsData?.training_hours_progress || 0;
+      const booksGoal = goalsData?.books_goal || 0;
+      const booksProgress = goalsData?.books_progress || 0;
+      const rolePlaysGoal = goalsData?.role_plays_goal || 0;
+      const rolePlaysProgress = goalsData?.role_plays_progress || 0;
+      const mnlGoal = goalsData?.monday_night_lights_goal || 0;
+      const mnlProgress = goalsData?.monday_night_lights_progress || 0;
+      
+      let behindCount = 0;
+      const behindAreas: string[] = [];
+      
+      // Check if behind on each goal (less than 70% completion)
+      if (trainingGoal > 0 && (trainingProgress / trainingGoal) < 0.7) {
+        behindCount++;
+        behindAreas.push('Training');
+      }
+      if (booksGoal > 0 && (booksProgress / booksGoal) < 0.7) {
+        behindCount++;
+        behindAreas.push('Books');
+      }
+      if (rolePlaysGoal > 0 && (rolePlaysProgress / rolePlaysGoal) < 0.7) {
+        behindCount++;
+        behindAreas.push('Role Plays');
+      }
+      if (mnlGoal > 0 && (mnlProgress / mnlGoal) < 0.7) {
+        behindCount++;
+        behindAreas.push('MNL');
+      }
+      
+      const firstName = recruit.name?.split(' ')[0] || 'Rookie';
+      let reason = '';
+      let urgency: 'high' | 'medium' | 'low' = 'low';
+      
+      if (committedBlitzIds.length === 0) {
+        reason = `${firstName} hasn't committed to any blitz yet`;
+        urgency = 'high';
+      } else if (behindCount > 0) {
+        reason = `${firstName} is behind on ${behindAreas.slice(0, 2).join(' & ')}${behindAreas.length > 2 ? ` +${behindAreas.length - 2}` : ''}`;
+        urgency = behindCount >= 3 ? 'high' : behindCount >= 2 ? 'medium' : 'low';
+      } else if (futureCommittedBlitzes.length > 0) {
+        reason = `${firstName} committed to ${futureCommittedBlitzes.length} blitz${futureCommittedBlitzes.length > 1 ? 'es' : ''}`;
+        urgency = 'low';
+      } else {
+        reason = `${firstName} is on track`;
+        urgency = 'low';
+      }
+      
+      readinessRecruits.push({
+        recruit,
+        reason,
+        urgency,
+        readinessProgress: {
+          trainingHoursGoal: trainingGoal,
+          trainingHoursProgress: trainingProgress,
+          booksGoal,
+          booksProgress,
+          rolePlaysGoal,
+          rolePlaysProgress,
+          mnlGoal,
+          mnlProgress,
+          behindCount,
+        },
+        blitzCommitments: {
+          committedCount: committedBlitzIds.length,
+          upcomingBlitzNames: futureCommittedBlitzes.map(b => b.name),
+        },
+      });
+    });
+
+    if (readinessRecruits.length > 0) {
+      categories.push({
+        id: 'readiness',
+        label: 'Readiness',
+        emoji: '📊',
+        count: readinessRecruits.length,
+        recruits: readinessRecruits.sort((a, b) => {
+          // Sort: no blitz first, then by behind count (most behind first)
+          const aNoBlitz = (a.blitzCommitments?.committedCount || 0) === 0;
+          const bNoBlitz = (b.blitzCommitments?.committedCount || 0) === 0;
+          if (aNoBlitz && !bNoBlitz) return -1;
+          if (!aNoBlitz && bNoBlitz) return 1;
+          return (b.readinessProgress?.behindCount || 0) - (a.readinessProgress?.behindCount || 0);
+        }),
+        priority: 70, // Lower priority than other action-oriented categories
       });
     }
 
