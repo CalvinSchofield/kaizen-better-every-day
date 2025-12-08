@@ -292,12 +292,18 @@ export const BooksCompletionDrawer = ({
     }
   }, [isOpen]);
 
-  const handleMarkBookRead = async (bookId: string) => {
-    if (booksRead.has(bookId)) return; // Already read
-    
+  const handleToggleBookRead = async (bookId: string) => {
     setIsSaving(true);
     const newBooksRead = new Set(booksRead);
-    newBooksRead.add(bookId);
+    const isCurrentlyRead = newBooksRead.has(bookId);
+    
+    if (isCurrentlyRead) {
+      // Unmark as read
+      newBooksRead.delete(bookId);
+    } else {
+      // Mark as read
+      newBooksRead.add(bookId);
+    }
     
     setBooksRead(newBooksRead);
     localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
@@ -305,21 +311,29 @@ export const BooksCompletionDrawer = ({
     const newCount = newBooksRead.size + otherBooksRead.length;
     try {
       await onUpdateProgress(newCount);
-      const book = BOOKS.find(b => b.id === bookId);
       
-      // Celebration!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      
-      toast({
-        title: "📚 Book finished!",
-        description: book?.title || "Great job!",
-      });
-      
-      onClose();
+      if (!isCurrentlyRead) {
+        const book = BOOKS.find(b => b.id === bookId);
+        
+        // Celebration only when marking as read!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        
+        toast({
+          title: "📚 Book finished!",
+          description: book?.title || "Great job!",
+        });
+        
+        onClose();
+      } else {
+        toast({
+          title: "Book unmarked",
+          description: "Removed from completed books",
+        });
+      }
     } catch {
       toast({
         title: "Error saving",
@@ -330,11 +344,19 @@ export const BooksCompletionDrawer = ({
     }
   };
 
-  const handleMarkOtherBookRead = async (bookTitle: string, index: number) => {
-    if (otherBooksRead.includes(bookTitle)) return; // Already read
-    
+  const handleToggleOtherBookRead = async (bookTitle: string) => {
     setIsSaving(true);
-    const newOtherBooksRead = [...otherBooksRead, bookTitle];
+    const isCurrentlyRead = otherBooksRead.includes(bookTitle);
+    
+    let newOtherBooksRead: string[];
+    if (isCurrentlyRead) {
+      // Unmark as read
+      newOtherBooksRead = otherBooksRead.filter(b => b !== bookTitle);
+    } else {
+      // Mark as read
+      newOtherBooksRead = [...otherBooksRead, bookTitle];
+    }
+    
     setOtherBooksRead(newOtherBooksRead);
     localStorage.setItem(OTHER_BOOKS_READ_KEY, JSON.stringify(newOtherBooksRead));
     
@@ -342,19 +364,26 @@ export const BooksCompletionDrawer = ({
     try {
       await onUpdateProgress(newCount);
       
-      // Celebration!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      
-      toast({
-        title: "📚 Book finished!",
-        description: bookTitle,
-      });
-      
-      onClose();
+      if (!isCurrentlyRead) {
+        // Celebration only when marking as read!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        
+        toast({
+          title: "📚 Book finished!",
+          description: bookTitle,
+        });
+        
+        onClose();
+      } else {
+        toast({
+          title: "Book unmarked",
+          description: "Removed from completed books",
+        });
+      }
     } catch {
       toast({
         title: "Error saving",
@@ -365,15 +394,9 @@ export const BooksCompletionDrawer = ({
     }
   };
 
-  // Get committed books that haven't been read yet
-  const unreadCommittedBooks = BOOKS.filter(
-    book => booksCommitted.has(book.id) && !booksRead.has(book.id)
-  );
-  const unreadOtherBooks = otherBooksCommitted.filter(
-    book => !otherBooksRead.includes(book)
-  );
-
-  const hasUnreadBooks = unreadCommittedBooks.length > 0 || unreadOtherBooks.length > 0;
+  // Get all committed books (both read and unread)
+  const committedBooksList = BOOKS.filter(book => booksCommitted.has(book.id));
+  const hasAnyCommittedBooks = committedBooksList.length > 0 || otherBooksCommitted.length > 0;
   const totalRead = booksRead.size + otherBooksRead.length;
 
   return (
@@ -390,11 +413,11 @@ export const BooksCompletionDrawer = ({
         </DrawerHeader>
 
         <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
-          {!hasUnreadBooks ? (
+          {!hasAnyCommittedBooks ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium mb-1">No unread books!</p>
-              <p className="text-sm">Commit to more books in the editor</p>
+              <p className="font-medium mb-1">No books committed!</p>
+              <p className="text-sm">Commit to books in the editor first</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -402,49 +425,71 @@ export const BooksCompletionDrawer = ({
                 Which book did you finish?
               </h4>
               
-              {unreadCommittedBooks.map((book) => (
-                <button
-                  key={book.id}
-                  onClick={() => handleMarkBookRead(book.id)}
-                  disabled={isSaving}
-                  className={cn(
-                    "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
-                    "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
-                    "active:scale-[0.98]"
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{book.title}</p>
-                    <p className="text-xs text-muted-foreground">{book.author}</p>
-                  </div>
-                  <Check className="h-5 w-5 text-muted-foreground/30" />
-                </button>
-              ))}
+              {committedBooksList.map((book) => {
+                const isRead = booksRead.has(book.id);
+                return (
+                  <button
+                    key={book.id}
+                    onClick={() => handleToggleBookRead(book.id)}
+                    disabled={isSaving}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
+                      isRead 
+                        ? "bg-green-500/10 ring-1 ring-green-500/50" 
+                        : "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
+                      "active:scale-[0.98]"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center",
+                      isRead ? "bg-green-500/20" : "bg-purple-500/20"
+                    )}>
+                      <BookOpen className={cn("h-5 w-5", isRead ? "text-green-500" : "text-purple-500")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{book.title}</p>
+                      <p className="text-xs text-muted-foreground">{book.author}</p>
+                    </div>
+                    <Check className={cn(
+                      "h-5 w-5",
+                      isRead ? "text-green-500" : "text-muted-foreground/30"
+                    )} />
+                  </button>
+                );
+              })}
               
-              {unreadOtherBooks.map((book, index) => (
-                <button
-                  key={`other-${index}`}
-                  onClick={() => handleMarkOtherBookRead(book, index)}
-                  disabled={isSaving}
-                  className={cn(
-                    "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
-                    "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
-                    "active:scale-[0.98]"
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{book}</p>
-                    <p className="text-xs text-muted-foreground">Custom book</p>
-                  </div>
-                  <Check className="h-5 w-5 text-muted-foreground/30" />
-                </button>
-              ))}
+              {otherBooksCommitted.map((book, index) => {
+                const isRead = otherBooksRead.includes(book);
+                return (
+                  <button
+                    key={`other-${index}`}
+                    onClick={() => handleToggleOtherBookRead(book)}
+                    disabled={isSaving}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
+                      isRead 
+                        ? "bg-green-500/10 ring-1 ring-green-500/50" 
+                        : "bg-muted/50 hover:bg-purple-500/10 hover:ring-1 hover:ring-purple-500/50",
+                      "active:scale-[0.98]"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center",
+                      isRead ? "bg-green-500/20" : "bg-purple-500/20"
+                    )}>
+                      <BookOpen className={cn("h-5 w-5", isRead ? "text-green-500" : "text-purple-500")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{book}</p>
+                      <p className="text-xs text-muted-foreground">Custom book</p>
+                    </div>
+                    <Check className={cn(
+                      "h-5 w-5",
+                      isRead ? "text-green-500" : "text-muted-foreground/30"
+                    )} />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
