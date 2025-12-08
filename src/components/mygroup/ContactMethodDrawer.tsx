@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { Phone, MessageSquare, Loader2, Users } from "lucide-react";
+import { Phone, MessageSquare, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   Drawer, 
   DrawerContent, 
   DrawerHeader, 
   DrawerTitle,
-  DrawerFooter
 } from "@/components/ui/drawer";
-import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
-import { toast } from "sonner";
+import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { PostContactDrawer } from "./PostContactDrawer";
 
 interface ContactMethodDrawerProps {
   open: boolean;
@@ -30,77 +28,70 @@ export const ContactMethodDrawer = ({
   onOpenChange,
   recruit,
 }: ContactMethodDrawerProps) => {
-  const [contactMethod, setContactMethod] = useState<'phone_call' | 'text' | 'in_person' | null>(null);
-  const [notes, setNotes] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const logActivityMutation = useLogRecruitActivity();
+  const [selectedMethod, setSelectedMethod] = useState<'call' | 'text' | 'in_person' | null>(null);
+  const [showPostContactDrawer, setShowPostContactDrawer] = useState(false);
 
-  const handleLogContact = async () => {
-    if (!recruit || !contactMethod) return;
+  const handleMethodSelect = (method: 'call' | 'text' | 'in_person') => {
+    setSelectedMethod(method);
     
-    setIsLoading(true);
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        activityType: contactMethod === 'in_person' ? 'in_person' : 'phone_call',
-        notes: notes || `${contactMethod === 'phone_call' ? 'Phone call' : contactMethod === 'text' ? 'Text message' : 'Met in person'}`,
-        updateLastContact: true,
-      });
-      toast.success(`Contact logged for ${stripEmojis(recruit.name)}`);
-      onOpenChange(false);
-      setNotes('');
-      setContactMethod(null);
-    } catch (error) {
-      console.error('Failed to log contact:', error);
-      toast.error('Failed to log contact');
-    } finally {
-      setIsLoading(false);
+    // For call/text, open the phone/SMS first
+    if (method === 'call' && recruit?.phone) {
+      window.location.href = `tel:${recruit.phone}`;
+    } else if (method === 'text' && recruit?.phone) {
+      window.location.href = `sms:${recruit.phone}`;
     }
+    
+    // Close this drawer and open post-contact drawer
+    onOpenChange(false);
+    setTimeout(() => {
+      setShowPostContactDrawer(true);
+    }, 300);
+  };
+
+  const handlePostContactClose = () => {
+    setShowPostContactDrawer(false);
+    setSelectedMethod(null);
   };
 
   const handleClose = () => {
     onOpenChange(false);
-    setNotes('');
-    setContactMethod(null);
+    setSelectedMethod(null);
   };
 
   if (!recruit) return null;
 
   return (
-    <Drawer open={open} onOpenChange={handleClose}>
-      <DrawerContent>
-        <DrawerHeader className="border-b">
-          <DrawerTitle>
-            Log Contact with {stripEmojis(recruit.name)}
-          </DrawerTitle>
-        </DrawerHeader>
-        
-        <div className="p-4 space-y-4">
-          {/* Contact method selection */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              How did you contact them?
-            </label>
+    <>
+      <Drawer open={open} onOpenChange={handleClose}>
+        <DrawerContent>
+          <DrawerHeader className="border-b">
+            <DrawerTitle>
+              Contact {stripEmojis(recruit.name)}
+            </DrawerTitle>
+          </DrawerHeader>
+          
+          <div className="p-4">
             <div className="grid grid-cols-3 gap-3">
               <Button
                 variant="outline"
                 className={cn(
                   "h-20 flex-col gap-2",
-                  contactMethod === 'phone_call' && "border-primary bg-primary/10"
+                  selectedMethod === 'call' && "border-primary bg-primary/10"
                 )}
-                onClick={() => setContactMethod('phone_call')}
+                onClick={() => handleMethodSelect('call')}
+                disabled={!recruit.phone}
               >
                 <Phone className="h-6 w-6" />
-                <span className="text-xs">Phone Call</span>
+                <span className="text-xs">Call</span>
               </Button>
               <Button
                 variant="outline"
                 className={cn(
                   "h-20 flex-col gap-2",
-                  contactMethod === 'text' && "border-primary bg-primary/10"
+                  selectedMethod === 'text' && "border-primary bg-primary/10"
                 )}
-                onClick={() => setContactMethod('text')}
+                onClick={() => handleMethodSelect('text')}
+                disabled={!recruit.phone}
               >
                 <MessageSquare className="h-6 w-6" />
                 <span className="text-xs">Text</span>
@@ -109,56 +100,24 @@ export const ContactMethodDrawer = ({
                 variant="outline"
                 className={cn(
                   "h-20 flex-col gap-2",
-                  contactMethod === 'in_person' && "border-primary bg-primary/10"
+                  selectedMethod === 'in_person' && "border-primary bg-primary/10"
                 )}
-                onClick={() => setContactMethod('in_person')}
+                onClick={() => handleMethodSelect('in_person')}
               >
                 <Users className="h-6 w-6" />
                 <span className="text-xs">In Person</span>
               </Button>
             </div>
           </div>
+        </DrawerContent>
+      </Drawer>
 
-          {/* Notes */}
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Notes (optional)
-            </label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="What did you discuss?"
-              className="resize-none"
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <DrawerFooter className="border-t">
-          <Button 
-            onClick={handleLogContact}
-            disabled={!contactMethod || isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Logging...
-              </>
-            ) : (
-              "Log Contact"
-            )}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={handleClose}
-            disabled={isLoading}
-            className="w-full"
-          >
-            Cancel
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+      <PostContactDrawer
+        open={showPostContactDrawer}
+        onOpenChange={handlePostContactClose}
+        recruit={recruit}
+        defaultMethod={selectedMethod || undefined}
+      />
+    </>
   );
 };
