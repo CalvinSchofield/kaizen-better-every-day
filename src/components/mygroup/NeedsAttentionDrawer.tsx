@@ -993,16 +993,24 @@ export const NeedsAttentionDrawer = ({
 
               if (isNoBlitzCategory) {
                 return (
-                  <SwipeableBlitzItem
-                    key={item.recruit.notionPageId}
-                    item={item}
-                    onRecruitClick={onRecruitClick}
-                    onDrawerClose={() => onOpenChange(false)}
-                    onSchedule={(recruit) => setScheduleRecruit(recruit)}
-                    onContact={(recruit) => setContactRecruit(recruit)}
-                    blitzes={blitzes}
-                    repDataMap={repDataMap}
-                  />
+                  <div key={item.recruit.notionPageId}>
+                    {item.showDivider && (
+                      <div className="flex items-center gap-2 py-2 mt-2 mb-3">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-muted-foreground px-2">No more blitzes planned</span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <SwipeableBlitzItem
+                      item={item}
+                      onRecruitClick={onRecruitClick}
+                      onDrawerClose={() => onOpenChange(false)}
+                      onSchedule={(recruit) => setScheduleRecruit(recruit)}
+                      onContact={(recruit) => setContactRecruit(recruit)}
+                      blitzes={blitzes}
+                      repDataMap={repDataMap}
+                    />
+                  </div>
                 );
               }
 

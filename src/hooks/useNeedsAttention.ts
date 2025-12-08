@@ -21,6 +21,7 @@ export interface AttentionRecruit {
   missingItems?: string[];
   onboardingStatus?: string;
   blitzName?: string;
+  showDivider?: boolean; // For "No Blitz" category to separate never-attended from no-future
   trainingProgress?: {
     onboardingComplete: boolean;
     trainingsComplete: boolean;
@@ -420,7 +421,9 @@ export const useNeedsAttention = (
     }
 
     // 4. No Blitz History - Signed/Shadow/Sold reps with NO blitzes at all (never attended any)
+    // Also track those who attended blitzes but have no future ones planned
     const noBlitzRecruits: AttentionRecruit[] = [];
+    const noFutureBlitzRecruits: AttentionRecruit[] = [];
     
     // Include all signed, shadow, and sold stages
     const blitzEligibleRecruits = recruits.filter(r => 
@@ -440,6 +443,16 @@ export const useNeedsAttention = (
         .map(b => b.id)
     );
 
+    // Build a set of future blitz IDs (blitzes that haven't started yet)
+    const futureBlitzIds = new Set(
+      blitzes
+        .filter(b => {
+          const startDate = parseISO(b.date);
+          return startDate > now;
+        })
+        .map(b => b.id)
+    );
+
     blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
       const rawCommitments = repData?.committed_blitzes || [];
@@ -450,41 +463,60 @@ export const useNeedsAttention = (
       // Check if they have attended ANY past blitz
       const hasAttendedPastBlitz = committedBlitzIds.some(id => pastBlitzIds.has(id));
       
-      // Only show if they have NEVER attended any blitz
-      if (hasAttendedPastBlitz) return;
+      // Check if they have ANY future blitz committed
+      const hasFutureBlitzCommitment = committedBlitzIds.some(id => futureBlitzIds.has(id));
       
-      // Also skip if they have no blitz commitments at all OR only have future blitzes
-      const hasAnyCommitment = committedBlitzIds.length > 0;
+      const firstName = recruit.name?.split(' ')[0] || 'Recruit';
       
-      if (!hasAnyCommitment) {
-        const firstName = recruit.name?.split(' ')[0] || 'Recruit';
+      if (!hasAttendedPastBlitz && !hasFutureBlitzCommitment) {
+        // NEVER attended any blitz - highest priority
         noBlitzRecruits.push({
           recruit,
-          reason: `${firstName} hasn't committed to any blitz yet—help them pick one!`,
+          reason: `${firstName} hasn't been on any blitz yet—help them pick one!`,
           urgency: recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅' ? 'high' : 'medium',
+        });
+      } else if (hasAttendedPastBlitz && !hasFutureBlitzCommitment) {
+        // Has attended past blitzes but no future ones planned - secondary priority
+        noFutureBlitzRecruits.push({
+          recruit,
+          reason: `${firstName} has no more blitzes planned for the season`,
+          urgency: 'low',
         });
       }
     });
 
-    if (noBlitzRecruits.length > 0) {
+    // Combine: never-attended first, then no-future-planned with a visual separator indicator
+    const combinedNoBlitz = [
+      ...noBlitzRecruits.sort((a, b) => {
+        const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
+        const yearA = yearOrder[a.recruit.year || ''] ?? 99;
+        const yearB = yearOrder[b.recruit.year || ''] ?? 99;
+        if (yearA !== yearB) return yearA - yearB;
+        const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
+        return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
+      }),
+      // Mark the first "no future" recruit so UI can show divider
+      ...noFutureBlitzRecruits.map((r, i) => ({
+        ...r,
+        showDivider: i === 0,
+      })).sort((a, b) => {
+        const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
+        const yearA = yearOrder[a.recruit.year || ''] ?? 99;
+        const yearB = yearOrder[b.recruit.year || ''] ?? 99;
+        if (yearA !== yearB) return yearA - yearB;
+        const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
+        return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
+      }),
+    ];
+
+    if (combinedNoBlitz.length > 0) {
       categories.push({
         id: 'no-commitment',
         label: 'No Blitz',
         emoji: '⚠️',
-        count: noBlitzRecruits.length,
-        recruits: noBlitzRecruits.sort((a, b) => {
-          // First sort by year: Rookies first, then Sophomores, then Vets
-          const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
-          const yearA = yearOrder[a.recruit.year || ''] ?? 99;
-          const yearB = yearOrder[b.recruit.year || ''] ?? 99;
-          if (yearA !== yearB) return yearA - yearB;
-          
-          // Then by stage: Signed/Shadow over Sold stages
-          const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
-          return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - 
-                 (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
-        }),
-        priority: 60,
+        count: noBlitzRecruits.length, // Only count the "never attended" ones in the chip
+        recruits: combinedNoBlitz,
+        priority: 70,
       });
     }
 
