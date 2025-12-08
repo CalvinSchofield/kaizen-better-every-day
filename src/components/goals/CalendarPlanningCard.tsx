@@ -699,6 +699,33 @@ export const CalendarPlanningCard = ({
     };
   }, []);
 
+  // Helper to check if we should prompt for blitz commitment
+  const checkBlitzCommitmentPrompt = async (dateStr: string): Promise<boolean> => {
+    const uncommittedBlitz = getUncommittedBlitzForDate(dateStr);
+    if (!uncommittedBlitz) return false;
+    
+    // Count how many days the user has already marked within this blitz range (excluding this one)
+    const blitzStart = parseLocalDate(uncommittedBlitz.date);
+    const blitzEnd = uncommittedBlitz.endDate ? parseLocalDate(uncommittedBlitz.endDate) : blitzStart;
+    
+    let markedDaysInBlitz = 0;
+    const allPlanned = plannedDays?.map(d => d.planned_date) || [];
+    for (const pd of allPlanned) {
+      const pDate = parseLocalDate(pd);
+      if (pDate >= blitzStart && pDate <= blitzEnd && getDay(pDate) !== 0) {
+        markedDaysInBlitz++;
+      }
+    }
+    
+    // If this would make 2+ days marked in the blitz range, show prompt
+    // (markedDaysInBlitz >= 1 because we're about to add another one)
+    if (markedDaysInBlitz >= 1) {
+      setBlitzCommitPrompt({ blitz: uncommittedBlitz });
+      return true;
+    }
+    return false;
+  };
+
   const handleDayClick = async (date: Date) => {
     const dayOfWeek = getDay(date);
     const userSummerEndDate = parseLocalDate(personalSummerEnd);
@@ -721,7 +748,10 @@ export const CalendarPlanningCard = ({
         removeSummerOffDay(dateStr);
         // Also add to planned days if not already
         if (!isCurrentlyPlanned) {
+          // Check for blitz commitment prompt when ADDING a day
+          const shouldPrompt = await checkBlitzCommitmentPrompt(dateStr);
           await togglePlannedDay(dateStr);
+          // Prompt shows after toggling (user already added the day)
         }
       } else {
         // User is trying to mark a day OFF within their summer range
@@ -750,40 +780,13 @@ export const CalendarPlanningCard = ({
         addSummerOffDay(dateStr);
         // Also remove from planned days if planned
         if (isCurrentlyPlanned) {
-    // Check if this day is part of an uncommitted blitz
-    // If user is marking 2+ days in that blitz range as planned, prompt to commit
-    const uncommittedBlitz = getUncommittedBlitzForDate(dateStr);
-    if (uncommittedBlitz && !isCurrentlyPlanned) {
-      // Count how many days the user has already marked within this blitz range
-      const blitzStart = parseLocalDate(uncommittedBlitz.date);
-      const blitzEnd = uncommittedBlitz.endDate ? parseLocalDate(uncommittedBlitz.endDate) : blitzStart;
-      
-      let markedDaysInBlitz = 0;
-      const allPlanned = plannedDays?.map(d => d.planned_date) || [];
-      for (const pd of allPlanned) {
-        const pDate = parseLocalDate(pd);
-        if (pDate >= blitzStart && pDate <= blitzEnd && getDay(pDate) !== 0) {
-          markedDaysInBlitz++;
-        }
-      }
-      
-      // If this would make 2+ days marked in the blitz week, show prompt
-      if (markedDaysInBlitz >= 1) {
-        setBlitzCommitPrompt({ blitz: uncommittedBlitz });
-        // Still toggle the day immediately
-        await togglePlannedDay(dateStr);
-        return;
-      }
-    }
-    
-    await togglePlannedDay(dateStr);
+          await togglePlannedDay(dateStr);
         }
       }
       return;
     }
     
     // If ADDING a day (not currently planned) that's outside their summer range
-    // Only show popup if within 10 knocking days (Mon-Sat) of summer boundary and not dismissed
     if (!isCurrentlyPlanned) {
       const isBeforeStart = date < userSummerStart;
       const isAfterEnd = date > userSummerEnd;
@@ -815,8 +818,14 @@ export const CalendarPlanningCard = ({
         }
         // If dismissed or too far from boundary, just toggle the day normally
       }
+      
+      // Check for blitz commitment prompt when ADDING a day (preseason days too)
+      const shouldPrompt = await checkBlitzCommitmentPrompt(dateStr);
+      await togglePlannedDay(dateStr);
+      return;
     }
     
+    // Removing a planned day (outside summer range)
     await togglePlannedDay(dateStr);
   };
 
