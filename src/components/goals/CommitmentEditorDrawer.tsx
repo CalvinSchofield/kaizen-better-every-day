@@ -83,7 +83,8 @@ interface CommitmentConfig {
   maxValue?: number;
 }
 
-const commitmentConfigs: CommitmentConfig[] = [
+// Base configs without MNL maxValue - set dynamically in component
+const getCommitmentConfigs = (mnlMax: number): CommitmentConfig[] => [
   {
     key: 'preseason_fp_goal',
     progressKey: 'preseason_fp_progress',
@@ -121,9 +122,9 @@ const commitmentConfigs: CommitmentConfig[] = [
     icon: Calendar,
     color: 'text-amber-500',
     bgColor: 'bg-amber-500/10',
-    description: 'Weekly team calls',
+    description: `Weekly team calls (${mnlMax} Mondays until summer)`,
     incrementBy: 1,
-    maxValue: undefined, // Will be set dynamically
+    maxValue: mnlMax,
   },
 ];
 
@@ -149,8 +150,9 @@ export const CommitmentEditorDrawer = ({
   const [otherBooks, setOtherBooks] = useState<string[]>([]);
   const [newOtherBook, setNewOtherBook] = useState("");
 
-  // MNL max value
+  // MNL max value and commitment configs
   const mnlMaxValue = useMemo(() => getMondaysRemaining(), []);
+  const commitmentConfigs = useMemo(() => getCommitmentConfigs(mnlMaxValue), [mnlMaxValue]);
 
   // Load books from localStorage on mount
   useEffect(() => {
