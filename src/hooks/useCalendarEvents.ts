@@ -61,15 +61,14 @@ export const useCalendarEvents = (calendarUrl: string) => {
             };
           })
           .filter((event) => {
-            // Exclude "pre blitz rookie call" events
+            // Exclude Leadership Huddle and Pre Blitz Rookie Call
+            const isLeadershipHuddle = event.title.toLowerCase().includes("leadership huddle");
             const isPreBlitzCall = event.title.toLowerCase().includes("pre blitz rookie call");
-            // Only future events with "blitz" in the title
-            const isBlitz = event.title.toLowerCase().includes("blitz");
             const isFuture = event.startDate >= new Date();
-            return isBlitz && !isPreBlitzCall && isFuture;
+            return !isLeadershipHuddle && !isPreBlitzCall && isFuture;
           })
           .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
-          .slice(0, 10); // Get next 10 blitz events
+          .slice(0, 15); // Get next 15 team events
 
         setEvents(parsedEvents);
       } catch (err) {
