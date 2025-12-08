@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -37,6 +38,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+// Floating Add Button with scroll hide
+const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: () => void }) => {
+  const isScrollVisible = useScrollDirection(100);
+  
+  if (!visible) return null;
+  
+  return (
+    <Button
+      className={`fixed right-4 h-14 w-14 rounded-full shadow-lg z-40 transition-all duration-300 ${
+        isScrollVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+      }`}
+      style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
+      onClick={onClick}
+    >
+      <Plus className="h-6 w-6" />
+    </Button>
+  );
+};
 
 const MyGroup = () => {
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
@@ -499,15 +519,10 @@ const MyGroup = () => {
       </div>
 
       {/* Floating Add Button */}
-      {(isLeader || (mySuggestions && mySuggestions.length > 0)) && (
-        <Button
-          className="fixed right-4 h-14 w-14 rounded-full shadow-lg z-40"
-          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom) + 1.5rem)' }}
-          onClick={() => setAddSheetOpen(true)}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      )}
+      <FloatingAddButton 
+        visible={(isLeader || (mySuggestions && mySuggestions.length > 0)) ?? false}
+        onClick={() => setAddSheetOpen(true)}
+      />
 
       {/* Drawers */}
       <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />
