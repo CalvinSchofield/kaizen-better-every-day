@@ -69,7 +69,6 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('lastContact');
   const [sortDesc, setSortDesc] = useState(true);
-  const [filterStale, setFilterStale] = useState(false);
 
   // Calculate effective last contact from activities for a recruit
   const getEffectiveLastContact = (recruit: Recruit): string | null => {
@@ -126,7 +125,6 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
   });
 
   const sortedRecruits = [...filteredRecruits]
-    .filter(r => !filterStale || isStale(r))
     .sort((a, b) => {
       let comparison = 0;
       switch (sortKey) {
@@ -235,14 +233,6 @@ export const RecruitListView = ({ recruits, activities }: RecruitListViewProps) 
             <DropdownMenuItem onClick={() => handleSort('name')}>Name</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          variant={filterStale ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterStale(!filterStale)}
-        >
-          <AlertTriangle className="h-4 w-4 mr-1" />
-          Needs Contact
-        </Button>
       </div>
 
       {/* List */}
