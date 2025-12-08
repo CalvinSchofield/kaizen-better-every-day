@@ -13,6 +13,8 @@ import {
 import { AttentionCategory, AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useUpdateRookieStatus } from "@/hooks/useUpdateRookieStatus";
+import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
+import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -402,6 +404,7 @@ export const NeedsAttentionDrawer = ({
   category,
   onRecruitClick 
 }: NeedsAttentionDrawerProps) => {
+  const [scheduleRecruit, setScheduleRecruit] = useState<Recruit | null>(null);
   const logActivityMutation = useLogRecruitActivity();
 
   if (!category) return null;
@@ -431,42 +434,54 @@ export const NeedsAttentionDrawer = ({
   const isTrainingCategory = category.id === 'training-progress';
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="flex items-center gap-2">
-              <span>{category.emoji}</span>
-              <span>{category.label}</span>
-              <Badge variant="secondary" className="ml-2">
-                {category.count}
-              </Badge>
-            </DrawerTitle>
+    <>
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="border-b">
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="flex items-center gap-2">
+                <span>{category.emoji}</span>
+                <span>{category.label}</span>
+                <Badge variant="secondary" className="ml-2">
+                  {category.count}
+                </Badge>
+              </DrawerTitle>
+            </div>
+            {!isTrainingCategory && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Swipe right to mark contacted, left to drop
+              </p>
+            )}
+          </DrawerHeader>
+          
+          <div className="overflow-y-auto p-4 space-y-3">
+            {category.recruits.map((item) => (
+              isTrainingCategory ? (
+                <TrainingProgressItem
+                  key={item.recruit.notionPageId}
+                  item={item}
+                  onRecruitClick={onRecruitClick}
+                  onOpenChange={onOpenChange}
+                />
+              ) : (
+                <SwipeableRecruitItem
+                  key={item.recruit.notionPageId}
+                  item={item}
+                  onRecruitClick={onRecruitClick}
+                  onDrawerClose={() => onOpenChange(false)}
+                  onSchedule={(recruit) => setScheduleRecruit(recruit)}
+                />
+              )
+            ))}
           </div>
-        </DrawerHeader>
-        
-        <div className="overflow-y-auto p-4 space-y-3">
-          {category.recruits.map((item) => (
-            isTrainingCategory ? (
-              <TrainingProgressItem
-                key={item.recruit.notionPageId}
-                item={item}
-                onRecruitClick={onRecruitClick}
-                onOpenChange={onOpenChange}
-              />
-            ) : (
-              <DefaultRecruitItem
-                key={item.recruit.notionPageId}
-                item={item}
-                onRecruitClick={onRecruitClick}
-                onOpenChange={onOpenChange}
-                onCall={handleCall}
-                onText={handleText}
-              />
-            )
-          ))}
-        </div>
-      </DrawerContent>
-    </Drawer>
+        </DrawerContent>
+      </Drawer>
+
+      <ScheduleFollowUpDrawer
+        open={!!scheduleRecruit}
+        onOpenChange={(open) => !open && setScheduleRecruit(null)}
+        recruit={scheduleRecruit}
+      />
+    </>
   );
 };
