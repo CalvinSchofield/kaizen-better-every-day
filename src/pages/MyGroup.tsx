@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -16,6 +16,7 @@ import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer"
 import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { RecommendationsSection } from "@/components/mygroup/RecommendationsSection";
+import { PostContactDrawer } from "@/components/mygroup/PostContactDrawer";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
@@ -56,6 +57,12 @@ const MyGroup = () => {
   const [attentionDrawerOpen, setAttentionDrawerOpen] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
+  
+  // Post-contact drawer state
+  const [postContactDrawerOpen, setPostContactDrawerOpen] = useState(false);
+  const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
+  const [contactMethod, setContactMethod] = useState<'call' | 'text'>('call');
+  const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzes, isLeader);
@@ -190,6 +197,35 @@ const MyGroup = () => {
     setSelectedRecruit(recruit);
   };
 
+  // Handle call/text from hero - opens drawer after initiating contact
+  const handleHeroCall = useCallback((recruit: Recruit) => {
+    setContactingRecruit(recruit);
+    setContactMethod('call');
+    // Small delay to let phone app open first
+    setTimeout(() => setPostContactDrawerOpen(true), 500);
+  }, []);
+
+  const handleHeroText = useCallback((recruit: Recruit) => {
+    setContactingRecruit(recruit);
+    setContactMethod('text');
+    // Small delay to let SMS app open first
+    setTimeout(() => setPostContactDrawerOpen(true), 500);
+  }, []);
+
+  // Handle post-contact completion - animate out and dismiss
+  const handleContactComplete = useCallback(() => {
+    if (contactingRecruit) {
+      // Animate the hero card out
+      setHeroAnimatingOut(true);
+      // After animation, dismiss and reset
+      setTimeout(() => {
+        dismissRecruit(contactingRecruit.notionPageId);
+        setHeroAnimatingOut(false);
+        setContactingRecruit(null);
+      }, 300);
+    }
+  }, [contactingRecruit, dismissRecruit]);
+
   if (isLoading) {
     return (
       <Layout>
@@ -248,7 +284,9 @@ const MyGroup = () => {
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onViewAll={() => setQuickViewOpen(true)}
-              onDismiss={dismissRecruit}
+              onCallClick={handleHeroCall}
+              onTextClick={handleHeroText}
+              animatingOut={heroAnimatingOut}
             />
 
             {/* Needs Attention Chips */}
@@ -422,6 +460,13 @@ const MyGroup = () => {
         onOpenChange={(open) => !open && setSelectedRecruit(null)}
         recruit={selectedRecruit}
         activities={filteredActivities.filter(a => a.rep_notion_page_id === selectedRecruit?.notionPageId)}
+      />
+      <PostContactDrawer
+        open={postContactDrawerOpen}
+        onOpenChange={setPostContactDrawerOpen}
+        recruit={contactingRecruit}
+        contactMethod={contactMethod}
+        onComplete={handleContactComplete}
       />
 
       {/* Delete Confirmation Dialog */}
