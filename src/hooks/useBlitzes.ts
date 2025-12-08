@@ -14,6 +14,7 @@ interface BlitzEvent {
 
 export const useBlitzes = () => {
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
+  const [pastBlitzes, setPastBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load from cache immediately for instant offline access
@@ -27,16 +28,26 @@ export const useBlitzes = () => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
-          const futureBlitzes = data
-            .filter((blitz: any) => {
-              if (!blitz || !blitz.date) return false;
-              const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-              blitzEndDate.setHours(0, 0, 0, 0);
-              return blitzEndDate >= today;
-            })
-            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const future: BlitzEvent[] = [];
+          const past: BlitzEvent[] = [];
           
-          setAllBlitzes(futureBlitzes);
+          data.forEach((blitz: any) => {
+            if (!blitz || !blitz.date) return;
+            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+            blitzEndDate.setHours(0, 0, 0, 0);
+            if (blitzEndDate >= today) {
+              future.push(blitz);
+            } else {
+              past.push(blitz);
+            }
+          });
+          
+          // Sort future by date ascending, past by date descending
+          future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          
+          setAllBlitzes(future);
+          setPastBlitzes(past);
           setLoading(false);
         }
       } catch (e) {
@@ -58,18 +69,28 @@ export const useBlitzes = () => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
-          const futureBlitzes = data.blitzes
-            .filter((blitz: any) => {
-              if (!blitz || !blitz.date) return false;
-              const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-              blitzEndDate.setHours(0, 0, 0, 0);
-              return blitzEndDate >= today;
-            })
-            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const future: BlitzEvent[] = [];
+          const past: BlitzEvent[] = [];
           
-          setAllBlitzes(futureBlitzes);
+          data.blitzes.forEach((blitz: any) => {
+            if (!blitz || !blitz.date) return;
+            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+            blitzEndDate.setHours(0, 0, 0, 0);
+            if (blitzEndDate >= today) {
+              future.push(blitz);
+            } else {
+              past.push(blitz);
+            }
+          });
           
-          // Cache for offline access
+          // Sort future by date ascending, past by date descending
+          future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          
+          setAllBlitzes(future);
+          setPastBlitzes(past);
+          
+          // Cache for offline access (store ALL blitzes)
           localStorage.setItem('blitzes-cache', JSON.stringify({
             data: data.blitzes,
             timestamp: Date.now()
@@ -85,5 +106,5 @@ export const useBlitzes = () => {
     fetchAllBlitzes();
   }, []);
 
-  return { allBlitzes, loading };
+  return { allBlitzes, pastBlitzes, loading };
 };

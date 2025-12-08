@@ -95,7 +95,7 @@ const BlitzManagementSection = ({
   recruitRepData: any; 
   queryClient: any;
 }) => {
-  const { allBlitzes } = useBlitzes();
+  const { allBlitzes, pastBlitzes: allPastBlitzes } = useBlitzes();
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   
@@ -105,30 +105,13 @@ const BlitzManagementSection = ({
   
   const now = new Date();
   
-  // Split blitzes into past and future
-  const { pastBlitzes, futureBlitzes } = useMemo(() => {
-    const past: typeof allBlitzes = [];
-    const future: typeof allBlitzes = [];
-    
-    allBlitzes.forEach(blitz => {
-      const endDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-      if (endDate < now) {
-        // Only show past blitzes they attended
-        if (committedBlitzes.includes(blitz.id)) {
-          past.push(blitz);
-        }
-      } else {
-        future.push(blitz);
-      }
-    });
-    
-    // Sort past by date descending (most recent first)
-    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    // Sort future by date ascending (soonest first)
-    future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    return { pastBlitzes: past, futureBlitzes: future };
-  }, [allBlitzes, committedBlitzes, now]);
+  // Get past blitzes the recruit attended (from all past blitzes)
+  const pastBlitzes = useMemo(() => {
+    return allPastBlitzes.filter(blitz => committedBlitzes.includes(blitz.id));
+  }, [allPastBlitzes, committedBlitzes]);
+  
+  // Future blitzes are already from allBlitzes (which only contains future)
+  const futureBlitzes = allBlitzes;
   
   // Count committed future blitzes
   const committedFutureCount = futureBlitzes.filter(b => committedBlitzes.includes(b.id)).length;
