@@ -80,24 +80,11 @@ export const TodaysFocusHero = ({
         animatingOut && "animate-fade-out opacity-0 scale-95"
       )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
-          <span className="text-sm font-medium text-primary">Today's Focus</span>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 rounded-full bg-primary/10">
+          <Sparkles className="h-5 w-5 text-primary" />
         </div>
-        {totalNeedsAttention > 1 && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-xs text-muted-foreground"
-            onClick={onViewAll}
-          >
-            View all
-            <ChevronRight className="h-3 w-3 ml-1" />
-          </Button>
-        )}
+        <span className="text-sm font-medium text-primary">Today's Focus</span>
       </div>
 
       <div 
