@@ -545,29 +545,31 @@ export const LogSaleSheet = ({
                 </div>
               </div>
 
-              {/* Deal Type */}
-              <div className="space-y-2">
-                <Label className="text-xs">Deal Type</Label>
-                <div className="flex gap-2">
-                  {(['fresh', 'takeover', 'diy'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setDealType(type)}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                        dealType === type
-                          ? 'bg-primary text-primary-foreground shadow-md'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
-                    </button>
-                  ))}
+              {/* Deal Type - FP only */}
+              {saleType === 'fp' && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Deal Type</Label>
+                  <div className="flex gap-2">
+                    {(['fresh', 'takeover', 'diy'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setDealType(type)}
+                        className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                          dealType === type
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
+                  </p>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
-                </p>
-              </div>
+              )}
 
               {/* Money Spent */}
               <div className="space-y-1">
