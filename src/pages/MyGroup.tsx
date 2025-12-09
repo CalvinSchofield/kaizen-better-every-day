@@ -18,6 +18,8 @@ import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { RecommendationsSection } from "@/components/mygroup/RecommendationsSection";
 import { PostContactDrawer } from "@/components/mygroup/PostContactDrawer";
+import { ContactMethodDrawer } from "@/components/mygroup/ContactMethodDrawer";
+import { ScheduleFollowUpDrawer } from "@/components/mygroup/ScheduleFollowUpDrawer";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
@@ -78,10 +80,10 @@ const MyGroup = () => {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   
-  // Post-contact drawer state
-  const [postContactDrawerOpen, setPostContactDrawerOpen] = useState(false);
+  // Contact and Schedule drawer state
+  const [contactMethodDrawerOpen, setContactMethodDrawerOpen] = useState(false);
+  const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
-  const [contactMethod, setContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
@@ -282,27 +284,34 @@ const MyGroup = () => {
     setSelectedRecruit(recruit);
   };
 
-  // Handle call/text from hero - opens drawer after initiating contact
-  const handleHeroCall = useCallback((recruit: Recruit) => {
+  // Handle contact from hero - opens contact method drawer
+  const handleHeroContact = useCallback((recruit: Recruit) => {
     setContactingRecruit(recruit);
-    setContactMethod('call');
-    // Small delay to let phone app open first
-    setTimeout(() => setPostContactDrawerOpen(true), 500);
+    setContactMethodDrawerOpen(true);
   }, []);
 
-  const handleHeroText = useCallback((recruit: Recruit) => {
+  // Handle schedule from hero - opens schedule drawer
+  const handleHeroSchedule = useCallback((recruit: Recruit) => {
     setContactingRecruit(recruit);
-    setContactMethod('text');
-    // Small delay to let SMS app open first
-    setTimeout(() => setPostContactDrawerOpen(true), 500);
+    setScheduleDrawerOpen(true);
   }, []);
 
-  // Handle post-contact completion - animate out and dismiss
-  const handleContactComplete = useCallback(() => {
+  // Handle completion from contact method drawer - animate out and dismiss
+  const handleContactMethodComplete = useCallback(() => {
     if (contactingRecruit) {
-      // Animate the hero card out
       setHeroAnimatingOut(true);
-      // After animation, dismiss and reset
+      setTimeout(() => {
+        dismissRecruit(contactingRecruit.notionPageId);
+        setHeroAnimatingOut(false);
+        setContactingRecruit(null);
+      }, 300);
+    }
+  }, [contactingRecruit, dismissRecruit]);
+
+  // Handle schedule completion - animate out and dismiss
+  const handleScheduleComplete = useCallback(() => {
+    if (contactingRecruit) {
+      setHeroAnimatingOut(true);
       setTimeout(() => {
         dismissRecruit(contactingRecruit.notionPageId);
         setHeroAnimatingOut(false);
@@ -369,8 +378,8 @@ const MyGroup = () => {
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onViewAll={() => setQuickViewOpen(true)}
-              onCallClick={handleHeroCall}
-              onTextClick={handleHeroText}
+              onContactClick={handleHeroContact}
+              onScheduleClick={handleHeroSchedule}
               animatingOut={heroAnimatingOut}
             />
 
@@ -562,12 +571,27 @@ const MyGroup = () => {
         recruit={selectedRecruit}
         activities={filteredActivities.filter(a => a.rep_notion_page_id === selectedRecruit?.notionPageId)}
       />
-      <PostContactDrawer
-        open={postContactDrawerOpen}
-        onOpenChange={setPostContactDrawerOpen}
+      <ContactMethodDrawer
+        open={contactMethodDrawerOpen}
+        onOpenChange={(open) => {
+          setContactMethodDrawerOpen(open);
+          if (!open) {
+            setContactingRecruit(null);
+          }
+        }}
         recruit={contactingRecruit}
-        contactMethod={contactMethod}
-        onComplete={handleContactComplete}
+        onComplete={handleContactMethodComplete}
+      />
+      <ScheduleFollowUpDrawer
+        open={scheduleDrawerOpen}
+        onOpenChange={(open) => {
+          setScheduleDrawerOpen(open);
+          if (!open) {
+            setContactingRecruit(null);
+          }
+        }}
+        recruit={contactingRecruit}
+        onComplete={handleScheduleComplete}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -20,6 +20,7 @@ interface ScheduleFollowUpDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
+  onComplete?: () => void;
 }
 
 // Strip emojis from name
@@ -32,6 +33,7 @@ export const ScheduleFollowUpDrawer = ({
   open,
   onOpenChange,
   recruit,
+  onComplete,
 }: ScheduleFollowUpDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [notes, setNotes] = useState('');
@@ -59,6 +61,7 @@ export const ScheduleFollowUpDrawer = ({
       });
       toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}`);
       onOpenChange(false);
+      onComplete?.();
       setNotes('');
       setSelectedDate(addDays(new Date(), 1));
     } catch (error) {

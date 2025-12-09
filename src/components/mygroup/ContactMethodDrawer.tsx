@@ -15,6 +15,7 @@ interface ContactMethodDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
+  onComplete?: () => void;
 }
 
 // Strip emojis from name
@@ -27,6 +28,7 @@ export const ContactMethodDrawer = ({
   open,
   onOpenChange,
   recruit,
+  onComplete,
 }: ContactMethodDrawerProps) => {
   const [selectedMethod, setSelectedMethod] = useState<'call' | 'text' | 'in_person' | null>(null);
   const [showPostContactDrawer, setShowPostContactDrawer] = useState(false);
@@ -48,9 +50,12 @@ export const ContactMethodDrawer = ({
     }, 300);
   };
 
-  const handlePostContactClose = () => {
+  const handlePostContactClose = (wasCompleted?: boolean) => {
     setShowPostContactDrawer(false);
     setSelectedMethod(null);
+    if (wasCompleted) {
+      onComplete?.();
+    }
   };
 
   const handleClose = () => {
@@ -114,9 +119,10 @@ export const ContactMethodDrawer = ({
 
       <PostContactDrawer
         open={showPostContactDrawer}
-        onOpenChange={handlePostContactClose}
+        onOpenChange={(open) => handlePostContactClose(!open)}
         recruit={recruit}
         defaultMethod={selectedMethod || undefined}
+        onComplete={() => handlePostContactClose(true)}
       />
     </>
   );
