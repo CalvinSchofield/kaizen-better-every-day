@@ -28,6 +28,7 @@ interface SwipeableTaskItemProps {
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
   showSwipeDemo?: boolean;
+  onDemoComplete?: () => void;
 }
 
 export const SwipeableTaskItem = ({
@@ -40,6 +41,7 @@ export const SwipeableTaskItem = ({
   onSchedule,
   onContact,
   showSwipeDemo = false,
+  onDemoComplete,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const [demoPlayed, setDemoPlayed] = useState(false);
@@ -63,10 +65,11 @@ export const SwipeableTaskItem = ({
         await new Promise(resolve => setTimeout(resolve, 300));
         await controls.start({ x: 0, transition: { duration: 0.3, ease: "easeInOut" } });
         setDemoPlayed(true);
+        onDemoComplete?.();
       };
       playDemo();
     }
-  }, [showSwipeDemo, demoPlayed, controls]);
+  }, [showSwipeDemo, demoPlayed, controls, onDemoComplete]);
 
   // Transform for background action indicators
   const leftScale = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.8, 1.1]);
