@@ -63,6 +63,10 @@ export const SwipeableBlitzItem = ({
   const currentCommitments: string[] = Array.isArray(rawCommitments)
     ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
     : [];
+  
+  // Calculate how many are future blitzes (available in blitzes prop which is already filtered to future)
+  const futureBlitzIds = new Set(blitzes.map(b => b.id));
+  const futureCommitmentCount = currentCommitments.filter(id => futureBlitzIds.has(id)).length;
 
   // Transform for background action indicators
   const leftScale = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.8, 1.1]);
@@ -213,9 +217,11 @@ export const SwipeableBlitzItem = ({
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
-                  {currentCommitments.length === 0 
-                    ? 'No blitzes committed' 
-                    : `${currentCommitments.length} blitz${currentCommitments.length > 1 ? 'es' : ''} committed`
+                  {item.pastBlitzCount && item.pastBlitzCount > 0
+                    ? `${item.pastBlitzCount} blitz${item.pastBlitzCount > 1 ? 'es' : ''} already attended`
+                    : futureCommitmentCount === 0 
+                      ? 'No blitzes committed' 
+                      : `${futureCommitmentCount} blitz${futureCommitmentCount > 1 ? 'es' : ''} committed`
                   }
                 </span>
               </div>
@@ -227,7 +233,7 @@ export const SwipeableBlitzItem = ({
                   setBlitzDrawerOpen(true);
                 }}
               >
-                {currentCommitments.length === 0 ? 'Commit to Blitz' : 'Manage'}
+                {futureCommitmentCount === 0 && !item.pastBlitzCount ? 'Commit to Blitz' : 'Manage'}
               </Button>
             </div>
           </div>
