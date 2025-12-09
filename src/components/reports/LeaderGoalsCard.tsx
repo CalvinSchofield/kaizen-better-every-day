@@ -118,10 +118,11 @@ export const LeaderGoalsCard = ({
         const fpPlus = (entry.fp_plus || 0) + ((entry.upgrade_prmr || 0) / 85);
         fpByUser[entry.user_id] = (fpByUser[entry.user_id] || 0) + fpPlus;
         
-        // Count as worked day if doors >= 10 OR has start and end time (real knocking day)
-        const isRealWorkDay = (entry.doors_knocked || 0) >= 10 || 
-                              (entry.work_start_time && entry.work_end_time);
-        if (isRealWorkDay) {
+        // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
+        const isKnockingDay = (entry.doors_knocked || 0) >= 5 && 
+                              !!entry.work_start_time && 
+                              !!entry.work_end_time;
+        if (isKnockingDay) {
           if (!workedDaysByUser[entry.user_id]) {
             workedDaysByUser[entry.user_id] = new Set();
           }
