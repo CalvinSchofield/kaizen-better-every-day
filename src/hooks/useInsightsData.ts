@@ -179,12 +179,12 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         return entryDate >= startOfDay(dateRange.start) && entryDate <= endOfDay(dateRange.end);
       });
 
-      // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
-      // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
-      const isRealKnockingDay = (entry: typeof allEntries[0]): boolean => {
-        const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
-        const hasWorkSession = entry.work_start_time && entry.work_end_time;
-        return hasMeaningfulActivity || !!hasWorkSession;
+      // Helper to determine if an entry is a "knocking day" for pace calculations
+      // A knocking day requires: doors_knocked >= 5 AND work_start_time set AND work_end_time set
+      const isKnockingDay = (entry: typeof allEntries[0]): boolean => {
+        return (entry.doors_knocked || 0) >= 5 && 
+               !!entry.work_start_time && 
+               !!entry.work_end_time;
       };
 
       // Filter entries that have actual activity for ratio calculations (any activity)
@@ -197,8 +197,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         (entry.closes || 0) > 0
       );
 
-      // Filter to only "real knocking days" for calculating daily averages
-      const realKnockingDays = rangeEntries.filter(isRealKnockingDay);
+      // Filter to only "knocking days" for calculating daily averages
+      const knockingDays = rangeEntries.filter(isKnockingDay);
 
       // Calculate totals for the period (use ALL entries including results-only)
       // Total PRMR = prmr (FP sales) + upgrade_prmr (upgrade sales)
@@ -213,8 +213,8 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         acc.transitions += entry.transitions || 0;
         acc.presentations += entry.presentations || 0;
         acc.closes += entry.closes || 0;
-        // Only count real knocking days for "days worked" (not referral-only days)
-        if (isRealKnockingDay(entry)) {
+        // Only count knocking days for "days worked" (not referral-only days)
+        if (isKnockingDay(entry)) {
           acc.daysWorked += 1;
         }
         

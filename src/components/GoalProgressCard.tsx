@@ -98,11 +98,11 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
     const todayStr = format(today, 'yyyy-MM-dd');
     
-    // Count days ACTUALLY worked in this period (real knocking days from entries)
+    // Count days ACTUALLY worked in this period (knocking days from entries)
+    // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
     const workedDays = entries.filter(e => {
       if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
-      // Real knocking day: doors >= 10 OR has work times
-      return (e.doors_knocked || 0) >= 10 || (e.work_start_time && e.work_end_time);
+      return (e.doors_knocked || 0) >= 5 && !!e.work_start_time && !!e.work_end_time;
     }).length;
     
     // Count future planned days (from today forward to end of period)
