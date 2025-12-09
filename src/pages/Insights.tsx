@@ -6,7 +6,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, Lock, BarChart3, TrendingUpIcon, Gauge, PieChart } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, startOfYear } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, startOfWeek } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -79,7 +79,9 @@ export default function Insights() {
         const yesterday = subDays(now, 1);
         return { start: yesterday, end: yesterday };
       case 'week':
-        return { start: subDays(now, 7), end: now };
+        // Monday-based week (weekStartsOn: 1 = Monday)
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        return { start: weekStart, end: now };
       case 'month':
         return { start: startOfMonth(now), end: endOfMonth(now) };
       case 'preseason':
