@@ -434,7 +434,17 @@ export const useNeedsAttention = (
       r.stage === 'Sold (5+) 💰'
     );
 
-    // Build sets for current and future blitzes (the blitzes array only contains future/current ones)
+    // Build sets for past, current, and future blitzes
+    const pastBlitzIds = new Set(
+      blitzes
+        .filter(b => {
+          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
+          // End date is before today (has already finished)
+          return endDate < now;
+        })
+        .map(b => b.id)
+    );
+
     const currentBlitzIds = new Set(
       blitzes
         .filter(b => {
@@ -455,9 +465,6 @@ export const useNeedsAttention = (
         .map(b => b.id)
     );
 
-    // All blitz IDs we know about (current + future from the blitzes array)
-    const knownBlitzIds = new Set([...currentBlitzIds, ...futureBlitzIds]);
-
     blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
       const rawCommitments = repData?.committed_blitzes || [];
@@ -468,8 +475,8 @@ export const useNeedsAttention = (
       // Check if they have ANY committed blitzes at all (past, current, or future)
       const hasAnyBlitzCommitment = committedBlitzIds.length > 0;
       
-      // Check if any of their commitments are past blitzes (not in current/future sets)
-      const hasPastBlitz = committedBlitzIds.some(id => !knownBlitzIds.has(id));
+      // Check if any of their commitments are past blitzes (blitzes that have already ended)
+      const hasPastBlitz = committedBlitzIds.some(id => pastBlitzIds.has(id));
       
       // Check if they are on a CURRENT blitz (happening now)
       const isOnCurrentBlitz = committedBlitzIds.some(id => currentBlitzIds.has(id));
@@ -492,7 +499,7 @@ export const useNeedsAttention = (
       } else if (hasPastBlitz && !hasFutureBlitzCommitment) {
         // Has been on past blitzes but no future ones planned - secondary priority
         // Count how many past blitzes they attended
-        const pastBlitzCount = committedBlitzIds.filter(id => !knownBlitzIds.has(id)).length;
+        const pastBlitzCount = committedBlitzIds.filter(id => pastBlitzIds.has(id)).length;
         noFutureBlitzRecruits.push({
           recruit,
           reason: `${firstName} has no more blitzes planned for the season`,
