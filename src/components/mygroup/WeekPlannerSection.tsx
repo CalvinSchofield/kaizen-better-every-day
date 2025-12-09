@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import { SwipeableTaskItem } from "./SwipeableTaskItem";
@@ -49,6 +49,8 @@ export const WeekPlannerSection = ({
   activities,
   onRecruitClick 
 }: WeekPlannerSectionProps) => {
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 0 })
   );
@@ -284,7 +286,10 @@ export const WeekPlannerSection = ({
               </Badge>
             )}
           </h3>
-          <span className="text-xs text-muted-foreground">← schedule · contact →</span>
+          <span className={cn(
+            "text-xs text-muted-foreground transition-opacity duration-500",
+            showSwipeHint ? "opacity-100" : "opacity-0"
+          )}>← schedule · contact →</span>
         </div>
 
         {/* Today's Scheduled Tasks */}
@@ -299,6 +304,7 @@ export const WeekPlannerSection = ({
                 onContact={handleSwipeContact}
                 onSchedule={handleSwipeSchedule}
                 showSwipeDemo={index === 0 && recommendations.length === 0}
+                onDemoComplete={handleDemoComplete}
               />
             ))}
           </div>
@@ -323,6 +329,7 @@ export const WeekPlannerSection = ({
                   onContact={handleSwipeContact}
                   onSchedule={handleSwipeSchedule}
                   showSwipeDemo={index === 0 && todayTasks.length === 0}
+                  onDemoComplete={handleDemoComplete}
                 />
               ))}
             </div>
