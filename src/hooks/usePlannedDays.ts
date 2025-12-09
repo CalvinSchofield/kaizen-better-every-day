@@ -9,6 +9,22 @@ export interface PlannedDay {
   created_at: string;
 }
 
+// Get cached planned days for instant loading
+const getCachedPlannedDays = (userId: string): PlannedDay[] | undefined => {
+  try {
+    const cached = localStorage.getItem(`planned-days-cache-${userId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return undefined;
+};
+
 export const usePlannedDays = () => {
   const queryClient = useQueryClient();
   const { repData } = useRepData();
@@ -25,10 +41,18 @@ export const usePlannedDays = () => {
         .order('planned_date', { ascending: true });
 
       if (error) throw error;
+      
+      // Update cache
+      localStorage.setItem(`planned-days-cache-${repData.user_id}`, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+      
       return data as PlannedDay[];
     },
     enabled: !!repData?.user_id,
     staleTime: 5 * 60 * 1000,
+    initialData: repData?.user_id ? getCachedPlannedDays(repData.user_id) : undefined,
   });
 
   const addPlannedDayMutation = useMutation({

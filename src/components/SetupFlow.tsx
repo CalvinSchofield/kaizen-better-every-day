@@ -61,7 +61,7 @@ const SetupFlow = () => {
         }));
       }
 
-      // Run remaining data fetches in parallel for speed
+      // Run ALL data fetches in parallel for maximum speed
       setStatusText("Loading app data...");
       
       const { data: { session } } = await supabase.auth.getSession();
@@ -69,7 +69,6 @@ const SetupFlow = () => {
       await Promise.all([
         // Competitors - sync from Notion if needed
         (async () => {
-          setStatusText("Loading competitor data...");
           const { data: competitors } = await supabase
             .from('competitors')
             .select('*')
@@ -142,7 +141,6 @@ const SetupFlow = () => {
 
         // Daily entries (for calendar & insights) - fetch last 90 days
         (async () => {
-          setStatusText("Loading your activity history...");
           const ninetyDaysAgo = new Date();
           ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
           
@@ -183,6 +181,99 @@ const SetupFlow = () => {
               ignoreDuplicates: true
             });
         })(),
+
+        // Rep goals
+        (async () => {
+          const { data: goals } = await supabase
+            .from('rep_goals')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (goals) {
+            localStorage.setItem(`rep-goals-cache-${user.id}`, JSON.stringify({
+              data: goals,
+              timestamp: Date.now()
+            }));
+          }
+        })(),
+
+        // Planned work days
+        (async () => {
+          const { data: plannedDays } = await supabase
+            .from('planned_work_days')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('planned_date', { ascending: true });
+          
+          if (plannedDays) {
+            localStorage.setItem(`planned-days-cache-${user.id}`, JSON.stringify({
+              data: plannedDays,
+              timestamp: Date.now()
+            }));
+          }
+        })(),
+
+        // Season config (summer dates, knocking mode, etc.)
+        (async () => {
+          const { data: seasonConfig } = await supabase
+            .from('season_config')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (seasonConfig) {
+            localStorage.setItem(`season-config-cache-${user.id}`, JSON.stringify({
+              data: seasonConfig,
+              timestamp: Date.now()
+            }));
+          }
+        })(),
+
+        // Group recruits (if leader)
+        (async () => {
+          if (repData?.notion_page_id && session) {
+            try {
+              const { data: recruitsData } = await supabase.functions.invoke('fetch-group-recruits', {
+                body: { leaderNotionPageId: repData.notion_page_id },
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              });
+              if (recruitsData) {
+                localStorage.setItem(`group-recruits-cache-${repData.notion_page_id}`, JSON.stringify({
+                  data: recruitsData,
+                  timestamp: Date.now()
+                }));
+              }
+            } catch {
+              // Not a leader or no recruits - that's fine
+            }
+          }
+        })(),
+
+        // Customer data (if CRM enabled)
+        (async () => {
+          if (repData?.crm_enabled) {
+            const { data: customers } = await supabase
+              .from('daily_entries')
+              .select('sales_log')
+              .eq('user_id', user.id)
+              .not('sales_log', 'is', null);
+            
+            if (customers) {
+              // Extract all customer records from sales_log
+              const allCustomers: unknown[] = [];
+              customers.forEach(entry => {
+                if (Array.isArray(entry.sales_log)) {
+                  allCustomers.push(...entry.sales_log);
+                }
+              });
+              localStorage.setItem(`customers-cache-${user.id}`, JSON.stringify({
+                data: allCustomers,
+                timestamp: Date.now()
+              }));
+            }
+          }
+        })(),
       ]);
 
       // Mark setup as complete
@@ -194,7 +285,7 @@ const SetupFlow = () => {
       // Quick redirect
       setTimeout(() => {
         navigate('/');
-      }, 500);
+      }, 300);
 
     } catch (error) {
       console.error('Setup error:', error);

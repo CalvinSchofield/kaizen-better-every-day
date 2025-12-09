@@ -66,6 +66,25 @@ export const useAppMode = (repData?: any) => {
     return hasAttendedBlitz;
   }, [repData?.year, hasAttendedBlitz]);
 
+  // Get cached season config for instant loading
+  const getCachedSeasonConfig = (): SeasonConfig | null => {
+    try {
+      const userId = localStorage.getItem('current-user-id');
+      if (userId) {
+        const cached = localStorage.getItem(`season-config-cache-${userId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+            return parsed.data;
+          }
+        }
+      }
+    } catch {
+      // Ignore cache errors
+    }
+    return null;
+  };
+
   // Fetch season config
   const { data: seasonConfig, isLoading } = useQuery({
     queryKey: ['season-config'],
@@ -73,6 +92,7 @@ export const useAppMode = (repData?: any) => {
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
     retry: 1,
+    initialData: getCachedSeasonConfig() ?? undefined,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -84,6 +104,15 @@ export const useAppMode = (repData?: any) => {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
+      
+      // Update cache
+      if (data) {
+        localStorage.setItem(`season-config-cache-${user.id}`, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+      }
+      
       return data as SeasonConfig | null;
     },
   });

@@ -53,6 +53,28 @@ const getCurrentWeekStart = (): string => {
   return sunday.toISOString().split('T')[0];
 };
 
+// Get cached goals data for instant loading
+const getCachedGoals = (userId: string): RepGoals | null => {
+  try {
+    const cached = localStorage.getItem(`rep-goals-cache-${userId}`);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Use cache if less than 5 minutes old
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return {
+          ...parsed.data,
+          training_hours_history: Array.isArray(parsed.data.training_hours_history)
+            ? parsed.data.training_hours_history
+            : [],
+        };
+      }
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return null;
+};
+
 export const useRepGoals = () => {
   const queryClient = useQueryClient();
   const { repData } = useRepData();
@@ -70,6 +92,14 @@ export const useRepGoals = () => {
 
       if (error) throw error;
       
+      // Update cache
+      if (data) {
+        localStorage.setItem(`rep-goals-cache-${repData.user_id}`, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+      }
+      
       // Parse training_hours_history from JSON if it exists
       const parsedData = data ? {
         ...data,
@@ -82,6 +112,7 @@ export const useRepGoals = () => {
     },
     enabled: !!repData?.user_id,
     staleTime: 5 * 60 * 1000,
+    initialData: repData?.user_id ? getCachedGoals(repData.user_id) : undefined,
   });
 
   // Check if we need to reset training progress for new week
