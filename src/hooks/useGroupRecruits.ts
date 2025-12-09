@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "./useTeamAccess";
 
+export interface BlitzCommitment {
+  id: string;
+  name: string;
+  date: string;
+  endDate: string | null;
+  location?: string;
+}
+
 export interface Recruit {
   notionPageId: string;
   name: string;
@@ -18,6 +26,7 @@ export interface Recruit {
   nextAction: string | null;
   nextActionDue: string | null;
   createdAt: string;
+  committedBlitzes?: BlitzCommitment[];
 }
 
 export interface RecruitActivity {
@@ -137,6 +146,7 @@ export const useGroupRecruits = () => {
                 nextAction: null,
                 nextActionDue: null,
                 createdAt: new Date().toISOString(),
+                committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs
               };
             });
         } else {
@@ -159,6 +169,7 @@ export const useGroupRecruits = () => {
                 nextAction: null,
                 nextActionDue: null,
                 createdAt: new Date().toISOString(),
+                committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs from Notion
               };
             });
         }
@@ -190,6 +201,7 @@ export const useGroupRecruits = () => {
               nextAction: null,
               nextActionDue: null,
               createdAt: new Date().toISOString(),
+              committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs from Notion
             };
           });
       }

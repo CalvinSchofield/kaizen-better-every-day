@@ -69,6 +69,10 @@ serve(async (req) => {
 
     // Fetch recruits from Notion
     const recruits: any[] = [];
+    const allBlitzTripIds = new Set<string>();
+    
+    // Temporary storage for recruit data before we have blitz details
+    const rawRecruits: any[] = [];
     
     if (notionApiKey && notionRepsDbId) {
       // Filter for recruits in accessible list with recruiting-related stages
@@ -111,7 +115,16 @@ serve(async (req) => {
             const getEmail = (prop: any) => prop?.email || '';
             const getDate = (prop: any) => prop?.date?.start || null;
             
-            recruits.push({
+            // Collect blitz trip relation IDs
+            const blitzTripRelationIds: string[] = [];
+            if (props['Preseason trips']?.relation) {
+              for (const rel of props['Preseason trips'].relation) {
+                blitzTripRelationIds.push(rel.id);
+                allBlitzTripIds.add(rel.id);
+              }
+            }
+            
+            rawRecruits.push({
               notionPageId: page.id,
               name: getName(props['Name']),
               phone: getPhone(props['Phone']),
@@ -123,9 +136,80 @@ serve(async (req) => {
               nextAction: getName(props['Next Action']),
               nextActionDue: getDate(props['Next Action Due']),
               createdAt: page.created_time,
+              blitzTripRelationIds, // Temporary field, will be replaced with full data
             });
           }
         }
+      }
+
+      // Fetch blitz trip details for all collected IDs
+      const blitzTripsData = new Map<string, any>();
+      
+      if (allBlitzTripIds.size > 0) {
+        console.log(`Fetching ${allBlitzTripIds.size} blitz trips for recruit blitz data`);
+        
+        // Fetch each blitz trip page
+        for (const tripId of allBlitzTripIds) {
+          try {
+            const tripResponse = await fetchNotionWithRetry(
+              `https://api.notion.com/v1/pages/${tripId}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${notionApiKey}`,
+                  'Notion-Version': '2022-06-28',
+                },
+              }
+            );
+
+            if (tripResponse.ok) {
+              const tripPage = await tripResponse.json();
+              blitzTripsData.set(tripId, tripPage);
+            }
+          } catch (error) {
+            console.error(`Failed to fetch blitz trip ${tripId}:`, error);
+          }
+        }
+      }
+
+      // Helper functions for extracting blitz trip properties
+      const getTitle = (prop: any) => prop?.title?.[0]?.plain_text || '';
+      const getRichText = (prop: any) => prop?.rich_text?.[0]?.plain_text || '';
+      const getSelect = (prop: any) => prop?.select?.name || '';
+
+      // Now build final recruits with blitz data
+      for (const rawRecruit of rawRecruits) {
+        const committedBlitzes: any[] = [];
+        
+        for (const tripId of rawRecruit.blitzTripRelationIds) {
+          const tripPage = blitzTripsData.get(tripId);
+          if (tripPage) {
+            const tripProps = tripPage.properties;
+            const tripName = getTitle(tripProps.Name);
+            
+            if (tripName) {
+              const dateProp = tripProps.Date;
+              const tripDate = dateProp?.date?.start || null;
+              const tripEndDate = dateProp?.date?.end || null;
+              const tripLocation = getRichText(tripProps.Location) || getSelect(tripProps.Location);
+              
+              committedBlitzes.push({
+                id: tripId,
+                name: tripName,
+                date: tripDate || '',
+                endDate: tripEndDate,
+                location: tripLocation,
+              });
+            }
+          }
+        }
+        
+        // Remove temporary field and add committed blitzes
+        const { blitzTripRelationIds, ...recruitData } = rawRecruit;
+        recruits.push({
+          ...recruitData,
+          committedBlitzes,
+        });
       }
     }
 
