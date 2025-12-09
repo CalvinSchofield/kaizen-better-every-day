@@ -22,6 +22,7 @@ export interface AttentionRecruit {
   onboardingStatus?: string;
   blitzName?: string;
   showDivider?: boolean; // For "No Blitz" category to separate never-attended from no-future
+  pastBlitzCount?: number; // Number of past blitzes attended (for "already attended" display)
   trainingProgress?: {
     onboardingComplete: boolean;
     trainingsComplete: boolean;
@@ -490,10 +491,13 @@ export const useNeedsAttention = (
         });
       } else if (hasPastBlitz && !hasFutureBlitzCommitment) {
         // Has been on past blitzes but no future ones planned - secondary priority
+        // Count how many past blitzes they attended
+        const pastBlitzCount = committedBlitzIds.filter(id => !knownBlitzIds.has(id)).length;
         noFutureBlitzRecruits.push({
           recruit,
           reason: `${firstName} has no more blitzes planned for the season`,
           urgency: 'low',
+          pastBlitzCount,
         });
       }
     });
