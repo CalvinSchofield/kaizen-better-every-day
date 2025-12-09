@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isBefore, isAfter } from 'date-fns';
 import { GitCompare, TrendingUp, TrendingDown } from "lucide-react";
 
 interface ActivityTrendChartProps {
@@ -18,11 +18,17 @@ interface ActivityTrendChartProps {
     hoursWorked?: number;
   }>;
   efpModeEnabled?: boolean;
+  highlightDateRange?: { start: Date; end: Date };
 }
 
 type MetricKey = 'doors' | 'pitches' | 'transitions' | 'presentations' | 'fp' | 'prmr' | 'hoursWorked';
 
-export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: ActivityTrendChartProps) => {
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false, highlightDateRange }: ActivityTrendChartProps) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('doors');
   const [showTrend, setShowTrend] = useState(false);
   const [trendPeriod, setTrendPeriod] = useState<6 | 12>(6);
@@ -73,22 +79,34 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
     return sum / period;
   };
 
+  // Helper to check if a date is within highlight range
+  const isInHighlightRange = (dateStr: string): boolean => {
+    if (!highlightDateRange) return false;
+    const date = parseLocalDate(dateStr);
+    const start = new Date(highlightDateRange.start.getFullYear(), highlightDateRange.start.getMonth(), highlightDateRange.start.getDate());
+    const end = new Date(highlightDateRange.end.getFullYear(), highlightDateRange.end.getMonth(), highlightDateRange.end.getDate());
+    return !isBefore(date, start) && !isAfter(date, end);
+  };
+
   const chartData = useMemo(() => {
     const values = dailyTrend.map(day => getMetricValue(day, selectedMetric));
     
     return dailyTrend.map((day, index) => {
       const displayValue = getMetricValue(day, selectedMetric);
       const movingAvg = showTrend ? calculateMovingAvg(values, index, trendPeriod) : null;
+      const inRange = isInHighlightRange(day.date);
       
       return {
         ...day,
         displayValue,
+        highlightValue: inRange ? displayValue : undefined,
+        inHighlightRange: inRange,
         movingAvg,
         compareValue: compareMode ? getMetricValue(day, compareMetric) : undefined,
         displayDate: format(parseISO(day.date), 'MMM d'),
       };
     });
-  }, [dailyTrend, selectedMetric, compareMode, compareMetric, showTrend, trendPeriod, efpModeEnabled]);
+  }, [dailyTrend, selectedMetric, compareMode, compareMetric, showTrend, trendPeriod, efpModeEnabled, highlightDateRange]);
 
   const trendDirection = useMemo(() => {
     if (!showTrend || chartData.length < trendPeriod) return null;
@@ -305,11 +323,26 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
               type="monotone"
               dataKey="displayValue"
               name="displayValue"
-              stroke={primaryColor}
-              strokeWidth={2.5}
-              dot={{ fill: primaryColor, r: 4 }}
+              stroke={highlightDateRange ? "hsl(var(--muted-foreground))" : primaryColor}
+              strokeWidth={highlightDateRange ? 2 : 2.5}
+              strokeOpacity={highlightDateRange ? 0.4 : 1}
+              dot={highlightDateRange ? false : { fill: primaryColor, r: 4 }}
               activeDot={{ r: 6 }}
             />
+            {/* Highlighted date range overlay */}
+            {highlightDateRange && (
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="highlightValue"
+                name="highlightValue"
+                stroke={primaryColor}
+                strokeWidth={3}
+                dot={{ fill: primaryColor, r: 4 }}
+                activeDot={{ r: 6 }}
+                connectNulls={false}
+              />
+            )}
             {compareMode && (
               <Line
                 yAxisId="right"
@@ -328,11 +361,24 @@ export const ActivityTrendChart = ({ dailyTrend, efpModeEnabled = false }: Activ
       </ChartContainer>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-6 text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
-          <span className="font-medium">{currentMetricConfig.label}</span>
-        </div>
+      <div className="flex items-center justify-center gap-6 text-xs flex-wrap">
+        {highlightDateRange ? (
+          <>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-1 rounded-full bg-muted-foreground/40" />
+              <span className="font-medium text-muted-foreground">All Time</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span className="font-medium">Selected Period</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
+            <span className="font-medium">{currentMetricConfig.label}</span>
+          </div>
+        )}
         {showTrend && (
           <div className="flex items-center gap-2">
             <div className="w-5 h-0 border-t-2 border-dashed" style={{ borderColor: trendColor }} />

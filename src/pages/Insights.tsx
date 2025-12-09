@@ -465,7 +465,7 @@ export default function Insights() {
                 </span>
               }
             >
-              <ActivityTrendChart dailyTrend={insights.dailyTrend} efpModeEnabled={efpModeEnabled} />
+              <ActivityTrendChart dailyTrend={insights.dailyTrend} efpModeEnabled={efpModeEnabled} highlightDateRange={getDateRange(datePreset)} />
             </InsightCollapsible>
 
             {/* Hourly Patterns */}
