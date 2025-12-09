@@ -1,27 +1,10 @@
 import { useState } from "react";
-import { Phone, MessageSquare, Calendar, Sparkles, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Sparkles } from "lucide-react";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
-import { cn } from "@/lib/utils";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { PostContactDrawer } from "./PostContactDrawer";
+import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { SwipeableRecommendationItem } from "./SwipeableRecommendationItem";
-
-// Helper to strip emojis from names
-const stripEmojis = (text: string | null): string | null => {
-  if (!text) return null;
-  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
-};
-
-const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
-  'signed': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  'hot-lead': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  'pipeline': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  'stale': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  'overdue': 'bg-red-500/10 text-red-600 border-red-500/20',
-};
 
 interface RecommendationsSectionProps {
   recommendations: RecruitRecommendation[];
@@ -34,10 +17,8 @@ export const RecommendationsSection = ({
   onRecruitClick,
   maxItems = 5 
 }: RecommendationsSectionProps) => {
-  // Post-contact drawer state
-  const [postContactOpen, setPostContactOpen] = useState(false);
-  const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
-  const [contactMethod, setContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
+  // Contact method drawer state (Call/Text/In Person options)
+  const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
   
   // Schedule drawer state
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -50,18 +31,12 @@ export const RecommendationsSection = ({
   const topRecommendations = recommendations.slice(0, maxItems);
 
   const handleContact = (recruit: Recruit) => {
-    setContactingRecruit(recruit);
-    setContactMethod('call');
-    setPostContactOpen(true);
+    setContactRecruit(recruit);
   };
 
   const handleSchedule = (recruit: Recruit) => {
     setSchedulingRecruit(recruit);
     setScheduleOpen(true);
-  };
-
-  const handlePostContactComplete = () => {
-    setContactingRecruit(null);
   };
 
   return (
@@ -88,13 +63,11 @@ export const RecommendationsSection = ({
         </div>
       </div>
 
-      {/* Post-Contact Drawer */}
-      <PostContactDrawer
-        open={postContactOpen}
-        onOpenChange={setPostContactOpen}
-        recruit={contactingRecruit}
-        contactMethod={contactMethod}
-        onComplete={handlePostContactComplete}
+      {/* Contact Method Drawer (Call/Text/In Person) */}
+      <ContactMethodDrawer
+        open={!!contactRecruit}
+        onOpenChange={(open) => !open && setContactRecruit(null)}
+        recruit={contactRecruit}
       />
 
       {/* Schedule Follow-up Drawer */}
