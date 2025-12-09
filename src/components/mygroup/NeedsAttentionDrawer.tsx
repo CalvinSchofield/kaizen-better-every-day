@@ -490,19 +490,36 @@ const BlitzRecruitItem = ({
 const BlitzPrepProgressItem = ({
   item,
   onRecruitClick,
-  onOpenChange
+  onOpenChange,
+  blitzes,
+  repDataMap
 }: {
   item: AttentionRecruit;
   onRecruitClick: (recruit: Recruit) => void;
   onOpenChange: (open: boolean) => void;
+  blitzes: BlitzEvent[];
+  repDataMap?: Map<string, any>;
 }) => {
   const updateStatusMutation = useUpdateRookieStatus();
   const [updatingPhase, setUpdatingPhase] = useState<string | null>(null);
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState<typeof ONBOARDING_PHASES[0] | null>(null);
+  const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
 
   const rampProgress = item.rampPhaseProgress;
   if (!rampProgress) return null;
+
+  // Get blitz commitment data
+  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const rawCommitments = repData?.committed_blitzes || [];
+  const currentCommitments: string[] = Array.isArray(rawCommitments)
+    ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+    : [];
+  
+  // Calculate how many are future blitzes
+  const futureBlitzIds = new Set(blitzes.map(b => b.id));
+  const futureCommitmentCount = currentCommitments.filter(id => futureBlitzIds.has(id)).length;
+  const hasBlitzCommitted = futureCommitmentCount > 0;
 
   const handlePhaseClick = (phase: typeof ONBOARDING_PHASES[0], isComplete: boolean) => {
     if (isComplete) return; // Already complete
@@ -570,20 +587,52 @@ const BlitzPrepProgressItem = ({
                 {item.recruit.stage}
               </Badge>
             </div>
-            {item.blitzName && item.daysUntilBlitz !== undefined && (
+            {/* Blitz commitment indicator */}
+            {hasBlitzCommitted && item.blitzName && item.daysUntilBlitz !== undefined ? (
               <Badge 
                 variant={item.daysUntilBlitz <= 7 ? "destructive" : item.daysUntilBlitz <= 14 ? "default" : "secondary"}
                 className="text-xs"
               >
+                <Plane className="w-3 h-3 mr-1" />
                 {item.blitzName} in {item.daysUntilBlitz}d
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600 dark:text-amber-400">
+                <Calendar className="w-3 h-3 mr-1" />
+                No blitz committed
               </Badge>
             )}
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
 
+        {/* Blitz commitment section */}
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plane className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                {futureCommitmentCount === 0 
+                  ? 'No blitzes committed' 
+                  : `${futureCommitmentCount} blitz${futureCommitmentCount > 1 ? 'es' : ''} committed`
+                }
+              </span>
+            </div>
+            <Button
+              variant={hasBlitzCommitted ? "outline" : "default"}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlitzDrawerOpen(true);
+              }}
+            >
+              {hasBlitzCommitted ? 'Manage' : 'Commit to Blitz'}
+            </Button>
+          </div>
+        </div>
+
         {/* Ramp Phase Progress */}
-        <div className="mt-4 pt-3 border-t border-border/50">
+        <div className="mt-3 pt-3 border-t border-border/50">
           <p className="text-xs text-muted-foreground mb-3">Ramp to Blitz Progress:</p>
           <div className="grid grid-cols-2 gap-2">
             {phases.map((phase) => (
@@ -621,9 +670,6 @@ const BlitzPrepProgressItem = ({
             <span className="text-muted-foreground">
               {4 - (rampProgress.incompletePhases?.length || 0)}/4 phases complete
             </span>
-            <Badge variant="outline" className="text-[10px]">
-              {item.reason}
-            </Badge>
           </div>
         </div>
       </div>
@@ -636,6 +682,15 @@ const BlitzPrepProgressItem = ({
         targetPhase={selectedPhase}
         onConfirm={handlePhaseConfirm}
         isLoading={!!updatingPhase}
+      />
+
+      <BlitzCommitmentDrawer
+        open={blitzDrawerOpen}
+        onOpenChange={setBlitzDrawerOpen}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        recruitNotionPageId={item.recruit.notionPageId}
+        currentCommitments={currentCommitments}
+        availableBlitzes={blitzes}
       />
     </>
   );
@@ -993,6 +1048,8 @@ export const NeedsAttentionDrawer = ({
                     item={item}
                     onRecruitClick={onRecruitClick}
                     onOpenChange={onOpenChange}
+                    blitzes={blitzes || []}
+                    repDataMap={repDataMap}
                   />
                 );
               }
