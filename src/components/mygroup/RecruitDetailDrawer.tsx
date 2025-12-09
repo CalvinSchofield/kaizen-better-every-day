@@ -99,14 +99,24 @@ const BlitzManagementSection = ({
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   
-  // committed_blitzes can be array of strings OR array of objects with id property
+  // committed_blitzes can come from recruitRepData (Supabase reps table) OR recruit.committedBlitzes (Notion)
+  // For recruits who haven't signed up, recruitRepData will be null, so we need both sources
   const committedBlitzIds = useMemo(() => {
-    const raw = recruitRepData?.committed_blitzes;
+    // First try recruitRepData (Supabase) - this has the most up-to-date local data
+    const rawFromSupabase = recruitRepData?.committed_blitzes;
+    // Then try recruit.committedBlitzes (from Notion via fetch-group-recruits)
+    const rawFromNotion = recruit?.committedBlitzes;
+    
+    // Use Supabase data if available, otherwise fall back to Notion data
+    const raw = (rawFromSupabase && Array.isArray(rawFromSupabase) && rawFromSupabase.length > 0) 
+      ? rawFromSupabase 
+      : rawFromNotion;
+    
     if (!raw || !Array.isArray(raw)) return [];
     return raw.map((item: string | { id: string }) => 
       typeof item === 'string' ? item : item?.id
     ).filter(Boolean) as string[];
-  }, [recruitRepData?.committed_blitzes]);
+  }, [recruitRepData?.committed_blitzes, recruit?.committedBlitzes]);
   
   const now = new Date();
   
