@@ -15,9 +15,8 @@ import { TodaysFocusHero } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
 import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
+import { WeekPlannerSection } from "@/components/mygroup/WeekPlannerSection";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
-import { RecommendationsSection } from "@/components/mygroup/RecommendationsSection";
-import { PostContactDrawer } from "@/components/mygroup/PostContactDrawer";
 import { ContactMethodDrawer } from "@/components/mygroup/ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "@/components/mygroup/ScheduleFollowUpDrawer";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
@@ -390,14 +389,12 @@ const MyGroup = () => {
               onCategoryClick={handleCategoryClick}
             />
 
-            {/* Smart Recommendations */}
-            {recommendations.length > 0 && (
-              <RecommendationsSection
-                recommendations={recommendations}
-                onRecruitClick={handleRecruitClick}
-                maxItems={4}
-              />
-            )}
+            {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
+            <WeekPlannerSection
+              recruits={filteredRecruits}
+              activities={filteredActivities}
+              onRecruitClick={handleRecruitClick}
+            />
 
             {/* Pending Suggestions */}
             {pendingSuggestions.length > 0 && (
@@ -406,41 +403,6 @@ const MyGroup = () => {
 
             {/* Upcoming Team Events */}
             <UpcomingTeamEventsCard />
-
-            {/* Quick Stats Summary */}
-            <div className="bg-card rounded-xl p-4 border">
-              <div className="flex items-center justify-between">
-                <div>
-                  {(() => {
-                    const ACTIVE_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
-                    const EXCLUDED_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
-                    const activeCount = filteredRecruits.filter(r => ACTIVE_STAGES.includes(r.stage)).length;
-                    const workingWithCount = filteredRecruits.filter(r => !EXCLUDED_STAGES.includes(r.stage)).length;
-                    return (
-                      <>
-                        <p className="text-sm text-muted-foreground">Active Recruits</p>
-                        <div className="flex items-center gap-3">
-                          <p className="text-2xl font-semibold">{activeCount}</p>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            {workingWithCount} in pipeline
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setQuickViewOpen(true)}
-                >
-                  View All
-                </Button>
-              </div>
-            </div>
           </>
         ) : (
           // Non-leader view: Show their suggestions list
