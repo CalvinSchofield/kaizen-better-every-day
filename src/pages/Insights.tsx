@@ -27,7 +27,7 @@ import { InsightsSummaryHero } from '@/components/insights/InsightsSummaryHero';
 import { InsightsSectionHeader } from '@/components/insights/InsightsSectionHeader';
 import { InsightCollapsible } from '@/components/insights/InsightCollapsible';
 
-type DatePreset = 'yesterday' | 'week' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'preseason' | 'custom';
 
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
@@ -82,8 +82,15 @@ export default function Insights() {
         // Monday-based week (weekStartsOn: 1 = Monday)
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         return { start: weekStart, end: now };
+      case 'lastWeek':
+        // Previous Monday-Saturday
+        const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const lastWeekStart = subDays(thisWeekStart, 7);
+        const lastWeekEnd = subDays(thisWeekStart, 2); // Saturday (Sunday is 1 day before Monday)
+        return { start: lastWeekStart, end: lastWeekEnd };
       case 'month':
-        return { start: startOfMonth(now), end: endOfMonth(now) };
+        // Only this month up to today (not future dates)
+        return { start: startOfMonth(now), end: now };
       case 'preseason':
         return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
       case 'custom':
@@ -180,6 +187,14 @@ export default function Insights() {
             className="shrink-0"
           >
             This Week
+          </Button>
+          <Button
+            variant={datePreset === 'lastWeek' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('lastWeek')}
+            className="shrink-0"
+          >
+            Last Week
           </Button>
           <Button
             variant={datePreset === 'month' ? 'default' : 'outline'}
