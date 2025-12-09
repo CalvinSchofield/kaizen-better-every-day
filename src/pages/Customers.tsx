@@ -17,18 +17,10 @@ const Customers = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-primary/10">
-            <Users className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Customers</h1>
-            <p className="text-sm text-muted-foreground">
-              {totalCount} {totalCount === 1 ? 'customer' : 'customers'} logged
-            </p>
-          </div>
-        </div>
+        {/* Customer count */}
+        <p className="text-sm text-muted-foreground">
+          {totalCount} {totalCount === 1 ? 'customer' : 'customers'} logged
+        </p>
 
         {/* Search */}
         <div className="relative">

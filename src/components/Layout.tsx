@@ -190,6 +190,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         return "Goals";
       case "/my-group":
         return "My Group";
+      case "/customers":
+        return "Customers";
       default:
         return "Kaizen";
     }
