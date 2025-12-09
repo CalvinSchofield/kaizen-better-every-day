@@ -467,10 +467,25 @@ export const useNeedsAttention = (
 
     blitzEligibleRecruits.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
-      const rawCommitments = repData?.committed_blitzes || [];
-      const committedBlitzIds: string[] = Array.isArray(rawCommitments)
-        ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+      
+      // Get committed blitz IDs from BOTH sources:
+      // 1. repData.committed_blitzes (Supabase reps table - has full blitz objects for registered users)
+      // 2. recruit.committedBlitzes (from fetch-team-members Notion query - just relation IDs for non-registered recruits)
+      const rawCommitmentsFromSupabase = repData?.committed_blitzes || [];
+      const rawCommitmentsFromNotion = (recruit as any).committedBlitzes || [];
+      
+      // Extract IDs from Supabase data (can be strings or objects with id property)
+      const supabaseBlitzIds: string[] = Array.isArray(rawCommitmentsFromSupabase)
+        ? rawCommitmentsFromSupabase.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
         : [];
+      
+      // Notion data from fetch-team-members is just an array of IDs (strings)
+      const notionBlitzIds: string[] = Array.isArray(rawCommitmentsFromNotion)
+        ? rawCommitmentsFromNotion.filter((id: any) => typeof id === 'string')
+        : [];
+      
+      // Merge both sources, remove duplicates
+      const committedBlitzIds = [...new Set([...supabaseBlitzIds, ...notionBlitzIds])];
       
       // Check if they have ANY committed blitzes at all (past, current, or future)
       const hasAnyBlitzCommitment = committedBlitzIds.length > 0;
