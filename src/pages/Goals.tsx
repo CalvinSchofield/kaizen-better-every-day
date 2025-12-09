@@ -253,8 +253,50 @@ const Goals = () => {
     const remainingDays = futurePlannedCount + 1; // +1 for today
     const remainingDailyNeeded = remainingDays > 0 ? remaining / remainingDays : 0;
     
-    return { dailyGoal, remainingDailyNeeded };
+    return { dailyGoal, remainingDailyNeeded, fundedGoalNeeded, totalDays };
   }, [goals, activeTier, conversionFactor, plannedDays, workedDaysData, currentProgress]);
+
+  // Calculate overall preseason pace status
+  const preseasonPaceStatus = useMemo(() => {
+    const knockingDays = workedDaysData?.knockingDays || 0;
+    if (knockingDays === 0) return undefined;
+    
+    const preseasonGoal = (goals?.preseason_fp_goal || 0) * conversionFactor;
+    if (preseasonGoal <= 0) return undefined;
+    
+    // Apply cancel buffer
+    const cancelRate = goals?.cancel_rate || 0;
+    const fundedGoalNeeded = cancelRate > 0 && cancelRate < 1 
+      ? preseasonGoal / (1 - cancelRate) 
+      : preseasonGoal;
+    
+    // Count future planned days
+    const today = new Date();
+    const preseasonEnd = parseISO(PRESEASON_END);
+    const futurePlannedCount = plannedDays?.filter(d => {
+      const date = parseISO(d.planned_date);
+      return date > today && !isBefore(preseasonEnd, date);
+    }).length || 0;
+    
+    const totalDays = knockingDays + futurePlannedCount;
+    if (totalDays <= 0) return undefined;
+    
+    // Daily goal based on total planned + knocked days
+    const dailyGoal = fundedGoalNeeded / totalDays;
+    
+    // Expected FP by now = daily goal × knocking days completed
+    const expectedFp = dailyGoal * knockingDays;
+    
+    // Variance = actual - expected
+    const paceVariance = currentProgress - expectedFp;
+    
+    return {
+      knockingDays,
+      expectedFp,
+      actualFp: currentProgress,
+      paceVariance,
+    };
+  }, [workedDaysData, goals, conversionFactor, plannedDays, currentProgress]);
 
   // Goal tiers data
   const tiers = useMemo(() => ({
@@ -614,6 +656,7 @@ const Goals = () => {
             isTodayPlanned={isTodayPlanned}
             hasAnyPlannedDays={hasAnyPlannedDays}
             isUserSummerStarted={isUserSummerStarted}
+            preseasonPaceStatus={preseasonPaceStatus}
           />
         </motion.div>
 

@@ -31,6 +31,13 @@ interface GoalHeroRingProps {
   isTodayPlanned?: boolean; // Whether today is a planned knocking day
   hasAnyPlannedDays?: boolean; // Whether user has any planned days at all
   isUserSummerStarted?: boolean; // Whether user's personal summer has started (hides preseason tier)
+  // Overall preseason pace status
+  preseasonPaceStatus?: {
+    knockingDays: number;
+    expectedFp: number;
+    actualFp: number;
+    paceVariance: number; // positive = ahead, negative = behind
+  };
 }
 
 const tierConfig: Record<GoalTier, { 
@@ -89,6 +96,7 @@ export const GoalHeroRing = ({
   isTodayPlanned = false,
   hasAnyPlannedDays = true,
   isUserSummerStarted = false,
+  preseasonPaceStatus,
 }: GoalHeroRingProps) => {
   const config = tierConfig[activeTier];
   const Icon = config.icon;
@@ -361,6 +369,31 @@ export const GoalHeroRing = ({
           );
         })}
       </div>
+
+      {/* Preseason Overall Pace Status - show when preseason tier selected and has knocking days */}
+      {activeTier === 'preseason' && preseasonPaceStatus && preseasonPaceStatus.knockingDays > 0 && !isComplete && (
+        <motion.div
+          className={cn(
+            "mt-4 px-4 py-2 rounded-xl text-sm font-medium",
+            preseasonPaceStatus.paceVariance >= 0.1 && "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20",
+            preseasonPaceStatus.paceVariance <= -0.1 && "bg-amber-500/10 text-amber-600 border border-amber-500/20",
+            Math.abs(preseasonPaceStatus.paceVariance) < 0.1 && "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+          )}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          {preseasonPaceStatus.paceVariance >= 0.1 && (
+            <span>+{preseasonPaceStatus.paceVariance.toFixed(1)} {metricLabel} ahead of pace after {preseasonPaceStatus.knockingDays} knocking days</span>
+          )}
+          {preseasonPaceStatus.paceVariance <= -0.1 && (
+            <span>{Math.abs(preseasonPaceStatus.paceVariance).toFixed(1)} {metricLabel} behind pace after {preseasonPaceStatus.knockingDays} knocking days</span>
+          )}
+          {Math.abs(preseasonPaceStatus.paceVariance) < 0.1 && (
+            <span>On pace after {preseasonPaceStatus.knockingDays} knocking days</span>
+          )}
+        </motion.div>
+      )}
 
       {/* Funded vs Unfunded legend */}
       {showFunded && (
