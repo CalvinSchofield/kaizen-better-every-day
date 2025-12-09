@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Drawer,
   DrawerContent,
@@ -13,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Trash2, HelpCircle, Calculator } from "lucide-react";
+import { Trash2, HelpCircle, MapPin, Clock, Loader2 } from "lucide-react";
 import { UpgradePrmrCalculator } from "./UpgradePrmrCalculator";
 
 export interface Sale {
@@ -21,6 +23,22 @@ export interface Sale {
   type: 'fp' | 'upgrade';
   prmr: number;
   timestamp: string;
+  // Install tracking fields
+  installed_same_day?: boolean;
+  scheduled_install_date?: string;
+  install_status?: 'installed' | 'pending' | 'cancelled';
+  install_confirmed_at?: string;
+  // CRM fields (simple)
+  customer_name?: string;
+  customer_phone?: string;
+  account_number?: string;
+  customer_address?: string;
+  // CRM fields (detailed)
+  time_to_sell_minutes?: number;
+  time_to_sell_source?: 'transition' | 'door' | 'manual';
+  deal_type?: 'fresh' | 'takeover' | 'diy';
+  money_spent?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 interface LogSaleSheetProps {
@@ -30,8 +48,29 @@ interface LogSaleSheetProps {
   editingSale?: Sale | null;
   onUpdateSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
-  showPrmrHelper?: boolean; // Show helper for rookies or reps with <20 FP+
+  showPrmrHelper?: boolean;
+  // CRM configuration
+  crmEnabled?: boolean;
+  crmDetailedEnabled?: boolean;
+  // Counter timestamps for time-to-sell calculation
+  counterTimestamps?: Record<string, string[]>;
 }
+
+// Helper to calculate minutes between two timestamps
+const getMinutesBetween = (start: string, end: string): number => {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  return Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+};
+
+// Helper to format minutes as human readable
+const formatMinutes = (minutes: number): string => {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return `${hours} hr`;
+  return `${hours} hr ${mins} min`;
+};
 
 export const LogSaleSheet = ({
   open,
@@ -41,6 +80,9 @@ export const LogSaleSheet = ({
   onUpdateSale,
   onDeleteSale,
   showPrmrHelper = false,
+  crmEnabled = false,
+  crmDetailedEnabled = false,
+  counterTimestamps,
 }: LogSaleSheetProps) => {
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
@@ -48,18 +90,141 @@ export const LogSaleSheet = ({
   const [showCalculator, setShowCalculator] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // CRM state (simple)
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // CRM state (detailed)
+  const [timeToSellMinutes, setTimeToSellMinutes] = useState<number>(30);
+  const [timeToSellSource, setTimeToSellSource] = useState<'transition' | 'door' | 'manual'>('manual');
+  const [dealType, setDealType] = useState<'fresh' | 'takeover' | 'diy'>('fresh');
+  const [moneySpent, setMoneySpent] = useState("");
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+
+  // Calculated times from counter timestamps
+  const [sinceTransitionMinutes, setSinceTransitionMinutes] = useState<number | null>(null);
+  const [sinceDoorMinutes, setSinceDoorMinutes] = useState<number | null>(null);
+
+  // Calculate time since last transition and door knock when sheet opens
+  useEffect(() => {
+    if (open && crmDetailedEnabled && counterTimestamps) {
+      const now = new Date().toISOString();
+      
+      // Get last transition timestamp
+      const transitions = counterTimestamps.transitions || [];
+      if (transitions.length > 0) {
+        const lastTransition = transitions[transitions.length - 1];
+        const mins = getMinutesBetween(lastTransition, now);
+        setSinceTransitionMinutes(mins);
+        // Auto-select transition as source and set time if available
+        if (mins > 0 && mins < 480) { // Max 8 hours
+          setTimeToSellSource('transition');
+          setTimeToSellMinutes(mins);
+        }
+      } else {
+        setSinceTransitionMinutes(null);
+      }
+
+      // Get last door knock timestamp
+      const doors = counterTimestamps.doors_knocked || [];
+      if (doors.length > 0) {
+        const lastDoor = doors[doors.length - 1];
+        const mins = getMinutesBetween(lastDoor, now);
+        setSinceDoorMinutes(mins);
+        // If no transition, use door as fallback
+        if (sinceTransitionMinutes === null && mins > 0 && mins < 480) {
+          setTimeToSellSource('door');
+          setTimeToSellMinutes(mins);
+        }
+      } else {
+        setSinceDoorMinutes(null);
+      }
+    }
+  }, [open, crmDetailedEnabled, counterTimestamps]);
+
+  // Auto-detect location when sheet opens with CRM enabled
+  useEffect(() => {
+    if (open && crmEnabled && !editingSale && !customerAddress) {
+      getLocation();
+    }
+  }, [open, crmEnabled, editingSale]);
+
+  const getLocation = async () => {
+    if (!navigator.geolocation) return;
+    
+    setIsGettingLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      
+      // Use OpenStreetMap Nominatim for reverse geocoding (free, no API key)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.display_name) {
+          // Format address nicely
+          const addr = data.address || {};
+          const parts = [
+            addr.house_number,
+            addr.road,
+            addr.city || addr.town || addr.village,
+            addr.state,
+            addr.postcode
+          ].filter(Boolean);
+          setCustomerAddress(parts.join(', ') || data.display_name);
+        }
+      }
+    } catch (error) {
+      console.log('Location detection failed:', error);
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
   // Reset form when opening, populate when editing
   useEffect(() => {
     if (open) {
       if (editingSale) {
         setSaleType(editingSale.type);
         setPrmr(editingSale.prmr.toString());
+        // CRM fields
+        setCustomerName(editingSale.customer_name || "");
+        setCustomerPhone(editingSale.customer_phone || "");
+        setAccountNumber(editingSale.account_number || "");
+        setCustomerAddress(editingSale.customer_address || "");
+        setTimeToSellMinutes(editingSale.time_to_sell_minutes || 30);
+        setTimeToSellSource(editingSale.time_to_sell_source || 'manual');
+        setDealType(editingSale.deal_type || 'fresh');
+        setMoneySpent(editingSale.money_spent?.toString() || "");
+        setDifficulty(editingSale.difficulty || 'medium');
       } else {
         setSaleType('fp');
         setPrmr("");
+        // Reset CRM fields
+        setCustomerName("");
+        setCustomerPhone("");
+        setAccountNumber("");
+        setCustomerAddress("");
+        setTimeToSellMinutes(30);
+        setTimeToSellSource('manual');
+        setDealType('fresh');
+        setMoneySpent("");
+        setDifficulty('medium');
       }
       setShowHelperContent(false);
-      // Auto-focus input after a short delay
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open, editingSale]);
@@ -67,21 +232,38 @@ export const LogSaleSheet = ({
   const handleSubmit = () => {
     const prmrValue = parseFloat(prmr) || 0;
     
+    const saleData: Omit<Sale, 'id' | 'timestamp'> = {
+      type: saleType,
+      prmr: prmrValue,
+    };
+
+    // Add CRM fields if enabled
+    if (crmEnabled) {
+      if (customerName.trim()) saleData.customer_name = customerName.trim();
+      if (customerPhone.trim()) saleData.customer_phone = customerPhone.trim();
+      if (accountNumber.trim()) saleData.account_number = accountNumber.trim();
+      if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
+
+      // Add detailed CRM fields if enabled
+      if (crmDetailedEnabled) {
+        saleData.time_to_sell_minutes = timeToSellMinutes;
+        saleData.time_to_sell_source = timeToSellSource;
+        saleData.deal_type = dealType;
+        if (moneySpent.trim()) saleData.money_spent = parseInt(moneySpent) || 0;
+        saleData.difficulty = difficulty;
+      }
+    }
+    
     if (editingSale && onUpdateSale) {
       onUpdateSale({
         ...editingSale,
-        type: saleType,
-        prmr: prmrValue,
+        ...saleData,
       });
     } else {
-      onLogSale({
-        type: saleType,
-        prmr: prmrValue,
-      });
+      onLogSale(saleData);
     }
     onOpenChange(false);
   };
-
 
   const handleDelete = () => {
     if (editingSale && onDeleteSale) {
@@ -92,11 +274,18 @@ export const LogSaleSheet = ({
 
   const handleHelperClick = () => {
     if (saleType === 'upgrade') {
-      // Open in-app AI calculator
       setShowCalculator(true);
     } else {
-      // Toggle FP helper content
       setShowHelperContent(!showHelperContent);
+    }
+  };
+
+  const handleTimeSourceChange = (source: 'transition' | 'door') => {
+    setTimeToSellSource(source);
+    if (source === 'transition' && sinceTransitionMinutes !== null) {
+      setTimeToSellMinutes(sinceTransitionMinutes);
+    } else if (source === 'door' && sinceDoorMinutes !== null) {
+      setTimeToSellMinutes(sinceDoorMinutes);
     }
   };
 
@@ -104,7 +293,7 @@ export const LogSaleSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe">
+      <DrawerContent className="pb-safe max-h-[90vh]">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="text-xl">
             {isEditing ? "Edit Sale" : "Nice! 🎉"}
@@ -116,7 +305,7 @@ export const LogSaleSheet = ({
           )}
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-6">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto">
           {/* Sale Type Toggle */}
           <div className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
@@ -189,7 +378,7 @@ export const LogSaleSheet = ({
                   <li>Select <span className="font-medium text-foreground">PRMR Estimator</span></li>
                 </ol>
                 <p className="text-xs text-muted-foreground italic mt-2">
-                  *Check Curator the next day to ensure accuracy—sometimes an item might be removed during install or rarely there's a glitch that should be corrected.
+                  *Check Curator the next day to ensure accuracy
                 </p>
               </div>
             )}
@@ -210,8 +399,207 @@ export const LogSaleSheet = ({
             </div>
           </div>
 
+          {/* CRM Fields (Simple) */}
+          {crmEnabled && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Name</Label>
+                  <Input
+                    placeholder="Customer name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Phone</Label>
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Phone number"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Account Number</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                    A-
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="12345678"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="pl-8 h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Location
+                </Label>
+                <div className="relative">
+                  <Input
+                    placeholder="Customer address"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    className="h-10 pr-10"
+                  />
+                  {isGettingLocation && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Auto-detected, tap to edit</p>
+              </div>
+            </div>
+          )}
+
+          {/* CRM Fields (Detailed) */}
+          {crmEnabled && crmDetailedEnabled && (
+            <div className="space-y-4 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
+
+              {/* Time to Sell */}
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Time to Sell
+                </Label>
+                
+                {/* Source Selection */}
+                {(sinceTransitionMinutes !== null || sinceDoorMinutes !== null) && (
+                  <div className="flex gap-2">
+                    {sinceTransitionMinutes !== null && (
+                      <button
+                        type="button"
+                        onClick={() => handleTimeSourceChange('transition')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                          timeToSellSource === 'transition'
+                            ? 'bg-primary/10 border-2 border-primary text-primary'
+                            : 'bg-muted border border-border text-muted-foreground'
+                        }`}
+                      >
+                        Since Transition
+                        <div className="text-[10px] opacity-70">{formatMinutes(sinceTransitionMinutes)}</div>
+                      </button>
+                    )}
+                    {sinceDoorMinutes !== null && (
+                      <button
+                        type="button"
+                        onClick={() => handleTimeSourceChange('door')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                          timeToSellSource === 'door'
+                            ? 'bg-primary/10 border-2 border-primary text-primary'
+                            : 'bg-muted border border-border text-muted-foreground'
+                        }`}
+                      >
+                        Since Door
+                        <div className="text-[10px] opacity-70">{formatMinutes(sinceDoorMinutes)}</div>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Slider for adjustment */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Adjust: {formatMinutes(timeToSellMinutes)}</span>
+                    <span>5 min - 4 hrs</span>
+                  </div>
+                  <Slider
+                    value={[timeToSellMinutes]}
+                    onValueChange={([val]) => {
+                      setTimeToSellMinutes(val);
+                      setTimeToSellSource('manual');
+                    }}
+                    min={5}
+                    max={240}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Deal Type */}
+              <div className="space-y-2">
+                <Label className="text-xs">Deal Type</Label>
+                <div className="flex gap-2">
+                  {(['fresh', 'takeover', 'diy'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setDealType(type)}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                        dealType === type
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
+                </p>
+              </div>
+
+              {/* Money Spent */}
+              <div className="space-y-1">
+                <Label className="text-xs">Money Spent to Get Deal</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={moneySpent}
+                    onChange={(e) => setMoneySpent(e.target.value)}
+                    className="pl-7 h-10"
+                  />
+                </div>
+              </div>
+
+              {/* Difficulty */}
+              <div className="space-y-2">
+                <Label className="text-xs">How Hard to Sell?</Label>
+                <div className="flex gap-2">
+                  {(['easy', 'medium', 'hard'] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDifficulty(level)}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                        difficulty === level
+                          ? level === 'easy' 
+                            ? 'bg-emerald-500 text-white shadow-md'
+                            : level === 'medium'
+                              ? 'bg-amber-500 text-white shadow-md'
+                              : 'bg-red-500 text-white shadow-md'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {level === 'easy' ? '😊 Easy' : level === 'medium' ? '😐 Medium' : '😤 Hard'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             <Button
               onClick={handleSubmit}
               className="w-full h-12 text-base font-semibold"
@@ -220,7 +608,6 @@ export const LogSaleSheet = ({
               {isEditing ? "Update Sale" : "Log Sale"}
             </Button>
             
-
             {isEditing && onDeleteSale && (
               <Button
                 variant="ghost"

@@ -512,13 +512,12 @@ const TrackWithLayout = () => {
   }, [entry, updateCounter, isSaveInProgress, savedThisSession, salesLoggerEnabled, isLoadingEntry]);
 
   // Sales logger handlers
-  const handleLogSale = useCallback(async (saleData: { type: 'fp' | 'upgrade'; prmr: number }) => {
+  const handleLogSale = useCallback(async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
     if (!pendingCloseIncrement) return;
     
     const newSale: Sale = {
       id: crypto.randomUUID(),
-      type: saleData.type,
-      prmr: saleData.prmr,
+      ...saleData,
       timestamp: new Date().toISOString(),
     };
     
@@ -748,6 +747,9 @@ const TrackWithLayout = () => {
         onUpdateSale={handleUpdateSale}
         onDeleteSale={handleDeleteSale}
         showPrmrHelper={showPrmrHelper}
+        crmEnabled={(repData as any)?.crm_enabled || false}
+        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
+        counterTimestamps={entry.counter_timestamps}
       />
 
       {/* Delete Sale Picker Sheet */}
