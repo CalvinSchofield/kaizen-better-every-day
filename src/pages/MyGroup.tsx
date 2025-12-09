@@ -63,7 +63,7 @@ const MyGroup = () => {
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
-  const { allBlitzes } = useBlitzes();
+  const { allBlitzes, allBlitzesIncludingPast } = useBlitzes();
   
   // UI State
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -237,11 +237,11 @@ const MyGroup = () => {
   // Dismissed recruits for Today's Focus
   const { dismissRecruit, isRecuitDismissed } = useDismissedRecruits();
 
-  // Calculate needs attention metrics
+  // Calculate needs attention metrics - use allBlitzesIncludingPast to properly detect past attendance
   const { categories, topPriority: rawTopPriority, totalCount } = useNeedsAttention(
     filteredRecruits,
     filteredActivities,
-    allBlitzes,
+    allBlitzesIncludingPast,
     repDataMap,
     repGoalsMap,
     repSummerConfigMap

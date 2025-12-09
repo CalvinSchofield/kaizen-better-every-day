@@ -106,5 +106,8 @@ export const useBlitzes = () => {
     fetchAllBlitzes();
   }, []);
 
-  return { allBlitzes, pastBlitzes, loading };
+  // Combine all blitzes (future + past) for contexts that need complete history
+  const allBlitzesIncludingPast = [...allBlitzes, ...pastBlitzes];
+  
+  return { allBlitzes, pastBlitzes, allBlitzesIncludingPast, loading };
 };
