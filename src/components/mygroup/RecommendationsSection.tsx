@@ -4,6 +4,7 @@ import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
+import { PostContactDrawer } from "./PostContactDrawer";
 import { SwipeableRecommendationItem } from "./SwipeableRecommendationItem";
 
 interface RecommendationsSectionProps {
@@ -24,6 +25,10 @@ export const RecommendationsSection = ({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [schedulingRecruit, setSchedulingRecruit] = useState<Recruit | null>(null);
 
+  // Post-contact drawer state (for direct call flow)
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
+
   if (recommendations.length === 0) {
     return null;
   }
@@ -37,6 +42,11 @@ export const RecommendationsSection = ({
   const handleSchedule = (recruit: Recruit) => {
     setSchedulingRecruit(recruit);
     setScheduleOpen(true);
+  };
+
+  const handleCallWithPostContact = (recruit: Recruit) => {
+    setPostContactRecruit(recruit);
+    setPostContactOpen(true);
   };
 
   return (
@@ -58,6 +68,7 @@ export const RecommendationsSection = ({
               onRecruitClick={onRecruitClick}
               onContact={handleContact}
               onSchedule={handleSchedule}
+              onCallWithPostContact={handleCallWithPostContact}
             />
           ))}
         </div>
@@ -78,6 +89,17 @@ export const RecommendationsSection = ({
           if (!open) setSchedulingRecruit(null);
         }}
         recruit={schedulingRecruit}
+      />
+
+      {/* Post-Contact Drawer (for direct call flow) */}
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={(open) => {
+          setPostContactOpen(open);
+          if (!open) setPostContactRecruit(null);
+        }}
+        recruit={postContactRecruit}
+        contactMethod="call"
       />
     </>
   );
