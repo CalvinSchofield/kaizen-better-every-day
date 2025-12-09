@@ -132,22 +132,22 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
 
 
     // Generate pace line data points matching chart data dates
-    // For each worked day, calculate the expected cumulative goal at that point
-    const pacePoints = cumulativeData.map((point, idx) => {
+    // For each knocking day, calculate the expected cumulative goal at that point
+    const pacePoints = cumulativeData.map((point) => {
       const pointDate = parseLocalDate(point.date);
       const isInPreseason = !isBefore(pointDate, preseasonStartDate) && !isAfter(pointDate, preseasonEndDate);
       const isInSummer = !isBefore(pointDate, summerStart);
 
-      // For pace line, we calculate based on day number in the period
-      // Day 1 = first worked day, Day 2 = second worked day, etc.
-      const dayNumber = idx + 1; // 1-indexed day number
+      // Use knockingDayNumber for pace calculation (only counts actual knocking days)
+      // If this entry is not a knocking day, use the current knockingDayNumber (which won't change)
+      const knockingDayNumber = point.knockingDayNumber;
 
       return {
         date: point.date,
-        preseasonPace: isInPreseason && preseasonDailyPace > 0 ? dayNumber * preseasonDailyPace : undefined,
-        mustDoPace: isInSummer && mustDoDailyPace > 0 ? dayNumber * mustDoDailyPace : undefined,
-        willDoPace: isInSummer && willDoDailyPace > 0 ? dayNumber * willDoDailyPace : undefined,
-        couldDoPace: isInSummer && couldDoDailyPace > 0 ? dayNumber * couldDoDailyPace : undefined,
+        preseasonPace: isInPreseason && preseasonDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * preseasonDailyPace : undefined,
+        mustDoPace: isInSummer && mustDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * mustDoDailyPace : undefined,
+        willDoPace: isInSummer && willDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * willDoDailyPace : undefined,
+        couldDoPace: isInSummer && couldDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * couldDoDailyPace : undefined,
       };
     });
 
