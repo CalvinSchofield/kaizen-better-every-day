@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,12 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepsWithSaleCount } from "@/hooks/useRepsWithSaleCount";
+import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 
 interface CommitmentItem {
   key: string;
@@ -27,12 +29,13 @@ interface CommitmentItem {
 export const PreseasonStandardsCard = () => {
   const navigate = useNavigate();
   const { goals, isLoading, hasGoalsAccess } = useRepGoals();
-  const { totalFP: preseasonFP, totalEFP: preseasonEFP } = usePreseasonFP();
-  const { efpModeEnabled } = useEfpMode();
+  const { totalFP: preseasonFP, totalEFP: preseasonEFP, totalPRMR: preseasonPRMR } = usePreseasonFP();
+  const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { count: repsWithSaleCount } = useRepsWithSaleCount();
+  const { plannedDays } = usePlannedDays();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Fetch user's personal summer start date
+  // Fetch user's personal summer start date and knocking days
   const { data: seasonConfig } = useQuery({
     queryKey: ['season-config-pace'],
     queryFn: async () => {
@@ -50,7 +53,48 @@ export const PreseasonStandardsCard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch knocking days count for accurate pace calculation
+  const { data: knockingDaysData } = useQuery({
+    queryKey: ['preseason-knocking-days-count'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { knockingDays: 0 };
+      
+      const { data: entries } = await supabase
+        .from('daily_entries')
+        .select('entry_date, doors_knocked, work_start_time, work_end_time')
+        .eq('user_id', user.id)
+        .eq('is_finalized', true)
+        .gte('entry_date', '2025-09-28')
+        .lte('entry_date', '2026-04-11');
+      
+      const knockingDays = entries?.filter(e => 
+        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
+      ).length || 0;
+      
+      return { knockingDays };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
   const personalSummerStart = seasonConfig?.personal_summer_start;
+
+  // Calculate FP pace using centralized calculator (same as Goals page)
+  const fpPaceResult = useMemo(() => {
+    if (!goals?.setup_complete) return null;
+    
+    return calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays: knockingDaysData?.knockingDays || 0,
+      currentFpPlus: preseasonFP,
+      currentPrmr: preseasonPRMR,
+      efpModeEnabled,
+      calculateEfp,
+      activeTier: 'preseason',
+      personalSummerStart,
+    });
+  }, [goals, plannedDays, knockingDaysData, preseasonFP, preseasonPRMR, efpModeEnabled, calculateEfp, personalSummerStart]);
 
   // Don't show if no goals access or goals not set up
   if (!hasGoalsAccess || isLoading) return null;
@@ -106,8 +150,15 @@ export const PreseasonStandardsCard = () => {
 
   if (commitments.length === 0) return null;
 
-  // Use the new pace calculator
+  // Use centralized pace calculator for FP, old calculator for other commitments
   const getPaceStatus = (commitment: CommitmentItem): PaceStatus => {
+    // For FP+ / EFP, use the centralized calculator result
+    if (commitment.key === "fp") {
+      if (!fpPaceResult) return 'no-goal';
+      return fpPaceResult.isOnTrack ? 'ahead' : 'behind';
+    }
+    
+    // For other commitments, use the original pace calculator
     return getCommitmentPaceStatus(
       commitment.key,
       commitment.current,
