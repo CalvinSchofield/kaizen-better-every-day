@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, AlertCircle } from 'lucide-react';
 import { CustomerSale } from '@/hooks/useCustomerData';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CustomerMapProps {
   sales: CustomerSale[];
@@ -23,9 +24,11 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-mapbox-token`);
-        if (response.ok) {
-          const data = await response.json();
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (error) {
+          console.error('Failed to fetch Mapbox token:', error);
+          setTokenError(true);
+        } else if (data?.token) {
           setMapboxToken(data.token);
         } else {
           setTokenError(true);

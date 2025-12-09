@@ -157,43 +157,62 @@ export const LogSaleSheet = ({
   }, [open, crmEnabled, editingSale]);
 
   const getLocation = async () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      console.log('Geolocation not supported');
+      return;
+    }
     
     setIsGettingLocation(true);
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
+          timeout: 15000,
+          maximumAge: 30000 // Use cached position up to 30 seconds old
         });
       });
 
       const { latitude, longitude } = position.coords;
+      console.log('Got location:', latitude, longitude);
       
       // Store coordinates for map
       setCustomerLat(latitude);
       setCustomerLng(longitude);
       
       // Use OpenStreetMap Nominatim for reverse geocoding (free, no API key)
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.display_name) {
-          // Format address nicely
-          const addr = data.address || {};
-          const parts = [
-            addr.house_number,
-            addr.road,
-            addr.city || addr.town || addr.village,
-            addr.state,
-            addr.postcode
-          ].filter(Boolean);
-          setCustomerAddress(parts.join(', ') || data.display_name);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'KaizenApp/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.display_name) {
+            // Format address nicely
+            const addr = data.address || {};
+            const parts = [
+              addr.house_number,
+              addr.road,
+              addr.city || addr.town || addr.village,
+              addr.state,
+              addr.postcode
+            ].filter(Boolean);
+            const formattedAddress = parts.join(', ') || data.display_name;
+            console.log('Reverse geocoded address:', formattedAddress);
+            setCustomerAddress(formattedAddress);
+          }
+        } else {
+          console.log('Reverse geocoding failed:', response.status);
         }
+      } catch (geocodeError) {
+        console.log('Reverse geocoding error:', geocodeError);
+        // Still have coordinates even if geocoding failed
       }
     } catch (error) {
       console.log('Location detection failed:', error);
