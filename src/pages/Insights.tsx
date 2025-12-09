@@ -6,7 +6,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, Lock, BarChart3, TrendingUpIcon, Gauge, PieChart } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, startOfYear, startOfWeek } from 'date-fns';
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -27,7 +27,7 @@ import { InsightsSummaryHero } from '@/components/insights/InsightsSummaryHero';
 import { InsightsSectionHeader } from '@/components/insights/InsightsSectionHeader';
 import { InsightCollapsible } from '@/components/insights/InsightCollapsible';
 
-type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'preseason' | 'custom';
+type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
 
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
@@ -91,6 +91,9 @@ export default function Insights() {
       case 'month':
         // Only this month up to today (not future dates)
         return { start: startOfMonth(now), end: now };
+      case 'lastMonth':
+        const lastMonthDate = subMonths(now, 1);
+        return { start: startOfMonth(lastMonthDate), end: endOfMonth(lastMonthDate) };
       case 'preseason':
         return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
       case 'custom':
@@ -203,6 +206,14 @@ export default function Insights() {
             className="shrink-0"
           >
             This Month
+          </Button>
+          <Button
+            variant={datePreset === 'lastMonth' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDatePreset('lastMonth')}
+            className="shrink-0"
+          >
+            Last Month
           </Button>
           <Button
             variant={datePreset === 'preseason' ? 'default' : 'outline'}
