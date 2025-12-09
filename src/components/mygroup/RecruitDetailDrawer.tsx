@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO, differenceInDays, startOfWeek, startOfMonth, isThisWeek, isThisMonth, subWeeks, subMonths, isAfter, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1143,7 +1143,11 @@ export const RecruitDetailDrawer = ({
   };
 
   const getActivityIcon = (type: string, notes?: string | null) => {
+    // Check if it's a text activity based on notes
+    const isText = notes?.toLowerCase().includes('text') || notes?.toLowerCase().startsWith('texted');
+    
     if (type === 'phone_call') {
+      if (isText) return <MessageSquare className="h-4 w-4 text-blue-500" />;
       if (notes === 'Connected') return <PhoneCall className="h-4 w-4 text-green-500" />;
       if (notes === 'No Answer' || notes === 'Call attempt') return <PhoneMissed className="h-4 w-4 text-muted-foreground" />;
       return <Phone className="h-4 w-4" />;
@@ -1691,44 +1695,79 @@ export const RecruitDetailDrawer = ({
                   No activities logged yet
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <AnimatePresence mode="popLayout">
-                    {activities.slice(0, 10).map((activity) => (
-                      <motion.div 
-                        key={activity.id}
-                        layout
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                        transition={{ 
-                          type: "spring", 
-                          stiffness: 500, 
-                          damping: 30,
-                          opacity: { duration: 0.2 }
-                        }}
-                        className="flex gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => handleActivityClick(activity)}
-                      >
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                          {getActivityIcon(activity.activity_type, activity.notes)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium capitalize">
-                              {activity.activity_type === 'next_step' ? 'Scheduled' : activity.activity_type.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseISO(activity.created_at), 'MMM d')}
-                            </span>
+                    {(() => {
+                      const now = new Date();
+                      const oneWeekAgo = subWeeks(now, 1);
+                      const oneMonthAgo = subMonths(now, 1);
+                      let lastGroup = '';
+                      
+                      return activities.slice(0, 15).map((activity) => {
+                        const activityDate = parseISO(activity.created_at);
+                        let currentGroup = '';
+                        
+                        if (isThisWeek(activityDate, { weekStartsOn: 0 })) {
+                          currentGroup = 'This Week';
+                        } else if (isAfter(activityDate, oneWeekAgo)) {
+                          currentGroup = 'Last Week';
+                        } else if (isThisMonth(activityDate)) {
+                          currentGroup = 'This Month';
+                        } else if (isAfter(activityDate, oneMonthAgo)) {
+                          currentGroup = 'Last Month';
+                        } else {
+                          currentGroup = 'Older';
+                        }
+                        
+                        const showHeader = currentGroup !== lastGroup;
+                        lastGroup = currentGroup;
+                        
+                        return (
+                          <div key={activity.id}>
+                            {showHeader && (
+                              <div className="text-xs font-medium text-muted-foreground pt-3 pb-1 first:pt-0">
+                                {currentGroup}
+                              </div>
+                            )}
+                            <motion.div 
+                              layout
+                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                              transition={{ 
+                                type: "spring", 
+                                stiffness: 500, 
+                                damping: 30,
+                                opacity: { duration: 0.2 }
+                              }}
+                              className="flex gap-3 p-2 -mx-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => handleActivityClick(activity)}
+                            >
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                                {getActivityIcon(activity.activity_type, activity.notes)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium capitalize">
+                                    {activity.activity_type === 'next_step' ? 'Scheduled' : 
+                                      activity.notes?.toLowerCase().includes('text') ? 'Text' : 
+                                      activity.activity_type.replace('_', ' ')}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(activityDate, 'MMM d')}
+                                  </span>
+                                </div>
+                                {activity.notes && (
+                                  <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                                    {activity.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </motion.div>
                           </div>
-                          {activity.notes && (
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                              {activity.notes}
-                            </p>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </AnimatePresence>
                 </div>
               )}

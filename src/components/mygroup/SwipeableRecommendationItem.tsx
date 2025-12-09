@@ -4,8 +4,9 @@ import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
-import { Recruit } from "@/hooks/useGroupRecruits";
+import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -31,6 +32,7 @@ interface SwipeableRecommendationItemProps {
   onRecruitClick: (recruit: Recruit) => void;
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
+  onCallWithPostContact?: (recruit: Recruit) => void;
 }
 
 export const SwipeableRecommendationItem = ({
@@ -38,11 +40,13 @@ export const SwipeableRecommendationItem = ({
   onRecruitClick,
   onSchedule,
   onContact,
+  onCallWithPostContact,
 }: SwipeableRecommendationItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
   const x = useMotionValue(0);
   const controls = useAnimation();
+  const logActivityMutation = useLogRecruitActivity();
 
   // Transform for background action indicators
   const leftScale = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.8, 1.1]);
@@ -80,13 +84,25 @@ export const SwipeableRecommendationItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${recommendation.recruit.phone}`;
-    onContact?.(recommendation.recruit);
+    // Open post-contact drawer after call
+    onCallWithPostContact?.(recommendation.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${recommendation.recruit.phone}`;
-    onContact?.(recommendation.recruit);
+    // Auto-log text activity
+    const firstName = stripEmojis(recommendation.recruit.name)?.split(' ')[0] || 'them';
+    logActivityMutation.mutate({
+      recruitNotionId: recommendation.recruit.notionPageId,
+      activityType: 'phone_call',
+      notes: `Texted ${firstName}`,
+      updateLastContact: false, // Texts don't update last contact
+    }, {
+      onSuccess: () => {
+        toast.success(`Text logged for ${firstName}`);
+      }
+    });
   };
 
   return (
