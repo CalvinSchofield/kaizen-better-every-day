@@ -275,14 +275,17 @@ export const WeekPlannerSection = ({
 
       {/* Today Section */}
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-primary flex items-center gap-2">
-          Today
-          {todayTasks.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {todayTasks.length} scheduled
-            </Badge>
-          )}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-primary flex items-center gap-2">
+            Today
+            {todayTasks.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {todayTasks.length} scheduled
+              </Badge>
+            )}
+          </h3>
+          <span className="text-xs text-muted-foreground">← schedule · contact →</span>
+        </div>
 
         {/* Today's Scheduled Tasks */}
         {todayTasks.length > 0 && (
@@ -307,9 +310,6 @@ export const WeekPlannerSection = ({
               <Sparkles className="h-4 w-4" />
               <span>Recommended Today</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Swipe right to contact, left to schedule
-            </p>
             <div className="space-y-2">
               {recommendations.slice(0, 4).map((rec) => (
                 <SwipeableTaskItem
