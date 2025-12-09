@@ -16,6 +16,8 @@ export type CumulativeDataPoint = {
   movingAvgFp6: number | null;
   movingAvgFp12: number | null;
   dailyFp: number;
+  isKnockingDay: boolean; // doors >= 5 AND work_start AND work_end set
+  knockingDayNumber: number; // 1-indexed count of knocking days up to this point
 }
 
 export const useCumulativeFP = () => {
@@ -29,7 +31,7 @@ export const useCumulativeFP = () => {
 
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked")
+        .select("entry_date, fp_plus, prmr, upgrade_prmr, is_finalized, doors_knocked, work_start_time, work_end_time")
         .eq("user_id", user.id)
         .eq("is_finalized", true)
         .order("entry_date", { ascending: true });
@@ -38,22 +40,22 @@ export const useCumulativeFP = () => {
 
       if (!entries || entries.length === 0) return [];
 
-      // Helper to determine if an entry is a "real knocking day" vs just a referral/result-only day
-      // A real knocking day has: doors_knocked >= 10 OR has work_start_time AND work_end_time set
-      const isRealKnockingDay = (entry: typeof entries[0]): boolean => {
-        const hasMeaningfulActivity = (entry.doors_knocked || 0) >= 10;
-        // Note: we don't have work_start_time in this query, so just use doors threshold
-        return hasMeaningfulActivity;
+      // A knocking day requires: doors_knocked >= 5 AND work_start_time set AND work_end_time set
+      const isKnockingDay = (entry: typeof entries[0]): boolean => {
+        return (entry.doors_knocked || 0) >= 5 && 
+               !!entry.work_start_time && 
+               !!entry.work_end_time;
       };
 
-      // Filter to only real knocking days for rolling averages
-      const realKnockingEntries = entries.filter(isRealKnockingDay);
+      // Filter to only knocking days for rolling averages
+      const knockingEntries = entries.filter(isKnockingDay);
 
       // Build cumulative data points
       const dataPoints: CumulativeDataPoint[] = [];
       let cumulative = 0;
       let cumulativePrmr = 0;
       let cumulativeFp = 0;
+      let knockingDayCount = 0;
 
       entries.forEach((entry, index) => {
         // prmr = FP sales PRMR, upgrade_prmr = upgrade sales PRMR
@@ -61,6 +63,12 @@ export const useCumulativeFP = () => {
         // prmr field IS total PRMR (already includes upgrade_prmr)
         const totalPrmr = entry.prmr || 0;
         const fpValue = entry.fp_plus || 0;
+        
+        // Check if this is a knocking day
+        const entryIsKnockingDay = isKnockingDay(entry);
+        if (entryIsKnockingDay) {
+          knockingDayCount++;
+        }
         
         // EFP = total PRMR / 85
         const value = efpModeEnabled 
@@ -71,43 +79,43 @@ export const useCumulativeFP = () => {
         cumulativePrmr += totalPrmr;
         cumulativeFp += fpValue;
 
-        // For rolling averages, only use real knocking days up to current date
+        // For rolling averages, only use knocking days up to current date
         const currentDate = entry.entry_date;
-        const realEntriesUpToNow = realKnockingEntries.filter(e => e.entry_date <= currentDate);
+        const knockingEntriesUpToNow = knockingEntries.filter(e => e.entry_date <= currentDate);
 
-        // Calculate 6-day moving average (last 6 REAL knocking days)
-        const last6Real = realEntriesUpToNow.slice(-6);
-        const movingAvg6 = last6Real.length >= 1
-          ? last6Real.reduce((sum, e) => {
+        // Calculate 6-day moving average (last 6 knocking days)
+        const last6 = knockingEntriesUpToNow.slice(-6);
+        const movingAvg6 = last6.length >= 1
+          ? last6.reduce((sum, e) => {
               const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
               return sum + v;
-            }, 0) / last6Real.length
+            }, 0) / last6.length
           : null;
 
-        const movingAvgPrmr6 = last6Real.length >= 1
-          ? last6Real.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6Real.length
+        const movingAvgPrmr6 = last6.length >= 1
+          ? last6.reduce((sum, e) => sum + (e.prmr || 0), 0) / last6.length
           : null;
 
-        // Calculate 12-day moving average (last 12 REAL knocking days)
-        const last12Real = realEntriesUpToNow.slice(-12);
-        const movingAvg12 = last12Real.length >= 1
-          ? last12Real.reduce((sum, e) => {
+        // Calculate 12-day moving average (last 12 knocking days)
+        const last12 = knockingEntriesUpToNow.slice(-12);
+        const movingAvg12 = last12.length >= 1
+          ? last12.reduce((sum, e) => {
               const v = efpModeEnabled ? calculateEfp(e.prmr || 0) : (e.fp_plus || 0);
               return sum + v;
-            }, 0) / last12Real.length
+            }, 0) / last12.length
           : null;
 
-        const movingAvgPrmr12 = last12Real.length >= 1
-          ? last12Real.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12Real.length
+        const movingAvgPrmr12 = last12.length >= 1
+          ? last12.reduce((sum, e) => sum + (e.prmr || 0), 0) / last12.length
           : null;
 
         // Calculate FP+ moving averages (always actual FP+, not EFP)
-        const movingAvgFp6 = last6Real.length >= 1
-          ? last6Real.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last6Real.length
+        const movingAvgFp6 = last6.length >= 1
+          ? last6.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last6.length
           : null;
 
-        const movingAvgFp12 = last12Real.length >= 1
-          ? last12Real.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last12Real.length
+        const movingAvgFp12 = last12.length >= 1
+          ? last12.reduce((sum, e) => sum + (e.fp_plus || 0), 0) / last12.length
           : null;
 
         dataPoints.push({
@@ -124,6 +132,8 @@ export const useCumulativeFP = () => {
           movingAvgFp6,
           movingAvgFp12,
           dailyFp: fpValue,
+          isKnockingDay: entryIsKnockingDay,
+          knockingDayNumber: knockingDayCount,
         });
       });
 
