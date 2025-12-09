@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, AlertCircle } from 'lucide-react';
 import { CustomerSale } from '@/hooks/useCustomerData';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CustomerMapProps {
   sales: CustomerSale[];
@@ -16,6 +17,7 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState(false);
+  const [isMapLoading, setIsMapLoading] = useState(true);
 
   // Fetch Mapbox token from edge function
   useEffect(() => {
@@ -59,6 +61,10 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    map.current.on('load', () => {
+      setIsMapLoading(false);
+    });
 
     return () => {
       map.current?.remove();
@@ -239,6 +245,15 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
 
       {/* Map Container */}
       <div className="relative h-[60vh] rounded-xl overflow-hidden border border-border">
+        {isMapLoading && (
+          <div className="absolute inset-0 z-10 bg-muted flex flex-col items-center justify-center gap-4">
+            <Skeleton className="w-full h-full absolute inset-0" />
+            <div className="z-10 flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-muted-foreground">Loading map...</span>
+            </div>
+          </div>
+        )}
         <div ref={mapContainer} className="absolute inset-0" />
       </div>
     </div>
