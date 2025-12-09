@@ -14,10 +14,10 @@ interface CustomerMapProps {
 export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState(false);
   const [isMapLoading, setIsMapLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
 
   // Fetch Mapbox token from edge function
   useEffect(() => {
@@ -43,6 +43,14 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
     sale => sale.customer_lat && sale.customer_lng
   );
 
+  // Filter by type
+  const filteredSales = salesWithLocation.filter(sale => {
+    if (filterType === 'all') return true;
+    if (filterType === 'fp') return sale.type === 'fp';
+    if (filterType === 'upgrade') return sale.type === 'upgrade';
+    return true;
+  });
+
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken || salesWithLocation.length === 0) return;
@@ -64,51 +72,156 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
 
     map.current.on('load', () => {
       setIsMapLoading(false);
+      setMapReady(true);
     });
 
     return () => {
       map.current?.remove();
+      setMapReady(false);
     };
   }, [mapboxToken, salesWithLocation.length > 0]);
 
-  // Update markers when filter changes
+  // Update clusters when filter changes
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !mapReady) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+    const sourceId = 'customers';
+    const clusterId = 'clusters';
+    const clusterCountId = 'cluster-count';
+    const unclusteredId = 'unclustered-point';
 
-    // Add new markers
-    salesWithLocation.forEach(sale => {
-      if (!sale.customer_lat || !sale.customer_lng) return;
+    // Remove existing layers and source
+    if (map.current.getLayer(unclusteredId)) map.current.removeLayer(unclusteredId);
+    if (map.current.getLayer(clusterCountId)) map.current.removeLayer(clusterCountId);
+    if (map.current.getLayer(clusterId)) map.current.removeLayer(clusterId);
+    if (map.current.getSource(sourceId)) map.current.removeSource(sourceId);
 
-      const isUpgrade = sale.type === 'upgrade';
-      const color = isUpgrade ? '#10b981' : '#3b82f6'; // emerald-500 / blue-500
+    // Create GeoJSON from filtered sales
+    const geojson: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: filteredSales.map(sale => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [sale.customer_lng!, sale.customer_lat!]
+        },
+        properties: {
+          id: sale.id,
+          name: sale.customer_name || 'Customer',
+          phone: sale.customer_phone || '',
+          account: sale.account_number || '',
+          prmr: sale.prmr || 0,
+          type: sale.type,
+          isUpgrade: sale.type === 'upgrade'
+        }
+      }))
+    };
 
-      // Create custom marker element
-      const el = document.createElement('div');
-      el.className = 'customer-marker';
-      el.style.cssText = `
-        width: 32px;
-        height: 32px;
-        background: ${color};
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 2px solid white;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        cursor: pointer;
-      `;
+    // Add source with clustering
+    map.current.addSource(sourceId, {
+      type: 'geojson',
+      data: geojson,
+      cluster: true,
+      clusterMaxZoom: 14,
+      clusterRadius: 50
+    });
 
-      // Create popup content
+    // Cluster circles
+    map.current.addLayer({
+      id: clusterId,
+      type: 'circle',
+      source: sourceId,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': [
+          'step',
+          ['get', 'point_count'],
+          '#3b82f6', // blue for small clusters
+          10,
+          '#8b5cf6', // purple for medium clusters
+          30,
+          '#ec4899'  // pink for large clusters
+        ],
+        'circle-radius': [
+          'step',
+          ['get', 'point_count'],
+          20,
+          10,
+          25,
+          30,
+          30
+        ],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+
+    // Cluster count labels
+    map.current.addLayer({
+      id: clusterCountId,
+      type: 'symbol',
+      source: sourceId,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 12
+      },
+      paint: {
+        'text-color': '#ffffff'
+      }
+    });
+
+    // Individual points
+    map.current.addLayer({
+      id: unclusteredId,
+      type: 'circle',
+      source: sourceId,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': [
+          'case',
+          ['get', 'isUpgrade'],
+          '#10b981', // emerald for upgrades
+          '#3b82f6'  // blue for FP
+        ],
+        'circle-radius': 10,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+
+    // Click on cluster to zoom in
+    map.current.on('click', clusterId, (e) => {
+      const features = map.current!.queryRenderedFeatures(e.point, { layers: [clusterId] });
+      const clusterId2 = features[0].properties?.cluster_id;
+      const source = map.current!.getSource(sourceId) as mapboxgl.GeoJSONSource;
+      source.getClusterExpansionZoom(clusterId2, (err, zoom) => {
+        if (err) return;
+        map.current!.easeTo({
+          center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
+          zoom: zoom!
+        });
+      });
+    });
+
+    // Click on individual point to show popup
+    map.current.on('click', unclusteredId, (e) => {
+      const features = e.features;
+      if (!features || features.length === 0) return;
+      
+      const props = features[0].properties!;
+      const coords = (features[0].geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+      const isUpgrade = props.isUpgrade;
+      
       const popupContent = `
         <div style="padding: 8px; font-family: system-ui, sans-serif;">
-          <div style="font-weight: 600; margin-bottom: 4px;">${sale.customer_name || 'Customer'}</div>
+          <div style="font-weight: 600; margin-bottom: 4px;">${props.name}</div>
           <div style="font-size: 12px; color: #666;">
-            ${sale.account_number ? `Account: ${sale.account_number}` : ''}
+            ${props.account ? `Account: ${props.account}` : ''}
           </div>
           <div style="font-size: 12px; color: #666;">
-            ${sale.customer_phone || ''}
+            ${props.phone}
           </div>
           <div style="margin-top: 6px; display: flex; gap: 6px; align-items: center;">
             <span style="
@@ -119,21 +232,32 @@ export const CustomerMap = ({ sales, filterType, onFilterChange }: CustomerMapPr
               font-size: 11px;
               font-weight: 500;
             ">${isUpgrade ? 'Upgrade' : 'FP'}</span>
-            <span style="font-weight: 600; color: #059669;">$${sale.prmr?.toFixed(2) || '0'}</span>
+            <span style="font-weight: 600; color: #059669;">$${Number(props.prmr).toFixed(2)}</span>
           </div>
         </div>
       `;
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
-
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([sale.customer_lng, sale.customer_lat])
-        .setPopup(popup)
+      new mapboxgl.Popup({ offset: 15 })
+        .setLngLat(coords)
+        .setHTML(popupContent)
         .addTo(map.current!);
-
-      markersRef.current.push(marker);
     });
-  }, [salesWithLocation, filterType]);
+
+    // Change cursor on hover
+    map.current.on('mouseenter', clusterId, () => {
+      map.current!.getCanvas().style.cursor = 'pointer';
+    });
+    map.current.on('mouseleave', clusterId, () => {
+      map.current!.getCanvas().style.cursor = '';
+    });
+    map.current.on('mouseenter', unclusteredId, () => {
+      map.current!.getCanvas().style.cursor = 'pointer';
+    });
+    map.current.on('mouseleave', unclusteredId, () => {
+      map.current!.getCanvas().style.cursor = '';
+    });
+
+  }, [filteredSales, mapReady, filterType]);
 
   // No location data state
   if (salesWithLocation.length === 0) {
