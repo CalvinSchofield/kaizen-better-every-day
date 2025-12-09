@@ -33,6 +33,8 @@ export interface Sale {
   customer_phone?: string;
   account_number?: string;
   customer_address?: string;
+  customer_lat?: number;
+  customer_lng?: number;
   // CRM fields (detailed)
   time_to_sell_minutes?: number;
   time_to_sell_source?: 'transition' | 'door' | 'manual';
@@ -95,6 +97,8 @@ export const LogSaleSheet = ({
   const [customerPhone, setCustomerPhone] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerLat, setCustomerLat] = useState<number | null>(null);
+  const [customerLng, setCustomerLng] = useState<number | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // CRM state (detailed)
@@ -167,6 +171,10 @@ export const LogSaleSheet = ({
 
       const { latitude, longitude } = position.coords;
       
+      // Store coordinates for map
+      setCustomerLat(latitude);
+      setCustomerLng(longitude);
+      
       // Use OpenStreetMap Nominatim for reverse geocoding (free, no API key)
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
@@ -205,6 +213,8 @@ export const LogSaleSheet = ({
         setCustomerPhone(editingSale.customer_phone || "");
         setAccountNumber(editingSale.account_number || "");
         setCustomerAddress(editingSale.customer_address || "");
+        setCustomerLat(editingSale.customer_lat || null);
+        setCustomerLng(editingSale.customer_lng || null);
         setTimeToSellMinutes(editingSale.time_to_sell_minutes || 30);
         setTimeToSellSource(editingSale.time_to_sell_source || 'manual');
         setDealType(editingSale.deal_type || 'fresh');
@@ -218,6 +228,8 @@ export const LogSaleSheet = ({
         setCustomerPhone("");
         setAccountNumber("");
         setCustomerAddress("");
+        setCustomerLat(null);
+        setCustomerLng(null);
         setTimeToSellMinutes(30);
         setTimeToSellSource('manual');
         setDealType('fresh');
@@ -243,6 +255,8 @@ export const LogSaleSheet = ({
       if (customerPhone.trim()) saleData.customer_phone = customerPhone.trim();
       if (accountNumber.trim()) saleData.account_number = accountNumber.trim();
       if (customerAddress.trim()) saleData.customer_address = customerAddress.trim();
+      if (customerLat !== null) saleData.customer_lat = customerLat;
+      if (customerLng !== null) saleData.customer_lng = customerLng;
 
       // Add detailed CRM fields if enabled
       if (crmDetailedEnabled) {
