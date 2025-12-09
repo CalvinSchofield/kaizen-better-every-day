@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Sale } from "@/hooks/useDailyEntry";
+import { Sale } from "@/components/LogSaleSheet";
 import { X, Ban } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -94,6 +94,7 @@ const SaleChip = ({ sale, onEdit, onDelete }: SaleChipProps) => {
   const isFP = sale.type === 'fp';
   const isCancelled = sale.install_status === 'cancelled';
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
+  const hasCustomerName = sale.customer_name && sale.customer_name.trim().length > 0;
 
   return (
     <div
@@ -137,12 +138,27 @@ const SaleChip = ({ sale, onEdit, onDelete }: SaleChipProps) => {
         {isFP ? 'FP' : 'UP'}
       </div>
 
-      {/* PRMR amount */}
-      <div className={`text-lg font-bold ${
-        isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'
-      }`}>
-        ${sale.prmr}
-      </div>
+      {/* Customer name (if available) or PRMR amount */}
+      {hasCustomerName ? (
+        <>
+          <div className={`text-sm font-semibold truncate max-w-[80px] ${
+            isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'
+          }`}>
+            {sale.customer_name}
+          </div>
+          <div className={`text-xs ${
+            isCancelled ? 'line-through text-muted-foreground' : 'text-muted-foreground'
+          }`}>
+            ${sale.prmr}
+          </div>
+        </>
+      ) : (
+        <div className={`text-lg font-bold ${
+          isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'
+        }`}>
+          ${sale.prmr}
+        </div>
+      )}
 
       {/* Time */}
       <div className="text-[10px] text-muted-foreground mt-1">

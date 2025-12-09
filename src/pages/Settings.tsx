@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -89,6 +89,10 @@ export default function Settings() {
   const [isTrackCountersOpen, setIsTrackCountersOpen] = useState(false);
   const [isSalesLoggerOpen, setIsSalesLoggerOpen] = useState(false);
   const [isSavingSalesLogger, setIsSavingSalesLogger] = useState(false);
+  
+  // CRM state
+  const [isCrmOpen, setIsCrmOpen] = useState(false);
+  const [isSavingCrm, setIsSavingCrm] = useState(false);
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -766,6 +770,129 @@ export default function Settings() {
             </Collapsible>
           </Card>
         )}
+
+        {/* Sales CRM - Collapsible */}
+        <Card>
+          <Collapsible open={isCrmOpen} onOpenChange={setIsCrmOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      Sales CRM
+                    </CardTitle>
+                    {!isCrmOpen && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {(repData as any)?.crm_enabled 
+                          ? (repData as any)?.crm_detailed_enabled 
+                            ? "Detailed CRM enabled" 
+                            : "Simple CRM enabled"
+                          : "Disabled"}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isCrmOpen && "rotate-180")} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Capture customer details when logging sales to build your personal sales database.
+                </p>
+                
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Enable CRM</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Capture name, phone, account #, and location
+                    </p>
+                  </div>
+                  <Switch
+                    checked={(repData as any)?.crm_enabled || false}
+                    onCheckedChange={async (enabled) => {
+                      setIsSavingCrm(true);
+                      try {
+                        const updates: any = { crm_enabled: enabled };
+                        // Disable detailed CRM if disabling CRM
+                        if (!enabled) {
+                          updates.crm_detailed_enabled = false;
+                        }
+                        const { error } = await supabase
+                          .from('reps')
+                          .update(updates)
+                          .eq('id', repData?.id);
+                        if (error) throw error;
+                        await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                        toast({
+                          title: enabled ? "CRM enabled" : "CRM disabled",
+                          description: enabled 
+                            ? "You'll now capture customer details when logging sales" 
+                            : "Customer details will no longer be captured",
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: "Error",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSavingCrm(false);
+                      }
+                    }}
+                    disabled={isSavingCrm}
+                  />
+                </div>
+
+                {(repData as any)?.crm_enabled && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Detailed CRM</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Also track time to sell, deal type, money spent, and difficulty
+                      </p>
+                    </div>
+                    <Switch
+                      checked={(repData as any)?.crm_detailed_enabled || false}
+                      onCheckedChange={async (enabled) => {
+                        setIsSavingCrm(true);
+                        try {
+                          const { error } = await supabase
+                            .from('reps')
+                            .update({ crm_detailed_enabled: enabled })
+                            .eq('id', repData?.id);
+                          if (error) throw error;
+                          await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                          toast({
+                            title: enabled ? "Detailed CRM enabled" : "Detailed CRM disabled",
+                            description: enabled 
+                              ? "You'll now track additional sale analytics" 
+                              : "Additional analytics fields removed",
+                          });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error",
+                            description: error.message,
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsSavingCrm(false);
+                        }
+                      }}
+                      disabled={isSavingCrm}
+                    />
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Simple CRM:</strong> Name, phone, account number, location (auto-detected)</p>
+                  <p><strong>Detailed CRM:</strong> + Time to sell (auto-calculated from your tracking), deal type (Fresh/Takeover/DIY), money spent, difficulty level</p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
         {/* Notifications - Collapsible */}
         {notificationsSupported && (

@@ -575,6 +575,8 @@ export type Database = {
           contacted_for_blitz: Json | null
           counter_layout_config: Json | null
           created_at: string | null
+          crm_detailed_enabled: boolean | null
+          crm_enabled: boolean | null
           custom_counter_config: Json | null
           declined_blitz_rsvps: Json | null
           efp_mode_enabled: boolean | null
@@ -621,6 +623,8 @@ export type Database = {
           contacted_for_blitz?: Json | null
           counter_layout_config?: Json | null
           created_at?: string | null
+          crm_detailed_enabled?: boolean | null
+          crm_enabled?: boolean | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
           efp_mode_enabled?: boolean | null
@@ -667,6 +671,8 @@ export type Database = {
           contacted_for_blitz?: Json | null
           counter_layout_config?: Json | null
           created_at?: string | null
+          crm_detailed_enabled?: boolean | null
+          crm_enabled?: boolean | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
           efp_mode_enabled?: boolean | null
