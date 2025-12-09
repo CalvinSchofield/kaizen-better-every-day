@@ -2,8 +2,9 @@ import { TrendingUp, TrendingDown, Target, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
+import { useEfpMode } from '@/hooks/useEfpMode';
 import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 
 interface InsightsSummaryHeroProps {
   totalFp: number;
@@ -14,10 +15,6 @@ interface InsightsSummaryHeroProps {
   totalCloses: number;
   efpModeEnabled: boolean;
 }
-
-// Season boundaries
-const PRESEASON_END = '2026-04-11';
-const SUMMER_END = '2026-09-27';
 
 export const InsightsSummaryHero = ({
   totalFp,
@@ -30,67 +27,35 @@ export const InsightsSummaryHero = ({
 }: InsightsSummaryHeroProps) => {
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
+  const { calculateEfp } = useEfpMode();
   
   const fpPerDay = daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0;
   
-  // Calculate pace status based on goals
+  // Calculate pace status using centralized calculator
   const paceStatus = useMemo(() => {
-    if (!goals?.setup_complete) return null;
+    const result = calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays: daysWorked,
+      currentFpPlus: totalFp,
+      currentPrmr: totalPrmr,
+      efpModeEnabled,
+      calculateEfp,
+      // Let it auto-detect the tier based on current date
+    });
     
-    const today = new Date();
-    const preseasonEndDate = new Date(PRESEASON_END);
-    const isInPreseason = today <= preseasonEndDate;
-    
-    // Get the correct goal based on season
-    const seasonEndStr = isInPreseason ? PRESEASON_END : SUMMER_END;
-    const seasonStartStr = isInPreseason ? '2025-09-28' : '2026-04-12';
-    
-    // Use preseason goal in preseason, summer goal otherwise
-    const targetGoal = isInPreseason 
-      ? (goals.preseason_fp_goal || 0)
-      : (goals.will_do_fp_goal || goals.must_do_fp_goal || 0);
-    
-    if (targetGoal === 0) return null;
-    
-    // Convert to EFP if needed
-    const conversionFactor = (goals.avg_prmr_per_fp || 85) / 85;
-    const displayTargetGoal = efpModeEnabled ? targetGoal * conversionFactor : targetGoal;
-    
-    // Count future planned days only
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const futurePlannedDays = plannedDays?.filter(d => 
-      d.planned_date > todayStr && d.planned_date <= seasonEndStr
-    ).length || 0;
-    
-    // Total season days = days already worked + future planned
-    const totalSeasonDays = daysWorked + futurePlannedDays;
-    
-    if (daysWorked === 0 || totalSeasonDays === 0) return null;
-    
-    // ORIGINAL daily goal (based on total days in season)
-    const originalDailyGoal = displayTargetGoal / totalSeasonDays;
-    
-    // Expected progress by now (based on days WORKED × original daily goal)
-    const expectedAtThisPoint = originalDailyGoal * daysWorked;
-    
-    const currentProgress = efpModeEnabled ? totalEfp : totalFp;
-    const difference = currentProgress - expectedAtThisPoint;
-    
-    // Calculate remaining pace (what's needed per day going forward)
-    const remainingGoal = Math.max(0, displayTargetGoal - currentProgress);
-    const remainingDays = futurePlannedDays + 1; // +1 for today
-    const remainingDailyNeeded = remainingDays > 0 ? remainingGoal / remainingDays : 0;
+    if (!result) return null;
     
     return {
-      isOnTrack: difference >= 0,
-      difference: Math.abs(difference),
-      targetGoal: displayTargetGoal,
-      expectedAtThisPoint,
-      originalDailyGoal,
-      remainingDailyNeeded,
-      isInPreseason
+      isOnTrack: result.isOnTrack,
+      difference: Math.abs(result.paceVariance),
+      targetGoal: result.fundedGoal,
+      expectedAtThisPoint: result.expectedAtThisPoint,
+      originalDailyGoal: result.dailyGoal,
+      remainingDailyNeeded: result.remainingDailyNeeded,
+      isInPreseason: result.isInPreseason
     };
-  }, [goals, plannedDays, totalFp, totalEfp, efpModeEnabled, daysWorked]);
+  }, [goals, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp]);
   
   return (
     <Card className="p-5 bg-gradient-to-br from-card to-accent/30 border-border/50">

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Ban } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { useDailyEntry, Sale } from "@/hooks/useDailyEntry";
@@ -12,6 +12,9 @@ import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { GoalProgressCard } from "@/components/GoalProgressCard";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+
+const PRESEASON_END = '2026-04-11';
 
 interface CalendarViewProps {
   entries?: any[];
@@ -30,7 +33,7 @@ export const CalendarView = ({
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const { isDatePlanned, plannedDays } = usePlannedDays();
   const { goals } = useRepGoals();
-  const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP } = usePreseasonFP();
+  const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP, totalPRMR: preseasonCurrentPRMR } = usePreseasonFP();
   const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
@@ -41,56 +44,37 @@ export const CalendarView = ({
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleDetailOpen, setSaleDetailOpen] = useState(false);
   
-  // Calculate daily goal based on preseason goal and planned days
-  // Must match CalendarPlanningCard calculation: goal / (future planned days + days worked)
-  // Adjusts for cancel rate to show what user needs to SELL
+  // Calculate daily goal using centralized pace calculator
   const dailyGoal = useMemo(() => {
-    if (!goals) return null;
+    if (!goals?.setup_complete) return null;
     
-    // Get cancel rate (default 10% for rookies)
-    const cancelRate = goals.cancel_rate ?? 0.10;
+    // Count knocking days from entries
+    const preseasonEndDate = parseISO(PRESEASON_END);
+    const knockingDays = entries.filter(e => {
+      if (!e.is_finalized) return false;
+      const entryDate = parseISO(e.entry_date);
+      // Must be before preseason end and meet knocking day criteria
+      if (!isBefore(entryDate, preseasonEndDate) && entryDate.getTime() !== preseasonEndDate.getTime()) return false;
+      return (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
+    }).length;
     
-    // Use preseason_fp_goal if set
-    const preseasonFpGoal = goals.preseason_fp_goal || 0;
-    if (preseasonFpGoal > 0 && plannedDays && plannedDays.length > 0) {
-      // Count preseason planned days (before April 12, 2026)
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      const preseasonEnd = new Date(2026, 3, 11); // April 11, 2026
-      
-      // Future preseason planned days only (same as CalendarPlanningCard)
-      const preseasonFuturePlannedCount = plannedDays.filter(d => {
-        const date = new Date(d.planned_date);
-        return date <= preseasonEnd && d.planned_date >= todayStr;
-      }).length;
-      
-      // Days already worked (finalized entries in preseason)
-      const preseasonWorkedCount = entries.filter(e => {
-        if (!e.is_finalized) return false;
-        const entryDate = new Date(e.entry_date);
-        const preseasonStart = new Date(2025, 8, 28); // Sep 28, 2025
-        return entryDate >= preseasonStart && entryDate <= preseasonEnd;
-      }).length;
-      
-      const totalPreseasonDays = preseasonFuturePlannedCount + preseasonWorkedCount;
-      
-      if (totalPreseasonDays > 0) {
-        // Adjust for cancel rate: what you need to SELL to end up with goal
-        const adjustedGoal = preseasonFpGoal / (1 - cancelRate);
-        // Round to 1 decimal for cleaner display
-        return Math.round((adjustedGoal / totalPreseasonDays) * 10) / 10;
-      }
-    }
+    // Use centralized pace calculator
+    const result = calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays,
+      currentFpPlus: preseasonCurrentFP,
+      currentPrmr: preseasonCurrentPRMR,
+      efpModeEnabled,
+      calculateEfp,
+      personalSummerStart: personalSummerStart ? format(personalSummerStart, 'yyyy-MM-dd') : undefined,
+    });
     
-    // Fallback to will_do goal divided by weeks * 6 days
-    const weeksWorking = goals.weeks_working || 18;
-    const totalDays = weeksWorking * 6;
-    const fpGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
-    if (totalDays === 0 || fpGoal === 0) return null;
-    // Adjust for cancel rate
-    const adjustedGoal = fpGoal / (1 - cancelRate);
-    return adjustedGoal / totalDays;
-  }, [goals, plannedDays, entries]);
+    if (!result) return null;
+    
+    // Return daily goal (already accounts for cancel rate buffer)
+    return Math.round(result.dailyGoal * 10) / 10;
+  }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart]);
 
   // When switching to week view, change from totals to weekly if needed
   const handleViewModeChange = (mode: "month" | "week") => {
