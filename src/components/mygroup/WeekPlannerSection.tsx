@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
-import { PlannerTaskCard } from "./PlannerTaskCard";
-import { SwipeableRecommendationItem } from "./SwipeableRecommendationItem";
+import { SwipeableTaskItem } from "./SwipeableTaskItem";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
@@ -289,11 +288,13 @@ export const WeekPlannerSection = ({
         {todayTasks.length > 0 && (
           <div className="space-y-2">
             {todayTasks.map(({ recruit, activity }) => (
-              <PlannerTaskCard
+              <SwipeableTaskItem
                 key={`${recruit.notionPageId}-${activity.id}`}
                 recruit={recruit}
                 activity={activity}
-                onClick={() => handleLocalRecruitClick(recruit)}
+                onRecruitClick={handleLocalRecruitClick}
+                onContact={handleSwipeContact}
+                onSchedule={handleSwipeSchedule}
               />
             ))}
           </div>
@@ -311,9 +312,12 @@ export const WeekPlannerSection = ({
             </p>
             <div className="space-y-2">
               {recommendations.slice(0, 4).map((rec) => (
-                <SwipeableRecommendationItem
+                <SwipeableTaskItem
                   key={rec.recruit.notionPageId}
-                  recommendation={rec}
+                  recruit={rec.recruit}
+                  reason={rec.reason}
+                  reasonBadge={rec.reasonBadge}
+                  daysSinceContact={rec.daysSinceContact}
                   onRecruitClick={handleLocalRecruitClick}
                   onContact={handleSwipeContact}
                   onSchedule={handleSwipeSchedule}
@@ -348,11 +352,13 @@ export const WeekPlannerSection = ({
               </div>
               <div className="space-y-2">
                 {tasks.map(({ recruit, activity }) => (
-                  <PlannerTaskCard
+                  <SwipeableTaskItem
                     key={`${recruit.notionPageId}-${activity.id}`}
                     recruit={recruit}
                     activity={activity}
-                    onClick={() => handleLocalRecruitClick(recruit)}
+                    onRecruitClick={handleLocalRecruitClick}
+                    onContact={handleSwipeContact}
+                    onSchedule={handleSwipeSchedule}
                   />
                 ))}
               </div>
