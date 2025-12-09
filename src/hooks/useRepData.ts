@@ -42,6 +42,8 @@ export interface RepData {
   custom_counter_config: unknown; // JSONB array of custom counter definitions
   efp_mode_enabled: boolean | null;
   timezone: string | null;
+  crm_enabled: boolean | null;
+  crm_detailed_enabled: boolean | null;
 }
 
 // Helper to get user-specific cache key

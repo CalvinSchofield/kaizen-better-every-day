@@ -24,6 +24,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
+import Customers from "./pages/Customers";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -166,6 +167,16 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <MyGroup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Customers />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
