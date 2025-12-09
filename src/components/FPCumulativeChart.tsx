@@ -63,91 +63,102 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
   const goalPaceData = useMemo(() => {
     if (!goals || !cumulativeData || cumulativeData.length === 0) return null;
 
-    // Get the date range from actual data
-    const firstDate = parseLocalDate(cumulativeData[0].date);
-    const lastDate = parseLocalDate(cumulativeData[cumulativeData.length - 1].date);
-
-    // Calculate planned days in the relevant period
-    const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
-    
     // Get raw goals - these are in FP+ units
     const preseasonGoalRaw = goals.preseason_fp_goal || 0;
     const mustDoGoalRaw = goals.must_do_fp_goal || 0;
     const willDoGoalRaw = goals.will_do_fp_goal || 0;
     const couldDoGoalRaw = goals.could_do_fp_goal || 0;
     
-    // In EFP mode, goals stay the same (just different units of measurement)
-    // The chart cumulative data already uses EFP or FP+ based on mode
-    const preseasonGoal = preseasonGoalRaw;
-    const mustDoGoal = mustDoGoalRaw;
-    const willDoGoal = willDoGoalRaw;
-    const couldDoGoal = couldDoGoalRaw;
-    
     // Apply cancel buffer - need to fund more to hit goal after cancellations
     const cancelRate = goals.cancel_rate || 0;
     const cancelMultiplier = cancelRate > 0 && cancelRate < 1 ? 1 / (1 - cancelRate) : 1;
     
-    const fundedPreseasonGoal = preseasonGoal * cancelMultiplier;
-    const fundedMustDoGoal = mustDoGoal * cancelMultiplier;
-    const fundedWillDoGoal = willDoGoal * cancelMultiplier;
-    const fundedCouldDoGoal = couldDoGoal * cancelMultiplier;
+    const fundedPreseasonGoal = preseasonGoalRaw * cancelMultiplier;
+    const fundedMustDoGoal = mustDoGoalRaw * cancelMultiplier;
+    const fundedWillDoGoal = willDoGoalRaw * cancelMultiplier;
+    const fundedCouldDoGoal = couldDoGoalRaw * cancelMultiplier;
 
-    // Count total planned days for the season
+    // Count ONLY actual knocking days from cumulative data
+    // This matches the standardized definition: doors >= 5 AND work_start_time AND work_end_time set
+    const totalKnockingDays = cumulativeData.filter(d => d.isKnockingDay).length;
+    
+    // Also count planned future days that haven't happened yet
+    const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
+    const workedDatesSet = new Set(cumulativeData.map(d => d.date));
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
     const preseasonStartDate = parseLocalDate(PRESEASON_START);
     const preseasonEndDate = parseLocalDate(PRESEASON_END);
     const summerEndDate = parseLocalDate(SUMMER_END);
-
-    // Count planned days in preseason
-    let preseasonPlannedCount = 0;
-    let summerPlannedCount = 0;
+    
+    // Count future planned days (not yet worked)
+    let futurePreseasonPlannedCount = 0;
+    let futureSummerPlannedCount = 0;
     
     plannedDays?.forEach(p => {
+      // Skip if already worked or in the past
+      if (workedDatesSet.has(p.planned_date) || p.planned_date <= todayStr) return;
+      
       const pDate = parseLocalDate(p.planned_date);
       if (!isBefore(pDate, preseasonStartDate) && !isAfter(pDate, preseasonEndDate)) {
-        preseasonPlannedCount++;
+        futurePreseasonPlannedCount++;
       }
       if (!isBefore(pDate, summerStart) && !isAfter(pDate, summerEndDate)) {
-        summerPlannedCount++;
+        futureSummerPlannedCount++;
       }
     });
 
-    // Also count days worked that might not be in planned (auto-populate past)
+    // Count knocking days in preseason vs summer from actual data
+    let preseasonKnockingDays = 0;
+    let summerKnockingDays = 0;
+    
     cumulativeData.forEach(d => {
+      if (!d.isKnockingDay) return;
       const dDate = parseLocalDate(d.date);
-      if (!plannedDatesSet.has(d.date)) {
-        if (!isBefore(dDate, preseasonStartDate) && !isAfter(dDate, preseasonEndDate)) {
-          preseasonPlannedCount++;
-        }
-        if (!isBefore(dDate, summerStart) && !isAfter(dDate, summerEndDate)) {
-          summerPlannedCount++;
-        }
+      if (!isBefore(dDate, preseasonStartDate) && !isAfter(dDate, preseasonEndDate)) {
+        preseasonKnockingDays++;
+      }
+      if (!isBefore(dDate, summerStart) && !isAfter(dDate, summerEndDate)) {
+        summerKnockingDays++;
       }
     });
 
-    // Calculate daily pace for each goal (using funded goals that account for cancellations)
-    const preseasonDailyPace = preseasonPlannedCount > 0 ? fundedPreseasonGoal / preseasonPlannedCount : 0;
-    const mustDoDailyPace = summerPlannedCount > 0 ? fundedMustDoGoal / summerPlannedCount : 0;
-    const willDoDailyPace = summerPlannedCount > 0 ? fundedWillDoGoal / summerPlannedCount : 0;
-    const couldDoDailyPace = summerPlannedCount > 0 ? fundedCouldDoGoal / summerPlannedCount : 0;
+    // Total expected knocking days = worked + future planned
+    const totalPreseasonDays = preseasonKnockingDays + futurePreseasonPlannedCount;
+    const totalSummerDays = summerKnockingDays + futureSummerPlannedCount;
 
+    // Calculate daily pace based on total expected days
+    const preseasonDailyPace = totalPreseasonDays > 0 ? fundedPreseasonGoal / totalPreseasonDays : 0;
+    const mustDoDailyPace = totalSummerDays > 0 ? fundedMustDoGoal / totalSummerDays : 0;
+    const willDoDailyPace = totalSummerDays > 0 ? fundedWillDoGoal / totalSummerDays : 0;
+    const couldDoDailyPace = totalSummerDays > 0 ? fundedCouldDoGoal / totalSummerDays : 0;
 
     // Generate pace line data points matching chart data dates
-    // For each knocking day, calculate the expected cumulative goal at that point
+    // Track knocking days separately for preseason and summer
+    let preseasonKnockingCount = 0;
+    let summerKnockingCount = 0;
+    
     const pacePoints = cumulativeData.map((point) => {
       const pointDate = parseLocalDate(point.date);
       const isInPreseason = !isBefore(pointDate, preseasonStartDate) && !isAfter(pointDate, preseasonEndDate);
       const isInSummer = !isBefore(pointDate, summerStart);
 
-      // Use knockingDayNumber for pace calculation (only counts actual knocking days)
-      // If this entry is not a knocking day, use the current knockingDayNumber (which won't change)
-      const knockingDayNumber = point.knockingDayNumber;
+      // Only count this point if it's a knocking day
+      if (point.isKnockingDay) {
+        if (isInPreseason) preseasonKnockingCount++;
+        if (isInSummer) summerKnockingCount++;
+      }
 
       return {
         date: point.date,
-        preseasonPace: isInPreseason && preseasonDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * preseasonDailyPace : undefined,
-        mustDoPace: isInSummer && mustDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * mustDoDailyPace : undefined,
-        willDoPace: isInSummer && willDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * willDoDailyPace : undefined,
-        couldDoPace: isInSummer && couldDoDailyPace > 0 && knockingDayNumber > 0 ? knockingDayNumber * couldDoDailyPace : undefined,
+        preseasonPace: isInPreseason && preseasonDailyPace > 0 && preseasonKnockingCount > 0 
+          ? preseasonKnockingCount * preseasonDailyPace : undefined,
+        mustDoPace: isInSummer && mustDoDailyPace > 0 && summerKnockingCount > 0 
+          ? summerKnockingCount * mustDoDailyPace : undefined,
+        willDoPace: isInSummer && willDoDailyPace > 0 && summerKnockingCount > 0 
+          ? summerKnockingCount * willDoDailyPace : undefined,
+        couldDoPace: isInSummer && couldDoDailyPace > 0 && summerKnockingCount > 0 
+          ? summerKnockingCount * couldDoDailyPace : undefined,
       };
     });
 
@@ -161,10 +172,10 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
       mustDoDailyPace,
       willDoDailyPace,
       couldDoDailyPace,
-      preseasonPlannedCount,
-      summerPlannedCount,
+      preseasonPlannedCount: totalPreseasonDays,
+      summerPlannedCount: totalSummerDays,
     };
-  }, [goals, cumulativeData, plannedDays, efpModeEnabled]);
+  }, [goals, cumulativeData, plannedDays, today]);
 
   if (isLoading) {
     return (
