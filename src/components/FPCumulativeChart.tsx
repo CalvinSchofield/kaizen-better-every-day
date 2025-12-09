@@ -34,9 +34,10 @@ const getLocalToday = (): Date => {
 interface FPCumulativeChartProps {
   teamData?: CumulativeDataPoint[];
   isTeamLoading?: boolean;
+  highlightDateRange?: { start: Date; end: Date };
 }
 
-export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChartProps) => {
+export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange }: FPCumulativeChartProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [metricType, setMetricType] = useState<MetricType>('primary');
@@ -208,17 +209,30 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
   const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
 
+  // Helper to check if a date is within highlight range
+  const isInHighlightRange = (dateStr: string): boolean => {
+    if (!highlightDateRange) return false;
+    const date = parseLocalDate(dateStr);
+    const start = new Date(highlightDateRange.start.getFullYear(), highlightDateRange.start.getMonth(), highlightDateRange.start.getDate());
+    const end = new Date(highlightDateRange.end.getFullYear(), highlightDateRange.end.getMonth(), highlightDateRange.end.getDate());
+    return !isBefore(date, start) && !isAfter(date, end);
+  };
+
   // Group data by day/week/month
   const groupedData = () => {
     if (groupBy === 'day') {
       return cumulativeData.map((point, idx) => {
         const pacePoint = goalPaceData?.pacePoints[idx];
+        const inRange = isInHighlightRange(point.date);
+        const cumValue = metricType === 'primary' 
+          ? point.cumulative 
+          : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         return {
           date: point.date,
           displayDate: format(parseISO(point.date), "MMM d"),
-          cumulative: metricType === 'primary' 
-            ? point.cumulative 
-            : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
+          cumulative: cumValue,
+          highlightCumulative: inRange ? cumValue : undefined,
+          inHighlightRange: inRange,
           preseasonPace: pacePoint?.preseasonPace,
           mustDoPace: pacePoint?.mustDoPace,
           willDoPace: pacePoint?.willDoPace,
@@ -236,6 +250,10 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
         : format(startOfMonth(date), 'yyyy-MM-dd');
       
       const pacePoint = goalPaceData?.pacePoints[idx];
+      const inRange = isInHighlightRange(point.date);
+      const cumValue = metricType === 'primary' 
+        ? point.cumulative 
+        : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
       
       if (!grouped[key]) {
         grouped[key] = {
@@ -243,18 +261,21 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
           displayDate: groupBy === 'week' 
             ? format(parseISO(key), "MMM d")
             : format(parseISO(key), "MMM"),
-          cumulative: metricType === 'primary' 
-            ? point.cumulative 
-            : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr),
+          cumulative: cumValue,
+          highlightCumulative: inRange ? cumValue : undefined,
+          inHighlightRange: inRange,
           preseasonPace: pacePoint?.preseasonPace,
           mustDoPace: pacePoint?.mustDoPace,
           willDoPace: pacePoint?.willDoPace,
           couldDoPace: pacePoint?.couldDoPace,
         };
       } else {
-        grouped[key].cumulative = metricType === 'primary' 
-          ? point.cumulative 
-          : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
+        grouped[key].cumulative = cumValue;
+        // Mark as in range if any day in the group is in range
+        if (inRange) {
+          grouped[key].highlightCumulative = cumValue;
+          grouped[key].inHighlightRange = true;
+        }
         // Keep the latest pace values for the group
         if (pacePoint?.preseasonPace !== undefined) grouped[key].preseasonPace = pacePoint.preseasonPace;
         if (pacePoint?.mustDoPace !== undefined) grouped[key].mustDoPace = pacePoint.mustDoPace;
@@ -535,22 +556,43 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
               <Tooltip content={<CustomTooltip />} />
               <defs>
                 <linearGradient id="cumulativeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="highlightGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
               
               <Area
                 type="monotone"
                 dataKey="cumulative"
-                stroke="hsl(var(--primary))"
-                strokeWidth={3}
+                stroke="hsl(var(--muted-foreground))"
+                strokeWidth={2}
+                strokeOpacity={0.4}
                 fill="url(#cumulativeGradient)"
-                dot={{ fill: "hsl(var(--primary))", r: 4 }}
+                dot={false}
                 activeDot={{ r: 6 }}
                 animationDuration={800}
                 animationEasing="ease-out"
               />
+              
+              {/* Highlighted date range overlay */}
+              {highlightDateRange && (
+                <Area
+                  type="monotone"
+                  dataKey="highlightCumulative"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={3}
+                  fill="url(#highlightGradient)"
+                  dot={{ fill: "hsl(var(--primary))", r: 4 }}
+                  activeDot={{ r: 6 }}
+                  animationDuration={800}
+                  animationEasing="ease-out"
+                  connectNulls={false}
+                />
+              )}
               
               {/* Goal Pace Line - rendered after Area so it's on top */}
               {canShowGoalLine && showGoalLine && (
@@ -614,15 +656,43 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
               </div>
               {/* Legend icons */}
               <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-0.5 rounded bg-primary" />
-                  Actual
-                </span>
+                {highlightDateRange && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-4 h-0.5 rounded bg-muted-foreground/40" />
+                      All Time
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-4 h-0.5 rounded bg-primary" />
+                      Selected Period
+                    </span>
+                  </>
+                )}
+                {!highlightDateRange && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-0.5 rounded bg-primary" />
+                    Actual
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
                   {getGoalLineLabel()} Pace
                 </span>
               </div>
+            </div>
+          )}
+          
+          {/* Legend when only highlight is shown (no goal line) */}
+          {highlightDateRange && !(canShowGoalLine && showGoalLine) && (
+            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded bg-muted-foreground/40" />
+                All Time
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded bg-primary" />
+                Selected Period
+              </span>
             </div>
           )}
         </div>

@@ -275,7 +275,7 @@ export default function Insights() {
             <CanceledStatsCard />
 
             {/* Progress Over Time */}
-            <FPCumulativeChart />
+            <FPCumulativeChart highlightDateRange={getDateRange(datePreset)} />
 
             {/* ═══════════════════════════════════════════════════════════ */}
             {/* PERFORMANCE SECTION */}
