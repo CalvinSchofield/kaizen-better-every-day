@@ -68,25 +68,27 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     // Only run once per component mount and only if enabled
     if (!enabled || allBlitzes.length === 0 || hasRunRef.current) return;
     
+    // Set hasRunRef IMMEDIATELY before any async operations to prevent re-runs
+    hasRunRef.current = true;
+    
     // Global lock to prevent multiple components from processing
     if (globalProcessingLock) {
       console.log('[BlitzAttendance] Another process is already running, skipping');
       return;
     }
 
+    // Get processed blitzes BEFORE starting async work
+    const processedBlitzes = getProcessedBlitzes();
+
     const processBlitzes = async () => {
       // Set lock immediately
       globalProcessingLock = true;
-      hasRunRef.current = true;
 
       try {
         const now = new Date();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const currentHour = now.getHours();
-
-        // Get processed blitzes fresh from localStorage
-        const processedBlitzes = getProcessedBlitzes();
 
         console.log(`[BlitzAttendance] Checking ${allBlitzes.length} blitzes for auto-logging`);
         console.log(`[BlitzAttendance] Already processed: ${[...processedBlitzes].join(', ') || 'none'}`);
