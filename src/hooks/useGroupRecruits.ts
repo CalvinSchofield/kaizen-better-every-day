@@ -360,7 +360,7 @@ export const useUpdateRecruitStage = () => {
       });
 
       if (error) throw error;
-      return data;
+      return { ...data, recruitNotionId, newStage };
     },
     onMutate: async ({ recruitNotionId, newStage }) => {
       // Cancel outgoing refetches
@@ -369,8 +369,8 @@ export const useUpdateRecruitStage = () => {
       // Snapshot the previous value
       const previousData = queryClient.getQueryData(['group-recruits']);
       
-      // Optimistically update the cache
-      queryClient.setQueryData(['group-recruits'], (old: any) => {
+      // Optimistically update the cache - update all group-recruits queries
+      queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -380,16 +380,24 @@ export const useUpdateRecruitStage = () => {
         };
       });
       
-      return { previousData };
+      return { previousData, recruitNotionId, newStage };
     },
     onError: (err, variables, context) => {
       // Rollback on error
       if (context?.previousData) {
-        queryClient.setQueryData(['group-recruits'], context.previousData);
+        queryClient.setQueriesData({ queryKey: ['group-recruits'] }, context.previousData);
       }
     },
-    onSettled: () => {
+    onSettled: (data) => {
+      // Invalidate all related queries to ensure UI updates everywhere
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-detail-live'] });
+      if (data?.recruitNotionId) {
+        queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', data.recruitNotionId] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', data.recruitNotionId] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', data.recruitNotionId] });
+      }
     },
   });
 };
@@ -427,11 +435,11 @@ export const useLogRecruitActivity = () => {
     onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
-      const previousData = queryClient.getQueryData(['group-recruits']);
+      const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
       const tempId = `temp-${Date.now()}`;
       
-      // Optimistically add the activity
-      queryClient.setQueryData(['group-recruits'], (old: any) => {
+      // Optimistically add the activity to all group-recruits queries
+      queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         const newActivity = {
           id: tempId,
@@ -450,15 +458,20 @@ export const useLogRecruitActivity = () => {
         };
       });
       
-      return { previousData, tempId };
+      return { previousData, tempId, recruitNotionId };
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['group-recruits'], context.previousData);
+        context.previousData.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
-    onSettled: () => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      if (data?.recruitNotionId) {
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', data.recruitNotionId] });
+      }
     },
   });
 };
@@ -495,9 +508,9 @@ export const useUpdateRecruitActivity = () => {
     onMutate: async ({ activityId, notes, createdAt }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
-      const previousData = queryClient.getQueryData(['group-recruits']);
+      const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
       
-      queryClient.setQueryData(['group-recruits'], (old: any) => {
+      queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -513,7 +526,9 @@ export const useUpdateRecruitActivity = () => {
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['group-recruits'], context.previousData);
+        context.previousData.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
     onSettled: () => {
@@ -540,8 +555,8 @@ export const useDeleteRecruitActivity = () => {
     },
     // No optimistic update for delete - wait for success to update UI
     onSuccess: (data) => {
-      // Remove from cache only after successful deletion
-      queryClient.setQueryData(['group-recruits'], (old: any) => {
+      // Remove from all group-recruits caches after successful deletion
+      queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
