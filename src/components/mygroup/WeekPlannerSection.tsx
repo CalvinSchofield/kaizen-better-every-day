@@ -290,7 +290,7 @@ export const WeekPlannerSection = ({
         {/* Today's Scheduled Tasks */}
         {todayTasks.length > 0 && (
           <div className="space-y-2">
-            {todayTasks.map(({ recruit, activity }) => (
+            {todayTasks.map(({ recruit, activity }, index) => (
               <SwipeableTaskItem
                 key={`${recruit.notionPageId}-${activity.id}`}
                 recruit={recruit}
@@ -298,6 +298,7 @@ export const WeekPlannerSection = ({
                 onRecruitClick={handleLocalRecruitClick}
                 onContact={handleSwipeContact}
                 onSchedule={handleSwipeSchedule}
+                showSwipeDemo={index === 0 && recommendations.length === 0}
               />
             ))}
           </div>
@@ -311,7 +312,7 @@ export const WeekPlannerSection = ({
               <span>Recommended Today</span>
             </div>
             <div className="space-y-2">
-              {recommendations.slice(0, 4).map((rec) => (
+              {recommendations.slice(0, 4).map((rec, index) => (
                 <SwipeableTaskItem
                   key={rec.recruit.notionPageId}
                   recruit={rec.recruit}
@@ -321,6 +322,7 @@ export const WeekPlannerSection = ({
                   onRecruitClick={handleLocalRecruitClick}
                   onContact={handleSwipeContact}
                   onSchedule={handleSwipeSchedule}
+                  showSwipeDemo={index === 0 && todayTasks.length === 0}
                 />
               ))}
             </div>

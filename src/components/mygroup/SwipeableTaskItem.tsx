@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, useMotionValue, useTransform, PanInfo, useAnimation } from "framer-motion";
 import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ interface SwipeableTaskItemProps {
   onRecruitClick: (recruit: Recruit) => void;
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
+  showSwipeDemo?: boolean;
 }
 
 export const SwipeableTaskItem = ({
@@ -38,12 +39,34 @@ export const SwipeableTaskItem = ({
   onRecruitClick,
   onSchedule,
   onContact,
+  showSwipeDemo = false,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
+  const [demoPlayed, setDemoPlayed] = useState(false);
   const constraintsRef = useRef(null);
   const x = useMotionValue(0);
   const controls = useAnimation();
   const logActivityMutation = useLogRecruitActivity();
+
+  // Play demo animation on mount if requested
+  useEffect(() => {
+    if (showSwipeDemo && !demoPlayed) {
+      const playDemo = async () => {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        // Swipe right demo
+        await controls.start({ x: 60, transition: { duration: 0.4, ease: "easeOut" } });
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await controls.start({ x: 0, transition: { duration: 0.3, ease: "easeInOut" } });
+        await new Promise(resolve => setTimeout(resolve, 400));
+        // Swipe left demo
+        await controls.start({ x: -60, transition: { duration: 0.4, ease: "easeOut" } });
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await controls.start({ x: 0, transition: { duration: 0.3, ease: "easeInOut" } });
+        setDemoPlayed(true);
+      };
+      playDemo();
+    }
+  }, [showSwipeDemo, demoPlayed, controls]);
 
   // Transform for background action indicators
   const leftScale = useTransform(x, [SWIPE_VISUAL_THRESHOLD, SWIPE_COMMIT_THRESHOLD], [0.8, 1.1]);
