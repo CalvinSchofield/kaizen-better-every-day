@@ -233,8 +233,9 @@ export const useNeedsAttention = (
       });
     }
 
-    // 2. Blitz Prep - Rookies committed to blitz within 21 days who have incomplete ramp phases
-    // This is highest priority - they're actively preparing for an imminent blitz
+    // 2. Blitz Prep - All rookies who haven't finished ramp to blitz phases
+    // They must have completed foundational onboarding (so they're not in the onboarding tab)
+    // No blitz commitment required - we want to see everyone who needs to complete ramp phases
     const blitzPrepRecruits: AttentionRecruit[] = [];
     
     if (repDataMap) {
@@ -255,7 +256,7 @@ export const useNeedsAttention = (
         const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
 
         // REQUIREMENT: Must have completed foundational onboarding (Slack ✅ = steps 1-3 done)
-        // This means: onboarding complete, trainings complete, and slack joined
+        // If not, they'll be in the Onboarding tab instead
         if (!slackJoined) return;
 
         // Check ramp phases
@@ -267,13 +268,13 @@ export const useNeedsAttention = (
         // If all phases complete, they're ready - no blitz prep needed
         if (phase1Complete && phase2Complete && phase3Complete && phase4Complete) return;
 
-        // Check if committed to a blitz within 21 days
+        // Check if committed to any upcoming blitz (for context, not required)
         const rawCommitments = repData.committed_blitzes || [];
         const committedBlitzIds: string[] = Array.isArray(rawCommitments)
           ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
           : [];
 
-        // Find the nearest committed blitz within 30 days
+        // Find the nearest committed blitz within 30 days (optional - for display context)
         let nearestCommittedBlitz: { blitz: typeof upcomingBlitzes[0]; daysUntil: number } | null = null;
         
         for (const blitz of upcomingBlitzes) {
@@ -287,9 +288,6 @@ export const useNeedsAttention = (
           }
         }
 
-        // Only add if committed to upcoming blitz within 30 days
-        if (!nearestCommittedBlitz) return;
-
         // Get incomplete phases list (for display)
         const incompletePhases: string[] = [];
         if (!phase1Complete) incompletePhases.push('Phase 1');
@@ -297,32 +295,34 @@ export const useNeedsAttention = (
         if (!phase3Complete) incompletePhases.push('Phase 3');
         if (!phase4Complete) incompletePhases.push('Phase 4');
 
-        // Get missing onboarding items
+        // Get missing onboarding items (for context)
         const missingItems: string[] = [];
         if (!onboardingComplete) missingItems.push('Onboarding');
         if (!trainingsComplete) missingItems.push('Trainings');
         if (!slackJoined) missingItems.push('Slack');
         if (!ipadAssigned) missingItems.push('iPad');
 
-        const daysUntilBlitz = nearestCommittedBlitz.daysUntil;
+        const daysUntilBlitz = nearestCommittedBlitz?.daysUntil;
         
-        // Urgency based on days until blitz
+        // Urgency: highest if they have committed blitz coming up, otherwise based on phases remaining
         let urgency: 'high' | 'medium' | 'low';
-        if (daysUntilBlitz <= 7) {
-          urgency = 'high'; // CRITICAL
-        } else if (daysUntilBlitz <= 14) {
-          urgency = 'medium'; // HIGH
+        if (daysUntilBlitz !== undefined && daysUntilBlitz <= 7) {
+          urgency = 'high'; // CRITICAL - blitz in a week
+        } else if (daysUntilBlitz !== undefined && daysUntilBlitz <= 14) {
+          urgency = 'medium'; // HIGH - blitz in 2 weeks
+        } else if (incompletePhases.length >= 3) {
+          urgency = 'medium'; // Many phases left
         } else {
-          urgency = 'low'; // MEDIUM (15-21 days)
+          urgency = 'low';
         }
 
-        // Build reason based on what's incomplete - more descriptive
+        // Build reason based on what's incomplete
         const firstName = recruit.name?.split(' ')[0] || 'Rookie';
         let reason = '';
-        if (incompletePhases.length > 0) {
+        if (nearestCommittedBlitz && incompletePhases.length > 0) {
           reason = `${firstName} has ${incompletePhases.length} phase${incompletePhases.length > 1 ? 's' : ''} left and blitz is in ${daysUntilBlitz} day${daysUntilBlitz !== 1 ? 's' : ''}!`;
-        } else if (missingItems.length > 0) {
-          reason = `${firstName} needs ${missingItems.length} item${missingItems.length > 1 ? 's' : ''} before ${nearestCommittedBlitz.blitz.name}`;
+        } else if (incompletePhases.length > 0) {
+          reason = `${firstName} has ${incompletePhases.length} ramp phase${incompletePhases.length > 1 ? 's' : ''} to complete`;
         }
 
         blitzPrepRecruits.push({
@@ -330,7 +330,7 @@ export const useNeedsAttention = (
           reason,
           urgency,
           daysUntilBlitz,
-          blitzName: nearestCommittedBlitz.blitz.name,
+          blitzName: nearestCommittedBlitz?.blitz.name,
           missingItems: missingItems.length > 0 ? missingItems : undefined,
           trainingProgress: {
             onboardingComplete,
@@ -356,7 +356,19 @@ export const useNeedsAttention = (
         label: 'Blitz Prep',
         emoji: '🔥',
         count: blitzPrepRecruits.length,
-        recruits: blitzPrepRecruits.sort((a, b) => (a.daysUntilBlitz || 99) - (b.daysUntilBlitz || 99)),
+        // Sort: those with committed blitzes first (by days until), then by phases remaining
+        recruits: blitzPrepRecruits.sort((a, b) => {
+          // Committed blitz takes priority
+          if (a.daysUntilBlitz !== undefined && b.daysUntilBlitz === undefined) return -1;
+          if (a.daysUntilBlitz === undefined && b.daysUntilBlitz !== undefined) return 1;
+          if (a.daysUntilBlitz !== undefined && b.daysUntilBlitz !== undefined) {
+            return a.daysUntilBlitz - b.daysUntilBlitz;
+          }
+          // Both have no committed blitz - sort by phases remaining (more phases = higher priority)
+          const aPhases = a.rampPhaseProgress?.incompletePhases?.length || 0;
+          const bPhases = b.rampPhaseProgress?.incompletePhases?.length || 0;
+          return bPhases - aPhases;
+        }),
         priority: 100,
       });
     }
