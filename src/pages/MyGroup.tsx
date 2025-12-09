@@ -85,7 +85,7 @@ const MyGroup = () => {
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
-  useBlitzAttendanceLogger(allBlitzes, isLeader);
+  useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   const isLoading = accessLoading || (isLeader ? recruitsLoading : suggestionsLoading);
 

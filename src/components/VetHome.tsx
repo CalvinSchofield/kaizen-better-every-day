@@ -75,7 +75,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
-  const { allBlitzes, loading: blitzesLoading } = useBlitzes();
+  const { allBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -90,7 +90,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const isLeader = teamAccessData?.accessLevel && teamAccessData.accessLevel !== 'none';
   
   // Auto-log blitz attendance for leaders
-  useBlitzAttendanceLogger(allBlitzes, isLeader);
+  useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
   
   // Get FP+ from daily entries (preseason only)
   const { totalFP: personalFP, isLoading: loadingFP } = usePreseasonFP();
