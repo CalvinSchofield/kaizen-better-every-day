@@ -77,12 +77,13 @@ const Goals = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
 
-  // Fetch worked days count for pace calculation
+  // Fetch knocking days count for pace calculation
+  // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
   const { data: workedDaysData } = useQuery({
-    queryKey: ['goals-worked-days', repData?.user_id],
+    queryKey: ['goals-knocking-days', repData?.user_id],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { workedDays: 0 };
+      if (!user) return { knockingDays: 0 };
       
       const { data: entries, error } = await supabase
         .from('daily_entries')
@@ -92,14 +93,14 @@ const Goals = () => {
         .gte('entry_date', PRESEASON_START)
         .lte('entry_date', PRESEASON_END);
       
-      if (error) return { workedDays: 0 };
+      if (error) return { knockingDays: 0 };
       
-      // Count only "real knocking days" (doors >= 10 OR has work times)
-      const realDays = entries?.filter(e => 
-        (e.doors_knocked || 0) >= 10 || (e.work_start_time && e.work_end_time)
+      // Count only "knocking days" (doors >= 5 AND has both work times)
+      const knockingDays = entries?.filter(e => 
+        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
       ).length || 0;
       
-      return { workedDays: realDays };
+      return { knockingDays };
     },
     enabled: !!repData?.user_id,
     staleTime: 2 * 60 * 1000,
@@ -240,9 +241,9 @@ const Goals = () => {
       return date > today && !isBefore(preseasonEnd, date);
     }).length || 0;
     
-    // Total days = worked + future planned
-    const workedDays = workedDaysData?.workedDays || 0;
-    const totalDays = workedDays + futurePlannedCount;
+    // Total days = knocking days already done + future planned
+    const knockingDays = workedDaysData?.knockingDays || 0;
+    const totalDays = knockingDays + futurePlannedCount;
     
     // Daily goal = funded goal / total planned days
     const dailyGoal = totalDays > 0 ? fundedGoalNeeded / totalDays : 0;
