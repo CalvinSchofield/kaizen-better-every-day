@@ -144,7 +144,16 @@ export const CalendarPlanningCard = ({
   const personalSummerStart = seasonConfig?.personal_summer_start || SUMMER_START;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // Helper to determine if an entry is a "worked day" - aligns with memory definition
+  // Helper to determine if an entry is a "knocking day" for pace calculation
+  // A knocking day MUST have: doors_knocked >= 5 AND work_start_time AND work_end_time
+  // This is used for calculating daily average and pace
+  const isKnockingDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null }): boolean => {
+    const hasDoors = (entry.doors_knocked || 0) >= 5;
+    const hasWorkSession = !!entry.work_start_time && !!entry.work_end_time;
+    return hasDoors && hasWorkSession;
+  };
+  
+  // Helper to determine if an entry is a "worked day" for calendar display
   // A worked day has: doors_knocked >= 5 OR work times set OR any FP+/PRMR/upgrade_prmr results
   const isWorkedDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null; fp_plus: number | null; prmr: number | null; upgrade_prmr: number | null }): boolean => {
     const hasDoors = (entry.doors_knocked || 0) >= 5;
@@ -154,11 +163,20 @@ export const CalendarPlanningCard = ({
   };
 
   // Query to get actual days worked (finalized entries with real activity) AND FP+ data
+  // Also tracks "knocking days" (doors >= 5 AND work times) for pace calculation
   const { data: workedDaysData, refetch: refetchWorkedDays } = useQuery({
     queryKey: ['worked-days-data', repData?.user_id, personalSummerStart, personalSummerEnd],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>(), fpByDate: new Map<string, number>() };
+      if (!user) return { 
+        preseasonDaysWorked: 0, 
+        summerDaysWorked: 0, 
+        preseasonKnockingDays: 0,
+        summerKnockingDays: 0,
+        workedDates: new Set<string>(), 
+        knockingDates: new Set<string>(),
+        fpByDate: new Map<string, number>() 
+      };
 
       // Get all finalized entries with activity fields
       const { data: entries, error } = await supabase
@@ -169,7 +187,15 @@ export const CalendarPlanningCard = ({
 
       if (error) {
         console.error('Error fetching worked days:', error);
-        return { preseasonDaysWorked: 0, summerDaysWorked: 0, workedDates: new Set<string>(), fpByDate: new Map<string, number>() };
+        return { 
+          preseasonDaysWorked: 0, 
+          summerDaysWorked: 0, 
+          preseasonKnockingDays: 0,
+          summerKnockingDays: 0,
+          workedDates: new Set<string>(), 
+          knockingDates: new Set<string>(),
+          fpByDate: new Map<string, number>() 
+        };
       }
 
       console.log('Fetched worked days entries:', entries?.length, 'for user:', user.id);
@@ -179,14 +205,21 @@ export const CalendarPlanningCard = ({
       const summerStart = parseLocalDate(personalSummerStart);
       const summerEnd = parseLocalDate(personalSummerEnd);
 
-      let preseasonCount = 0;
-      let summerCount = 0;
+      let preseasonWorkedCount = 0;
+      let summerWorkedCount = 0;
+      let preseasonKnockingCount = 0;
+      let summerKnockingCount = 0;
       const workedDates = new Set<string>();
+      const knockingDates = new Set<string>();
       const fpByDate = new Map<string, number>(); // Store FP+ by date
 
-      // Count entries that are "worked days" per the memory definition
       entries?.forEach(entry => {
-        if (!isWorkedDay(entry)) return; // Skip non-worked days
+        // Check if it's a "worked day" (for calendar display)
+        const isWorked = isWorkedDay(entry);
+        // Check if it's a "knocking day" (for pace calculation: doors >= 5 AND work times)
+        const isKnocking = isKnockingDay(entry);
+        
+        if (!isWorked) return; // Skip non-worked days entirely
         
         workedDates.add(entry.entry_date);
         
@@ -197,15 +230,31 @@ export const CalendarPlanningCard = ({
         
         const date = parseLocalDate(entry.entry_date);
         if (date >= preseasonStart && date <= preseasonEnd) {
-          preseasonCount++;
+          preseasonWorkedCount++;
+          if (isKnocking) {
+            preseasonKnockingCount++;
+            knockingDates.add(entry.entry_date);
+          }
         } else if (date >= summerStart && date <= summerEnd) {
-          summerCount++;
+          summerWorkedCount++;
+          if (isKnocking) {
+            summerKnockingCount++;
+            knockingDates.add(entry.entry_date);
+          }
         }
       });
 
-      console.log('Worked dates set:', Array.from(workedDates));
+      console.log('Worked dates:', Array.from(workedDates).length, 'Knocking days:', preseasonKnockingCount);
 
-      return { preseasonDaysWorked: preseasonCount, summerDaysWorked: summerCount, workedDates, fpByDate };
+      return { 
+        preseasonDaysWorked: preseasonWorkedCount, 
+        summerDaysWorked: summerWorkedCount,
+        preseasonKnockingDays: preseasonKnockingCount,
+        summerKnockingDays: summerKnockingCount,
+        workedDates, 
+        knockingDates,
+        fpByDate 
+      };
     },
     staleTime: 0, // Always refetch - important for accurate calendar display
     enabled: !!repData?.user_id,
@@ -214,12 +263,16 @@ export const CalendarPlanningCard = ({
   // Derived values from workedDaysData
   const workedDays = workedDaysData ? {
     preseasonDaysWorked: workedDaysData.preseasonDaysWorked,
-    summerDaysWorked: workedDaysData.summerDaysWorked
+    summerDaysWorked: workedDaysData.summerDaysWorked,
+    preseasonKnockingDays: workedDaysData.preseasonKnockingDays,
+    summerKnockingDays: workedDaysData.summerKnockingDays,
   } : undefined;
   
   const workedDatesSet = workedDaysData?.workedDates || new Set<string>();
+  const knockingDatesSet = workedDaysData?.knockingDates || new Set<string>();
   const fpByDateMap = workedDaysData?.fpByDate || new Map<string, number>();
   const isDateWorked = (dateStr: string) => workedDatesSet.has(dateStr);
+  const isDateKnocking = (dateStr: string) => knockingDatesSet.has(dateStr);
   const getFpForDate = (dateStr: string): number | undefined => fpByDateMap.get(dateStr);
 
   const today = getLocalToday();
@@ -272,14 +325,16 @@ export const CalendarPlanningCard = ({
     }
   }, [selectedTier, mustDoFpGoal, willDoFpGoal, couldDoFpGoal]);
 
-  // Calculate preseason stats - now using actual worked days from database
+  // Calculate preseason stats - using KNOCKING days (doors >= 5 + work times) for pace
   // Adjusts goals for cancel rate (what you need to SELL to end up with your goal after cancels)
   const preseasonStats = useMemo(() => {
     const futurePlannedCount = preseasonPlannedDays.length;
+    // Use knocking days for daily average calculation (doors >= 5 AND work times)
+    const knockingDaysCount = workedDays?.preseasonKnockingDays || 0;
     const daysWorkedCount = workedDays?.preseasonDaysWorked || 0;
-    const totalPreseasonDays = futurePlannedCount + daysWorkedCount;
+    const totalPreseasonDays = futurePlannedCount + knockingDaysCount;
     
-    if (totalPreseasonDays === 0) return null;
+    if (totalPreseasonDays === 0 && knockingDaysCount === 0) return null;
 
     // Use EFP if in EFP mode, otherwise use FP+
     const currentProgress = isEfpMode ? preseasonCurrentEFP : preseasonCurrentFP;
@@ -291,16 +346,20 @@ export const CalendarPlanningCard = ({
     const goalTotal = adjustedGoal;
     const goalDaily = totalPreseasonDays > 0 ? goalTotal / totalPreseasonDays : 0;
     
-    const daysWorked = daysWorkedCount || 1;
-    const currentDailyAvg = currentProgress / daysWorked;
-    const projectedTotal = currentDailyAvg * totalPreseasonDays;
+    // Daily average based on KNOCKING days only (doors >= 5 AND work times)
+    const daysForAvg = knockingDaysCount || 1;
+    const currentDailyAvg = currentProgress / daysForAvg;
+    const projectedTotal = totalPreseasonDays > 0 ? currentDailyAvg * totalPreseasonDays : currentProgress;
     
     // Calculate remaining goal (what's left after current progress)
     const remainingGoal = Math.max(0, goalTotal - currentProgress);
     const remainingDays = futurePlannedCount;
     const neededDaily = remainingDays > 0 ? remainingGoal / remainingDays : 0;
     
-    const onPace = projectedTotal >= goalTotal;
+    // Pace calculation: expected progress by now = goal daily × knocking days already done
+    const expectedByNow = goalDaily * knockingDaysCount;
+    const paceDiff = currentProgress - expectedByNow;
+    const onPace = paceDiff >= -0.1; // On pace if not behind by more than 0.1
     const pacePercent = goalTotal > 0 ? (currentProgress / goalTotal) * 100 : 0;
     
     // Calculate extra per week needed to catch up (if behind pace)
@@ -312,6 +371,7 @@ export const CalendarPlanningCard = ({
     return {
       futurePlannedCount,
       daysWorkedCount,
+      knockingDaysCount,
       totalDays: totalPreseasonDays,
       daysLeft: futurePlannedCount,
       goalTotal: goalTotal.toFixed(1),
@@ -326,6 +386,8 @@ export const CalendarPlanningCard = ({
       neededDaily: neededDaily.toFixed(2),
       onPace,
       pacePercent,
+      paceDiff,
+      expectedByNow,
       extraPerWeek: extraPerWeek.toFixed(1),
       behindBy: behindBy.toFixed(1),
     };
@@ -444,7 +506,7 @@ export const CalendarPlanningCard = ({
     };
   }, [selectedSummerGoal, preseasonCurrentFP, preseasonCurrentEFP, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, cancelRate]);
 
-  // Calculate weekly pace stats
+  // Calculate weekly pace stats - compares THIS WEEK's progress to expected
   const weeklyPaceStats = useMemo(() => {
     if (!preseasonStats) return null;
     
@@ -463,29 +525,38 @@ export const CalendarPlanningCard = ({
     
     const weekStartStr = format(weekStart, 'yyyy-MM-dd');
     const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-    
-    // Count planned days this week that are in the future
     const todayStr = format(now, 'yyyy-MM-dd');
+    
+    // Count planned days this week
     const plannedThisWeek = (plannedDays || []).filter(d => {
       return d.planned_date >= weekStartStr && d.planned_date <= weekEndStr;
     });
     
-    // Days already worked this week (approximation - days before today that are planned)
-    const workedThisWeek = plannedThisWeek.filter(d => d.planned_date < todayStr).length;
+    // Count KNOCKING days this week (actual days that count for pace)
+    const knockingDaysThisWeek = Array.from(knockingDatesSet).filter(d => 
+      d >= weekStartStr && d <= weekEndStr
+    );
+    
     const totalDaysThisWeek = plannedThisWeek.length;
+    const workedThisWeek = knockingDaysThisWeek.length;
     
     if (totalDaysThisWeek === 0) return null;
     
-    // Weekly goal = daily goal × planned days this week
+    // Daily goal based on total goal / total planned days
     const dailyGoal = parseFloat(preseasonStats.goalDaily);
     const weeklyGoal = dailyGoal * totalDaysThisWeek;
     
-    // Expected progress by now = daily goal × days already worked this week
+    // Calculate THIS WEEK's FP (sum of FP for knocking days this week)
+    let thisWeekFP = 0;
+    knockingDaysThisWeek.forEach(dateStr => {
+      thisWeekFP += fpByDateMap.get(dateStr) || 0;
+    });
+    
+    // Expected progress THIS WEEK based on knocking days already done
     const expectedByNow = dailyGoal * workedThisWeek;
     
-    // We'd need this week's actual FP+ - for now use days worked ratio as approximation
-    // In reality, the user can see their week progress in the main preseasonStats
-    const weekPaceDiff = preseasonStats.currentFPRaw - expectedByNow;
+    // Pace diff is THIS WEEK's actual vs expected (not total season)
+    const weekPaceDiff = thisWeekFP - expectedByNow;
     const isAheadThisWeek = weekPaceDiff >= 0.1;
     const isBehindThisWeek = weekPaceDiff <= -0.1;
     
@@ -493,12 +564,13 @@ export const CalendarPlanningCard = ({
       weeklyGoal: weeklyGoal.toFixed(1),
       totalDaysThisWeek,
       workedThisWeek,
+      thisWeekFP: thisWeekFP.toFixed(1),
       expectedByNow: expectedByNow.toFixed(1),
       paceDiff: weekPaceDiff,
       isAheadThisWeek,
       isBehindThisWeek,
     };
-  }, [preseasonStats, plannedDays]);
+  }, [preseasonStats, plannedDays, knockingDatesSet, fpByDateMap]);
 
   // Get committed blitzes
   interface CommittedBlitz {
@@ -1085,13 +1157,13 @@ export const CalendarPlanningCard = ({
         
             {preseasonStats && (
               <div className="p-3 rounded-lg bg-accent/30 space-y-2">
-                {/* Current pace info - based on actual days worked, not calendar days */}
-                {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                {/* Current pace info - based on KNOCKING days (doors >= 5 + work times) */}
+                {preseasonStats.knockingDaysCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                       <span className="text-sm text-muted-foreground">Your Daily Pace</span>
                       <span className="text-[10px] text-muted-foreground/70">
-                        ({preseasonStats.daysWorkedCount} days worked)
+                        ({preseasonStats.knockingDaysCount} days knocked)
                       </span>
                     </div>
                     <span className={cn(
@@ -1105,7 +1177,7 @@ export const CalendarPlanningCard = ({
                 )}
 
                 {/* Projected total at current pace */}
-                {preseasonStats.daysWorkedCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
+                {preseasonStats.knockingDaysCount > 0 && parseFloat(preseasonStats.goalTotal) > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">At this pace you'll hit</span>
                     <span className={cn(
