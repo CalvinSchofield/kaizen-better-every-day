@@ -370,14 +370,24 @@ export const RecruitDetailDrawer = ({
   const queryClient = useQueryClient();
   const { checkAndUpdateStage, checkReachedOutProgression } = useAutoStageProgression();
 
-  // Get live recruit data from cache (updates when optimistic updates happen)
-  const cachedGroupData = queryClient.getQueryData<{ recruits: Recruit[] }>(['group-recruits']);
-  const recruit = useMemo(() => {
-    if (!recruitProp) return null;
-    // Try to get the latest from cache first
-    const fromCache = cachedGroupData?.recruits?.find(r => r.notionPageId === recruitProp.notionPageId);
-    return fromCache || recruitProp;
-  }, [recruitProp, cachedGroupData]);
+  // Subscribe to group-recruits query to get live recruit data updates
+  const { data: liveRecruit } = useQuery({
+    queryKey: ['recruit-detail-live', recruitProp?.notionPageId],
+    queryFn: () => {
+      // Get from any group-recruits cache - use fuzzy matching for query key variations
+      const cachedQueries = queryClient.getQueriesData<{ recruits: Recruit[] }>({ queryKey: ['group-recruits'] });
+      for (const [, data] of cachedQueries) {
+        const fromCache = data?.recruits?.find(r => r.notionPageId === recruitProp?.notionPageId);
+        if (fromCache) return fromCache;
+      }
+      return recruitProp;
+    },
+    enabled: !!recruitProp?.notionPageId && open,
+    staleTime: 0,
+    refetchInterval: open ? 1000 : false, // Poll every second while drawer is open
+  });
+  
+  const recruit = liveRecruit || recruitProp;
 
   // Fetch activities directly for this recruit to get live updates
   const { data: liveActivities } = useQuery({

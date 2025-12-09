@@ -132,7 +132,10 @@ export const useAutoStageProgression = () => {
         });
 
         if (!error) {
+          // Invalidate all related queries for proper UI updates
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+          queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruitNotionId] });
           return newStage;
         }
       }
