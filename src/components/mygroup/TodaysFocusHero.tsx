@@ -1,4 +1,4 @@
-import { Phone, MessageSquare, ChevronRight, Sparkles } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
@@ -10,8 +10,8 @@ interface TodaysFocusHeroProps {
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
   onViewAll: () => void;
-  onCallClick?: (recruit: Recruit) => void;
-  onTextClick?: (recruit: Recruit) => void;
+  onContactClick?: (recruit: Recruit) => void;
+  onScheduleClick?: (recruit: Recruit) => void;
   animatingOut?: boolean;
 }
 
@@ -26,25 +26,19 @@ export const TodaysFocusHero = ({
   totalNeedsAttention,
   onRecruitClick,
   onViewAll,
-  onCallClick,
-  onTextClick,
+  onContactClick,
+  onScheduleClick,
   animatingOut = false
 }: TodaysFocusHeroProps) => {
 
-  const handleCall = () => {
+  const handleContact = () => {
     if (!topPriority) return;
-    // Open phone dialer
-    window.location.href = `tel:${topPriority.recruit.phone}`;
-    // Trigger post-call drawer
-    onCallClick?.(topPriority.recruit);
+    onContactClick?.(topPriority.recruit);
   };
 
-  const handleText = () => {
+  const handleSchedule = () => {
     if (!topPriority) return;
-    // Open SMS
-    window.location.href = `sms:${topPriority.recruit.phone}`;
-    // Trigger post-text drawer
-    onTextClick?.(topPriority.recruit);
+    onScheduleClick?.(topPriority.recruit);
   };
 
   if (!topPriority) {
@@ -117,21 +111,19 @@ export const TodaysFocusHero = ({
         <Button 
           className="flex-1 gap-2"
           size="lg"
-          onClick={handleCall}
-          disabled={!topPriority.recruit.phone}
+          onClick={handleContact}
         >
-          <Phone className="h-4 w-4" />
-          Call {firstName}
+          <UserRoundSearch className="h-4 w-4" />
+          Contact
         </Button>
         <Button 
           variant="outline"
           size="lg"
-          onClick={handleText}
-          disabled={!topPriority.recruit.phone}
+          onClick={handleSchedule}
           className="gap-2"
         >
-          <MessageSquare className="h-4 w-4" />
-          Text
+          <Calendar className="h-4 w-4" />
+          Schedule
         </Button>
       </div>
     </div>
