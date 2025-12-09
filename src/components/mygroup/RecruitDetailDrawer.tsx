@@ -99,22 +99,27 @@ const BlitzManagementSection = ({
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   
-  const committedBlitzes = useMemo(() => {
-    return (recruitRepData?.committed_blitzes as string[] | null) || [];
+  // committed_blitzes can be array of strings OR array of objects with id property
+  const committedBlitzIds = useMemo(() => {
+    const raw = recruitRepData?.committed_blitzes;
+    if (!raw || !Array.isArray(raw)) return [];
+    return raw.map((item: string | { id: string }) => 
+      typeof item === 'string' ? item : item?.id
+    ).filter(Boolean) as string[];
   }, [recruitRepData?.committed_blitzes]);
   
   const now = new Date();
   
   // Get past blitzes the recruit attended (from all past blitzes)
   const pastBlitzes = useMemo(() => {
-    return allPastBlitzes.filter(blitz => committedBlitzes.includes(blitz.id));
-  }, [allPastBlitzes, committedBlitzes]);
+    return allPastBlitzes.filter(blitz => committedBlitzIds.includes(blitz.id));
+  }, [allPastBlitzes, committedBlitzIds]);
   
   // Future blitzes are already from allBlitzes (which only contains future)
   const futureBlitzes = allBlitzes;
   
   // Count committed future blitzes
-  const committedFutureCount = futureBlitzes.filter(b => committedBlitzes.includes(b.id)).length;
+  const committedFutureCount = futureBlitzes.filter(b => committedBlitzIds.includes(b.id)).length;
   
   const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
     if (!recruit?.notionPageId) return;
@@ -122,12 +127,12 @@ const BlitzManagementSection = ({
     setIsUpdating(blitzId);
     
     // Optimistic update
-    const newCommittedBlitzes = isCurrentlyCommitted
-      ? committedBlitzes.filter(id => id !== blitzId)
-      : [...committedBlitzes, blitzId];
+    const newCommittedBlitzIds = isCurrentlyCommitted
+      ? committedBlitzIds.filter(id => id !== blitzId)
+      : [...committedBlitzIds, blitzId];
     
     queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
-      old ? { ...old, committed_blitzes: newCommittedBlitzes } : old
+      old ? { ...old, committed_blitzes: newCommittedBlitzIds } : old
     );
     
     try {
@@ -138,7 +143,7 @@ const BlitzManagementSection = ({
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           repNotionPageId: recruit.notionPageId,
-          blitzPageIds: newCommittedBlitzes,
+          blitzPageIds: newCommittedBlitzIds,
         },
       });
       
@@ -155,7 +160,7 @@ const BlitzManagementSection = ({
     } catch (error) {
       // Revert on error
       queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
-        old ? { ...old, committed_blitzes: committedBlitzes } : old
+        old ? { ...old, committed_blitzes: committedBlitzIds } : old
       );
       toast.error("Couldn't update blitz commitment");
     } finally {
@@ -249,7 +254,7 @@ const BlitzManagementSection = ({
               </div>
               <div className="space-y-2">
                 {futureBlitzes.map((blitz) => {
-                  const isCommitted = committedBlitzes.includes(blitz.id);
+                  const isCommitted = committedBlitzIds.includes(blitz.id);
                   const blitzDate = new Date(blitz.date);
                   const isLoading = isUpdating === blitz.id;
                   const daysUntil = differenceInDays(blitzDate, now);
