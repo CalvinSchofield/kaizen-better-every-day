@@ -70,11 +70,18 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
     // Calculate planned days in the relevant period
     const plannedDatesSet = new Set(plannedDays?.map(p => p.planned_date) || []);
     
-    // Get raw goals
-    const preseasonGoal = goals.preseason_fp_goal || 0;
-    const mustDoGoal = goals.must_do_fp_goal || 0;
-    const willDoGoal = goals.will_do_fp_goal || 0;
-    const couldDoGoal = goals.could_do_fp_goal || 0;
+    // Get raw goals - these are in FP+ units
+    const preseasonGoalRaw = goals.preseason_fp_goal || 0;
+    const mustDoGoalRaw = goals.must_do_fp_goal || 0;
+    const willDoGoalRaw = goals.will_do_fp_goal || 0;
+    const couldDoGoalRaw = goals.could_do_fp_goal || 0;
+    
+    // In EFP mode, goals stay the same (just different units of measurement)
+    // The chart cumulative data already uses EFP or FP+ based on mode
+    const preseasonGoal = preseasonGoalRaw;
+    const mustDoGoal = mustDoGoalRaw;
+    const willDoGoal = willDoGoalRaw;
+    const couldDoGoal = couldDoGoalRaw;
     
     // Apply cancel buffer - need to fund more to hit goal after cancellations
     const cancelRate = goals.cancel_rate || 0;
@@ -157,7 +164,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading }: FPCumulativeChart
       preseasonPlannedCount,
       summerPlannedCount,
     };
-  }, [goals, cumulativeData, plannedDays]);
+  }, [goals, cumulativeData, plannedDays, efpModeEnabled]);
 
   if (isLoading) {
     return (
