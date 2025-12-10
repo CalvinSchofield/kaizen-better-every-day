@@ -29,6 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { UndoBanner } from "@/components/ui/UndoBanner";
+import { AnimatePresence } from "framer-motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +87,7 @@ const MyGroup = () => {
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
   const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
+  const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
@@ -300,20 +303,10 @@ const MyGroup = () => {
         setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
-        // Show undo toast
-        toast.success('Contact logged', {
-          action: {
-            label: 'Undo',
-            onClick: () => {
-              undismissRecruit(recruit.notionPageId);
-              setLastDismissedRecruit(null);
-            },
-          },
-          duration: 5000,
-        });
+        setUndoBannerMessage(`Contact logged for ${recruit.name || 'recruit'}`);
       }, 300);
     }
-  }, [contactingRecruit, dismissRecruit, undismissRecruit]);
+  }, [contactingRecruit, dismissRecruit]);
 
   // Handle schedule completion - animate out and dismiss
   const handleScheduleComplete = useCallback(() => {
@@ -325,20 +318,24 @@ const MyGroup = () => {
         setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
-        // Show undo toast
-        toast.success('Follow-up scheduled', {
-          action: {
-            label: 'Undo',
-            onClick: () => {
-              undismissRecruit(recruit.notionPageId);
-              setLastDismissedRecruit(null);
-            },
-          },
-          duration: 5000,
-        });
+        setUndoBannerMessage(`Follow-up scheduled for ${recruit.name || 'recruit'}`);
       }, 300);
     }
-  }, [contactingRecruit, dismissRecruit, undismissRecruit]);
+  }, [contactingRecruit, dismissRecruit]);
+
+  // Handle undo from banner
+  const handleUndoDismiss = useCallback(() => {
+    if (lastDismissedRecruit) {
+      undismissRecruit(lastDismissedRecruit.notionPageId);
+      setLastDismissedRecruit(null);
+    }
+    setUndoBannerMessage(null);
+  }, [lastDismissedRecruit, undismissRecruit]);
+
+  const handleBannerDismiss = useCallback(() => {
+    setUndoBannerMessage(null);
+    setLastDismissedRecruit(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -403,7 +400,17 @@ const MyGroup = () => {
               animatingOut={heroAnimatingOut}
             />
 
-            {/* Needs Attention Chips */}
+            {/* Undo Banner */}
+            <AnimatePresence>
+              {undoBannerMessage && (
+                <UndoBanner
+                  message={undoBannerMessage}
+                  onUndo={handleUndoDismiss}
+                  onDismiss={handleBannerDismiss}
+                />
+              )}
+            </AnimatePresence>
+
             <NeedsAttentionChips
               categories={categories}
               selectedCategory={selectedCategoryId}
