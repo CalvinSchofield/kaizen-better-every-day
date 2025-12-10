@@ -118,8 +118,13 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   }, [entries, plannedDays, currentDate, viewMode, today]);
 
   // Calculate total planned days for the season (for ORIGINAL daily goal)
-  const { totalSeasonPlannedDays, totalSeasonDaysWorked } = useMemo(() => {
-    if (!plannedDays) return { totalSeasonPlannedDays: 0, totalSeasonDaysWorked: 0 };
+  // Helper function for knocking day check - must match criteria used in daysWorkedInPeriod
+  const isKnockingDay = (entry: any): boolean => {
+    return (entry.doors_knocked || 0) >= 5 && !!entry.work_start_time && !!entry.work_end_time;
+  };
+
+  const { totalSeasonPlannedDays, totalSeasonKnockingDays } = useMemo(() => {
+    if (!plannedDays) return { totalSeasonPlannedDays: 0, totalSeasonKnockingDays: 0 };
     
     const seasonEndStr = isInPreseason ? PRESEASON_END : personalSummerEnd;
     const seasonStartStr = isInPreseason ? '2025-09-28' : '2026-04-12';
@@ -128,13 +133,15 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       d.planned_date >= seasonStartStr && d.planned_date <= seasonEndStr
     ).length;
     
-    // Days already worked (finalized entries in season)
-    const daysWorked = entries.filter(e => {
+    // Days already worked using SAME knocking day criteria as daysWorkedInPeriod
+    // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
+    const knockingDays = entries.filter(e => {
       if (!e.is_finalized) return false;
-      return e.entry_date >= seasonStartStr && e.entry_date <= seasonEndStr;
+      if (e.entry_date < seasonStartStr || e.entry_date > seasonEndStr) return false;
+      return isKnockingDay(e);
     }).length;
     
-    return { totalSeasonPlannedDays: totalPlanned, totalSeasonDaysWorked: daysWorked };
+    return { totalSeasonPlannedDays: totalPlanned, totalSeasonKnockingDays: knockingDays };
   }, [plannedDays, entries, isInPreseason, personalSummerEnd]);
 
   // Calculate remaining planned days for each season (from TODAY forward)
