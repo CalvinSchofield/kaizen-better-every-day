@@ -82,7 +82,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
-  const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
+  // Default to highest access level available
+  const getDefaultScope = (): 'you' | 'team' | 'mgmt' | 'office' => {
+    if (accessLevel === 'area_director') return 'office';
+    if (accessLevel === 'mgmt_group_lead') return 'mgmt';
+    if (accessLevel === 'team_lead') return 'team';
+    return 'you';
+  };
+  const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>(getDefaultScope());
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
   
