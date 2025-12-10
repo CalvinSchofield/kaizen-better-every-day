@@ -12,7 +12,7 @@ import { isPWAInstalled, hasUserSignedUp, markUserSignedUp, shouldBypassPWAGate 
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -223,20 +223,21 @@ const Auth = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-primary hover:underline font-medium"
-                disabled={isLoading}
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up"
-                  : "Already have an account? Log in"}
-              </button>
-              {isLogin && (
-                <div className="pt-1">
+          <div className="mt-6 text-center">
+            <div className="space-y-3">
+              {isLogin ? (
+                <>
+                  <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
+                    <p className="text-sm text-muted-foreground mb-1">New to Kaizen?</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsLogin(false)}
+                      className="text-primary hover:underline font-semibold text-base"
+                      disabled={isLoading}
+                    >
+                      Create an account →
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => navigate("/forgot-password")}
@@ -245,7 +246,16 @@ const Auth = () => {
                   >
                     Forgot password?
                   </button>
-                </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsLogin(true)}
+                  className="text-primary hover:underline font-medium text-sm"
+                  disabled={isLoading}
+                >
+                  Already have an account? Log in
+                </button>
               )}
             </div>
           </div>
