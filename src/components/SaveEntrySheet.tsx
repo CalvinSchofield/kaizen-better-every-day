@@ -172,9 +172,8 @@ export const SaveEntrySheet = ({
 
   // Combine salesLog (from DB) with localSales (newly added)
   const allSales = useMemo(() => {
-    // If we have salesLog from DB, those are the authoritative source
-    // localSales are for new entries being added in this session
-    return salesLog.length > 0 ? salesLog : localSales;
+    // Combine existing sales from DB with newly added local sales
+    return [...salesLog, ...localSales];
   }, [salesLog, localSales]);
 
   // Calculate FP+ and PRMR from sales
