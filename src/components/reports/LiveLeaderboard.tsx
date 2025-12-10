@@ -22,6 +22,7 @@ interface LiveRepData {
   year?: string;
   phone?: string;
   notionPageId?: string;
+  timezone?: string;
   isWorking?: boolean;
   hasForgottenEntry?: boolean;
   forgottenDate?: string;
@@ -148,11 +149,16 @@ const stripEmojis = (text: string) => {
   return text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]/gu, '').trim();
 };
 
-const formatTime = (timestamp: string | undefined) => {
+const formatTime = (timestamp: string | undefined, timezone: string = 'America/Los_Angeles') => {
   if (!timestamp) return null;
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true,
+      timeZone: timezone
+    });
   } catch {
     return null;
   }
@@ -542,7 +548,7 @@ export const LiveLeaderboard = ({
                 {rep.workStartTime && (
                   <>
                     <Clock className="w-2.5 h-2.5" />
-                    {formatTime(rep.workStartTime)}
+                    {formatTime(rep.workStartTime, rep.timezone)}
                   </>
                 )}
                 {rep.durationMinutes > 0 && ` · ${formatDuration(rep.durationMinutes)}`}

@@ -9,6 +9,7 @@ interface LiveRepData {
   mgmtGroupName: string;
   phone?: string;
   notionPageId?: string;
+  timezone?: string;
   isWorking: boolean;
   hasForgottenEntry: boolean;
   forgottenDate?: string;
@@ -266,6 +267,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               mgmtGroupName,
               phone: repInfo?.phone || undefined,
               notionPageId: repInfo?.notion_page_id || undefined,
+              timezone: timezone || 'America/Los_Angeles',
               isWorking: !todayEntry.is_finalized,
               hasForgottenEntry: !!forgottenEntry,
               forgottenDate: forgottenEntry?.entry_date,
@@ -304,6 +306,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             mgmtGroupName,
             phone: repInfo?.phone || undefined,
             notionPageId: repInfo?.notion_page_id || undefined,
+            timezone: timezone || 'America/Los_Angeles',
             isWorking: false,
             hasForgottenEntry: true,
             forgottenDate: forgottenEntry.entry_date,

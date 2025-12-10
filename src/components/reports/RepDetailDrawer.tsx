@@ -35,6 +35,7 @@ interface RepDetailData {
   hoursWorked: number;
   workStartTime?: string;
   workEndTime?: string;
+  timezone?: string;
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Array<{ type: string; prmr: number; timestamp?: string; install_status?: string }>;
   breakPeriods?: Array<{ start: string; end: string }>;
@@ -46,12 +47,17 @@ interface RepDetailDrawerProps {
   rep: RepDetailData | null;
 }
 
-// Format time from timestamp
-const formatTime = (timestamp: string | undefined) => {
+// Format time from timestamp in a specific timezone
+const formatTimeInTimezone = (timestamp: string | undefined, timezone: string = 'America/Los_Angeles') => {
   if (!timestamp) return null;
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true,
+      timeZone: timezone
+    });
   } catch {
     return null;
   }
@@ -72,13 +78,19 @@ const calculateBreakMinutes = (breakPeriods?: Array<{ start: string; end: string
 };
 
 // Read-only sale chip component
-const ReadOnlySaleChip = ({ sale }: { 
-  sale: { type: string; prmr: number; timestamp?: string; install_status?: string } 
+const ReadOnlySaleChip = ({ sale, timezone = 'America/Los_Angeles' }: { 
+  sale: { type: string; prmr: number; timestamp?: string; install_status?: string };
+  timezone?: string;
 }) => {
   const isFP = sale.type === 'fp';
   const isCancelled = sale.install_status === 'cancelled';
   const timeStr = sale.timestamp 
-    ? format(parseISO(sale.timestamp), 'h:mm a')
+    ? new Date(sale.timestamp).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true,
+        timeZone: timezone
+      })
     : null;
 
   return (
@@ -207,13 +219,13 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
             {rep.workStartTime && (
               <div className="flex items-center gap-1">
                 <Play className="w-3 h-3 text-emerald-500" />
-                <span>{formatTime(rep.workStartTime)}</span>
+                <span>{formatTimeInTimezone(rep.workStartTime, rep.timezone)}</span>
               </div>
             )}
             {rep.workEndTime && (
               <div className="flex items-center gap-1">
                 <Square className="w-3 h-3 text-primary" />
-                <span>{formatTime(rep.workEndTime)}</span>
+                <span>{formatTimeInTimezone(rep.workEndTime, rep.timezone)}</span>
               </div>
             )}
             {breakMinutes > 0 && (
@@ -279,6 +291,7 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
                   counterTimestamps={rep.counterTimestamps}
                   workStartTime={rep.workStartTime}
                   workEndTime={rep.workEndTime}
+                  timezone={rep.timezone}
                 />
               </div>
             </div>
