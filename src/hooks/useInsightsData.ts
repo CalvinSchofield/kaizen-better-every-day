@@ -180,9 +180,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEn
       });
 
       // Helper to determine if an entry is a "knocking day" for pace calculations
-      // A knocking day requires: doors_knocked >= 5 AND work_start_time set AND work_end_time set
+      // A knocking day requires: doors_knocked >= 4 AND work_start_time set AND work_end_time set
       const isKnockingDay = (entry: typeof allEntries[0]): boolean => {
-        return (entry.doors_knocked || 0) >= 5 && 
+        return (entry.doors_knocked || 0) >= 4 && 
                !!entry.work_start_time && 
                !!entry.work_end_time;
       };

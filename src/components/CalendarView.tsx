@@ -56,7 +56,7 @@ export const CalendarView = ({
       const entryDate = parseISO(e.entry_date);
       // Must be before preseason end and meet knocking day criteria
       if (!isBefore(entryDate, preseasonEndDate) && entryDate.getTime() !== preseasonEndDate.getTime()) return false;
-      return (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time;
+      return (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time;
     }).length;
     
     // Use centralized pace calculator

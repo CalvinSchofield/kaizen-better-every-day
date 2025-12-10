@@ -102,7 +102,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
     const workedDays = entries.filter(e => {
       if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
-      return (e.doors_knocked || 0) >= 5 && !!e.work_start_time && !!e.work_end_time;
+      return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
     }).length;
     
     // Count future planned days (from today forward to end of period)
@@ -119,7 +119,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
 
   // Helper function for knocking day check - must match criteria used in daysWorkedInPeriod
   const isKnockingDay = (entry: any): boolean => {
-    return (entry.doors_knocked || 0) >= 5 && !!entry.work_start_time && !!entry.work_end_time;
+    return (entry.doors_knocked || 0) >= 4 && !!entry.work_start_time && !!entry.work_end_time;
   };
 
   // FIXED PACE CALCULATION

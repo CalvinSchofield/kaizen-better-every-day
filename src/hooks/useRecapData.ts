@@ -198,7 +198,7 @@ export function useRecapData(period: 'week' | 'month') {
       const totalPrmr = currentEntries.reduce((sum, e) => sum + (e.prmr || 0), 0);
       
       const daysWorked = currentEntries.filter(e => 
-        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
+        (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length;
       
       const totalHoursWorked = currentEntries.reduce((sum, e) => sum + calculateHoursWorked(e), 0);
@@ -263,7 +263,7 @@ export function useRecapData(period: 'week' | 'month') {
       const prevFpPlus = prevEntries?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
       const prevHours = prevEntries?.reduce((sum, e) => sum + calculateHoursWorked(e), 0) || 0;
       const prevDaysWorked = prevEntries?.filter(e => 
-        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
+        (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
 
       const comparison = {

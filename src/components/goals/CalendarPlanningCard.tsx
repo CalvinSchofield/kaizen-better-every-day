@@ -145,18 +145,18 @@ export const CalendarPlanningCard = ({
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
   // Helper to determine if an entry is a "knocking day" for pace calculation
-  // A knocking day MUST have: doors_knocked >= 5 AND work_start_time AND work_end_time
+  // A knocking day MUST have: doors_knocked >= 4 AND work_start_time AND work_end_time
   // This is used for calculating daily average and pace
   const isKnockingDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null }): boolean => {
-    const hasDoors = (entry.doors_knocked || 0) >= 5;
+    const hasDoors = (entry.doors_knocked || 0) >= 4;
     const hasWorkSession = !!entry.work_start_time && !!entry.work_end_time;
     return hasDoors && hasWorkSession;
   };
   
   // Helper to determine if an entry is a "worked day" for calendar display
-  // A worked day has: doors_knocked >= 5 OR work times set OR any FP+/PRMR/upgrade_prmr results
+  // A worked day has: doors_knocked >= 4 OR work times set OR any FP+/PRMR/upgrade_prmr results
   const isWorkedDay = (entry: { doors_knocked: number | null; work_start_time: string | null; work_end_time: string | null; fp_plus: number | null; prmr: number | null; upgrade_prmr: number | null }): boolean => {
-    const hasDoors = (entry.doors_knocked || 0) >= 5;
+    const hasDoors = (entry.doors_knocked || 0) >= 4;
     const hasWorkSession = entry.work_start_time || entry.work_end_time;
     const hasResults = (entry.fp_plus || 0) > 0 || (entry.prmr || 0) > 0 || (entry.upgrade_prmr || 0) > 0;
     return hasDoors || !!hasWorkSession || hasResults;
