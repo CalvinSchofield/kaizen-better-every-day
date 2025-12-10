@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
+import { EditableRecruitProgress } from "./EditableRecruitProgress";
 import { 
   Phone, 
   MessageSquare, 
@@ -1385,127 +1386,21 @@ export const RecruitDetailDrawer = ({
           </DrawerHeader>
 
           <div className="p-4 space-y-4 overflow-y-auto">
-            {/* Onboarding/Ramp Status Card - Show for rookies who aren't fully ready */}
-            {recruitRepData && (
-              recruitRepData.year === 'Rookie' || !recruitRepData.year
-            ) && !(
-              recruitRepData.onboarding_complete &&
-              recruitRepData.trainings_complete &&
-              recruitRepData.slack_joined &&
-              recruitRepData.ramp_phase_4_complete
-            ) && (
-              <div className={`rounded-lg p-3 ${
-                recruitRepData.ramp_phase_4_complete 
-                  ? 'bg-emerald-500/10 border border-emerald-500/30' 
-                  : recruitRepData.slack_joined 
-                    ? 'bg-purple-500/10 border border-purple-500/30'
-                    : 'bg-amber-500/10 border border-amber-500/30'
-              }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {recruitRepData.ramp_phase_4_complete ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : recruitRepData.slack_joined ? (
-                    <AlertTriangle className="h-4 w-4 text-purple-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                  )}
-                  <span className={`text-sm font-medium ${
-                    recruitRepData.ramp_phase_4_complete 
-                      ? 'text-emerald-700' 
-                      : recruitRepData.slack_joined 
-                        ? 'text-purple-700'
-                        : 'text-amber-700'
-                  }`}>
-                    {recruitRepData.ramp_phase_4_complete 
-                      ? 'Blitz Ready!' 
-                      : recruitRepData.slack_joined 
-                        ? 'In Ramp to Blitz'
-                        : 'Onboarding in Progress'}
-                  </span>
-                </div>
-                
-                {/* Onboarding Progress Steps */}
-                {!recruitRepData.slack_joined && (
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.onboarding_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.onboarding_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Onboarding Video
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.trainings_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.trainings_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Required Trainings
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.slack_joined ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.slack_joined ? 'text-muted-foreground' : 'font-medium'}>
-                        Joined Slack
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Ramp to Blitz Progress */}
-                {recruitRepData.slack_joined && !recruitRepData.ramp_phase_4_complete && (
-                  <div className="space-y-1 text-xs">
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.ramp_phase_1_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.ramp_phase_1_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Phase 1: Onboard & Get Ready
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.ramp_phase_2_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.ramp_phase_2_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Phase 2: Start Training
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.ramp_phase_3_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.ramp_phase_3_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Phase 3: Practice
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {recruitRepData.ramp_phase_4_complete ? (
-                        <Check className="h-3 w-3 text-emerald-600" />
-                      ) : (
-                        <X className="h-3 w-3 text-red-500" />
-                      )}
-                      <span className={recruitRepData.ramp_phase_4_complete ? 'text-muted-foreground' : 'font-medium'}>
-                        Phase 4: Saddle Up
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* Editable Onboarding/Ramp Status Card - Show for rookies who aren't fully ready */}
+            {(recruit.year === 'Rookie' || recruit.year === '2025' || recruitRepData?.year === 'Rookie' || !recruit.year) && (
+              <EditableRecruitProgress 
+                recruit={recruit} 
+                repData={recruitRepData ? {
+                  onboarding_complete: recruitRepData.onboarding_complete,
+                  trainings_complete: recruitRepData.trainings_complete,
+                  slack_joined: recruitRepData.slack_joined,
+                  ipad_assigned: recruitRepData.ipad_assigned,
+                  ramp_phase_1_complete: recruitRepData.ramp_phase_1_complete,
+                  ramp_phase_2_complete: recruitRepData.ramp_phase_2_complete,
+                  ramp_phase_3_complete: recruitRepData.ramp_phase_3_complete,
+                  ramp_phase_4_complete: recruitRepData.ramp_phase_4_complete,
+                } : null}
+              />
             )}
             
             {/* Preseason FP+ Goal Progress - always shows FP+ regardless of EFP mode */}
