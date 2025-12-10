@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, MessageCircle, Phone } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -65,7 +65,160 @@ interface TeamMember {
   year: string | null;
   stage: string | null;
   onboardingStatus: string | null;
+  teamId?: string | null;
+  teamName?: string | null;
 }
+
+// Polished invite member row with contact actions
+const InviteMemberRow = ({ 
+  member, 
+  blitzId,
+  isContacted, 
+  isDeclined,
+  onToggleContacted,
+  onCommit,
+  onToggleDeclined,
+}: {
+  member: TeamMember;
+  blitzId: string;
+  isContacted: boolean;
+  isDeclined: boolean;
+  onToggleContacted: () => void;
+  onCommit: () => void;
+  onToggleDeclined: () => void;
+}) => {
+  const phone = member.phone?.replace(/\D/g, '') || '';
+  const hasPhone = phone.length >= 10;
+  
+  const handleText = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (hasPhone) {
+      window.location.href = `sms:${phone}`;
+      // Also mark as contacted
+      onToggleContacted();
+    }
+  };
+  
+  const handleCall = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (hasPhone) {
+      window.location.href = `tel:${phone}`;
+      // Also mark as contacted
+      onToggleContacted();
+    }
+  };
+  
+  if (isDeclined) {
+    return (
+      <div className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border/50 opacity-60">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-destructive text-xs">✕</span>
+          <span className="font-medium text-sm truncate line-through text-muted-foreground">
+            {member.name}
+          </span>
+          <span className="text-xs text-muted-foreground">(declined)</span>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs text-muted-foreground"
+          onClick={onToggleDeclined}
+        >
+          Undo
+        </Button>
+      </div>
+    );
+  }
+  
+  if (isContacted) {
+    return (
+      <div className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border/50 opacity-70">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Check className="h-3.5 w-3.5 text-green-500" />
+          <span className="font-medium text-sm truncate text-muted-foreground">
+            {member.name}
+          </span>
+          <span className="text-xs text-green-600 dark:text-green-400">contacted</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {hasPhone && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                onClick={handleText}
+                title="Send text message"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-green-600 hover:bg-green-500/10"
+                onClick={handleCall}
+                title="Call"
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex items-center justify-between p-2.5 border rounded-lg bg-card hover:bg-muted/30 transition-colors">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <span className={`font-medium text-sm truncate ${
+          member.year === "Rookie" 
+            ? "text-orange-600 dark:text-orange-400" 
+            : ""
+        }`}>
+          {member.name}
+        </span>
+        {member.year === "Rookie" && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-medium">
+            Rookie
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-1">
+        {hasPhone && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              onClick={handleText}
+              title="Send text message"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-green-600 hover:bg-green-500/10"
+              onClick={handleCall}
+              title="Call"
+            >
+              <Phone className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 px-3 text-xs ml-1"
+          onClick={onCommit}
+        >
+          Commit
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers, isTeamLead: propIsTeamLead, isLoadingBlitzes = false, isLoadingTeam = false, onTeamMemberUpdate, onCommitmentChange, accessLevel = 'none', mgmtGroups = [], teams = [] }: VetBlitzCardProps) => {
   const { toast } = useToast();
@@ -1037,89 +1190,99 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                             })()}
                           </Button>
                         </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-2 pt-2">
+                      <CollapsibleContent className="space-y-3 pt-3">
                         {uncommittedMembers.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
                             All team members are already committed to this blitz
                           </p>
                         ) : (
-                          uncommittedMembers.map((member) => {
-                            const isContactedForThisBlitz = (contactedMembers[blitz.id] || []).includes(member.notionPageId);
-                            const isDeclinedForThisBlitz = (declinedMembers[blitz.id] || []).includes(member.notionPageId);
+                          (() => {
+                            // Group members by team for MGMT and AD views
+                            const shouldGroupByTeam = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead';
                             
-                            return (
-                              <div
-                                key={member.notionPageId}
-                                className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
-                                  isDeclinedForThisBlitz 
-                                    ? 'bg-destructive/10 border-destructive/30 opacity-60' 
-                                    : isContactedForThisBlitz 
-                                      ? 'bg-muted/50 opacity-60' 
-                                      : 'bg-card'
-                                }`}
-                              >
-                                <button
-                                  onClick={() => !isDeclinedForThisBlitz && toggleContactedStatus(member.notionPageId, blitz.id)}
-                                  className={`flex items-center gap-2 flex-1 text-left min-w-0 ${isDeclinedForThisBlitz ? 'cursor-default' : ''}`}
-                                  disabled={isDeclinedForThisBlitz}
-                                >
-                                  {isDeclinedForThisBlitz && (
-                                    <span className="text-destructive text-xs">✕</span>
-                                  )}
-                                  <span className={`font-medium text-sm truncate transition-all ${
-                                    isDeclinedForThisBlitz 
-                                      ? 'line-through text-muted-foreground' 
-                                      : isContactedForThisBlitz 
-                                        ? 'line-through text-muted-foreground' 
-                                        : member.year === "Rookie" 
-                                          ? "text-orange-600 dark:text-orange-400" 
-                                          : ""
-                                  }`}>
-                                    {member.name}
-                                  </span>
-                                  {isDeclinedForThisBlitz && (
-                                    <span className="text-xs text-muted-foreground">(declined)</span>
-                                  )}
-                                </button>
-                                <div className="flex items-center gap-1.5">
-                                  {isDeclinedForThisBlitz ? (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 px-2 text-xs text-muted-foreground"
-                                      onClick={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
-                                    >
-                                      Undo
-                                    </Button>
-                                  ) : (
-                                    <>
-                                      {!isContactedForThisBlitz && (
-                                        <>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
-                                            title="Mark as declined"
-                                          >
-                                            <X className="h-4 w-4" />
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="default"
-                                            className="h-7 px-3 text-xs"
-                                            onClick={() => promptMemberCommitment(member, blitz.id, false)}
-                                          >
-                                            Commit
-                                          </Button>
-                                        </>
-                                      )}
-                                    </>
-                                  )}
+                            if (shouldGroupByTeam) {
+                              // Group by team
+                              const teamGroups: { [teamName: string]: typeof uncommittedMembers } = {};
+                              uncommittedMembers.forEach(member => {
+                                const teamName = member.teamName || 'Other';
+                                if (!teamGroups[teamName]) {
+                                  teamGroups[teamName] = [];
+                                }
+                                teamGroups[teamName].push(member);
+                              });
+                              
+                              // Sort teams alphabetically, sort members within each team alphabetically
+                              const sortedTeamNames = Object.keys(teamGroups).sort((a, b) => a.localeCompare(b));
+                              
+                              return (
+                                <div className="space-y-4">
+                                  {sortedTeamNames.map(teamName => {
+                                    const teamMembers = teamGroups[teamName].sort((a, b) => a.name.localeCompare(b.name));
+                                    const teamUninvitedCount = teamMembers.filter(
+                                      m => !(contactedMembers[blitz.id] || []).includes(m.notionPageId) &&
+                                           !(declinedMembers[blitz.id] || []).includes(m.notionPageId)
+                                    ).length;
+                                    
+                                    return (
+                                      <Collapsible key={teamName} defaultOpen={teamUninvitedCount > 0}>
+                                        <CollapsibleTrigger className="w-full">
+                                          <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                                            <div className="flex items-center gap-2">
+                                              <Users className="h-4 w-4 text-muted-foreground" />
+                                              <span className="font-medium text-sm">{teamName}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              {teamUninvitedCount > 0 ? (
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                                  {teamUninvitedCount} to invite
+                                                </span>
+                                              ) : (
+                                                <Check className="h-4 w-4 text-green-500" />
+                                              )}
+                                              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                                            </div>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="space-y-2 pt-2 pl-2">
+                                          {teamMembers.map(member => (
+                                            <InviteMemberRow 
+                                              key={member.notionPageId}
+                                              member={member}
+                                              blitzId={blitz.id}
+                                              isContacted={(contactedMembers[blitz.id] || []).includes(member.notionPageId)}
+                                              isDeclined={(declinedMembers[blitz.id] || []).includes(member.notionPageId)}
+                                              onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
+                                              onCommit={() => promptMemberCommitment(member, blitz.id, false)}
+                                              onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                            />
+                                          ))}
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    );
+                                  })}
                                 </div>
-                              </div>
-                            );
-                          })
+                              );
+                            } else {
+                              // Flat list for team leads - sorted alphabetically
+                              const sortedMembers = [...uncommittedMembers].sort((a, b) => a.name.localeCompare(b.name));
+                              return (
+                                <div className="space-y-2">
+                                  {sortedMembers.map(member => (
+                                    <InviteMemberRow 
+                                      key={member.notionPageId}
+                                      member={member}
+                                      blitzId={blitz.id}
+                                      isContacted={(contactedMembers[blitz.id] || []).includes(member.notionPageId)}
+                                      isDeclined={(declinedMembers[blitz.id] || []).includes(member.notionPageId)}
+                                      onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
+                                      onCommit={() => promptMemberCommitment(member, blitz.id, false)}
+                                      onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            }
+                          })()
                         )}
                       </CollapsibleContent>
                     </div>

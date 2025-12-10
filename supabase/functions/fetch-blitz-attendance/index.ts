@@ -17,6 +17,8 @@ interface TeamMember {
   stage: string | null;
   onboardingStatus: string | null;
   userId?: string | null; // Optional - only present if rep has app access
+  teamId?: string | null; // The team this member belongs to
+  teamName?: string | null; // The team name for display
 }
 
 Deno.serve(async (req) => {
@@ -99,6 +101,13 @@ Deno.serve(async (req) => {
       
       console.log(`Fetched ${teams.length} teams from Notion`);
 
+      // Build a map of team IDs to team names
+      const teamNameMap: { [teamId: string]: string } = {};
+      for (const team of teams) {
+        const teamName = team.properties?.Name?.title?.[0]?.plain_text || "Unknown Team";
+        teamNameMap[team.id] = teamName;
+      }
+
       // Determine which teams the leader has access to based on scope
       let accessibleTeamIds: string[] = [];
 
@@ -145,11 +154,13 @@ Deno.serve(async (req) => {
       // Filter reps based on accessible teams
       for (const rep of notionReps) {
         const teamsRelation = rep.properties?.Teams?.relation || [];
-        const hasAccessToRep = teamsRelation.some((teamRel: any) =>
+        
+        // Find which accessible team this rep belongs to (use first match)
+        const matchingTeamId = teamsRelation.find((teamRel: any) =>
           accessibleTeamIds.includes(teamRel.id)
-        );
+        )?.id || null;
 
-        if (!hasAccessToRep) continue;
+        if (!matchingTeamId) continue;
 
         // Extract Notion data
         const notionName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
@@ -180,7 +191,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Add all team members regardless of app access
+        // Add all team members regardless of app access - now with team info
         accessibleReps.push({
           notionPageId: rep.id,
           name: notionName,
@@ -193,9 +204,11 @@ Deno.serve(async (req) => {
           stage: notionStage,
           onboardingStatus,
           userId, // Include userId if they have app access, null otherwise
+          teamId: matchingTeamId,
+          teamName: teamNameMap[matchingTeamId] || null,
         });
         
-        console.log(`✓ Added rep: ${notionName} (App access: ${userId ? 'Yes' : 'No'})`);
+        console.log(`✓ Added rep: ${notionName} (Team: ${teamNameMap[matchingTeamId] || 'Unknown'})`);
       }
       
       console.log(`Total accessible reps found: ${accessibleReps.length}`);
