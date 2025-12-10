@@ -84,6 +84,7 @@ const MyGroup = () => {
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
+  const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
@@ -236,7 +237,7 @@ const MyGroup = () => {
   }, [allRecruits, teamAccess]);
 
   // Dismissed recruits for Today's Focus
-  const { dismissRecruit, isRecuitDismissed } = useDismissedRecruits();
+  const { dismissRecruit, undismissRecruit, isRecuitDismissed } = useDismissedRecruits();
 
   // Calculate needs attention metrics for chips - use allBlitzesIncludingPast to properly detect past attendance
   const { categories, totalCount } = useNeedsAttention(
@@ -293,25 +294,51 @@ const MyGroup = () => {
   const handleContactMethodComplete = useCallback(() => {
     if (contactingRecruit) {
       setHeroAnimatingOut(true);
+      const recruit = contactingRecruit;
       setTimeout(() => {
-        dismissRecruit(contactingRecruit.notionPageId);
+        dismissRecruit(recruit.notionPageId);
+        setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
+        // Show undo toast
+        toast.success('Contact logged', {
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              undismissRecruit(recruit.notionPageId);
+              setLastDismissedRecruit(null);
+            },
+          },
+          duration: 5000,
+        });
       }, 300);
     }
-  }, [contactingRecruit, dismissRecruit]);
+  }, [contactingRecruit, dismissRecruit, undismissRecruit]);
 
   // Handle schedule completion - animate out and dismiss
   const handleScheduleComplete = useCallback(() => {
     if (contactingRecruit) {
       setHeroAnimatingOut(true);
+      const recruit = contactingRecruit;
       setTimeout(() => {
-        dismissRecruit(contactingRecruit.notionPageId);
+        dismissRecruit(recruit.notionPageId);
+        setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
+        // Show undo toast
+        toast.success('Follow-up scheduled', {
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              undismissRecruit(recruit.notionPageId);
+              setLastDismissedRecruit(null);
+            },
+          },
+          duration: 5000,
+        });
       }, 300);
     }
-  }, [contactingRecruit, dismissRecruit]);
+  }, [contactingRecruit, dismissRecruit, undismissRecruit]);
 
   if (isLoading) {
     return (
@@ -531,12 +558,7 @@ const MyGroup = () => {
       />
       <ContactMethodDrawer
         open={contactMethodDrawerOpen}
-        onOpenChange={(open) => {
-          setContactMethodDrawerOpen(open);
-          if (!open) {
-            setContactingRecruit(null);
-          }
-        }}
+        onOpenChange={setContactMethodDrawerOpen}
         recruit={contactingRecruit}
         onComplete={handleContactMethodComplete}
       />

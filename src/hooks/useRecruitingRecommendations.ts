@@ -98,46 +98,56 @@ export const useRecruitingRecommendations = (
       let nearestBlitzDays: number | undefined;
       let nearestBlitzName: string | undefined;
       
-      if (isSignedOrShadow && repDataMap && blitzes) {
-        const repData = repDataMap.get(recruit.notionPageId);
-        if (repData) {
+      if (isSignedOrShadow && blitzes) {
+        const repData = repDataMap?.get(recruit.notionPageId);
+        
+        // Use committedBlitzes from Notion (recruit object) OR from reps table (repData)
+        // Prefer Notion data as it's more up-to-date
+        let committedBlitzIds: string[] = [];
+        
+        // First try recruit's committedBlitzes from Notion (most reliable)
+        if (recruit.committedBlitzes && recruit.committedBlitzes.length > 0) {
+          committedBlitzIds = recruit.committedBlitzes.map(b => b.id);
+        } 
+        // Fall back to repData.committed_blitzes from reps table
+        else if (repData) {
           const rawCommitments = repData.committed_blitzes || [];
-          const committedBlitzIds: string[] = Array.isArray(rawCommitments)
+          committedBlitzIds = Array.isArray(rawCommitments)
             ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
             : [];
+        }
 
-          // Find nearest committed blitz
-          for (const blitz of upcomingBlitzes) {
-            if (committedBlitzIds.includes(blitz.id)) {
-              const days = differenceInDays(parseISO(blitz.date), now);
-              if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
-                nearestBlitzDays = days;
-                nearestBlitzName = blitz.name;
-                hasUpcomingBlitz = true;
-              }
+        // Find nearest committed blitz
+        for (const blitz of upcomingBlitzes) {
+          if (committedBlitzIds.includes(blitz.id)) {
+            const days = differenceInDays(parseISO(blitz.date), now);
+            if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
+              nearestBlitzDays = days;
+              nearestBlitzName = blitz.name;
+              hasUpcomingBlitz = true;
             }
           }
+        }
 
-          // Check for missing items if they have an upcoming blitz
-          if (hasUpcomingBlitz) {
-            const missing: string[] = [];
-            if (!repData.ipad_assigned) missing.push('iPad');
-            if (!repData.ramp_phase_4_complete) {
-              const incompletePhases: string[] = [];
-              if (!repData.ramp_phase_1_complete) incompletePhases.push('Phase 1');
-              if (!repData.ramp_phase_2_complete) incompletePhases.push('Phase 2');
-              if (!repData.ramp_phase_3_complete) incompletePhases.push('Phase 3');
-              if (!repData.ramp_phase_4_complete) incompletePhases.push('Phase 4');
-              if (incompletePhases.length > 0) {
-                missing.push(`${incompletePhases.length} ramp phase${incompletePhases.length > 1 ? 's' : ''}`);
-              }
+        // Check for missing items if they have an upcoming blitz
+        if (hasUpcomingBlitz && repData) {
+          const missing: string[] = [];
+          if (!repData.ipad_assigned) missing.push('iPad');
+          if (!repData.ramp_phase_4_complete) {
+            const incompletePhases: string[] = [];
+            if (!repData.ramp_phase_1_complete) incompletePhases.push('Phase 1');
+            if (!repData.ramp_phase_2_complete) incompletePhases.push('Phase 2');
+            if (!repData.ramp_phase_3_complete) incompletePhases.push('Phase 3');
+            if (!repData.ramp_phase_4_complete) incompletePhases.push('Phase 4');
+            if (incompletePhases.length > 0) {
+              missing.push(`${incompletePhases.length} ramp phase${incompletePhases.length > 1 ? 's' : ''}`);
             }
-            if (!repData.onboarding_complete) missing.push('Onboarding');
-            if (!repData.trainings_complete) missing.push('Trainings');
-            
-            if (missing.length > 0) {
-              missingItems = missing;
-            }
+          }
+          if (!repData.onboarding_complete) missing.push('Onboarding');
+          if (!repData.trainings_complete) missing.push('Trainings');
+          
+          if (missing.length > 0) {
+            missingItems = missing;
           }
         }
       }
