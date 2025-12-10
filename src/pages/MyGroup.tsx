@@ -240,7 +240,7 @@ const MyGroup = () => {
   }, [allRecruits, teamAccess]);
 
   // Dismissed recruits for Today's Focus
-  const { dismissRecruit, undismissRecruit, isRecuitDismissed } = useDismissedRecruits();
+  const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed } = useDismissedRecruits();
 
   // Calculate needs attention metrics for chips - use allBlitzesIncludingPast to properly detect past attendance
   const { categories, totalCount } = useNeedsAttention(
@@ -337,6 +337,13 @@ const MyGroup = () => {
     setLastDismissedRecruit(null);
   }, []);
 
+  // Handle dismissal from WeekPlannerSection recommendations
+  const handleWeekPlannerDismiss = useCallback((recruit: Recruit, message: string) => {
+    dismissRecruit(recruit.notionPageId);
+    setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
+    setUndoBannerMessage(message);
+  }, [dismissRecruit]);
+
   if (isLoading) {
     return (
       <Layout>
@@ -424,6 +431,8 @@ const MyGroup = () => {
               onRecruitClick={handleRecruitClick}
               blitzes={allBlitzesIncludingPast}
               repDataMap={repDataMap}
+              dismissedIds={dismissedIds}
+              onDismiss={handleWeekPlannerDismiss}
             />
 
             {/* Pending Suggestions */}

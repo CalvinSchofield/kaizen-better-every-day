@@ -6,17 +6,22 @@ import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { PostContactDrawer } from "./PostContactDrawer";
 import { SwipeableRecommendationItem } from "./SwipeableRecommendationItem";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface RecommendationsSectionProps {
   recommendations: RecruitRecommendation[];
   onRecruitClick: (recruit: RecruitRecommendation['recruit']) => void;
   maxItems?: number;
+  dismissedIds?: Set<string>;
+  onDismiss?: (recruit: Recruit, message: string) => void;
 }
 
 export const RecommendationsSection = ({ 
   recommendations, 
   onRecruitClick,
-  maxItems = 5 
+  maxItems = 5,
+  dismissedIds,
+  onDismiss,
 }: RecommendationsSectionProps) => {
   // Contact method drawer state (Call/Text/In Person options)
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
@@ -30,11 +35,23 @@ export const RecommendationsSection = ({
   const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
   const [postContactMethod, setPostContactMethod] = useState<'call' | 'text'>('call');
 
+  // Animating out state for individual cards
+  const [animatingOutId, setAnimatingOutId] = useState<string | null>(null);
+
   if (recommendations.length === 0) {
     return null;
   }
 
-  const topRecommendations = recommendations.slice(0, maxItems);
+  // Filter out dismissed recruits
+  const filteredRecommendations = dismissedIds 
+    ? recommendations.filter(r => !dismissedIds.has(r.recruit.notionPageId))
+    : recommendations;
+
+  const topRecommendations = filteredRecommendations.slice(0, maxItems);
+
+  if (topRecommendations.length === 0) {
+    return null;
+  }
 
   const handleContact = (recruit: Recruit) => {
     setContactRecruit(recruit);
@@ -57,6 +74,55 @@ export const RecommendationsSection = ({
     setPostContactOpen(true);
   };
 
+  // Handle contact method complete - dismiss with animation
+  const handleContactMethodComplete = () => {
+    if (contactRecruit && onDismiss) {
+      setAnimatingOutId(contactRecruit.notionPageId);
+      const recruit = contactRecruit;
+      setTimeout(() => {
+        onDismiss(recruit, `Contact logged for ${recruit.name || 'recruit'}`);
+        setAnimatingOutId(null);
+        setContactRecruit(null);
+      }, 300);
+    } else {
+      setContactRecruit(null);
+    }
+  };
+
+  // Handle post-contact complete (direct call/text) - dismiss with animation
+  const handlePostContactComplete = () => {
+    if (postContactRecruit && onDismiss) {
+      setAnimatingOutId(postContactRecruit.notionPageId);
+      const recruit = postContactRecruit;
+      setTimeout(() => {
+        onDismiss(recruit, `Contact logged for ${recruit.name || 'recruit'}`);
+        setAnimatingOutId(null);
+        setPostContactRecruit(null);
+        setPostContactOpen(false);
+      }, 300);
+    } else {
+      setPostContactRecruit(null);
+      setPostContactOpen(false);
+    }
+  };
+
+  // Handle schedule complete - dismiss with animation
+  const handleScheduleComplete = () => {
+    if (schedulingRecruit && onDismiss) {
+      setAnimatingOutId(schedulingRecruit.notionPageId);
+      const recruit = schedulingRecruit;
+      setTimeout(() => {
+        onDismiss(recruit, `Follow-up scheduled for ${recruit.name || 'recruit'}`);
+        setAnimatingOutId(null);
+        setSchedulingRecruit(null);
+        setScheduleOpen(false);
+      }, 300);
+    } else {
+      setSchedulingRecruit(null);
+      setScheduleOpen(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-3">
@@ -69,17 +135,30 @@ export const RecommendationsSection = ({
         </p>
         
         <div className="space-y-2">
-          {topRecommendations.map((rec) => (
-            <SwipeableRecommendationItem
-              key={rec.recruit.notionPageId}
-              recommendation={rec}
-              onRecruitClick={onRecruitClick}
-              onContact={handleContact}
-              onSchedule={handleSchedule}
-              onDirectCall={handleDirectCall}
-              onDirectText={handleDirectText}
-            />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {topRecommendations.map((rec) => (
+              <motion.div
+                key={rec.recruit.notionPageId}
+                layout
+                initial={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ 
+                  opacity: animatingOutId === rec.recruit.notionPageId ? 0 : 1,
+                  height: animatingOutId === rec.recruit.notionPageId ? 0 : 'auto'
+                }}
+                transition={{ duration: 0.3 }}
+              >
+                <SwipeableRecommendationItem
+                  recommendation={rec}
+                  onRecruitClick={onRecruitClick}
+                  onContact={handleContact}
+                  onSchedule={handleSchedule}
+                  onDirectCall={handleDirectCall}
+                  onDirectText={handleDirectText}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -88,6 +167,7 @@ export const RecommendationsSection = ({
         open={!!contactRecruit}
         onOpenChange={(open) => !open && setContactRecruit(null)}
         recruit={contactRecruit}
+        onComplete={handleContactMethodComplete}
       />
 
       {/* Schedule Follow-up Drawer */}
@@ -98,6 +178,7 @@ export const RecommendationsSection = ({
           if (!open) setSchedulingRecruit(null);
         }}
         recruit={schedulingRecruit}
+        onComplete={handleScheduleComplete}
       />
 
       {/* Post-Contact Drawer (for direct call/text flow) */}
@@ -109,6 +190,7 @@ export const RecommendationsSection = ({
         }}
         recruit={postContactRecruit}
         contactMethod={postContactMethod}
+        onComplete={handlePostContactComplete}
       />
     </>
   );

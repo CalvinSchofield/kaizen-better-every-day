@@ -27,6 +27,7 @@ import {
   isThisWeek
 } from "date-fns";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Helper to get first name from full name
 const getFirstName = (name: string | null): string => {
@@ -65,6 +66,8 @@ interface WeekPlannerSectionProps {
   onRecruitClick: (recruit: Recruit) => void;
   blitzes?: BlitzEvent[];
   repDataMap?: Map<string, RepData>;
+  dismissedIds?: Set<string>;
+  onDismiss?: (recruit: Recruit, message: string) => void;
 }
 
 export const WeekPlannerSection = ({ 
@@ -72,7 +75,9 @@ export const WeekPlannerSection = ({
   activities,
   onRecruitClick,
   blitzes,
-  repDataMap
+  repDataMap,
+  dismissedIds,
+  onDismiss,
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -100,7 +105,15 @@ export const WeekPlannerSection = ({
     [recruits]
   );
 
-  const recommendations = useRecruitingRecommendations(filteredRecruits, activities, blitzes, repDataMap);
+  const allRecommendations = useRecruitingRecommendations(filteredRecruits, activities, blitzes, repDataMap);
+  
+  // Filter out dismissed recommendations
+  const recommendations = useMemo(() => 
+    dismissedIds 
+      ? allRecommendations.filter(r => !dismissedIds.has(r.recruit.notionPageId))
+      : allRecommendations,
+    [allRecommendations, dismissedIds]
+  );
 
   // Get week days (starting Sunday)
   const weekDays = useMemo(() =>
@@ -378,20 +391,29 @@ export const WeekPlannerSection = ({
               <span>Recommended Today</span>
             </div>
             <div className="space-y-2">
-              {recommendations.slice(0, 4).map((rec, index) => (
-                <SwipeableTaskItem
-                  key={rec.recruit.notionPageId}
-                  recruit={rec.recruit}
-                  reason={rec.reason}
-                  reasonBadge={rec.reasonBadge}
-                  daysSinceContact={rec.daysSinceContact}
-                  onRecruitClick={handleLocalRecruitClick}
-                  onContact={handleSwipeContact}
-                  onSchedule={handleSwipeSchedule}
-                  showSwipeDemo={index === 0 && todayTasks.length === 0}
-                  onDemoComplete={handleDemoComplete}
-                />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {recommendations.slice(0, 4).map((rec, index) => (
+                  <motion.div
+                    key={rec.recruit.notionPageId}
+                    layout
+                    initial={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <SwipeableTaskItem
+                      recruit={rec.recruit}
+                      reason={rec.reason}
+                      reasonBadge={rec.reasonBadge}
+                      daysSinceContact={rec.daysSinceContact}
+                      onRecruitClick={handleLocalRecruitClick}
+                      onContact={handleSwipeContact}
+                      onSchedule={handleSwipeSchedule}
+                      showSwipeDemo={index === 0 && todayTasks.length === 0}
+                      onDemoComplete={handleDemoComplete}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         )}
@@ -454,14 +476,24 @@ export const WeekPlannerSection = ({
         open={contactMethodOpen}
         onOpenChange={setContactMethodOpen}
         recruit={contactingRecruit}
-        onComplete={() => setContactMethodOpen(false)}
+        onComplete={() => {
+          setContactMethodOpen(false);
+          if (contactingRecruit && onDismiss) {
+            onDismiss(contactingRecruit, `Contact logged for ${contactingRecruit.name || 'recruit'}`);
+          }
+        }}
       />
 
       <ScheduleFollowUpDrawer
         open={scheduleOpen}
         onOpenChange={setScheduleOpen}
         recruit={contactingRecruit}
-        onComplete={() => setScheduleOpen(false)}
+        onComplete={() => {
+          setScheduleOpen(false);
+          if (contactingRecruit && onDismiss) {
+            onDismiss(contactingRecruit, `Follow-up scheduled for ${contactingRecruit.name || 'recruit'}`);
+          }
+        }}
       />
     </div>
   );
