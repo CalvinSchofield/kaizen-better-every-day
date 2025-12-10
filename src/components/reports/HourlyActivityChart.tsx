@@ -6,6 +6,7 @@ interface HourlyActivityChartProps {
   counterTimestamps?: Record<string, string[]>;
   workStartTime?: string;
   workEndTime?: string;
+  timezone?: string;
 }
 
 type ActivityType = 'all' | 'doors_knocked' | 'decision_makers' | 'pitches' | 'transitions' | 'presentations' | 'closes';
@@ -20,10 +21,26 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   closes: 'Closes'
 };
 
+// Get hour in a specific timezone
+const getHourInTimezone = (timestamp: string, timezone: string): number => {
+  try {
+    const date = new Date(timestamp);
+    const localTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(date);
+    return parseInt(localTime);
+  } catch {
+    return new Date(timestamp).getHours();
+  }
+};
+
 export const HourlyActivityChart = ({
   counterTimestamps,
   workStartTime,
   workEndTime,
+  timezone = 'America/Los_Angeles',
 }: HourlyActivityChartProps) => {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType>('all');
   
@@ -46,14 +63,14 @@ export const HourlyActivityChart = ({
 
   const chartData = useMemo(() => {
     // Collect timestamps based on selected activity
-    const allTimestamps: Date[] = [];
+    const allTimestampStrings: string[] = [];
     
     if (counterTimestamps) {
       if (selectedActivity === 'all') {
         Object.values(counterTimestamps).forEach(timestamps => {
           if (Array.isArray(timestamps)) {
             timestamps.forEach(ts => {
-              allTimestamps.push(new Date(ts));
+              allTimestampStrings.push(ts);
             });
           }
         });
@@ -61,27 +78,27 @@ export const HourlyActivityChart = ({
         const timestamps = counterTimestamps[selectedActivity];
         if (Array.isArray(timestamps)) {
           timestamps.forEach(ts => {
-            allTimestamps.push(new Date(ts));
+            allTimestampStrings.push(ts);
           });
         }
       }
     }
 
-    if (allTimestamps.length === 0) return [];
+    if (allTimestampStrings.length === 0) return [];
 
-    // Find min/max hours from work times or activity
+    // Find min/max hours from work times or activity - using rep's timezone
     let minHour = 24;
     let maxHour = 0;
     
     if (workStartTime) {
-      minHour = new Date(workStartTime).getHours();
+      minHour = getHourInTimezone(workStartTime, timezone);
     }
     if (workEndTime) {
-      maxHour = new Date(workEndTime).getHours();
+      maxHour = getHourInTimezone(workEndTime, timezone);
     }
 
-    allTimestamps.forEach(ts => {
-      const hour = ts.getHours();
+    allTimestampStrings.forEach(ts => {
+      const hour = getHourInTimezone(ts, timezone);
       minHour = Math.min(minHour, hour);
       maxHour = Math.max(maxHour, hour);
     });
@@ -92,8 +109,8 @@ export const HourlyActivityChart = ({
       hourCounts[h] = 0;
     }
 
-    allTimestamps.forEach(ts => {
-      const hour = ts.getHours();
+    allTimestampStrings.forEach(ts => {
+      const hour = getHourInTimezone(ts, timezone);
       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     });
 
@@ -111,7 +128,7 @@ export const HourlyActivityChart = ({
         isMax: count === maxCount && count > 0,
       };
     });
-  }, [counterTimestamps, workStartTime, workEndTime, selectedActivity]);
+  }, [counterTimestamps, workStartTime, workEndTime, selectedActivity, timezone]);
 
   if (!counterTimestamps || Object.keys(counterTimestamps).length === 0) {
     return (
