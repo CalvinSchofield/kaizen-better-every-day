@@ -54,13 +54,14 @@ const getCurrentWeekStart = (): string => {
 };
 
 // Get cached goals data for instant loading
+// Cache is valid for 24 hours to prevent re-showing wizard on app restart
 const getCachedGoals = (userId: string): RepGoals | null => {
   try {
     const cached = localStorage.getItem(`rep-goals-cache-${userId}`);
     if (cached) {
       const parsed = JSON.parse(cached);
-      // Use cache if less than 5 minutes old
-      if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+      // Use cache if less than 24 hours old to prevent wizard flashing on app restart
+      if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
         return {
           ...parsed.data,
           training_hours_history: Array.isArray(parsed.data.training_hours_history)
