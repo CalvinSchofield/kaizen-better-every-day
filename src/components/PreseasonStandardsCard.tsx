@@ -69,7 +69,7 @@ export const PreseasonStandardsCard = () => {
         .lte('entry_date', '2026-04-11');
       
       const knockingDays = entries?.filter(e => 
-        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
+        (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
       
       return { knockingDays };

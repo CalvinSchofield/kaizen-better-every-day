@@ -95,9 +95,9 @@ const Goals = () => {
       
       if (error) return { knockingDays: 0 };
       
-      // Count only "knocking days" (doors >= 5 AND has both work times)
+      // Count only "knocking days" (doors >= 4 AND has both work times)
       const knockingDays = entries?.filter(e => 
-        (e.doors_knocked || 0) >= 5 && e.work_start_time && e.work_end_time
+        (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
       
       return { knockingDays };

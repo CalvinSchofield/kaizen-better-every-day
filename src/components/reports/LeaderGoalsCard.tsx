@@ -118,8 +118,8 @@ export const LeaderGoalsCard = ({
         const fpPlus = (entry.fp_plus || 0) + ((entry.upgrade_prmr || 0) / 85);
         fpByUser[entry.user_id] = (fpByUser[entry.user_id] || 0) + fpPlus;
         
-        // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
-        const isKnockingDay = (entry.doors_knocked || 0) >= 5 && 
+        // Knocking day = doors >= 4 AND work_start_time AND work_end_time set
+        const isKnockingDay = (entry.doors_knocked || 0) >= 4 && 
                               !!entry.work_start_time && 
                               !!entry.work_end_time;
         if (isKnockingDay) {

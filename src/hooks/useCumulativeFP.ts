@@ -40,9 +40,9 @@ export const useCumulativeFP = () => {
 
       if (!entries || entries.length === 0) return [];
 
-      // A knocking day requires: doors_knocked >= 5 AND work_start_time set AND work_end_time set
+      // A knocking day requires: doors_knocked >= 4 AND work_start_time set AND work_end_time set
       const isKnockingDay = (entry: typeof entries[0]): boolean => {
-        return (entry.doors_knocked || 0) >= 5 && 
+        return (entry.doors_knocked || 0) >= 4 && 
                !!entry.work_start_time && 
                !!entry.work_end_time;
       };
