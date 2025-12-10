@@ -53,7 +53,7 @@ const Goals = () => {
     checkAndResetWeeklyProgress,
     needsWeeklyCheck
   } = useRepGoals();
-  const { repData } = useRepData();
+  const { repData, isInitializing: repDataInitializing, loading: repDataLoading } = useRepData();
   const { 
     totalFP: totalFpPlus, 
     totalPRMR, 
@@ -456,6 +456,24 @@ const Goals = () => {
     }
   };
 
+  // Loading state - show skeleton while repData OR goals are loading
+  // This prevents the wizard from flashing before data is ready
+  const isDataLoading = repDataInitializing || repDataLoading || isLoading || !repData;
+  
+  if (isDataLoading) {
+    return (
+      <Layout>
+        <div className="p-4 space-y-6">
+          <div className="flex justify-center py-8">
+            <Skeleton className="h-56 w-56 rounded-full" />
+          </div>
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
+      </Layout>
+    );
+  }
+
   // Locked state for pre-Phase 1 rookies
   if (!hasGoalsAccess) {
     return (
@@ -472,21 +490,6 @@ const Goals = () => {
           <p className="text-muted-foreground max-w-xs">
             Complete Phase 1 of Ramp to Blitz to unlock goal setting and earnings planning.
           </p>
-        </div>
-      </Layout>
-    );
-  }
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="p-4 space-y-6">
-          <div className="flex justify-center py-8">
-            <Skeleton className="h-56 w-56 rounded-full" />
-          </div>
-          <Skeleton className="h-20 w-full rounded-2xl" />
-          <Skeleton className="h-32 w-full rounded-2xl" />
         </div>
       </Layout>
     );
