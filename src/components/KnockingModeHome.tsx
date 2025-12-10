@@ -15,6 +15,7 @@ import { AdminDataReviewCard } from "@/components/AdminDataReviewCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
+import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,6 +181,9 @@ export const KnockingModeHome = ({
       <div className="max-w-4xl mx-auto px-4 -mt-4 pb-8 space-y-6">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
+        
+        {/* Period Recap CTA - shows when recap is available and not yet viewed */}
+        <RecapCTACard />
         
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
         {!hasStartedWorkToday && (

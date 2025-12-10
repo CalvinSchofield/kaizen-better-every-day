@@ -27,6 +27,7 @@ import { AICoachFab } from '@/components/insights/AICoachFab';
 import { InsightsSummaryHero } from '@/components/insights/InsightsSummaryHero';
 import { InsightsSectionHeader } from '@/components/insights/InsightsSectionHeader';
 import { InsightCollapsible } from '@/components/insights/InsightCollapsible';
+import { PastRecapsSection } from '@/components/recap/PastRecapsSection';
 
 type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
 
@@ -325,6 +326,9 @@ export default function Insights() {
           </div>
         ) : (
           <>
+            {/* Past Recaps Section */}
+            <PastRecapsSection />
+
             {/* Hero Summary */}
             <InsightsSummaryHero
               totalFp={insights.totalFp}
