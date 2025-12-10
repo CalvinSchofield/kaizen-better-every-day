@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Ban } from "lucide-react";
+import { ChevronLeft, ChevronRight, Ban } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, isSameDay, getDay, addWeeks, subWeeks, addMonths, subMonths, parseISO, isBefore } from "date-fns";
 import { SaveEntrySheet } from "@/components/SaveEntrySheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
@@ -12,6 +12,7 @@ import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { GoalProgressCard } from "@/components/GoalProgressCard";
+import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 
 const PRESEASON_END = '2026-04-11';
@@ -39,8 +40,6 @@ export const CalendarView = ({
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [dataViewMode, setDataViewMode] = useState<"totals" | "weekly" | "daily">("totals");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleDetailOpen, setSaleDetailOpen] = useState(false);
   
@@ -76,12 +75,9 @@ export const CalendarView = ({
     return Math.round(result.dailyGoal * 10) / 10;
   }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart]);
 
-  // When switching to week view, change from totals to weekly if needed
+  // When switching to week view
   const handleViewModeChange = (mode: "month" | "week") => {
     setViewMode(mode);
-    if (mode === "week" && dataViewMode === "totals") {
-      setDataViewMode("weekly");
-    }
   };
 
   // Only use useDailyEntry for mutations, NOT for display data
@@ -337,20 +333,6 @@ export const CalendarView = ({
     upgradePrmrTotal: 0
   }), [entries, viewMode, currentDate, weekStart, weekEnd]);
 
-  // Calculate display values based on view mode
-  const getDisplayValue = (value: number) => {
-    if (dataViewMode === "weekly") {
-      // If worked less than 6 days, show what it would be if worked 6 days (daily avg * 6)
-      if (viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0) {
-        return ((value / viewTotals.daysWorked) * 6).toFixed(1);
-      }
-      return (value / 6).toFixed(1);
-    } else if (dataViewMode === "daily" && viewTotals.daysWorked > 0) {
-      return (value / viewTotals.daysWorked).toFixed(1);
-    }
-    return value.toString();
-  };
-
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       {/* Header */}
@@ -570,422 +552,16 @@ export const CalendarView = ({
         />
       </div>
 
-      {/* Summary Card - Expandable (only show if there's data) */}
+      {/* Summary Teaser - Navigate to Insights */}
       {viewTotals.daysWorked > 0 && (
-      <div className="mt-6 rounded-lg bg-card border border-border overflow-hidden">
-        {/* Header - Always Visible */}
-        <button
-          onClick={() => setSummaryExpanded(!summaryExpanded)}
-          className="w-full p-4 flex items-center justify-between hover:bg-accent/50 transition-colors"
-        >
-          <div className="flex items-center gap-4">
-            <div className="text-base font-semibold text-foreground">
-              {viewMode === "month" ? format(currentDate, 'MMMM yyyy') : `Week of ${format(weekStart, 'MMM d')}`} Summary
-            </div>
-              <div className="flex gap-4 text-sm">
-                {efpModeEnabled ? (
-                  <>
-                  <div>
-                      <span className="font-bold text-primary">
-                        {calculateEfp(viewTotals.prmr).toFixed(1)}
-                      </span>
-                    <span className="text-muted-foreground ml-1">EFP</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-primary">
-                      {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
-                    </span>
-                    <span className="text-muted-foreground ml-1">FP+</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <span className="font-bold text-primary">
-                      {viewTotals.fpPlus % 1 === 0 ? viewTotals.fpPlus : viewTotals.fpPlus.toFixed(1)}
-                    </span>
-                    <span className="text-muted-foreground ml-1">FP+</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-primary">${viewTotals.prmr.toFixed(0)}</span>
-                    <span className="text-muted-foreground ml-1">PRMR</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          {summaryExpanded ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-          )}
-        </button>
-
-        {/* Period-over-Period Comparison (always visible when not expanded) */}
-        {!summaryExpanded && prevPeriodTotals && prevPeriodTotals.daysWorked > 0 && (
-          <div className="px-4 pb-3">
-            {(() => {
-              const fpChange = viewTotals.fpPlus - prevPeriodTotals.fpPlus;
-              const isImproving = fpChange >= 0;
-              return (
-                <div className={`flex items-center gap-2 text-xs ${
-                  isImproving ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                }`}>
-                  {isImproving ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3" />
-                  )}
-                  <span>
-                    {isImproving ? "+" : ""}{fpChange.toFixed(1)} FP+ vs {viewMode === "week" ? "last week" : "last month"}
-                  </span>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Expanded Content */}
-        {summaryExpanded && (
-          <div className="px-4 pb-4 space-y-6 border-t border-border pt-4">
-            {/* View Mode Toggle */}
-            <div className="flex gap-2">
-              {viewMode === "month" && (
-                <Button
-                  variant={dataViewMode === "totals" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setDataViewMode("totals")}
-                >
-                  Totals
-                </Button>
-              )}
-              <Button
-                variant={dataViewMode === "weekly" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDataViewMode("weekly")}
-              >
-                Weekly Avg
-              </Button>
-              <Button
-                variant={dataViewMode === "daily" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDataViewMode("daily")}
-                disabled={viewTotals.daysWorked === 0}
-              >
-                Daily Avg
-              </Button>
-            </div>
-
-            {dataViewMode === "totals" && viewTotals.daysWorked > 0 && (
-              <div className="text-xs text-muted-foreground">
-                {viewTotals.daysWorked} total knocking day{viewTotals.daysWorked !== 1 ? 's' : ''}
-              </div>
-            )}
-            
-            {dataViewMode === "weekly" && viewTotals.daysWorked > 0 && viewTotals.daysWorked < 6 && (
-              <div className="text-xs text-muted-foreground">
-                Based on {viewTotals.daysWorked} day{viewTotals.daysWorked !== 1 ? 's' : ''} worked
-              </div>
-            )}
-            
-            {dataViewMode === "daily" && viewTotals.daysWorked > 0 && (
-              <div className="text-xs text-muted-foreground">
-                Based on {viewTotals.daysWorked} day{viewTotals.daysWorked !== 1 ? 's' : ''} worked
-              </div>
-            )}
-
-            {/* Show averaged metrics when viewing averages */}
-            {(dataViewMode === "weekly" || dataViewMode === "daily") && (
-              <div className="flex gap-6 pt-2 pb-4 border-b border-border">
-                {efpModeEnabled ? (
-                  <>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} EFP
-                      </div>
-                      <div className="text-2xl font-semibold text-primary">
-                        {dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                            ? (((viewTotals.prmr / viewTotals.daysWorked) * 6) / 85).toFixed(1)
-                            : (viewTotals.prmr / 6 / 85).toFixed(1)
-                          : viewTotals.daysWorked > 0
-                            ? (viewTotals.prmr / viewTotals.daysWorked / 85).toFixed(1)
-                            : "0.0"
-                        }
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
-                      </div>
-                      <div className="text-2xl font-semibold text-primary">
-                        {dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                            ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
-                            : (viewTotals.fpPlus / 6).toFixed(1)
-                          : viewTotals.daysWorked > 0
-                            ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
-                            : "0.0"
-                        }
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} FP+
-                      </div>
-                      <div className="text-2xl font-semibold text-primary">
-                        {dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                            ? ((viewTotals.fpPlus / viewTotals.daysWorked) * 6).toFixed(1)
-                            : (viewTotals.fpPlus / 6).toFixed(1)
-                          : viewTotals.daysWorked > 0
-                            ? (viewTotals.fpPlus / viewTotals.daysWorked).toFixed(1)
-                            : "0.0"
-                        }
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        {dataViewMode === "weekly" ? "Weekly Avg" : "Daily Avg"} PRMR
-                      </div>
-                      <div className="text-2xl font-semibold text-primary">
-                        ${dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6 && viewTotals.daysWorked > 0
-                            ? (((viewTotals.prmr / viewTotals.daysWorked) * 6)).toFixed(0)
-                            : (viewTotals.prmr / 6).toFixed(0)
-                          : viewTotals.daysWorked > 0
-                            ? (viewTotals.prmr / viewTotals.daysWorked).toFixed(0)
-                            : "0"
-                        }
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Activity Counters */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Doors Knocked</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.doorsKnocked)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Decision Makers</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.decisionMakers)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Pitches</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.pitches)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Transitions</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.transitions)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Presentations</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.presentations)}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Closes</div>
-                <div className="text-2xl font-semibold text-foreground">{getDisplayValue(viewTotals.closes)}</div>
-              </div>
-            </div>
-
-            {/* FP+ Breakdown - Use sales_log data for accuracy */}
-            {(viewTotals.fpCount > 0 || viewTotals.upgradeCount > 0) && (
-              <div className="pt-4 border-t border-border">
-                <div className="text-sm font-semibold text-foreground mb-3">FP+ Breakdown</div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">FP</div>
-                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {viewTotals.fpCount}
-                    </div>
-                    {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
-                      <div className="text-xs text-muted-foreground">
-                        Avg {dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6
-                            ? ((viewTotals.fpCount / viewTotals.daysWorked) * 6).toFixed(1)
-                            : (viewTotals.fpCount / 6).toFixed(1)
-                          : (viewTotals.fpCount / viewTotals.daysWorked).toFixed(1)
-                        } / day
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">Upgrade FP+</div>
-                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {(viewTotals.upgradePrmrTotal / 85).toFixed(1)}
-                    </div>
-                    {(dataViewMode === "weekly" || dataViewMode === "daily") && viewTotals.daysWorked > 0 && (
-                      <div className="text-xs text-muted-foreground">
-                        Avg {dataViewMode === "weekly" 
-                          ? viewTotals.daysWorked < 6
-                            ? (((viewTotals.upgradePrmrTotal / 85) / viewTotals.daysWorked) * 6).toFixed(1)
-                            : ((viewTotals.upgradePrmrTotal / 85) / 6).toFixed(1)
-                          : ((viewTotals.upgradePrmrTotal / 85) / viewTotals.daysWorked).toFixed(1)
-                        } / day
-                      </div>
-                    )}
-                  </div>
-                  {viewTotals.fpCount > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">Avg PRMR per FP</div>
-                      <div className="text-lg font-bold text-primary">
-                        ${Math.round(viewTotals.fpPrmrTotal / viewTotals.fpCount)}
-                      </div>
-                    </div>
-                  )}
-                  {viewTotals.upgradeCount > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">Avg PRMR per Upgrade</div>
-                      <div className="text-lg font-bold text-primary">
-                        ${Math.round(viewTotals.upgradePrmrTotal / viewTotals.upgradeCount)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Mini Funnel Teaser - Relative visualization */}
-            {viewTotals.doorsKnocked > 0 && viewTotals.closes > 0 && (
-              <div className="pt-4 border-t border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Quick Funnel</h4>
-                  <button 
-                    onClick={() => window.location.href = '/insights'}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    See full analysis →
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {/* Doors bar */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-16">Doors</span>
-                    <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
-                      <div className="bg-muted h-full" style={{ width: '100%' }} />
-                    </div>
-                    <span className="text-xs font-semibold w-10 text-right">{viewTotals.doorsKnocked}</span>
-                  </div>
-                  {/* Pitches bar */}
-                  {viewTotals.pitches > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-16">Pitches</span>
-                      <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="bg-primary/40 h-full" 
-                          style={{ width: `${Math.min((viewTotals.pitches / viewTotals.doorsKnocked) * 100, 100)}%` }} 
-                        />
-                      </div>
-                      <span className="text-xs font-semibold w-10 text-right">{viewTotals.pitches}</span>
-                    </div>
-                  )}
-                  {/* Closes bar */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-16">Closes</span>
-                    <div className="flex-1 bg-muted/30 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-primary h-full" 
-                        style={{ width: `${Math.min((viewTotals.closes / viewTotals.doorsKnocked) * 100, 100)}%` }} 
-                      />
-                    </div>
-                    <span className="text-xs font-semibold w-10 text-right">{viewTotals.closes}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Ratios - What it takes to sell */}
-            {viewTotals.closes > 0 && (
-              <div className="pt-4 border-t border-border">
-                <div className="text-sm font-semibold text-foreground mb-3">What it takes to sell</div>
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Activity Column */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Doors</span>
-                      <span className="font-semibold text-foreground text-base">
-                        {(viewTotals.doorsKnocked / viewTotals.closes).toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Pitches</span>
-                      <span className="font-semibold text-foreground text-base">
-                        {(viewTotals.pitches / viewTotals.closes).toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Transitions</span>
-                      <span className="font-semibold text-foreground text-base">
-                        {(viewTotals.transitions / viewTotals.closes).toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Presentations</span>
-                      <span className="font-semibold text-foreground text-base">
-                        {(viewTotals.presentations / viewTotals.closes).toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Time Column */}
-                  <div className="space-y-2 text-sm">
-                    {viewTotals.totalWorkMinutes > 0 && viewTotals.fpPlus > 0 && (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Hours per {efpModeEnabled ? 'EFP' : 'FP+'}</span>
-                          <span className="font-semibold text-foreground text-base">
-                            {(() => {
-                              const value = efpModeEnabled ? ((viewTotals.prmr + viewTotals.upgradePrmr) / 85) : viewTotals.fpPlus;
-                              const minutesPerFp = viewTotals.totalWorkMinutes / value;
-                              const hours = Math.floor(minutesPerFp / 60);
-                              const minutes = Math.round(minutesPerFp % 60);
-                              return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-                            })()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Pitches per hour</span>
-                          <span className="font-semibold text-foreground text-base">
-                            {viewTotals.totalWorkMinutes > 0 
-                              ? ((viewTotals.pitches / viewTotals.totalWorkMinutes) * 60).toFixed(1)
-                              : '-'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Transitions per hour</span>
-                          <span className="font-semibold text-foreground text-base">
-                            {viewTotals.totalWorkMinutes > 0 
-                              ? ((viewTotals.transitions / viewTotals.totalWorkMinutes) * 60).toFixed(1)
-                              : '-'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Presentations per hour</span>
-                          <span className="font-semibold text-foreground text-base">
-                            {viewTotals.totalWorkMinutes > 0 
-                              ? ((viewTotals.presentations / viewTotals.totalWorkMinutes) * 60).toFixed(1)
-                              : '-'
-                            }
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        <CalendarSummaryTeaser
+          viewMode={viewMode}
+          weekStart={weekStart}
+          currentDate={currentDate}
+          viewTotals={viewTotals}
+          prevPeriodTotals={prevPeriodTotals}
+          entries={entries}
+        />
       )}
 
       {/* Save Entry Sheet */}
