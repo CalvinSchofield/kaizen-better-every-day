@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useInsightsData } from '@/hooks/useInsightsData';
@@ -32,6 +33,7 @@ type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'p
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
 export default function Insights() {
+  const [searchParams] = useSearchParams();
   const { repData, loading: loadingRepData } = useRepData();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
   const [datePreset, setDatePreset] = useState<DatePreset>('week');
@@ -39,6 +41,20 @@ export default function Insights() {
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+
+  // Handle incoming period param from calendar navigation
+  useEffect(() => {
+    const period = searchParams.get('period');
+    if (period === 'week') {
+      setDatePreset('week');
+    } else if (period === 'month') {
+      setDatePreset('month');
+    } else if (period === 'lastWeek') {
+      setDatePreset('lastWeek');
+    } else if (period === 'lastMonth') {
+      setDatePreset('lastMonth');
+    }
+  }, [searchParams]);
 
   // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
