@@ -457,7 +457,9 @@ export const SaveEntrySheet = ({
   };
 
   const proceedWithSave = async () => {
-    const salesToUse = pendingSalesWithInstallTracking || (salesLog.length > 0 ? salesLog : localSales);
+    // Combine existing salesLog with newly added localSales
+    const combinedSales = [...salesLog, ...localSales];
+    const salesToUse = pendingSalesWithInstallTracking || combinedSales;
     console.log('[SaveEntrySheet] proceedWithSave - salesLog:', salesLog.length, 'localSales:', localSales.length, 'using:', salesToUse.length);
     await proceedWithSaveWithSales(salesToUse);
   };
