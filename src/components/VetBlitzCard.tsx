@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Collapsible,
   CollapsibleContent,
@@ -78,6 +79,7 @@ const InviteMemberRow = ({
   onToggleContacted,
   onCommit,
   onToggleDeclined,
+  onNeedsPhone,
 }: {
   member: TeamMember;
   blitzId: string;
@@ -86,6 +88,7 @@ const InviteMemberRow = ({
   onToggleContacted: () => void;
   onCommit: () => void;
   onToggleDeclined: () => void;
+  onNeedsPhone: (member: TeamMember, action: 'text' | 'call') => void;
 }) => {
   const phone = member.phone?.replace(/\D/g, '') || '';
   const hasPhone = phone.length >= 10;
@@ -96,6 +99,8 @@ const InviteMemberRow = ({
       window.location.href = `sms:${phone}`;
       // Also mark as contacted
       onToggleContacted();
+    } else {
+      onNeedsPhone(member, 'text');
     }
   };
   
@@ -104,6 +109,14 @@ const InviteMemberRow = ({
     if (hasPhone) {
       window.location.href = `tel:${phone}`;
       // Also mark as contacted
+      onToggleContacted();
+    } else {
+      onNeedsPhone(member, 'call');
+    }
+  };
+
+  const handleCardTap = () => {
+    if (!isDeclined) {
       onToggleContacted();
     }
   };
@@ -132,7 +145,10 @@ const InviteMemberRow = ({
   
   if (isContacted) {
     return (
-      <div className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border/50 opacity-70">
+      <div 
+        className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30 border-border/50 opacity-70 cursor-pointer active:scale-[0.98] transition-all"
+        onClick={handleCardTap}
+      >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Check className="h-3.5 w-3.5 text-green-500" />
           <span className="font-medium text-sm truncate text-muted-foreground">
@@ -141,35 +157,34 @@ const InviteMemberRow = ({
           <span className="text-xs text-green-600 dark:text-green-400">contacted</span>
         </div>
         <div className="flex items-center gap-1">
-          {hasPhone && (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                onClick={handleText}
-                title="Send text message"
-              >
-                <MessageCircle className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-green-600 hover:bg-green-500/10"
-                onClick={handleCall}
-                title="Call"
-              >
-                <Phone className="h-4 w-4" />
-              </Button>
-            </>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-8 w-8 p-0 ${hasPhone ? 'text-muted-foreground hover:text-primary hover:bg-primary/10' : 'text-muted-foreground/50 hover:text-primary hover:bg-primary/10'}`}
+            onClick={handleText}
+            title={hasPhone ? "Send text message" : "Add phone number"}
+          >
+            <MessageCircle className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-8 w-8 p-0 ${hasPhone ? 'text-muted-foreground hover:text-green-600 hover:bg-green-500/10' : 'text-muted-foreground/50 hover:text-green-600 hover:bg-green-500/10'}`}
+            onClick={handleCall}
+            title={hasPhone ? "Call" : "Add phone number"}
+          >
+            <Phone className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="flex items-center justify-between p-2.5 border rounded-lg bg-card hover:bg-muted/30 transition-colors">
+    <div 
+      className="flex items-center justify-between p-2.5 border rounded-lg bg-card hover:bg-muted/30 cursor-pointer active:scale-[0.98] transition-all"
+      onClick={handleCardTap}
+    >
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <span className={`font-medium text-sm truncate ${
           member.year === "Rookie" 
@@ -183,35 +198,39 @@ const InviteMemberRow = ({
             Rookie
           </span>
         )}
+        {!hasPhone && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            No #
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-1">
-        {hasPhone && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-              onClick={handleText}
-              title="Send text message"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-green-600 hover:bg-green-500/10"
-              onClick={handleCall}
-              title="Call"
-            >
-              <Phone className="h-4 w-4" />
-            </Button>
-          </>
-        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`h-8 w-8 p-0 ${hasPhone ? 'text-muted-foreground hover:text-primary hover:bg-primary/10' : 'text-muted-foreground/50 hover:text-primary hover:bg-primary/10'}`}
+          onClick={handleText}
+          title={hasPhone ? "Send text message" : "Add phone number"}
+        >
+          <MessageCircle className="h-4 w-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`h-8 w-8 p-0 ${hasPhone ? 'text-muted-foreground hover:text-green-600 hover:bg-green-500/10' : 'text-muted-foreground/50 hover:text-green-600 hover:bg-green-500/10'}`}
+          onClick={handleCall}
+          title={hasPhone ? "Call" : "Add phone number"}
+        >
+          <Phone className="h-4 w-4" />
+        </Button>
         <Button
           size="sm"
           variant="default"
           className="h-7 px-3 text-xs ml-1"
-          onClick={onCommit}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCommit();
+          }}
         >
           Commit
         </Button>
@@ -235,6 +254,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [memberToCommit, setMemberToCommit] = useState<{ member: TeamMember; blitzId: string; isCommitted: boolean } | null>(null);
+  
+  // Phone number drawer state
+  const [phoneDrawerOpen, setPhoneDrawerOpen] = useState(false);
+  const [memberNeedsPhone, setMemberNeedsPhone] = useState<TeamMember | null>(null);
+  const [pendingAction, setPendingAction] = useState<'text' | 'call' | null>(null);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  
   // Default to highest access level available
   const getDefaultScope = (): 'you' | 'team' | 'mgmt' | 'office' => {
     if (accessLevel === 'area_director') return 'office';
@@ -711,6 +738,83 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } finally {
       setStatusDialogOpen(false);
       setSelectedRookie(null);
+    }
+  };
+
+  // Handle phone number drawer
+  const openPhoneDrawer = (member: TeamMember, action: 'text' | 'call') => {
+    setMemberNeedsPhone(member);
+    setPendingAction(action);
+    setPhoneInput('');
+    setPhoneDrawerOpen(true);
+  };
+
+  const savePhoneAndContact = async () => {
+    if (!memberNeedsPhone || !phoneInput.trim() || !pendingAction) return;
+    
+    const cleanPhone = phoneInput.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid 10-digit phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingPhone(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Save to Notion via edge function
+      const { error } = await supabase.functions.invoke('update-recruit-phone', {
+        body: {
+          recruitNotionId: memberNeedsPhone.notionPageId,
+          phone: cleanPhone,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setTeamMembers(prev =>
+        prev.map(m =>
+          m.notionPageId === memberNeedsPhone.notionPageId
+            ? { ...m, phone: cleanPhone }
+            : m
+        )
+      );
+
+      toast({
+        title: "Phone saved",
+        description: `${memberNeedsPhone.name}'s phone number has been saved`,
+      });
+
+      // Close drawer and execute pending action
+      setPhoneDrawerOpen(false);
+      
+      // Execute the pending action after a brief delay
+      setTimeout(() => {
+        if (pendingAction === 'text') {
+          window.location.href = `sms:${cleanPhone}`;
+        } else if (pendingAction === 'call') {
+          window.location.href = `tel:${cleanPhone}`;
+        }
+      }, 300);
+      
+    } catch (error) {
+      console.error('Error saving phone number:', error);
+      toast({
+        title: "Failed to save",
+        description: "Could not save phone number. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPhone(false);
     }
   };
 
@@ -1254,6 +1358,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                               onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
                                               onCommit={() => promptMemberCommitment(member, blitz.id, false)}
                                               onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                              onNeedsPhone={openPhoneDrawer}
                                             />
                                           ))}
                                         </CollapsibleContent>
@@ -1277,6 +1382,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                       onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
                                       onCommit={() => promptMemberCommitment(member, blitz.id, false)}
                                       onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                      onNeedsPhone={openPhoneDrawer}
                                     />
                                   ))}
                                 </div>
@@ -1386,6 +1492,55 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             </Button>
             <Button onClick={updateRookieStatus} className="flex-1">
               Update Status
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Add Phone Number Drawer */}
+      <Sheet open={phoneDrawerOpen} onOpenChange={setPhoneDrawerOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>Add Phone Number</SheetTitle>
+            <SheetDescription>
+              Enter {memberNeedsPhone?.name}'s phone number to {pendingAction === 'text' ? 'text' : 'call'} them
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 py-6">
+            <Input
+              type="tel"
+              placeholder="Enter phone number"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              className="text-lg h-12"
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">
+              This will save to Notion and be available everywhere
+            </p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setPhoneDrawerOpen(false)} 
+              className="flex-1"
+              disabled={isSavingPhone}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={savePhoneAndContact} 
+              className="flex-1"
+              disabled={isSavingPhone || !phoneInput.trim()}
+            >
+              {isSavingPhone ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving...
+                </span>
+              ) : (
+                <>Save & {pendingAction === 'text' ? 'Text' : 'Call'}</>
+              )}
             </Button>
           </div>
         </SheetContent>
