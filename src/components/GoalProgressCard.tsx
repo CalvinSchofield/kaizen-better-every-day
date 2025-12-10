@@ -117,54 +117,41 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     };
   }, [entries, plannedDays, currentDate, viewMode, today]);
 
-  // Calculate total planned days for the season (for ORIGINAL daily goal)
   // Helper function for knocking day check - must match criteria used in daysWorkedInPeriod
   const isKnockingDay = (entry: any): boolean => {
     return (entry.doors_knocked || 0) >= 5 && !!entry.work_start_time && !!entry.work_end_time;
   };
 
-  const { totalSeasonPlannedDays, totalSeasonKnockingDays } = useMemo(() => {
-    if (!plannedDays) return { totalSeasonPlannedDays: 0, totalSeasonKnockingDays: 0 };
+  // FIXED PACE CALCULATION
+  // Total knocking days for the ENTIRE season: already worked + future planned
+  const { totalSeasonKnockingDays, futureSeasonPlannedDays, seasonKnockingDaysComplete } = useMemo(() => {
+    if (!plannedDays) return { totalSeasonKnockingDays: 0, futureSeasonPlannedDays: 0, seasonKnockingDaysComplete: 0 };
     
     const seasonEndStr = isInPreseason ? PRESEASON_END : personalSummerEnd;
     const seasonStartStr = isInPreseason ? '2025-09-28' : '2026-04-12';
+    const todayStr = format(today, 'yyyy-MM-dd');
     
-    const totalPlanned = plannedDays.filter(d => 
-      d.planned_date >= seasonStartStr && d.planned_date <= seasonEndStr
-    ).length;
-    
-    // Days already worked using SAME knocking day criteria as daysWorkedInPeriod
-    // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
-    const knockingDays = entries.filter(e => {
+    // Knocking days already completed in the season
+    const knockingDaysComplete = entries.filter(e => {
       if (!e.is_finalized) return false;
       if (e.entry_date < seasonStartStr || e.entry_date > seasonEndStr) return false;
       return isKnockingDay(e);
     }).length;
     
-    return { totalSeasonPlannedDays: totalPlanned, totalSeasonKnockingDays: knockingDays };
-  }, [plannedDays, entries, isInPreseason, personalSummerEnd]);
-
-  // Calculate remaining planned days for each season (from TODAY forward)
-  const { remainingPreseasonDays, remainingSummerDays } = useMemo(() => {
-    if (!plannedDays) return { remainingPreseasonDays: 0, remainingSummerDays: 0 };
-    
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const preseasonEndStr = PRESEASON_END;
-    const summerEndStr = personalSummerEnd;
-    
-    const preseasonDays = plannedDays.filter(d => 
-      d.planned_date >= todayStr && d.planned_date <= preseasonEndStr
+    // Future planned days (from tomorrow to season end)
+    const futurePlanned = plannedDays.filter(d => 
+      d.planned_date > todayStr && d.planned_date <= seasonEndStr
     ).length;
     
-    const summerDays = plannedDays.filter(d => 
-      d.planned_date >= todayStr && d.planned_date <= summerEndStr
-    ).length;
+    // Total = completed + future planned
+    const total = knockingDaysComplete + futurePlanned;
     
-    return {
-      remainingPreseasonDays: preseasonDays,
-      remainingSummerDays: summerDays
+    return { 
+      totalSeasonKnockingDays: total, 
+      futureSeasonPlannedDays: futurePlanned,
+      seasonKnockingDaysComplete: knockingDaysComplete 
     };
-  }, [plannedDays, today, personalSummerEnd]);
+  }, [plannedDays, entries, isInPreseason, personalSummerEnd, today]);
 
   // Check if user has no goals set up - show engaging prompt
   if (!goals || !goals.setup_complete) {
@@ -227,80 +214,53 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
   const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
 
-  // ORIGINAL daily goal (fixed, what you committed to at start of season)
-  const originalDailyGoal = totalSeasonPlannedDays > 0 
-    ? displayPreseasonGoal / totalSeasonPlannedDays 
+  // ==========================================
+  // FIXED DAILY PACE (never changes)
+  // Formula: Total Goal / Total Knocking Days (worked + future planned)
+  // ==========================================
+  const fixedDailyGoal = totalSeasonKnockingDays > 0 
+    ? displayPreseasonGoal / totalSeasonKnockingDays 
     : 0;
 
-  // REMAINING daily goal (dynamic, adjusts based on progress)
-  const remainingPreseasonGoal = Math.max(0, displayPreseasonGoal - currentProgress);
-  const remainingDailyGoal = remainingPreseasonDays > 0 
-    ? remainingPreseasonGoal / remainingPreseasonDays 
-    : 0;
-
-  // PERIOD EXPECTED: What you SHOULD have done by now in this period
-  // Based on ORIGINAL daily goal × days worked so far
-  const periodExpected = originalDailyGoal * daysWorkedInPeriod;
+  // EXPECTED BY NOW: Fixed daily goal × days worked so far THIS PERIOD
+  const periodExpected = fixedDailyGoal * daysWorkedInPeriod;
   
-  // PERIOD GOAL: What you need to do this ENTIRE period (based on remaining pace)
-  const periodGoalFromRemaining = remainingDailyGoal * totalDaysInPeriod;
+  // EXPECTED BY NOW for ENTIRE SEASON: Fixed daily goal × total days worked in season
+  const seasonExpected = fixedDailyGoal * seasonKnockingDaysComplete;
 
-  // Pace difference for the period (actual - expected by now)
+  // Pace difference (actual - expected)
   const periodPaceDiff = periodProgress - periodExpected;
   const isOnPaceForPeriod = periodPaceDiff >= 0;
-
-  // Summer goals for each tier - based on remaining planned days
-  const remainingMustDo = Math.max(0, displayMustDo - currentProgress);
-  const remainingWillDo = Math.max(0, displayWillDo - currentProgress);
-  const remainingCouldDo = Math.max(0, displayCouldDo - currentProgress);
   
-  const dailyMustDo = remainingSummerDays > 0 ? remainingMustDo / remainingSummerDays : 0;
-  const dailyWillDo = remainingSummerDays > 0 ? remainingWillDo / remainingSummerDays : 0;
-  const dailyCouldDo = remainingSummerDays > 0 ? remainingCouldDo / remainingSummerDays : 0;
-  
-  const weeklyMustDo = dailyMustDo * totalDaysInPeriod;
-  const weeklyWillDo = dailyWillDo * totalDaysInPeriod;
-  const weeklyCouldDo = dailyCouldDo * totalDaysInPeriod;
+  const seasonPaceDiff = currentProgress - seasonExpected;
+  const isOnPaceForSeason = seasonPaceDiff >= 0;
 
-  // Current target tier for summer
+  // ==========================================
+  // CATCH-UP CALCULATION (what you need NOW to still hit goal)
+  // Formula: Remaining needed / Remaining days
+  // ==========================================
+  const remainingGoal = Math.max(0, displayPreseasonGoal - currentProgress);
+  const remainingDaysInPeriod = Math.max(0, totalDaysInPeriod - daysWorkedInPeriod);
+  const catchUpDailyGoal = futureSeasonPlannedDays > 0 
+    ? remainingGoal / futureSeasonPlannedDays 
+    : 0;
+  
+  // Catch-up for this period
+  const catchUpForPeriod = catchUpDailyGoal * remainingDaysInPeriod;
+
+  // Summer tier tracking
   const mustDoComplete = currentProgress >= displayMustDo;
   const willDoComplete = currentProgress >= displayWillDo;
   const couldDoComplete = currentProgress >= displayCouldDo;
 
-  let currentWeeklyTarget = weeklyMustDo;
-  let currentTargetLabel = "Must Do";
-  if (mustDoComplete && !willDoComplete) {
-    currentWeeklyTarget = weeklyWillDo;
-    currentTargetLabel = "Will Do";
-  } else if (willDoComplete && !couldDoComplete) {
-    currentWeeklyTarget = weeklyCouldDo;
-    currentTargetLabel = "Could Do";
-  } else if (couldDoComplete) {
-    currentWeeklyTarget = 0;
-    currentTargetLabel = "Complete";
-  }
-
-  // Period goal - use remaining pace calculation
-  const monthlyMustDo = dailyMustDo * totalDaysInPeriod;
-  const monthlyWillDo = dailyWillDo * totalDaysInPeriod;
-  const monthlyCouldDo = dailyCouldDo * totalDaysInPeriod;
+  // Summer tier daily rates (fixed, based on total season days)
+  const dailyMustDo = totalSeasonKnockingDays > 0 ? displayMustDo / totalSeasonKnockingDays : 0;
+  const dailyWillDo = totalSeasonKnockingDays > 0 ? displayWillDo / totalSeasonKnockingDays : 0;
+  const dailyCouldDo = totalSeasonKnockingDays > 0 ? displayCouldDo / totalSeasonKnockingDays : 0;
   
-  let currentMonthlyTarget = monthlyMustDo;
-  if (mustDoComplete && !willDoComplete) {
-    currentMonthlyTarget = monthlyWillDo;
-  } else if (willDoComplete && !couldDoComplete) {
-    currentMonthlyTarget = monthlyCouldDo;
-  } else if (couldDoComplete) {
-    currentMonthlyTarget = 0;
-  }
-  
-  const periodGoal = isInPreseason
-    ? periodGoalFromRemaining
-    : viewMode === "month" ? currentMonthlyTarget : currentWeeklyTarget;
-
-  const periodRemaining = Math.max(0, periodGoal - periodProgress);
-  const remainingDaysInPeriod = Math.max(0, totalDaysInPeriod - daysWorkedInPeriod);
-  const catchUpPerDay = remainingDaysInPeriod > 0 ? periodRemaining / remainingDaysInPeriod : 0;
+  const weeklyMustDo = dailyMustDo * totalDaysInPeriod;
+  const weeklyWillDo = dailyWillDo * totalDaysInPeriod;
+  const weeklyCouldDo = dailyCouldDo * totalDaysInPeriod;
 
   // Progress percentage (capped at 100 for display, but can exceed)
   // Use periodExpected to align with pace calculation (not periodGoal which is catch-up target)
@@ -403,31 +363,31 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
               <span className="font-semibold">{Math.abs(periodPaceDiff).toFixed(1)} behind pace</span>
-              {remainingDaysInPeriod > 0 && (
+              {remainingDaysInPeriod > 0 && catchUpDailyGoal > 0 && (
                 <span className="text-muted-foreground">
-                  {' '}· Need {catchUpPerDay.toFixed(1)}/day to catch up
-                  {catchUpPerDay > originalDailyGoal && originalDailyGoal > 0 && (
-                    <span className="text-amber-600 dark:text-amber-400"> (was {originalDailyGoal.toFixed(1)})</span>
+                  {' '}· Need {catchUpDailyGoal.toFixed(1)}/day to catch up
+                  {catchUpDailyGoal > fixedDailyGoal && fixedDailyGoal > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400"> (was {fixedDailyGoal.toFixed(1)})</span>
                   )}
                 </span>
               )}
             </p>
           </div>
-        ) : periodRemaining > 0 && remainingDaysInPeriod > 0 ? (
+        ) : remainingGoal > 0 && remainingDaysInPeriod > 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">
             <Flame className="h-4 w-4 text-primary flex-shrink-0" />
             <p className="text-sm text-foreground">
-              <span className="font-semibold">{periodRemaining.toFixed(1)} {metricLabel} to go</span>
+              <span className="font-semibold">{catchUpForPeriod.toFixed(1)} {metricLabel} to go this {viewMode}</span>
               {remainingDaysInPeriod === 1 ? (
                 <span className="text-muted-foreground"> — hit it today!</span>
               ) : (
                 <span className="text-muted-foreground">
-                  {' '}· {catchUpPerDay.toFixed(1)}/day
+                  {' '}· {catchUpDailyGoal.toFixed(1)}/day to stay on track
                 </span>
               )}
             </p>
           </div>
-        ) : periodGoal === 0 ? (
+        ) : totalSeasonKnockingDays === 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-border/50">
             <Target className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
