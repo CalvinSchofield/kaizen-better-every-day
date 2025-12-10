@@ -546,18 +546,18 @@ export const useNeedsAttention = (
         const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
         return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
       }),
-      // Mark the first "no future" recruit so UI can show divider
-      ...noFutureBlitzRecruits.map((r, i) => ({
-        ...r,
-        showDivider: i === 0,
-      })).sort((a, b) => {
+      // Sort first, then mark the first "no future" recruit so UI can show divider
+      ...noFutureBlitzRecruits.sort((a, b) => {
         const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
         const yearA = yearOrder[a.recruit.year || ''] ?? 99;
         const yearB = yearOrder[b.recruit.year || ''] ?? 99;
         if (yearA !== yearB) return yearA - yearB;
         const stageOrder = { 'Signed': 0, 'Shadow ✅': 1, 'Sold 💲': 2, 'Sold (5+) 💰': 3 };
         return (stageOrder[a.recruit.stage as keyof typeof stageOrder] || 99) - (stageOrder[b.recruit.stage as keyof typeof stageOrder] || 99);
-      }),
+      }).map((r, i) => ({
+        ...r,
+        showDivider: i === 0,
+      })),
     ];
 
     if (combinedNoBlitz.length > 0) {
