@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
+  const { resetIntro } = useIntroStatus(repData?.user_id);
   
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
@@ -533,9 +535,35 @@ export default function Settings() {
       .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
   ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
 
+  const handleResetIntro = () => {
+    resetIntro();
+    toast({
+      title: "Intro reset",
+      description: "The intro wizard will show next time you visit Home.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
+        {/* Show Intro Again */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">App Tour</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetIntro}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Show Intro Again
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+
         {/* Summer Season Dates - Collapsible */}
         <Card>
           <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>

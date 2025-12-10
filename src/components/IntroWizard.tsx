@@ -16,7 +16,7 @@ import {
   Compass,
   Flame
 } from "lucide-react";
-import KaizenLogo from "@/components/KaizenLogo";
+
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -86,102 +86,48 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     ];
   }
 
-  // Post-blitz rookie or vet slides
-  if (userType === 'post-blitz-rookie' || userType === 'vet') {
-    const baseSlides: SlideConfig[] = [
-      welcomeSlide,
-      navSlide,
-      {
-        icon: Flame,
-        iconColor: "text-orange-500",
-        title: "Track Your Day",
-        description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
-        highlight: "Tap to count"
-      },
-      {
-        icon: Calendar,
-        iconColor: "text-green-500",
-        title: "Calendar View",
-        description: "See your daily progress over time. Review past entries and plan future work days.",
-      },
-      {
-        icon: TrendingUp,
-        iconColor: "text-blue-500",
-        title: "Insights & Analytics",
-        description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
-      },
-      {
-        icon: Trophy,
-        iconColor: "text-amber-500",
-        title: "Leaderboards",
-        description: "Compete with teammates. See where you rank today, this week, and for the season.",
-        highlight: "Rise to the top"
-      },
-      {
-        icon: Target,
-        iconColor: "text-primary",
-        title: "Goals & Pace",
-        description: "Track your progress toward your FP+ goals. Stay on pace to hit your targets.",
-      },
-    ];
+  // Post-blitz rookie, vet, or leader slides (all get knocking features)
+  const baseSlides: SlideConfig[] = [
+    welcomeSlide,
+    navSlide,
+    {
+      icon: Flame,
+      iconColor: "text-orange-500",
+      title: "Track Your Day",
+      description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
+      highlight: "Tap to count"
+    },
+    {
+      icon: Calendar,
+      iconColor: "text-green-500",
+      title: "Calendar View",
+      description: "See your daily progress over time. Review past entries and plan future work days.",
+    },
+    {
+      icon: TrendingUp,
+      iconColor: "text-blue-500",
+      title: "Insights & Analytics",
+      description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
+    },
+    {
+      icon: Trophy,
+      iconColor: "text-amber-500",
+      title: "Leaderboards",
+      description: "Compete with teammates. See where you rank today, this week, and for the season.",
+      highlight: "Rise to the top"
+    },
+    {
+      icon: Target,
+      iconColor: "text-primary",
+      title: "Goals & Pace",
+      description: "Track your progress toward your FP+ goals. Stay on pace to hit your targets.",
+    },
+  ];
 
-    return baseSlides;
-  }
-
-  // Leader slides (standalone)
+  // Add leader-specific slides
   if (userType === 'leader') {
     return [
-      welcomeSlide,
-      navSlide,
-      {
-        icon: Flame,
-        iconColor: "text-orange-500",
-        title: "Track Your Day",
-        description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
-        highlight: "Tap to count"
-      },
-      {
-        icon: Calendar,
-        iconColor: "text-green-500",
-        title: "Calendar View",
-        description: "See your daily progress over time. Review past entries and plan future work days.",
-      },
-      {
-        icon: TrendingUp,
-        iconColor: "text-blue-500",
-        title: "Insights & Analytics",
-        description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
-      },
-      {
-        icon: Trophy,
-        iconColor: "text-amber-500",
-        title: "Leaderboards",
-        description: "Compete with teammates. See where you rank today, this week, and for the season.",
-      },
-      {
-        icon: BarChart3,
-        iconColor: "text-purple-500",
-        title: "Team Reports",
-        description: "View your team's performance at a glance. Identify who needs coaching and celebrate top performers.",
-      },
-      {
-        icon: Users,
-        iconColor: "text-teal-500",
-        title: "My Group",
-          description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
-          highlight: "Build your team"
-        },
-      ];
-    }
-
-    return baseSlides;
-  }
-
-  // Leader-only (if not vet)
-  if (userType === 'leader') {
-    return [
-      welcomeSlide,
-      navSlide,
+      ...baseSlides,
       {
         icon: BarChart3,
         iconColor: "text-purple-500",
@@ -198,8 +144,8 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     ];
   }
 
-  // Fallback
-  return [welcomeSlide, navSlide];
+  // Post-blitz rookie or vet (no leader features)
+  return baseSlides;
 };
 
 export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProps) => {
@@ -243,7 +189,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       {/* Header with skip button */}
       <div className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="w-10" /> {/* Spacer */}
-        <KaizenLogo className="w-8 h-8" />
+        <span className="text-xl font-bold text-primary">Kaizen</span>
         <Button
           variant="ghost"
           size="sm"

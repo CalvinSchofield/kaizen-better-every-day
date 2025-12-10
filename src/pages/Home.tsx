@@ -22,6 +22,9 @@ import { KnockingModeHome } from "@/components/KnockingModeHome";
 import { useAppMode } from "@/hooks/useAppMode";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { IntroWizard } from "@/components/IntroWizard";
+import { useIntroStatus } from "@/hooks/useIntroStatus";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 
 interface StepStatus {
   completed: boolean;
@@ -62,6 +65,9 @@ const Home = () => {
   
   const { isKnockingMode } = useAppMode(repData);
   const queryClient = useQueryClient();
+  const { hasSeenIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
+  const teamAccess = useTeamAccess();
+  const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -910,6 +916,35 @@ const Home = () => {
           </SheetContent>
         </Sheet>
       </div>
+    );
+  }
+
+  // Determine user type for intro wizard
+  const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
+    const year = repData.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const committedBlitzes = (repData.committed_blitzes as any[]) || [];
+    const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+      if (!blitz?.endDate) return false;
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
+    });
+    
+    if (isLeader && isVetOrSoph) return 'leader';
+    if (isVetOrSoph) return 'vet';
+    if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
+    return 'pre-blitz-rookie';
+  };
+
+  // Show intro wizard for new users
+  if (!hasSeenIntro && repData) {
+    const firstName = repData.name?.split(' ')[0] || 'there';
+    return (
+      <IntroWizard
+        userType={getUserType()}
+        firstName={firstName}
+        onComplete={markIntroComplete}
+      />
     );
   }
   
