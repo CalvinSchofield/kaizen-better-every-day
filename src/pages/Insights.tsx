@@ -33,6 +33,12 @@ type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'p
 
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
 
+// Helper to safely format numbers, returning "-" for NaN/Infinity/invalid values
+const safeFormat = (value: number, decimals: number = 1, suffix: string = ''): string => {
+  if (!isFinite(value) || isNaN(value) || value < 0) return '-';
+  return `${value.toFixed(decimals)}${suffix}`;
+};
+
 export default function Insights() {
   const [searchParams] = useSearchParams();
   const { repData, loading: loadingRepData } = useRepData();
@@ -363,7 +369,7 @@ export default function Insights() {
               onToggle={() => handleSectionToggle('funnel')}
               preview={
                 <span>
-                  {insights.funnelData.doors.total} doors → {insights.funnelData.closes.total} closes · <span className="text-primary font-medium">{insights.funnelData.doors.conversionToNext.toFixed(1)}%</span> DM rate
+                  {insights.funnelData.doors.total} doors → {insights.funnelData.closes.total} closes · <span className="text-primary font-medium">{safeFormat(insights.funnelData.doors.conversionToNext, 1, '%')}</span> DM rate
                 </span>
               }
             >
@@ -379,8 +385,8 @@ export default function Insights() {
               preview={
                 <span>
                   <span className="text-primary font-medium">
-                    {efpModeEnabled ? insights.doorsToEfp.toFixed(1) : insights.doorsToFp.toFixed(1)}
-                  </span> doors per {efpModeEnabled ? "EFP" : "FP+"} · {insights.presentationsToClose.toFixed(1)} pres/close
+                    {safeFormat(efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp)}
+                  </span> doors per {efpModeEnabled ? "EFP" : "FP+"} · {safeFormat(insights.presentationsToClose)} pres/close
                 </span>
               }
             >
@@ -389,8 +395,8 @@ export default function Insights() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <div className="text-sm text-muted-foreground">Doors → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{efpModeEnabled ? insights.doorsToEfp.toFixed(1) : insights.doorsToFp.toFixed(1)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {efpModeEnabled ? insights.overallDoorsToEfp.toFixed(1) : insights.overallDoorsToFp.toFixed(1)}</div>
+                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp)}</div>
+                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallDoorsToEfp : insights.overallDoorsToFp)}</div>
                   </div>
                   {doorsComparison && (
                     <div className={cn("flex items-center gap-1", doorsComparison.isBetter ? 'text-success' : 'text-destructive')}>
@@ -404,8 +410,8 @@ export default function Insights() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <div className="text-sm text-muted-foreground">Pitches → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{efpModeEnabled ? insights.pitchesToEfp.toFixed(1) : insights.pitchesToFp.toFixed(1)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {efpModeEnabled ? insights.overallPitchesToEfp.toFixed(1) : insights.overallPitchesToFp.toFixed(1)}</div>
+                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.pitchesToEfp : insights.pitchesToFp)}</div>
+                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallPitchesToEfp : insights.overallPitchesToFp)}</div>
                   </div>
                   {pitchesComparison && (
                     <div className={cn("flex items-center gap-1", pitchesComparison.isBetter ? 'text-success' : 'text-destructive')}>
@@ -419,8 +425,8 @@ export default function Insights() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <div className="text-sm text-muted-foreground">Transitions → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{efpModeEnabled ? insights.transitionsToEfp.toFixed(1) : insights.transitionsToFp.toFixed(1)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {efpModeEnabled ? insights.overallTransitionsToEfp.toFixed(1) : insights.overallTransitionsToFp.toFixed(1)}</div>
+                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.transitionsToEfp : insights.transitionsToFp)}</div>
+                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallTransitionsToEfp : insights.overallTransitionsToFp)}</div>
                   </div>
                   {transitionsComparison && (
                     <div className={cn("flex items-center gap-1", transitionsComparison.isBetter ? 'text-success' : 'text-destructive')}>
@@ -434,8 +440,8 @@ export default function Insights() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                   <div>
                     <div className="text-sm text-muted-foreground">Presentations → Close</div>
-                    <div className="text-xl font-bold">{insights.presentationsToClose.toFixed(1)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {insights.overallPresentationsToClose.toFixed(1)}</div>
+                    <div className="text-xl font-bold">{safeFormat(insights.presentationsToClose)}</div>
+                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(insights.overallPresentationsToClose)}</div>
                   </div>
                   {closeComparison && (
                     <div className={cn("flex items-center gap-1", closeComparison.isBetter ? 'text-success' : 'text-destructive')}>
@@ -450,7 +456,7 @@ export default function Insights() {
                   <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
                     <div>
                       <div className="text-sm text-muted-foreground">Doors → FP</div>
-                      <div className="text-xl font-bold">{insights.doorsToNewFp.toFixed(1)}</div>
+                      <div className="text-xl font-bold">{safeFormat(insights.doorsToNewFp)}</div>
                       <div className="text-xs text-muted-foreground">More accurate door efficiency</div>
                     </div>
                   </div>
@@ -467,7 +473,7 @@ export default function Insights() {
               preview={
                 <span>
                   <span className="text-primary font-medium">
-                    {efpModeEnabled ? insights.hoursToEfp.toFixed(1) : insights.hoursToFp.toFixed(1)} hours
+                    {safeFormat(efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp)} hours
                   </span> to sell 1 {efpModeEnabled ? "EFP" : "FP+"}
                 </span>
               }
@@ -475,27 +481,24 @@ export default function Insights() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-muted/30">
                   <div className="text-sm text-muted-foreground">Doors/Hour</div>
-                  <div className="text-xl font-bold">{insights.doorsPerHour.toFixed(1)}</div>
+                  <div className="text-xl font-bold">{safeFormat(insights.doorsPerHour)}</div>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <div className="text-sm text-muted-foreground">Pitches/Hour</div>
-                  <div className="text-xl font-bold">{insights.pitchesPerHour.toFixed(1)}</div>
+                  <div className="text-xl font-bold">{safeFormat(insights.pitchesPerHour)}</div>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <div className="text-sm text-muted-foreground">Transitions/Hour</div>
-                  <div className="text-xl font-bold">{insights.transitionsPerHour.toFixed(1)}</div>
+                  <div className="text-xl font-bold">{safeFormat(insights.transitionsPerHour)}</div>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <div className="text-sm text-muted-foreground">Presentations/Hour</div>
-                  <div className="text-xl font-bold">{insights.presentationsPerHour.toFixed(1)}</div>
+                  <div className="text-xl font-bold">{safeFormat(insights.presentationsPerHour)}</div>
                 </div>
                 <div className="col-span-2 p-3 rounded-xl bg-primary/10">
                   <div className="text-sm text-muted-foreground">Hours to sell 1 {efpModeEnabled ? "EFP" : "FP+"}</div>
                   <div className="text-xl font-bold text-primary">
-                    {(() => {
-                      const hours = efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp;
-                      return !isFinite(hours) || isNaN(hours) || hours <= 0 ? "-" : `${hours.toFixed(1)}h`;
-                    })()}
+                    {safeFormat(efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp, 1, 'h')}
                   </div>
                 </div>
               </div>
