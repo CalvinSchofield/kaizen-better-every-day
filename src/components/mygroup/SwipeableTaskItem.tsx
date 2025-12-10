@@ -3,9 +3,8 @@ import { motion, useMotionValue, useTransform, PanInfo, useAnimation } from "fra
 import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -48,7 +47,6 @@ export const SwipeableTaskItem = ({
   const constraintsRef = useRef(null);
   const x = useMotionValue(0);
   const controls = useAnimation();
-  const logActivityMutation = useLogRecruitActivity();
 
   // Play demo animation on mount if requested
   useEffect(() => {
@@ -107,25 +105,11 @@ export const SwipeableTaskItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${recruit.phone}`;
-    // Open post-contact drawer after call
-    onContact?.(recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${recruit.phone}`;
-    // Auto-log text activity
-    const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
-    logActivityMutation.mutate({
-      recruitNotionId: recruit.notionPageId,
-      activityType: 'phone_call',
-      notes: `Texted ${firstName}`,
-      updateLastContact: false, // Texts don't update last contact
-    }, {
-      onSuccess: () => {
-        toast.success(`Text logged for ${firstName}`);
-      }
-    });
   };
 
   // Determine what to display as the action/reason text
