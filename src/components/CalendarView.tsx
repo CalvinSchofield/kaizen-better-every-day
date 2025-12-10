@@ -15,6 +15,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { GoalProgressCard } from "@/components/GoalProgressCard";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 const PRESEASON_END = '2026-04-11';
 
@@ -187,6 +188,12 @@ export const CalendarView = ({
   const goToToday = () => {
     setCurrentDate(new Date());
   };
+
+  // Swipe navigation for mobile
+  const swipeHandlers = useSwipeNavigation({
+    onSwipeLeft: nextPeriod,
+    onSwipeRight: prevPeriod,
+  });
 
   const handleDayClick = (date: Date) => {
     const isSunday = getDay(date) === 0;
@@ -368,7 +375,7 @@ export const CalendarView = ({
 
       {/* Calendar Grid */}
       {viewMode === "month" ? (
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-2" {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
@@ -430,7 +437,7 @@ export const CalendarView = ({
         </div>
       ) : (
         /* Week View - Grid layout matching month view */
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-2" {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
