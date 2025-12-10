@@ -171,7 +171,7 @@ export default function Insights() {
     }
   };
 
-  const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset));
+  const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset), efpModeEnabled);
   
   const handleCustomDateApply = () => {
     if (customStartDate && customEndDate) {

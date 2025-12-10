@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useInsightsData } from "@/hooks/useInsightsData";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import { Loader2 } from "lucide-react";
 
 interface QuickStatsBarProps {
@@ -9,11 +10,12 @@ interface QuickStatsBarProps {
 export const QuickStatsBar = ({ repData }: QuickStatsBarProps) => {
   const today = new Date();
   const startOfYear = new Date(today.getFullYear(), 0, 1);
+  const { efpModeEnabled } = useEfpMode();
   
   const { data, isLoading } = useInsightsData({
     start: startOfYear,
     end: today,
-  });
+  }, efpModeEnabled);
 
   if (isLoading || !data) {
     return (

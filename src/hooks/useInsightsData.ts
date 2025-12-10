@@ -152,9 +152,9 @@ const decimalToTime = (decimal: number): string => {
   return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
 };
 
-export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
+export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEnabled: boolean = false) => {
   return useQuery({
-    queryKey: ['insights-data', format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: ['insights-data', format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd'), efpModeEnabled],
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     retry: 1,
@@ -401,9 +401,14 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
       const upgradeRate = totals.fpPlus > 0 ? (totalUpgradeFp / totals.fpPlus) * 100 : 0;
       const doorsToNewFp = totalNewFp > 0 ? activityTotals.doors / totalNewFp : 0;
 
-      // Best day (highest FP+)
+      // Best day - sort by EFP (prmr/85) if efpModeEnabled, otherwise FP+
       const bestDay = rangeEntries.length > 0
         ? rangeEntries.reduce((best, entry) => {
+            if (efpModeEnabled) {
+              const entryEfp = (entry.prmr || 0) / 85;
+              const bestEfp = (best.prmr || 0) / 85;
+              return entryEfp > bestEfp ? entry : best;
+            }
             return (entry.fp_plus || 0) > (best.fp_plus || 0) ? entry : best;
           })
         : null;
@@ -516,9 +521,18 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         weeklyData[weekKey].closes += entry.closes || 0;
       });
 
+      // Sort by EFP (prmr/85) if efpModeEnabled, otherwise FP+
       const bestWeekEntry = Object.entries(weeklyData).reduce<any>((best, [weekStart, data]) => {
-        if (!best || data.fpPlus > best.fpPlus) {
-          return { weekStart, ...data };
+        if (efpModeEnabled) {
+          const dataEfp = data.prmr / 85;
+          const bestEfp = best ? best.prmr / 85 : 0;
+          if (!best || dataEfp > bestEfp) {
+            return { weekStart, ...data };
+          }
+        } else {
+          if (!best || data.fpPlus > best.fpPlus) {
+            return { weekStart, ...data };
+          }
         }
         return best;
       }, null);
@@ -549,9 +563,18 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }) => {
         monthlyData[monthKey].closes += entry.closes || 0;
       });
 
+      // Sort by EFP (prmr/85) if efpModeEnabled, otherwise FP+
       const bestMonthEntry = Object.entries(monthlyData).reduce<any>((best, [month, data]) => {
-        if (!best || data.fpPlus > best.fpPlus) {
-          return { month, ...data };
+        if (efpModeEnabled) {
+          const dataEfp = data.prmr / 85;
+          const bestEfp = best ? best.prmr / 85 : 0;
+          if (!best || dataEfp > bestEfp) {
+            return { month, ...data };
+          }
+        } else {
+          if (!best || data.fpPlus > best.fpPlus) {
+            return { month, ...data };
+          }
         }
         return best;
       }, null);
