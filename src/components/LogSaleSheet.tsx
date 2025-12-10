@@ -326,7 +326,7 @@ export const LogSaleSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe max-h-[90vh]">
+      <DrawerContent className="pb-safe max-h-[90dvh]">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="text-xl">
             {isEditing ? "Edit Sale" : "Nice! 🎉"}
@@ -338,7 +338,7 @@ export const LogSaleSheet = ({
           )}
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Sale Type Toggle */}
           <div className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
