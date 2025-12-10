@@ -19,6 +19,10 @@ interface TeamAccessResponse {
     userId: string;
     name: string;
     notionPageId: string;
+    phone?: string | null;
+    year?: string | null;
+    teamName?: string | null;
+    mgmtGroupName?: string | null;
   }>;
 }
 

@@ -259,14 +259,16 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             }
             
             processedUsers.add(userId);
+            // Get phone from accessibleReps cache (from Notion) OR from reps table
+            const cachedPhone = teamInfo?.phone || repInfo?.phone;
             liveReps.push({
               userId,
               name: repInfo?.name || 'Unknown',
-              year: repInfo?.year || undefined,
+              year: repInfo?.year || teamInfo?.year || undefined,
               teamName,
               mgmtGroupName,
-              phone: repInfo?.phone || undefined,
-              notionPageId: repInfo?.notion_page_id || undefined,
+              phone: cachedPhone || undefined,
+              notionPageId: repInfo?.notion_page_id || teamInfo?.notionPageId || undefined,
               timezone: timezone || 'America/Los_Angeles',
               isWorking: !todayEntry.is_finalized,
               hasForgottenEntry: !!forgottenEntry,
@@ -299,13 +301,14 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         } else if (forgottenEntry && !processedUsers.has(userId)) {
           // Only has forgotten entry
           processedUsers.add(userId);
+          const cachedPhone = teamInfo?.phone || repInfo?.phone;
           liveReps.push({
             userId,
             name: repInfo?.name || 'Unknown',
             teamName,
             mgmtGroupName,
-            phone: repInfo?.phone || undefined,
-            notionPageId: repInfo?.notion_page_id || undefined,
+            phone: cachedPhone || undefined,
+            notionPageId: repInfo?.notion_page_id || teamInfo?.notionPageId || undefined,
             timezone: timezone || 'America/Los_Angeles',
             isWorking: false,
             hasForgottenEntry: true,
