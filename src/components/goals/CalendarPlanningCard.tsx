@@ -430,16 +430,18 @@ export const CalendarPlanningCard = ({
     
     if (totalSummerDays === 0) return null;
 
-    // Preseason goal is in the current mode already (adjusted for cancel rate)
-    const preseasonGoal = parseFloat(preseasonTotalInput) || 0;
-    const adjustedPreseasonGoal = preseasonGoal / (1 - cancelRate);
+    // Use preseason PACING projection (what user is on track to sell based on current pace)
+    // NOT the preseason goal input - this reflects reality rather than aspirations
+    const preseasonPacingTotal = preseasonStats ? parseFloat(preseasonStats.projectedTotal) : 0;
     
-    // Remaining summer goal = Selected tier (converted to current mode) - preseason goal
-    // Also adjust for cancel rate
+    // Remaining summer goal = Selected tier (converted to current mode, adjusted for cancel rate) - preseason pacing total
+    // The pacing total is already in the correct mode (EFP or FP+) and represents what user will likely sell
     const conversionFactor = isEfpMode ? avgPrmrPerFp / 85 : 1;
     const selectedGoalInMode = selectedSummerGoal * conversionFactor;
+    // Adjust for cancel rate - user needs to SELL this much to END UP with their goal after cancels
     const adjustedSelectedGoal = selectedGoalInMode / (1 - cancelRate);
-    const remainingSummerGoal = Math.max(0, adjustedSelectedGoal - adjustedPreseasonGoal);
+    // Subtract what they're pacing for in preseason (already includes cancels implicitly since it's based on actual sales pace)
+    const remainingSummerGoal = Math.max(0, adjustedSelectedGoal - preseasonPacingTotal);
     
     const goalDaily = totalSummerDays > 0 ? remainingSummerGoal / totalSummerDays : 0;
 
@@ -474,7 +476,7 @@ export const CalendarPlanningCard = ({
       extraPerWeek: extraPerWeek.toFixed(1),
       weeksLeft: Math.round(weeksLeft),
     };
-  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonTotalInput, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today, excludedSummerDays, cancelRate]);
+  }, [personalSummerStart, personalSummerEnd, workedDays, selectedSummerGoal, preseasonStats, avgPrmrPerFp, rentType, weeksWorking, upgradeFpGoal, isEfpMode, today, excludedSummerDays, cancelRate]);
 
   // Calculate total stats
   const totalStats = useMemo(() => {
