@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, Settings, Calculator, ChevronDown } from "lucide-react";
+import { Lock, SlidersHorizontal, Calculator, ChevronDown, ArrowLeft } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -501,9 +501,22 @@ const Goals = () => {
       <Layout>
         <div className="p-4">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Set Your Goals</h1>
+            {goals?.setup_complete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mb-2 -ml-2 text-muted-foreground"
+                onClick={() => setShowSetupWizard(false)}
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+            )}
+            <h1 className="text-2xl font-bold">
+              {goals?.setup_complete ? 'Edit Your Goals' : 'Set Your Goals'}
+            </h1>
             <p className="text-muted-foreground">
-              Let's plan your summer success
+              {goals?.setup_complete ? 'Update your summer plan' : "Let's plan your summer success"}
             </p>
           </div>
           
@@ -628,7 +641,7 @@ const Goals = () => {
               className="h-9 w-9 rounded-xl"
               onClick={() => setShowSetupWizard(true)}
             >
-              <Settings className="h-4 w-4" />
+              <SlidersHorizontal className="h-4 w-4" />
             </Button>
           </div>
         </div>
