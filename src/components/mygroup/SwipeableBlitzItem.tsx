@@ -104,13 +104,11 @@ export const SwipeableBlitzItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${item.recruit.phone}`;
-    onContact?.(item.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${item.recruit.phone}`;
-    onContact?.(item.recruit);
   };
 
   return (
