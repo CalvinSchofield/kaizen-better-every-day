@@ -23,6 +23,8 @@ interface CalendarViewProps {
   blitzes?: any[];
   personalSummerStart?: Date;
   personalSummerEnd?: Date;
+  viewMode?: "week" | "month";
+  onViewModeChange?: (mode: "week" | "month") => void;
 }
 
 export const CalendarView = ({
@@ -30,6 +32,8 @@ export const CalendarView = ({
   blitzes = [],
   personalSummerStart,
   personalSummerEnd,
+  viewMode: controlledViewMode,
+  onViewModeChange,
 }: CalendarViewProps) => {
   const queryClient = useQueryClient();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
@@ -39,11 +43,15 @@ export const CalendarView = ({
   const { repData } = useRepData();
   const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week">("week");
+  const [internalViewMode, setInternalViewMode] = useState<"month" | "week">("week");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [saleDetailOpen, setSaleDetailOpen] = useState(false);
+  
+  // Use controlled or internal state
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const setViewMode = onViewModeChange ?? setInternalViewMode;
   
   // Calculate daily goal using centralized pace calculator
   const dailyGoal = useMemo(() => {
@@ -77,10 +85,6 @@ export const CalendarView = ({
     return Math.round(result.dailyGoal * 10) / 10;
   }, [goals, plannedDays, entries, efpModeEnabled, calculateEfp, preseasonCurrentFP, preseasonCurrentPRMR, personalSummerStart]);
 
-  // When switching to week view
-  const handleViewModeChange = (mode: "month" | "week") => {
-    setViewMode(mode);
-  };
 
   // Only use useDailyEntry for mutations, NOT for display data
   // Display data comes from the entries prop (source of truth)
@@ -337,37 +341,17 @@ export const CalendarView = ({
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
-      {/* Period Navigation with Week/Month Toggle */}
+      {/* Period Navigation */}
       <div className="flex items-center justify-between mb-4">
         <Button variant="ghost" size="icon" onClick={prevPeriod}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">
-            {viewMode === "month" 
-              ? format(currentDate, 'MMMM yyyy')
-              : `Week of ${format(weekStart, 'MMM d')}`
-            }
-          </h2>
-          <div className="flex gap-1">
-            <Button
-              variant={viewMode === "week" ? "default" : "ghost"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => handleViewModeChange("week")}
-            >
-              Week
-            </Button>
-            <Button
-              variant={viewMode === "month" ? "default" : "ghost"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => handleViewModeChange("month")}
-            >
-              Month
-            </Button>
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold">
+          {viewMode === "month" 
+            ? format(currentDate, 'MMMM yyyy')
+            : `Week of ${format(weekStart, 'MMM d')}`
+          }
+        </h2>
         <Button variant="ghost" size="icon" onClick={nextPeriod}>
           <ChevronRight className="h-5 w-5" />
         </Button>

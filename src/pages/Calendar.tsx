@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 
-const Calendar = () => {
+interface CalendarProps {
+  viewMode?: "week" | "month";
+  onViewModeChange?: (mode: "week" | "month") => void;
+}
+
+const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   const { repData, loading: loadingRepData, isInitializing } = useRepData();
   const navigate = useNavigate();
 
@@ -153,6 +158,8 @@ const Calendar = () => {
       blitzes={blitzes}
       personalSummerStart={personalSummerStart}
       personalSummerEnd={personalSummerEnd}
+      viewMode={viewMode}
+      onViewModeChange={onViewModeChange}
     />
   );
 };

@@ -15,7 +15,7 @@ import Training from "./pages/Training";
 import Tools from "./pages/Tools";
 import Competitors from "./pages/Competitors";
 import Contacts from "./pages/Contacts";
-import Calendar from "./pages/Calendar";
+import CalendarWithLayout from "./components/CalendarWithLayout";
 import Insights from "./pages/Insights";
 import Settings from "./pages/Settings";
 import TeamReports from "./pages/TeamReports";
@@ -118,9 +118,7 @@ const App = () => {
               path="/calendar"
               element={
                 <ProtectedRoute>
-                  <Layout>
-                    <Calendar />
-                  </Layout>
+                  <CalendarWithLayout />
                 </ProtectedRoute>
               }
             />
