@@ -222,13 +222,19 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     ? displayPreseasonGoal / totalSeasonKnockingDays 
     : 0;
 
+  // ==========================================
+  // PERIOD GOAL: What you should hit this entire week/month
+  // Formula: Fixed daily goal × total days in this period
+  // ==========================================
+  const periodGoal = fixedDailyGoal * totalDaysInPeriod;
+  
   // EXPECTED BY NOW: Fixed daily goal × days worked so far THIS PERIOD
   const periodExpected = fixedDailyGoal * daysWorkedInPeriod;
   
   // EXPECTED BY NOW for ENTIRE SEASON: Fixed daily goal × total days worked in season
   const seasonExpected = fixedDailyGoal * seasonKnockingDaysComplete;
 
-  // Pace difference (actual - expected)
+  // Pace difference (actual - expected by now)
   const periodPaceDiff = periodProgress - periodExpected;
   const isOnPaceForPeriod = periodPaceDiff >= 0;
   
@@ -236,17 +242,13 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const isOnPaceForSeason = seasonPaceDiff >= 0;
 
   // ==========================================
-  // CATCH-UP CALCULATION (what you need NOW to still hit goal)
-  // Formula: Remaining needed / Remaining days
+  // REMAINING THIS PERIOD: What's left to hit period goal
   // ==========================================
-  const remainingGoal = Math.max(0, displayPreseasonGoal - currentProgress);
+  const remainingForPeriod = Math.max(0, periodGoal - periodProgress);
   const remainingDaysInPeriod = Math.max(0, totalDaysInPeriod - daysWorkedInPeriod);
-  const catchUpDailyGoal = futureSeasonPlannedDays > 0 
-    ? remainingGoal / futureSeasonPlannedDays 
-    : 0;
   
-  // Catch-up for this period
-  const catchUpForPeriod = catchUpDailyGoal * remainingDaysInPeriod;
+  // Daily rate needed to hit THIS PERIOD's goal (matches calendar daily goal)
+  // Use fixed daily goal - this is consistent with what's shown on calendar
 
   // Summer tier tracking
   const mustDoComplete = currentProgress >= displayMustDo;
@@ -262,10 +264,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const weeklyWillDo = dailyWillDo * totalDaysInPeriod;
   const weeklyCouldDo = dailyCouldDo * totalDaysInPeriod;
 
-  // Progress percentage (capped at 100 for display, but can exceed)
-  // Use periodExpected to align with pace calculation (not periodGoal which is catch-up target)
-  const progressPercent = periodExpected > 0 ? (periodProgress / periodExpected) * 100 : 0;
-  const isGoalHit = periodProgress >= periodExpected && periodExpected > 0;
+  // Progress percentage - use periodGoal (what you should hit this period total)
+  const progressPercent = periodGoal > 0 ? (periodProgress / periodGoal) * 100 : 0;
+  const isGoalHit = periodProgress >= periodGoal && periodGoal > 0;
 
   // Overall season progress
   const overallTarget = isInPreseason ? displayPreseasonGoal : displayMustDo;
@@ -322,7 +323,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
               {periodProgress.toFixed(1)}
             </span>
             <span className="text-lg text-muted-foreground ml-1">
-              / {periodExpected.toFixed(1)}
+              / {periodGoal.toFixed(1)}
             </span>
           </div>
           <span className="text-sm font-medium text-muted-foreground mb-1">
@@ -363,26 +364,23 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             <TrendingDown className="h-4 w-4 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
               <span className="font-semibold">{Math.abs(periodPaceDiff).toFixed(1)} behind pace</span>
-              {remainingDaysInPeriod > 0 && catchUpDailyGoal > 0 && (
+              {remainingDaysInPeriod > 0 && fixedDailyGoal > 0 && (
                 <span className="text-muted-foreground">
-                  {' '}· Need {catchUpDailyGoal.toFixed(1)}/day to catch up
-                  {catchUpDailyGoal > fixedDailyGoal && fixedDailyGoal > 0 && (
-                    <span className="text-amber-600 dark:text-amber-400"> (was {fixedDailyGoal.toFixed(1)})</span>
-                  )}
+                  {' '}· Need {fixedDailyGoal.toFixed(1)}/day to catch up
                 </span>
               )}
             </p>
           </div>
-        ) : remainingGoal > 0 && remainingDaysInPeriod > 0 ? (
+        ) : remainingForPeriod > 0 && remainingDaysInPeriod > 0 ? (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/30 border border-border/50">
             <Flame className="h-4 w-4 text-primary flex-shrink-0" />
             <p className="text-sm text-foreground">
-              <span className="font-semibold">{catchUpForPeriod.toFixed(1)} {metricLabel} to go this {viewMode}</span>
+              <span className="font-semibold">{remainingForPeriod.toFixed(1)} {metricLabel} to go this {viewMode}</span>
               {remainingDaysInPeriod === 1 ? (
                 <span className="text-muted-foreground"> — hit it today!</span>
               ) : (
                 <span className="text-muted-foreground">
-                  {' '}· {catchUpDailyGoal.toFixed(1)}/day to stay on track
+                  {' '}· {fixedDailyGoal.toFixed(1)}/day to stay on track
                 </span>
               )}
             </p>
