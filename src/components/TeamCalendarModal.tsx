@@ -35,7 +35,7 @@ const TeamCalendarModal = ({ open, onOpenChange, teamLeaderPhone }: TeamCalendar
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />

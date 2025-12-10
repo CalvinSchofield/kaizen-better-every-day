@@ -136,7 +136,7 @@ const UpcomingTeamEventsCard = ({ teamLeaderPhone }: UpcomingTeamEventsCardProps
 
       {/* Events Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-primary" />

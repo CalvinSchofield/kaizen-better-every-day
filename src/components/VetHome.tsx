@@ -867,7 +867,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         {/* Weather Details Sheet */}
         <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Weather for {nextBlitz?.location}</SheetTitle>
               <SheetDescription>

@@ -132,7 +132,7 @@ export const SaleDetailSheet = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="px-4 pb-6 space-y-6 max-h-[70dvh] overflow-y-auto flex-1 min-h-0">
           {/* Status Badge */}
           <div className="flex justify-center">
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${

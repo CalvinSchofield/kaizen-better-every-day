@@ -98,7 +98,7 @@ export const BlitzCommitmentDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="max-h-[80vh]">
+      <DrawerContent className="max-h-[80dvh]">
         <DrawerHeader className="border-b">
           <DrawerTitle className="text-left">
             Blitz Commitments for {recruitName}

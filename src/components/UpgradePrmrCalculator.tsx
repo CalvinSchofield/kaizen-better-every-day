@@ -198,7 +198,7 @@ export const UpgradePrmrCalculator = ({
       onOpenChange(isOpen);
       if (!isOpen) resetChat();
     }}>
-      <DrawerContent className="h-[70vh] max-h-[70vh]">
+      <DrawerContent className="h-[70dvh] max-h-[70dvh]">
         <div className="flex flex-col h-full overflow-hidden">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <DrawerTitle className="flex items-center gap-2">

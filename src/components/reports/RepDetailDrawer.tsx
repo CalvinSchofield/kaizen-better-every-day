@@ -203,7 +203,7 @@ export const RepDetailDrawer = ({ open, onOpenChange, rep }: RepDetailDrawerProp
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         {/* Clean Header */}
         <DrawerHeader className="text-left pb-3 pt-6">
           <DrawerTitle className="text-2xl font-bold">{rep.name}</DrawerTitle>

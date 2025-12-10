@@ -1501,7 +1501,7 @@ export const CalendarPlanningCard = ({
         open={dateOutOfRangeSheet?.open || false} 
         onOpenChange={(open) => !open && setDateOutOfRangeSheet(null)}
       >
-        <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto">
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[85dvh] overflow-y-auto">
           <SheetHeader>
             <div className="flex items-center gap-2 text-amber-500">
               <AlertCircle className="h-5 w-5" />
@@ -1708,7 +1708,7 @@ export const CalendarPlanningCard = ({
 
       {/* Blitz Commitment Drawer */}
       <Drawer open={showBlitzDrawer} onOpenChange={setShowBlitzDrawer}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="text-center pb-2">
             <DrawerTitle className="flex items-center justify-center gap-2">
               <Plane className="h-5 w-5 text-red-500" />
@@ -1719,7 +1719,7 @@ export const CalendarPlanningCard = ({
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
+          <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60dvh] flex-1 min-h-0">
             {/* Committed blitzes */}
             {committedBlitzes.length > 0 && (
               <div className="space-y-2">
@@ -1812,7 +1812,7 @@ export const CalendarPlanningCard = ({
 
       {/* Blitz Commitment Prompt - appears when user marks 2+ days in an uncommitted blitz week */}
       <Drawer open={!!blitzCommitPrompt} onOpenChange={(open) => !open && setBlitzCommitPrompt(null)}>
-        <DrawerContent className="max-h-[70vh]">
+        <DrawerContent className="max-h-[70dvh]">
           <DrawerHeader className="text-center pb-2">
             <DrawerTitle className="flex items-center justify-center gap-2">
               <MapPin className="h-5 w-5 text-amber-500" />
