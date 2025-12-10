@@ -1,17 +1,14 @@
-import { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface IntroSlideProps {
-  icon: LucideIcon;
-  iconColor?: string;
+  image?: string;
   title: string;
   description: string;
   highlight?: string;
 }
 
 export const IntroSlide = ({ 
-  icon: Icon, 
-  iconColor = "text-primary",
+  image,
   title, 
   description,
   highlight
@@ -24,14 +21,20 @@ export const IntroSlide = ({
       transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center text-center px-6 py-8 h-full"
     >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.3 }}
-        className={`w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6`}
-      >
-        <Icon className={`w-10 h-10 ${iconColor}`} />
-      </motion.div>
+      {image && (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.3 }}
+          className="w-48 h-48 mb-6 rounded-3xl overflow-hidden"
+        >
+          <img 
+            src={image} 
+            alt={title} 
+            className="w-full h-full object-cover"
+          />
+        </motion.div>
+      )}
       
       <motion.h2
         initial={{ opacity: 0 }}

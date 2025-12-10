@@ -2,21 +2,21 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
-import { 
-  Home, 
-  GraduationCap, 
-  Calendar, 
-  Target, 
-  TrendingUp, 
-  Trophy, 
-  Users, 
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  Compass,
-  Flame
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
+// Import illustrations
+import welcomeImg from "@/assets/intro/welcome.png";
+import navigationImg from "@/assets/intro/navigation.png";
+import journeyImg from "@/assets/intro/journey.png";
+import trainingImg from "@/assets/intro/training.png";
+import blitzImg from "@/assets/intro/blitz.png";
+import goalsImg from "@/assets/intro/goals.png";
+import trackImg from "@/assets/intro/track.png";
+import calendarImg from "@/assets/intro/calendar.png";
+import insightsImg from "@/assets/intro/insights.png";
+import competeImg from "@/assets/intro/compete.png";
+import reportsImg from "@/assets/intro/reports.png";
+import mygroupImg from "@/assets/intro/mygroup.png";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -27,8 +27,7 @@ interface IntroWizardProps {
 }
 
 interface SlideConfig {
-  icon: any;
-  iconColor?: string;
+  image: string;
   title: string;
   description: string;
   highlight?: string;
@@ -37,8 +36,7 @@ interface SlideConfig {
 const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
   // Welcome slide for everyone
   const welcomeSlide: SlideConfig = {
-    icon: Home,
-    iconColor: "text-primary",
+    image: welcomeImg,
     title: `Welcome, ${firstName}!`,
     description: "Kaizen is your one-stop hub for everything you need to succeed at Vivint. Let's show you around.",
     highlight: "Let's get started"
@@ -46,8 +44,7 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
 
   // Navigation overview
   const navSlide: SlideConfig = {
-    icon: Compass,
-    iconColor: "text-primary",
+    image: navigationImg,
     title: "Easy Navigation",
     description: "Use the bottom tabs to switch between pages. The menu icon in the top-left has more options and resources.",
   };
@@ -58,27 +55,23 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
       welcomeSlide,
       navSlide,
       {
-        icon: Home,
-        iconColor: "text-primary",
+        image: journeyImg,
         title: "Your Journey Home",
         description: "Home is your roadmap. Follow the steps to get blitz-ready. Each step unlocks as you progress.",
         highlight: "Step by step"
       },
       {
-        icon: GraduationCap,
-        iconColor: "text-blue-500",
+        image: trainingImg,
         title: "Training Hub",
         description: "Study product knowledge, practice pitches, and complete required trainings. Everything you need to prepare.",
       },
       {
-        icon: Calendar,
-        iconColor: "text-green-500",
+        image: blitzImg,
         title: "Pick Your Blitz",
         description: "View upcoming blitzes and commit to dates. Your calendar shows all team events and your commitments.",
       },
       {
-        icon: Target,
-        iconColor: "text-amber-500",
+        image: goalsImg,
         title: "Set Your Goals",
         description: "Plan your summer earnings. Set FP+ goals and track your preseason progress toward blitz-ready.",
         highlight: "Dream big!"
@@ -91,34 +84,29 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     welcomeSlide,
     navSlide,
     {
-      icon: Flame,
-      iconColor: "text-orange-500",
+      image: trackImg,
       title: "Track Your Day",
       description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
       highlight: "Tap to count"
     },
     {
-      icon: Calendar,
-      iconColor: "text-green-500",
+      image: calendarImg,
       title: "Calendar View",
       description: "See your daily progress over time. Review past entries and plan future work days.",
     },
     {
-      icon: TrendingUp,
-      iconColor: "text-blue-500",
+      image: insightsImg,
       title: "Insights & Analytics",
       description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
     },
     {
-      icon: Trophy,
-      iconColor: "text-amber-500",
+      image: competeImg,
       title: "Leaderboards",
       description: "Compete with teammates. See where you rank today, this week, and for the season.",
       highlight: "Rise to the top"
     },
     {
-      icon: Target,
-      iconColor: "text-primary",
+      image: goalsImg,
       title: "Goals & Pace",
       description: "Track your progress toward your FP+ goals. Stay on pace to hit your targets.",
     },
@@ -129,14 +117,12 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     return [
       ...baseSlides,
       {
-        icon: BarChart3,
-        iconColor: "text-purple-500",
+        image: reportsImg,
         title: "Team Reports",
         description: "View your team's performance at a glance. Identify who needs coaching and celebrate top performers.",
       },
       {
-        icon: Users,
-        iconColor: "text-teal-500",
+        image: mygroupImg,
         title: "My Group",
         description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
         highlight: "Build your team"
@@ -205,8 +191,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
         <AnimatePresence mode="wait">
           <IntroSlide
             key={currentSlide}
-            icon={slides[currentSlide].icon}
-            iconColor={slides[currentSlide].iconColor}
+            image={slides[currentSlide].image}
             title={slides[currentSlide].title}
             description={slides[currentSlide].description}
             highlight={slides[currentSlide].highlight}
