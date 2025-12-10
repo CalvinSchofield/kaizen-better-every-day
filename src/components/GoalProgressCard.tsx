@@ -296,8 +296,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const catchUpPerDay = remainingDaysInPeriod > 0 ? periodRemaining / remainingDaysInPeriod : 0;
 
   // Progress percentage (capped at 100 for display, but can exceed)
-  const progressPercent = periodGoal > 0 ? (periodProgress / periodGoal) * 100 : 0;
-  const isGoalHit = periodProgress >= periodGoal && periodGoal > 0;
+  // Use periodExpected to align with pace calculation (not periodGoal which is catch-up target)
+  const progressPercent = periodExpected > 0 ? (periodProgress / periodExpected) * 100 : 0;
+  const isGoalHit = periodProgress >= periodExpected && periodExpected > 0;
 
   // Overall season progress
   const overallTarget = isInPreseason ? displayPreseasonGoal : displayMustDo;
@@ -354,7 +355,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
               {periodProgress.toFixed(1)}
             </span>
             <span className="text-lg text-muted-foreground ml-1">
-              / {periodGoal.toFixed(1)}
+              / {periodExpected.toFixed(1)}
             </span>
           </div>
           <span className="text-sm font-medium text-muted-foreground mb-1">
