@@ -300,6 +300,41 @@ export const WeekPlannerSection = ({
         </CardContent>
       </Card>
 
+      {/* Overdue Section - show before today */}
+      {overdueCount > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-destructive flex items-center gap-2">
+              Overdue
+              <Badge variant="destructive" className="text-xs">
+                {overdueCount}
+              </Badge>
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {Array.from(scheduledTasks.entries())
+              .filter(([dateStr]) => {
+                const date = parseISO(dateStr);
+                return isPast(date) && !isDateToday(date);
+              })
+              .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
+              .flatMap(([dateStr, tasks]) => 
+                tasks.map(({ recruit, activity }) => (
+                  <SwipeableTaskItem
+                    key={`overdue-${recruit.notionPageId}-${activity.id}`}
+                    recruit={recruit}
+                    activity={activity}
+                    onRecruitClick={handleLocalRecruitClick}
+                    onContact={handleSwipeContact}
+                    onSchedule={handleSwipeSchedule}
+                    isOverdue
+                  />
+                ))
+              )}
+          </div>
+        </div>
+      )}
+
       {/* Today Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">

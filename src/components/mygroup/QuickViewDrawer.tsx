@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, CalendarDays, Sun } from "lucide-react";
+import { LayoutGrid, Sun } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { 
   Drawer, 
@@ -9,11 +9,10 @@ import {
 } from "@/components/ui/drawer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecruitKanbanBoard } from "./RecruitKanbanBoard";
-import { RecruitPlannerView } from "./RecruitPlannerView";
 import { SummerAvailabilityView } from "./SummerAvailabilityView";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
-type ViewMode = 'board' | 'planner' | 'availability';
+type ViewMode = 'board' | 'availability';
 
 interface QuickViewDrawerProps {
   open: boolean;
@@ -23,10 +22,7 @@ interface QuickViewDrawerProps {
 }
 
 const getDrawerTitle = (viewMode: ViewMode) => {
-  switch (viewMode) {
-    case 'availability': return 'Summer Availability';
-    default: return 'All Recruits';
-  }
+  return viewMode === 'availability' ? 'Summer Availability' : 'All Recruits';
 };
 
 export const QuickViewDrawer = ({ 
@@ -37,7 +33,7 @@ export const QuickViewDrawer = ({
 }: QuickViewDrawerProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('board');
 
-  const showBadge = ['board', 'planner'].includes(viewMode);
+  const showBadge = viewMode === 'board';
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -55,9 +51,6 @@ export const QuickViewDrawer = ({
                 <TabsTrigger value="board" className="px-2" title="Board">
                   <LayoutGrid className="h-4 w-4" />
                 </TabsTrigger>
-                <TabsTrigger value="planner" className="px-2" title="Planner">
-                  <CalendarDays className="h-4 w-4" />
-                </TabsTrigger>
                 <TabsTrigger value="availability" className="px-2" title="Availability">
                   <Sun className="h-4 w-4" />
                 </TabsTrigger>
@@ -69,8 +62,6 @@ export const QuickViewDrawer = ({
         <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
           {viewMode === 'board' ? (
             <RecruitKanbanBoard recruits={recruits} activities={activities} />
-          ) : viewMode === 'planner' ? (
-            <RecruitPlannerView recruits={recruits} activities={activities} />
           ) : (
             <SummerAvailabilityView />
           )}

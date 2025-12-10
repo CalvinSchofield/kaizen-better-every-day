@@ -30,6 +30,7 @@ interface SwipeableTaskItemProps {
   onDirectText?: (recruit: Recruit) => void;
   showSwipeDemo?: boolean;
   onDemoComplete?: () => void;
+  isOverdue?: boolean;
 }
 
 export const SwipeableTaskItem = ({
@@ -45,6 +46,7 @@ export const SwipeableTaskItem = ({
   onDirectText,
   showSwipeDemo = false,
   onDemoComplete,
+  isOverdue = false,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const [demoPlayed, setDemoPlayed] = useState(false);
@@ -164,7 +166,8 @@ export const SwipeableTaskItem = ({
         whileTap={{ cursor: 'grabbing' }}
         className={cn(
           "bg-card rounded-lg p-3 border shadow-sm cursor-grab active:cursor-grabbing relative",
-          isCommitted && "shadow-lg"
+          isCommitted && "shadow-lg",
+          isOverdue && "border-destructive/50 bg-destructive/5"
         )}
       >
         {/* Main content */}
