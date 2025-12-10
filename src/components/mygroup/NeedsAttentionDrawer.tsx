@@ -19,6 +19,7 @@ import { SwipeableBlitzItem } from "./SwipeableBlitzItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
+import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -818,9 +819,8 @@ const ReadinessItem = ({
     e.stopPropagation();
     if (item.recruit.phone) {
       window.location.href = `sms:${item.recruit.phone}`;
-    } else {
-      toast.error('No phone number available');
     }
+    // No phone case is handled by hiding the button when no phone
   };
 
   return (
@@ -961,12 +961,25 @@ export const NeedsAttentionDrawer = ({
 }: NeedsAttentionDrawerProps) => {
   const [scheduleRecruit, setScheduleRecruit] = useState<Recruit | null>(null);
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
+  const [phoneDrawerRecruit, setPhoneDrawerRecruit] = useState<Recruit | null>(null);
+  const [pendingPhoneAction, setPendingPhoneAction] = useState<'text' | 'call' | null>(null);
   const logActivityMutation = useLogRecruitActivity();
+  const queryClient = useQueryClient();
 
   if (!category) return null;
 
+  const openPhoneDrawer = (recruit: Recruit, action: 'text' | 'call') => {
+    setPhoneDrawerRecruit(recruit);
+    setPendingPhoneAction(action);
+  };
+
   const handleCall = async (recruit: Recruit, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    if (!recruit.phone) {
+      openPhoneDrawer(recruit, 'call');
+      return;
+    }
     
     try {
       await logActivityMutation.mutateAsync({
@@ -984,6 +997,10 @@ export const NeedsAttentionDrawer = ({
 
   const handleText = async (recruit: Recruit, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!recruit.phone) {
+      openPhoneDrawer(recruit, 'text');
+      return;
+    }
     window.location.href = `sms:${recruit.phone}`;
   };
 
@@ -1115,6 +1132,22 @@ export const NeedsAttentionDrawer = ({
         open={!!contactRecruit}
         onOpenChange={(open) => !open && setContactRecruit(null)}
         recruit={contactRecruit}
+      />
+
+      <AddPhoneDrawer
+        open={!!phoneDrawerRecruit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPhoneDrawerRecruit(null);
+            setPendingPhoneAction(null);
+          }
+        }}
+        personName={phoneDrawerRecruit?.name || ''}
+        notionPageId={phoneDrawerRecruit?.notionPageId || ''}
+        pendingAction={pendingPhoneAction}
+        onPhoneSaved={() => {
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        }}
       />
     </>
   );

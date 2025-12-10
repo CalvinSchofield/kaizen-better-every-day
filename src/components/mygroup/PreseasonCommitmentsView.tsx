@@ -11,6 +11,7 @@ import { Check, ChevronDown, ChevronUp, Calendar, MapPin, Plane, History, Messag
 import { format, parseISO, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 
 interface RookieInfo {
   userId: string;
@@ -199,9 +200,8 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
   const handleText = () => {
     if (rookie.phone) {
       window.open(`sms:${rookie.phone}`, '_blank');
-    } else {
-      toast.error('No phone number available');
     }
+    // Text button hidden when no phone number
   };
 
   const summaryText = `${committedFutureCount} upcoming · ${attendedPastBlitzes.length} attended`;
