@@ -11,6 +11,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { useRepData } from "@/hooks/useRepData";
 import { GoalProgressCard } from "@/components/GoalProgressCard";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
@@ -35,6 +36,7 @@ export const CalendarView = ({
   const { isDatePlanned, plannedDays } = usePlannedDays();
   const { goals } = useRepGoals();
   const { totalFP: preseasonCurrentFP, totalEFP: preseasonCurrentEFP, totalPRMR: preseasonCurrentPRMR } = usePreseasonFP();
+  const { repData } = useRepData();
   const { updateSale } = useSaleUpdate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week">("week");
@@ -593,6 +595,8 @@ export const CalendarView = ({
             });
           }
         }}
+        crmEnabled={repData?.crm_enabled || false}
+        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
       />
     </div>
   );
