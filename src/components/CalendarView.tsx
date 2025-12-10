@@ -353,25 +353,28 @@ export const CalendarView = ({
         <Button variant="ghost" size="icon" onClick={prevPeriod}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <h2 className="text-lg font-semibold">
-          {viewMode === "month" 
-            ? format(currentDate, 'MMMM yyyy')
-            : `Week of ${format(weekStart, 'MMM d')}`
-          }
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">
+            {viewMode === "month" 
+              ? format(currentDate, 'MMMM yyyy')
+              : `Week of ${format(weekStart, 'MMM d')}`
+            }
+          </h2>
+          {!isViewingToday && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={goToToday} 
+              className="h-7 px-2 text-xs"
+            >
+              Today
+            </Button>
+          )}
+        </div>
         <Button variant="ghost" size="icon" onClick={nextPeriod}>
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
-
-      <Button 
-        variant={isViewingToday ? "ghost" : "default"} 
-        size="sm" 
-        onClick={goToToday} 
-        className={`w-full mb-4 ${isViewingToday ? 'text-xs' : ''}`}
-      >
-        Today
-      </Button>
 
       {/* Calendar Grid */}
       {viewMode === "month" ? (
