@@ -45,6 +45,19 @@ export interface Sale {
   scheduled_install_date?: string;     // YYYY-MM-DD (only if scheduled out)
   install_status?: 'installed' | 'pending' | 'cancelled';  // Default: 'installed'
   install_confirmed_at?: string;       // When confirmed (for pending → installed)
+  // CRM fields - Simple
+  customer_name?: string;
+  customer_phone?: string;
+  customer_account_number?: string;
+  customer_location?: string;
+  customer_lat?: number;
+  customer_lng?: number;
+  // CRM fields - Detailed
+  time_to_sell_minutes?: number;
+  time_to_sell_source?: 'transition' | 'door';
+  deal_type?: 'fresh' | 'takeover' | 'diy';
+  money_spent?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface DailyEntry {

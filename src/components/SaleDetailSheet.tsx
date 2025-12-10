@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO } from "date-fns";
-import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2 } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2, User, Phone, Hash, MapPin, Clock, DollarSign, Gauge } from "lucide-react";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -20,7 +20,17 @@ interface SaleDetailSheetProps {
   entryDate: string;
   onUpdateSale: (updatedSale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
+  crmEnabled?: boolean;
+  crmDetailedEnabled?: boolean;
 }
+
+// Helper to format minutes to readable string
+const formatMinutes = (minutes: number): string => {
+  if (minutes < 60) return `${minutes} min`;
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hrs} hr ${mins} min` : `${hrs} hr`;
+};
 
 export const SaleDetailSheet = ({
   open,
@@ -29,6 +39,8 @@ export const SaleDetailSheet = ({
   entryDate,
   onUpdateSale,
   onDeleteSale,
+  crmEnabled = false,
+  crmDetailedEnabled = false,
 }: SaleDetailSheetProps) => {
   const [prmr, setPrmr] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -53,10 +65,13 @@ export const SaleDetailSheet = ({
 
   const isCancelled = sale.install_status === 'cancelled';
   const isPending = sale.install_status === 'pending';
-  const isInstalled = sale.install_status === 'installed' || !sale.install_status;
   const isFP = sale.type === 'fp';
   const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
   const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
+
+  // Check if CRM data exists
+  const hasSimpleCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_location;
+  const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
 
   const handleUpdatePrmr = () => {
     const newPrmr = parseFloat(prmr) || 0;
@@ -116,7 +131,7 @@ export const SaleDetailSheet = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-6">
+        <div className="px-4 pb-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Status Badge */}
           <div className="flex justify-center">
             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
@@ -175,6 +190,76 @@ export const SaleDetailSheet = ({
               </Button>
             )}
           </div>
+
+          {/* CRM Data - Simple (Customer Info) */}
+          {crmEnabled && hasSimpleCrmData && (
+            <div className="space-y-3 pt-2 border-t border-border/50">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Customer Info
+              </Label>
+              <div className="grid gap-2">
+                {sale.customer_name && (
+                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{sale.customer_name}</span>
+                  </div>
+                )}
+                {sale.customer_phone && (
+                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{sale.customer_phone}</span>
+                  </div>
+                )}
+                {sale.customer_account_number && (
+                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{sale.customer_account_number}</span>
+                  </div>
+                )}
+                {sale.customer_location && (
+                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{sale.customer_location}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* CRM Data - Detailed (Sale Analytics) */}
+          {crmEnabled && crmDetailedEnabled && hasDetailedCrmData && (
+            <div className="space-y-3 pt-2 border-t border-border/50">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Sale Details
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {sale.time_to_sell_minutes && (
+                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>{formatMinutes(sale.time_to_sell_minutes)}</span>
+                  </div>
+                )}
+                {sale.deal_type && isFP && (
+                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">Type:</span>
+                    <span className="capitalize">{sale.deal_type}</span>
+                  </div>
+                )}
+                {sale.money_spent !== undefined && sale.money_spent !== null && (
+                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span>${sale.money_spent}</span>
+                  </div>
+                )}
+                {sale.difficulty && (
+                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                    <Gauge className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="capitalize">{sale.difficulty}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="space-y-3 pt-4 border-t border-border/50">

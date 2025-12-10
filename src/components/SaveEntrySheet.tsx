@@ -1036,6 +1036,8 @@ export const SaveEntrySheet = ({
           setShowSaleDetail(false);
           setSelectedSale(null);
         }}
+        crmEnabled={repData?.crm_enabled || false}
+        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
       />
 
       {/* Delete Entry Dialog */}
