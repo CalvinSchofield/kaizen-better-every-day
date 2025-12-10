@@ -459,6 +459,7 @@ export const SaveEntrySheet = ({
 
   const proceedWithSave = async () => {
     const salesToUse = pendingSalesWithInstallTracking || (salesLog.length > 0 ? salesLog : localSales);
+    console.log('[SaveEntrySheet] proceedWithSave - salesLog:', salesLog.length, 'localSales:', localSales.length, 'using:', salesToUse.length);
     await proceedWithSaveWithSales(salesToUse);
   };
 
@@ -466,6 +467,7 @@ export const SaveEntrySheet = ({
     isSavingRef.current = true;
     
     const saveDate = format(date, 'yyyy-MM-dd');
+    console.log('[SaveEntrySheet] Saving entry for date:', saveDate, 'with', salesToSave.length, 'sales');
     
     // Auto-fill end time if not set
     let finalEndTime = endTime;
@@ -598,7 +600,12 @@ export const SaveEntrySheet = ({
       timestamp: new Date().toISOString(),
       ...saleData,
     };
-    setLocalSales(prev => [...prev, newSale]);
+    console.log('[SaveEntrySheet] Adding new sale to localSales:', newSale.type, newSale.prmr);
+    setLocalSales(prev => {
+      const updated = [...prev, newSale];
+      console.log('[SaveEntrySheet] localSales updated, count:', updated.length);
+      return updated;
+    });
     setShowLogSaleSheet(false);
   };
 
@@ -619,7 +626,7 @@ export const SaveEntrySheet = ({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="pb-safe max-h-[90dvh]">
+        <DrawerContent className="pb-safe">
           <DrawerHeader className="mb-4 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {entry?.is_finalized && onDelete && (
@@ -636,7 +643,7 @@ export const SaveEntrySheet = ({
             </div>
           </DrawerHeader>
 
-          <div className="space-y-4 px-4 pb-4 overflow-y-auto">
+          <div className="space-y-4 px-4 pb-4 overflow-y-auto flex-1 min-h-0">
             {/* Daily Activity Card - Collapsible */}
             <Card>
               <CardContent className="pt-4 pb-4">

@@ -326,7 +326,7 @@ export const LogSaleSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe max-h-[90dvh]">
+      <DrawerContent className="pb-safe">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="text-xl">
             {isEditing ? "Edit Sale" : "Nice! 🎉"}
