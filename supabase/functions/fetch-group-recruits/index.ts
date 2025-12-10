@@ -114,6 +114,7 @@ serve(async (req) => {
             const getPhone = (prop: any) => prop?.phone_number || '';
             const getEmail = (prop: any) => prop?.email || '';
             const getDate = (prop: any) => prop?.date?.start || null;
+            const getCheckbox = (prop: any) => prop?.checkbox ?? false;
             
             // Collect blitz trip relation IDs
             const blitzTripRelationIds: string[] = [];
@@ -137,6 +138,15 @@ serve(async (req) => {
               nextActionDue: getDate(props['Next Action Due']),
               createdAt: page.created_time,
               blitzTripRelationIds, // Temporary field, will be replaced with full data
+              // Onboarding and ramp phase data from Notion
+              onboardingComplete: getCheckbox(props['Onboarding Video']),
+              trainingsComplete: getCheckbox(props['Required trainings']),
+              slackJoined: getCheckbox(props['Slack']),
+              ipadAssigned: getCheckbox(props['iPad Assigned']),
+              rampPhase1Complete: getCheckbox(props['Phase 1 Complete']),
+              rampPhase2Complete: getCheckbox(props['Phase 2 Complete']),
+              rampPhase3Complete: getCheckbox(props['Phase 3 Complete']),
+              rampPhase4Complete: getCheckbox(props['Phase 4 Complete']),
             });
           }
         }

@@ -27,6 +27,15 @@ export interface Recruit {
   nextActionDue: string | null;
   createdAt: string;
   committedBlitzes?: BlitzCommitment[];
+  // Onboarding and ramp phase data from Notion
+  onboardingComplete?: boolean;
+  trainingsComplete?: boolean;
+  slackJoined?: boolean;
+  ipadAssigned?: boolean;
+  rampPhase1Complete?: boolean;
+  rampPhase2Complete?: boolean;
+  rampPhase3Complete?: boolean;
+  rampPhase4Complete?: boolean;
 }
 
 export interface RecruitActivity {

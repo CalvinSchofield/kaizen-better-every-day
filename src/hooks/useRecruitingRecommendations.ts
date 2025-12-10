@@ -129,21 +129,27 @@ export const useRecruitingRecommendations = (
         }
 
         // Check for missing items - include onboarding AND ramp to blitz progress
-        if (hasUpcomingBlitz && repData) {
+        // Use repData if available (Supabase user), otherwise use recruit data from Notion
+        if (hasUpcomingBlitz) {
           const missing: string[] = [];
           
+          // Get onboarding/ramp data from repData OR recruit (Notion)
+          const onboardingComplete = repData?.onboarding_complete ?? recruit.onboardingComplete ?? false;
+          const trainingsComplete = repData?.trainings_complete ?? recruit.trainingsComplete ?? false;
+          const slackJoined = repData?.slack_joined ?? recruit.slackJoined ?? false;
+          const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
+          const phase1 = repData?.ramp_phase_1_complete ?? recruit.rampPhase1Complete ?? false;
+          const phase2 = repData?.ramp_phase_2_complete ?? recruit.rampPhase2Complete ?? false;
+          const phase3 = repData?.ramp_phase_3_complete ?? recruit.rampPhase3Complete ?? false;
+          const phase4 = repData?.ramp_phase_4_complete ?? recruit.rampPhase4Complete ?? false;
+          
           // Check foundational onboarding items
-          if (!repData.onboarding_complete) missing.push('Onboarding');
-          if (!repData.trainings_complete) missing.push('Trainings');
-          if (!repData.slack_joined) missing.push('Slack');
-          if (!repData.ipad_assigned) missing.push('iPad');
+          if (!onboardingComplete) missing.push('Onboarding');
+          if (!trainingsComplete) missing.push('Trainings');
+          if (!slackJoined) missing.push('Slack');
+          if (!ipadAssigned) missing.push('iPad');
           
           // Check ramp to blitz phases - count incomplete ones
-          const phase1 = repData.ramp_phase_1_complete ?? false;
-          const phase2 = repData.ramp_phase_2_complete ?? false;
-          const phase3 = repData.ramp_phase_3_complete ?? false;
-          const phase4 = repData.ramp_phase_4_complete ?? false;
-          
           const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
           if (incompletePhaseCount > 0) {
             missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
@@ -154,17 +160,23 @@ export const useRecruitingRecommendations = (
           }
         }
         // Also check for missing items even if no blitz committed (for general awareness)
-        else if (isRookie && repData) {
+        else if (isRookie) {
           const missing: string[] = [];
-          if (!repData.onboarding_complete) missing.push('Onboarding');
-          if (!repData.trainings_complete) missing.push('Trainings');
-          if (!repData.slack_joined) missing.push('Slack');
-          if (!repData.ipad_assigned) missing.push('iPad');
           
-          const phase1 = repData.ramp_phase_1_complete ?? false;
-          const phase2 = repData.ramp_phase_2_complete ?? false;
-          const phase3 = repData.ramp_phase_3_complete ?? false;
-          const phase4 = repData.ramp_phase_4_complete ?? false;
+          // Get onboarding/ramp data from repData OR recruit (Notion)
+          const onboardingComplete = repData?.onboarding_complete ?? recruit.onboardingComplete ?? false;
+          const trainingsComplete = repData?.trainings_complete ?? recruit.trainingsComplete ?? false;
+          const slackJoined = repData?.slack_joined ?? recruit.slackJoined ?? false;
+          const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
+          const phase1 = repData?.ramp_phase_1_complete ?? recruit.rampPhase1Complete ?? false;
+          const phase2 = repData?.ramp_phase_2_complete ?? recruit.rampPhase2Complete ?? false;
+          const phase3 = repData?.ramp_phase_3_complete ?? recruit.rampPhase3Complete ?? false;
+          const phase4 = repData?.ramp_phase_4_complete ?? recruit.rampPhase4Complete ?? false;
+          
+          if (!onboardingComplete) missing.push('Onboarding');
+          if (!trainingsComplete) missing.push('Trainings');
+          if (!slackJoined) missing.push('Slack');
+          if (!ipadAssigned) missing.push('iPad');
           
           const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
           if (incompletePhaseCount > 0) {
