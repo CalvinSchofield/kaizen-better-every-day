@@ -557,6 +557,7 @@ export const CalendarView = ({
         <CalendarSummaryTeaser
           viewMode={viewMode}
           weekStart={weekStart}
+          weekEnd={new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)}
           currentDate={currentDate}
           viewTotals={viewTotals}
           prevPeriodTotals={prevPeriodTotals}

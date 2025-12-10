@@ -7,7 +7,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, Lock, BarChart3, TrendingUpIcon, Gauge, PieChart } from 'lucide-react';
-import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek } from 'date-fns';
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -42,8 +42,57 @@ export default function Insights() {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
 
-  // Handle incoming period param from calendar navigation
+  // Handle incoming date params from calendar navigation
   useEffect(() => {
+    const startParam = searchParams.get('start');
+    const endParam = searchParams.get('end');
+    
+    if (startParam && endParam) {
+      const startDate = parseISO(startParam);
+      const endDate = parseISO(endParam);
+      const now = new Date();
+      
+      // Check if dates match "This Week" (Monday of current week to Sunday)
+      const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const thisWeekEnd = addDays(thisWeekStart, 6);
+      if (isSameDay(startDate, thisWeekStart) && isSameDay(endDate, thisWeekEnd)) {
+        setDatePreset('week');
+        return;
+      }
+      
+      // Check if dates match "Last Week"
+      const lastWeekStart = subDays(thisWeekStart, 7);
+      const lastWeekEnd = addDays(lastWeekStart, 6);
+      if (isSameDay(startDate, lastWeekStart) && isSameDay(endDate, lastWeekEnd)) {
+        setDatePreset('lastWeek');
+        return;
+      }
+      
+      // Check if dates match "This Month"
+      const thisMonthStart = startOfMonth(now);
+      const thisMonthEnd = endOfMonth(now);
+      if (isSameDay(startDate, thisMonthStart) && isSameDay(endDate, thisMonthEnd)) {
+        setDatePreset('month');
+        return;
+      }
+      
+      // Check if dates match "Last Month"
+      const lastMonthDate = subMonths(now, 1);
+      const lastMonthStart = startOfMonth(lastMonthDate);
+      const lastMonthEnd = endOfMonth(lastMonthDate);
+      if (isSameDay(startDate, lastMonthStart) && isSameDay(endDate, lastMonthEnd)) {
+        setDatePreset('lastMonth');
+        return;
+      }
+      
+      // No match - use custom with these dates
+      setCustomStartDate(startDate);
+      setCustomEndDate(endDate);
+      setDatePreset('custom');
+      return;
+    }
+    
+    // Legacy support for old 'period' param
     const period = searchParams.get('period');
     if (period === 'week') {
       setDatePreset('week');
