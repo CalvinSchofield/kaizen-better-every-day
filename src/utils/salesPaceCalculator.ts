@@ -38,17 +38,18 @@ export interface SalesPaceInput {
 }
 
 /**
- * Calculate sales pace status with consistent logic across the app.
+ * Calculate sales pace status with FIXED daily pace logic.
  * 
- * Formula:
- * 1. Get the active goal (preseason or summer tier based on activeTier or current date)
+ * FIXED PACE FORMULA (never changes):
+ * 1. Get the active goal (preseason or summer tier)
  * 2. Apply cancel rate buffer: fundedGoal = goal / (1 - cancelRate)
- * 3. Convert goal to EFP if efpModeEnabled (goal remains same, just different units)
- * 4. totalDays = knockingDays (past worked) + futurePlannedDays
- * 5. dailyGoal = fundedGoal / totalDays
- * 6. expectedAtThisPoint = dailyGoal * knockingDays
- * 7. paceVariance = currentProgress - expectedAtThisPoint
- * 8. remainingDailyNeeded = remaining / (futurePlannedDays + 1 for today)
+ * 3. totalDays = knockingDays (already worked) + futurePlannedDays (remaining)
+ * 4. dailyGoal = fundedGoal / totalDays (THIS IS FIXED)
+ * 5. expectedAtThisPoint = dailyGoal × knockingDays
+ * 6. paceVariance = currentProgress - expectedAtThisPoint
+ * 
+ * CATCH-UP CALCULATION (shown separately):
+ * 7. remainingDailyNeeded = remaining / futurePlannedDays
  */
 export function calculateSalesPace(input: SalesPaceInput): SalesPaceResult | null {
   const {
