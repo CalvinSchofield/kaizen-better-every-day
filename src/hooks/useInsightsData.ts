@@ -666,7 +666,10 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEn
           daysWorked: totals.daysWorked,
         };
         
-        if (!bestDayOfWeek || avgFp > bestDayOfWeek.avgFp) {
+        // Sort by avgEfp if efpModeEnabled, otherwise avgFp
+        const compareValue = efpModeEnabled ? avgEfp : avgFp;
+        const bestCompareValue = efpModeEnabled ? (bestDayOfWeek?.avgEfp || 0) : (bestDayOfWeek?.avgFp || 0);
+        if (!bestDayOfWeek || compareValue > bestCompareValue) {
           bestDayOfWeek = { day, avgFp, avgEfp, daysWorked: totals.daysWorked };
         }
       });

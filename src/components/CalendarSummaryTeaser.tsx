@@ -57,14 +57,28 @@ export const CalendarSummaryTeaser = ({
         return entryDate >= weekStart && entryDate <= new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
       }
       return entryDate.getMonth() === currentDate.getMonth() && entryDate.getFullYear() === currentDate.getFullYear();
-    }).filter(e => e.is_finalized && (e.fp_plus || 0) > 0);
+    }).filter(e => e.is_finalized && ((e.fp_plus || 0) > 0 || (e.prmr || 0) > 0));
 
     if (periodEntries.length > 0) {
-      const bestDay = periodEntries.reduce((best, entry) => 
-        (entry.fp_plus || 0) > (best.fp_plus || 0) ? entry : best
-      );
-      const avgFp = viewTotals.fpPlus / viewTotals.daysWorked;
-      if ((bestDay.fp_plus || 0) >= avgFp * 1.5) {
+      // Sort by EFP (prmr/85) if efpModeEnabled, otherwise FP+
+      const bestDay = periodEntries.reduce((best, entry) => {
+        if (efpModeEnabled) {
+          const entryEfp = (entry.prmr || 0) / 85;
+          const bestEfp = (best.prmr || 0) / 85;
+          return entryEfp > bestEfp ? entry : best;
+        }
+        return (entry.fp_plus || 0) > (best.fp_plus || 0) ? entry : best;
+      });
+      
+      // Compare using EFP or FP+ based on mode
+      const avgValue = efpModeEnabled 
+        ? calculateEfp(viewTotals.prmr) / viewTotals.daysWorked
+        : viewTotals.fpPlus / viewTotals.daysWorked;
+      const bestDayValue = efpModeEnabled 
+        ? calculateEfp(bestDay.prmr || 0)
+        : (bestDay.fp_plus || 0);
+      
+      if (bestDayValue >= avgValue * 1.5) {
         const dayName = format(new Date(bestDay.entry_date + 'T12:00:00'), 'EEE');
         const fpValue = efpModeEnabled ? calculateEfp(bestDay.prmr || 0).toFixed(1) : (bestDay.fp_plus || 0).toFixed(1);
         insights.push({ 
