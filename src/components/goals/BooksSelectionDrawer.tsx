@@ -152,7 +152,7 @@ export const BooksCommitmentDrawer = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="flex items-center justify-center gap-2">
             <BookOpen className="h-5 w-5 text-purple-500" />
@@ -163,7 +163,7 @@ export const BooksCommitmentDrawer = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60dvh] flex-1 min-h-0">
           {/* Recommended Books */}
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Recommended Books</h4>
@@ -401,7 +401,7 @@ export const BooksCompletionDrawer = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle className="flex items-center justify-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />
@@ -412,7 +412,7 @@ export const BooksCompletionDrawer = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60vh]">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto max-h-[60dvh] flex-1 min-h-0">
           {!hasAnyCommittedBooks ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />

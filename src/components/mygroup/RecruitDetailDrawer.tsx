@@ -1355,7 +1355,7 @@ export const RecruitDetailDrawer = ({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[90vh]">
+        <DrawerContent className="max-h-[90dvh]">
           <DrawerHeader className="border-b">
             <DrawerTitle className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -1781,7 +1781,7 @@ export const RecruitDetailDrawer = ({
         setLogActivityOpen(open);
         if (!open) setIsDirectSchedule(false);
       }}>
-        <DrawerContent className="max-h-[85vh] overflow-x-hidden">
+        <DrawerContent className="max-h-[85dvh] overflow-x-hidden">
           <DrawerHeader>
             <DrawerTitle>{isDirectSchedule ? 'Schedule Follow-up' : 'Log Activity'}</DrawerTitle>
           </DrawerHeader>
@@ -1868,7 +1868,7 @@ export const RecruitDetailDrawer = ({
 
       {/* Edit Activity Drawer - swipe to dismiss */}
       <Drawer open={editActivityOpen} onOpenChange={setEditActivityOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               Edit Activity

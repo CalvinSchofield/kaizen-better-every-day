@@ -294,7 +294,7 @@ const Tools = () => {
                               <Info className="w-4 h-4" />
                             </Button>
                           </SheetTrigger>
-                          <SheetContent side="bottom" className="rounded-t-3xl max-h-[80vh] flex flex-col">
+                          <SheetContent side="bottom" className="rounded-t-3xl max-h-[80dvh] flex flex-col">
                             <SheetHeader className="flex-shrink-0">
                               <SheetTitle>Curator Filter Tips</SheetTitle>
                             </SheetHeader>

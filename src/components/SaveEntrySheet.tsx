@@ -619,7 +619,7 @@ export const SaveEntrySheet = ({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="pb-safe max-h-[90vh]">
+        <DrawerContent className="pb-safe max-h-[90dvh]">
           <DrawerHeader className="mb-4 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {entry?.is_finalized && onDelete && (

@@ -51,7 +51,7 @@ export const TeamFilterSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[70vh]">
+      <DrawerContent className="max-h-[70dvh]">
         <DrawerHeader>
           <DrawerTitle>Filter by Team</DrawerTitle>
         </DrawerHeader>

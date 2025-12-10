@@ -787,7 +787,7 @@ const Goals = () => {
 
       {/* Blitz Editor Drawer */}
       <Drawer open={showBlitzEditor} onOpenChange={setShowBlitzEditor}>
-        <DrawerContent className="max-h-[80vh]">
+        <DrawerContent className="max-h-[80dvh]">
           <DrawerHeader>
             <DrawerTitle>Blitz Commitments</DrawerTitle>
           </DrawerHeader>

@@ -267,7 +267,7 @@ export const TeamFilterSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85dvh]">
         <DrawerHeader className="text-left">
           <DrawerTitle>Filter Team Members</DrawerTitle>
           <DrawerDescription>
@@ -317,7 +317,7 @@ export const TeamFilterSheet = ({
           </div>
 
           {/* Team Members List with Hierarchy */}
-          <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[40dvh] overflow-y-auto pr-2">
             {accessData?.accessLevel === 'area_director' && renderAreaDirectorView()}
             {accessData?.accessLevel === 'mgmt_group_lead' && renderMgmtGroupLeadView()}
             {accessData?.accessLevel === 'team_lead' && renderTeamLeadView()}

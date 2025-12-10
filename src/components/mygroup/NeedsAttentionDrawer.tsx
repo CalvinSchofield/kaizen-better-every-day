@@ -995,7 +995,7 @@ export const NeedsAttentionDrawer = ({
   return (
     <>
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh] flex flex-col">
+        <DrawerContent className="max-h-[85dvh] flex flex-col">
           <DrawerHeader className="border-b flex-shrink-0">
             <div className="flex items-center justify-between">
               <DrawerTitle className="flex items-center gap-2">

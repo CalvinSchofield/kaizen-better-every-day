@@ -617,7 +617,7 @@ export const CommitmentsTracker = ({
 
       {/* Edit Goals Drawer */}
       <Drawer open={isEditDrawerOpen} onOpenChange={setIsEditDrawerOpen}>
-        <DrawerContent className="max-h-[90vh]">
+        <DrawerContent className="max-h-[90dvh]">
           <DrawerHeader className="text-center pb-2">
             <DrawerTitle>Set Your Standards</DrawerTitle>
             <DrawerDescription>
@@ -820,7 +820,7 @@ export const CommitmentsTracker = ({
 
       {/* Training Timer Drawer */}
       <Drawer open={isTrainingTimerOpen} onOpenChange={setIsTrainingTimerOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="text-center pb-2">
             <DrawerTitle className="flex items-center justify-center gap-2">
               <Clock className="h-5 w-5 text-blue-500" />

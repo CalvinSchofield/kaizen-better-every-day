@@ -371,7 +371,7 @@ export const CommitmentEditorDrawer = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="text-center pb-2">
           <DrawerTitle>Set Your Standards</DrawerTitle>
           <DrawerDescription>
@@ -379,7 +379,7 @@ export const CommitmentEditorDrawer = ({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-3 overflow-y-auto max-h-[70vh]">
+        <div className="px-4 pb-6 space-y-3 overflow-y-auto max-h-[70dvh] flex-1 min-h-0">
           {/* Blitzes Section */}
           <div className="rounded-xl p-4 bg-red-500/10">
             <button 

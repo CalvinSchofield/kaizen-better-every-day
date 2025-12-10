@@ -1609,7 +1609,7 @@ const Home = () => {
 
       {/* Intro Example Sheet */}
       <Sheet open={showIntroDialog} onOpenChange={setShowIntroDialog}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Team Introduction Example</SheetTitle>
             <SheetDescription>
@@ -1641,7 +1641,7 @@ const Home = () => {
 
       {/* Weather Details Sheet */}
       <Sheet open={weatherSheetOpen} onOpenChange={setWeatherSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[70vh]">
+        <SheetContent side="bottom" className="max-h-[70dvh]">
           <SheetHeader className="pb-4">
             <SheetTitle className="text-center">
               {nextBlitz?.location || 'Blitz'} Weather
@@ -1734,7 +1734,7 @@ const Home = () => {
           <DrawerHeader className="text-center">
             <DrawerTitle>Commit to a Blitz</DrawerTitle>
           </DrawerHeader>
-          <div className="px-4 pb-6 space-y-2 max-h-[60vh] overflow-y-auto">
+          <div className="px-4 pb-6 space-y-2 max-h-[60dvh] overflow-y-auto">
             {futureAvailableBlitzes.length > 0 ? (
               futureAvailableBlitzes.map((blitz) => {
                 const blitzDate = new Date(blitz.date);

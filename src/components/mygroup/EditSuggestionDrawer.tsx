@@ -95,7 +95,7 @@ export const EditSuggestionDrawer = ({ open, onOpenChange, suggestion }: EditSug
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader>
           <DrawerTitle>Edit Suggestion</DrawerTitle>
         </DrawerHeader>

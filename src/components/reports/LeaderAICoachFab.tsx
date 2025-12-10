@@ -30,7 +30,7 @@ export const LeaderAICoachFab = () => {
 
       {/* Leader AI Coach Drawer */}
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="pb-4">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10">

@@ -562,7 +562,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader>
           <DrawerTitle>{isLeader ? 'Add Recruit' : 'Suggest a Recruit'}</DrawerTitle>
         </DrawerHeader>
