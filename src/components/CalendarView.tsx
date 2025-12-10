@@ -190,10 +190,21 @@ export const CalendarView = ({
   };
 
   // Swipe navigation for mobile
-  const swipeHandlers = useSwipeNavigation({
+  const { swipeState, ...swipeHandlers } = useSwipeNavigation({
     onSwipeLeft: nextPeriod,
     onSwipeRight: prevPeriod,
   });
+
+  // Calculate swipe transform style
+  const swipeStyle = swipeState.isSwiping ? {
+    transform: `translateX(${swipeState.direction === 'left' ? -swipeState.offset * 0.3 : swipeState.offset * 0.3}px)`,
+    opacity: 1 - (swipeState.offset * 0.002),
+    transition: 'none',
+  } : {
+    transform: 'translateX(0)',
+    opacity: 1,
+    transition: 'transform 0.2s ease-out, opacity 0.2s ease-out',
+  };
 
   const handleDayClick = (date: Date) => {
     const isSunday = getDay(date) === 0;
@@ -378,7 +389,7 @@ export const CalendarView = ({
 
       {/* Calendar Grid */}
       {viewMode === "month" ? (
-        <div className="grid grid-cols-7 gap-2" {...swipeHandlers}>
+        <div className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
@@ -440,7 +451,7 @@ export const CalendarView = ({
         </div>
       ) : (
         /* Week View - Grid layout matching month view */
-        <div className="grid grid-cols-7 gap-2" {...swipeHandlers}>
+        <div className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
