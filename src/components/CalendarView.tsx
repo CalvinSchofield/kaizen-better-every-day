@@ -337,38 +337,37 @@ export const CalendarView = ({
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Calendar</h1>
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === "week" ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleViewModeChange("week")}
-          >
-            Week
-          </Button>
-          <Button
-            variant={viewMode === "month" ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleViewModeChange("month")}
-          >
-            Month
-          </Button>
-        </div>
-      </div>
-
-      {/* Period Navigation */}
+      {/* Period Navigation with Week/Month Toggle */}
       <div className="flex items-center justify-between mb-4">
         <Button variant="ghost" size="icon" onClick={prevPeriod}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <h2 className="text-lg font-semibold">
-          {viewMode === "month" 
-            ? format(currentDate, 'MMMM yyyy')
-            : `Week of ${format(weekStart, 'MMM d')}`
-          }
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">
+            {viewMode === "month" 
+              ? format(currentDate, 'MMMM yyyy')
+              : `Week of ${format(weekStart, 'MMM d')}`
+            }
+          </h2>
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === "week" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => handleViewModeChange("week")}
+            >
+              Week
+            </Button>
+            <Button
+              variant={viewMode === "month" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => handleViewModeChange("month")}
+            >
+              Month
+            </Button>
+          </div>
+        </div>
         <Button variant="ghost" size="icon" onClick={nextPeriod}>
           <ChevronRight className="h-5 w-5" />
         </Button>
