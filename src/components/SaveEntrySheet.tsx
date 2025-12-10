@@ -592,12 +592,11 @@ export const SaveEntrySheet = ({
   };
 
   // Handle adding a new sale via LogSaleSheet
-  const handleLogSale = (saleData: { type: 'fp' | 'upgrade'; prmr: number }) => {
+  const handleLogSale = (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
     const newSale: Sale = {
       id: crypto.randomUUID(),
-      type: saleData.type,
-      prmr: saleData.prmr,
       timestamp: new Date().toISOString(),
+      ...saleData,
     };
     setLocalSales(prev => [...prev, newSale]);
     setShowLogSaleSheet(false);
@@ -1003,6 +1002,9 @@ export const SaveEntrySheet = ({
         onUpdateSale={handleUpdateLocalSale}
         onDeleteSale={handleDeleteLocalSale}
         showPrmrHelper={showPrmrHelper}
+        crmEnabled={repData?.crm_enabled || false}
+        crmDetailedEnabled={repData?.crm_detailed_enabled || false}
+        counterTimestamps={entry?.counter_timestamps}
       />
 
       {/* Sale Detail Sheet - For editing DB sales */}
