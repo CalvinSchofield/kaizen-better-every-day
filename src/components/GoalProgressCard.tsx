@@ -203,20 +203,27 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   // Period progress from entries
   const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
 
-  // Goal values
+  // Goal values with cancel rate buffer applied (matches salesPaceCalculator)
+  const cancelRate = goals.cancel_rate || 0;
   const preseasonGoal = goals.preseason_fp_goal || 0;
-  const displayPreseasonGoal = efpModeEnabled ? preseasonGoal * conversionFactor : preseasonGoal;
+  const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
+    ? preseasonGoal / (1 - cancelRate) 
+    : preseasonGoal;
+  const displayPreseasonGoal = efpModeEnabled ? fundedPreseasonGoal * conversionFactor : fundedPreseasonGoal;
   
   const mustDoGoal = goals.must_do_fp_goal || 0;
   const willDoGoal = goals.will_do_fp_goal || 0;
   const couldDoGoal = goals.could_do_fp_goal || 0;
-  const displayMustDo = efpModeEnabled ? mustDoGoal * conversionFactor : mustDoGoal;
-  const displayWillDo = efpModeEnabled ? willDoGoal * conversionFactor : willDoGoal;
-  const displayCouldDo = efpModeEnabled ? couldDoGoal * conversionFactor : couldDoGoal;
+  const fundedMustDo = cancelRate > 0 && cancelRate < 1 ? mustDoGoal / (1 - cancelRate) : mustDoGoal;
+  const fundedWillDo = cancelRate > 0 && cancelRate < 1 ? willDoGoal / (1 - cancelRate) : willDoGoal;
+  const fundedCouldDo = cancelRate > 0 && cancelRate < 1 ? couldDoGoal / (1 - cancelRate) : couldDoGoal;
+  const displayMustDo = efpModeEnabled ? fundedMustDo * conversionFactor : fundedMustDo;
+  const displayWillDo = efpModeEnabled ? fundedWillDo * conversionFactor : fundedWillDo;
+  const displayCouldDo = efpModeEnabled ? fundedCouldDo * conversionFactor : fundedCouldDo;
 
   // ==========================================
   // FIXED DAILY PACE (never changes)
-  // Formula: Total Goal / Total Knocking Days (worked + future planned)
+  // Formula: Funded Goal (with cancel buffer) / Total Knocking Days
   // ==========================================
   const fixedDailyGoal = totalSeasonKnockingDays > 0 
     ? displayPreseasonGoal / totalSeasonKnockingDays 
@@ -348,11 +355,10 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           />
         </div>
         
-        {/* Expected vs Goal breakdown */}
+        {/* Expected by now indicator */}
         {daysWorkedInPeriod > 0 && (
-          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-            <span>Expected by now: <span className="font-medium text-foreground">{periodExpected.toFixed(1)}</span></span>
-            <span>Period goal: <span className="font-medium text-foreground">{periodGoal.toFixed(1)}</span></span>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Expected by now: <span className="font-medium text-foreground">{periodExpected.toFixed(1)}</span>
           </div>
         )}
       </div>
