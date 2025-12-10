@@ -43,10 +43,10 @@ export interface RecapStats {
   
   // Personal records (if any were set this period)
   records: {
-    mostDoorsInDay: boolean;
-    mostFpInDay: boolean;
-    mostHoursInDay: boolean;
-    earliestStart: boolean;
+    mostDoorsInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostFpInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostHoursInDay: { isRecord: boolean; value: number; previousBest: number };
+    earliestStart: { isRecord: boolean; value: string | null; previousBest: string | null };
   };
 }
 
@@ -82,6 +82,28 @@ function getLocalHour(timestamp: string, timezone: string): number {
     return parseInt(formatter.format(date), 10);
   } catch {
     return new Date(timestamp).getHours();
+  }
+}
+
+// Get decimal time (hours + minutes as fraction) in user's timezone
+function getLocalDecimalTime(timestamp: string, timezone: string): number {
+  try {
+    const date = new Date(timestamp);
+    const hourFormatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone
+    });
+    const minuteFormatter = new Intl.DateTimeFormat('en-US', {
+      minute: 'numeric',
+      timeZone: timezone
+    });
+    const hour = parseInt(hourFormatter.format(date), 10);
+    const minute = parseInt(minuteFormatter.format(date), 10);
+    return hour + minute / 60;
+  } catch {
+    const date = new Date(timestamp);
+    return date.getHours() + date.getMinutes() / 60;
   }
 }
 
@@ -188,13 +210,12 @@ export function useRecapData(period: 'week' | 'month') {
 
       currentEntries.forEach(entry => {
         if (entry.work_start_time) {
-          const hour = getLocalHour(entry.work_start_time, timezone);
-          const date = new Date(entry.work_start_time);
-          startTimes.push(date.getHours() + date.getMinutes() / 60);
+          // Use timezone-aware conversion to get local time
+          startTimes.push(getLocalDecimalTime(entry.work_start_time, timezone));
         }
         if (entry.work_end_time) {
-          const date = new Date(entry.work_end_time);
-          endTimes.push(date.getHours() + date.getMinutes() / 60);
+          // Use timezone-aware conversion to get local time
+          endTimes.push(getLocalDecimalTime(entry.work_end_time, timezone));
         }
         // Count doors per hour for peak hour
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
@@ -257,15 +278,53 @@ export function useRecapData(period: 'week' | 'month') {
       const allTimeBestFp = allEntries?.reduce((max, e) => Math.max(max, e.fp_plus || 0), 0) || 0;
       const allTimeBestHours = allEntries?.reduce((max, e) => Math.max(max, calculateHoursWorked(e)), 0) || 0;
       
+      // Get earliest start time from all-time entries
+      let allTimeEarliestStart: number | null = null;
+      allEntries?.forEach(e => {
+        if (e.work_start_time) {
+          const decimal = getLocalDecimalTime(e.work_start_time, timezone);
+          if (allTimeEarliestStart === null || decimal < allTimeEarliestStart) {
+            allTimeEarliestStart = decimal;
+          }
+        }
+      });
+      
       const currentBestDoors = Math.max(...currentEntries.map(e => e.doors_knocked || 0));
       const currentBestFp = Math.max(...currentEntries.map(e => e.fp_plus || 0));
       const currentBestHours = Math.max(...currentEntries.map(e => calculateHoursWorked(e)));
+      
+      // Get earliest start time from current period
+      let currentEarliestStart: number | null = null;
+      currentEntries.forEach(e => {
+        if (e.work_start_time) {
+          const decimal = getLocalDecimalTime(e.work_start_time, timezone);
+          if (currentEarliestStart === null || decimal < currentEarliestStart) {
+            currentEarliestStart = decimal;
+          }
+        }
+      });
 
       const records = {
-        mostDoorsInDay: currentBestDoors > allTimeBestDoors,
-        mostFpInDay: currentBestFp > allTimeBestFp,
-        mostHoursInDay: currentBestHours > allTimeBestHours,
-        earliestStart: false // Could implement if needed
+        mostDoorsInDay: {
+          isRecord: currentBestDoors > allTimeBestDoors,
+          value: currentBestDoors,
+          previousBest: allTimeBestDoors
+        },
+        mostFpInDay: {
+          isRecord: currentBestFp > allTimeBestFp,
+          value: currentBestFp,
+          previousBest: allTimeBestFp
+        },
+        mostHoursInDay: {
+          isRecord: currentBestHours > allTimeBestHours,
+          value: Math.round(currentBestHours * 10) / 10,
+          previousBest: Math.round(allTimeBestHours * 10) / 10
+        },
+        earliestStart: {
+          isRecord: currentEarliestStart !== null && (allTimeEarliestStart === null || currentEarliestStart < allTimeEarliestStart),
+          value: currentEarliestStart !== null ? formatTimeFromDecimal(currentEarliestStart) : null,
+          previousBest: allTimeEarliestStart !== null ? formatTimeFromDecimal(allTimeEarliestStart) : null
+        }
       };
 
       return {

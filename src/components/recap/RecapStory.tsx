@@ -9,6 +9,7 @@ import { RecapBestDaySlide } from './RecapBestDaySlide';
 import { RecapTimingSlide } from './RecapTimingSlide';
 import { RecapComparisonSlide } from './RecapComparisonSlide';
 import { RecapSummarySlide } from './RecapSummarySlide';
+import { RecapRecordsSlide } from './RecapRecordsSlide';
 import confetti from 'canvas-confetti';
 
 interface RecapStoryProps {
@@ -36,6 +37,13 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
 
+  // Check if any personal records were set
+  const hasRecords = 
+    stats.records.mostDoorsInDay.isRecord ||
+    stats.records.mostFpInDay.isRecord ||
+    stats.records.mostHoursInDay.isRecord ||
+    stats.records.earliestStart.isRecord;
+
   // Build slides array based on available data
   const slides: React.ReactNode[] = [
     <RecapCoverSlide key="cover" stats={stats} />,
@@ -45,7 +53,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       label="Doors Knocked" 
       value={stats.totalDoors}
       subtitle={`${stats.daysWorked} days worked`}
-      isRecord={stats.records.mostDoorsInDay}
+      isRecord={stats.records.mostDoorsInDay.isRecord}
     />,
     <RecapStatSlide 
       key="transitions" 
@@ -81,6 +89,13 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       peakHour={stats.peakHour}
     />
   );
+
+  // Add personal records slide if any records were set
+  if (hasRecords) {
+    slides.push(
+      <RecapRecordsSlide key="records" records={stats.records} />
+    );
+  }
 
   slides.push(
     <RecapComparisonSlide 
