@@ -13,6 +13,8 @@ const SWIPE_COMMIT_THRESHOLD = 100;
 const SWIPE_VISUAL_THRESHOLD = 40;
 
 const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
+  'blitz-critical': 'bg-red-500/20 text-red-600 border-red-500/30',
+  'blitz-prep': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
   'signed': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
   'hot-lead': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
   'pipeline': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
