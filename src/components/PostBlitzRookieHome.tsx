@@ -17,6 +17,7 @@ import TeamCalendarModal from "@/components/TeamCalendarModal";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
 import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
+import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -707,6 +708,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-32">
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
+
+        {/* Weekly/Monthly Recap CTA */}
+        <RecapCTACard />
 
         {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
         {(() => {
