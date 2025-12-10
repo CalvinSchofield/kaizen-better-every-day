@@ -925,10 +925,21 @@ export const CalendarPlanningCard = ({
   };
 
   // Swipe navigation for mobile
-  const swipeHandlers = useSwipeNavigation({
+  const { swipeState, ...swipeHandlers } = useSwipeNavigation({
     onSwipeLeft: goToNextMonth,
     onSwipeRight: goToPrevMonth,
   });
+
+  // Calculate swipe transform style
+  const swipeStyle = swipeState.isSwiping ? {
+    transform: `translateX(${swipeState.direction === 'left' ? -swipeState.offset * 0.3 : swipeState.offset * 0.3}px)`,
+    opacity: 1 - (swipeState.offset * 0.002),
+    transition: 'none',
+  } : {
+    transform: 'translateX(0)',
+    opacity: 1,
+    transition: 'transform 0.2s ease-out, opacity 0.2s ease-out',
+  };
 
   return (
     <div className="space-y-3">
@@ -938,22 +949,34 @@ export const CalendarPlanningCard = ({
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+          onClick={goToPrevMonth}
           disabled={isBefore(startOfMonth(subMonths(currentMonth, 1)), EARLIEST_VISIBLE_MONTH)}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <button 
-          onClick={handleGoToToday}
-          className="text-base font-semibold hover:text-primary transition-colors"
-        >
-          {format(currentMonth, 'MMMM yyyy')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleGoToToday}
+            className="text-base font-semibold hover:text-primary transition-colors"
+          >
+            {format(currentMonth, 'MMMM yyyy')}
+          </button>
+          {!isViewingToday && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleGoToToday} 
+              className="h-6 px-2 text-xs"
+            >
+              Today
+            </Button>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+          onClick={goToNextMonth}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -975,7 +998,7 @@ export const CalendarPlanningCard = ({
       </div>
 
       {/* Calendar Grid - Rendered by week rows for blitz range highlighting */}
-      <div className="space-y-1" {...swipeHandlers}>
+      <div className="space-y-1" style={swipeStyle} {...swipeHandlers}>
         {(() => {
           // Build week rows with empty cells for offset
           const allCells: (Date | null)[] = [
