@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarIcon, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 // Define season boundaries
 // October 2025 is the earliest visible month (season start)
@@ -915,6 +916,20 @@ export const CalendarPlanningCard = ({
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  // Navigation functions for swipe
+  const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const goToPrevMonth = () => {
+    if (!isBefore(startOfMonth(subMonths(currentMonth, 1)), EARLIEST_VISIBLE_MONTH)) {
+      setCurrentMonth(subMonths(currentMonth, 1));
+    }
+  };
+
+  // Swipe navigation for mobile
+  const swipeHandlers = useSwipeNavigation({
+    onSwipeLeft: goToNextMonth,
+    onSwipeRight: goToPrevMonth,
+  });
+
   return (
     <div className="space-y-3">
       {/* Period Navigation - Limit to October 2025 and later */}
@@ -960,7 +975,7 @@ export const CalendarPlanningCard = ({
       </div>
 
       {/* Calendar Grid - Rendered by week rows for blitz range highlighting */}
-      <div className="space-y-1">
+      <div className="space-y-1" {...swipeHandlers}>
         {(() => {
           // Build week rows with empty cells for offset
           const allCells: (Date | null)[] = [
