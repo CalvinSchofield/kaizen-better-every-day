@@ -32,8 +32,15 @@ const DrawerContent = React.forwardRef<
       ref={ref}
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+        // iOS Safari keyboard fix: use fill-available as fallback when dvh doesn't update
+        "[--safe-area-inset-bottom:env(safe-area-inset-bottom)]",
         className,
       )}
+      style={{
+        // Workaround for iOS Safari keyboard dismiss not updating dvh immediately
+        // -webkit-fill-available helps the drawer reclaim full height when keyboard closes
+        maxHeight: 'calc(90dvh - var(--safe-area-inset-bottom, 0px))',
+      }}
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
