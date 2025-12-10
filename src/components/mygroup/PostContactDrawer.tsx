@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { UserCheck, PhoneMissed, Loader2, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { UserCheck, PhoneMissed, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -38,33 +38,53 @@ export const PostContactDrawer = ({
 }: PostContactDrawerProps) => {
   // Use contactMethod if provided, otherwise use defaultMethod
   const method = contactMethod || defaultMethod || 'call';
+  const isCall = method === 'call';
+  
   const [outcome, setOutcome] = useState<'connected' | 'no_answer' | null>(null);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const logActivityMutation = useLogRecruitActivity();
 
+  // Reset state when drawer opens/closes or method changes
+  useEffect(() => {
+    if (open) {
+      setOutcome(null);
+      setNotes('');
+    }
+  }, [open]);
+
   const handleSubmit = async () => {
-    if (!recruit || !outcome) return;
+    if (!recruit) return;
+    
+    // For calls, require outcome selection
+    if (isCall && !outcome) return;
     
     setIsLoading(true);
     try {
       const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
       const actionLabel = method === 'call' ? 'Called' : method === 'text' ? 'Texted' : 'Met with';
-      const outcomeLabel = outcome === 'connected' ? 'Connected' : 'No answer';
+      
+      // For texts/in-person, always mark as connected (they inherently connected)
+      const effectiveOutcome = isCall ? outcome : 'connected';
+      const outcomeLabel = effectiveOutcome === 'connected' ? 'Connected' : 'No answer';
       
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
         activityType: method === 'in_person' ? 'in_person' : 'phone_call',
-        notes: notes || `${actionLabel} ${firstName} - ${outcomeLabel}`,
-        updateLastContact: outcome === 'connected', // Only update last contact if connected
+        notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
+        updateLastContact: effectiveOutcome === 'connected', // Only update last contact if connected
       });
       
-      toast.success(
-        outcome === 'connected' 
-          ? `Great! Logged ${method === 'in_person' ? 'meeting' : 'call'} with ${firstName}` 
-          : `Logged attempt to reach ${firstName}`
-      );
+      if (isCall) {
+        toast.success(
+          effectiveOutcome === 'connected' 
+            ? `Great! Logged call with ${firstName}` 
+            : `Logged attempt to reach ${firstName}`
+        );
+      } else {
+        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
+      }
       
       // Reset and close
       setOutcome(null);
@@ -88,70 +108,85 @@ export const PostContactDrawer = ({
   if (!recruit) return null;
 
   const firstName = stripEmojis(recruit.name)?.split(' ')[0] || 'them';
+  
+  // Determine if we can submit (calls need outcome, text/in-person don't)
+  const canSubmit = isCall ? !!outcome : true;
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
       <DrawerContent>
         <DrawerHeader className="border-b">
           <DrawerTitle>
-            How did it go with {firstName}?
+            {isCall ? `How did it go with ${firstName}?` : `Log ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`}
           </DrawerTitle>
         </DrawerHeader>
         
         <div className="p-4 space-y-4">
-          {/* Outcome selection */}
-          <div>
-            <label className="text-sm font-medium mb-3 block text-muted-foreground">
-              Did you connect?
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-24 flex-col gap-2 transition-all",
-                  outcome === 'connected' && "border-green-500 bg-green-500/10 text-green-700"
-                )}
-                onClick={() => setOutcome('connected')}
-              >
-                <UserCheck className={cn(
-                  "h-7 w-7",
-                  outcome === 'connected' && "text-green-600"
-                )} />
-                <span className="font-medium">Connected</span>
-              </Button>
-              <Button
-                variant="outline"
-                className={cn(
-                  "h-24 flex-col gap-2 transition-all",
-                  outcome === 'no_answer' && "border-amber-500 bg-amber-500/10 text-amber-700"
-                )}
-                onClick={() => setOutcome('no_answer')}
-              >
-                <PhoneMissed className={cn(
-                  "h-7 w-7",
-                  outcome === 'no_answer' && "text-amber-600"
-                )} />
-                <span className="font-medium">No Answer</span>
-              </Button>
+          {/* Outcome selection - only for calls */}
+          {isCall && (
+            <div>
+              <label className="text-sm font-medium mb-3 block text-muted-foreground">
+                Did you connect?
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-24 flex-col gap-2 transition-all",
+                    outcome === 'connected' && "border-green-500 bg-green-500/10 text-green-700"
+                  )}
+                  onClick={() => setOutcome('connected')}
+                >
+                  <UserCheck className={cn(
+                    "h-7 w-7",
+                    outcome === 'connected' && "text-green-600"
+                  )} />
+                  <span className="font-medium">Connected</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-24 flex-col gap-2 transition-all",
+                    outcome === 'no_answer' && "border-amber-500 bg-amber-500/10 text-amber-700"
+                  )}
+                  onClick={() => setOutcome('no_answer')}
+                >
+                  <PhoneMissed className={cn(
+                    "h-7 w-7",
+                    outcome === 'no_answer' && "text-amber-600"
+                  )} />
+                  <span className="font-medium">No Answer</span>
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Notes - show only after selecting outcome */}
-          {outcome && (
+          {/* Notes - for calls show after selecting outcome, for text/in-person show immediately */}
+          {(isCall ? outcome : true) && (
             <div className="animate-fade-in">
               <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                {outcome === 'connected' ? 'What did you discuss?' : 'Any notes?'}
+                {isCall && outcome === 'connected' 
+                  ? 'What did you discuss?' 
+                  : isCall 
+                    ? 'Any notes?' 
+                    : 'Add notes (optional)'
+                }
               </label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder={outcome === 'connected' 
-                  ? "Quick notes about your conversation..." 
-                  : "Left voicemail, will try again..."
+                placeholder={
+                  isCall && outcome === 'connected' 
+                    ? "Quick notes about your conversation..." 
+                    : isCall
+                      ? "Left voicemail, will try again..."
+                      : method === 'text'
+                        ? "What did you text about?"
+                        : "What did you discuss?"
                 }
                 className="resize-none"
                 rows={3}
-                autoFocus
+                autoFocus={!isCall}
               />
             </div>
           )}
@@ -160,7 +195,7 @@ export const PostContactDrawer = ({
         <DrawerFooter className="border-t">
           <Button 
             onClick={handleSubmit}
-            disabled={!outcome || isLoading}
+            disabled={!canSubmit || isLoading}
             className="w-full"
             size="lg"
           >

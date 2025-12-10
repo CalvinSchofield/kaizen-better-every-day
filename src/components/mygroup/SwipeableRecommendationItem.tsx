@@ -31,7 +31,8 @@ interface SwipeableRecommendationItemProps {
   onRecruitClick: (recruit: Recruit) => void;
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
-  onCallWithPostContact?: (recruit: Recruit) => void;
+  onDirectCall?: (recruit: Recruit) => void;
+  onDirectText?: (recruit: Recruit) => void;
 }
 
 export const SwipeableRecommendationItem = ({
@@ -39,7 +40,8 @@ export const SwipeableRecommendationItem = ({
   onRecruitClick,
   onSchedule,
   onContact,
-  onCallWithPostContact,
+  onDirectCall,
+  onDirectText,
 }: SwipeableRecommendationItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
@@ -82,11 +84,15 @@ export const SwipeableRecommendationItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${recommendation.recruit.phone}`;
+    // Open post-contact drawer for calls
+    onDirectCall?.(recommendation.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${recommendation.recruit.phone}`;
+    // Open post-contact drawer for texts
+    onDirectText?.(recommendation.recruit);
   };
 
   return (

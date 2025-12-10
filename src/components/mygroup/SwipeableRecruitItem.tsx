@@ -30,6 +30,8 @@ interface SwipeableRecruitItemProps {
   onDrawerClose: () => void;
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
+  onDirectCall?: (recruit: Recruit) => void;
+  onDirectText?: (recruit: Recruit) => void;
 }
 
 export const SwipeableRecruitItem = ({
@@ -38,6 +40,8 @@ export const SwipeableRecruitItem = ({
   onDrawerClose,
   onSchedule,
   onContact,
+  onDirectCall,
+  onDirectText,
 }: SwipeableRecruitItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
@@ -82,11 +86,15 @@ export const SwipeableRecruitItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${item.recruit.phone}`;
+    // Open post-contact drawer for calls
+    onDirectCall?.(item.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${item.recruit.phone}`;
+    // Open post-contact drawer for texts
+    onDirectText?.(item.recruit);
   };
 
   return (
