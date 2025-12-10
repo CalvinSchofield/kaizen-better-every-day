@@ -491,7 +491,12 @@ export default function Insights() {
                 </div>
                 <div className="col-span-2 p-3 rounded-xl bg-primary/10">
                   <div className="text-sm text-muted-foreground">Hours to sell 1 {efpModeEnabled ? "EFP" : "FP+"}</div>
-                  <div className="text-xl font-bold text-primary">{efpModeEnabled ? insights.hoursToEfp.toFixed(1) : insights.hoursToFp.toFixed(1)}h</div>
+                  <div className="text-xl font-bold text-primary">
+                    {(() => {
+                      const hours = efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp;
+                      return !isFinite(hours) || isNaN(hours) || hours <= 0 ? "-" : `${hours.toFixed(1)}h`;
+                    })()}
+                  </div>
                 </div>
               </div>
             </InsightCollapsible>
