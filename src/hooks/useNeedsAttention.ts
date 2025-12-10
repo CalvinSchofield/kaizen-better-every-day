@@ -387,12 +387,43 @@ export const useNeedsAttention = (
     // 3. Stale Contacts - haven't been contacted in 7+ days (stage-dependent)
     const staleRecruits: AttentionRecruit[] = [];
     
+    // Build current blitz IDs set FIRST so we can exclude people currently on blitz
+    const currentBlitzIdsForStale = new Set(
+      blitzes
+        .filter(b => {
+          const startDate = parseISO(b.date);
+          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
+          // Started on or before today AND ends on or after today
+          return startDate <= now && endDate >= now;
+        })
+        .map(b => b.id)
+    );
+    
     recruits.forEach(recruit => {
       // Exclude stages that don't need active contact tracking
       if (recruit.stage === 'Not Interested' || 
           recruit.stage === 'Signed but Not Interested' ||
           recruit.stage === 'Potential Follow Up') {
         return;
+      }
+
+      // Check if recruit is currently on an active blitz - if so, skip them
+      const repData = repDataMap?.get(recruit.notionPageId);
+      const rawCommitmentsFromSupabase = repData?.committed_blitzes || [];
+      const rawCommitmentsFromNotion = (recruit as any).committedBlitzes || [];
+      
+      const supabaseIds = Array.isArray(rawCommitmentsFromSupabase)
+        ? rawCommitmentsFromSupabase.map((b: any) => typeof b === 'string' ? b : b?.id).filter(Boolean)
+        : [];
+      const notionIds = Array.isArray(rawCommitmentsFromNotion)
+        ? rawCommitmentsFromNotion.map((b: any) => typeof b === 'string' ? b : b?.id).filter(Boolean)
+        : [];
+      const allCommittedIds = new Set([...supabaseIds, ...notionIds]);
+      
+      // If recruit is committed to a current (ongoing) blitz, skip them from stale contacts
+      const isOnCurrentBlitz = [...allCommittedIds].some(id => currentBlitzIdsForStale.has(id));
+      if (isOnCurrentBlitz) {
+        return; // They're physically at a blitz right now, don't show as needing contact
       }
 
       const lastContact = lastContactMap.get(recruit.notionPageId);
