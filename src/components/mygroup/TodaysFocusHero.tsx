@@ -1,12 +1,12 @@
-import { UserRoundSearch, Calendar, Sparkles } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AttentionRecruit } from "@/hooks/useNeedsAttention";
+import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 
 interface TodaysFocusHeroProps {
-  topPriority: AttentionRecruit | null;
+  topRecommendation: RecruitRecommendation | null;
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
   onViewAll: () => void;
@@ -21,8 +21,28 @@ const stripEmojis = (text: string | null): string | null => {
   return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
 };
 
+const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
+  'blitz-critical': 'border-red-500/50 text-red-600 bg-red-500/10',
+  'blitz-prep': 'border-purple-500/50 text-purple-600 bg-purple-500/10',
+  'signed': 'border-emerald-500/50 text-emerald-600 bg-emerald-500/10',
+  'hot-lead': 'border-orange-500/50 text-orange-600 bg-orange-500/10',
+  'pipeline': 'border-blue-500/50 text-blue-600 bg-blue-500/10',
+  'stale': 'border-amber-500/50 text-amber-600 bg-amber-500/10',
+  'overdue': 'border-red-500/50 text-red-600 bg-red-500/10',
+};
+
+const CONTAINER_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
+  'blitz-critical': 'border-red-500/30 bg-red-500/5',
+  'blitz-prep': 'border-purple-500/30 bg-purple-500/5',
+  'signed': 'border-emerald-500/30 bg-emerald-500/5',
+  'hot-lead': 'border-orange-500/30 bg-orange-500/5',
+  'pipeline': 'border-blue-500/30 bg-blue-500/5',
+  'stale': 'border-amber-500/30 bg-amber-500/5',
+  'overdue': 'border-red-500/30 bg-red-500/5',
+};
+
 export const TodaysFocusHero = ({ 
-  topPriority, 
+  topRecommendation, 
   totalNeedsAttention,
   onRecruitClick,
   onViewAll,
@@ -32,16 +52,16 @@ export const TodaysFocusHero = ({
 }: TodaysFocusHeroProps) => {
 
   const handleContact = () => {
-    if (!topPriority) return;
-    onContactClick?.(topPriority.recruit);
+    if (!topRecommendation) return;
+    onContactClick?.(topRecommendation.recruit);
   };
 
   const handleSchedule = () => {
-    if (!topPriority) return;
-    onScheduleClick?.(topPriority.recruit);
+    if (!topRecommendation) return;
+    onScheduleClick?.(topRecommendation.recruit);
   };
 
-  if (!topPriority) {
+  if (!topRecommendation) {
     return (
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-2xl p-6 border border-primary/20">
         <div className="flex items-center gap-2 mb-3">
@@ -58,53 +78,69 @@ export const TodaysFocusHero = ({
     );
   }
 
-  const urgencyColors = {
-    high: 'border-red-500/30 bg-red-500/5',
-    medium: 'border-amber-500/30 bg-amber-500/5',
-    low: 'border-green-500/30 bg-green-500/5',
-  };
-
-  const firstName = stripEmojis(topPriority.recruit.name)?.split(' ')[0];
+  const isCritical = topRecommendation.reasonBadge === 'blitz-critical';
 
   return (
     <div 
       className={cn(
         "rounded-2xl p-5 border-2 transition-all duration-300",
-        urgencyColors[topPriority.urgency],
+        CONTAINER_STYLES[topRecommendation.reasonBadge],
         animatingOut && "animate-fade-out opacity-0 scale-95"
       )}
     >
       <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-full bg-primary/10">
-          <Sparkles className="h-5 w-5 text-primary" />
+        <div className={cn(
+          "p-2 rounded-full",
+          isCritical ? "bg-red-500/10" : "bg-primary/10"
+        )}>
+          {isCritical ? (
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+          ) : (
+            <Sparkles className="h-5 w-5 text-primary" />
+          )}
         </div>
-        <span className="text-sm font-medium text-primary">Today's Focus</span>
+        <span className={cn(
+          "text-sm font-medium",
+          isCritical ? "text-red-600" : "text-primary"
+        )}>
+          {isCritical ? "Urgent Action Needed" : "Today's Focus"}
+        </span>
+        {topRecommendation.daysUntilBlitz !== undefined && (
+          <Badge variant="outline" className="ml-auto text-xs border-purple-500/50 text-purple-600 bg-purple-500/10">
+            Blitz in {topRecommendation.daysUntilBlitz}d
+          </Badge>
+        )}
       </div>
 
       <div 
         className="cursor-pointer"
-        onClick={() => onRecruitClick(topPriority.recruit)}
+        onClick={() => onRecruitClick(topRecommendation.recruit)}
       >
         <div className="flex items-center gap-2 mb-2">
           <h2 className="text-xl font-semibold">
-            {stripEmojis(topPriority.recruit.name)}
+            {stripEmojis(topRecommendation.recruit.name)}
           </h2>
           <Badge 
             variant="outline" 
-            className={cn(
-              "text-xs",
-              topPriority.urgency === 'high' && "border-red-500/50 text-red-600 bg-red-500/10",
-              topPriority.urgency === 'medium' && "border-amber-500/50 text-amber-600 bg-amber-500/10",
-              topPriority.urgency === 'low' && "border-green-500/50 text-green-600 bg-green-500/10"
-            )}
+            className={cn("text-xs", BADGE_STYLES[topRecommendation.reasonBadge])}
           >
-            {topPriority.recruit.stage}
+            {topRecommendation.recruit.stage}
           </Badge>
         </div>
         
         <p className="text-sm text-muted-foreground mb-4">
-          {topPriority.reason}
+          {topRecommendation.reason}
         </p>
+
+        {topRecommendation.missingItems && topRecommendation.missingItems.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {topRecommendation.missingItems.map((item) => (
+              <Badge key={item} variant="outline" className="text-xs border-red-500/30 text-red-600 bg-red-500/5">
+                Missing: {item}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

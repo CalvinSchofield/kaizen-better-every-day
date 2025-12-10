@@ -38,16 +38,41 @@ const getFirstName = (name: string | null): string => {
 // Stages that should be hidden unless follow-up is due
 const HIDDEN_STAGES = ['Not Interested', 'Signed but Not Interested'];
 
+interface BlitzEvent {
+  id: string;
+  name: string;
+  date: string;
+  endDate: string | null;
+}
+
+interface RepData {
+  notion_page_id: string;
+  onboarding_complete: boolean | null;
+  trainings_complete: boolean | null;
+  slack_joined: boolean | null;
+  ipad_assigned: boolean | null;
+  ramp_to_blitz_phase: string | null;
+  ramp_phase_1_complete: boolean | null;
+  ramp_phase_2_complete: boolean | null;
+  ramp_phase_3_complete: boolean | null;
+  ramp_phase_4_complete: boolean | null;
+  committed_blitzes: any;
+}
+
 interface WeekPlannerSectionProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
   onRecruitClick: (recruit: Recruit) => void;
+  blitzes?: BlitzEvent[];
+  repDataMap?: Map<string, RepData>;
 }
 
 export const WeekPlannerSection = ({ 
   recruits, 
   activities,
-  onRecruitClick 
+  onRecruitClick,
+  blitzes,
+  repDataMap
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -75,7 +100,7 @@ export const WeekPlannerSection = ({
     [recruits]
   );
 
-  const recommendations = useRecruitingRecommendations(filteredRecruits, activities);
+  const recommendations = useRecruitingRecommendations(filteredRecruits, activities, blitzes, repDataMap);
 
   // Get week days (starting Sunday)
   const weekDays = useMemo(() =>

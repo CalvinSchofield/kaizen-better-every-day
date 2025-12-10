@@ -238,8 +238,8 @@ const MyGroup = () => {
   // Dismissed recruits for Today's Focus
   const { dismissRecruit, isRecuitDismissed } = useDismissedRecruits();
 
-  // Calculate needs attention metrics - use allBlitzesIncludingPast to properly detect past attendance
-  const { categories, topPriority: rawTopPriority, totalCount } = useNeedsAttention(
+  // Calculate needs attention metrics for chips - use allBlitzesIncludingPast to properly detect past attendance
+  const { categories, totalCount } = useNeedsAttention(
     filteredRecruits,
     filteredActivities,
     allBlitzesIncludingPast,
@@ -248,25 +248,19 @@ const MyGroup = () => {
     repSummerConfigMap
   );
 
-  // Filter out dismissed recruits from top priority
-  const topPriority = useMemo(() => {
-    if (!rawTopPriority) return null;
-    if (isRecuitDismissed(rawTopPriority.recruit.notionPageId)) {
-      // Find next non-dismissed priority from categories
-      for (const category of categories) {
-        const nextPriority = category.recruits.find(r => !isRecuitDismissed(r.recruit.notionPageId));
-        if (nextPriority) return nextPriority;
-      }
-      return null;
-    }
-    return rawTopPriority;
-  }, [rawTopPriority, categories, isRecuitDismissed]);
-
-  // Get smart recommendations, filtering out dismissed ones
-  const rawRecommendations = useRecruitingRecommendations(filteredRecruits, filteredActivities);
+  // Get smart recommendations with blitz awareness, filtering out dismissed ones
+  const rawRecommendations = useRecruitingRecommendations(
+    filteredRecruits, 
+    filteredActivities,
+    allBlitzesIncludingPast,
+    repDataMap
+  );
   const recommendations = useMemo(() => {
     return rawRecommendations.filter(r => !isRecuitDismissed(r.recruit.notionPageId));
   }, [rawRecommendations, isRecuitDismissed]);
+
+  // Hero card now uses the top recommendation (unified with recommendations list)
+  const topRecommendation = recommendations[0] || null;
 
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
@@ -373,7 +367,7 @@ const MyGroup = () => {
           <>
             {/* Today's Focus Hero */}
             <TodaysFocusHero
-              topPriority={topPriority}
+              topRecommendation={topRecommendation}
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onViewAll={() => setQuickViewOpen(true)}
@@ -394,6 +388,8 @@ const MyGroup = () => {
               recruits={filteredRecruits}
               activities={filteredActivities}
               onRecruitClick={handleRecruitClick}
+              blitzes={allBlitzesIncludingPast}
+              repDataMap={repDataMap}
             />
 
             {/* Pending Suggestions */}
