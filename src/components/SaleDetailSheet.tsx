@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO } from "date-fns";
-import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2, User, Phone, Hash, MapPin, Clock, DollarSign, Gauge } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2, User, Phone, Hash, MapPin, Clock, DollarSign, Gauge, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -205,16 +206,31 @@ export const SaleDetailSheet = ({
                   </div>
                 )}
                 {sale.customer_phone && (
-                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{sale.customer_phone}</span>
-                  </div>
+                  <a 
+                    href={`tel:${sale.customer_phone}`}
+                    className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-2 active:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{sale.customer_phone}</span>
+                    </div>
+                    <Phone className="h-4 w-4 text-primary" />
+                  </a>
                 )}
                 {sale.customer_account_number && (
-                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{sale.customer_account_number}</span>
-                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(sale.customer_account_number || '');
+                      toast.success('Account number copied');
+                    }}
+                    className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-2 active:bg-muted/50 transition-colors w-full text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span>{sale.customer_account_number}</span>
+                    </div>
+                    <Copy className="h-4 w-4 text-primary" />
+                  </button>
                 )}
                 {sale.customer_location && (
                   <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
