@@ -25,9 +25,10 @@ export const RecommendationsSection = ({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [schedulingRecruit, setSchedulingRecruit] = useState<Recruit | null>(null);
 
-  // Post-contact drawer state (for direct call flow)
+  // Post-contact drawer state (for direct call/text flow)
   const [postContactOpen, setPostContactOpen] = useState(false);
   const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
+  const [postContactMethod, setPostContactMethod] = useState<'call' | 'text'>('call');
 
   if (recommendations.length === 0) {
     return null;
@@ -44,8 +45,15 @@ export const RecommendationsSection = ({
     setScheduleOpen(true);
   };
 
-  const handleCallWithPostContact = (recruit: Recruit) => {
+  const handleDirectCall = (recruit: Recruit) => {
     setPostContactRecruit(recruit);
+    setPostContactMethod('call');
+    setPostContactOpen(true);
+  };
+
+  const handleDirectText = (recruit: Recruit) => {
+    setPostContactRecruit(recruit);
+    setPostContactMethod('text');
     setPostContactOpen(true);
   };
 
@@ -68,7 +76,8 @@ export const RecommendationsSection = ({
               onRecruitClick={onRecruitClick}
               onContact={handleContact}
               onSchedule={handleSchedule}
-              onCallWithPostContact={handleCallWithPostContact}
+              onDirectCall={handleDirectCall}
+              onDirectText={handleDirectText}
             />
           ))}
         </div>
@@ -91,7 +100,7 @@ export const RecommendationsSection = ({
         recruit={schedulingRecruit}
       />
 
-      {/* Post-Contact Drawer (for direct call flow) */}
+      {/* Post-Contact Drawer (for direct call/text flow) */}
       <PostContactDrawer
         open={postContactOpen}
         onOpenChange={(open) => {
@@ -99,7 +108,7 @@ export const RecommendationsSection = ({
           if (!open) setPostContactRecruit(null);
         }}
         recruit={postContactRecruit}
-        contactMethod="call"
+        contactMethod={postContactMethod}
       />
     </>
   );

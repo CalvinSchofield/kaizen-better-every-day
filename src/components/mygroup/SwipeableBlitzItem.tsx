@@ -39,6 +39,8 @@ interface SwipeableBlitzItemProps {
   onDrawerClose: () => void;
   onSchedule?: (recruit: Recruit) => void;
   onContact?: (recruit: Recruit) => void;
+  onDirectCall?: (recruit: Recruit) => void;
+  onDirectText?: (recruit: Recruit) => void;
   blitzes: BlitzEvent[];
   repDataMap?: Map<string, any>;
 }
@@ -49,6 +51,8 @@ export const SwipeableBlitzItem = ({
   onDrawerClose,
   onSchedule,
   onContact,
+  onDirectCall,
+  onDirectText,
   blitzes,
   repDataMap,
 }: SwipeableBlitzItemProps) => {
@@ -104,11 +108,15 @@ export const SwipeableBlitzItem = ({
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `tel:${item.recruit.phone}`;
+    // Open post-contact drawer for calls
+    onDirectCall?.(item.recruit);
   };
 
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.location.href = `sms:${item.recruit.phone}`;
+    // Open post-contact drawer for texts (simpler notes-only version)
+    onDirectText?.(item.recruit);
   };
 
   return (
