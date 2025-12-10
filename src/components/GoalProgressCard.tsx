@@ -347,6 +347,14 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
             style={{ width: `${Math.min(progressPercent, 100)}%` }}
           />
         </div>
+        
+        {/* Expected vs Goal breakdown */}
+        {daysWorkedInPeriod > 0 && (
+          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+            <span>Expected by now: <span className="font-medium text-foreground">{periodExpected.toFixed(1)}</span></span>
+            <span>Period goal: <span className="font-medium text-foreground">{periodGoal.toFixed(1)}</span></span>
+          </div>
+        )}
       </div>
 
       {/* Mission Statement - Show pace relative to what you SHOULD have done by now */}
