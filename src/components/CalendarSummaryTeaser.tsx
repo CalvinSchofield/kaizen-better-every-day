@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { TrendingUp, TrendingDown, Sparkles, BarChart3, ChevronRight } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface CalendarSummaryTeaserProps {
   viewMode: "week" | "month";
   weekStart: Date;
+  weekEnd: Date;
   currentDate: Date;
   viewTotals: {
     fpPlus: number;
@@ -27,6 +28,7 @@ interface CalendarSummaryTeaserProps {
 export const CalendarSummaryTeaser = ({
   viewMode,
   weekStart,
+  weekEnd,
   currentDate,
   viewTotals,
   prevPeriodTotals,
@@ -104,10 +106,17 @@ export const CalendarSummaryTeaser = ({
     return insights[0]?.text || `${viewTotals.daysWorked} day${viewTotals.daysWorked !== 1 ? 's' : ''} worked`;
   }, [viewTotals, prevPeriodTotals, entries, viewMode, weekStart, currentDate, efpModeEnabled, calculateEfp, hasPrevData, fpChange]);
 
-  // Navigate to insights with period preset
+  // Navigate to insights with date range
   const handleNavigateToInsights = () => {
-    const period = viewMode === "week" ? "week" : "month";
-    navigate(`/insights?period=${period}`);
+    // Pass actual start and end dates so Insights can match to preset or use custom
+    const startDate = viewMode === "week" 
+      ? format(weekStart, 'yyyy-MM-dd')
+      : format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd');
+    const endDate = viewMode === "week"
+      ? format(weekEnd, 'yyyy-MM-dd')
+      : format(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0), 'yyyy-MM-dd');
+    
+    navigate(`/insights?start=${startDate}&end=${endDate}`);
   };
 
   // Primary metric value
