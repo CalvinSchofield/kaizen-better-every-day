@@ -14,6 +14,7 @@ import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
 import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
 import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
+import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
@@ -702,6 +703,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
+
+        {/* Weekly/Monthly Recap CTA */}
+        <RecapCTACard />
 
         {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST, but NOT for team leads (they see VetAlertCard) */}
         {!isTeamLead && (() => {
