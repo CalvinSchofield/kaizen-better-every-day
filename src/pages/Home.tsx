@@ -1355,6 +1355,14 @@ const Home = () => {
 
       {/* Journey Steps */}
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4 pb-6">
+        {/* Rookie of the Week & Prep Leaderboard - Show above journey for Phase 1+ rookies */}
+        {hasGoalsAccess && (
+          <>
+            <RookieOfTheWeekCard />
+            <PreseasonPrepLeaderboard />
+          </>
+        )}
+        
         {steps.map(step => {
         const isExpanded = step.status.inProgress && !step.status.completed;
         return <Card key={step.id} className={`transition-all ${step.status.locked ? "opacity-60" : step.status.completed ? "border-success/50" : step.status.inProgress ? "border-primary shadow-orange" : ""}`}>
@@ -1645,13 +1653,6 @@ const Home = () => {
           </Card>
         )}
 
-        {/* Rookie of the Week & Prep Leaderboard - Show for rookies with goals access */}
-        {hasGoalsAccess && (
-          <>
-            <RookieOfTheWeekCard />
-            <PreseasonPrepLeaderboard />
-          </>
-        )}
       </div>
 
       {/* Intro Example Sheet */}
