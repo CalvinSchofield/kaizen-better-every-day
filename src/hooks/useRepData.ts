@@ -44,6 +44,7 @@ export interface RepData {
   timezone: string | null;
   crm_enabled: boolean | null;
   crm_detailed_enabled: boolean | null;
+  profile_photo_url: string | null;
 }
 
 // Helper to get user-specific cache key

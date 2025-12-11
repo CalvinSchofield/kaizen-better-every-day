@@ -2,7 +2,7 @@ import { useState, useCallback, ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
-import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList, Camera } from "lucide-react";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
@@ -45,11 +45,20 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     description: "Use the bottom tabs to switch between pages. The menu icon in the top-left has more options and resources.",
   };
 
+  // Profile photo slide (for everyone)
+  const photoSlide: SlideConfig = {
+    icon: <Camera className="w-16 h-16 text-primary" />,
+    title: "Add Your Photo",
+    description: "Upload a profile photo so teammates can recognize you on leaderboards. Tap your name in the menu to add one anytime.",
+    highlight: "Stand out!"
+  };
+
   // Pre-blitz rookie slides
   if (userType === 'pre-blitz-rookie') {
     return [
       welcomeSlide,
       navSlide,
+      photoSlide,
       {
         icon: <Map className="w-16 h-16 text-primary" />,
         title: "Your Journey Home",
@@ -79,6 +88,7 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
   const baseSlides: SlideConfig[] = [
     welcomeSlide,
     navSlide,
+    photoSlide,
     {
       icon: <ClipboardList className="w-16 h-16 text-primary" />,
       title: "Track Your Day",
