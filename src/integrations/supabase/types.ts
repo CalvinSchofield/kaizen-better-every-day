@@ -466,8 +466,10 @@ export type Database = {
           avg_prmr_per_fp: number | null
           blitzes_goal: number | null
           blitzes_progress: number | null
+          books_committed: Json | null
           books_goal: number | null
           books_progress: number | null
+          books_read: Json | null
           cancel_rate: number | null
           could_do_fp_goal: number | null
           created_at: string | null
@@ -478,6 +480,8 @@ export type Database = {
           monthly_expenses: number | null
           months_off: number | null
           must_do_fp_goal: number | null
+          other_books_committed: Json | null
+          other_books_read: Json | null
           prep_score_history: Json | null
           preseason_fp_goal: number | null
           recruits_with_sale_goal: number | null
@@ -495,6 +499,8 @@ export type Database = {
           upgrade_fp_goal: number | null
           user_id: string
           vet_earnings_per_efp: number | null
+          weekly_mnl_logs: Json | null
+          weekly_roleplay_logs: Json | null
           weeks_working: number | null
           will_do_fp_goal: number | null
         }
@@ -502,8 +508,10 @@ export type Database = {
           avg_prmr_per_fp?: number | null
           blitzes_goal?: number | null
           blitzes_progress?: number | null
+          books_committed?: Json | null
           books_goal?: number | null
           books_progress?: number | null
+          books_read?: Json | null
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
@@ -514,6 +522,8 @@ export type Database = {
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
+          other_books_committed?: Json | null
+          other_books_read?: Json | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
@@ -531,6 +541,8 @@ export type Database = {
           upgrade_fp_goal?: number | null
           user_id: string
           vet_earnings_per_efp?: number | null
+          weekly_mnl_logs?: Json | null
+          weekly_roleplay_logs?: Json | null
           weeks_working?: number | null
           will_do_fp_goal?: number | null
         }
@@ -538,8 +550,10 @@ export type Database = {
           avg_prmr_per_fp?: number | null
           blitzes_goal?: number | null
           blitzes_progress?: number | null
+          books_committed?: Json | null
           books_goal?: number | null
           books_progress?: number | null
+          books_read?: Json | null
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
@@ -550,6 +564,8 @@ export type Database = {
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
+          other_books_committed?: Json | null
+          other_books_read?: Json | null
           prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
@@ -567,6 +583,8 @@ export type Database = {
           upgrade_fp_goal?: number | null
           user_id?: string
           vet_earnings_per_efp?: number | null
+          weekly_mnl_logs?: Json | null
+          weekly_roleplay_logs?: Json | null
           weeks_working?: number | null
           will_do_fp_goal?: number | null
         }

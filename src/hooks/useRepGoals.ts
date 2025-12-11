@@ -44,6 +44,14 @@ export interface RepGoals {
   setup_complete: boolean;
   created_at: string;
   updated_at: string;
+  // Multi-device synced book data
+  books_committed: string[] | null;
+  books_read: string[] | null;
+  other_books_committed: string[] | null;
+  other_books_read: string[] | null;
+  // Multi-device synced weekly activity logs
+  weekly_mnl_logs: Record<string, number> | null;
+  weekly_roleplay_logs: Record<string, number> | null;
 }
 
 // Get the start of the current week (Sunday) in user's local timezone
