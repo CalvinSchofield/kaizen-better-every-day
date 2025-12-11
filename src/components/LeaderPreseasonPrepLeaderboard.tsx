@@ -381,8 +381,8 @@ export const LeaderPreseasonPrepLeaderboard = () => {
   // Show skeleton while loading
   if (isLoading) return <LeaderboardSkeleton />;
 
-  // Show nothing only if we've loaded and there's truly no rookies at all
-  if (data?.totalRookies === 0) return null;
+  // Show nothing only if we've loaded and there's truly no rookies at all (when not filtering)
+  if (!showMyTeamOnly && data?.totalRookies === 0) return null;
 
   const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];
   const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) === 0) || [];
@@ -396,6 +396,7 @@ export const LeaderPreseasonPrepLeaderboard = () => {
 
   const isWeeklyMetric = selectedMetric !== 'books';
   const hasAnyParticipants = (data?.totalParticipants || 0) > 0;
+  const noTeamResults = showMyTeamOnly && (data?.entries.length || 0) === 0;
 
   return (
     <Card className="mb-6 overflow-hidden">
@@ -501,7 +502,22 @@ export const LeaderPreseasonPrepLeaderboard = () => {
         )}
 
         {/* Show teaser if no participants */}
-        {!isLoading && !hasAnyParticipants && <NoStandardsTeaser />}
+        {!isLoading && !hasAnyParticipants && !noTeamResults && <NoStandardsTeaser />}
+
+        {/* Empty state for "My Team" with no results */}
+        {!isLoading && noTeamResults && (
+          <div className="text-center py-6 space-y-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+              <Users className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium">No rookies on your team yet</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
+                Try viewing "All Rookies" to see the full leaderboard
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Show leaderboard content if we have participants */}
         {(isLoading || hasAnyParticipants) && (
