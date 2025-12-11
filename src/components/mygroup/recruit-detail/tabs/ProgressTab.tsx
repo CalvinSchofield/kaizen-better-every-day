@@ -1,4 +1,4 @@
-import { Check, X, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Check, CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import {
@@ -38,164 +38,194 @@ export const ProgressTab = ({
     );
   }
 
-  // Determine current phase
-  const getCurrentPhase = () => {
-    if (recruitRepData.ramp_phase_4_complete) return 'complete';
-    if (recruitRepData.ramp_phase_3_complete) return 'phase4';
-    if (recruitRepData.ramp_phase_2_complete) return 'phase3';
-    if (recruitRepData.ramp_phase_1_complete) return 'phase2';
-    if (recruitRepData.slack_joined) return 'phase1';
-    if (recruitRepData.trainings_complete) return 'slack';
-    if (recruitRepData.onboarding_complete) return 'trainings';
-    return 'onboarding';
+  // Calculate overall progress
+  const onboardingSteps = [
+    recruitRepData.onboarding_complete,
+    recruitRepData.trainings_complete,
+    recruitRepData.slack_joined
+  ];
+  const rampSteps = [
+    recruitRepData.ramp_phase_1_complete,
+    recruitRepData.ramp_phase_2_complete,
+    recruitRepData.ramp_phase_3_complete,
+    recruitRepData.ramp_phase_4_complete
+  ];
+  
+  const onboardingComplete = onboardingSteps.every(Boolean);
+  const rampComplete = rampSteps.every(Boolean);
+  const totalSteps = 7;
+  const completedSteps = [...onboardingSteps, ...rampSteps].filter(Boolean).length;
+  const progressPercent = (completedSteps / totalSteps) * 100;
+
+  // Determine current active step
+  const getCurrentStep = () => {
+    if (!recruitRepData.onboarding_complete) return 'onboarding';
+    if (!recruitRepData.trainings_complete) return 'trainings';
+    if (!recruitRepData.slack_joined) return 'slack';
+    if (!recruitRepData.ramp_phase_1_complete) return 'phase1';
+    if (!recruitRepData.ramp_phase_2_complete) return 'phase2';
+    if (!recruitRepData.ramp_phase_3_complete) return 'phase3';
+    if (!recruitRepData.ramp_phase_4_complete) return 'phase4';
+    return 'complete';
   };
   
-  const currentPhase = getCurrentPhase();
+  const currentStep = getCurrentStep();
 
   return (
     <div className="space-y-4">
-      {/* Readiness Status Card */}
       {isRookie && (
-        <div className={`rounded-xl p-4 ${
-          recruitRepData.ramp_phase_4_complete 
-            ? 'bg-emerald-500/10 border border-emerald-500/30'
-            : recruitRepData.slack_joined 
-              ? 'bg-purple-500/10 border border-purple-500/30'
-              : 'bg-amber-500/10 border border-amber-500/30'
-        }`}>
-          <div className="flex items-center gap-3 mb-3">
-            {recruitRepData.ramp_phase_4_complete ? (
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <>
+          {/* Overall Progress Header */}
+          <div className={`rounded-xl p-4 ${
+            rampComplete 
+              ? 'bg-emerald-500/10 border border-emerald-500/30'
+              : 'bg-card border border-border'
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                {rampComplete ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                ) : (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                )}
+                <span className={`font-semibold ${rampComplete ? 'text-emerald-600' : 'text-foreground'}`}>
+                  {rampComplete ? 'Blitz Ready!' : `${completedSteps} of ${totalSteps} steps complete`}
+                </span>
               </div>
-            ) : recruitRepData.slack_joined ? (
-              <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-purple-600" />
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 text-amber-600" />
-              </div>
-            )}
-            <div>
-              <h3 className={`font-semibold ${
-                recruitRepData.ramp_phase_4_complete 
-                  ? 'text-emerald-700 dark:text-emerald-400' 
-                  : recruitRepData.slack_joined 
-                    ? 'text-purple-700 dark:text-purple-400'
-                    : 'text-amber-700 dark:text-amber-400'
-              }`}>
-                {recruitRepData.ramp_phase_4_complete 
-                  ? 'Blitz Ready!' 
-                  : recruitRepData.slack_joined 
-                    ? 'In Ramp to Blitz'
-                    : 'Onboarding in Progress'}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {recruitRepData.ramp_phase_4_complete 
-                  ? `${recruitFirstName} has completed all prep`
-                  : `${recruitFirstName} is working through the process`}
-              </p>
+              <span className="text-sm text-muted-foreground">{Math.round(progressPercent)}%</span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+
+          {/* Onboarding Section */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-1 mb-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Onboarding
+              </h4>
+              {onboardingComplete && (
+                <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Complete
+                </span>
+              )}
+            </div>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <ProgressStep 
+                label="Basic Onboarding" 
+                complete={recruitRepData.onboarding_complete} 
+                active={currentStep === 'onboarding'}
+                stepNumber={1}
+              />
+              <ProgressStep 
+                label="Required Trainings" 
+                complete={recruitRepData.trainings_complete} 
+                active={currentStep === 'trainings'}
+                stepNumber={2}
+              />
+              <ProgressStep 
+                label="Join Slack" 
+                complete={recruitRepData.slack_joined} 
+                active={currentStep === 'slack'}
+                stepNumber={3}
+                isLast
+              />
             </div>
           </div>
-          
-          {/* Progress Steps */}
-          <div className="space-y-2">
-            {/* Onboarding Phase */}
-            {!recruitRepData.slack_joined && (
-              <>
-                <ProgressStep 
-                  label="Onboarding Video" 
-                  complete={recruitRepData.onboarding_complete} 
-                  active={currentPhase === 'onboarding'}
-                />
-                <ProgressStep 
-                  label="Required Trainings" 
-                  complete={recruitRepData.trainings_complete} 
-                  active={currentPhase === 'trainings'}
-                />
-                <ProgressStep 
-                  label="Join Slack" 
-                  complete={recruitRepData.slack_joined} 
-                  active={currentPhase === 'slack'}
-                />
-              </>
-            )}
-            
-            {/* Ramp to Blitz Phase */}
-            {recruitRepData.slack_joined && !recruitRepData.ramp_phase_4_complete && (
-              <>
-                <ProgressStep 
-                  label="Phase 1: Onboard & Get Ready" 
-                  complete={recruitRepData.ramp_phase_1_complete} 
-                  active={currentPhase === 'phase1'}
-                />
-                <ProgressStep 
-                  label="Phase 2: Start Training" 
-                  complete={recruitRepData.ramp_phase_2_complete} 
-                  active={currentPhase === 'phase2'}
-                />
-                <ProgressStep 
-                  label="Phase 3: Practice" 
-                  complete={recruitRepData.ramp_phase_3_complete} 
-                  active={currentPhase === 'phase3'}
-                />
-                <ProgressStep 
-                  label="Phase 4: Saddle Up" 
-                  complete={recruitRepData.ramp_phase_4_complete} 
-                  active={currentPhase === 'phase4'}
-                />
-              </>
-            )}
+
+          {/* Ramp to Blitz Section */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-1 mb-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Ramp to Blitz
+              </h4>
+              {rampComplete && (
+                <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Complete
+                </span>
+              )}
+            </div>
+            <div className={`bg-card border border-border rounded-xl overflow-hidden ${
+              !onboardingComplete ? 'opacity-50' : ''
+            }`}>
+              <ProgressStep 
+                label="Onboard & Get Ready" 
+                complete={recruitRepData.ramp_phase_1_complete} 
+                active={currentStep === 'phase1'}
+                stepNumber={1}
+                locked={!onboardingComplete}
+              />
+              <ProgressStep 
+                label="Start Training" 
+                complete={recruitRepData.ramp_phase_2_complete} 
+                active={currentStep === 'phase2'}
+                stepNumber={2}
+                locked={!onboardingComplete}
+              />
+              <ProgressStep 
+                label="Practice" 
+                complete={recruitRepData.ramp_phase_3_complete} 
+                active={currentStep === 'phase3'}
+                stepNumber={3}
+                locked={!onboardingComplete}
+              />
+              <ProgressStep 
+                label="Saddle Up" 
+                complete={recruitRepData.ramp_phase_4_complete} 
+                active={currentStep === 'phase4'}
+                stepNumber={4}
+                isLast
+                locked={!onboardingComplete}
+              />
+            </div>
           </div>
-        </div>
-      )}
-      
-      {/* Onboarding Step Selector */}
-      {isRookie && !recruitRepData.ramp_phase_4_complete && (
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">Mark Step Complete</Label>
-          <Select 
-            value={
-              recruitRepData.ramp_phase_4_complete ? 'ramp_phase_4_complete' :
-              recruitRepData.ramp_phase_3_complete ? 'ramp_phase_3_complete' :
-              recruitRepData.ramp_phase_2_complete ? 'ramp_phase_2_complete' :
-              recruitRepData.ramp_phase_1_complete ? 'ramp_phase_1_complete' :
-              recruitRepData.slack_joined ? 'slack_joined' :
-              recruitRepData.trainings_complete ? 'trainings_complete' :
-              recruitRepData.onboarding_complete ? 'onboarding_complete' :
-              'none'
-            }
-            onValueChange={(value) => {
-              const stepLabels: Record<string, string> = {
-                'onboarding_complete': 'Onboarding ✅',
-                'trainings_complete': 'Trainings ✅',
-                'slack_joined': 'Slack Joined',
-                'ramp_phase_1_complete': 'Phase 1 ✅',
-                'ramp_phase_2_complete': 'Phase 2 ✅',
-                'ramp_phase_3_complete': 'Phase 3 ✅',
-                'ramp_phase_4_complete': 'Phase 4 ✅',
-              };
-              if (value !== 'none') {
-                onOnboardingStepClick(value, stepLabels[value] || value, false);
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select completed step..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Not started</SelectItem>
-              <SelectItem value="onboarding_complete">Onboarding ✅</SelectItem>
-              <SelectItem value="trainings_complete">Trainings ✅</SelectItem>
-              <SelectItem value="slack_joined">Slack Joined</SelectItem>
-              <SelectItem value="ramp_phase_1_complete">Phase 1 ✅</SelectItem>
-              <SelectItem value="ramp_phase_2_complete">Phase 2 ✅</SelectItem>
-              <SelectItem value="ramp_phase_3_complete">Phase 3 ✅</SelectItem>
-              <SelectItem value="ramp_phase_4_complete">Phase 4 ✅</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
+          {/* Step Selector */}
+          {!rampComplete && (
+            <div className="space-y-2 pt-2">
+              <Label className="text-sm text-muted-foreground">Mark Step Complete</Label>
+              <Select 
+                value={
+                  recruitRepData.ramp_phase_4_complete ? 'ramp_phase_4_complete' :
+                  recruitRepData.ramp_phase_3_complete ? 'ramp_phase_3_complete' :
+                  recruitRepData.ramp_phase_2_complete ? 'ramp_phase_2_complete' :
+                  recruitRepData.ramp_phase_1_complete ? 'ramp_phase_1_complete' :
+                  recruitRepData.slack_joined ? 'slack_joined' :
+                  recruitRepData.trainings_complete ? 'trainings_complete' :
+                  recruitRepData.onboarding_complete ? 'onboarding_complete' :
+                  'none'
+                }
+                onValueChange={(value) => {
+                  const stepLabels: Record<string, string> = {
+                    'onboarding_complete': 'Basic Onboarding ✅',
+                    'trainings_complete': 'Required Trainings ✅',
+                    'slack_joined': 'Slack Joined',
+                    'ramp_phase_1_complete': 'Phase 1 ✅',
+                    'ramp_phase_2_complete': 'Phase 2 ✅',
+                    'ramp_phase_3_complete': 'Phase 3 ✅',
+                    'ramp_phase_4_complete': 'Phase 4 ✅',
+                  };
+                  if (value !== 'none') {
+                    onOnboardingStepClick(value, stepLabels[value] || value, false);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select completed step..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not started</SelectItem>
+                  <SelectItem value="onboarding_complete">Basic Onboarding ✅</SelectItem>
+                  <SelectItem value="trainings_complete">Required Trainings ✅</SelectItem>
+                  <SelectItem value="slack_joined">Slack Joined</SelectItem>
+                  <SelectItem value="ramp_phase_1_complete">Phase 1: Onboard & Get Ready ✅</SelectItem>
+                  <SelectItem value="ramp_phase_2_complete">Phase 2: Start Training ✅</SelectItem>
+                  <SelectItem value="ramp_phase_3_complete">Phase 3: Practice ✅</SelectItem>
+                  <SelectItem value="ramp_phase_4_complete">Phase 4: Saddle Up ✅</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </>
       )}
       
       {/* Preseason FP+ Goal Progress */}
@@ -245,26 +275,45 @@ export const ProgressTab = ({
 const ProgressStep = ({ 
   label, 
   complete, 
-  active 
+  active,
+  stepNumber,
+  isLast,
+  locked
 }: { 
   label: string; 
   complete?: boolean; 
   active?: boolean;
+  stepNumber: number;
+  isLast?: boolean;
+  locked?: boolean;
 }) => (
-  <div className={`flex items-center gap-2 text-sm ${active ? 'font-medium' : ''}`}>
+  <div className={`flex items-center gap-3 px-4 py-3 ${!isLast ? 'border-b border-border' : ''} ${
+    locked ? 'opacity-50' : ''
+  }`}>
     {complete ? (
-      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-        <Check className="h-3 w-3 text-emerald-600" />
+      <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+        <Check className="h-3.5 w-3.5 text-white" />
+      </div>
+    ) : active ? (
+      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+        <span className="text-xs font-bold text-primary-foreground">{stepNumber}</span>
       </div>
     ) : (
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-        active ? 'bg-primary/20 border-2 border-primary' : 'bg-muted'
-      }`}>
-        {active && <div className="w-2 h-2 rounded-full bg-primary" />}
+      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
+        <span className="text-xs text-muted-foreground">{stepNumber}</span>
       </div>
     )}
-    <span className={complete ? 'text-muted-foreground' : active ? 'text-foreground' : 'text-muted-foreground'}>
+    <span className={`text-sm ${
+      complete ? 'text-muted-foreground line-through' : 
+      active ? 'text-foreground font-medium' : 
+      'text-muted-foreground'
+    }`}>
       {label}
     </span>
+    {active && !locked && (
+      <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+        Current
+      </span>
+    )}
   </div>
 );
