@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useRepData } from "@/hooks/useRepData";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 import TeamCalendarModal from "@/components/TeamCalendarModal";
@@ -128,6 +128,7 @@ const Home = () => {
   const [weather, setWeather] = useState<Array<{ date: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [previousProgress, setPreviousProgress] = useState<number>(0);
   const [animateProgress, setAnimateProgress] = useState(false);
+  const isInitialMountRef = useRef(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [isNudging, setIsNudging] = useState(false);
@@ -569,6 +570,15 @@ const Home = () => {
 
   // Track progress changes and trigger celebrations (only when moving forward)
   useEffect(() => {
+    // Skip confetti on initial mount to prevent firing on every navigation
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      if (previousProgress !== completedSteps) {
+        setPreviousProgress(completedSteps);
+      }
+      return;
+    }
+
     // Only celebrate when moving forward AND not on initial load
     if (completedSteps > previousProgress && previousProgress > 0) {
       setAnimateProgress(true);

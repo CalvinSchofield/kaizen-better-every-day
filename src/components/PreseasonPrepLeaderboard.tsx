@@ -151,7 +151,7 @@ const PodiumDisplay = ({
     rank: 1 | 2 | 3; 
     size: 'lg' | 'md';
   }) => {
-    if (!entry) return <div className="flex-1" />;
+    if (!entry) return null;
     
     const isCurrentUser = entry.userId === currentUserId;
     const avatarSize = size === 'lg' ? 'h-14 w-14' : 'h-10 w-10';
@@ -164,7 +164,7 @@ const PodiumDisplay = ({
     return (
       <div className={cn(
         "flex flex-col items-center gap-1",
-        rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3"
+        entries.length === 1 ? "" : (rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3")
       )}>
         <div className="relative">
           <Avatar className={cn(
@@ -197,6 +197,25 @@ const PodiumDisplay = ({
       </div>
     );
   };
+
+  // Single person - center them without empty podium spots
+  if (entries.length === 1) {
+    return (
+      <div className="flex justify-center py-3">
+        <PodiumSpot entry={first} rank={1} size="lg" />
+      </div>
+    );
+  }
+
+  // Two people - show just #1 and #2
+  if (entries.length === 2) {
+    return (
+      <div className="flex items-end justify-center gap-6 py-3">
+        <PodiumSpot entry={second} rank={2} size="md" />
+        <PodiumSpot entry={first} rank={1} size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-end justify-center gap-4 py-3">
