@@ -68,37 +68,32 @@ export const PitchGuide = ({ sections, pageTitle, onBack }: PitchGuideProps) => 
     
     return () => {
       setCustomTitle(null);
-      setCustomRightContent(null);
     };
-  }, [pageTitle, setCustomTitle, setCustomRightContent]);
-
-  // Update header right content with tabs whenever mode changes
-  useEffect(() => {
-    setCustomRightContent(
-      <Tabs value={mode} onValueChange={(v) => setMode(v as "practice" | "reference")}>
-        <TabsList className="h-8">
-          <TabsTrigger value="practice" className="text-xs px-2 gap-1">
-            <GraduationCap className="h-3.5 w-3.5" />
-            Practice
-          </TabsTrigger>
-          <TabsTrigger value="reference" className="text-xs px-2 gap-1">
-            <BookOpen className="h-3.5 w-3.5" />
-            Reference
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    );
-  }, [mode, setCustomRightContent]);
+  }, [pageTitle, setCustomTitle]);
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
-      {/* Back button */}
-      {onBack && (
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
-          <ChevronLeft className="h-4 w-4" />
-          Back to Training
-        </Button>
-      )}
+      {/* Back button and mode toggle row */}
+      <div className="flex items-center justify-between">
+        {onBack && (
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
+            <ChevronLeft className="h-4 w-4" />
+            Back to Training
+          </Button>
+        )}
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "practice" | "reference")}>
+          <TabsList className="h-8">
+            <TabsTrigger value="practice" className="text-xs px-2 gap-1">
+              <GraduationCap className="h-3.5 w-3.5" />
+              Practice
+            </TabsTrigger>
+            <TabsTrigger value="reference" className="text-xs px-2 gap-1">
+              <BookOpen className="h-3.5 w-3.5" />
+              Reference
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       {/* Practice Mode - Flashcard Stepper */}
       {mode === "practice" && (
