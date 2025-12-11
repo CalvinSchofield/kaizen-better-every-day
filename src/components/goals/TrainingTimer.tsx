@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Plus, Minus, Clock, Check, TrendingUp, TrendingDown, Equal } from "lucide-react";
+import { Play, Pause, Plus, Minus, Clock, Check, TrendingUp, TrendingDown, Equal, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TrainingWeekHistory } from "@/hooks/useRepGoals";
 import { TrainingStreakBadge } from "./TrainingStreakBadge";
@@ -25,6 +25,8 @@ export const TrainingTimer = ({
   const [isRunning, setIsRunning] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [manualMinutes, setManualMinutes] = useState(0);
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
@@ -121,6 +123,15 @@ export const TrainingTimer = ({
     }
   };
 
+  const handleAdjustSave = () => {
+    if (adjustAmount !== 0) {
+      const newTotal = Math.max(0, currentMinutes + adjustAmount);
+      onSave(newTotal);
+    }
+    setAdjustAmount(0);
+    setIsAdjusting(false);
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -142,8 +153,81 @@ export const TrainingTimer = ({
           <p className="text-xs text-muted-foreground">This week</p>
           <TrainingStreakBadge streak={streak} />
         </div>
-        <p className="text-2xl font-bold tabular-nums">{formatTotalTime(currentMinutes)}</p>
-        {weeklyGoal > 0 && (
+        <div className="flex items-center justify-center gap-2">
+          <p className="text-2xl font-bold tabular-nums">{formatTotalTime(currentMinutes)}</p>
+          {currentMinutes > 0 && !isAdjusting && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsAdjusting(true)}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        
+        {/* Adjust mode */}
+        {isAdjusting && (
+          <div className="mt-3 p-3 rounded-xl bg-muted/50 space-y-3">
+            <p className="text-xs text-muted-foreground">Adjust saved time</p>
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => setAdjustAmount(prev => prev - 15)}
+                disabled={currentMinutes + adjustAmount < 15}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <div className="text-center min-w-[80px]">
+                <p className={cn(
+                  "text-xl font-bold tabular-nums",
+                  adjustAmount < 0 && "text-red-500",
+                  adjustAmount > 0 && "text-green-500"
+                )}>
+                  {adjustAmount >= 0 ? '+' : ''}{adjustAmount}m
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  New total: {formatTotalTime(Math.max(0, currentMinutes + adjustAmount))}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={() => setAdjustAmount(prev => prev + 15)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setAdjustAmount(0);
+                  setIsAdjusting(false);
+                }}
+              >
+                Cancel
+              </Button>
+              {adjustAmount !== 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleAdjustSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {weeklyGoal > 0 && !isAdjusting && (
           <div className="mt-2">
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div 
