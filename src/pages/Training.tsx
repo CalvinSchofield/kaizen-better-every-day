@@ -8,6 +8,10 @@ import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarouse
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { FreshDoorPitchGuide } from "@/components/training/FreshDoorPitchGuide";
+import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
+import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
+
+type PitchGuideType = "fresh" | "takeover" | "upgrade";
 
 interface TrainingCategory {
   title: string;
@@ -18,7 +22,7 @@ interface TrainingCategory {
     title: string;
     href: string;
     isNew?: boolean;
-    inAppGuide?: "fresh"; // For in-app guides
+    inAppGuide?: PitchGuideType;
   }>;
 }
 
@@ -27,7 +31,7 @@ const Training = () => {
   const { toast } = useToast();
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
-  const [activeGuide, setActiveGuide] = useState<"fresh" | null>(null);
+  const [activeGuide, setActiveGuide] = useState<PitchGuideType | null>(null);
   
   // Check if user is a vet or sophomore
   const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
@@ -75,9 +79,9 @@ const Training = () => {
       description: "Master the three core approaches",
       icon: DoorOpen,
       items: [
-        { title: "Takeover Pitch", href: "https://calvinschofield.notion.site/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489" },
+        { title: "Takeover Pitch", href: "#", inAppGuide: "takeover" },
         { title: "Fresh Pitch", href: "#", inAppGuide: "fresh" },
-        { title: "Upgrade Pitch", href: "https://calvinschofield.notion.site/Upgrade-Door-Approach-18c070fe3bc28077a280ee0783b4881b" },
+        { title: "Upgrade Pitch", href: "#", inAppGuide: "upgrade" },
       ],
     },
     {
@@ -186,9 +190,13 @@ const Training = () => {
 
   // If an in-app guide is active, show it as content
   if (activeGuide === "fresh") {
-    return (
-      <FreshDoorPitchGuide onBack={() => setActiveGuide(null)} />
-    );
+    return <FreshDoorPitchGuide onBack={() => setActiveGuide(null)} />;
+  }
+  if (activeGuide === "takeover") {
+    return <TakeoverPitchGuide onBack={() => setActiveGuide(null)} />;
+  }
+  if (activeGuide === "upgrade") {
+    return <UpgradePitchGuide onBack={() => setActiveGuide(null)} />;
   }
 
   return (
@@ -355,11 +363,6 @@ const Training = () => {
                         {item.isNew && !isDisabled && (
                           <Badge variant="outline" className="text-xs">
                             New
-                          </Badge>
-                        )}
-                        {hasInAppGuide && !isDisabled && (
-                          <Badge variant="secondary" className="text-xs">
-                            In-App
                           </Badge>
                         )}
                       </div>
