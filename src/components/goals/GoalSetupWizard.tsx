@@ -709,6 +709,17 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         </div>
 
         <div className="space-y-3">
+          {/* Show preseason goal if not currently summer */}
+          {!isCurrentlySummer && preseasonFpGoal && (
+            <div className="rounded-xl bg-blue-500/10 p-4 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-blue-500">Preseason</p>
+                <p className="text-lg font-bold">{preseasonFpGoal} {metricLabel}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Before summer</p>
+            </div>
+          )}
+
           {mustDoFpGoal > 0 && (
             <div className="rounded-xl bg-amber-500/10 p-4 flex items-center justify-between">
               <div>
