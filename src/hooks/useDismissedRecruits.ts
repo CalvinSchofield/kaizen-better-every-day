@@ -1,49 +1,17 @@
-import { useState, useCallback, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useState, useCallback } from 'react';
 
-const STORAGE_KEY = 'dismissed-recruits';
-
-interface DismissedData {
-  date: string;
-  recruitIds: string[];
-}
-
+/**
+ * Session-based dismissed recruits tracking.
+ * Dismissed recruits are cleared on page refresh/session end.
+ * This allows cycling through ALL recruits needing attention, showing 5 at a time.
+ */
 export const useDismissedRecruits = () => {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-
-  // Load dismissed recruits from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const data: DismissedData = JSON.parse(stored);
-        const today = format(new Date(), 'yyyy-MM-dd');
-        
-        // Only use stored data if it's from today
-        if (data.date === today) {
-          setDismissedIds(new Set(data.recruitIds));
-        } else {
-          // Clear old data
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, []);
 
   const dismissRecruit = useCallback((recruitNotionId: string) => {
     setDismissedIds(prev => {
       const newSet = new Set(prev);
       newSet.add(recruitNotionId);
-      
-      // Save to localStorage
-      const data: DismissedData = {
-        date: format(new Date(), 'yyyy-MM-dd'),
-        recruitIds: Array.from(newSet),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      
       return newSet;
     });
   }, []);
@@ -52,14 +20,6 @@ export const useDismissedRecruits = () => {
     setDismissedIds(prev => {
       const newSet = new Set(prev);
       newSet.delete(recruitNotionId);
-      
-      // Save to localStorage
-      const data: DismissedData = {
-        date: format(new Date(), 'yyyy-MM-dd'),
-        recruitIds: Array.from(newSet),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      
       return newSet;
     });
   }, []);
@@ -70,7 +30,6 @@ export const useDismissedRecruits = () => {
 
   const clearDismissed = useCallback(() => {
     setDismissedIds(new Set());
-    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   return {

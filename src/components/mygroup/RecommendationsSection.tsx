@@ -123,12 +123,22 @@ export const RecommendationsSection = ({
     }
   };
 
+  // Count remaining beyond what's shown
+  const remainingCount = filteredRecommendations.length - topRecommendations.length;
+
   return (
     <>
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium">Recommended Today</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium">Recommended Today</h3>
+          </div>
+          {remainingCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              +{remainingCount} more
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground -mt-1">
           Swipe right to contact, left to schedule
