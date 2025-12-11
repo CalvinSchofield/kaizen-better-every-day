@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap, ArrowRight } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
 const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[] = [
   { key: 'overall', label: 'Overall', icon: <Zap className="h-3.5 w-3.5" /> },
   { key: 'books', label: 'Books', icon: <BookOpen className="h-3.5 w-3.5" /> },
@@ -126,6 +128,7 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
 };
 
 export const PreseasonPrepLeaderboard = () => {
+  const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
   const [isExpanded, setIsExpanded] = useState(false);
   const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
@@ -196,6 +199,31 @@ export const PreseasonPrepLeaderboard = () => {
             </button>
           ))}
         </div>
+
+        {/* Books Progress Bar and CTA - only shown in books tab */}
+        {selectedMetric === 'books' && data?.currentUserEntry && (
+          <div className="bg-secondary/30 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Your Progress</span>
+              <span className="font-medium">
+                {data.currentUserEntry.totalBooks} / {data.currentUserEntry.booksGoal || '?'} books
+              </span>
+            </div>
+            <Progress 
+              value={data.currentUserEntry.booksGoal ? (data.currentUserEntry.totalBooks / data.currentUserEntry.booksGoal) * 100 : 0} 
+              className="h-2"
+            />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full mt-1 text-primary hover:text-primary"
+              onClick={() => navigate('/goals')}
+            >
+              Update your progress
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
 
         {/* Leaderboard List - Show skeleton during loading or actual content */}
         <div className={cn("space-y-1 transition-opacity duration-200", isLoading && "opacity-60")}>
