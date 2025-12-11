@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, BookOpen, GraduationCap, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 interface PitchSection {
   id: number;
@@ -68,11 +69,13 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
   const currentSection = PITCH_SECTIONS[currentStep];
 
   const goNext = () => {
     if (currentStep < PITCH_SECTIONS.length - 1) {
+      setSlideDirection('left');
       setCurrentStep(currentStep + 1);
       setRevealed(false);
     }
@@ -80,10 +83,17 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
 
   const goPrev = () => {
     if (currentStep > 0) {
+      setSlideDirection('right');
       setCurrentStep(currentStep - 1);
       setRevealed(false);
     }
   };
+
+  const { onTouchStart, onTouchMove, onTouchEnd, swipeState } = useSwipeNavigation({
+    onSwipeLeft: goNext,
+    onSwipeRight: goPrev,
+    threshold: 50,
+  });
 
   const toggleSection = (id: number) => {
     setExpandedSections(prev => 
@@ -126,7 +136,11 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
             {PITCH_SECTIONS.map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => { setCurrentStep(idx); setRevealed(false); }}
+                onClick={() => { 
+                  setSlideDirection(idx > currentStep ? 'left' : 'right');
+                  setCurrentStep(idx); 
+                  setRevealed(false); 
+                }}
                 className={cn(
                   "h-2 w-2 rounded-full transition-all",
                   idx === currentStep ? "bg-primary w-6" : "bg-muted-foreground/30"
@@ -135,77 +149,93 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
             ))}
           </div>
 
-          {/* Card */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card className="overflow-hidden">
-                <CardContent className="p-0">
-                  {/* Section header */}
-                  <div className="bg-primary/10 p-4 border-b">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{currentSection.emoji}</span>
-                      <div>
-                        <p className="text-xs text-muted-foreground font-medium">Step {currentSection.id} of 6</p>
-                        <h3 className="font-semibold text-lg">{currentSection.title}</h3>
+          {/* Card with swipe */}
+          <div
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            className="relative touch-pan-y"
+            style={{
+              transform: swipeState.isSwiping ? `translateX(${swipeState.direction === 'left' ? -swipeState.offset : swipeState.offset}px)` : undefined,
+              transition: swipeState.isSwiping ? 'none' : 'transform 0.2s ease-out',
+            }}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, x: slideDirection === 'left' ? 50 : -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: slideDirection === 'left' ? -50 : 50 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    {/* Section header */}
+                    <div className="bg-primary/10 p-4 border-b">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{currentSection.emoji}</span>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Step {currentSection.id} of 6</p>
+                          <h3 className="font-semibold text-lg">{currentSection.title}</h3>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Script content */}
-                  <div className="p-4 space-y-4">
-                    {!revealed ? (
-                      <button
-                        onClick={() => setRevealed(true)}
-                        className="w-full min-h-[120px] border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
-                      >
-                        <Eye className="h-8 w-8" />
-                        <span className="font-medium">Tap to reveal script</span>
-                        <span className="text-xs">Try to recall first!</span>
-                      </button>
-                    ) : (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-4"
-                      >
-                        {/* Script */}
-                        <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary">
-                          <p className="text-base leading-relaxed whitespace-pre-line">
-                            {currentSection.script}
-                          </p>
-                        </div>
-
-                        {/* Stage tip */}
-                        {currentSection.stageTip && (
-                          <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground italic">
-                            <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Stage Direction</p>
-                            {currentSection.stageTip}
-                          </div>
-                        )}
-
-                        {/* Hide button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setRevealed(false)}
-                          className="w-full gap-2"
+                    {/* Script content */}
+                    <div className="p-4 space-y-4">
+                      {!revealed ? (
+                        <button
+                          onClick={() => setRevealed(true)}
+                          className="w-full min-h-[120px] border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
                         >
-                          <EyeOff className="h-4 w-4" />
-                          Hide & practice again
-                        </Button>
-                      </motion.div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </AnimatePresence>
+                          <Eye className="h-8 w-8" />
+                          <span className="font-medium">Tap to reveal script</span>
+                          <span className="text-xs">Try to recall first!</span>
+                        </button>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-4"
+                        >
+                          {/* Script */}
+                          <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary">
+                            <p className="text-base leading-relaxed whitespace-pre-line">
+                              {currentSection.script}
+                            </p>
+                          </div>
+
+                          {/* Stage tip */}
+                          {currentSection.stageTip && (
+                            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground italic">
+                              <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Stage Direction</p>
+                              {currentSection.stageTip}
+                            </div>
+                          )}
+
+                          {/* Hide button */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRevealed(false)}
+                            className="w-full gap-2"
+                          >
+                            <EyeOff className="h-4 w-4" />
+                            Hide & practice again
+                          </Button>
+                        </motion.div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Swipe hint */}
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Swipe left/right to navigate
+            </p>
+          </div>
 
           {/* Navigation */}
           <div className="flex justify-between gap-4">
