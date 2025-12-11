@@ -89,74 +89,96 @@ export const useRecruitingRecommendations = (
       let daysUntilBlitz: number | undefined;
       let missingItems: string[] | undefined;
 
-      // Consider someone a rookie if Year is Rookie/2025 OR if they have incomplete onboarding
-      // (recruits with incomplete onboarding are effectively rookies regardless of Year field)
-      const hasIncompleteOnboarding = !(recruit.onboardingComplete && recruit.trainingsComplete && recruit.slackJoined);
-      const hasIncompleteRamp = !(recruit.rampPhase1Complete && recruit.rampPhase2Complete && recruit.rampPhase3Complete && recruit.rampPhase4Complete);
-      const isRookie = recruit.year === 'Rookie' || recruit.year === '2025' || !recruit.year || hasIncompleteOnboarding || hasIncompleteRamp;
+      const isRookie = recruit.year === 'Rookie' || recruit.year === '2025';
       const firstName = recruit.name?.split(' ')[0] || 'Recruit';
 
-      // Check for blitz proximity - for ALL recruits with incomplete onboarding/ramp
+      // Check for blitz proximity (only for Signed/Shadow recruits)
       const isSignedOrShadow = recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅';
       let hasUpcomingBlitz = false;
       let nearestBlitzDays: number | undefined;
       let nearestBlitzName: string | undefined;
       
-      // Check blitz proximity using recruit's own committed blitzes (more reliable than cross-referencing)
-      if (isRookie) {
-        // Use recruit's committedBlitzes directly from Notion
-        const recruitBlitzes = recruit.committedBlitzes || [];
+      if (isSignedOrShadow && blitzes) {
+        const repData = repDataMap?.get(recruit.notionPageId);
         
-        for (const blitz of recruitBlitzes) {
-          if (blitz.date) {
-            const blitzDate = parseISO(blitz.date);
-            const days = differenceInDays(blitzDate, now);
-            // Only consider upcoming blitzes within 21 days
-            if (days >= 0 && days <= 21) {
-              if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
-                nearestBlitzDays = days;
-                nearestBlitzName = blitz.name;
-                hasUpcomingBlitz = true;
-              }
+        // Use committedBlitzes from Notion (recruit object) OR from reps table (repData)
+        let committedBlitzIds: string[] = [];
+        
+        // First try recruit's committedBlitzes from Notion (most reliable)
+        if (recruit.committedBlitzes && recruit.committedBlitzes.length > 0) {
+          committedBlitzIds = recruit.committedBlitzes.map(b => b.id);
+        } 
+        // Fall back to repData.committed_blitzes from reps table
+        else if (repData) {
+          const rawCommitments = repData.committed_blitzes || [];
+          committedBlitzIds = Array.isArray(rawCommitments)
+            ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
+            : [];
+        }
+
+        // Find nearest committed blitz
+        for (const blitz of upcomingBlitzes) {
+          if (committedBlitzIds.includes(blitz.id)) {
+            const days = differenceInDays(parseISO(blitz.date), now);
+            if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
+              nearestBlitzDays = days;
+              nearestBlitzName = blitz.name;
+              hasUpcomingBlitz = true;
             }
           }
         }
 
         // Check for missing items - include onboarding AND ramp to blitz progress
-        // Use repData if available (Supabase user), otherwise use recruit data from Notion
-        const repData = repDataMap?.get(recruit.notionPageId);
-        const missing: string[] = [];
-        
-        // Get onboarding/ramp data from repData OR recruit (Notion)
-        const onboardingComplete = repData?.onboarding_complete ?? recruit.onboardingComplete ?? false;
-        const trainingsComplete = repData?.trainings_complete ?? recruit.trainingsComplete ?? false;
-        const slackJoined = repData?.slack_joined ?? recruit.slackJoined ?? false;
-        const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
-        const phase1 = repData?.ramp_phase_1_complete ?? recruit.rampPhase1Complete ?? false;
-        const phase2 = repData?.ramp_phase_2_complete ?? recruit.rampPhase2Complete ?? false;
-        const phase3 = repData?.ramp_phase_3_complete ?? recruit.rampPhase3Complete ?? false;
-        const phase4 = repData?.ramp_phase_4_complete ?? recruit.rampPhase4Complete ?? false;
-        
-        // Check foundational onboarding items
-        if (!onboardingComplete) missing.push('Onboarding');
-        if (!trainingsComplete) missing.push('Trainings');
-        if (!slackJoined) missing.push('Slack');
-        if (!ipadAssigned) missing.push('iPad');
-        
-        // Check ramp to blitz phases - count incomplete ones
-        const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
-        if (incompletePhaseCount > 0) {
-          missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+        if (hasUpcomingBlitz && repData) {
+          const missing: string[] = [];
+          
+          // Check foundational onboarding items
+          if (!repData.onboarding_complete) missing.push('Onboarding');
+          if (!repData.trainings_complete) missing.push('Trainings');
+          if (!repData.slack_joined) missing.push('Slack');
+          if (!repData.ipad_assigned) missing.push('iPad');
+          
+          // Check ramp to blitz phases - count incomplete ones
+          const phase1 = repData.ramp_phase_1_complete ?? false;
+          const phase2 = repData.ramp_phase_2_complete ?? false;
+          const phase3 = repData.ramp_phase_3_complete ?? false;
+          const phase4 = repData.ramp_phase_4_complete ?? false;
+          
+          const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
+          if (incompletePhaseCount > 0) {
+            missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+          }
+          
+          if (missing.length > 0) {
+            missingItems = missing;
+          }
         }
-        
-        if (missing.length > 0) {
-          missingItems = missing;
+        // Also check for missing items even if no blitz committed (for general awareness)
+        else if (isRookie && repData) {
+          const missing: string[] = [];
+          if (!repData.onboarding_complete) missing.push('Onboarding');
+          if (!repData.trainings_complete) missing.push('Trainings');
+          if (!repData.slack_joined) missing.push('Slack');
+          if (!repData.ipad_assigned) missing.push('iPad');
+          
+          const phase1 = repData.ramp_phase_1_complete ?? false;
+          const phase2 = repData.ramp_phase_2_complete ?? false;
+          const phase3 = repData.ramp_phase_3_complete ?? false;
+          const phase4 = repData.ramp_phase_4_complete ?? false;
+          
+          const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
+          if (incompletePhaseCount > 0) {
+            missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+          }
+          
+          if (missing.length > 0) {
+            missingItems = missing;
+          }
         }
       }
 
-      // TIER 0: ANY rookie with blitz < 21 days + MISSING ITEMS (CRITICAL)
-      // This is the highest priority - rookies who have committed blitzes but aren't ready
-      if (isRookie && hasUpcomingBlitz && missingItems && missingItems.length > 0) {
+      // TIER 0: Signed/Shadow with blitz < 21 days + MISSING ITEMS (CRITICAL)
+      if (isSignedOrShadow && hasUpcomingBlitz && missingItems && missingItems.length > 0) {
         daysUntilBlitz = nearestBlitzDays;
         // Higher priority for fewer days and more missing items
         priority = 250 - (nearestBlitzDays || 0) + (missingItems.length * 5);
