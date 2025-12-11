@@ -1,22 +1,8 @@
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, ReactNode } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
-// Import illustrations
-import welcomeImg from "@/assets/intro/welcome.png";
-import navigationImg from "@/assets/intro/navigation.png";
-import journeyImg from "@/assets/intro/journey.png";
-import trainingImg from "@/assets/intro/training.png";
-import blitzImg from "@/assets/intro/blitz.png";
-import goalsImg from "@/assets/intro/goals.png";
-import trackImg from "@/assets/intro/track.png";
-import calendarImg from "@/assets/intro/calendar.png";
-import insightsImg from "@/assets/intro/insights.png";
-import competeImg from "@/assets/intro/compete.png";
-import reportsImg from "@/assets/intro/reports.png";
-import mygroupImg from "@/assets/intro/mygroup.png";
+import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList } from "lucide-react";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -27,24 +13,31 @@ interface IntroWizardProps {
 }
 
 interface SlideConfig {
-  image: string;
+  icon: ReactNode;
   title: string;
   description: string;
   highlight?: string;
 }
 
+// Helper to strip emojis from text
+const stripEmojis = (text: string): string => {
+  return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{231A}-\u{231B}]|[\u{23E9}-\u{23F3}]|[\u{23F8}-\u{23FA}]|[\u{25AA}-\u{25AB}]|[\u{25B6}]|[\u{25C0}]|[\u{25FB}-\u{25FE}]|[\u{2614}-\u{2615}]|[\u{2648}-\u{2653}]|[\u{267F}]|[\u{2693}]|[\u{26A1}]|[\u{26AA}-\u{26AB}]|[\u{26BD}-\u{26BE}]|[\u{26C4}-\u{26C5}]|[\u{26CE}]|[\u{26D4}]|[\u{26EA}]|[\u{26F2}-\u{26F3}]|[\u{26F5}]|[\u{26FA}]|[\u{26FD}]|[\u{2702}]|[\u{2705}]|[\u{2708}-\u{270D}]|[\u{270F}]|[\u{2712}]|[\u{2714}]|[\u{2716}]|[\u{271D}]|[\u{2721}]|[\u{2728}]|[\u{2733}-\u{2734}]|[\u{2744}]|[\u{2747}]|[\u{274C}]|[\u{274E}]|[\u{2753}-\u{2755}]|[\u{2757}]|[\u{2763}-\u{2764}]|[\u{2795}-\u{2797}]|[\u{27A1}]|[\u{27B0}]|[\u{27BF}]|[\u{2934}-\u{2935}]|[\u{2B05}-\u{2B07}]|[\u{2B1B}-\u{2B1C}]|[\u{2B50}]|[\u{2B55}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]/gu, '').trim();
+};
+
 const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
+  const cleanName = stripEmojis(firstName);
+  
   // Welcome slide for everyone
   const welcomeSlide: SlideConfig = {
-    image: welcomeImg,
-    title: `Welcome, ${firstName}!`,
+    icon: <Home className="w-16 h-16 text-primary" />,
+    title: `Welcome, ${cleanName}!`,
     description: "Kaizen is your one-stop hub for everything you need to succeed at Vivint. Let's show you around.",
     highlight: "Let's get started"
   };
 
   // Navigation overview
   const navSlide: SlideConfig = {
-    image: navigationImg,
+    icon: <Menu className="w-16 h-16 text-primary" />,
     title: "Easy Navigation",
     description: "Use the bottom tabs to switch between pages. The menu icon in the top-left has more options and resources.",
   };
@@ -55,23 +48,23 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
       welcomeSlide,
       navSlide,
       {
-        image: journeyImg,
+        icon: <Map className="w-16 h-16 text-primary" />,
         title: "Your Journey Home",
         description: "Home is your roadmap. Follow the steps to get blitz-ready. Each step unlocks as you progress.",
         highlight: "Step by step"
       },
       {
-        image: trainingImg,
+        icon: <BookOpen className="w-16 h-16 text-primary" />,
         title: "Training Hub",
         description: "Study product knowledge, practice pitches, and complete required trainings. Everything you need to prepare.",
       },
       {
-        image: blitzImg,
+        icon: <Calendar className="w-16 h-16 text-primary" />,
         title: "Pick Your Blitz",
         description: "View upcoming blitzes and commit to dates. Your calendar shows all team events and your commitments.",
       },
       {
-        image: goalsImg,
+        icon: <Target className="w-16 h-16 text-primary" />,
         title: "Set Your Goals",
         description: "Plan your summer earnings. Set FP+ goals and track your preseason progress toward blitz-ready.",
         highlight: "Dream big!"
@@ -84,29 +77,29 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     welcomeSlide,
     navSlide,
     {
-      image: trackImg,
+      icon: <ClipboardList className="w-16 h-16 text-primary" />,
       title: "Track Your Day",
       description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
       highlight: "Tap to count"
     },
     {
-      image: calendarImg,
+      icon: <Calendar className="w-16 h-16 text-primary" />,
       title: "Calendar View",
       description: "See your daily progress over time. Review past entries and plan future work days.",
     },
     {
-      image: insightsImg,
+      icon: <TrendingUp className="w-16 h-16 text-primary" />,
       title: "Insights & Analytics",
       description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
     },
     {
-      image: competeImg,
+      icon: <Trophy className="w-16 h-16 text-primary" />,
       title: "Leaderboards",
       description: "Compete with teammates. See where you rank today, this week, and for the season.",
       highlight: "Rise to the top"
     },
     {
-      image: goalsImg,
+      icon: <Target className="w-16 h-16 text-primary" />,
       title: "Goals & Pace",
       description: "Track your progress toward your FP+ goals. Stay on pace to hit your targets.",
     },
@@ -117,12 +110,12 @@ const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
     return [
       ...baseSlides,
       {
-        image: reportsImg,
+        icon: <BarChart3 className="w-16 h-16 text-primary" />,
         title: "Team Reports",
         description: "View your team's performance at a glance. Identify who needs coaching and celebrate top performers.",
       },
       {
-        image: mygroupImg,
+        icon: <Users className="w-16 h-16 text-primary" />,
         title: "My Group",
         description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
         highlight: "Build your team"
@@ -166,20 +159,18 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-background flex flex-col"
-    >
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header with skip button */}
       <div className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-16" /> {/* Spacer */}
         <span className="text-xl font-bold text-primary">Kaizen</span>
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleSkip}
+          onClick={() => {
+            vibrate();
+            handleSkip();
+          }}
           className="text-muted-foreground"
         >
           Skip
@@ -187,11 +178,11 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       </div>
 
       {/* Slide content */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden">
+      <div className="flex-1 flex items-center justify-center overflow-hidden px-6">
         <AnimatePresence mode="wait">
           <IntroSlide
             key={currentSlide}
-            image={slides[currentSlide].image}
+            icon={slides[currentSlide].icon}
             title={slides[currentSlide].title}
             description={slides[currentSlide].description}
             highlight={slides[currentSlide].highlight}
@@ -247,6 +238,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
 
         <div className="w-12" /> {/* Spacer for alignment */}
       </div>
-    </motion.div>
+    </div>
   );
 };
