@@ -127,11 +127,11 @@ export const PreseasonPrepLeaderboard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
 
-  if (isLoading) return null;
-  if (!data || data.entries.length === 0) return null;
+  // Don't render if no data and not loading
+  if (!isLoading && (!data || data.entries.length === 0)) return null;
 
-  const topEntries = data.entries.slice(0, 5);
-  const remainingEntries = data.entries.slice(5);
+  const topEntries = data?.entries.slice(0, 5) || [];
+  const remainingEntries = data?.entries.slice(5) || [];
 
   return (
     <Card className="mb-6">
@@ -141,7 +141,7 @@ export const PreseasonPrepLeaderboard = () => {
             <Trophy className="h-4 w-4 text-yellow-500" />
             Prep Leaderboard
           </CardTitle>
-          {data.currentUserRank > 0 && (
+          {data?.currentUserRank && data.currentUserRank > 0 && (
             <Badge variant="outline" className="text-xs">
               You're #{data.currentUserRank}
             </Badge>
@@ -169,15 +169,15 @@ export const PreseasonPrepLeaderboard = () => {
           ))}
         </div>
 
-        {/* Leaderboard List */}
-        <div className="space-y-1">
+        {/* Leaderboard List - Show skeleton during loading or actual content */}
+        <div className={cn("space-y-1 transition-opacity duration-200", isLoading && "opacity-60")}>
           {topEntries.map((entry, index) => (
             <LeaderboardRow
               key={entry.userId}
               entry={entry}
               rank={index + 1}
               metric={selectedMetric}
-              isCurrentUser={entry.userId === data.currentUserEntry?.userId}
+              isCurrentUser={entry.userId === data?.currentUserEntry?.userId}
             />
           ))}
         </div>
@@ -205,7 +205,7 @@ export const PreseasonPrepLeaderboard = () => {
                   entry={entry}
                   rank={index + 6}
                   metric={selectedMetric}
-                  isCurrentUser={entry.userId === data.currentUserEntry?.userId}
+                  isCurrentUser={entry.userId === data?.currentUserEntry?.userId}
                 />
               ))}
             </CollapsibleContent>
