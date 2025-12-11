@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getTrainingPaceStatus } from "@/utils/timezoneUtils";
+import { getTrainingPaceStatus, getWeekStartDateString } from "@/utils/timezoneUtils";
 
 export type LeaderboardMetric = 'overall' | 'books' | 'training' | 'roleplays' | 'mnl';
 
@@ -12,30 +12,38 @@ const POINTS = {
   mnl: 8,
 };
 
+interface PrepScoreBreakdown {
+  books: number;
+  training: number; // in minutes
+  roleplays: number;
+  mnl: number;
+}
+
+interface PrepScoreHistory {
+  week_start: string;
+  score: number;
+  breakdown: PrepScoreBreakdown;
+}
+
 export interface LeaderboardEntry {
   userId: string;
   name: string;
   notionPageId: string | null;
   timezone: string;
   profilePhotoUrl: string | null;
-  // Overall prep score
-  prepScore: number;
-  // Books
-  booksProgress: number;
-  booksGoal: number;
-  booksPercent: number;
-  // Training (in minutes)
-  trainingProgress: number;
+  // Weekly prep score (this week's effort)
+  weeklyPrepScore: number;
+  // Weekly progress (this week only)
+  weeklyBooks: number;
+  weeklyTraining: number; // in minutes
+  weeklyRoleplays: number;
+  weeklyMnl: number;
+  // Training pace status (weekly)
   trainingGoal: number; // in minutes
-  trainingPercent: number;
   trainingPaceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal';
-  // Role Plays
-  roleplaysProgress: number;
-  // MNL
-  mnlProgress: number;
 }
 
-export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books') => {
+export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall') => {
   const { data: currentUserId } = useQuery({
     queryKey: ['current-user-id'],
     queryFn: async () => {
@@ -46,7 +54,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
   });
 
   return useQuery({
-    queryKey: ['preseason-prep-leaderboard', metric],
+    queryKey: ['preseason-prep-leaderboard-weekly', metric],
     queryFn: async () => {
       // Fetch all rookies with setup_complete
       const { data: goalsData, error: goalsError } = await supabase
@@ -55,11 +63,11 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
           user_id,
           setup_complete,
           books_progress,
-          books_goal,
           training_hours_progress,
           training_hours_goal,
           role_plays_progress,
-          monday_night_lights_progress
+          monday_night_lights_progress,
+          prep_score_history
         `)
         .eq('setup_complete', true);
 
@@ -86,19 +94,48 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
         if (!rep) continue;
 
         const timezone = rep.timezone || 'America/Los_Angeles';
+        const currentWeekStart = getWeekStartDateString(timezone);
         const trainingGoalMinutes = (goal.training_hours_goal || 0) * 60;
 
-        const booksProgress = goal.books_progress || 0;
-        const trainingProgress = goal.training_hours_progress || 0;
-        const roleplaysProgress = goal.role_plays_progress || 0;
-        const mnlProgress = goal.monday_night_lights_progress || 0;
+        // Current cumulative values
+        const currentBooks = goal.books_progress || 0;
+        const currentTraining = goal.training_hours_progress || 0; // This already resets weekly
+        const currentRoleplays = goal.role_plays_progress || 0;
+        const currentMnl = goal.monday_night_lights_progress || 0;
 
-        // Calculate overall prep score
-        const prepScore = 
-          (booksProgress * POINTS.books) +
-          ((trainingProgress / 60) * POINTS.training) + // Convert minutes to hours
-          (roleplaysProgress * POINTS.roleplays) +
-          (mnlProgress * POINTS.mnl);
+        // Get last week's snapshot to calculate this week's delta
+        const rawHistory = goal.prep_score_history;
+        const history: PrepScoreHistory[] = Array.isArray(rawHistory) 
+          ? (rawHistory as unknown as PrepScoreHistory[]) 
+          : [];
+        
+        // Find the most recent week that's NOT the current week
+        const previousWeek = history
+          .filter(h => h.week_start !== currentWeekStart)
+          .sort((a, b) => b.week_start.localeCompare(a.week_start))[0];
+
+        // Calculate this week's activity
+        // Training already resets weekly, so use current value directly
+        const weeklyTraining = currentTraining;
+        
+        // For other metrics, subtract last week's cumulative from current cumulative
+        const weeklyBooks = previousWeek 
+          ? Math.max(0, currentBooks - (previousWeek.breakdown?.books || 0))
+          : currentBooks; // First week = all current progress counts
+        const weeklyRoleplays = previousWeek
+          ? Math.max(0, currentRoleplays - (previousWeek.breakdown?.roleplays || 0))
+          : currentRoleplays;
+        const weeklyMnl = previousWeek
+          ? Math.max(0, currentMnl - (previousWeek.breakdown?.mnl || 0))
+          : currentMnl;
+
+        // Calculate weekly prep score
+        const weeklyPrepScore = Math.round(
+          (weeklyBooks * POINTS.books) +
+          ((weeklyTraining / 60) * POINTS.training) +
+          (weeklyRoleplays * POINTS.roleplays) +
+          (weeklyMnl * POINTS.mnl)
+        );
 
         entries.push({
           userId: goal.user_id,
@@ -106,20 +143,17 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
           notionPageId: rep.notion_page_id,
           timezone,
           profilePhotoUrl: rep.profile_photo_url,
-          prepScore: Math.round(prepScore),
-          booksProgress,
-          booksGoal: goal.books_goal || 0,
-          booksPercent: goal.books_goal ? (booksProgress / goal.books_goal) * 100 : 0,
-          trainingProgress,
+          weeklyPrepScore,
+          weeklyBooks,
+          weeklyTraining,
+          weeklyRoleplays,
+          weeklyMnl,
           trainingGoal: trainingGoalMinutes,
-          trainingPercent: trainingGoalMinutes ? (trainingProgress / trainingGoalMinutes) * 100 : 0,
           trainingPaceStatus: getTrainingPaceStatus(
-            trainingProgress,
+            weeklyTraining,
             trainingGoalMinutes,
             timezone
           ),
-          roleplaysProgress,
-          mnlProgress,
         });
       }
 
@@ -127,21 +161,17 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
       const sortedEntries = [...entries].sort((a, b) => {
         switch (metric) {
           case 'overall':
-            return b.prepScore - a.prepScore;
+            return b.weeklyPrepScore - a.weeklyPrepScore;
           case 'books':
-            // Sort by percent complete, then raw count
-            if (a.booksPercent !== b.booksPercent) return b.booksPercent - a.booksPercent;
-            return b.booksProgress - a.booksProgress;
+            return b.weeklyBooks - a.weeklyBooks;
           case 'training':
-            // Sort by percent complete
-            if (a.trainingPercent !== b.trainingPercent) return b.trainingPercent - a.trainingPercent;
-            return b.trainingProgress - a.trainingProgress;
+            return b.weeklyTraining - a.weeklyTraining;
           case 'roleplays':
-            return b.roleplaysProgress - a.roleplaysProgress;
+            return b.weeklyRoleplays - a.weeklyRoleplays;
           case 'mnl':
-            return b.mnlProgress - a.mnlProgress;
+            return b.weeklyMnl - a.weeklyMnl;
           default:
-            return b.prepScore - a.prepScore;
+            return b.weeklyPrepScore - a.weeklyPrepScore;
         }
       });
 
