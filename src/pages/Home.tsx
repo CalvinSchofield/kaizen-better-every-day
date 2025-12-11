@@ -378,27 +378,23 @@ const Home = () => {
     };
   };
 
-  // Handler for task clicks - toggle check and open link only when checking
+  // Handler for task clicks - toggle check and open link
   const handleTaskClick = async (taskId: string, href?: string, onClick?: () => void) => {
-    const newCompleted = new Set(completedTasks);
     const isCurrentlyCompleted = completedTasks.has(taskId);
     
-    if (isCurrentlyCompleted) {
-      // Uncheck - remove from set, don't open link
-      newCompleted.delete(taskId);
-    } else {
-      // Check - add to set and execute action
-      newCompleted.add(taskId);
-
-      // Execute action only when checking off
-      if (onClick) {
-        onClick();
-      } else if (href) {
-        openLink(href);
-      }
+    // Always open the link/execute action
+    if (onClick) {
+      onClick();
+    } else if (href) {
+      openLink(href);
     }
     
-    await setCompletedTasks(newCompleted);
+    // Only mark as completed if not already completed
+    if (!isCurrentlyCompleted) {
+      const newCompleted = new Set(completedTasks);
+      newCompleted.add(taskId);
+      await setCompletedTasks(newCompleted);
+    }
   };
 
   // Smart link opener - tries to open in native apps when possible
