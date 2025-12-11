@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.log-blitz-attendance]
 verify_jwt = false
+
+[functions.send-setup-nudge-email]
+verify_jwt = false
