@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Lock, ExternalLink, Download, DollarSign } from "lucide-react";
+import { FileText, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Lock, ExternalLink, Download, DollarSign, ChevronLeft } from "lucide-react";
 import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarousel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { FreshDoorPitchGuide } from "@/components/training/FreshDoorPitchGuide";
 
 interface TrainingCategory {
   title: string;
@@ -17,6 +18,7 @@ interface TrainingCategory {
     title: string;
     href: string;
     isNew?: boolean;
+    inAppGuide?: "fresh"; // For in-app guides
   }>;
 }
 
@@ -25,6 +27,7 @@ const Training = () => {
   const { toast } = useToast();
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
+  const [activeGuide, setActiveGuide] = useState<"fresh" | null>(null);
   
   // Check if user is a vet or sophomore
   const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
@@ -73,7 +76,7 @@ const Training = () => {
       icon: DoorOpen,
       items: [
         { title: "Takeover Pitch", href: "https://calvinschofield.notion.site/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489" },
-        { title: "Fresh Pitch", href: "https://calvinschofield.notion.site/Fresh-Door-Approach-18c070fe3bc2803fbffdd0642363096c" },
+        { title: "Fresh Pitch", href: "#", inAppGuide: "fresh" },
         { title: "Upgrade Pitch", href: "https://calvinschofield.notion.site/Upgrade-Door-Approach-18c070fe3bc28077a280ee0783b4881b" },
       ],
     },
@@ -180,6 +183,34 @@ const Training = () => {
       });
     }
   };
+
+  // If an in-app guide is active, show it full-screen
+  if (activeGuide === "fresh") {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-lg mx-auto px-4 py-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setActiveGuide(null)} className="gap-1 -ml-2">
+                  <ChevronLeft className="h-4 w-4" />
+                  Back to Training
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-2xl">🚪</span>
+                <CardTitle>Fresh Door Approach</CardTitle>
+              </div>
+              <CardDescription>Master the 6-step pitch flow</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FreshDoorPitchGuide />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -310,18 +341,30 @@ const Training = () => {
               <CardContent className="space-y-2">
                 {category.items.map((item) => {
                   const isDisabled = isLocked || category.title === "Path to Pro";
+                  const hasInAppGuide = !!item.inAppGuide;
+                  
+                  const handleClick = (e: React.MouseEvent) => {
+                    if (isDisabled) {
+                      e.preventDefault();
+                      return;
+                    }
+                    if (hasInAppGuide) {
+                      e.preventDefault();
+                      setActiveGuide(item.inAppGuide!);
+                    }
+                  };
                   
                   return (
                     <a
                       key={item.title}
                       href={isDisabled ? "#" : item.href}
-                      target={!isDisabled && item.href.startsWith("http") ? "_blank" : undefined}
-                      rel={!isDisabled && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                      onClick={isDisabled ? (e) => e.preventDefault() : undefined}
+                      target={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "_blank" : undefined}
+                      rel={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                      onClick={handleClick}
                       className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
                         isDisabled 
                           ? "cursor-not-allowed" 
-                          : "hover:bg-accent"
+                          : "hover:bg-accent cursor-pointer"
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -335,8 +378,15 @@ const Training = () => {
                             New
                           </Badge>
                         )}
+                        {hasInAppGuide && !isDisabled && (
+                          <Badge variant="secondary" className="text-xs">
+                            In-App
+                          </Badge>
+                        )}
                       </div>
-                      {item.href.startsWith("http") && !isDisabled ? (
+                      {hasInAppGuide && !isDisabled ? (
+                        <DoorOpen className="w-4 h-4 text-primary" />
+                      ) : item.href.startsWith("http") && !isDisabled ? (
                         <ExternalLink className="w-4 h-4 text-muted-foreground" />
                       ) : (
                         <FileText className="w-4 h-4 text-muted-foreground" />
