@@ -3,6 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
 import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList } from "lucide-react";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -161,6 +162,19 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
     }
   };
 
+  // Swipe navigation
+  const { onTouchStart, onTouchMove, onTouchEnd } = useSwipeNavigation({
+    onSwipeLeft: () => {
+      vibrate();
+      handleNext();
+    },
+    onSwipeRight: () => {
+      vibrate();
+      handlePrev();
+    },
+    threshold: 50,
+  });
+
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header with skip button */}
@@ -182,8 +196,13 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
         </Button>
       </div>
 
-      {/* Slide content */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden px-6 pointer-events-none">
+      {/* Slide content - swipeable area */}
+      <div 
+        className="flex-1 flex items-center justify-center overflow-hidden px-6"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <AnimatePresence mode="wait">
           <IntroSlide
             key={currentSlide}
