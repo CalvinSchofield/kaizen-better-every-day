@@ -60,7 +60,7 @@ interface GoalSetupWizardProps {
 
 export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, onCancel }: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
-  const totalSteps = isRookie ? 5 : 3; // Rookies get blitz commitment step
+  const totalSteps = isRookie ? 6 : 4; // Rookies: Expenses → Dates → Goals → Preseason → Blitzes → Review
   
   // Blitz data for rookie commitment step
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
@@ -73,7 +73,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
   // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
 
-  // Form state - no prefilled values for goals
+  // Form state - no prefilled values for goals except preseason defaults to 5
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
   const [monthsOff, setMonthsOff] = useState<string>('8'); // Default to 8 months (summer job - most of year is school)
   const [housingOption, setHousingOption] = useState(HOUSING_OPTIONS[0]); // Default Single Shared
@@ -83,7 +83,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
   const [mustDoFpGoalInput, setMustDoFpGoalInput] = useState<string>('');
   const [willDoFpGoal, setWillDoFpGoal] = useState<string>('');
   const [couldDoFpGoal, setCouldDoFpGoal] = useState<string>('');
-  const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('');
+  const [preseasonFpGoal, setPreseasonFpGoal] = useState<string>('5'); // Default to 5
 
   // Date picker states
   const [startDateOpen, setStartDateOpen] = useState(false);
@@ -139,16 +139,18 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
       switch (step) {
         case 1: return "Monthly Expenses";
         case 2: return "Summer Dates";
-        case 3: return "Your Goals";
-        case 4: return "Commit to Blitzes";
-        case 5: return "Review";
+        case 3: return "Summer Goals";
+        case 4: return "Preseason Goal";
+        case 5: return "Commit to Blitzes";
+        case 6: return "Review";
         default: return "";
       }
     } else {
       switch (step) {
         case 1: return "Summer Dates";
-        case 2: return "Your Goals";
-        case 3: return "Review";
+        case 2: return "Summer Goals";
+        case 3: return "Preseason Goal";
+        case 4: return "Review";
         default: return "";
       }
     }
@@ -236,8 +238,10 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         case 3:
           return renderGoalInputs();
         case 4:
-          return renderBlitzCommitment();
+          return renderPreseasonGoal();
         case 5:
+          return renderBlitzCommitment();
+        case 6:
           return renderReview();
         default:
           return null;
@@ -249,6 +253,8 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         case 2:
           return renderGoalInputs();
         case 3:
+          return renderPreseasonGoal();
+        case 4:
           return renderReview();
         default:
           return null;
@@ -399,31 +405,9 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         <div className="text-center mb-6">
           <Target className="h-12 w-12 mx-auto text-primary mb-3" />
           <p className="text-muted-foreground">
-            Set your {metricLabel} goals
+            Set your summer {metricLabel} goals
           </p>
         </div>
-
-        {/* Preseason Goal - only show if not summer yet */}
-        {!isCurrentlySummer && (
-          <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="h-4 w-4 text-blue-500" />
-              <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
-              <span className="text-xs text-muted-foreground">(Optional)</span>
-            </div>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={preseasonFpGoal}
-              onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
-              placeholder="e.g., 5"
-              className="bg-background/50"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              {metricLabel} you want to earn before summer starts
-            </p>
-          </div>
-        )}
 
         {isRookie && mustDoFpGoal > 0 && (
           <div className="rounded-xl bg-amber-500/10 p-4 border border-amber-500/20">
@@ -510,6 +494,46 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
               </span>
             )}
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPreseasonGoal = () => {
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-6">
+          <Target className="h-12 w-12 mx-auto text-blue-500 mb-3" />
+          <p className="text-muted-foreground">
+            How much do you want to sell before summer?
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-blue-500/10 p-4 border border-blue-500/20">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="h-4 w-4 text-blue-500" />
+            <span className="font-semibold text-blue-500">Preseason {metricLabel} Goal</span>
+          </div>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={preseasonFpGoal}
+            onChange={(e) => handleNumberInput(e.target.value, setPreseasonFpGoal)}
+            placeholder="5"
+            className="bg-background/50 text-xl font-semibold text-center"
+          />
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before your first blitz
+          </p>
+        </div>
+
+        <div className="text-center text-sm text-muted-foreground">
+          <p>Hitting your preseason goal helps you:</p>
+          <ul className="mt-2 space-y-1">
+            <li>• Build confidence before summer</li>
+            <li>• Practice your pitch on real doors</li>
+            <li>• Get comfortable with the sales process</li>
+          </ul>
         </div>
       </div>
     );
