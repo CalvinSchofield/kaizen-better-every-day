@@ -86,16 +86,23 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
 
       if (goalsError) throw goalsError;
 
-      // Fetch rep info for names, timezones, and profile photos
+      // Fetch rep info for names, timezones, profile photos, stage, and ramp progress
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url');
+        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url, stage, ramp_phase_1_complete');
 
       if (repsError) throw repsError;
 
-      // Filter to only rookies
+      // Valid stages for preseason prep tracking (Signed and beyond)
+      const validStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+
+      // Filter to only rookies who are Signed+ AND have completed Phase 1
       const rookieUserIds = repsData
-        ?.filter(r => r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year)
+        ?.filter(r => 
+          (r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year) &&
+          validStages.includes(r.stage || '') &&
+          r.ramp_phase_1_complete === true
+        )
         .map(r => r.user_id) || [];
 
       const entries: LeaderboardEntry[] = [];
