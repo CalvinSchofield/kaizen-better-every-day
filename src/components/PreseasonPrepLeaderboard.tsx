@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
@@ -97,6 +97,7 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
           {getRankBadge(rank)}
         </div>
         <Avatar className="h-8 w-8">
+          <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
           <AvatarFallback className={cn(
             "text-xs",
             isCurrentUser ? "bg-primary/20 text-primary" : "bg-secondary"

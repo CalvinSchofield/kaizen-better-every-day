@@ -9,6 +9,7 @@ export interface LeaderboardEntry {
   name: string;
   notionPageId: string | null;
   timezone: string;
+  profilePhotoUrl: string | null;
   // Books
   booksProgress: number;
   booksGoal: number;
@@ -54,10 +55,10 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
 
       if (goalsError) throw goalsError;
 
-      // Fetch rep info for names and timezones
+      // Fetch rep info for names, timezones, and profile photos
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, timezone, notion_page_id, year');
+        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url');
 
       if (repsError) throw repsError;
 
@@ -82,6 +83,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
           name: rep.name,
           notionPageId: rep.notion_page_id,
           timezone,
+          profilePhotoUrl: rep.profile_photo_url,
           booksProgress: goal.books_progress || 0,
           booksGoal: goal.books_goal || 0,
           booksPercent: goal.books_goal ? ((goal.books_progress || 0) / goal.books_goal) * 100 : 0,
