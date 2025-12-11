@@ -13,6 +13,7 @@ import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetAlertCard } from "@/components/VetAlertCard";
 import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
+import { LeaderPreseasonPrepLeaderboard } from "@/components/LeaderPreseasonPrepLeaderboard";
 import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -760,6 +761,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         {/* Preseason Standards Card */}
         <PreseasonStandardsCard />
+
+        {/* Leader Preseason Prep Leaderboard - shows rookies' progress with team leader attribution */}
+        {isLeader && <LeaderPreseasonPrepLeaderboard />}
         {/* Personal Dashboard Card (conditional) */}
         {dashboardUrl && (
           <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
