@@ -40,15 +40,28 @@ export const getStageDescription = (stage: string): string => {
 };
 
 export const getOnboardingStepDescription = (field: string, markingComplete: boolean, recruitFirstName: string): string => {
-  const action = markingComplete ? 'This confirms that' : 'This will mark that';
-  switch (field) {
-    case 'onboarding_complete': return `${action} ${recruitFirstName} has finished the initial onboarding steps and is ready to proceed.`;
-    case 'trainings_complete': return `${action} ${recruitFirstName} has completed all required training videos and materials.`;
-    case 'slack_joined': return `${action} ${recruitFirstName} has joined the team Slack workspace.`;
-    case 'ramp_phase_1_complete': return `${action} ${recruitFirstName} has completed Phase 1: Onboard and get ready.`;
-    case 'ramp_phase_2_complete': return `${action} ${recruitFirstName} has completed Phase 2: Start training.`;
-    case 'ramp_phase_3_complete': return `${action} ${recruitFirstName} has completed Phase 3: Practice.`;
-    case 'ramp_phase_4_complete': return `${action} ${recruitFirstName} has completed Phase 4: Saddle up and is blitz-ready!`;
-    default: return '';
+  if (markingComplete) {
+    switch (field) {
+      case 'onboarding_complete': return `This confirms ${recruitFirstName} has finished the initial onboarding steps.`;
+      case 'trainings_complete': return `This confirms ${recruitFirstName} has completed all required trainings.`;
+      case 'slack_joined': return `This confirms ${recruitFirstName} has joined the team Slack.`;
+      case 'ramp_phase_1_complete': return `This confirms ${recruitFirstName} completed Phase 1: Onboard and get ready.`;
+      case 'ramp_phase_2_complete': return `This confirms ${recruitFirstName} completed Phase 2: Start training.`;
+      case 'ramp_phase_3_complete': return `This confirms ${recruitFirstName} completed Phase 3: Practice.`;
+      case 'ramp_phase_4_complete': return `This confirms ${recruitFirstName} completed Phase 4: Saddle up!`;
+      default: return '';
+    }
+  } else {
+    // Undo messaging
+    switch (field) {
+      case 'onboarding_complete': return `This will undo onboarding and all following steps.`;
+      case 'trainings_complete': return `This will undo trainings and all following steps.`;
+      case 'slack_joined': return `This will undo Slack and all following steps.`;
+      case 'ramp_phase_1_complete': return `This will undo Phase 1 and all following phases.`;
+      case 'ramp_phase_2_complete': return `This will undo Phase 2 and all following phases.`;
+      case 'ramp_phase_3_complete': return `This will undo Phase 3 and Phase 4.`;
+      case 'ramp_phase_4_complete': return `This will undo Phase 4.`;
+      default: return '';
+    }
   }
 };

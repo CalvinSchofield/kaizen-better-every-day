@@ -526,15 +526,27 @@ export const RecruitDetailDrawer = ({
       {/* Onboarding Confirm Drawer */}
       <Drawer open={onboardingConfirmOpen} onOpenChange={setOnboardingConfirmOpen}>
         <DrawerContent>
-          <DrawerHeader><DrawerTitle>Confirm Onboarding Update</DrawerTitle></DrawerHeader>
+          <DrawerHeader>
+            <DrawerTitle>
+              {pendingOnboardingStep?.value ? 'Confirm Completion' : 'Undo Step'}
+            </DrawerTitle>
+          </DrawerHeader>
           <div className="p-4 space-y-4">
             <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm font-medium mb-1">Mark as: <span className="text-primary">{pendingOnboardingStep?.label}</span></p>
+              <p className="text-sm font-medium mb-1">
+                {pendingOnboardingStep?.value ? 'Mark complete:' : 'Undo:'} <span className="text-primary">{pendingOnboardingStep?.label}</span>
+              </p>
               <p className="text-sm text-muted-foreground">{pendingOnboardingStep && getOnboardingStepDescription(pendingOnboardingStep.field, pendingOnboardingStep.value, recruitFirstName)}</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setOnboardingConfirmOpen(false); setPendingOnboardingStep(null); }}>Cancel</Button>
-              <Button className="flex-1" onClick={handleConfirmOnboardingChange}>Confirm</Button>
+              <Button 
+                className="flex-1" 
+                variant={pendingOnboardingStep?.value ? 'default' : 'destructive'}
+                onClick={handleConfirmOnboardingChange}
+              >
+                {pendingOnboardingStep?.value ? 'Confirm' : 'Undo'}
+              </Button>
             </div>
           </div>
         </DrawerContent>
