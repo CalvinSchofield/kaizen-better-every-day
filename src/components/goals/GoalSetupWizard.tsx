@@ -585,7 +585,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
             className="bg-background/50 text-xl font-semibold text-center"
           />
           <p className="text-xs text-muted-foreground mt-3 text-center">
-            We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before your first blitz
+            We recommend at least <span className="font-semibold text-blue-500">5 {metricLabel}</span> before the summer starts
           </p>
         </div>
 
