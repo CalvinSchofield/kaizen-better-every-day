@@ -1559,7 +1559,7 @@ const Home = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  ✈️ Your Blitzes
+                  ✈️ {((repData?.committed_blitzes as any[]) || []).length > 0 ? 'Your Blitzes' : 'Pick a Blitz'}
                 </CardTitle>
                 {((repData?.committed_blitzes as any[]) || []).length > 0 && (
                   <Badge className="bg-success/20 text-success">
