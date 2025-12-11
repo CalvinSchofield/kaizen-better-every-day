@@ -477,6 +477,7 @@ export type Database = {
           monthly_expenses: number | null
           months_off: number | null
           must_do_fp_goal: number | null
+          prep_score_history: Json | null
           preseason_fp_goal: number | null
           recruits_with_sale_goal: number | null
           recruits_with_sale_progress: number | null
@@ -510,6 +511,7 @@ export type Database = {
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
+          prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
           recruits_with_sale_progress?: number | null
@@ -543,6 +545,7 @@ export type Database = {
           monthly_expenses?: number | null
           months_off?: number | null
           must_do_fp_goal?: number | null
+          prep_score_history?: Json | null
           preseason_fp_goal?: number | null
           recruits_with_sale_goal?: number | null
           recruits_with_sale_progress?: number | null
