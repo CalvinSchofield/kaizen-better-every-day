@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle } from "lucide-react";
+import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[] = [
+  { key: 'overall', label: 'Overall', icon: <Zap className="h-3.5 w-3.5" /> },
   { key: 'books', label: 'Books', icon: <BookOpen className="h-3.5 w-3.5" /> },
   { key: 'training', label: 'Training', icon: <Timer className="h-3.5 w-3.5" /> },
   { key: 'roleplays', label: 'Role Plays', icon: <Dumbbell className="h-3.5 w-3.5" /> },
@@ -48,6 +49,12 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
 
   const getMetricDisplay = () => {
     switch (metric) {
+      case 'overall':
+        return (
+          <Badge variant="secondary" className="font-semibold tabular-nums">
+            {entry.prepScore} pts
+          </Badge>
+        );
       case 'books':
         return (
           <div className="flex items-center gap-2">
@@ -123,7 +130,7 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
 };
 
 export const PreseasonPrepLeaderboard = () => {
-  const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('books');
+  const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
   const [isExpanded, setIsExpanded] = useState(false);
   const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
 
