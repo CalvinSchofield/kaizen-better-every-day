@@ -276,6 +276,10 @@ export const usePlannedDaysSync = () => {
   useEffect(() => {
     if (isLoadingPlanned || !repData?.user_id) return;
     
+    // CRITICAL: Wait for seasonConfig to load before syncing blitzes
+    // This ensures excludedBlitzDays is populated from the database
+    if (seasonConfig === undefined) return;
+    
     const currentBlitzIds = committedBlitzIds;
     const prevBlitzIds = prevCommittedBlitzIdsRef.current;
     const prevBlitzes = prevCommittedBlitzesRef.current;
@@ -290,12 +294,16 @@ export const usePlannedDaysSync = () => {
     if (blitzesJustLoaded) {
       hasBlitzesLoadedRef.current = true;
       // This is the first time we're seeing blitzes - add their days to planned
+      // BUT respect excluded days from the database
       const newBlitzDays: string[] = [];
       for (const blitz of committedBlitzes) {
         const startDate = parseLocalDate(blitz.date);
         const endDate = blitz.endDate ? parseLocalDate(blitz.endDate) : startDate;
         const blitzDays = getWorkDaysInRange(startDate, endDate);
-        const excludedForBlitz = excludedBlitzDays[blitz.id] || [];
+        
+        // Get exclusions from database (seasonConfig)
+        const dbExclusions = (seasonConfig?.excluded_blitz_days as ExcludedBlitzDays) || {};
+        const excludedForBlitz = dbExclusions[blitz.id] || [];
         
         const includedDays = blitzDays.filter(d => 
           !excludedForBlitz.includes(d) && !isBefore(parseLocalDate(d), today)
@@ -308,7 +316,7 @@ export const usePlannedDaysSync = () => {
       const daysToAdd = newBlitzDays.filter(d => !plannedSet.has(d));
       
       if (daysToAdd.length > 0) {
-        console.log('Blitzes just loaded, adding days:', daysToAdd);
+        console.log('Blitzes just loaded, adding days (respecting exclusions):', daysToAdd);
         addMultipleDays(daysToAdd);
       }
       
@@ -433,8 +441,13 @@ export const usePlannedDaysSync = () => {
   }, [seasonConfig, getSummerDays, plannedDays, isLoadingPlanned, addMultipleDays, removeMultipleDays, repData?.user_id]);
 
   // Initial population on first load - ONLY runs once
+  // CRITICAL: Waits for seasonConfig to load to respect excluded days
   useEffect(() => {
     if (isLoadingPlanned || !repData?.user_id || hasInitializedRef.current) return;
+    
+    // Wait for seasonConfig to be loaded (not undefined) before initializing
+    // This ensures we have the excluded_blitz_days from the database
+    if (seasonConfig === undefined) return;
     
     // Initialize prev planned days ref
     prevPlannedDaysRef.current = plannedDays?.map(d => d.planned_date) || [];
@@ -442,6 +455,7 @@ export const usePlannedDaysSync = () => {
     const plannedSet = new Set(plannedDays?.map(d => d.planned_date) || []);
     
     // Only add blitz days that aren't planned AND aren't excluded
+    // getBlitzDays already filters out excluded days using the merged exclusions
     const blitzDaysToAdd = getBlitzDays.filter(d => !plannedSet.has(d));
     const summerDaysToAdd = getSummerDays.filter(d => !plannedSet.has(d));
     const allDaysToAdd = [...new Set([...blitzDaysToAdd, ...summerDaysToAdd])];
@@ -453,7 +467,7 @@ export const usePlannedDaysSync = () => {
     hasInitializedRef.current = true;
     prevCommittedBlitzIdsRef.current = committedBlitzIds;
     prevCommittedBlitzesRef.current = [...committedBlitzes];
-  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds, committedBlitzes]);
+  }, [isLoadingPlanned, repData?.user_id, plannedDays, getBlitzDays, getSummerDays, addMultipleDays, committedBlitzIds, committedBlitzes, seasonConfig]);
 
   // Mutation to update excluded summer days
   const updateExcludedSummerDaysMutation = useMutation({
