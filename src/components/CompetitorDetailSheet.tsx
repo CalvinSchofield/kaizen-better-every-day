@@ -18,7 +18,7 @@ export const CompetitorDetailSheet = ({
   
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[85dvh] overflow-y-auto rounded-t-3xl">
         <div className="max-w-2xl mx-auto pb-8">
           {/* Product Image */}
           <div className="flex justify-center mb-6">
@@ -26,11 +26,11 @@ export const CompetitorDetailSheet = ({
               <img
                 src={competitor.main_image_url}
                 alt={competitor.name}
-                className="w-48 h-48 object-contain"
+                className="w-40 h-40 object-contain"
               />
             ) : (
-              <div className="w-48 h-48 bg-muted rounded-xl flex items-center justify-center">
-                <span className="text-6xl">📷</span>
+              <div className="w-40 h-40 bg-muted rounded-xl flex items-center justify-center">
+                <span className="text-5xl">📷</span>
               </div>
             )}
           </div>
@@ -45,25 +45,8 @@ export const CompetitorDetailSheet = ({
             )}
           </div>
 
-          {/* OUR SELLING POINTS - Hero Section */}
-          {competitor.our_selling_points.length > 0 && (
-            <div className="bg-accent rounded-xl p-6 mb-6">
-              <h3 className="text-lg font-bold mb-3 text-accent-foreground">
-                🎯 OUR SELLING POINTS
-              </h3>
-              <ul className="space-y-2">
-                {competitor.our_selling_points.map((point, idx) => (
-                  <li key={idx} className="flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {/* Collapsible Sections */}
-          <Accordion type="single" collapsible className="space-y-3">
+          <Accordion type="single" collapsible defaultValue="why-bought" className="space-y-3">
             {/* Why They Bought */}
             {competitor.their_selling_points.length > 0 && (
               <AccordionItem value="why-bought" className="border border-border rounded-xl px-4">
@@ -131,21 +114,21 @@ export const CompetitorDetailSheet = ({
                   Other Versions
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     {competitor.alternate_versions.map((version, idx) => (
                       <div key={idx} className="text-center">
                         {version.image_url ? (
                           <img
                             src={version.image_url}
                             alt={version.name}
-                            className="w-20 h-20 object-contain mx-auto mb-2"
+                            className="w-16 h-16 object-contain mx-auto mb-2"
                           />
                         ) : (
-                          <div className="w-20 h-20 bg-muted rounded-lg mx-auto mb-2 flex items-center justify-center">
-                            <span className="text-2xl">📷</span>
+                          <div className="w-16 h-16 bg-muted rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span className="text-xl">📷</span>
                           </div>
                         )}
-                        <p className="text-xs text-muted-foreground">{version.name}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{version.name}</p>
                       </div>
                     ))}
                   </div>
