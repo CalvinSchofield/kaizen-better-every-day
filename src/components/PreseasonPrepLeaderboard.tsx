@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
@@ -28,6 +27,7 @@ const getInitials = (name: string) => {
 const formatTrainingDisplay = (minutes: number): string => {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
 };
@@ -52,24 +52,20 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
       case 'overall':
         return (
           <Badge variant="secondary" className="font-semibold tabular-nums">
-            {entry.prepScore} pts
+            {entry.weeklyPrepScore} pts
           </Badge>
         );
       case 'books':
         return (
-          <div className="flex items-center gap-2">
-            <Progress value={Math.min(entry.booksPercent, 100)} className="w-16 h-1.5" />
-            <span className="text-sm font-medium tabular-nums">
-              {entry.booksProgress}/{entry.booksGoal}
-            </span>
-          </div>
+          <span className="text-sm font-medium tabular-nums">
+            {entry.weeklyBooks} {entry.weeklyBooks === 1 ? 'book' : 'books'}
+          </span>
         );
       case 'training':
         return (
           <div className="flex items-center gap-2">
-            <Progress value={Math.min(entry.trainingPercent, 100)} className="w-16 h-1.5" />
             <span className="text-sm font-medium tabular-nums">
-              {formatTrainingDisplay(entry.trainingProgress)}
+              {formatTrainingDisplay(entry.weeklyTraining)}
             </span>
             {entry.trainingPaceStatus === 'ahead' && (
               <CheckCircle className="h-3.5 w-3.5 text-green-500" />
@@ -82,13 +78,13 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
       case 'roleplays':
         return (
           <span className="text-sm font-medium">
-            {entry.roleplaysProgress} sessions
+            {entry.weeklyRoleplays} {entry.weeklyRoleplays === 1 ? 'session' : 'sessions'}
           </span>
         );
       case 'mnl':
         return (
           <span className="text-sm font-medium">
-            {entry.mnlProgress} attended
+            {entry.weeklyMnl} attended
           </span>
         );
     }
@@ -146,7 +142,7 @@ export const PreseasonPrepLeaderboard = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <Trophy className="h-4 w-4 text-yellow-500" />
-            Prep Leaderboard
+            This Week's Leaderboard
           </CardTitle>
           {data?.currentUserRank && data.currentUserRank > 0 && (
             <Badge variant="outline" className="text-xs">
