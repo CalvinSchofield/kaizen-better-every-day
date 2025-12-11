@@ -80,16 +80,21 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
 
       if (goalsError) throw goalsError;
 
-      // Fetch rep info for names, timezones, profile photos, and team_leader
+      // Fetch rep info for names, timezones, profile photos, team_leader, stage, and ramp progress
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url, team_leader');
+        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url, team_leader, stage, ramp_phase_1_complete');
 
       if (repsError) throw repsError;
 
-      // Filter to only rookies
+      // Valid stages for preseason prep tracking (Signed and beyond)
+      const validStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+
+      // Filter to only rookies who are Signed+ AND have completed Phase 1
       let rookieReps = repsData?.filter(r => 
-        r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year
+        (r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year) &&
+        validStages.includes(r.stage || '') &&
+        r.ramp_phase_1_complete === true
       ) || [];
 
       // If showMyTeamOnly, filter to only rookies on the current leader's team
