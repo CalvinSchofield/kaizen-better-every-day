@@ -472,6 +472,7 @@ export type Database = {
           could_do_fp_goal: number | null
           created_at: string | null
           id: string
+          last_training_date: string | null
           monday_night_lights_goal: number | null
           monday_night_lights_progress: number | null
           monthly_expenses: number | null
@@ -488,6 +489,7 @@ export type Database = {
           training_hours_goal: number | null
           training_hours_history: Json | null
           training_hours_progress: number | null
+          training_streak: number | null
           training_week_start: string | null
           updated_at: string | null
           upgrade_fp_goal: number | null
@@ -506,6 +508,7 @@ export type Database = {
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string
+          last_training_date?: string | null
           monday_night_lights_goal?: number | null
           monday_night_lights_progress?: number | null
           monthly_expenses?: number | null
@@ -522,6 +525,7 @@ export type Database = {
           training_hours_goal?: number | null
           training_hours_history?: Json | null
           training_hours_progress?: number | null
+          training_streak?: number | null
           training_week_start?: string | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
@@ -540,6 +544,7 @@ export type Database = {
           could_do_fp_goal?: number | null
           created_at?: string | null
           id?: string
+          last_training_date?: string | null
           monday_night_lights_goal?: number | null
           monday_night_lights_progress?: number | null
           monthly_expenses?: number | null
@@ -556,6 +561,7 @@ export type Database = {
           training_hours_goal?: number | null
           training_hours_history?: Json | null
           training_hours_progress?: number | null
+          training_streak?: number | null
           training_week_start?: string | null
           updated_at?: string | null
           upgrade_fp_goal?: number | null
