@@ -166,9 +166,10 @@ export const useRecruitingRecommendations = (
             }
           } else {
             // Fall back to Notion-sourced data from recruit object
-            // Check onboarding status - Phase 4 or Blitz Ready means complete
-            const onboardingComplete = recruit.onboardingStatus === 'Phase 4: Saddle Up!' || 
-                                       recruit.onboardingStatus === 'Blitz ready' ||
+            // Check onboarding status - Phase 4 or Blitz Ready means complete (handle variations)
+            const statusLower = (recruit.onboardingStatus || '').toLowerCase();
+            const onboardingComplete = statusLower.includes('phase 4') || 
+                                       statusLower.includes('blitz ready') ||
                                        recruit.blitzReady === true;
             if (!onboardingComplete) missing.push('Onboarding');
             if (!recruit.ipadAssigned) missing.push('iPad');
@@ -200,8 +201,10 @@ export const useRecruitingRecommendations = (
             }
           } else {
             // Fall back to Notion-sourced data
-            const onboardingComplete = recruit.onboardingStatus === 'Phase 4: Saddle Up!' || 
-                                       recruit.onboardingStatus === 'Blitz ready' ||
+            // Check for variations of "Blitz ready" status (with/without emoji, capitalization)
+            const statusLower = (recruit.onboardingStatus || '').toLowerCase();
+            const onboardingComplete = statusLower.includes('phase 4') || 
+                                       statusLower.includes('blitz ready') ||
                                        recruit.blitzReady === true;
             if (!onboardingComplete) missing.push('Onboarding');
             if (!recruit.ipadAssigned) missing.push('iPad');

@@ -202,10 +202,11 @@ export const WeekPlannerSection = ({
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const todayTasks = scheduledTasks.get(todayKey) || [];
 
+  // Handle local clicks - open OUR drawer only, don't call parent's onRecruitClick
+  // The parent onRecruitClick would open a SECOND drawer, causing duplicates
   const handleLocalRecruitClick = (recruit: Recruit) => {
     setSelectedRecruit(recruit);
     setDrawerOpen(true);
-    onRecruitClick(recruit);
   };
 
   const handleSwipeContact = (recruit: Recruit) => {
