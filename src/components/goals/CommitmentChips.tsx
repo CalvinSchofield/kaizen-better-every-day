@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 import { 
   BookOpen, 
   Clock, 
@@ -15,10 +15,10 @@ import {
 import { RepGoals } from "@/hooks/useRepGoals";
 import { cn } from "@/lib/utils";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { useRepData } from "@/hooks/useRepData";
 import { motion, AnimatePresence } from "framer-motion";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { useSyncedWeeklyLogs } from "@/hooks/useSyncedWeeklyLogs";
 
 interface CommitmentChipsProps {
   goals: RepGoals;
@@ -47,31 +47,6 @@ interface ChipConfig {
   hasCustomEditor?: boolean;
   weeklyTracked?: boolean;
 }
-
-// Get current week start (Monday) for weekly tracking
-const getCurrentWeekStart = (): string => {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
-  const monday = new Date(now.setDate(diff));
-  monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0];
-};
-
-// Get weekly logs from localStorage
-const getWeeklyLogs = (userId: string, key: string): Record<string, number> => {
-  try {
-    const stored = localStorage.getItem(`weekly-${key}-${userId}`);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-// Save weekly logs to localStorage
-const saveWeeklyLogs = (userId: string, key: string, logs: Record<string, number>) => {
-  localStorage.setItem(`weekly-${key}-${userId}`, JSON.stringify(logs));
-};
 
 const chipConfigs: ChipConfig[] = [
   {
@@ -143,36 +118,25 @@ export const CommitmentChips = ({
   isUpdating = false,
 }: CommitmentChipsProps) => {
   const { efpModeEnabled } = useEfpMode();
-  const { repData } = useRepData();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const [tappedChip, setTappedChip] = useState<string | null>(null);
   const [weeklyDrawerOpen, setWeeklyDrawerOpen] = useState<ChipConfig | null>(null);
   
-  const userId = repData?.user_id || 'anonymous';
-  const currentWeekStart = getCurrentWeekStart();
-  
-  // Weekly logs state
-  const [mnlWeeklyLogs, setMnlWeeklyLogs] = useState<Record<string, number>>(() => 
-    getWeeklyLogs(userId, 'mnl')
-  );
-  const [rolePlayWeeklyLogs, setRolePlayWeeklyLogs] = useState<Record<string, number>>(() => 
-    getWeeklyLogs(userId, 'role_plays')
-  );
-
-  // Sync weekly logs when userId changes
-  useEffect(() => {
-    if (userId !== 'anonymous') {
-      setMnlWeeklyLogs(getWeeklyLogs(userId, 'mnl'));
-      setRolePlayWeeklyLogs(getWeeklyLogs(userId, 'role_plays'));
-    }
-  }, [userId]);
+  // Use synced weekly logs hook for multi-device sync
+  const {
+    currentWeekMnl,
+    currentWeekRolePlays,
+    toggleMnlAttendance,
+    incrementRolePlays,
+    isLoading: isWeeklyLogsLoading,
+  } = useSyncedWeeklyLogs();
 
   const getThisWeekCount = (config: ChipConfig): number => {
     if (config.key === 'monday_night_lights_goal') {
-      return mnlWeeklyLogs[currentWeekStart] || 0;
+      return currentWeekMnl;
     }
     if (config.key === 'role_plays_goal') {
-      return rolePlayWeeklyLogs[currentWeekStart] || 0;
+      return currentWeekRolePlays;
     }
     return 0;
   };
@@ -257,23 +221,16 @@ export const CommitmentChips = ({
   const handleWeeklyIncrement = async () => {
     if (!weeklyDrawerOpen) return;
     
-    const currentCount = getThisWeekCount(weeklyDrawerOpen);
     const isMnl = weeklyDrawerOpen.key === 'monday_night_lights_goal';
     
     if (isMnl) {
-      // MNL: max 1 per week
-      if (currentCount >= 1) return;
-      const newLogs = { ...mnlWeeklyLogs, [currentWeekStart]: 1 };
-      setMnlWeeklyLogs(newLogs);
-      saveWeeklyLogs(userId, 'mnl', newLogs);
+      // MNL: max 1 per week - toggleMnlAttendance handles the logic
+      if (currentWeekMnl >= 1) return;
+      await toggleMnlAttendance();
     } else {
       // Role plays: increment
-      const newLogs = { ...rolePlayWeeklyLogs, [currentWeekStart]: currentCount + 1 };
-      setRolePlayWeeklyLogs(newLogs);
-      saveWeeklyLogs(userId, 'role_plays', newLogs);
+      await incrementRolePlays(1);
     }
-    
-    await onQuickIncrement(weeklyDrawerOpen.progressKey);
   };
 
   const handleWeeklyDecrement = async () => {
@@ -285,16 +242,10 @@ export const CommitmentChips = ({
     const isMnl = weeklyDrawerOpen.key === 'monday_night_lights_goal';
     
     if (isMnl) {
-      const newLogs = { ...mnlWeeklyLogs, [currentWeekStart]: 0 };
-      setMnlWeeklyLogs(newLogs);
-      saveWeeklyLogs(userId, 'mnl', newLogs);
+      await toggleMnlAttendance();
     } else {
-      const newLogs = { ...rolePlayWeeklyLogs, [currentWeekStart]: currentCount - 1 };
-      setRolePlayWeeklyLogs(newLogs);
-      saveWeeklyLogs(userId, 'role_plays', newLogs);
+      await incrementRolePlays(-1);
     }
-    
-    await onQuickIncrement(weeklyDrawerOpen.progressKey + '_reset_one');
   };
 
   const hasAnyGoals = activeChips.length > 0 || preseasonFpGoal > 0;
@@ -393,7 +344,7 @@ export const CommitmentChips = ({
                 <motion.button
                   key={config.key}
                   onClick={() => handleChipTap(config)}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isWeeklyLogsLoading}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-xl",
                     "transition-all duration-200",
@@ -531,7 +482,7 @@ export const CommitmentChips = ({
                       onClick={getThisWeekCount(weeklyDrawerOpen) > 0 ? handleWeeklyDecrement : handleWeeklyIncrement}
                       variant={getThisWeekCount(weeklyDrawerOpen) > 0 ? "outline" : "default"}
                       className="mt-4 min-w-[140px]"
-                      disabled={isUpdating}
+                      disabled={isUpdating || isWeeklyLogsLoading}
                     >
                       {getThisWeekCount(weeklyDrawerOpen) > 0 ? "Undo" : "Yes, I went!"}
                     </Button>
@@ -548,7 +499,7 @@ export const CommitmentChips = ({
                         size="icon"
                         className="h-12 w-12 rounded-full"
                         onClick={handleWeeklyDecrement}
-                        disabled={isUpdating || getThisWeekCount(weeklyDrawerOpen) <= 0}
+                        disabled={isUpdating || isWeeklyLogsLoading || getThisWeekCount(weeklyDrawerOpen) <= 0}
                       >
                         <Minus className="h-5 w-5" />
                       </Button>
@@ -560,7 +511,7 @@ export const CommitmentChips = ({
                         size="icon"
                         className="h-12 w-12 rounded-full"
                         onClick={handleWeeklyIncrement}
-                        disabled={isUpdating}
+                        disabled={isUpdating || isWeeklyLogsLoading}
                       >
                         <Plus className="h-5 w-5" />
                       </Button>
