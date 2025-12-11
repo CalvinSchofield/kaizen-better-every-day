@@ -220,6 +220,8 @@ export const useRepGoals = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rep-goals'] });
+      // Also invalidate leaderboard so it updates immediately
+      queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard-weekly'] });
     },
   });
 
