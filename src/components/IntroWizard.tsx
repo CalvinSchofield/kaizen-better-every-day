@@ -136,12 +136,13 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   const isLastSlide = currentSlide === totalSlides - 1;
 
   const handleNext = useCallback(() => {
+    console.log('handleNext called, isLastSlide:', isLastSlide, 'currentSlide:', currentSlide);
     if (isLastSlide) {
       onComplete();
     } else {
       setCurrentSlide(prev => prev + 1);
     }
-  }, [isLastSlide, onComplete]);
+  }, [isLastSlide, onComplete, currentSlide]);
 
   const handlePrev = useCallback(() => {
     if (currentSlide > 0) {
@@ -161,19 +162,21 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header with skip button */}
-      <div className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] pointer-events-auto relative z-10">
         <div className="w-16" /> {/* Spacer */}
         <span className="text-xl font-bold text-primary">Kaizen</span>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Skip clicked');
             vibrate();
             handleSkip();
           }}
-          className="text-muted-foreground"
+          className="text-muted-foreground pointer-events-auto"
         >
           Skip
         </Button>
@@ -193,15 +196,17 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       </div>
 
       {/* Progress dots */}
-      <div className="flex justify-center gap-2 mb-6">
+      <div className="flex justify-center gap-2 mb-6 pointer-events-auto relative z-10">
         {slides.map((_, index) => (
           <button
             key={index}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Dot clicked:', index);
               vibrate();
               setCurrentSlide(index);
             }}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            className={`w-2 h-2 rounded-full transition-all duration-300 pointer-events-auto ${
               index === currentSlide 
                 ? 'w-6 bg-primary' 
                 : index < currentSlide 
@@ -213,26 +218,30 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       </div>
 
       {/* Navigation buttons */}
-      <div className="flex items-center justify-between p-4 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))]">
+      <div className="flex items-center justify-between p-4 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] pointer-events-auto relative z-10">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Prev button clicked');
             vibrate();
             handlePrev();
           }}
           disabled={currentSlide === 0}
-          className="w-12 h-12 rounded-full"
+          className="w-12 h-12 rounded-full pointer-events-auto"
         >
           <ChevronLeft className="w-6 h-6" />
         </Button>
 
         <Button
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Next button clicked');
             vibrate();
             handleNext();
           }}
-          className="px-8 h-12 rounded-full font-semibold"
+          className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
         >
           {isLastSlide ? "Get Started" : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
