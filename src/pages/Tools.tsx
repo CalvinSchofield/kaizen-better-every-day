@@ -82,7 +82,7 @@ const Tools = () => {
         {
           title: "Objections",
           description: "Common objections & responses",
-          href: "https://calvinschofield.notion.site/common-objections",
+          href: "/tools/objections",
           icon: MessageSquare,
         },
         {

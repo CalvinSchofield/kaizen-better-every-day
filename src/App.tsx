@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound";
 import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
 import Customers from "./pages/Customers";
+import Objections from "./pages/Objections";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +106,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Contacts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/objections"
+              element={
+                <ProtectedRoute>
+                  <Objections />
                 </ProtectedRoute>
               }
             />
