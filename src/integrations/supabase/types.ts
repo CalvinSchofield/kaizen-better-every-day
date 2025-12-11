@@ -582,6 +582,7 @@ export type Database = {
           efp_mode_enabled: boolean | null
           email: string | null
           id: string
+          intro_seen: boolean | null
           ipad_assigned: boolean | null
           last_nudge_time: string | null
           name: string
@@ -630,6 +631,7 @@ export type Database = {
           efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
+          intro_seen?: boolean | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           name: string
@@ -678,6 +680,7 @@ export type Database = {
           efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
+          intro_seen?: boolean | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
           name?: string
