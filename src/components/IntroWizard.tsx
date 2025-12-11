@@ -180,7 +180,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       </div>
 
       {/* Slide content */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden px-6">
+      <div className="flex-1 flex items-center justify-center overflow-hidden px-6 pointer-events-none">
         <AnimatePresence mode="wait">
           <IntroSlide
             key={currentSlide}
