@@ -1,9 +1,10 @@
-import { Check, CheckCircle2, Calendar, Circle } from "lucide-react";
+import { Check, CheckCircle2, Calendar, Circle, Lock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals } from "../types";
 import { getFirstName } from "../utils";
 import { format, parseISO, differenceInDays } from "date-fns";
+import { toast } from "sonner";
 
 interface ProgressTabProps {
   recruit: Recruit;
@@ -85,23 +86,66 @@ export const ProgressTab = ({
   
   const upcomingBlitz = getUpcomingBlitz();
 
-  // Step configuration with field mappings
+  // Step configuration with field mappings and progressive locking
   const onboardingStepConfigs = [
-    { field: 'onboarding_complete', label: 'Basic Onboarding', complete: recruitRepData.onboarding_complete },
-    { field: 'trainings_complete', label: 'Required Trainings', complete: recruitRepData.trainings_complete },
-    { field: 'slack_joined', label: 'Join Slack', complete: recruitRepData.slack_joined },
+    { 
+      field: 'onboarding_complete', 
+      label: 'Basic Onboarding', 
+      complete: recruitRepData.onboarding_complete,
+      locked: false // First step is never locked
+    },
+    { 
+      field: 'trainings_complete', 
+      label: 'Required Trainings', 
+      complete: recruitRepData.trainings_complete,
+      locked: !recruitRepData.onboarding_complete // Locked until onboarding complete
+    },
+    { 
+      field: 'slack_joined', 
+      label: 'Join Slack', 
+      complete: recruitRepData.slack_joined,
+      locked: !recruitRepData.trainings_complete // Locked until trainings complete
+    },
   ];
 
   const rampStepConfigs = [
-    { field: 'ramp_phase_1_complete', label: 'Onboard & Get Ready', complete: recruitRepData.ramp_phase_1_complete, phase: 1 },
-    { field: 'ramp_phase_2_complete', label: 'Start Training', complete: recruitRepData.ramp_phase_2_complete, phase: 2 },
-    { field: 'ramp_phase_3_complete', label: 'Practice', complete: recruitRepData.ramp_phase_3_complete, phase: 3 },
-    { field: 'ramp_phase_4_complete', label: 'Saddle Up', complete: recruitRepData.ramp_phase_4_complete, phase: 4 },
+    { 
+      field: 'ramp_phase_1_complete', 
+      label: 'Onboard & Get Ready', 
+      complete: recruitRepData.ramp_phase_1_complete, 
+      phase: 1,
+      locked: !onboardingComplete // Locked until all onboarding complete
+    },
+    { 
+      field: 'ramp_phase_2_complete', 
+      label: 'Start Training', 
+      complete: recruitRepData.ramp_phase_2_complete, 
+      phase: 2,
+      locked: !recruitRepData.ramp_phase_1_complete // Locked until phase 1 complete
+    },
+    { 
+      field: 'ramp_phase_3_complete', 
+      label: 'Practice', 
+      complete: recruitRepData.ramp_phase_3_complete, 
+      phase: 3,
+      locked: !recruitRepData.ramp_phase_2_complete // Locked until phase 2 complete
+    },
+    { 
+      field: 'ramp_phase_4_complete', 
+      label: 'Saddle Up', 
+      complete: recruitRepData.ramp_phase_4_complete, 
+      phase: 4,
+      locked: !recruitRepData.ramp_phase_3_complete // Locked until phase 3 complete
+    },
   ];
 
-  const handleStepClick = (field: string, label: string, isComplete: boolean, isRampPhase: boolean) => {
+  const handleStepClick = (step: typeof onboardingStepConfigs[0] | typeof rampStepConfigs[0]) => {
+    if (step.locked) {
+      toast.error('Complete the previous step first');
+      return;
+    }
     // Pass info to parent for confirmation drawer
-    onOnboardingStepClick(field, label, isComplete);
+    onOnboardingStepClick(step.field, step.label, !!step.complete);
   };
 
   return (
@@ -158,7 +202,8 @@ export const ProgressTab = ({
                   complete={step.complete} 
                   active={currentStep === step.field.replace('_complete', '').replace('slack_joined', 'slack')}
                   isLast={index === onboardingStepConfigs.length - 1}
-                  onClick={() => handleStepClick(step.field, step.label, !!step.complete, false)}
+                  locked={step.locked}
+                  onClick={() => handleStepClick(step)}
                 />
               ))}
             </div>
@@ -186,8 +231,8 @@ export const ProgressTab = ({
                   complete={step.complete} 
                   active={currentStep === `phase${step.phase}`}
                   isLast={index === rampStepConfigs.length - 1}
-                  locked={!onboardingComplete}
-                  onClick={() => handleStepClick(step.field, step.label, !!step.complete, true)}
+                  locked={step.locked}
+                  onClick={() => handleStepClick(step)}
                 />
               ))}
             </div>
@@ -257,14 +302,18 @@ const ProgressStep = ({
   <button 
     className={`flex items-center gap-3 px-4 py-3 w-full text-left transition-colors ${
       !isLast ? 'border-b border-border' : ''
-    } ${locked ? 'cursor-not-allowed' : 'hover:bg-muted/50 active:bg-muted cursor-pointer'}`}
-    onClick={locked ? undefined : onClick}
-    disabled={locked}
+    } ${locked ? 'cursor-not-allowed opacity-50' : 'hover:bg-muted/50 active:bg-muted cursor-pointer'}`}
+    onClick={onClick}
   >
     {complete ? (
       // Filled circle for completed
       <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
         <Check className="h-3.5 w-3.5 text-white" />
+      </div>
+    ) : locked ? (
+      // Lock icon for locked steps
+      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
+        <Lock className="h-3 w-3 text-muted-foreground/50" />
       </div>
     ) : active ? (
       // Outline primary circle for current
