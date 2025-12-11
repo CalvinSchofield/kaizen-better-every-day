@@ -159,20 +159,6 @@ export const useGroupRecruits = () => {
             });
         } else {
           const allTeamMembers = teamData?.teamMembers || [];
-          console.log('[useGroupRecruits] Raw team members from edge function:', allTeamMembers.length);
-          
-          // Debug: Log any members named Jayden or Gwen
-          const debugMembers = allTeamMembers.filter((m: any) => 
-            m.name?.toLowerCase().includes('jayden') || 
-            m.name?.toLowerCase().includes('gwen')
-          );
-          if (debugMembers.length > 0) {
-            console.log('[useGroupRecruits] Found Jayden/Gwen in raw data:', debugMembers.map((m: any) => ({
-              name: m.name,
-              stage: m.stage,
-              stageIncluded: RECRUITING_STAGES.includes(m.stage),
-            })));
-          }
           
           recruits = allTeamMembers
             .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
