@@ -589,24 +589,6 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
-        {/* Show Intro Again */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">App Tour</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShowIntro}
-                className="gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Show Intro Again
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
-
         {/* Summer Season Dates - Collapsible */}
         <Card>
           <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>
@@ -1131,6 +1113,24 @@ export default function Settings() {
             </Collapsible>
           </Card>
         )}
+
+        {/* Show Intro Again - at bottom as least important */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">App Tour</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleShowIntro}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Show Intro Again
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
 
       {/* Add Custom Counter Drawer */}
