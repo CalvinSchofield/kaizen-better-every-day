@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Eye, BookOpen, GraduationCap, Volume2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight, Eye, BookOpen, GraduationCap, Volume2, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,17 +20,28 @@ export interface PitchSection {
 interface PitchGuideProps {
   sections: PitchSection[];
   pageTitle: string;
+  audioSrc?: string;
   onBack?: () => void;
 }
 
-export const PitchGuide = ({ sections, pageTitle, onBack }: PitchGuideProps) => {
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuideProps) => {
   const [mode, setMode] = useState<"practice" | "reference">("practice");
   const [currentStep, setCurrentStep] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
-  const { setCustomTitle, setCustomRightContent } = useHeader();
+  const { setCustomTitle } = useHeader();
 
   const currentSection = sections[currentStep];
 
@@ -284,16 +295,82 @@ export const PitchGuide = ({ sections, pageTitle, onBack }: PitchGuideProps) => 
         </div>
       )}
 
-      {/* Audio placeholder - always at bottom */}
-      <Card className="bg-muted/30">
-        <CardContent className="p-4 flex items-center gap-3 text-muted-foreground">
-          <Volume2 className="h-5 w-5" />
-          <div className="text-sm">
-            <p className="font-medium">Audio recording coming soon</p>
-            <p className="text-xs">Listen to the pitch delivered</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Audio player - always at bottom */}
+      {audioSrc ? (
+        <Card className="bg-muted/30">
+          <CardContent className="p-4 space-y-3">
+            <audio 
+              ref={audioRef}
+              src={audioSrc}
+              onTimeUpdate={() => {
+                if (audioRef.current) {
+                  setAudioProgress(audioRef.current.currentTime);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (audioRef.current) {
+                  setAudioDuration(audioRef.current.duration);
+                }
+              }}
+              onEnded={() => setIsPlaying(false)}
+            />
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20"
+                onClick={() => {
+                  if (audioRef.current) {
+                    if (isPlaying) {
+                      audioRef.current.pause();
+                    } else {
+                      audioRef.current.play();
+                    }
+                    setIsPlaying(!isPlaying);
+                  }
+                }}
+              >
+                {isPlaying ? (
+                  <Pause className="h-5 w-5 text-primary" />
+                ) : (
+                  <Play className="h-5 w-5 text-primary ml-0.5" />
+                )}
+              </Button>
+              <div className="flex-1">
+                <p className="font-medium text-sm mb-1">Listen to the pitch</p>
+                <div 
+                  className="h-1.5 bg-muted rounded-full overflow-hidden cursor-pointer"
+                  onClick={(e) => {
+                    if (audioRef.current && audioDuration) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const percent = (e.clientX - rect.left) / rect.width;
+                      audioRef.current.currentTime = percent * audioDuration;
+                    }
+                  }}
+                >
+                  <div 
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${audioDuration ? (audioProgress / audioDuration) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {formatTime(audioProgress)} / {formatTime(audioDuration)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-muted/30">
+          <CardContent className="p-4 flex items-center gap-3 text-muted-foreground">
+            <Volume2 className="h-5 w-5" />
+            <div className="text-sm">
+              <p className="font-medium">Audio recording coming soon</p>
+              <p className="text-xs">Listen to the pitch delivered</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

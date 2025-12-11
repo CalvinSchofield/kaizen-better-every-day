@@ -10,6 +10,7 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
     <PitchGuide 
       sections={FRESH_PITCH_SECTIONS} 
       pageTitle="Fresh Pitch" 
+      audioSrc="/audio/fresh-pitch.m4a"
       onBack={onBack} 
     />
   );

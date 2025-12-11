@@ -10,6 +10,7 @@ export const UpgradePitchGuide = ({ onBack }: UpgradePitchGuideProps) => {
     <PitchGuide 
       sections={UPGRADE_PITCH_SECTIONS} 
       pageTitle="Upgrade Pitch" 
+      audioSrc="/audio/upgrade-pitch.m4a"
       onBack={onBack} 
     />
   );
