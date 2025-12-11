@@ -4,10 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Zap, Users, Target } from "lucide-react";
+import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Zap, Users, Target, Crown } from "lucide-react";
 import { useLeaderPreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/useLeaderPreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 
 const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[] = [
   { key: 'overall', label: 'Overall', icon: <Zap className="h-3.5 w-3.5" /> },
@@ -224,6 +225,92 @@ const NoStandardsTeaser = () => (
   </div>
 );
 
+// Leader Competition Summary - shows top leaders by total rookie prep score
+interface LeaderStat {
+  leader: string;
+  totalScore: number;
+  rookieCount: number;
+  avgScore: number;
+}
+
+const LeaderCompetitionSummary = ({ 
+  leaderStats, 
+  currentUserName 
+}: { 
+  leaderStats: LeaderStat[]; 
+  currentUserName: string;
+}) => {
+  if (!leaderStats || leaderStats.length === 0) return null;
+
+  // Get top 3 leaders
+  const topLeaders = leaderStats.slice(0, 3);
+  const currentUserRank = leaderStats.findIndex(l => l.leader.includes(currentUserName)) + 1;
+  const currentUserStats = leaderStats.find(l => l.leader.includes(currentUserName));
+  const isCurrentUserTop3 = currentUserRank > 0 && currentUserRank <= 3;
+
+  // Extract first name only from leader name
+  const getFirstName = (name: string) => {
+    return name.split(' ')[0].replace(/[^\w]/g, '');
+  };
+
+  return (
+    <div className="mb-4 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 via-yellow-500/5 to-transparent border border-amber-500/20">
+      <div className="flex items-center gap-2 mb-3">
+        <Crown className="h-4 w-4 text-amber-500" />
+        <span className="text-sm font-semibold">Leader Competition</span>
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">This Week</Badge>
+      </div>
+      
+      {/* Top Leaders Row */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {topLeaders.map((leader, index) => {
+          const isCurrentUser = leader.leader.includes(currentUserName);
+          const medalColors = ['text-yellow-500', 'text-gray-400', 'text-amber-600'];
+          
+          return (
+            <div 
+              key={leader.leader}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg flex-shrink-0 transition-all",
+                isCurrentUser 
+                  ? "bg-primary/10 border border-primary/30" 
+                  : "bg-background/60"
+              )}
+            >
+              <span className={cn("text-lg font-bold", medalColors[index])}>
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className={cn(
+                  "text-sm font-medium truncate",
+                  isCurrentUser && "text-primary"
+                )}>
+                  {getFirstName(leader.leader)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {leader.totalScore} pts · {leader.rookieCount} rookie{leader.rookieCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Current user stats if not in top 3 */}
+      {!isCurrentUserTop3 && currentUserStats && currentUserRank > 0 && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Your team rank</span>
+            <span className="font-medium">
+              #{currentUserRank} · {currentUserStats.totalScore} pts
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Loading skeleton for smooth appearance
 const LeaderboardSkeleton = () => (
   <Card className="mb-6 overflow-hidden animate-pulse">
@@ -405,6 +492,14 @@ export const LeaderPreseasonPrepLeaderboard = () => {
       </div>
       
       <CardContent className="pt-3 space-y-3">
+        {/* Leader Competition Summary - only show when we have data */}
+        {!isLoading && hasAnyParticipants && data?.leaderStats && data.leaderStats.length > 1 && (
+          <LeaderCompetitionSummary 
+            leaderStats={data.leaderStats} 
+            currentUserName={data.currentUserName || ''} 
+          />
+        )}
+
         {/* Show teaser if no participants */}
         {!isLoading && !hasAnyParticipants && <NoStandardsTeaser />}
 
