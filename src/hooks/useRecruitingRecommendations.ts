@@ -97,13 +97,14 @@ export const useRecruitingRecommendations = (
       const isRookie = recruit.year === 'Rookie' || recruit.year === '2025';
       const firstName = recruit.name?.split(' ')[0] || 'Recruit';
 
-      // Check for blitz proximity (only for Signed/Shadow recruits)
+      // Check for blitz proximity (only for Signed/Shadow ROOKIES - vets don't need blitz prep reminders)
       const isSignedOrShadow = recruit.stage === 'Signed' || recruit.stage === 'Shadow ✅';
       let hasUpcomingBlitz = false;
       let nearestBlitzDays: number | undefined;
       let nearestBlitzName: string | undefined;
       
-      if (isSignedOrShadow && blitzes) {
+      // Only check blitz urgency for rookies - vets already have trainings/onboarding done
+      if (isSignedOrShadow && isRookie && blitzes) {
         const repData = repDataMap?.get(recruit.notionPageId);
         
         // Use committedBlitzes from Notion (recruit object) OR from reps table (repData)

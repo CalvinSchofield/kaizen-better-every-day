@@ -68,6 +68,8 @@ interface WeekPlannerSectionProps {
   repDataMap?: Map<string, RepData>;
   dismissedIds?: Set<string>;
   onDismiss?: (recruit: Recruit, message: string) => void;
+  // Recommendations passed from parent (already filtered, excluding hero at index 0)
+  recommendations?: ReturnType<typeof useRecruitingRecommendations>;
 }
 
 export const WeekPlannerSection = ({ 
@@ -78,6 +80,7 @@ export const WeekPlannerSection = ({
   repDataMap,
   dismissedIds,
   onDismiss,
+  recommendations: passedRecommendations,
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -105,15 +108,16 @@ export const WeekPlannerSection = ({
     [recruits]
   );
 
-  const allRecommendations = useRecruitingRecommendations(filteredRecruits, activities, blitzes, repDataMap);
+  // Use passed recommendations if available (already filtered by parent), otherwise compute locally
+  const localRecommendations = useRecruitingRecommendations(filteredRecruits, activities, blitzes, repDataMap);
   
   // Filter out dismissed recommendations
-  const recommendations = useMemo(() => 
-    dismissedIds 
-      ? allRecommendations.filter(r => !dismissedIds.has(r.recruit.notionPageId))
-      : allRecommendations,
-    [allRecommendations, dismissedIds]
-  );
+  const recommendations = useMemo(() => {
+    const baseRecs = passedRecommendations ?? localRecommendations;
+    return dismissedIds 
+      ? baseRecs.filter(r => !dismissedIds.has(r.recruit.notionPageId))
+      : baseRecs;
+  }, [passedRecommendations, localRecommendations, dismissedIds]);
 
   // Get week days (starting Sunday)
   const weekDays = useMemo(() =>

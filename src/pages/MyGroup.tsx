@@ -471,6 +471,7 @@ const MyGroup = () => {
             />
 
             {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
+            {/* Pass recommendations starting from index 1 to avoid duplicating hero */}
             <WeekPlannerSection
               recruits={filteredRecruits}
               activities={filteredActivities}
@@ -479,6 +480,7 @@ const MyGroup = () => {
               repDataMap={repDataMap}
               dismissedIds={dismissedIds}
               onDismiss={handleWeekPlannerDismiss}
+              recommendations={recommendations.slice(1)}
             />
 
             {/* Pending Suggestions */}
