@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { FileText, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Lock, ExternalLink, Download, DollarSign, ChevronLeft } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +30,20 @@ interface TrainingCategory {
 const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
   const [activeGuide, setActiveGuide] = useState<PitchGuideType | null>(null);
+  
+  // Auto-open guide from URL query param
+  useEffect(() => {
+    const guideParam = searchParams.get('guide');
+    if (guideParam && ['fresh', 'takeover', 'upgrade'].includes(guideParam)) {
+      setActiveGuide(guideParam as PitchGuideType);
+      // Clear the param from URL
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   
   // Check if user is a vet or sophomore
   const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
