@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BookMarked, Check, ChevronDown, ChevronUp, Trophy, Crown } from "lucide-react";
+import { BookMarked, Check, ChevronDown, ChevronUp, Trophy, Crown, ArrowRight, Lock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useBooksLeaderboard } from "@/hooks/useBooksLeaderboard";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import confetti from "canvas-confetti";
+import { 
+  BOOKS_COMMITTED_KEY, 
+  BOOKS_READ_KEY, 
+  OTHER_BOOKS_COMMITTED_KEY, 
+  OTHER_BOOKS_READ_KEY 
+} from "@/components/goals/BooksSelectionDrawer";
 
 interface Book {
   id: string;
@@ -155,52 +163,69 @@ const BOOKS: Book[] = [
   }
 ];
 
-
-// Use localStorage to track which specific books are read
-const BOOKS_READ_KEY = "kaizen-books-read";
-
 export const BooksSection = () => {
+  const navigate = useNavigate();
   const { goals, updateGoals, isUpdating } = useRepGoals();
   const { data: leaderboard } = useBooksLeaderboard();
   const { toast } = useToast();
+  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
   const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
+  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
+  const [otherBooksRead, setOtherBooksRead] = useState<string[]>([]);
   const [expandedBook, setExpandedBook] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(BOOKS_READ_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setBooksRead(new Set(parsed));
+      const committed = localStorage.getItem(BOOKS_COMMITTED_KEY);
+      if (committed) {
+        setBooksCommitted(new Set(JSON.parse(committed)));
+      }
+      const read = localStorage.getItem(BOOKS_READ_KEY);
+      if (read) {
+        setBooksRead(new Set(JSON.parse(read)));
+      }
+      const otherCommitted = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
+      if (otherCommitted) {
+        setOtherBooksCommitted(JSON.parse(otherCommitted));
+      }
+      const otherRead = localStorage.getItem(OTHER_BOOKS_READ_KEY);
+      if (otherRead) {
+        setOtherBooksRead(JSON.parse(otherRead));
       }
     } catch {
       // Ignore parse errors
     }
   }, []);
 
-  // Sync localStorage and goals when books change
+  // Toggle book read status (only for committed books)
   const handleBookToggle = async (bookId: string) => {
+    // Only allow toggling committed books
+    if (!booksCommitted.has(bookId)) return;
+
     const newBooksRead = new Set(booksRead);
+    const wasRead = newBooksRead.has(bookId);
     
-    if (newBooksRead.has(bookId)) {
+    if (wasRead) {
       newBooksRead.delete(bookId);
     } else {
       newBooksRead.add(bookId);
     }
     
     setBooksRead(newBooksRead);
-    
-    // Save to localStorage
     localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
     
-    // Update goals with new count
-    const newCount = newBooksRead.size;
+    const newCount = newBooksRead.size + otherBooksRead.length;
     try {
       await updateGoals({ books_progress: newCount });
       
-      if (newBooksRead.has(bookId)) {
+      if (!wasRead) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
         toast({
           title: "Book completed! 📚",
           description: `${BOOKS.find(b => b.id === bookId)?.title} marked as read`,
@@ -215,9 +240,49 @@ export const BooksSection = () => {
     }
   };
 
+  // Toggle other book read status
+  const handleOtherBookToggle = async (bookTitle: string) => {
+    const wasRead = otherBooksRead.includes(bookTitle);
+    
+    let newOtherBooksRead: string[];
+    if (wasRead) {
+      newOtherBooksRead = otherBooksRead.filter(b => b !== bookTitle);
+    } else {
+      newOtherBooksRead = [...otherBooksRead, bookTitle];
+    }
+    
+    setOtherBooksRead(newOtherBooksRead);
+    localStorage.setItem(OTHER_BOOKS_READ_KEY, JSON.stringify(newOtherBooksRead));
+    
+    const newCount = booksRead.size + newOtherBooksRead.length;
+    try {
+      await updateGoals({ books_progress: newCount });
+      
+      if (!wasRead) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        toast({
+          title: "Book completed! 📚",
+          description: `${bookTitle} marked as read`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error saving progress",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
   const booksToShow = showAll ? BOOKS : BOOKS.slice(0, 6);
-  const booksReadCount = booksRead.size;
+  const booksReadCount = booksRead.size + otherBooksRead.length;
   const booksGoal = goals?.books_goal || 0;
+  const totalCommitted = booksCommitted.size + otherBooksCommitted.length;
+  const hasCommittedBooks = totalCommitted > 0;
 
   return (
     <Card>
@@ -245,7 +310,10 @@ export const BooksSection = () => {
           )}
         </div>
         <CardDescription>
-          Check off books as you read them to track your commitment
+          {hasCommittedBooks 
+            ? "Check off books as you read them to track your progress"
+            : "Commit to books on the Goals page to start tracking"
+          }
         </CardDescription>
         {booksGoal > 0 && (
           <div className="mt-3 space-y-1">
@@ -260,7 +328,7 @@ export const BooksSection = () => {
         )}
       </CardHeader>
       <CardContent className="space-y-2">
-        {/* Books Leaderboard */}
+        {/* Books Leaderboard - Always show */}
         {(leaderboard?.mostReadOverall || leaderboard?.mostReadRookie) && (
           <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
             <div className="flex items-center gap-2 mb-2">
@@ -294,8 +362,71 @@ export const BooksSection = () => {
             </div>
           </div>
         )}
+
+        {/* CTA if no books committed */}
+        {!hasCommittedBooks && (
+          <div className="mb-4 p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <div className="text-center space-y-3">
+              <BookMarked className="h-10 w-10 mx-auto text-purple-500 opacity-60" />
+              <div>
+                <p className="font-medium text-sm">No books committed yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose which books you want to read this preseason
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate('/goals')}
+                size="sm"
+                className="gap-2"
+              >
+                Commit to Books
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Committed other books (custom books) */}
+        {otherBooksCommitted.length > 0 && (
+          <div className="space-y-2 mb-4">
+            <p className="text-xs font-medium text-muted-foreground">Your Custom Books</p>
+            {otherBooksCommitted.map((book, index) => {
+              const isRead = otherBooksRead.includes(book);
+              return (
+                <div 
+                  key={`other-${index}`}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg transition-all",
+                    isRead ? "bg-green-500/10" : "bg-muted/50 hover:bg-muted"
+                  )}
+                >
+                  <Checkbox
+                    id={`other-${index}`}
+                    checked={isRead}
+                    onCheckedChange={() => handleOtherBookToggle(book)}
+                    disabled={isUpdating}
+                    className="mt-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      "font-medium text-sm transition-colors",
+                      isRead && "text-muted-foreground line-through"
+                    )}>
+                      {book}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Custom book</div>
+                  </div>
+                  {isRead && <Check className="h-4 w-4 text-green-500" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Recommended books list */}
         {booksToShow.map((book) => {
           const isRead = booksRead.has(book.id);
+          const isCommitted = booksCommitted.has(book.id);
           const isExpanded = expandedBook === book.id;
           
           return (
@@ -307,16 +438,24 @@ export const BooksSection = () => {
               <div 
                 className={cn(
                   "flex items-start gap-3 p-3 rounded-lg transition-all",
-                  isRead ? "bg-green-500/10" : "bg-muted/50 hover:bg-muted"
+                  isRead ? "bg-green-500/10" : 
+                  isCommitted ? "bg-muted/50 hover:bg-muted" : 
+                  "bg-muted/30 opacity-60"
                 )}
               >
-                <Checkbox
-                  id={book.id}
-                  checked={isRead}
-                  onCheckedChange={() => handleBookToggle(book.id)}
-                  disabled={isUpdating}
-                  className="mt-1"
-                />
+                {isCommitted ? (
+                  <Checkbox
+                    id={book.id}
+                    checked={isRead}
+                    onCheckedChange={() => handleBookToggle(book.id)}
+                    disabled={isUpdating}
+                    className="mt-1"
+                  />
+                ) : (
+                  <div className="mt-1 w-4 h-4 flex items-center justify-center">
+                    <Lock className="h-3 w-3 text-muted-foreground/50" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <CollapsibleTrigger asChild>
                     <button 
@@ -326,7 +465,8 @@ export const BooksSection = () => {
                       <div className="min-w-0">
                         <div className={cn(
                           "font-medium text-sm transition-colors",
-                          isRead && "text-muted-foreground line-through"
+                          isRead && "text-muted-foreground line-through",
+                          !isCommitted && "text-muted-foreground"
                         )}>
                           {book.title}
                         </div>
@@ -350,6 +490,11 @@ export const BooksSection = () => {
                     <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                       {book.summary}
                     </p>
+                    {!isCommitted && (
+                      <p className="text-xs text-purple-500 mt-2 italic">
+                        Commit to this book on the Goals page to track it
+                      </p>
+                    )}
                   </CollapsibleContent>
                 </div>
               </div>
