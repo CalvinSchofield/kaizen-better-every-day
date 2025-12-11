@@ -1,13 +1,5 @@
-import { Check, CheckCircle2, Calendar } from "lucide-react";
+import { Check, CheckCircle2, Calendar, Circle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals } from "../types";
 import { getFirstName } from "../utils";
@@ -93,56 +85,58 @@ export const ProgressTab = ({
   
   const upcomingBlitz = getUpcomingBlitz();
 
+  // Step configuration with field mappings
+  const onboardingStepConfigs = [
+    { field: 'onboarding_complete', label: 'Basic Onboarding', complete: recruitRepData.onboarding_complete },
+    { field: 'trainings_complete', label: 'Required Trainings', complete: recruitRepData.trainings_complete },
+    { field: 'slack_joined', label: 'Join Slack', complete: recruitRepData.slack_joined },
+  ];
+
+  const rampStepConfigs = [
+    { field: 'ramp_phase_1_complete', label: 'Onboard & Get Ready', complete: recruitRepData.ramp_phase_1_complete, phase: 1 },
+    { field: 'ramp_phase_2_complete', label: 'Start Training', complete: recruitRepData.ramp_phase_2_complete, phase: 2 },
+    { field: 'ramp_phase_3_complete', label: 'Practice', complete: recruitRepData.ramp_phase_3_complete, phase: 3 },
+    { field: 'ramp_phase_4_complete', label: 'Saddle Up', complete: recruitRepData.ramp_phase_4_complete, phase: 4 },
+  ];
+
+  const handleStepClick = (field: string, label: string, isComplete: boolean, isRampPhase: boolean) => {
+    // Pass info to parent for confirmation drawer
+    onOnboardingStepClick(field, label, isComplete);
+  };
+
   return (
     <div className="space-y-4">
       {isRookie && (
         <>
-          {/* Overall Progress Header */}
-          <div className={`rounded-xl p-4 ${
-            rampComplete 
-              ? 'bg-emerald-500/10 border border-emerald-500/30'
-              : 'bg-card border border-border'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {rampComplete ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-primary">{completedSteps}</span>
-                  </div>
-                )}
-                <span className={`font-semibold ${rampComplete ? 'text-emerald-600' : 'text-foreground'}`}>
-                  {rampComplete ? 'Blitz Ready!' : `${completedSteps} of ${totalSteps} steps complete`}
-                </span>
-              </div>
-              <span className="text-sm text-muted-foreground">{Math.round(progressPercent)}%</span>
+          {/* Upcoming Blitz Context - Top Banner */}
+          {upcomingBlitz && !rampComplete && (
+            <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-xl ${
+              upcomingBlitz.daysUntil <= 7 
+                ? 'bg-destructive/10 text-destructive border border-destructive/20' 
+                : upcomingBlitz.daysUntil <= 14 
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                  : 'bg-primary/10 text-primary border border-primary/20'
+            }`}>
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span className="font-medium">{upcomingBlitz.name}</span>
+              <span className="opacity-60">·</span>
+              <span>
+                {upcomingBlitz.daysUntil === 0 
+                  ? 'Today!' 
+                  : upcomingBlitz.daysUntil === 1 
+                    ? 'Tomorrow' 
+                    : `${upcomingBlitz.daysUntil} days away`}
+              </span>
             </div>
-            
-            {/* Upcoming Blitz Context */}
-            {upcomingBlitz && !rampComplete && (
-              <div className={`flex items-center gap-2 text-xs mb-2 px-2 py-1.5 rounded-lg ${
-                upcomingBlitz.daysUntil <= 7 
-                  ? 'bg-destructive/10 text-destructive' 
-                  : upcomingBlitz.daysUntil <= 14 
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                    : 'bg-primary/10 text-primary'
-              }`}>
-                <Calendar className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">{upcomingBlitz.name}</span>
-                <span>·</span>
-                <span>
-                  {upcomingBlitz.daysUntil === 0 
-                    ? 'Today!' 
-                    : upcomingBlitz.daysUntil === 1 
-                      ? 'Tomorrow' 
-                      : `${upcomingBlitz.daysUntil} days away`}
-                </span>
-              </div>
-            )}
-            
-            <Progress value={progressPercent} className="h-2" />
-          </div>
+          )}
+
+          {/* Blitz Ready Banner */}
+          {rampComplete && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <span className="font-semibold text-emerald-600">Blitz Ready!</span>
+            </div>
+          )}
 
           {/* Onboarding Section */}
           <div className="space-y-1">
@@ -157,25 +151,16 @@ export const ProgressTab = ({
               )}
             </div>
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <ProgressStep 
-                label="Basic Onboarding" 
-                complete={recruitRepData.onboarding_complete} 
-                active={currentStep === 'onboarding'}
-                stepNumber={1}
-              />
-              <ProgressStep 
-                label="Required Trainings" 
-                complete={recruitRepData.trainings_complete} 
-                active={currentStep === 'trainings'}
-                stepNumber={2}
-              />
-              <ProgressStep 
-                label="Join Slack" 
-                complete={recruitRepData.slack_joined} 
-                active={currentStep === 'slack'}
-                stepNumber={3}
-                isLast
-              />
+              {onboardingStepConfigs.map((step, index) => (
+                <ProgressStep 
+                  key={step.field}
+                  label={step.label} 
+                  complete={step.complete} 
+                  active={currentStep === step.field.replace('_complete', '').replace('slack_joined', 'slack')}
+                  isLast={index === onboardingStepConfigs.length - 1}
+                  onClick={() => handleStepClick(step.field, step.label, !!step.complete, false)}
+                />
+              ))}
             </div>
           </div>
 
@@ -192,86 +177,21 @@ export const ProgressTab = ({
               )}
             </div>
             <div className={`bg-card border border-border rounded-xl overflow-hidden ${
-              !onboardingComplete ? 'opacity-50' : ''
+              !onboardingComplete ? 'opacity-50 pointer-events-none' : ''
             }`}>
-              <ProgressStep 
-                label="Onboard & Get Ready" 
-                complete={recruitRepData.ramp_phase_1_complete} 
-                active={currentStep === 'phase1'}
-                stepNumber={1}
-                locked={!onboardingComplete}
-              />
-              <ProgressStep 
-                label="Start Training" 
-                complete={recruitRepData.ramp_phase_2_complete} 
-                active={currentStep === 'phase2'}
-                stepNumber={2}
-                locked={!onboardingComplete}
-              />
-              <ProgressStep 
-                label="Practice" 
-                complete={recruitRepData.ramp_phase_3_complete} 
-                active={currentStep === 'phase3'}
-                stepNumber={3}
-                locked={!onboardingComplete}
-              />
-              <ProgressStep 
-                label="Saddle Up" 
-                complete={recruitRepData.ramp_phase_4_complete} 
-                active={currentStep === 'phase4'}
-                stepNumber={4}
-                isLast
-                locked={!onboardingComplete}
-              />
+              {rampStepConfigs.map((step, index) => (
+                <ProgressStep 
+                  key={step.field}
+                  label={step.label} 
+                  complete={step.complete} 
+                  active={currentStep === `phase${step.phase}`}
+                  isLast={index === rampStepConfigs.length - 1}
+                  locked={!onboardingComplete}
+                  onClick={() => handleStepClick(step.field, step.label, !!step.complete, true)}
+                />
+              ))}
             </div>
           </div>
-
-          {/* Step Selector */}
-          {!rampComplete && (
-            <div className="space-y-2 pt-2">
-              <Label className="text-sm text-muted-foreground">Mark Step Complete</Label>
-              <Select 
-                value={
-                  recruitRepData.ramp_phase_4_complete ? 'ramp_phase_4_complete' :
-                  recruitRepData.ramp_phase_3_complete ? 'ramp_phase_3_complete' :
-                  recruitRepData.ramp_phase_2_complete ? 'ramp_phase_2_complete' :
-                  recruitRepData.ramp_phase_1_complete ? 'ramp_phase_1_complete' :
-                  recruitRepData.slack_joined ? 'slack_joined' :
-                  recruitRepData.trainings_complete ? 'trainings_complete' :
-                  recruitRepData.onboarding_complete ? 'onboarding_complete' :
-                  'none'
-                }
-                onValueChange={(value) => {
-                  const stepLabels: Record<string, string> = {
-                    'onboarding_complete': 'Basic Onboarding ✅',
-                    'trainings_complete': 'Required Trainings ✅',
-                    'slack_joined': 'Slack Joined',
-                    'ramp_phase_1_complete': 'Phase 1 ✅',
-                    'ramp_phase_2_complete': 'Phase 2 ✅',
-                    'ramp_phase_3_complete': 'Phase 3 ✅',
-                    'ramp_phase_4_complete': 'Phase 4 ✅',
-                  };
-                  if (value !== 'none') {
-                    onOnboardingStepClick(value, stepLabels[value] || value, false);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select completed step..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Not started</SelectItem>
-                  <SelectItem value="onboarding_complete">Basic Onboarding ✅</SelectItem>
-                  <SelectItem value="trainings_complete">Required Trainings ✅</SelectItem>
-                  <SelectItem value="slack_joined">Slack Joined</SelectItem>
-                  <SelectItem value="ramp_phase_1_complete">Phase 1: Onboard & Get Ready ✅</SelectItem>
-                  <SelectItem value="ramp_phase_2_complete">Phase 2: Start Training ✅</SelectItem>
-                  <SelectItem value="ramp_phase_3_complete">Phase 3: Practice ✅</SelectItem>
-                  <SelectItem value="ramp_phase_4_complete">Phase 4: Saddle Up ✅</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </>
       )}
       
@@ -318,49 +238,54 @@ export const ProgressTab = ({
   );
 };
 
-// Progress Step Component
+// Progress Step Component - Clickable with filled/outline circles
 const ProgressStep = ({ 
   label, 
   complete, 
   active,
-  stepNumber,
   isLast,
-  locked
+  locked,
+  onClick
 }: { 
   label: string; 
   complete?: boolean; 
   active?: boolean;
-  stepNumber: number;
   isLast?: boolean;
   locked?: boolean;
+  onClick?: () => void;
 }) => (
-  <div className={`flex items-center gap-3 px-4 py-3 ${!isLast ? 'border-b border-border' : ''} ${
-    locked ? 'opacity-50' : ''
-  }`}>
+  <button 
+    className={`flex items-center gap-3 px-4 py-3 w-full text-left transition-colors ${
+      !isLast ? 'border-b border-border' : ''
+    } ${locked ? 'cursor-not-allowed' : 'hover:bg-muted/50 active:bg-muted cursor-pointer'}`}
+    onClick={locked ? undefined : onClick}
+    disabled={locked}
+  >
     {complete ? (
+      // Filled circle for completed
       <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
         <Check className="h-3.5 w-3.5 text-white" />
       </div>
     ) : active ? (
-      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shrink-0">
-        <span className="text-xs font-bold text-primary-foreground">{stepNumber}</span>
+      // Outline primary circle for current
+      <div className="w-6 h-6 rounded-full border-2 border-primary flex items-center justify-center shrink-0">
+        <Circle className="h-2.5 w-2.5 fill-primary text-primary" />
       </div>
     ) : (
-      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
-        <span className="text-xs text-muted-foreground">{stepNumber}</span>
-      </div>
+      // Empty outline circle for pending
+      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 shrink-0" />
     )}
-    <span className={`text-sm ${
-      complete ? 'text-muted-foreground line-through' : 
+    <span className={`text-sm flex-1 ${
+      complete ? 'text-foreground' : 
       active ? 'text-foreground font-medium' : 
       'text-muted-foreground'
     }`}>
       {label}
     </span>
     {active && !locked && (
-      <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
         Current
       </span>
     )}
-  </div>
+  </button>
 );
