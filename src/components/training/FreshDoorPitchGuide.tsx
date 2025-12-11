@@ -198,12 +198,17 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
                           animate={{ opacity: 1, y: 0 }}
                           className="space-y-4"
                         >
-                          {/* Script */}
-                          <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary">
-                            <p className="text-base leading-relaxed whitespace-pre-line">
-                              {currentSection.script}
-                            </p>
-                          </div>
+                          {/* Script - tap to hide */}
+                          <button
+                            onClick={() => setRevealed(false)}
+                            className="w-full text-left"
+                          >
+                            <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary hover:bg-primary/10 transition-colors">
+                              <p className="text-base leading-relaxed whitespace-pre-line">
+                                {currentSection.script}
+                              </p>
+                            </div>
+                          </button>
 
                           {/* Stage tip */}
                           {currentSection.stageTip && (
@@ -213,16 +218,10 @@ export const FreshDoorPitchGuide = ({ onBack }: FreshDoorPitchGuideProps) => {
                             </div>
                           )}
 
-                          {/* Hide button */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setRevealed(false)}
-                            className="w-full gap-2"
-                          >
-                            <EyeOff className="h-4 w-4" />
-                            Hide & practice again
-                          </Button>
+                          {/* Hide hint */}
+                          <p className="text-center text-xs text-muted-foreground">
+                            Tap script to hide
+                          </p>
                         </motion.div>
                       )}
                     </div>
