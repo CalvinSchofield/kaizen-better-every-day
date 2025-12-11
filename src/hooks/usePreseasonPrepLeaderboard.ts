@@ -4,9 +4,8 @@ import { getTrainingPaceStatus, getWeekStartDateString } from "@/utils/timezoneU
 
 export type LeaderboardMetric = 'overall' | 'books' | 'training' | 'roleplays' | 'mnl';
 
-// Point values for prep score calculation
+// Point values for WEEKLY prep score calculation (books excluded - they're all-time)
 const POINTS = {
-  books: 15,
   training: 8, // per hour
   roleplays: 12,
   mnl: 8,
@@ -31,10 +30,12 @@ export interface LeaderboardEntry {
   notionPageId: string | null;
   timezone: string;
   profilePhotoUrl: string | null;
-  // Weekly prep score (this week's effort)
+  // Weekly prep score (this week's effort - excludes books)
   weeklyPrepScore: number;
+  // Books are ALL-TIME cumulative (not weekly)
+  totalBooks: number;
+  booksGoal: number;
   // Weekly progress (this week only)
-  weeklyBooks: number;
   weeklyTraining: number; // in minutes
   weeklyRoleplays: number;
   weeklyMnl: number;
@@ -63,6 +64,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           user_id,
           setup_complete,
           books_progress,
+          books_goal,
           training_hours_progress,
           training_hours_goal,
           role_plays_progress,
@@ -98,7 +100,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         const trainingGoalMinutes = (goal.training_hours_goal || 0) * 60;
 
         // Current cumulative values
-        const currentBooks = goal.books_progress || 0;
+        const totalBooks = goal.books_progress || 0; // Books stay cumulative
         const currentTraining = goal.training_hours_progress || 0; // This already resets weekly
         const currentRoleplays = goal.role_plays_progress || 0;
         const currentMnl = goal.monday_night_lights_progress || 0;
@@ -114,14 +116,10 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           .filter(h => h.week_start !== currentWeekStart)
           .sort((a, b) => b.week_start.localeCompare(a.week_start))[0];
 
-        // Calculate this week's activity
-        // Training already resets weekly, so use current value directly
+        // Calculate this week's activity (training already resets weekly)
         const weeklyTraining = currentTraining;
         
-        // For other metrics, subtract last week's cumulative from current cumulative
-        const weeklyBooks = previousWeek 
-          ? Math.max(0, currentBooks - (previousWeek.breakdown?.books || 0))
-          : currentBooks; // First week = all current progress counts
+        // For roleplays and MNL, subtract last week's cumulative
         const weeklyRoleplays = previousWeek
           ? Math.max(0, currentRoleplays - (previousWeek.breakdown?.roleplays || 0))
           : currentRoleplays;
@@ -129,9 +127,8 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           ? Math.max(0, currentMnl - (previousWeek.breakdown?.mnl || 0))
           : currentMnl;
 
-        // Calculate weekly prep score
+        // Calculate weekly prep score (EXCLUDES books - they're all-time)
         const weeklyPrepScore = Math.round(
-          (weeklyBooks * POINTS.books) +
           ((weeklyTraining / 60) * POINTS.training) +
           (weeklyRoleplays * POINTS.roleplays) +
           (weeklyMnl * POINTS.mnl)
@@ -144,7 +141,8 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           timezone,
           profilePhotoUrl: rep.profile_photo_url,
           weeklyPrepScore,
-          weeklyBooks,
+          totalBooks,
+          booksGoal: goal.books_goal || 0,
           weeklyTraining,
           weeklyRoleplays,
           weeklyMnl,
@@ -163,7 +161,8 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           case 'overall':
             return b.weeklyPrepScore - a.weeklyPrepScore;
           case 'books':
-            return b.weeklyBooks - a.weeklyBooks;
+            // Books are cumulative, sort by total
+            return b.totalBooks - a.totalBooks;
           case 'training':
             return b.weeklyTraining - a.weeklyTraining;
           case 'roleplays':
