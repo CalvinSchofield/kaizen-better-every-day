@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap, ArrowRight } from "lucide-react";
+import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap, TrendingUp } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 const metrics: { key: LeaderboardMetric; label: string; icon: React.ReactNode }[] = [
   { key: 'overall', label: 'Overall', icon: <Zap className="h-3.5 w-3.5" /> },
   { key: 'books', label: 'Books', icon: <BookOpen className="h-3.5 w-3.5" /> },
@@ -34,6 +33,28 @@ const formatTrainingDisplay = (minutes: number): string => {
   return `${hours}h ${mins}m`;
 };
 
+const getMetricValue = (entry: LeaderboardEntry, metric: LeaderboardMetric) => {
+  switch (metric) {
+    case 'overall': return entry.weeklyPrepScore;
+    case 'books': return entry.totalBooks;
+    case 'training': return entry.weeklyTraining;
+    case 'roleplays': return entry.weeklyRoleplays;
+    case 'mnl': return entry.weeklyMnl;
+    default: return entry.weeklyPrepScore;
+  }
+};
+
+const formatMetricValue = (entry: LeaderboardEntry, metric: LeaderboardMetric): string => {
+  switch (metric) {
+    case 'overall': return `${entry.weeklyPrepScore} pts`;
+    case 'books': return `${entry.totalBooks} ${entry.totalBooks === 1 ? 'book' : 'books'}`;
+    case 'training': return formatTrainingDisplay(entry.weeklyTraining);
+    case 'roleplays': return `${entry.weeklyRoleplays}`;
+    case 'mnl': return entry.weeklyMnl > 0 ? '✓' : '—';
+    default: return '';
+  }
+};
+
 interface LeaderboardRowProps {
   entry: LeaderboardEntry;
   rank: number;
@@ -42,87 +63,114 @@ interface LeaderboardRowProps {
 }
 
 const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowProps) => {
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return <Trophy className="h-4 w-4 text-yellow-500" />;
-    if (rank === 2) return <span className="text-xs font-bold text-gray-400">2nd</span>;
-    if (rank === 3) return <span className="text-xs font-bold text-amber-600">3rd</span>;
-    return <span className="text-xs text-muted-foreground">{rank}</span>;
-  };
-
-  const getMetricDisplay = () => {
-    switch (metric) {
-      case 'overall':
-        return (
-          <Badge variant="secondary" className="font-semibold tabular-nums">
-            {entry.weeklyPrepScore} pts
-          </Badge>
-        );
-      case 'books':
-        return (
-          <span className="text-sm font-medium tabular-nums">
-            {entry.totalBooks} {entry.totalBooks === 1 ? 'book' : 'books'}
-          </span>
-        );
-      case 'training':
-        return (
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium tabular-nums">
-              {formatTrainingDisplay(entry.weeklyTraining)}
-            </span>
-            {entry.trainingPaceStatus === 'ahead' && (
-              <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-            )}
-            {entry.trainingPaceStatus === 'behind' && (
-              <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-            )}
-          </div>
-        );
-      case 'roleplays':
-        return (
-          <span className="text-sm font-medium">
-            {entry.weeklyRoleplays} {entry.weeklyRoleplays === 1 ? 'session' : 'sessions'}
-          </span>
-        );
-      case 'mnl':
-        return (
-          <span className="text-sm font-medium">
-            {entry.weeklyMnl > 0 ? '✓ Attended' : 'Not yet'}
-          </span>
-        );
-    }
-  };
-
   return (
     <div className={cn(
-      "flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors",
+      "flex items-center justify-between py-2 px-2 rounded-lg transition-all",
       isCurrentUser && "bg-primary/10 ring-1 ring-primary/20"
     )}>
       <div className="flex items-center gap-3">
-        <div className="w-6 flex justify-center">
-          {getRankBadge(rank)}
-        </div>
-        <Avatar className="h-8 w-8">
+        <span className="w-5 text-xs text-muted-foreground tabular-nums">{rank}</span>
+        <Avatar className="h-7 w-7">
           <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
-          <AvatarFallback className={cn(
-            "text-xs",
-            isCurrentUser ? "bg-primary/20 text-primary" : "bg-secondary"
-          )}>
+          <AvatarFallback className="text-[10px] bg-secondary">
             {getInitials(entry.name)}
           </AvatarFallback>
         </Avatar>
-        <div className="flex items-center gap-1.5">
-          <span className={cn(
-            "text-sm",
-            isCurrentUser && "font-semibold"
+        <span className={cn("text-sm", isCurrentUser && "font-medium")}>
+          {entry.name}
+          {isCurrentUser && <Star className="inline h-3 w-3 ml-1 text-primary fill-primary" />}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-medium tabular-nums">
+          {formatMetricValue(entry, metric)}
+        </span>
+        {metric === 'training' && entry.trainingPaceStatus === 'ahead' && (
+          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+        )}
+        {metric === 'training' && entry.trainingPaceStatus === 'behind' && (
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Top 3 Podium Display
+const PodiumDisplay = ({ 
+  entries, 
+  metric, 
+  currentUserId 
+}: { 
+  entries: LeaderboardEntry[]; 
+  metric: LeaderboardMetric;
+  currentUserId?: string;
+}) => {
+  const [first, second, third] = entries;
+  
+  if (!first) return null;
+
+  const PodiumSpot = ({ 
+    entry, 
+    rank, 
+    size 
+  }: { 
+    entry?: LeaderboardEntry; 
+    rank: 1 | 2 | 3; 
+    size: 'lg' | 'md';
+  }) => {
+    if (!entry) return <div className="flex-1" />;
+    
+    const isCurrentUser = entry.userId === currentUserId;
+    const avatarSize = size === 'lg' ? 'h-14 w-14' : 'h-10 w-10';
+    const ringColors = {
+      1: 'ring-yellow-400',
+      2: 'ring-gray-300',
+      3: 'ring-amber-600',
+    };
+
+    return (
+      <div className={cn(
+        "flex flex-col items-center gap-1",
+        rank === 1 ? "order-2" : rank === 2 ? "order-1" : "order-3"
+      )}>
+        <div className="relative">
+          <Avatar className={cn(
+            avatarSize,
+            "ring-2",
+            ringColors[rank],
+            isCurrentUser && "ring-primary ring-offset-2 ring-offset-background"
           )}>
-            {entry.name}
-          </span>
-          {isCurrentUser && (
-            <Star className="h-3 w-3 text-primary fill-primary" />
+            <AvatarImage src={entry.profilePhotoUrl || undefined} alt={entry.name} />
+            <AvatarFallback className={cn(
+              "text-xs bg-secondary",
+              size === 'lg' && "text-sm"
+            )}>
+              {getInitials(entry.name)}
+            </AvatarFallback>
+          </Avatar>
+          {rank === 1 && (
+            <Trophy className="absolute -top-2 -right-1 h-5 w-5 text-yellow-500 drop-shadow" />
           )}
         </div>
+        <span className={cn(
+          "text-xs font-medium text-center truncate max-w-[70px]",
+          isCurrentUser && "text-primary"
+        )}>
+          {entry.name.split(' ')[0]}
+        </span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {formatMetricValue(entry, metric)}
+        </span>
       </div>
-      {getMetricDisplay()}
+    );
+  };
+
+  return (
+    <div className="flex items-end justify-center gap-4 py-3">
+      <PodiumSpot entry={second} rank={2} size="md" />
+      <PodiumSpot entry={first} rank={1} size="lg" />
+      <PodiumSpot entry={third} rank={3} size="md" />
     </div>
   );
 };
@@ -133,64 +181,125 @@ export const PreseasonPrepLeaderboard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
 
-  // Don't render if no data and not loading
   if (!isLoading && (!data || data.entries.length === 0)) return null;
 
-  // Filter out entries with 0 for the selected metric (no fake first place)
-  const getMetricValue = (entry: LeaderboardEntry) => {
-    switch (selectedMetric) {
-      case 'overall': return entry.weeklyPrepScore;
-      case 'books': return entry.totalBooks; // Books are all-time
-      case 'training': return entry.weeklyTraining;
-      case 'roleplays': return entry.weeklyRoleplays;
-      case 'mnl': return entry.weeklyMnl;
-      default: return entry.weeklyPrepScore;
-    }
-  };
-
-  const entriesWithActivity = data?.entries.filter(e => getMetricValue(e) > 0) || [];
-  const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e) === 0) || [];
+  const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];
+  const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) === 0) || [];
   
-  const topEntries = entriesWithActivity.slice(0, 5);
+  const top3 = entriesWithActivity.slice(0, 3);
+  const restWithActivity = entriesWithActivity.slice(3, 8);
   const remainingEntries = [
-    ...entriesWithActivity.slice(5),
+    ...entriesWithActivity.slice(8),
     ...entriesWithoutActivity
   ];
 
   const isWeeklyMetric = selectedMetric !== 'books';
+  const currentUserValue = data?.currentUserEntry ? getMetricValue(data.currentUserEntry, selectedMetric) : 0;
+  const userHasActivity = currentUserValue > 0;
+  const userRank = userHasActivity ? data?.currentUserRank : null;
+
+  // Find who's just ahead of current user for motivation
+  const userAheadOfCurrent = userRank && userRank > 1 
+    ? entriesWithActivity[userRank - 2] 
+    : null;
+  const gapToNext = userAheadOfCurrent && data?.currentUserEntry
+    ? getMetricValue(userAheadOfCurrent, selectedMetric) - currentUserValue
+    : null;
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+    <Card className="mb-6 overflow-hidden">
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
+            <h3 className="font-semibold flex items-center gap-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
-              {isWeeklyMetric ? "This Week's Leaderboard" : "Most Well-Read"}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isWeeklyMetric ? "Resets every Sunday at midnight" : "All-time books completed"}
+              {isWeeklyMetric ? "This Week" : "Most Well-Read"}
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              {isWeeklyMetric ? "Resets Sunday midnight" : "All-time progress"}
             </p>
           </div>
-          {data?.currentUserRank && data.currentUserRank > 0 && data.currentUserEntry && getMetricValue(data.currentUserEntry) > 0 && (
-            <Badge variant="outline" className="text-xs">
-              You're #{data.currentUserRank}
-            </Badge>
-          )}
+          <Button 
+            size="sm" 
+            onClick={() => navigate('/goals')}
+            className="h-8 text-xs gap-1"
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            Log Progress
+          </Button>
         </div>
-      </CardHeader>
+
+        {/* User Status */}
+        {data?.currentUserEntry && (
+          <div className={cn(
+            "rounded-lg p-3 transition-all",
+            userHasActivity 
+              ? "bg-background/80 backdrop-blur-sm" 
+              : "bg-background/60 border border-dashed border-primary/30"
+          )}>
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 ring-2 ring-primary/30">
+                <AvatarImage src={data.currentUserEntry.profilePhotoUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {getInitials(data.currentUserEntry.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                {userHasActivity ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">
+                        #{userRank}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        • {formatMetricValue(data.currentUserEntry, selectedMetric)}
+                      </span>
+                    </div>
+                    {gapToNext !== null && gapToNext > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedMetric === 'overall' && `${gapToNext} pts behind #${userRank! - 1}`}
+                        {selectedMetric === 'training' && `${formatTrainingDisplay(gapToNext)} behind #${userRank! - 1}`}
+                        {selectedMetric === 'books' && `${gapToNext} ${gapToNext === 1 ? 'book' : 'books'} behind #${userRank! - 1}`}
+                        {selectedMetric === 'roleplays' && `${gapToNext} behind #${userRank! - 1}`}
+                        {selectedMetric === 'mnl' && userRank! > 1 && 'Attend MNL to move up!'}
+                      </p>
+                    )}
+                    {userRank === 1 && (
+                      <p className="text-xs text-primary font-medium">
+                        🔥 You're leading!
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm font-medium">Not ranked yet</span>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedMetric === 'overall' && 'Train, role play, or attend MNL to get on the board'}
+                      {selectedMetric === 'books' && 'Finish a book to get on the board'}
+                      {selectedMetric === 'training' && 'Log training time to get on the board'}
+                      {selectedMetric === 'roleplays' && 'Do a role play to get on the board'}
+                      {selectedMetric === 'mnl' && 'Attend Monday Night Lights to get on the board'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       
-      <CardContent className="space-y-4">
+      <CardContent className="pt-3 space-y-3">
         {/* Metric Filter Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
           {metrics.map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => setSelectedMetric(key)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all",
+                "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs whitespace-nowrap transition-all",
                 selectedMetric === key
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
               )}
             >
@@ -200,66 +309,60 @@ export const PreseasonPrepLeaderboard = () => {
           ))}
         </div>
 
-        {/* Books Progress Bar and CTA - only shown in books tab */}
-        {selectedMetric === 'books' && data?.currentUserEntry && (
-          <div className="bg-secondary/30 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Your Progress</span>
-              <span className="font-medium">
-                {data.currentUserEntry.totalBooks} / {data.currentUserEntry.booksGoal || '?'} books
-              </span>
-            </div>
-            <Progress 
-              value={data.currentUserEntry.booksGoal ? (data.currentUserEntry.totalBooks / data.currentUserEntry.booksGoal) * 100 : 0} 
-              className="h-2"
-            />
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full mt-1 text-primary hover:text-primary"
-              onClick={() => navigate('/goals')}
-            >
-              Update your progress
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
+        {/* Top 3 Podium */}
+        {top3.length > 0 && (
+          <PodiumDisplay 
+            entries={top3} 
+            metric={selectedMetric} 
+            currentUserId={data?.currentUserEntry?.userId}
+          />
+        )}
+
+        {/* Empty State */}
+        {top3.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground">
+            <p className="text-sm">No activity yet this week</p>
+            <p className="text-xs mt-1">Be the first to get on the board!</p>
           </div>
         )}
 
-        {/* Leaderboard List - Show skeleton during loading or actual content */}
-        <div className={cn("space-y-1 transition-opacity duration-200", isLoading && "opacity-60")}>
-          {topEntries.map((entry, index) => (
-            <LeaderboardRow
-              key={entry.userId}
-              entry={entry}
-              rank={index + 1}
-              metric={selectedMetric}
-              isCurrentUser={entry.userId === data?.currentUserEntry?.userId}
-            />
-          ))}
-        </div>
+        {/* Rest of leaderboard (4-8) */}
+        {restWithActivity.length > 0 && (
+          <div className="space-y-0.5 border-t pt-2">
+            {restWithActivity.map((entry, index) => (
+              <LeaderboardRow
+                key={entry.userId}
+                entry={entry}
+                rank={index + 4}
+                metric={selectedMetric}
+                isCurrentUser={entry.userId === data?.currentUserEntry?.userId}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Expandable remaining entries */}
         {remainingEntries.length > 0 && (
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-            <CollapsibleTrigger className="flex items-center justify-center w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <CollapsibleTrigger className="flex items-center justify-center w-full py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               {isExpanded ? (
                 <>
-                  <ChevronUp className="h-4 w-4 mr-1" />
+                  <ChevronUp className="h-3.5 w-3.5 mr-1" />
                   Show less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-4 w-4 mr-1" />
-                  Show {remainingEntries.length} more
+                  <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                  +{remainingEntries.length} more
                 </>
               )}
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1">
+            <CollapsibleContent className="space-y-0.5">
               {remainingEntries.map((entry, index) => (
                 <LeaderboardRow
                   key={entry.userId}
                   entry={entry}
-                  rank={index + 6}
+                  rank={index + 4 + restWithActivity.length}
                   metric={selectedMetric}
                   isCurrentUser={entry.userId === data?.currentUserEntry?.userId}
                 />
