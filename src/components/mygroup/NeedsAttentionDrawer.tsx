@@ -792,6 +792,7 @@ const ReadinessItem = ({
 
   const readiness = item.readinessProgress;
   const blitzInfo = item.blitzCommitments;
+  const missingGoals = readiness?.missingGoals || [];
   
   const getProgressStatus = (goal: number, progress: number) => {
     if (goal === 0) return 'no-goal';
@@ -806,6 +807,7 @@ const ReadinessItem = ({
       case 'complete': return 'text-green-600';
       case 'on-track': return 'text-green-500';
       case 'behind': return 'text-amber-500';
+      case 'no-goal': return 'text-red-500';
       default: return 'text-muted-foreground';
     }
   };
@@ -854,56 +856,80 @@ const ReadinessItem = ({
           </div>
         </div>
 
+        {/* FP+ Progress (if they have a goal) */}
+        {readiness && (readiness.fpGoal > 0 || readiness.fpCurrent > 0) && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <div className="flex items-center justify-between bg-primary/10 rounded-lg p-3">
+              <span className="text-sm font-medium">FP+</span>
+              <span className="text-sm font-bold text-primary">
+                {readiness.fpCurrent.toFixed(1)} / {readiness.fpGoal.toFixed(1)}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Progress Grid */}
         {readiness && (
           <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
             {/* Training */}
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+            <div className={cn(
+              "flex items-center gap-2 p-2 rounded-lg",
+              trainingStatus === 'no-goal' ? 'bg-red-500/10' : 'bg-muted/30'
+            )}>
               <Clock className={cn("h-4 w-4", getStatusColor(trainingStatus))} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Training</span>
                   <span className={cn("font-medium", getStatusColor(trainingStatus))}>
-                    {readiness.trainingHoursGoal > 0 ? `${readiness.trainingHoursProgress}/${readiness.trainingHoursGoal}` : '—'}
+                    {trainingStatus === 'no-goal' ? 'No goal' : `${readiness.trainingHoursProgress}/${readiness.trainingHoursGoal}`}
                   </span>
                 </div>
               </div>
             </div>
             
             {/* Books */}
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+            <div className={cn(
+              "flex items-center gap-2 p-2 rounded-lg",
+              booksStatus === 'no-goal' ? 'bg-red-500/10' : 'bg-muted/30'
+            )}>
               <BookOpen className={cn("h-4 w-4", getStatusColor(booksStatus))} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Books</span>
                   <span className={cn("font-medium", getStatusColor(booksStatus))}>
-                    {readiness.booksGoal > 0 ? `${readiness.booksProgress}/${readiness.booksGoal}` : '—'}
+                    {booksStatus === 'no-goal' ? 'No goal' : `${readiness.booksProgress}/${readiness.booksGoal}`}
                   </span>
                 </div>
               </div>
             </div>
             
             {/* Role Plays */}
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+            <div className={cn(
+              "flex items-center gap-2 p-2 rounded-lg",
+              rolePlaysStatus === 'no-goal' ? 'bg-red-500/10' : 'bg-muted/30'
+            )}>
               <Theater className={cn("h-4 w-4", getStatusColor(rolePlaysStatus))} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Role Plays</span>
                   <span className={cn("font-medium", getStatusColor(rolePlaysStatus))}>
-                    {readiness.rolePlaysGoal > 0 ? `${readiness.rolePlaysProgress}/${readiness.rolePlaysGoal}` : '—'}
+                    {rolePlaysStatus === 'no-goal' ? 'No goal' : `${readiness.rolePlaysProgress}/${readiness.rolePlaysGoal}`}
                   </span>
                 </div>
               </div>
             </div>
             
             {/* MNL */}
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+            <div className={cn(
+              "flex items-center gap-2 p-2 rounded-lg",
+              mnlStatus === 'no-goal' ? 'bg-red-500/10' : 'bg-muted/30'
+            )}>
               <Moon className={cn("h-4 w-4", getStatusColor(mnlStatus))} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">MNL</span>
                   <span className={cn("font-medium", getStatusColor(mnlStatus))}>
-                    {readiness.mnlGoal > 0 ? `${readiness.mnlProgress}/${readiness.mnlGoal}` : '—'}
+                    {mnlStatus === 'no-goal' ? 'No goal' : `${readiness.mnlProgress}/${readiness.mnlGoal}`}
                   </span>
                 </div>
               </div>

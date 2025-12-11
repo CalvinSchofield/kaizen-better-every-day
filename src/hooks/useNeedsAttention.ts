@@ -48,6 +48,9 @@ export interface AttentionRecruit {
     mnlGoal: number;
     mnlProgress: number;
     behindCount: number;
+    missingGoals: string[];
+    fpGoal: number;
+    fpCurrent: number;
   };
   blitzCommitments?: {
     committedCount: number;
@@ -193,6 +196,10 @@ export const useNeedsAttention = (
             }
           }
           
+          // Get days since last contact
+          const lastContact = lastContactMap.get(recruit.notionPageId);
+          const daysSinceContact = lastContact ? differenceInDays(now, lastContact) : undefined;
+          
           // Higher urgency if they have a blitz coming up
           const hasUpcomingBlitz = nearestBlitzDays !== undefined && nearestBlitzDays <= 21;
           const urgencyLevel = hasUpcomingBlitz 
@@ -210,6 +217,7 @@ export const useNeedsAttention = (
             missingItems: [...missingItems, ...(ipadAssigned ? [] : ['iPad'])],
             onboardingStatus: rampPhase,
             daysUntilBlitz: nearestBlitzDays,
+            daysSinceContact,
             blitzName: nearestBlitzName,
             trainingProgress: {
               onboardingComplete,
@@ -230,16 +238,18 @@ export const useNeedsAttention = (
         emoji: '📋',
         count: onboardingRecruits.length,
         recruits: onboardingRecruits.sort((a, b) => {
-          // Sort by blitz proximity first (if they have one), then by urgency, then by missing items
+          // Sort by blitz proximity first (if they have one)
           if (a.daysUntilBlitz !== undefined && b.daysUntilBlitz === undefined) return -1;
           if (a.daysUntilBlitz === undefined && b.daysUntilBlitz !== undefined) return 1;
           if (a.daysUntilBlitz !== undefined && b.daysUntilBlitz !== undefined) {
-            return a.daysUntilBlitz - b.daysUntilBlitz;
+            if (a.daysUntilBlitz !== b.daysUntilBlitz) {
+              return a.daysUntilBlitz - b.daysUntilBlitz;
+            }
           }
-          if (a.urgency !== b.urgency) {
-            return a.urgency === 'high' ? -1 : b.urgency === 'high' ? 1 : 0;
-          }
-          return (b.missingItems?.length || 0) - (a.missingItems?.length || 0);
+          // Then by days since last contact (furthest away first)
+          const aDays = a.daysSinceContact ?? 999;
+          const bDays = b.daysSinceContact ?? 999;
+          return bDays - aDays;
         }),
         priority: 95,
       });
@@ -582,7 +592,7 @@ export const useNeedsAttention = (
       });
     }
 
-    // 5. Hot Leads - Evaluating stage recruits
+    // 5. Hot Leads - Evaluating stage recruits, sorted by days since last contact (furthest first)
     const hotLeadRecruits: AttentionRecruit[] = [];
     
     recruits.filter(r => r.stage === 'Evaluating').forEach(recruit => {
@@ -603,7 +613,7 @@ export const useNeedsAttention = (
         recruit,
         reason,
         urgency: daysSince === null || daysSince >= 3 ? 'high' : 'medium',
-        daysSinceContact: daysSince || undefined,
+        daysSinceContact: daysSince ?? undefined,
       });
     });
 
@@ -613,27 +623,41 @@ export const useNeedsAttention = (
         label: 'Hot Leads',
         emoji: '🔥',
         count: hotLeadRecruits.length,
-        recruits: hotLeadRecruits.sort((a, b) => (a.daysSinceContact || 99) - (b.daysSinceContact || 99)),
+        // Sort by days since contact - furthest away at top (never contacted = highest priority)
+        recruits: hotLeadRecruits.sort((a, b) => {
+          const aDays = a.daysSinceContact ?? 999; // Never contacted = highest
+          const bDays = b.daysSinceContact ?? 999;
+          return bDays - aDays;
+        }),
         priority: 90,
       });
     }
 
-    // 6. Readiness - Rookies with their preseason progress and blitz commitments
+    // 6. Readiness - Rookies who are Signed or further AND have completed phase 1
+    // At top: those missing preseason standards (training/MNL/role plays/books goals)
+    // Show blitz commitments and FP+ goal/current, but blitz doesn't affect pace
     const readinessRecruits: AttentionRecruit[] = [];
     
-    // Only rookies
-    const rookiesForReadiness = recruits.filter(r => r.year === 'Rookie');
+    // Only rookies in Signed or later stages
+    const rookiesForReadiness = recruits.filter(r => 
+      r.year === 'Rookie' && 
+      (r.stage === 'Signed' || r.stage === 'Shadow ✅' || r.stage === 'Sold 💲' || r.stage === 'Sold (5+) 💰')
+    );
     
     rookiesForReadiness.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
-      if (!repData?.user_id) return;
       
-      const goalsData = repGoalsMap?.get(repData.user_id);
-      const summerConfig = repSummerConfigMap?.get(repData.user_id);
+      // Must have completed phase 1 (check from repData if available)
+      const phase1Complete = repData?.ramp_phase_1_complete ?? false;
+      if (!phase1Complete) return;
+      
+      const userId = repData?.user_id;
+      const goalsData = userId ? repGoalsMap?.get(userId) : undefined;
+      const summerConfig = userId ? repSummerConfigMap?.get(userId) : undefined;
       const personalSummerStart = summerConfig?.personal_summer_start || null;
       
       // Get blitz commitments
-      const rawCommitments = repData.committed_blitzes || [];
+      const rawCommitments = repData?.committed_blitzes || [];
       const committedBlitzIds: string[] = Array.isArray(rawCommitments)
         ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
         : [];
@@ -644,7 +668,7 @@ export const useNeedsAttention = (
         return blitzDate >= now && committedBlitzIds.includes(b.id);
       });
       
-      // Get goal values
+      // Get goal values - check which goals are MISSING (not set)
       const trainingGoal = (goalsData?.training_hours_goal || 0) * 60; // Convert hours to minutes
       const trainingProgress = goalsData?.training_hours_progress || 0;
       const booksGoal = goalsData?.books_goal || 0;
@@ -654,51 +678,70 @@ export const useNeedsAttention = (
       const mnlGoal = goalsData?.monday_night_lights_goal || 0;
       const mnlProgress = goalsData?.monday_night_lights_progress || 0;
       
-      // Use pace calculator to determine if behind
+      // Check which goals are MISSING (not set in app)
+      const missingGoals: string[] = [];
+      if (!goalsData?.training_hours_goal || goalsData.training_hours_goal === 0) missingGoals.push('Training');
+      if (!goalsData?.monday_night_lights_goal || goalsData.monday_night_lights_goal === 0) missingGoals.push('MNL');
+      if (!goalsData?.role_plays_goal || goalsData.role_plays_goal === 0) missingGoals.push('Role Plays');
+      if (!goalsData?.books_goal || goalsData.books_goal === 0) missingGoals.push('Books');
+      
+      // Calculate pace status only for goals that ARE set (excluding blitz commitments)
       let behindCount = 0;
       const behindAreas: string[] = [];
       
-      // Training hours use weekly pace (resets Sunday)
-      const trainingPaceStatus = getCommitmentPaceStatus('training', trainingProgress, trainingGoal, personalSummerStart);
-      if (trainingGoal > 0 && trainingPaceStatus === 'behind') {
-        behindCount++;
-        behindAreas.push('Training');
+      // Training hours use weekly pace (resets Sunday) - only if goal is set
+      if (trainingGoal > 0) {
+        const trainingPaceStatus = getCommitmentPaceStatus('training', trainingProgress, trainingGoal, personalSummerStart);
+        if (trainingPaceStatus === 'behind') {
+          behindCount++;
+          behindAreas.push('Training');
+        }
       }
       
-      // Books use preseason pace (until summer start)
-      const booksPaceStatus = getCommitmentPaceStatus('books', booksProgress, booksGoal, personalSummerStart);
-      if (booksGoal > 0 && booksPaceStatus === 'behind') {
-        behindCount++;
-        behindAreas.push('Books');
+      // Books use preseason pace (until summer start) - only if goal is set
+      if (booksGoal > 0) {
+        const booksPaceStatus = getCommitmentPaceStatus('books', booksProgress, booksGoal, personalSummerStart);
+        if (booksPaceStatus === 'behind') {
+          behindCount++;
+          behindAreas.push('Books');
+        }
       }
       
-      // Role plays use preseason pace
-      const rolePLaysPaceStatus = getCommitmentPaceStatus('role_plays', rolePlaysProgress, rolePlaysGoal, personalSummerStart);
-      if (rolePlaysGoal > 0 && rolePLaysPaceStatus === 'behind') {
-        behindCount++;
-        behindAreas.push('Role Plays');
+      // Role plays use preseason pace - only if goal is set
+      if (rolePlaysGoal > 0) {
+        const rolePLaysPaceStatus = getCommitmentPaceStatus('role_plays', rolePlaysProgress, rolePlaysGoal, personalSummerStart);
+        if (rolePLaysPaceStatus === 'behind') {
+          behindCount++;
+          behindAreas.push('Role Plays');
+        }
       }
       
-      // MNL uses preseason pace
-      const mnlPaceStatus = getCommitmentPaceStatus('monday_night_lights', mnlProgress, mnlGoal, personalSummerStart);
-      if (mnlGoal > 0 && mnlPaceStatus === 'behind') {
-        behindCount++;
-        behindAreas.push('MNL');
+      // MNL uses preseason pace - only if goal is set
+      if (mnlGoal > 0) {
+        const mnlPaceStatus = getCommitmentPaceStatus('monday_night_lights', mnlProgress, mnlGoal, personalSummerStart);
+        if (mnlPaceStatus === 'behind') {
+          behindCount++;
+          behindAreas.push('MNL');
+        }
       }
+      
+      // Get FP+ goal and current from recruit data
+      const fpGoal = (recruit as any).personalFpGoal || 0;
+      const fpCurrent = (recruit as any).personalFp || 0;
       
       const firstName = recruit.name?.split(' ')[0] || 'Rookie';
       let reason = '';
       let urgency: 'high' | 'medium' | 'low' = 'low';
       
-      // Determine reason - blitz commitments don't affect "on track" status, only goals do
-      if (committedBlitzIds.length === 0) {
-        reason = `${firstName} hasn't committed to any blitz yet`;
-        urgency = 'high';
+      // Priority: missing goals > behind on pace > on track
+      if (missingGoals.length > 0) {
+        reason = `${firstName} needs to set ${missingGoals.slice(0, 2).join(' & ')}${missingGoals.length > 2 ? ` +${missingGoals.length - 2}` : ''} goals`;
+        urgency = missingGoals.length >= 3 ? 'high' : 'medium';
       } else if (behindCount > 0) {
         reason = `${firstName} is behind on ${behindAreas.slice(0, 2).join(' & ')}${behindAreas.length > 2 ? ` +${behindAreas.length - 2}` : ''}`;
         urgency = behindCount >= 3 ? 'high' : behindCount >= 2 ? 'medium' : 'low';
       } else {
-        // On track - not behind on any goals (preseason trips not considered for on-track status)
+        // On track - not behind on any goals
         reason = `${firstName} is on track`;
         urgency = 'low';
       }
@@ -717,6 +760,9 @@ export const useNeedsAttention = (
           mnlGoal,
           mnlProgress,
           behindCount,
+          missingGoals,
+          fpGoal,
+          fpCurrent,
         },
         blitzCommitments: {
           committedCount: committedBlitzIds.length,
@@ -732,11 +778,10 @@ export const useNeedsAttention = (
         emoji: '📊',
         count: readinessRecruits.length,
         recruits: readinessRecruits.sort((a, b) => {
-          // Sort: no blitz first, then by behind count (most behind first)
-          const aNoBlitz = (a.blitzCommitments?.committedCount || 0) === 0;
-          const bNoBlitz = (b.blitzCommitments?.committedCount || 0) === 0;
-          if (aNoBlitz && !bNoBlitz) return -1;
-          if (!aNoBlitz && bNoBlitz) return 1;
+          // Sort: missing goals first (most missing first), then by behind count (most behind first)
+          const aMissing = a.readinessProgress?.missingGoals?.length || 0;
+          const bMissing = b.readinessProgress?.missingGoals?.length || 0;
+          if (aMissing !== bMissing) return bMissing - aMissing;
           return (b.readinessProgress?.behindCount || 0) - (a.readinessProgress?.behindCount || 0);
         }),
         priority: 70, // Lower priority than other action-oriented categories
