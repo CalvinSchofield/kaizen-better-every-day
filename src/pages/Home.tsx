@@ -26,7 +26,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
-import { RookieOfTheWeekCard } from "@/components/RookieOfTheWeekCard";
+
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
 
 interface StepStatus {
@@ -1368,7 +1368,6 @@ const Home = () => {
         {/* Rookie of the Week & Prep Leaderboard - Show above journey for Phase 1+ rookies */}
         {hasGoalsAccess && (
           <>
-            <RookieOfTheWeekCard />
             <PreseasonPrepLeaderboard />
           </>
         )}
