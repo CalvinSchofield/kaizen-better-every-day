@@ -25,6 +25,9 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { RookieOfTheWeekCard } from "@/components/RookieOfTheWeekCard";
+import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
 
 interface StepStatus {
   completed: boolean;
@@ -67,6 +70,7 @@ const Home = () => {
   const queryClient = useQueryClient();
   const { hasSeenIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
+  const { hasGoalsAccess } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -1639,6 +1643,14 @@ const Home = () => {
               </button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Rookie of the Week & Prep Leaderboard - Show for rookies with goals access */}
+        {hasGoalsAccess && (
+          <>
+            <RookieOfTheWeekCard />
+            <PreseasonPrepLeaderboard />
+          </>
         )}
       </div>
 
