@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   BookOpen, 
   Clock, 
@@ -9,13 +9,16 @@ import {
   Plus,
   Check,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Minus
 } from "lucide-react";
 import { RepGoals } from "@/hooks/useRepGoals";
 import { cn } from "@/lib/utils";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepData } from "@/hooks/useRepData";
 import { motion, AnimatePresence } from "framer-motion";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 
 interface CommitmentChipsProps {
   goals: RepGoals;
@@ -42,7 +45,33 @@ interface ChipConfig {
   incrementBy?: number;
   autoTracked?: boolean;
   hasCustomEditor?: boolean;
+  weeklyTracked?: boolean;
 }
+
+// Get current week start (Monday) for weekly tracking
+const getCurrentWeekStart = (): string => {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
+  const monday = new Date(now.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().split('T')[0];
+};
+
+// Get weekly logs from localStorage
+const getWeeklyLogs = (userId: string, key: string): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem(`weekly-${key}-${userId}`);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+// Save weekly logs to localStorage
+const saveWeeklyLogs = (userId: string, key: string, logs: Record<string, number>) => {
+  localStorage.setItem(`weekly-${key}-${userId}`, JSON.stringify(logs));
+};
 
 const chipConfigs: ChipConfig[] = [
   {
@@ -71,6 +100,7 @@ const chipConfigs: ChipConfig[] = [
     gradient: 'from-green-400 to-green-600',
     textColor: 'text-green-500',
     incrementBy: 1,
+    weeklyTracked: true,
   },
   {
     key: 'monday_night_lights_goal',
@@ -80,6 +110,7 @@ const chipConfigs: ChipConfig[] = [
     gradient: 'from-amber-400 to-amber-600',
     textColor: 'text-amber-500',
     incrementBy: 1,
+    weeklyTracked: true,
   },
   {
     key: 'blitzes_goal',
@@ -112,8 +143,39 @@ export const CommitmentChips = ({
   isUpdating = false,
 }: CommitmentChipsProps) => {
   const { efpModeEnabled } = useEfpMode();
+  const { repData } = useRepData();
   const metricLabel = efpModeEnabled ? 'EFP' : 'FP+';
   const [tappedChip, setTappedChip] = useState<string | null>(null);
+  const [weeklyDrawerOpen, setWeeklyDrawerOpen] = useState<ChipConfig | null>(null);
+  
+  const userId = repData?.user_id || 'anonymous';
+  const currentWeekStart = getCurrentWeekStart();
+  
+  // Weekly logs state
+  const [mnlWeeklyLogs, setMnlWeeklyLogs] = useState<Record<string, number>>(() => 
+    getWeeklyLogs(userId, 'mnl')
+  );
+  const [rolePlayWeeklyLogs, setRolePlayWeeklyLogs] = useState<Record<string, number>>(() => 
+    getWeeklyLogs(userId, 'role_plays')
+  );
+
+  // Sync weekly logs when userId changes
+  useEffect(() => {
+    if (userId !== 'anonymous') {
+      setMnlWeeklyLogs(getWeeklyLogs(userId, 'mnl'));
+      setRolePlayWeeklyLogs(getWeeklyLogs(userId, 'role_plays'));
+    }
+  }, [userId]);
+
+  const getThisWeekCount = (config: ChipConfig): number => {
+    if (config.key === 'monday_night_lights_goal') {
+      return mnlWeeklyLogs[currentWeekStart] || 0;
+    }
+    if (config.key === 'role_plays_goal') {
+      return rolePlayWeeklyLogs[currentWeekStart] || 0;
+    }
+    return 0;
+  };
 
   const getProgress = (config: ChipConfig): number => {
     if (config.key === 'blitzes_goal') {
@@ -171,6 +233,12 @@ export const CommitmentChips = ({
     
     if (config.autoTracked) return;
     
+    // Open weekly drawer for weekly tracked items
+    if (config.weeklyTracked) {
+      setWeeklyDrawerOpen(config);
+      return;
+    }
+    
     // Visual feedback
     setTappedChip(config.key);
     setTimeout(() => setTappedChip(null), 300);
@@ -184,6 +252,49 @@ export const CommitmentChips = ({
     } else {
       await onQuickIncrement(config.progressKey);
     }
+  };
+
+  const handleWeeklyIncrement = async () => {
+    if (!weeklyDrawerOpen) return;
+    
+    const currentCount = getThisWeekCount(weeklyDrawerOpen);
+    const isMnl = weeklyDrawerOpen.key === 'monday_night_lights_goal';
+    
+    if (isMnl) {
+      // MNL: max 1 per week
+      if (currentCount >= 1) return;
+      const newLogs = { ...mnlWeeklyLogs, [currentWeekStart]: 1 };
+      setMnlWeeklyLogs(newLogs);
+      saveWeeklyLogs(userId, 'mnl', newLogs);
+    } else {
+      // Role plays: increment
+      const newLogs = { ...rolePlayWeeklyLogs, [currentWeekStart]: currentCount + 1 };
+      setRolePlayWeeklyLogs(newLogs);
+      saveWeeklyLogs(userId, 'role_plays', newLogs);
+    }
+    
+    await onQuickIncrement(weeklyDrawerOpen.progressKey);
+  };
+
+  const handleWeeklyDecrement = async () => {
+    if (!weeklyDrawerOpen) return;
+    
+    const currentCount = getThisWeekCount(weeklyDrawerOpen);
+    if (currentCount <= 0) return;
+    
+    const isMnl = weeklyDrawerOpen.key === 'monday_night_lights_goal';
+    
+    if (isMnl) {
+      const newLogs = { ...mnlWeeklyLogs, [currentWeekStart]: 0 };
+      setMnlWeeklyLogs(newLogs);
+      saveWeeklyLogs(userId, 'mnl', newLogs);
+    } else {
+      const newLogs = { ...rolePlayWeeklyLogs, [currentWeekStart]: currentCount - 1 };
+      setRolePlayWeeklyLogs(newLogs);
+      saveWeeklyLogs(userId, 'role_plays', newLogs);
+    }
+    
+    await onQuickIncrement(weeklyDrawerOpen.progressKey + '_reset_one');
   };
 
   const hasAnyGoals = activeChips.length > 0 || preseasonFpGoal > 0;
@@ -208,158 +319,268 @@ export const CommitmentChips = ({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Preseason Commitments
-        </h3>
-        <button
-          onClick={onEdit}
-          className="text-xs text-primary font-medium hover:underline"
-        >
-          Edit
-        </button>
+    <>
+      <div className="space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Preseason Commitments
+          </h3>
+          <button
+            onClick={onEdit}
+            className="text-xs text-primary font-medium hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+
+        {/* Chips Grid */}
+        <div className="flex flex-wrap gap-2">
+          {/* Preseason FP Chip */}
+          {preseasonFpGoal > 0 && (
+            <motion.div
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-xl",
+                "bg-gradient-to-r from-primary/10 to-primary/5",
+                "border border-primary/20",
+                preseasonComplete && "border-emerald-500/30 bg-emerald-500/10"
+              )}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <div className={cn(
+                "w-6 h-6 rounded-lg flex items-center justify-center",
+                preseasonComplete 
+                  ? "bg-emerald-500 text-white" 
+                  : "bg-gradient-to-br from-primary to-primary-dark text-white"
+              )}>
+                {preseasonComplete ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Target className="h-3.5 w-3.5" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-foreground">
+                  {preseasonFpProgress.toFixed(1)} / {preseasonFpGoal} {metricLabel}
+                </span>
+                <span className="text-[10px] text-muted-foreground">Before summer</span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Other commitment chips */}
+          <AnimatePresence>
+            {activeChips.map((config, index) => {
+              const Icon = config.icon;
+              const progress = getProgress(config);
+              const goal = getGoal(config);
+              const complete = isComplete(config);
+              const isTapped = tappedChip === config.key;
+              const isTraining = config.key === 'training_hours_goal';
+              const thisWeekCount = config.weeklyTracked ? getThisWeekCount(config) : 0;
+              const isMnl = config.key === 'monday_night_lights_goal';
+              const hasThisWeek = config.weeklyTracked && thisWeekCount > 0;
+              
+              const progressDisplay = isTraining 
+                ? formatTrainingTime(progress)
+                : progress.toString();
+              const goalDisplay = isTraining 
+                ? formatTrainingTime(goal)
+                : goal.toString();
+
+              return (
+                <motion.button
+                  key={config.key}
+                  onClick={() => handleChipTap(config)}
+                  disabled={isUpdating}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-xl",
+                    "transition-all duration-200",
+                    complete 
+                      ? "bg-emerald-500/10 border border-emerald-500/30" 
+                      : hasThisWeek
+                        ? "bg-primary/10 border border-primary/30"
+                        : "bg-muted/50 border border-border/50 hover:border-border active:scale-95",
+                    isTapped && "scale-95 bg-muted"
+                  )}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <div className={cn(
+                    "w-6 h-6 rounded-lg flex items-center justify-center",
+                    complete 
+                      ? "bg-emerald-500 text-white" 
+                      : hasThisWeek
+                        ? "bg-primary text-white"
+                        : `bg-gradient-to-br ${config.gradient} text-white`
+                  )}>
+                    {complete ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : hasThisWeek ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5" />
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className={cn(
+                      "text-xs font-medium",
+                      complete ? "text-emerald-600" : hasThisWeek ? "text-primary" : "text-foreground"
+                    )}>
+                      {progressDisplay} / {goalDisplay}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {config.weeklyTracked 
+                        ? (hasThisWeek 
+                            ? (isMnl ? "✓ This week" : `✓ ${thisWeekCount} this week`)
+                            : config.label)
+                        : config.label}
+                    </span>
+                  </div>
+                  {config.hasCustomEditor && (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                  )}
+                  {config.weeklyTracked && !complete && (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                  )}
+                  {!config.autoTracked && !config.hasCustomEditor && !config.weeklyTracked && !complete && (
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                  )}
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
+
+          {/* Add More Chip - shows if there are unset commitments */}
+          {hasUnsetCommitments && (
+            <motion.button
+              onClick={onEdit}
+              className={cn(
+                "flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl",
+                "bg-primary/5 border-2 border-dashed border-primary/30",
+                "hover:border-primary/50 hover:bg-primary/10 active:scale-95",
+                "transition-all duration-200"
+              )}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                borderColor: ["hsl(var(--primary) / 0.3)", "hsl(var(--primary) / 0.5)", "hsl(var(--primary) / 0.3)"]
+              }}
+              transition={{
+                borderColor: {
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }
+              }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-primary/10">
+                <Plus className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <span className="text-xs text-primary font-medium">
+                Add {unsetCount}
+              </span>
+            </motion.button>
+          )}
+        </div>
       </div>
 
-      {/* Chips Grid */}
-      <div className="flex flex-wrap gap-2">
-        {/* Preseason FP Chip */}
-        {preseasonFpGoal > 0 && (
-          <motion.div
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-xl",
-              "bg-gradient-to-r from-primary/10 to-primary/5",
-              "border border-primary/20",
-              preseasonComplete && "border-emerald-500/30 bg-emerald-500/10"
-            )}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-          >
-            <div className={cn(
-              "w-6 h-6 rounded-lg flex items-center justify-center",
-              preseasonComplete 
-                ? "bg-emerald-500 text-white" 
-                : "bg-gradient-to-br from-primary to-primary-dark text-white"
-            )}>
-              {preseasonComplete ? (
-                <Check className="h-3.5 w-3.5" />
-              ) : (
-                <Target className="h-3.5 w-3.5" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-foreground">
-                {preseasonFpProgress.toFixed(1)} / {preseasonFpGoal} {metricLabel}
-              </span>
-              <span className="text-[10px] text-muted-foreground">Before summer</span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Other commitment chips */}
-        <AnimatePresence>
-          {activeChips.map((config, index) => {
-            const Icon = config.icon;
-            const progress = getProgress(config);
-            const goal = getGoal(config);
-            const complete = isComplete(config);
-            const isTapped = tappedChip === config.key;
-            const isTraining = config.key === 'training_hours_goal';
-            
-            const progressDisplay = isTraining 
-              ? formatTrainingTime(progress)
-              : progress.toString();
-            const goalDisplay = isTraining 
-              ? formatTrainingTime(goal)
-              : goal.toString();
-
-            return (
-              <motion.button
-                key={config.key}
-                onClick={() => handleChipTap(config)}
-                disabled={isUpdating}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-xl",
-                  "transition-all duration-200",
-                  complete 
-                    ? "bg-emerald-500/10 border border-emerald-500/30" 
-                    : "bg-muted/50 border border-border/50 hover:border-border active:scale-95",
-                  isTapped && "scale-95 bg-muted"
-                )}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
+      {/* Weekly Input Drawer */}
+      <Drawer open={!!weeklyDrawerOpen} onOpenChange={(open) => !open && setWeeklyDrawerOpen(null)}>
+        <DrawerContent className="max-h-[50dvh]">
+          <DrawerHeader className="text-center pb-2">
+            <DrawerTitle>
+              {weeklyDrawerOpen?.key === 'monday_night_lights_goal' 
+                ? 'Monday Night Lights' 
+                : 'Role Plays'} - This Week
+            </DrawerTitle>
+          </DrawerHeader>
+          {weeklyDrawerOpen && (
+            <div className="px-6 pb-8 space-y-6">
+              {/* This week status */}
+              <div className="flex flex-col items-center gap-4">
                 <div className={cn(
-                  "w-6 h-6 rounded-lg flex items-center justify-center",
-                  complete 
-                    ? "bg-emerald-500 text-white" 
-                    : `bg-gradient-to-br ${config.gradient} text-white`
+                  "w-20 h-20 rounded-full flex items-center justify-center",
+                  getThisWeekCount(weeklyDrawerOpen) > 0 
+                    ? "bg-primary/20 border-2 border-primary" 
+                    : "bg-muted border-2 border-border"
                 )}>
-                  {complete ? (
-                    <Check className="h-3.5 w-3.5" />
+                  {getThisWeekCount(weeklyDrawerOpen) > 0 ? (
+                    <Check className="h-10 w-10 text-primary" />
                   ) : (
-                    <Icon className="h-3.5 w-3.5" />
+                    weeklyDrawerOpen.key === 'monday_night_lights_goal' 
+                      ? <Calendar className="h-10 w-10 text-muted-foreground" />
+                      : <Users className="h-10 w-10 text-muted-foreground" />
                   )}
                 </div>
-                <div className="flex flex-col items-start">
-                  <span className={cn(
-                    "text-xs font-medium",
-                    complete ? "text-emerald-600" : "text-foreground"
-                  )}>
-                    {progressDisplay} / {goalDisplay}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {config.label}
-                  </span>
-                </div>
-                {config.hasCustomEditor && (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-1" />
+                
+                {weeklyDrawerOpen.key === 'monday_night_lights_goal' ? (
+                  // MNL: Simple toggle
+                  <div className="text-center">
+                    <p className="text-lg font-semibold">
+                      {getThisWeekCount(weeklyDrawerOpen) > 0 
+                        ? "You attended MNL this week!" 
+                        : "Did you attend MNL this week?"}
+                    </p>
+                    <Button
+                      onClick={getThisWeekCount(weeklyDrawerOpen) > 0 ? handleWeeklyDecrement : handleWeeklyIncrement}
+                      variant={getThisWeekCount(weeklyDrawerOpen) > 0 ? "outline" : "default"}
+                      className="mt-4 min-w-[140px]"
+                      disabled={isUpdating}
+                    >
+                      {getThisWeekCount(weeklyDrawerOpen) > 0 ? "Undo" : "Yes, I went!"}
+                    </Button>
+                  </div>
+                ) : (
+                  // Role Plays: Counter with +/-
+                  <div className="text-center">
+                    <p className="text-lg font-semibold mb-2">
+                      Role plays this week
+                    </p>
+                    <div className="flex items-center justify-center gap-4">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 rounded-full"
+                        onClick={handleWeeklyDecrement}
+                        disabled={isUpdating || getThisWeekCount(weeklyDrawerOpen) <= 0}
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <span className="text-4xl font-bold min-w-[60px]">
+                        {getThisWeekCount(weeklyDrawerOpen)}
+                      </span>
+                      <Button
+                        variant="default"
+                        size="icon"
+                        className="h-12 w-12 rounded-full"
+                        onClick={handleWeeklyIncrement}
+                        disabled={isUpdating}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
-                {!config.autoTracked && !config.hasCustomEditor && !complete && (
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground ml-1" />
-                )}
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
+              </div>
 
-        {/* Add More Chip - shows if there are unset commitments */}
-        {hasUnsetCommitments && (
-          <motion.button
-            onClick={onEdit}
-            className={cn(
-              "flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl",
-              "bg-primary/5 border-2 border-dashed border-primary/30",
-              "hover:border-primary/50 hover:bg-primary/10 active:scale-95",
-              "transition-all duration-200"
-            )}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ 
-              opacity: 1, 
-              scale: 1,
-              borderColor: ["hsl(var(--primary) / 0.3)", "hsl(var(--primary) / 0.5)", "hsl(var(--primary) / 0.3)"]
-            }}
-            transition={{
-              borderColor: {
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }
-            }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-primary/10">
-              <Plus className="h-3.5 w-3.5 text-primary" />
+              {/* Total progress */}
+              <div className="text-center pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Total Progress: <span className="font-semibold text-foreground">
+                    {getProgress(weeklyDrawerOpen)} / {getGoal(weeklyDrawerOpen)}
+                  </span>
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-primary font-medium">
-              Add {unsetCount}
-            </span>
-          </motion.button>
-        )}
-      </div>
-    </div>
+          )}
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 };

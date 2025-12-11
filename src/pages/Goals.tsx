@@ -358,12 +358,24 @@ const Goals = () => {
   }, [goals, tiers, isPreseason, isUserSummerStarted]);
 
   const handleQuickIncrement = async (progressKey: string) => {
-    // Check if this is a reset action (wrap-around)
+    // Check if this is a full reset action (wrap-around)
     if (progressKey.endsWith('_reset')) {
       const actualKey = progressKey.replace('_reset', '');
       await updateGoals({
         [actualKey]: 0,
       });
+      return;
+    }
+    
+    // Check if this is a decrement by 1 action
+    if (progressKey.endsWith('_reset_one')) {
+      const actualKey = progressKey.replace('_reset_one', '');
+      const currentProgress = Number(goals?.[actualKey as keyof typeof goals]) || 0;
+      if (currentProgress > 0) {
+        await updateGoals({
+          [actualKey]: currentProgress - 1,
+        });
+      }
       return;
     }
     

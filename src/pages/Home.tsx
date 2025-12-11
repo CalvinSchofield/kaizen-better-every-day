@@ -1616,7 +1616,7 @@ const Home = () => {
                   {((repData?.committed_blitzes as any[]) || []).length > 0 && (
                     <p className="text-xs text-muted-foreground font-medium pt-2">Other trips:</p>
                   )}
-                  {futureAvailableBlitzes.slice(0, 3).map((blitz) => {
+                  {futureAvailableBlitzes.map((blitz) => {
                     const blitzDate = new Date(blitz.date);
                     return (
                       <div 
