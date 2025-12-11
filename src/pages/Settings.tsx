@@ -19,6 +19,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { IntroWizard } from "@/components/IntroWizard";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 
 interface CustomCounter {
   id: string;
@@ -54,13 +56,18 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { goals, updateGoals: updateRepGoals, isUpdating: isUpdatingGoals } = useRepGoals();
-  const { resetIntro } = useIntroStatus(repData?.user_id);
+  const { resetIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
+  const teamAccess = useTeamAccess();
+  const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [counterName, setCounterName] = useState("");
   const [counterEmoji, setCounterEmoji] = useState("📊");
   const [deleteConfirmCounter, setDeleteConfirmCounter] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Intro wizard state - show immediately in Settings
+  const [showIntroWizard, setShowIntroWizard] = useState(false);
   
   // Summer dates state
   const [summerStart, setSummerStart] = useState<Date>();
@@ -95,6 +102,7 @@ export default function Settings() {
   // CRM state
   const [isCrmOpen, setIsCrmOpen] = useState(false);
   const [isSavingCrm, setIsSavingCrm] = useState(false);
+
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -535,13 +543,48 @@ export default function Settings() {
       .map(c => ({ id: `custom_${c.id}`, emoji: c.emoji, name: c.name, isCustom: true, hidden: c.hidden }))
   ] as Array<{ id: string; emoji: string; name: string; isCustom: boolean; hidden?: boolean }>;
 
-  const handleResetIntro = () => {
-    resetIntro();
-    toast({
-      title: "Intro reset",
-      description: "The intro wizard will show next time you visit Home.",
+  // Determine user type for intro wizard
+  const getUserType = (): 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader' => {
+    const year = repData?.year || "Rookie";
+    const isVetOrSoph = year === "Vet" || year === "Sophomore";
+    const committedBlitzes = (repData?.committed_blitzes as any[]) || [];
+    const hasAttendedBlitz = committedBlitzes.some((blitz: any) => {
+      if (!blitz?.endDate) return false;
+      const endDate = new Date(blitz.endDate);
+      return endDate < new Date();
     });
+    
+    // Check phase completion
+    const phase = repData?.ramp_to_blitz_phase || "Not started";
+    const phaseLower = phase.toLowerCase();
+    const phase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
+    
+    if (isLeader && isVetOrSoph) return 'leader';
+    if (isVetOrSoph) return 'vet';
+    if (year === "Rookie" && phase4Complete && hasAttendedBlitz) return 'post-blitz-rookie';
+    return 'pre-blitz-rookie';
   };
+
+  const handleShowIntro = () => {
+    setShowIntroWizard(true);
+  };
+
+  const handleIntroComplete = () => {
+    setShowIntroWizard(false);
+    markIntroComplete();
+  };
+
+  // Show intro wizard if requested
+  if (showIntroWizard && repData) {
+    const firstName = repData.name?.split(' ')[0] || 'there';
+    return (
+      <IntroWizard
+        userType={getUserType()}
+        firstName={firstName}
+        onComplete={handleIntroComplete}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
@@ -554,7 +597,7 @@ export default function Settings() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleResetIntro}
+                onClick={handleShowIntro}
                 className="gap-2"
               >
                 <RotateCcw className="h-4 w-4" />
