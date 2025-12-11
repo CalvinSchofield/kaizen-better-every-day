@@ -140,7 +140,8 @@ export const ProgressTab = ({
   ];
 
   const handleStepClick = (step: typeof onboardingStepConfigs[0] | typeof rampStepConfigs[0]) => {
-    if (step.locked) {
+    // Allow clicking completed steps to uncomplete them
+    if (step.locked && !step.complete) {
       toast.error('Complete the previous step first');
       return;
     }
@@ -298,43 +299,48 @@ const ProgressStep = ({
   isLast?: boolean;
   locked?: boolean;
   onClick?: () => void;
-}) => (
-  <button 
-    className={`flex items-center gap-3 px-4 py-3 w-full text-left transition-colors ${
-      !isLast ? 'border-b border-border' : ''
-    } ${locked ? 'cursor-not-allowed opacity-50' : 'hover:bg-muted/50 active:bg-muted cursor-pointer'}`}
-    onClick={onClick}
-  >
-    {complete ? (
-      // Filled circle for completed
-      <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-        <Check className="h-3.5 w-3.5 text-white" />
-      </div>
-    ) : locked ? (
-      // Lock icon for locked steps
-      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
-        <Lock className="h-3 w-3 text-muted-foreground/50" />
-      </div>
-    ) : active ? (
-      // Outline primary circle for current
-      <div className="w-6 h-6 rounded-full border-2 border-primary flex items-center justify-center shrink-0">
-        <Circle className="h-2.5 w-2.5 fill-primary text-primary" />
-      </div>
-    ) : (
-      // Empty outline circle for pending
-      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 shrink-0" />
-    )}
-    <span className={`text-sm flex-1 ${
-      complete ? 'text-foreground' : 
-      active ? 'text-foreground font-medium' : 
-      'text-muted-foreground'
-    }`}>
-      {label}
-    </span>
-    {active && !locked && (
-      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-        Current
+}) => {
+  // Determine if step is actually locked (locked AND not complete)
+  const isActuallyLocked = locked && !complete;
+  
+  return (
+    <button 
+      className={`flex items-center gap-3 px-4 py-3 w-full text-left transition-colors ${
+        !isLast ? 'border-b border-border' : ''
+      } ${isActuallyLocked ? 'cursor-not-allowed opacity-50' : 'hover:bg-muted/50 active:bg-muted cursor-pointer'}`}
+      onClick={onClick}
+    >
+      {complete ? (
+        // Filled circle for completed
+        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+          <Check className="h-3.5 w-3.5 text-white" />
+        </div>
+      ) : isActuallyLocked ? (
+        // Lock icon for locked steps
+        <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0">
+          <Lock className="h-3 w-3 text-muted-foreground/50" />
+        </div>
+      ) : active ? (
+        // Outline primary circle for current
+        <div className="w-6 h-6 rounded-full border-2 border-primary flex items-center justify-center shrink-0">
+          <Circle className="h-2.5 w-2.5 fill-primary text-primary" />
+        </div>
+      ) : (
+        // Empty outline circle for pending
+        <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+      )}
+      <span className={`text-sm flex-1 ${
+        complete ? 'text-foreground' : 
+        active ? 'text-foreground font-medium' : 
+        'text-muted-foreground'
+      }`}>
+        {label}
       </span>
-    )}
-  </button>
-);
+      {active && !isActuallyLocked && (
+        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+          Current
+        </span>
+      )}
+    </button>
+  );
+};

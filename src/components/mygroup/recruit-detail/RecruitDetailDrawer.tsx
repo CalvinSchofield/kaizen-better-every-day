@@ -295,6 +295,13 @@ export const RecruitDetailDrawer = ({
   const handleConfirmOnboardingChange = async () => {
     if (!pendingOnboardingStep || !recruitRepData) return;
     const { field, value } = pendingOnboardingStep;
+    
+    // Define step order for cascading uncomplete
+    const allStepsOrder = [
+      'onboarding_complete', 'trainings_complete', 'slack_joined',
+      'ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'
+    ];
+    
     const fieldToNotionStatus: Record<string, string> = {
       'onboarding_complete': 'Onboarding ✅', 'trainings_complete': 'Trainings ✅', 'slack_joined': 'Slack Joined',
       'ramp_phase_1_complete': 'Phase 1 ✅', 'ramp_phase_2_complete': 'Phase 2 ✅', 'ramp_phase_3_complete': 'Phase 3 ✅', 'ramp_phase_4_complete': 'Phase 4 ✅',
@@ -303,11 +310,24 @@ export const RecruitDetailDrawer = ({
       'ramp_phase_1_complete': 'rampPhase1Complete', 'ramp_phase_2_complete': 'rampPhase2Complete',
       'ramp_phase_3_complete': 'rampPhase3Complete', 'ramp_phase_4_complete': 'rampPhase4Complete',
     };
-    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, [field]: value } : old);
+    
+    // Build updates object - if uncompleting, also uncomplete all subsequent steps
+    const updates: Record<string, boolean> = { [field]: value };
+    if (!value) {
+      const fieldIndex = allStepsOrder.indexOf(field);
+      allStepsOrder.slice(fieldIndex + 1).forEach(subsequentField => {
+        if (recruitRepData[subsequentField as keyof typeof recruitRepData]) {
+          updates[subsequentField] = false;
+        }
+      });
+    }
+    
+    // Optimistic update
+    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, ...updates } : old);
     setOnboardingConfirmOpen(false);
     setPendingOnboardingStep(null);
     try {
-      const { error } = await supabase.from('reps').update({ [field]: value }).eq('notion_page_id', recruit.notionPageId);
+      const { error } = await supabase.from('reps').update(updates).eq('notion_page_id', recruit.notionPageId);
       if (error) throw error;
       if (value) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -318,11 +338,14 @@ export const RecruitDetailDrawer = ({
           await supabase.functions.invoke('update-rookie-status', { headers: { Authorization: `Bearer ${session.access_token}` }, body: edgeBody });
         }
       }
-      toast.success(value ? 'Marked complete' : 'Marked incomplete');
+      const uncompleteCount = Object.keys(updates).length;
+      toast.success(value ? 'Marked complete' : uncompleteCount > 1 ? `Unmarked ${uncompleteCount} steps` : 'Marked incomplete');
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
     } catch (error) {
-      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, [field]: !value } : old);
+      // Rollback optimistic update
+      const rollback = Object.fromEntries(Object.keys(updates).map(k => [k, !updates[k]]));
+      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, ...rollback } : old);
       toast.error("Couldn't update");
     }
   };
