@@ -27,6 +27,7 @@ import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
 import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -185,6 +186,16 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <Customers />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Profile />
                   </Layout>
                 </ProtectedRoute>
               }

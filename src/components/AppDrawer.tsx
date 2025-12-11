@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw, Target, Trophy, UserPlus, Contact } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw, Target, Trophy, UserPlus, Contact, User } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -512,6 +512,21 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             </a>
 
             <Separator />
+
+            {/* Profile */}
+            <Link
+              to="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+            >
+              <User className="w-5 h-5 text-primary" />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold text-sm">Profile</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  Photo, name & preferences
+                </span>
+              </div>
+            </Link>
 
             {/* Personalize */}
             <Link
