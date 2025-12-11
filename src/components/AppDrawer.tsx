@@ -20,7 +20,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ProfilePhotoDrawer } from "./ProfilePhotoDrawer";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -36,7 +35,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
-  const [photoDrawerOpen, setPhotoDrawerOpen] = useState(false);
   
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
 
@@ -166,22 +164,17 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] flex flex-col">
         <SheetHeader className="pb-2">
-          <button 
-            onClick={() => {
-              setPhotoDrawerOpen(true);
-            }}
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-          >
-            <Avatar className="h-10 w-10 border-2 border-border">
+          <div className="flex flex-col items-center gap-2">
+            <Avatar className="h-16 w-16 border-2 border-border">
               <AvatarImage src={repData?.profile_photo_url || undefined} alt={cleanFirstName || "Profile"} />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+              <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
                 {cleanFirstName ? getInitials(cleanFirstName) : "?"}
               </AvatarFallback>
             </Avatar>
-            <SheetTitle className="text-left">
+            <SheetTitle>
               {cleanFirstName ? `Hey, ${cleanFirstName}` : "Menu"}
             </SheetTitle>
-          </button>
+          </div>
         </SheetHeader>
         
         {/* Scrollable content area */}
@@ -607,14 +600,6 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
       </SheetContent>
     </Sheet>
 
-    {/* Profile Photo Drawer */}
-    <ProfilePhotoDrawer
-      open={photoDrawerOpen}
-      onOpenChange={setPhotoDrawerOpen}
-      currentPhotoUrl={repData?.profile_photo_url}
-      name={repData?.name}
-      userId={repData?.user_id}
-    />
     </>
   );
 };
