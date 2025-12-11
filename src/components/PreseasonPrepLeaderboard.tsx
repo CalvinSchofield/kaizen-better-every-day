@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BookOpen, Timer, Dumbbell, Phone, Trophy, ChevronDown, ChevronUp, Star, CheckCircle, AlertCircle, Zap, TrendingUp, Target } from "lucide-react";
 import { usePreseasonPrepLeaderboard, LeaderboardMetric, LeaderboardEntry } from "@/hooks/usePreseasonPrepLeaderboard";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -96,6 +97,37 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
   );
 };
 
+// Loading skeleton for user status
+const UserStatusSkeleton = () => (
+  <div className="rounded-lg p-3 bg-background/60">
+    <div className="flex items-center gap-3">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-32" />
+      </div>
+    </div>
+  </div>
+);
+
+// Loading skeleton for podium
+const PodiumSkeleton = () => (
+  <div className="flex items-end justify-center gap-4 py-3">
+    <div className="flex flex-col items-center gap-1">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <Skeleton className="h-3 w-12" />
+    </div>
+    <div className="flex flex-col items-center gap-1">
+      <Skeleton className="h-14 w-14 rounded-full" />
+      <Skeleton className="h-3 w-14" />
+    </div>
+    <div className="flex flex-col items-center gap-1">
+      <Skeleton className="h-10 w-10 rounded-full" />
+      <Skeleton className="h-3 w-12" />
+    </div>
+  </div>
+);
+
 // Top 3 Podium Display
 const PodiumDisplay = ({ 
   entries, 
@@ -175,13 +207,33 @@ const PodiumDisplay = ({
   );
 };
 
+// Teaser for users without standards set up
+const StandardsTeaser = ({ onSetup }: { onSetup: () => void }) => (
+  <div className="text-center py-6 space-y-3">
+    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+      <Target className="h-6 w-6 text-primary" />
+    </div>
+    <div>
+      <p className="font-medium">Set your standards to compete</p>
+      <p className="text-sm text-muted-foreground mt-1">
+        Track your books, training, role plays & more
+      </p>
+    </div>
+    <Button onClick={onSetup} className="gap-2">
+      <TrendingUp className="h-4 w-4" />
+      Set Up Standards
+    </Button>
+  </div>
+);
+
 export const PreseasonPrepLeaderboard = () => {
   const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
   const [isExpanded, setIsExpanded] = useState(false);
   const { data, isLoading } = usePreseasonPrepLeaderboard(selectedMetric);
 
-  if (!isLoading && (!data || data.entries.length === 0)) return null;
+  // Show nothing only if we've loaded and there's truly no data
+  if (!isLoading && !data) return null;
 
   const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];
   const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) === 0) || [];
@@ -197,6 +249,7 @@ export const PreseasonPrepLeaderboard = () => {
   const currentUserValue = data?.currentUserEntry ? getMetricValue(data.currentUserEntry, selectedMetric) : 0;
   const userHasActivity = currentUserValue > 0;
   const userRank = userHasActivity ? data?.currentUserRank : null;
+  const userHasStandards = data?.currentUserHasStandards ?? false;
 
   // Find who's just ahead of current user for motivation
   const userAheadOfCurrent = userRank && userRank > 1 
@@ -220,18 +273,48 @@ export const PreseasonPrepLeaderboard = () => {
               {isWeeklyMetric ? "Resets Sunday midnight" : "All-time progress"}
             </p>
           </div>
-          <Button 
-            size="sm" 
-            onClick={() => navigate('/goals')}
-            className="h-8 text-xs gap-1"
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            Log Progress
-          </Button>
+          {userHasStandards && (
+            <Button 
+              size="sm" 
+              onClick={() => navigate('/goals')}
+              className="h-8 text-xs gap-1"
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              Log Progress
+            </Button>
+          )}
         </div>
 
-        {/* User Status */}
-        {data?.currentUserEntry && (
+        {/* User Status - Loading State */}
+        {isLoading && <UserStatusSkeleton />}
+
+        {/* User Status - No Standards Set Up */}
+        {!isLoading && !userHasStandards && (
+          <div className="rounded-lg p-3 bg-background/60 border border-dashed border-primary/30">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-medium">Join the competition</span>
+                <p className="text-xs text-muted-foreground">
+                  Set up your standards to start tracking
+                </p>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => navigate('/goals')}
+                className="h-7 text-xs"
+              >
+                Set Up
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* User Status - Has Standards */}
+        {!isLoading && userHasStandards && data?.currentUserEntry && (
           <div className={cn(
             "rounded-lg p-3 transition-all",
             userHasActivity 
@@ -309,8 +392,11 @@ export const PreseasonPrepLeaderboard = () => {
           ))}
         </div>
 
+        {/* Top 3 Podium - Loading State */}
+        {isLoading && <PodiumSkeleton />}
+
         {/* Top 3 Podium */}
-        {top3.length > 0 && (
+        {!isLoading && top3.length > 0 && (
           <PodiumDisplay 
             entries={top3} 
             metric={selectedMetric} 
@@ -319,7 +405,7 @@ export const PreseasonPrepLeaderboard = () => {
         )}
 
         {/* Empty State */}
-        {top3.length === 0 && (
+        {!isLoading && top3.length === 0 && (
           <div className="text-center py-6 text-muted-foreground">
             <p className="text-sm">No activity yet this week</p>
             <p className="text-xs mt-1">Be the first to get on the board!</p>
@@ -327,7 +413,7 @@ export const PreseasonPrepLeaderboard = () => {
         )}
 
         {/* Rest of leaderboard (4-8) */}
-        {restWithActivity.length > 0 && (
+        {!isLoading && restWithActivity.length > 0 && (
           <div className="space-y-0.5 border-t pt-2">
             {restWithActivity.map((entry, index) => (
               <LeaderboardRow
@@ -342,7 +428,7 @@ export const PreseasonPrepLeaderboard = () => {
         )}
 
         {/* Expandable remaining entries */}
-        {remainingEntries.length > 0 && (
+        {!isLoading && remainingEntries.length > 0 && (
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger className="flex items-center justify-center w-full py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               {isExpanded ? (
