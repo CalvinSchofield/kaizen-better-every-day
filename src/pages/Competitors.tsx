@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ArrowLeft, Loader2, RefreshCw, Search, X, ChevronDown, Star } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Search, X, ChevronDown, Star, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { motion, AnimatePresence } from "framer-motion";
 
-const CATEGORIES = ["All", "Cameras", "Alarm", "Panels"] as const;
+// Category display names mapped to database values
+const CATEGORIES = [
+  { label: "All", value: "all" },
+  { label: "Cameras", value: "cameras" },
+  { label: "Alarm", value: "alarm service (monthly)" },
+  { label: "Panels", value: "panels & equipment" },
+] as const;
 
 export default function Competitors() {
   const navigate = useNavigate();
@@ -20,9 +26,10 @@ export default function Competitors() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useLocalStorage<string[]>("competitor-favorites", []);
+  const [isAiMode, setIsAiMode] = useState(false);
   const { toast } = useToast();
   
   // AI recommendation state
@@ -118,17 +125,17 @@ export default function Competitors() {
     }
     
     // Filter by category
-    if (selectedCategory !== "All") {
+    if (selectedCategory !== "all") {
       filtered = filtered.filter(c => 
-        c.category?.toLowerCase() === selectedCategory.toLowerCase()
+        c.category?.toLowerCase() === selectedCategory
       );
     }
     
     // Sort: favorites first, then by category order, then alphabetically
     const categoryOrder: { [key: string]: number } = {
       'cameras': 1,
-      'alarm': 2,
-      'panels': 3,
+      'alarm service (monthly)': 2,
+      'panels & equipment': 3,
     };
     
     return filtered.sort((a, b) => {
@@ -175,30 +182,57 @@ export default function Competitors() {
             </Button>
           </div>
 
-          {/* AI Recommendation */}
-          <div className="space-y-2 mb-4">
-            <div className="flex gap-2">
+          {/* Unified Search/AI Input */}
+          <div className="space-y-2 mb-3">
+            <div className="relative">
+              {isAiMode ? (
+                <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              )}
               <Input
-                placeholder="What do you see on their door?"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAiRecommendation()}
+                placeholder={isAiMode ? "What do you see on their door?" : "Search competitors..."}
+                value={isAiMode ? aiInput : searchQuery}
+                onChange={(e) => isAiMode ? setAiInput(e.target.value) : setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && isAiMode && handleAiRecommendation()}
                 onFocus={(e) => e.target.select()}
-                className="flex-1 bg-muted/50 border-0 rounded-xl"
+                className="pl-9 pr-20 h-11 bg-muted/50 border-0 rounded-xl"
               />
-              <Button 
-                onClick={handleAiRecommendation}
-                disabled={isLoadingAi || !aiInput.trim()}
-                size="icon"
-                className="rounded-xl"
-              >
-                {isLoadingAi ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <span className="text-sm">✨</span>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {(isAiMode ? aiInput : searchQuery) && (
+                  <button
+                    onClick={() => isAiMode ? setAiInput("") : setSearchQuery("")}
+                    className="p-1.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 )}
-              </Button>
+                <button
+                  onClick={() => {
+                    if (isAiMode && aiInput.trim()) {
+                      handleAiRecommendation();
+                    } else {
+                      setIsAiMode(!isAiMode);
+                      setAiInput("");
+                      setSearchQuery("");
+                    }
+                  }}
+                  disabled={isAiMode && isLoadingAi}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isAiMode 
+                      ? "bg-primary text-primary-foreground" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {isLoadingAi ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
+            
             <AnimatePresence>
               {aiRecommendation && (
                 <motion.div
@@ -237,38 +271,19 @@ export default function Competitors() {
             </AnimatePresence>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search competitors..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-10 bg-muted/50 border-0 rounded-xl"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
           {/* Category Filters */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
             {CATEGORIES.map((category) => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={category.value}
+                onClick={() => setSelectedCategory(category.value)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === category
+                  selectedCategory === category.value
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                {category}
+                {category.label}
               </button>
             ))}
           </div>
