@@ -57,6 +57,9 @@ export const useRecruitingRecommendations = (
     const now = new Date();
     const recommendations: RecruitRecommendation[] = [];
 
+    // Debug logging for development
+    console.log('[Recommendations] Processing', recruits.length, 'recruits with', blitzes?.length || 0, 'blitzes');
+
     // Build a map of latest activity per recruit
     const lastContactMap = new Map<string, Date>();
     activities.forEach(activity => {
@@ -75,6 +78,8 @@ export const useRecruitingRecommendations = (
       const daysUntil = differenceInDays(blitzDate, now);
       return daysUntil >= 0 && daysUntil <= 21;
     });
+    
+    console.log('[Recommendations] Upcoming blitzes (within 21 days):', upcomingBlitzes.map(b => ({ id: b.id, name: b.name, date: b.date })));
 
     recruits.forEach(recruit => {
       const lastContact = lastContactMap.get(recruit.notionPageId);
@@ -105,8 +110,11 @@ export const useRecruitingRecommendations = (
         let committedBlitzIds: string[] = [];
         
         // First try recruit's committedBlitzes from Notion (most reliable)
+        // Note: From Notion, this could be string[] (IDs) or BlitzCommitment[] (objects)
         if (recruit.committedBlitzes && recruit.committedBlitzes.length > 0) {
-          committedBlitzIds = recruit.committedBlitzes.map(b => b.id);
+          committedBlitzIds = recruit.committedBlitzes.map((b: string | { id: string }) => 
+            typeof b === 'string' ? b : b.id
+          );
         } 
         // Fall back to repData.committed_blitzes from reps table
         else if (repData) {
@@ -116,10 +124,16 @@ export const useRecruitingRecommendations = (
             : [];
         }
 
+        // Debug logging for blitz matching
+        if (committedBlitzIds.length > 0) {
+          console.log(`[Recommendations] ${recruit.name} (${recruit.stage}) has committedBlitzIds:`, committedBlitzIds, 'hasRepData:', !!repData);
+        }
+
         // Find nearest committed blitz
         for (const blitz of upcomingBlitzes) {
           if (committedBlitzIds.includes(blitz.id)) {
             const days = differenceInDays(parseISO(blitz.date), now);
+            console.log(`[Recommendations] ${recruit.name} matches blitz ${blitz.name} in ${days} days`);
             if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
               nearestBlitzDays = days;
               nearestBlitzName = blitz.name;
