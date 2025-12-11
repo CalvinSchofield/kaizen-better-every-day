@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BookOpen, Check, Plus, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import confetti from "canvas-confetti";
+import { useSyncedBooks } from "@/hooks/useSyncedBooks";
 
 interface Book {
   id: string;
@@ -42,6 +43,7 @@ export const BOOKS: Book[] = [
   { id: "cant-hurt-me", title: "Can't Hurt Me", author: "David Goggins" },
 ];
 
+// Legacy keys kept for reference during migration
 export const BOOKS_COMMITTED_KEY = "kaizen-books-committed";
 export const BOOKS_READ_KEY = "kaizen-books-read";
 export const OTHER_BOOKS_COMMITTED_KEY = "kaizen-other-books-committed";
@@ -60,42 +62,24 @@ export const BooksCommitmentDrawer = ({
   onUpdateGoal,
 }: BooksCommitmentDrawerProps) => {
   const { toast } = useToast();
-  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
-  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
+  const {
+    booksCommitted,
+    otherBooksCommitted,
+    toggleBookCommitted,
+    addOtherBookCommitted,
+    removeOtherBookCommitted,
+    isLoading,
+  } = useSyncedBooks();
   const [newOtherBook, setNewOtherBook] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(BOOKS_COMMITTED_KEY);
-      if (stored) {
-        setBooksCommitted(new Set(JSON.parse(stored)));
-      }
-      const otherStored = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
-      if (otherStored) {
-        setOtherBooksCommitted(JSON.parse(otherStored));
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, [isOpen]);
-
   const handleBookToggle = async (bookId: string) => {
     setIsSaving(true);
-    const newBooksCommitted = new Set(booksCommitted);
-    
-    if (newBooksCommitted.has(bookId)) {
-      newBooksCommitted.delete(bookId);
-    } else {
-      newBooksCommitted.add(bookId);
-    }
-    
-    setBooksCommitted(newBooksCommitted);
-    localStorage.setItem(BOOKS_COMMITTED_KEY, JSON.stringify([...newBooksCommitted]));
-    
-    const newCount = newBooksCommitted.size + otherBooksCommitted.length;
     try {
+      await toggleBookCommitted(bookId);
+      const newCount = (booksCommitted.has(bookId) 
+        ? booksCommitted.size - 1 
+        : booksCommitted.size + 1) + otherBooksCommitted.length;
       await onUpdateGoal(newCount);
     } catch {
       toast({
@@ -111,12 +95,9 @@ export const BooksCommitmentDrawer = ({
     if (!newOtherBook.trim()) return;
     
     setIsSaving(true);
-    const newOtherBooks = [...otherBooksCommitted, newOtherBook.trim()];
-    setOtherBooksCommitted(newOtherBooks);
-    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(newOtherBooks));
-    
-    const newCount = booksCommitted.size + newOtherBooks.length;
     try {
+      await addOtherBookCommitted(newOtherBook.trim());
+      const newCount = booksCommitted.size + otherBooksCommitted.length + 1;
       await onUpdateGoal(newCount);
       setNewOtherBook("");
     } catch {
@@ -131,12 +112,9 @@ export const BooksCommitmentDrawer = ({
 
   const handleRemoveOtherBook = async (index: number) => {
     setIsSaving(true);
-    const newOtherBooks = otherBooksCommitted.filter((_, i) => i !== index);
-    setOtherBooksCommitted(newOtherBooks);
-    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(newOtherBooks));
-    
-    const newCount = booksCommitted.size + newOtherBooks.length;
     try {
+      await removeOtherBookCommitted(index);
+      const newCount = booksCommitted.size + otherBooksCommitted.length - 1;
       await onUpdateGoal(newCount);
     } catch {
       toast({
@@ -173,7 +151,7 @@ export const BooksCommitmentDrawer = ({
                 <button
                   key={book.id}
                   onClick={() => handleBookToggle(book.id)}
-                  disabled={isSaving}
+                  disabled={isSaving || isLoading}
                   className={cn(
                     "flex items-center gap-3 w-full p-3 rounded-lg text-left transition-all",
                     isCommitted ? "bg-purple-500/10 ring-1 ring-purple-500/50" : "bg-muted/50 hover:bg-muted"
@@ -206,7 +184,7 @@ export const BooksCommitmentDrawer = ({
                   size="icon"
                   className="h-6 w-6"
                   onClick={() => handleRemoveOtherBook(index)}
-                  disabled={isSaving}
+                  disabled={isSaving || isLoading}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -225,7 +203,7 @@ export const BooksCommitmentDrawer = ({
                 variant="outline"
                 size="icon"
                 onClick={handleAddOtherBook}
-                disabled={!newOtherBook.trim() || isSaving}
+                disabled={!newOtherBook.trim() || isSaving || isLoading}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -262,54 +240,27 @@ export const BooksCompletionDrawer = ({
   onUpdateProgress,
 }: BooksCompletionDrawerProps) => {
   const { toast } = useToast();
-  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
-  const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
-  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
-  const [otherBooksRead, setOtherBooksRead] = useState<string[]>([]);
+  const {
+    booksCommitted,
+    booksRead,
+    otherBooksCommitted,
+    otherBooksRead,
+    toggleBookRead,
+    toggleOtherBookRead,
+    isLoading,
+  } = useSyncedBooks();
   const [isSaving, setIsSaving] = useState(false);
-
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const committed = localStorage.getItem(BOOKS_COMMITTED_KEY);
-      if (committed) {
-        setBooksCommitted(new Set(JSON.parse(committed)));
-      }
-      const read = localStorage.getItem(BOOKS_READ_KEY);
-      if (read) {
-        setBooksRead(new Set(JSON.parse(read)));
-      }
-      const otherCommitted = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
-      if (otherCommitted) {
-        setOtherBooksCommitted(JSON.parse(otherCommitted));
-      }
-      const otherRead = localStorage.getItem(OTHER_BOOKS_READ_KEY);
-      if (otherRead) {
-        setOtherBooksRead(JSON.parse(otherRead));
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, [isOpen]);
 
   const handleToggleBookRead = async (bookId: string) => {
     setIsSaving(true);
-    const newBooksRead = new Set(booksRead);
-    const isCurrentlyRead = newBooksRead.has(bookId);
+    const isCurrentlyRead = booksRead.has(bookId);
     
-    if (isCurrentlyRead) {
-      // Unmark as read
-      newBooksRead.delete(bookId);
-    } else {
-      // Mark as read
-      newBooksRead.add(bookId);
-    }
-    
-    setBooksRead(newBooksRead);
-    localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
-    
-    const newCount = newBooksRead.size + otherBooksRead.length;
     try {
+      await toggleBookRead(bookId);
+      
+      const newCount = isCurrentlyRead 
+        ? booksRead.size - 1 + otherBooksRead.length
+        : booksRead.size + 1 + otherBooksRead.length;
       await onUpdateProgress(newCount);
       
       if (!isCurrentlyRead) {
@@ -348,20 +299,12 @@ export const BooksCompletionDrawer = ({
     setIsSaving(true);
     const isCurrentlyRead = otherBooksRead.includes(bookTitle);
     
-    let newOtherBooksRead: string[];
-    if (isCurrentlyRead) {
-      // Unmark as read
-      newOtherBooksRead = otherBooksRead.filter(b => b !== bookTitle);
-    } else {
-      // Mark as read
-      newOtherBooksRead = [...otherBooksRead, bookTitle];
-    }
-    
-    setOtherBooksRead(newOtherBooksRead);
-    localStorage.setItem(OTHER_BOOKS_READ_KEY, JSON.stringify(newOtherBooksRead));
-    
-    const newCount = booksRead.size + newOtherBooksRead.length;
     try {
+      await toggleOtherBookRead(bookTitle);
+      
+      const newCount = isCurrentlyRead
+        ? booksRead.size + otherBooksRead.length - 1
+        : booksRead.size + otherBooksRead.length + 1;
       await onUpdateProgress(newCount);
       
       if (!isCurrentlyRead) {
@@ -431,7 +374,7 @@ export const BooksCompletionDrawer = ({
                   <button
                     key={book.id}
                     onClick={() => handleToggleBookRead(book.id)}
-                    disabled={isSaving}
+                    disabled={isSaving || isLoading}
                     className={cn(
                       "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
                       isRead 
@@ -464,7 +407,7 @@ export const BooksCompletionDrawer = ({
                   <button
                     key={`other-${index}`}
                     onClick={() => handleToggleOtherBookRead(book)}
-                    disabled={isSaving}
+                    disabled={isSaving || isLoading}
                     className={cn(
                       "flex items-center gap-3 w-full p-4 rounded-xl text-left transition-all",
                       isRead 
@@ -496,12 +439,11 @@ export const BooksCompletionDrawer = ({
 
         <div className="px-4 pb-6">
           <Button
-            variant="outline"
             onClick={onClose}
             className="w-full"
             size="lg"
           >
-            Cancel
+            Done
           </Button>
         </div>
       </DrawerContent>
@@ -509,5 +451,5 @@ export const BooksCompletionDrawer = ({
   );
 };
 
-// Legacy export for backwards compatibility
+// Legacy export for backward compatibility
 export const BooksSelectionDrawer = BooksCompletionDrawer;
