@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const SetupFlow = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [statusText, setStatusText] = useState("Loading your profile...");
   const [notInNotion, setNotInNotion] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isRequestingAccess, setIsRequestingAccess] = useState(false);
 
   useEffect(() => {
     runSetup();
@@ -296,6 +299,37 @@ const SetupFlow = () => {
     }
   };
 
+  // Handle request access - sends email automatically
+  const handleRequestAccess = async () => {
+    setIsRequestingAccess(true);
+    
+    try {
+      const { error } = await supabase.functions.invoke('send-setup-nudge-email', {
+        body: {
+          userEmail: userEmail,
+          notionEmail: null,
+          repName: null
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Request Sent!",
+        description: "Calvin has been notified. You'll be added soon.",
+      });
+    } catch (error) {
+      console.error('Error sending request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send request. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRequestingAccess(false);
+    }
+  };
+
   // Show "Not in Notion" request access screen
   if (notInNotion) {
     return (
@@ -328,13 +362,14 @@ const SetupFlow = () => {
                 </ol>
               </div>
 
-              <a
-                href="mailto:?subject=Kaizen%20App%20Access%20Request&body=Hi%2C%0A%0AI'm%20trying%20to%20access%20the%20Kaizen%20app%20but%20my%20account%20isn't%20set%20up%20yet.%0A%0AMy%20email%3A%20" 
-                className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              <Button
+                onClick={handleRequestAccess}
+                disabled={isRequestingAccess}
+                className="w-full"
               >
-                <Mail className="w-4 h-4" />
-                Request Access
-              </a>
+                <Mail className="w-4 h-4 mr-2" />
+                {isRequestingAccess ? "Sending..." : "Request Access"}
+              </Button>
 
               <Button
                 variant="outline"
