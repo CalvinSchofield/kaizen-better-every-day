@@ -60,7 +60,6 @@ interface GoalSetupWizardProps {
 
 export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, onCancel }: GoalSetupWizardProps) => {
   const [step, setStep] = useState(1);
-  const totalSteps = isRookie ? 6 : 4; // Rookies: Expenses → Dates → Goals → Preseason → Blitzes → Review
   
   // Blitz data for rookie commitment step
   const { allBlitzes, loading: blitzesLoading } = useBlitzes();
@@ -72,6 +71,13 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
 
   // Check if it's currently summer (after April 12, 2026)
   const isCurrentlySummer = new Date() >= SUMMER_START_MIN;
+  
+  // Calculate total steps - skip preseason step if already in summer
+  // Rookies: Expenses → Dates → Goals → [Preseason if not summer] → Blitzes → Review
+  // Vets: Dates → Goals → [Preseason if not summer] → Review
+  const totalSteps = isRookie 
+    ? (isCurrentlySummer ? 5 : 6) 
+    : (isCurrentlySummer ? 3 : 4);
 
   // Form state - no prefilled values for goals except preseason defaults to 5
   const [monthlyExpenses, setMonthlyExpenses] = useState<string>('');
@@ -136,22 +142,44 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
 
   const getStepTitle = () => {
     if (isRookie) {
-      switch (step) {
-        case 1: return "Monthly Expenses";
-        case 2: return "Summer Dates";
-        case 3: return "Summer Goals";
-        case 4: return "Preseason Goal";
-        case 5: return "Commit to Blitzes";
-        case 6: return "Review";
-        default: return "";
+      if (isCurrentlySummer) {
+        // Skip preseason step
+        switch (step) {
+          case 1: return "Monthly Expenses";
+          case 2: return "Summer Dates";
+          case 3: return "Summer Goals";
+          case 4: return "Commit to Blitzes";
+          case 5: return "Review";
+          default: return "";
+        }
+      } else {
+        switch (step) {
+          case 1: return "Monthly Expenses";
+          case 2: return "Summer Dates";
+          case 3: return "Summer Goals";
+          case 4: return "Preseason Goal";
+          case 5: return "Commit to Blitzes";
+          case 6: return "Review";
+          default: return "";
+        }
       }
     } else {
-      switch (step) {
-        case 1: return "Summer Dates";
-        case 2: return "Summer Goals";
-        case 3: return "Preseason Goal";
-        case 4: return "Review";
-        default: return "";
+      if (isCurrentlySummer) {
+        // Skip preseason step
+        switch (step) {
+          case 1: return "Summer Dates";
+          case 2: return "Summer Goals";
+          case 3: return "Review";
+          default: return "";
+        }
+      } else {
+        switch (step) {
+          case 1: return "Summer Dates";
+          case 2: return "Summer Goals";
+          case 3: return "Preseason Goal";
+          case 4: return "Review";
+          default: return "";
+        }
       }
     }
   };
@@ -180,87 +208,121 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
 
   const renderStep = () => {
     if (isRookie) {
-      switch (step) {
-        case 1:
-          return (
-            <div className="space-y-6">
-              <div className="text-center mb-6">
-                <DollarSign className="h-12 w-12 mx-auto text-primary mb-3" />
-                <p className="text-muted-foreground">
-                  Let's figure out your minimum goal based on your expenses
-                </p>
-              </div>
-              
-              <div>
-                <Label htmlFor="expenses">Monthly Expenses ($)</Label>
-                <Input
-                  id="expenses"
-                  type="text"
-                  inputMode="numeric"
-                  value={monthlyExpenses}
-                  onChange={(e) => handleNumberInput(e.target.value, setMonthlyExpenses)}
-                  className="mt-2 text-lg"
-                  placeholder="2000"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Rent, food, car payment, etc.
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="monthsOff">Months Not Working at Vivint</Label>
-                <Input
-                  id="monthsOff"
-                  type="text"
-                  inputMode="numeric"
-                  value={monthsOff}
-                  onChange={(e) => handleNumberInput(e.target.value, setMonthsOff)}
-                  className="mt-2"
-                  placeholder="8"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Months during the year you won't be selling (school, etc.) — defaults to 8 since this is a summer job
-                </p>
-              </div>
-
-              {monthlyExpenses && (
-                <div className="rounded-xl bg-primary/10 p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-1">You need to cover:</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency((Number(monthlyExpenses) || 0) * (Number(monthsOff) || 4))}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        case 2:
-          return renderDateSettings();
-        case 3:
-          return renderGoalInputs();
-        case 4:
-          return renderPreseasonGoal();
-        case 5:
-          return renderBlitzCommitment();
-        case 6:
-          return renderReview();
-        default:
-          return null;
+      if (isCurrentlySummer) {
+        // Skip preseason step flow
+        switch (step) {
+          case 1:
+            return renderExpensesStep();
+          case 2:
+            return renderDateSettings();
+          case 3:
+            return renderGoalInputs();
+          case 4:
+            return renderBlitzCommitment();
+          case 5:
+            return renderReview();
+          default:
+            return null;
+        }
+      } else {
+        switch (step) {
+          case 1:
+            return renderExpensesStep();
+          case 2:
+            return renderDateSettings();
+          case 3:
+            return renderGoalInputs();
+          case 4:
+            return renderPreseasonGoal();
+          case 5:
+            return renderBlitzCommitment();
+          case 6:
+            return renderReview();
+          default:
+            return null;
+        }
       }
     } else {
-      switch (step) {
-        case 1:
-          return renderDateSettings();
-        case 2:
-          return renderGoalInputs();
-        case 3:
-          return renderPreseasonGoal();
-        case 4:
-          return renderReview();
-        default:
-          return null;
+      if (isCurrentlySummer) {
+        // Skip preseason step flow
+        switch (step) {
+          case 1:
+            return renderDateSettings();
+          case 2:
+            return renderGoalInputs();
+          case 3:
+            return renderReview();
+          default:
+            return null;
+        }
+      } else {
+        switch (step) {
+          case 1:
+            return renderDateSettings();
+          case 2:
+            return renderGoalInputs();
+          case 3:
+            return renderPreseasonGoal();
+          case 4:
+            return renderReview();
+          default:
+            return null;
+        }
       }
     }
   };
+
+  const renderExpensesStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <DollarSign className="h-12 w-12 mx-auto text-primary mb-3" />
+        <p className="text-muted-foreground">
+          Let's figure out your minimum goal based on your expenses
+        </p>
+      </div>
+      
+      <div>
+        <Label htmlFor="expenses">Monthly Expenses ($)</Label>
+        <Input
+          id="expenses"
+          type="text"
+          inputMode="numeric"
+          value={monthlyExpenses}
+          onChange={(e) => handleNumberInput(e.target.value, setMonthlyExpenses)}
+          className="mt-2 text-lg"
+          placeholder="2000"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Rent, food, car payment, etc.
+        </p>
+      </div>
+
+      <div>
+        <Label htmlFor="monthsOff">Months Not Working at Vivint</Label>
+        <Input
+          id="monthsOff"
+          type="text"
+          inputMode="numeric"
+          value={monthsOff}
+          onChange={(e) => handleNumberInput(e.target.value, setMonthsOff)}
+          className="mt-2"
+          placeholder="8"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Months during the year you won't be selling (school, etc.) — defaults to 8 since this is a summer job
+        </p>
+      </div>
+
+      {monthlyExpenses && (
+        <div className="rounded-xl bg-primary/10 p-4 text-center">
+          <p className="text-sm text-muted-foreground mb-1">You need to cover:</p>
+          <p className="text-2xl font-bold text-primary">
+            {formatCurrency((Number(monthlyExpenses) || 0) * (Number(monthsOff) || 4))}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   const renderDateSettings = () => (
     <div className="space-y-6">
