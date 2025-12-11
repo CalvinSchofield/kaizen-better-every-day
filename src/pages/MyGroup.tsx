@@ -123,10 +123,17 @@ const MyGroup = () => {
     
     const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean } | null;
     if (navState?.openCategory && navState?.autoSelectMyTeam) {
-      // Auto-select the leader's own team filter using their name
+      // For leaders with multiple teams (MGMT leads, Area Directors), filter by their name
+      // First try to find a team they lead directly
       const myTeam = teamAccess.teams?.find(t => t.name === currentUserRep.name);
       if (myTeam) {
         setSelectedTeamFilter(`team:${myTeam.id}`);
+      } else {
+        // For MGMT group leads, find the management group they lead
+        const myMgmtGroup = teamAccess.mgmtGroups?.find(g => g.name === currentUserRep.name);
+        if (myMgmtGroup) {
+          setSelectedTeamFilter(`mgmt:${myMgmtGroup.id}`);
+        }
       }
       
       // Open the specified category drawer
