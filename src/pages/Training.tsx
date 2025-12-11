@@ -187,28 +187,10 @@ const Training = () => {
   // If an in-app guide is active, show it full-screen
   if (activeGuide === "fresh") {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-lg mx-auto px-4 py-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setActiveGuide(null)} className="gap-1 -ml-2">
-                  <ChevronLeft className="h-4 w-4" />
-                  Back to Training
-                </Button>
-              </div>
-              <div className="flex items-center gap-2 pt-2">
-                <span className="text-2xl">🚪</span>
-                <CardTitle>Fresh Door Approach</CardTitle>
-              </div>
-              <CardDescription>Master the 6-step pitch flow</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FreshDoorPitchGuide />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <FreshDoorPitchGuide 
+        onBack={() => setActiveGuide(null)} 
+        pageTitle="Fresh Pitch"
+      />
     );
   }
 
