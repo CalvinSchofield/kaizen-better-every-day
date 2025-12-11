@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { Check, CheckCircle2, Calendar } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,6 +11,7 @@ import {
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals } from "../types";
 import { getFirstName } from "../utils";
+import { format, parseISO, differenceInDays } from "date-fns";
 
 interface ProgressTabProps {
   recruit: Recruit;
@@ -71,6 +72,27 @@ export const ProgressTab = ({
   
   const currentStep = getCurrentStep();
 
+  // Get upcoming blitz info
+  const getUpcomingBlitz = () => {
+    if (!recruitRepData.blitz_trip_date || !recruitRepData.blitz_trip_name) return null;
+    try {
+      const blitzDate = parseISO(recruitRepData.blitz_trip_date);
+      const today = new Date();
+      const daysUntil = differenceInDays(blitzDate, today);
+      if (daysUntil < 0) return null; // Past blitz
+      return {
+        name: recruitRepData.blitz_trip_name,
+        date: blitzDate,
+        daysUntil,
+        location: recruitRepData.blitz_trip_location
+      };
+    } catch {
+      return null;
+    }
+  };
+  
+  const upcomingBlitz = getUpcomingBlitz();
+
   return (
     <div className="space-y-4">
       {isRookie && (
@@ -81,12 +103,14 @@ export const ProgressTab = ({
               ? 'bg-emerald-500/10 border border-emerald-500/30'
               : 'bg-card border border-border'
           }`}>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 {rampComplete ? (
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 ) : (
-                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-primary">{completedSteps}</span>
+                  </div>
                 )}
                 <span className={`font-semibold ${rampComplete ? 'text-emerald-600' : 'text-foreground'}`}>
                   {rampComplete ? 'Blitz Ready!' : `${completedSteps} of ${totalSteps} steps complete`}
@@ -94,6 +118,29 @@ export const ProgressTab = ({
               </div>
               <span className="text-sm text-muted-foreground">{Math.round(progressPercent)}%</span>
             </div>
+            
+            {/* Upcoming Blitz Context */}
+            {upcomingBlitz && !rampComplete && (
+              <div className={`flex items-center gap-2 text-xs mb-2 px-2 py-1.5 rounded-lg ${
+                upcomingBlitz.daysUntil <= 7 
+                  ? 'bg-destructive/10 text-destructive' 
+                  : upcomingBlitz.daysUntil <= 14 
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                    : 'bg-primary/10 text-primary'
+              }`}>
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">{upcomingBlitz.name}</span>
+                <span>·</span>
+                <span>
+                  {upcomingBlitz.daysUntil === 0 
+                    ? 'Today!' 
+                    : upcomingBlitz.daysUntil === 1 
+                      ? 'Tomorrow' 
+                      : `${upcomingBlitz.daysUntil} days away`}
+                </span>
+              </div>
+            )}
+            
             <Progress value={progressPercent} className="h-2" />
           </div>
 
