@@ -20,7 +20,7 @@ export const IntroSlide = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center text-center px-6 py-8 h-full"
+      className="flex flex-col items-center justify-center text-center px-6 py-8 pointer-events-none"
     >
       {icon && (
         <motion.div
