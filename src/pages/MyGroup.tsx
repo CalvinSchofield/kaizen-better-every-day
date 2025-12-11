@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
+import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
@@ -62,6 +63,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 };
 
 const MyGroup = () => {
+  const location = useLocation();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
   const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
@@ -88,11 +90,54 @@ const MyGroup = () => {
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
   const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
+  
+  // Track if we've processed the navigation state
+  const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
 
   // Auto-log blitz attendance for recently ended blitzes (leaders only)
   useBlitzAttendanceLogger(allBlitzesIncludingPast, isLeader);
 
   const isLoading = accessLoading || (isLeader ? recruitsLoading : suggestionsLoading);
+
+  // Fetch current user's rep data to get their team leader name
+  const { data: currentUserRep } = useQuery({
+    queryKey: ['current-user-rep-team'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data } = await supabase
+        .from('reps')
+        .select('name, team_leader')
+        .eq('user_id', user.id)
+        .single();
+      
+      return data;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Handle navigation state for auto-opening readiness drawer with team filter
+  useEffect(() => {
+    if (hasProcessedNavState || isLoading || !teamAccess || !currentUserRep) return;
+    
+    const navState = location.state as { openCategory?: string; autoSelectMyTeam?: boolean } | null;
+    if (navState?.openCategory && navState?.autoSelectMyTeam) {
+      // Auto-select the leader's own team filter using their name
+      const myTeam = teamAccess.teams?.find(t => t.name === currentUserRep.name);
+      if (myTeam) {
+        setSelectedTeamFilter(`team:${myTeam.id}`);
+      }
+      
+      // Open the specified category drawer
+      setSelectedCategoryId(navState.openCategory);
+      setAttentionDrawerOpen(true);
+      setHasProcessedNavState(true);
+      
+      // Clear the navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [hasProcessedNavState, isLoading, teamAccess, location.state, currentUserRep]);
 
   const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];
