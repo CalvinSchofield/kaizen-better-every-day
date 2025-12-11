@@ -132,13 +132,12 @@ export const TodaysFocusHero = ({
           {topRecommendation.reason}
         </p>
 
+        {/* Show only the FIRST missing item as next step */}
         {topRecommendation.missingItems && topRecommendation.missingItems.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {topRecommendation.missingItems.map((item) => (
-              <Badge key={item} variant="outline" className="text-xs border-red-500/30 text-red-600 bg-red-500/5">
-                Missing: {item}
-              </Badge>
-            ))}
+          <div className="mb-4">
+            <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5">
+              Next: {topRecommendation.missingItems[0]}
+            </Badge>
           </div>
         )}
       </div>
