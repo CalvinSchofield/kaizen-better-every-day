@@ -1439,14 +1439,14 @@ const Home = () => {
                   <CardTitle className="text-lg leading-tight flex-1 min-w-0">Ramp to Blitz</CardTitle>
                   {allRampPhasesComplete ? <Badge className="bg-success text-success-foreground">✓ Completed</Badge> : !slackComplete ? <Badge className="bg-locked text-locked-foreground">🔒 Locked</Badge> : <Badge className="bg-warning text-warning-foreground">In Progress</Badge>}
                 </div>
-                {slackComplete && !allRampPhasesComplete && <CardDescription className="text-sm leading-relaxed">
-                    Work through all 4 phases to be ready for your first blitz.
+                {slackComplete && <CardDescription className="text-sm leading-relaxed">
+                    {allRampPhasesComplete ? "Tap any phase to review the content." : "Work through all 4 phases to be ready for your first blitz."}
                   </CardDescription>}
               </div>
             </div>
           </CardHeader>
 
-          {slackComplete && !allRampPhasesComplete && <CardContent className="pt-0 space-y-3">
+          {slackComplete && <CardContent className="pt-0 space-y-3">
               <Accordion 
                 type="single" 
                 collapsible 
@@ -1547,9 +1547,6 @@ const Home = () => {
               </Accordion>
             </CardContent>}
 
-          {allRampPhasesComplete && <CardContent className="pt-0">
-              <p className="text-sm text-muted-foreground">All phases completed! You're ready for the blitz!</p>
-            </CardContent>}
         </Card>
 
         {/* Blitz Management Card - Show after Phase 1 is complete */}
