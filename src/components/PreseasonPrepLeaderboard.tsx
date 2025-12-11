@@ -86,7 +86,7 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
       case 'mnl':
         return (
           <span className="text-sm font-medium">
-            {entry.weeklyMnl} attended
+            {entry.weeklyMnl > 0 ? '✓ Attended' : 'Not yet'}
           </span>
         );
     }
@@ -172,7 +172,7 @@ export const PreseasonPrepLeaderboard = () => {
               {isWeeklyMetric ? "Resets every Sunday at midnight" : "All-time books completed"}
             </p>
           </div>
-          {data?.currentUserRank && data.currentUserRank > 0 && (
+          {data?.currentUserRank && data.currentUserRank > 0 && data.currentUserEntry && getMetricValue(data.currentUserEntry) > 0 && (
             <Badge variant="outline" className="text-xs">
               You're #{data.currentUserRank}
             </Badge>
