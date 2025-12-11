@@ -7,6 +7,7 @@ import { useAppMode } from "@/hooks/useAppMode";
 import { useRepData } from "@/hooks/useRepData";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useHeader } from "@/contexts/HeaderContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,6 +25,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const { isKnockingMode } = useAppMode(repData);
   const isNavVisible = useScrollDirection();
   const { data: teamAccess } = useTeamAccess();
+  const { customTitle, customRightContent } = useHeader();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   
   // Check if user is a pre-blitz rookie
@@ -226,13 +228,15 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
           {/* Center - Page title */}
           <div className="flex-1 flex justify-center">
             <h1 className={`text-lg font-semibold ${isHomePage ? "text-primary-foreground" : "text-foreground"}`}>
-              {getPageTitle()}
+              {customTitle || getPageTitle()}
             </h1>
           </div>
           
           {/* Right side - action buttons */}
           <div className="flex-shrink-0">
-            {headerRightContent ? (
+            {customRightContent ? (
+              customRightContent
+            ) : headerRightContent ? (
               headerRightContent
             ) : location.pathname === "/track" && onSave && onReset ? (
               <div className="flex items-center gap-2">

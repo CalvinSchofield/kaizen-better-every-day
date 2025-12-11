@@ -184,13 +184,10 @@ const Training = () => {
     }
   };
 
-  // If an in-app guide is active, show it full-screen
+  // If an in-app guide is active, show it as content
   if (activeGuide === "fresh") {
     return (
-      <FreshDoorPitchGuide 
-        onBack={() => setActiveGuide(null)} 
-        pageTitle="Fresh Pitch"
-      />
+      <FreshDoorPitchGuide onBack={() => setActiveGuide(null)} />
     );
   }
 
