@@ -72,8 +72,14 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const cleanFirstName = firstName?.replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu, '').trim();
 
   const getInitials = (name: string) => {
-    return name
+    // Remove emojis and other unicode symbols first
+    const cleanName = name
+      .replace(/[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\p{Emoji_Component}]/gu, '')
+      .trim();
+    
+    return cleanName
       .split(' ')
+      .filter(n => n.length > 0)
       .map(n => n[0])
       .join('')
       .toUpperCase()
