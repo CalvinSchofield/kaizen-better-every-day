@@ -45,10 +45,23 @@ export interface LeaderboardEntry {
   trainingPaceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal';
 }
 
-export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall') => {
+export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall', showMyTeamOnly: boolean = false) => {
   return useQuery({
-    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric],
+    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly],
     queryFn: async () => {
+      // Get current user's rep data first
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+
+      // Fetch current user's name (for team filtering)
+      const { data: currentUserRep } = await supabase
+        .from('reps')
+        .select('name')
+        .eq('user_id', currentUserId || '')
+        .single();
+
+      const currentUserName = currentUserRep?.name || '';
+
       // Fetch all rookies with setup_complete
       const { data: goalsData, error: goalsError } = await supabase
         .from('rep_goals')
@@ -75,14 +88,21 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       if (repsError) throw repsError;
 
       // Filter to only rookies
-      const rookieUserIds = repsData
-        ?.filter(r => r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year)
-        .map(r => r.user_id) || [];
+      let rookieReps = repsData?.filter(r => 
+        r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year
+      ) || [];
+
+      // If showMyTeamOnly, filter to only rookies on the current leader's team
+      if (showMyTeamOnly && currentUserName) {
+        rookieReps = rookieReps.filter(r => 
+          r.team_leader?.includes(currentUserName)
+        );
+      }
+
+      const rookieUserIds = rookieReps.map(r => r.user_id);
 
       // Count all rookies (with and without standards)
-      const totalRookies = repsData?.filter(r => 
-        r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year
-      ).length || 0;
+      const totalRookies = rookieReps.length;
 
       // Count rookies without standards
       const rookiesWithStandards = new Set(goalsData?.filter(g => 
@@ -190,6 +210,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         totalParticipants: sortedEntries.length,
         totalRookies,
         rookiesWithoutStandards,
+        currentUserName,
         leaderStats: Array.from(leaderStats.entries()).map(([leader, stats]) => ({
           leader,
           ...stats,
