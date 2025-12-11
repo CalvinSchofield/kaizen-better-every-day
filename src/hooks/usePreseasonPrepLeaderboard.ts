@@ -55,8 +55,19 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
   });
 
   return useQuery({
-    queryKey: ['preseason-prep-leaderboard-weekly', metric],
+    queryKey: ['preseason-prep-leaderboard-weekly', metric, currentUserId],
     queryFn: async () => {
+      // Check if current user has setup_complete (separate query)
+      let currentUserHasStandards = false;
+      if (currentUserId) {
+        const { data: currentUserGoals } = await supabase
+          .from('rep_goals')
+          .select('setup_complete')
+          .eq('user_id', currentUserId)
+          .single();
+        currentUserHasStandards = currentUserGoals?.setup_complete || false;
+      }
+
       // Fetch all rookies with setup_complete
       const { data: goalsData, error: goalsError } = await supabase
         .from('rep_goals')
@@ -182,9 +193,11 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         entries: sortedEntries,
         currentUserRank,
         currentUserEntry,
+        currentUserHasStandards,
         totalParticipants: sortedEntries.length,
       };
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: currentUserId !== undefined, // Only run when we know user ID
   });
 };
