@@ -58,7 +58,7 @@ const LeaderboardRow = ({ entry, rank, metric, isCurrentUser }: LeaderboardRowPr
       case 'books':
         return (
           <span className="text-sm font-medium tabular-nums">
-            {entry.weeklyBooks} {entry.weeklyBooks === 1 ? 'book' : 'books'}
+            {entry.totalBooks} {entry.totalBooks === 1 ? 'book' : 'books'}
           </span>
         );
       case 'training':
@@ -137,7 +137,7 @@ export const PreseasonPrepLeaderboard = () => {
   const getMetricValue = (entry: LeaderboardEntry) => {
     switch (selectedMetric) {
       case 'overall': return entry.weeklyPrepScore;
-      case 'books': return entry.weeklyBooks;
+      case 'books': return entry.totalBooks; // Books are all-time
       case 'training': return entry.weeklyTraining;
       case 'roleplays': return entry.weeklyRoleplays;
       case 'mnl': return entry.weeklyMnl;
@@ -154,6 +154,8 @@ export const PreseasonPrepLeaderboard = () => {
     ...entriesWithoutActivity
   ];
 
+  const isWeeklyMetric = selectedMetric !== 'books';
+
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
@@ -161,9 +163,11 @@ export const PreseasonPrepLeaderboard = () => {
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
-              This Week's Leaderboard
+              {isWeeklyMetric ? "This Week's Leaderboard" : "Most Well-Read"}
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">Resets every Sunday at midnight</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isWeeklyMetric ? "Resets every Sunday at midnight" : "All-time books completed"}
+            </p>
           </div>
           {data?.currentUserRank && data.currentUserRank > 0 && (
             <Badge variant="outline" className="text-xs">
