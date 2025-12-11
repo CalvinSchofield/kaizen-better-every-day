@@ -293,7 +293,7 @@ const Home = () => {
     }, {
       id: "phase2-takeover",
       label: "Study the Takeover Door Approach",
-      href: "https://www.notion.so/Takeover-Door-Approach-18c070fe3bc2800bad33c0818f0f0489",
+      onClick: () => navigate("/training?guide=takeover"),
       duration: "30 mins"
     }, {
       id: "phase2-pitch-video",
