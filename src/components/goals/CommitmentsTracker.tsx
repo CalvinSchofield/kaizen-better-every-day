@@ -836,6 +836,7 @@ export const CommitmentsTracker = ({
               currentMinutes={Number(goals.training_hours_progress) || 0}
               weeklyGoal={Number(goals.training_hours_goal) || 0}
               history={goals.training_hours_history || []}
+              streak={goals.training_streak || 0}
               onSave={handleSaveTrainingTime}
               isSaving={isUpdating}
             />

@@ -779,6 +779,7 @@ const Goals = () => {
               currentMinutes={goals.training_hours_progress || 0}
               weeklyGoal={(goals.training_hours_goal || 0)}
               history={(goals.training_hours_history as any) || []}
+              streak={goals.training_streak || 0}
               onSave={handleSaveTrainingTime}
             />
           </div>

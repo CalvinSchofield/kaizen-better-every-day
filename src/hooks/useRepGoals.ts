@@ -36,6 +36,9 @@ export interface RepGoals {
   // Weekly training tracking
   training_week_start: string | null;
   training_hours_history: TrainingWeekHistory[];
+  // Training streak tracking
+  training_streak: number;
+  last_training_date: string | null;
   // Cancel rate for adjusting goals (decimal, e.g., 0.10 = 10%)
   cancel_rate: number;
   setup_complete: boolean;
@@ -176,6 +179,32 @@ export const useRepGoals = () => {
           ? currentWeekStart 
           : undefined,
       };
+
+      // Handle streak logic when training is logged
+      if (updates.training_hours_progress !== undefined && goals) {
+        const today = new Date().toISOString().split('T')[0];
+        const lastDate = goals.last_training_date;
+        
+        if (lastDate === today) {
+          // Same day - no streak change
+        } else if (lastDate) {
+          const lastDateObj = new Date(lastDate);
+          const todayObj = new Date(today);
+          const diffDays = Math.floor((todayObj.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 1) {
+            // Consecutive day - increment streak
+            finalUpdates.training_streak = (goals.training_streak || 0) + 1;
+          } else {
+            // Missed a day - reset streak to 1
+            finalUpdates.training_streak = 1;
+          }
+        } else {
+          // First training ever - start streak at 1
+          finalUpdates.training_streak = 1;
+        }
+        finalUpdates.last_training_date = today;
+      }
 
       const { data, error } = await supabase
         .from('rep_goals')

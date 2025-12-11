@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, Plus, Minus, Clock, Check, TrendingUp, TrendingDown, Equal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TrainingWeekHistory } from "@/hooks/useRepGoals";
+import { TrainingStreakBadge } from "./TrainingStreakBadge";
 
 interface TrainingTimerProps {
   currentMinutes: number;
   weeklyGoal: number;
   history: TrainingWeekHistory[];
+  streak?: number;
   onSave: (totalMinutes: number) => void;
   isSaving?: boolean;
 }
@@ -16,6 +18,7 @@ export const TrainingTimer = ({
   currentMinutes, 
   weeklyGoal,
   history,
+  streak = 0,
   onSave, 
   isSaving 
 }: TrainingTimerProps) => {
@@ -135,7 +138,10 @@ export const TrainingTimer = ({
     <div className="space-y-4">
       {/* Current week progress */}
       <div className="text-center">
-        <p className="text-xs text-muted-foreground mb-1">This week</p>
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <p className="text-xs text-muted-foreground">This week</p>
+          <TrainingStreakBadge streak={streak} />
+        </div>
         <p className="text-2xl font-bold tabular-nums">{formatTotalTime(currentMinutes)}</p>
         {weeklyGoal > 0 && (
           <div className="mt-2">
