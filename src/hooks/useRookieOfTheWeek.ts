@@ -80,9 +80,9 @@ export const useRookieOfTheWeek = () => {
 
       if (repsError) throw repsError;
 
-      // Filter to only rookies (year = "2026" or rookie-related years)
+      // Filter to only rookies
       const rookieUserIds = repsData
-        ?.filter(r => r.year === '2026' || r.year === '2025' || !r.year)
+        ?.filter(r => r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year)
         .map(r => r.user_id) || [];
 
       const rookies: RookieStats[] = [];

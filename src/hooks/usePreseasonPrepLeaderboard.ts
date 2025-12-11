@@ -63,7 +63,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'books')
 
       // Filter to only rookies
       const rookieUserIds = repsData
-        ?.filter(r => r.year === '2026' || r.year === '2025' || !r.year)
+        ?.filter(r => r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year)
         .map(r => r.user_id) || [];
 
       const entries: LeaderboardEntry[] = [];
