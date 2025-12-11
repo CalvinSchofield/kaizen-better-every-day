@@ -224,6 +224,66 @@ const NoStandardsTeaser = () => (
   </div>
 );
 
+// Loading skeleton for smooth appearance
+const LeaderboardSkeleton = () => (
+  <Card className="mb-6 overflow-hidden animate-pulse">
+    <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-4 pt-4 pb-3">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <Skeleton className="h-5 w-40 mb-1" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <Skeleton className="h-8 w-24 rounded-md" />
+      </div>
+      <div className="flex gap-1.5 mb-3">
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-20 rounded-full" />
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {[1, 2, 3, 4, 5].map(i => (
+          <Skeleton key={i} className="h-7 w-16 rounded-full flex-shrink-0" />
+        ))}
+      </div>
+    </div>
+    <CardContent className="pt-4">
+      {/* Podium skeleton */}
+      <div className="flex items-end justify-center gap-3 mb-6">
+        <div className="flex flex-col items-center">
+          <Skeleton className="h-12 w-12 rounded-full mb-2" />
+          <Skeleton className="h-3 w-16 mb-1" />
+          <Skeleton className="h-4 w-10" />
+        </div>
+        <div className="flex flex-col items-center -mb-2">
+          <Skeleton className="h-14 w-14 rounded-full mb-2" />
+          <Skeleton className="h-3 w-20 mb-1" />
+          <Skeleton className="h-5 w-12" />
+        </div>
+        <div className="flex flex-col items-center">
+          <Skeleton className="h-12 w-12 rounded-full mb-2" />
+          <Skeleton className="h-3 w-16 mb-1" />
+          <Skeleton className="h-4 w-10" />
+        </div>
+      </div>
+      {/* Rows skeleton */}
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="flex items-center justify-between py-2 px-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-7 w-7 rounded-full" />
+              <div>
+                <Skeleton className="h-4 w-24 mb-1" />
+                <Skeleton className="h-2.5 w-16" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-12" />
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+);
+
 export const LeaderPreseasonPrepLeaderboard = () => {
   const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
@@ -231,8 +291,11 @@ export const LeaderPreseasonPrepLeaderboard = () => {
   const [showMyTeamOnly, setShowMyTeamOnly] = useState(false);
   const { data, isLoading } = useLeaderPreseasonPrepLeaderboard(selectedMetric, showMyTeamOnly);
 
+  // Show skeleton while loading
+  if (isLoading) return <LeaderboardSkeleton />;
+
   // Show nothing only if we've loaded and there's truly no rookies at all
-  if (!isLoading && data?.totalRookies === 0) return null;
+  if (data?.totalRookies === 0) return null;
 
   const entriesWithActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) > 0) || [];
   const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e, selectedMetric) === 0) || [];
