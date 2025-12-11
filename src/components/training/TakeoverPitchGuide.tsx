@@ -10,6 +10,7 @@ export const TakeoverPitchGuide = ({ onBack }: TakeoverPitchGuideProps) => {
     <PitchGuide 
       sections={TAKEOVER_PITCH_SECTIONS} 
       pageTitle="Takeover Pitch" 
+      audioSrc="/audio/takeover-pitch.m4a"
       onBack={onBack} 
     />
   );
