@@ -327,7 +327,12 @@ export const LeaderPreseasonPrepLeaderboard = () => {
           {hasAnyParticipants && (
             <Button 
               size="sm" 
-              onClick={() => navigate('/my-group')}
+              onClick={() => navigate('/my-group', { 
+                state: { 
+                  openCategory: 'readiness',
+                  autoSelectMyTeam: true 
+                } 
+              })}
               className="h-8 text-xs gap-1"
             >
               <Users className="h-3.5 w-3.5" />
