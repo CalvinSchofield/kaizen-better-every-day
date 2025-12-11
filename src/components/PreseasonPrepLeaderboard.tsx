@@ -133,17 +133,38 @@ export const PreseasonPrepLeaderboard = () => {
   // Don't render if no data and not loading
   if (!isLoading && (!data || data.entries.length === 0)) return null;
 
-  const topEntries = data?.entries.slice(0, 5) || [];
-  const remainingEntries = data?.entries.slice(5) || [];
+  // Filter out entries with 0 for the selected metric (no fake first place)
+  const getMetricValue = (entry: LeaderboardEntry) => {
+    switch (selectedMetric) {
+      case 'overall': return entry.weeklyPrepScore;
+      case 'books': return entry.weeklyBooks;
+      case 'training': return entry.weeklyTraining;
+      case 'roleplays': return entry.weeklyRoleplays;
+      case 'mnl': return entry.weeklyMnl;
+      default: return entry.weeklyPrepScore;
+    }
+  };
+
+  const entriesWithActivity = data?.entries.filter(e => getMetricValue(e) > 0) || [];
+  const entriesWithoutActivity = data?.entries.filter(e => getMetricValue(e) === 0) || [];
+  
+  const topEntries = entriesWithActivity.slice(0, 5);
+  const remainingEntries = [
+    ...entriesWithActivity.slice(5),
+    ...entriesWithoutActivity
+  ];
 
   return (
     <Card className="mb-6">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-yellow-500" />
-            This Week's Leaderboard
-          </CardTitle>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              This Week's Leaderboard
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Resets every Sunday at midnight</p>
+          </div>
           {data?.currentUserRank && data.currentUserRank > 0 && (
             <Badge variant="outline" className="text-xs">
               You're #{data.currentUserRank}
