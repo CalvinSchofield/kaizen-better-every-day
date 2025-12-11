@@ -228,7 +228,8 @@ export const LeaderPreseasonPrepLeaderboard = () => {
   const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState<LeaderboardMetric>('overall');
   const [isExpanded, setIsExpanded] = useState(false);
-  const { data, isLoading } = useLeaderPreseasonPrepLeaderboard(selectedMetric);
+  const [showMyTeamOnly, setShowMyTeamOnly] = useState(false);
+  const { data, isLoading } = useLeaderPreseasonPrepLeaderboard(selectedMetric, showMyTeamOnly);
 
   // Show nothing only if we've loaded and there's truly no rookies at all
   if (!isLoading && data?.totalRookies === 0) return null;
@@ -270,6 +271,32 @@ export const LeaderPreseasonPrepLeaderboard = () => {
               My Group
             </Button>
           )}
+        </div>
+
+        {/* Team Filter Toggle */}
+        <div className="flex gap-1.5 mb-3">
+          <button
+            onClick={() => setShowMyTeamOnly(false)}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+              !showMyTeamOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+            )}
+          >
+            All Rookies
+          </button>
+          <button
+            onClick={() => setShowMyTeamOnly(true)}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+              showMyTeamOnly
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
+            )}
+          >
+            My Team
+          </button>
         </div>
 
         {/* Stats summary for leaders */}
