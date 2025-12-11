@@ -128,25 +128,36 @@ export const useRecruitingRecommendations = (
           }
         }
 
-        // Check for missing items - include onboarding AND ramp to blitz progress
-        if (hasUpcomingBlitz && repData) {
+        // Check for missing items - use repData if available, fall back to Notion data
+        if (hasUpcomingBlitz) {
           const missing: string[] = [];
           
-          // Check foundational onboarding items
-          if (!repData.onboarding_complete) missing.push('Onboarding');
-          if (!repData.trainings_complete) missing.push('Trainings');
-          if (!repData.slack_joined) missing.push('Slack');
-          if (!repData.ipad_assigned) missing.push('iPad');
-          
-          // Check ramp to blitz phases - count incomplete ones
-          const phase1 = repData.ramp_phase_1_complete ?? false;
-          const phase2 = repData.ramp_phase_2_complete ?? false;
-          const phase3 = repData.ramp_phase_3_complete ?? false;
-          const phase4 = repData.ramp_phase_4_complete ?? false;
-          
-          const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
-          if (incompletePhaseCount > 0) {
-            missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+          if (repData) {
+            // Use detailed repData from Supabase reps table
+            if (!repData.onboarding_complete) missing.push('Onboarding');
+            if (!repData.trainings_complete) missing.push('Trainings');
+            if (!repData.slack_joined) missing.push('Slack');
+            if (!repData.ipad_assigned) missing.push('iPad');
+            
+            // Check ramp to blitz phases
+            const phase1 = repData.ramp_phase_1_complete ?? false;
+            const phase2 = repData.ramp_phase_2_complete ?? false;
+            const phase3 = repData.ramp_phase_3_complete ?? false;
+            const phase4 = repData.ramp_phase_4_complete ?? false;
+            
+            const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
+            if (incompletePhaseCount > 0) {
+              missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+            }
+          } else {
+            // Fall back to Notion-sourced data from recruit object
+            // Check onboarding status - Phase 4 or Blitz Ready means complete
+            const onboardingComplete = recruit.onboardingStatus === 'Phase 4: Saddle Up!' || 
+                                       recruit.onboardingStatus === 'Blitz ready' ||
+                                       recruit.blitzReady === true;
+            if (!onboardingComplete) missing.push('Onboarding');
+            if (!recruit.ipadAssigned) missing.push('iPad');
+            // Can't check individual ramp phases from Notion, but blitzReady covers that
           }
           
           if (missing.length > 0) {
@@ -154,21 +165,31 @@ export const useRecruitingRecommendations = (
           }
         }
         // Also check for missing items even if no blitz committed (for general awareness)
-        else if (isRookie && repData) {
+        else if (isRookie) {
           const missing: string[] = [];
-          if (!repData.onboarding_complete) missing.push('Onboarding');
-          if (!repData.trainings_complete) missing.push('Trainings');
-          if (!repData.slack_joined) missing.push('Slack');
-          if (!repData.ipad_assigned) missing.push('iPad');
           
-          const phase1 = repData.ramp_phase_1_complete ?? false;
-          const phase2 = repData.ramp_phase_2_complete ?? false;
-          const phase3 = repData.ramp_phase_3_complete ?? false;
-          const phase4 = repData.ramp_phase_4_complete ?? false;
-          
-          const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
-          if (incompletePhaseCount > 0) {
-            missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+          if (repData) {
+            if (!repData.onboarding_complete) missing.push('Onboarding');
+            if (!repData.trainings_complete) missing.push('Trainings');
+            if (!repData.slack_joined) missing.push('Slack');
+            if (!repData.ipad_assigned) missing.push('iPad');
+            
+            const phase1 = repData.ramp_phase_1_complete ?? false;
+            const phase2 = repData.ramp_phase_2_complete ?? false;
+            const phase3 = repData.ramp_phase_3_complete ?? false;
+            const phase4 = repData.ramp_phase_4_complete ?? false;
+            
+            const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
+            if (incompletePhaseCount > 0) {
+              missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
+            }
+          } else {
+            // Fall back to Notion-sourced data
+            const onboardingComplete = recruit.onboardingStatus === 'Phase 4: Saddle Up!' || 
+                                       recruit.onboardingStatus === 'Blitz ready' ||
+                                       recruit.blitzReady === true;
+            if (!onboardingComplete) missing.push('Onboarding');
+            if (!recruit.ipadAssigned) missing.push('iPad');
           }
           
           if (missing.length > 0) {

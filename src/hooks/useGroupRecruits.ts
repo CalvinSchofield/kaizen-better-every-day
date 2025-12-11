@@ -27,6 +27,10 @@ export interface Recruit {
   nextActionDue: string | null;
   createdAt: string;
   committedBlitzes?: BlitzCommitment[];
+  // Notion-sourced fields for fallback when not in reps table
+  onboardingStatus?: string | null;
+  ipadAssigned?: boolean;
+  blitzReady?: boolean;
 }
 
 export interface RecruitActivity {
@@ -146,7 +150,11 @@ export const useGroupRecruits = () => {
                 nextAction: null,
                 nextActionDue: null,
                 createdAt: new Date().toISOString(),
-                committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs
+                committedBlitzes: member.committedBlitzes || [],
+                // Notion-sourced fields for fallback
+                onboardingStatus: member.onboardingStatus || null,
+                ipadAssigned: member.ipadAssigned ?? false,
+                blitzReady: member.blitzReady ?? false,
               };
             });
         } else {
@@ -162,14 +170,18 @@ export const useGroupRecruits = () => {
                 recruiterNotionId: leaderNotionId,
                 recruiterName: member.recruiter || null,
                 teamName: member.teamName || null,
-                teamId: member.teamId || null, // Now comes directly from edge function
-                mgmtGroupId: member.mgmtGroupId || null, // Now comes directly from edge function
+                teamId: member.teamId || null,
+                mgmtGroupId: member.mgmtGroupId || null,
                 year: member.year || '',
                 lastContact: null,
                 nextAction: null,
                 nextActionDue: null,
                 createdAt: new Date().toISOString(),
-                committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs from Notion
+                committedBlitzes: member.committedBlitzes || [],
+                // Notion-sourced fields for fallback
+                onboardingStatus: member.onboardingStatus || null,
+                ipadAssigned: member.ipadAssigned ?? false,
+                blitzReady: member.blitzReady ?? false,
               };
             });
         }
@@ -201,7 +213,11 @@ export const useGroupRecruits = () => {
               nextAction: null,
               nextActionDue: null,
               createdAt: new Date().toISOString(),
-              committedBlitzes: member.committedBlitzes || [], // Blitz relation IDs from Notion
+              committedBlitzes: member.committedBlitzes || [],
+              // Notion-sourced fields for fallback
+              onboardingStatus: member.onboardingStatus || null,
+              ipadAssigned: member.ipadAssigned ?? false,
+              blitzReady: member.blitzReady ?? false,
             };
           });
       }
