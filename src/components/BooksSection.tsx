@@ -25,14 +25,68 @@ interface Book {
   author: string;
   summary: string;
   isbn: string;
+  category: 'd2d' | 'sales' | 'mindset';
 }
 
+// Books organized by category: D2D Specific, Sales General, Life/Mindset
 const BOOKS: Book[] = [
+  // === D2D SPECIFIC ===
+  {
+    id: "d2d-millionaire",
+    title: "Door to Door Millionaire",
+    author: "Lenny Gray",
+    isbn: "9781733016902",
+    category: "d2d",
+    summary: "Written specifically for D2D sales. Real strategies from someone who built an empire knocking doors—exactly what you're doing this summer."
+  },
+  {
+    id: "abcs-closing",
+    title: "ABC'$ of Closing",
+    author: "Sam Taggart",
+    isbn: "9780578558530",
+    category: "d2d",
+    summary: "The D2D bible. Proven closing techniques from the founder of D2D Experts—mandatory reading for any serious rep."
+  },
+  // === SALES GENERAL ===
+  {
+    id: "go-for-no",
+    title: "Go for No!",
+    author: "Richard Fenton & Andrea Waltz",
+    isbn: "9780966398137",
+    category: "sales",
+    summary: "Reframe rejection as progress toward yes. The more doors that close in your face, the closer you are to your next sale. This mindset shift is a game-changer for D2D."
+  },
+  {
+    id: "never-split",
+    title: "Never Split the Difference",
+    author: "Chris Voss",
+    isbn: "9780062407801",
+    category: "sales",
+    summary: "FBI hostage negotiator tactics for sales. Master tactical empathy and get customers to say yes without feeling pressured."
+  },
+  {
+    id: "psychology-selling",
+    title: "The Psychology of Selling",
+    author: "Brian Tracy",
+    isbn: "9780785288060",
+    category: "sales",
+    summary: "Understand why people buy. When you know the psychology, objections become opportunities."
+  },
+  {
+    id: "win-friends",
+    title: "How to Win Friends and Influence People",
+    author: "Dale Carnegie",
+    isbn: "9780671027032",
+    category: "sales",
+    summary: "The classic guide to connecting with anyone. Build instant rapport at the door and turn strangers into customers."
+  },
+  // === LIFE/MINDSET ===
   {
     id: "compound-effect",
     title: "The Compound Effect",
     author: "Darren Hardy",
     isbn: "9781593157241",
+    category: "mindset",
     summary: "Small, consistent daily actions create massive results over time. Shows how tiny improvements in your pitch, attitude, and work ethic compound into huge commission checks by summer's end."
   },
   {
@@ -40,20 +94,15 @@ const BOOKS: Book[] = [
     title: "Atomic Habits",
     author: "James Clear",
     isbn: "9780735211292",
+    category: "mindset",
     summary: "Build systems that make success automatic. Learn to stack habits that turn you into a closing machine—one small improvement at a time."
-  },
-  {
-    id: "go-for-no",
-    title: "Go for No!",
-    author: "Richard Fenton & Andrea Waltz",
-    isbn: "9780966398137",
-    summary: "Reframe rejection as progress toward yes. The more doors that close in your face, the closer you are to your next sale. This mindset shift is a game-changer for D2D."
   },
   {
     id: "miracle-morning",
     title: "The Miracle Morning",
     author: "Hal Elrod",
     isbn: "9780979019715",
+    category: "mindset",
     summary: "Start every day with intention before you hit the doors. A powerful morning routine gives you the energy and focus to outwork everyone else."
   },
   {
@@ -61,20 +110,15 @@ const BOOKS: Book[] = [
     title: "The 10X Rule",
     author: "Grant Cardone",
     isbn: "9780470627600",
+    category: "mindset",
     summary: "Whatever effort you think is required, multiply it by 10. Massive action = massive results. Perfect for crushing sales goals."
-  },
-  {
-    id: "d2d-millionaire",
-    title: "Door to Door Millionaire",
-    author: "Lenny Gray",
-    isbn: "9781733016902",
-    summary: "Written specifically for D2D sales. Real strategies from someone who built an empire knocking doors—exactly what you're doing this summer."
   },
   {
     id: "happiness-advantage",
     title: "The Happiness Advantage",
     author: "Shawn Achor",
     isbn: "9780307591548",
+    category: "mindset",
     summary: "Positivity isn't just feel-good—it's a competitive edge. Happy salespeople outsell negative ones by 37%. Learn to stay energized through the grind."
   },
   {
@@ -82,20 +126,15 @@ const BOOKS: Book[] = [
     title: "The Magic of Thinking Big",
     author: "David Schwartz",
     isbn: "9780671646783",
+    category: "mindset",
     summary: "Your results are limited only by your thinking. Expand what you believe is possible and watch your sales follow."
-  },
-  {
-    id: "never-split",
-    title: "Never Split the Difference",
-    author: "Chris Voss",
-    isbn: "9780062407801",
-    summary: "FBI hostage negotiator tactics for sales. Master tactical empathy and get customers to say yes without feeling pressured."
   },
   {
     id: "extreme-ownership",
     title: "Extreme Ownership",
     author: "Jocko Willink & Leif Babin",
     isbn: "9781250183866",
+    category: "mindset",
     summary: "Take 100% responsibility for your results. No excuses, no blame—just solutions. The mindset that separates top performers."
   },
   {
@@ -103,48 +142,31 @@ const BOOKS: Book[] = [
     title: "The Power of One More",
     author: "Ed Mylett",
     isbn: "9781119815327",
+    category: "mindset",
     summary: "One more door, one more attempt, one more day of effort. The philosophy that turns good summers into legendary ones."
-  },
-  {
-    id: "abcs-closing",
-    title: "ABC'$ of Closing",
-    author: "Sam Taggart",
-    isbn: "9780578558530",
-    summary: "The D2D bible. Proven closing techniques from the founder of D2D Experts—mandatory reading for any serious rep."
   },
   {
     id: "man-thinketh",
     title: "As a Man Thinketh",
     author: "James Allen",
     isbn: "9781585426386",
+    category: "mindset",
     summary: "Your thoughts shape your reality. A short, powerful read on mastering your mindset to achieve any goal."
-  },
-  {
-    id: "psychology-selling",
-    title: "The Psychology of Selling",
-    author: "Brian Tracy",
-    isbn: "9780785288060",
-    summary: "Understand why people buy. When you know the psychology, objections become opportunities."
   },
   {
     id: "above-line",
     title: "Above the Line",
     author: "Urban Meyer",
     isbn: "9781101980729",
+    category: "mindset",
     summary: "Championship-level discipline and accountability. Build the mental toughness to perform when it matters most."
-  },
-  {
-    id: "win-friends",
-    title: "How to Win Friends and Influence People",
-    author: "Dale Carnegie",
-    isbn: "9780671027032",
-    summary: "The classic guide to connecting with anyone. Build instant rapport at the door and turn strangers into customers."
   },
   {
     id: "success-habits",
     title: "Millionaire Success Habits",
     author: "Dean Graziosi",
     isbn: "9781401957353",
+    category: "mindset",
     summary: "Daily habits that separate the wealthy from everyone else. Apply these to your sales career starting day one."
   },
   {
@@ -152,6 +174,7 @@ const BOOKS: Book[] = [
     title: "The One Thing",
     author: "Gary Keller",
     isbn: "9781885167774",
+    category: "mindset",
     summary: "Focus beats multitasking every time. Identify the ONE thing that moves the needle most and dominate it."
   },
   {
@@ -159,6 +182,7 @@ const BOOKS: Book[] = [
     title: "Can't Hurt Me",
     author: "David Goggins",
     isbn: "9781544512273",
+    category: "mindset",
     summary: "Push past every mental barrier. When you're tired, hot, and want to quit—this book teaches you to keep going."
   }
 ];
@@ -278,7 +302,20 @@ export const BooksSection = () => {
     }
   };
 
-  const booksToShow = showAll ? BOOKS : BOOKS.slice(0, 6);
+  // Sort books: committed first, then by category order (d2d, sales, mindset)
+  const sortedBooks = [...BOOKS].sort((a, b) => {
+    const aCommitted = booksCommitted.has(a.id);
+    const bCommitted = booksCommitted.has(b.id);
+    
+    // Committed books come first
+    if (aCommitted && !bCommitted) return -1;
+    if (!aCommitted && bCommitted) return 1;
+    
+    // Within same commitment status, maintain category order (already sorted in BOOKS array)
+    return 0;
+  });
+  
+  const booksToShow = showAll ? sortedBooks : sortedBooks.slice(0, 6);
   const booksReadCount = booksRead.size + otherBooksRead.length;
   const booksGoal = goals?.books_goal || 0;
   const totalCommitted = booksCommitted.size + otherBooksCommitted.length;
