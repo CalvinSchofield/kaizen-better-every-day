@@ -163,6 +163,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     
     const today = startOfToday();
     const upcomingBlitzes = recruit.committedBlitzes
+      .filter(b => b.date) // Filter out blitzes without a date
       .map(b => ({ ...b, startDate: parseISO(b.date) }))
       .filter(b => isAfter(b.startDate, today) || isSameDay(b.startDate, today))
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
