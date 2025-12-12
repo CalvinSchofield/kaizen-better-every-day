@@ -9,6 +9,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useNeedsAttention, RepData, RepSummerConfigData } from "@/hooks/useNeedsAttention";
 import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
+import { useAssignedTasks } from "@/hooks/useAssignedTasks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
@@ -26,6 +27,7 @@ import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
 import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsCard";
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
+import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
 import { format, parseISO } from "date-fns";
@@ -86,6 +88,7 @@ const MyGroup = () => {
   // Contact and Schedule drawer state
   const [contactMethodDrawerOpen, setContactMethodDrawerOpen] = useState(false);
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
+  const [assignedTasksDrawerOpen, setAssignedTasksDrawerOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
   const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
@@ -143,6 +146,9 @@ const MyGroup = () => {
   const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];
   const activities = groupData?.activities || [];
+
+  // Fetch tasks assigned to current user
+  const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
 
   // Fetch rep data for training progress tracking
   const { data: recruitsRepData } = useQuery({
@@ -468,6 +474,8 @@ const MyGroup = () => {
               categories={categories}
               selectedCategory={selectedCategoryId}
               onCategoryClick={handleCategoryClick}
+              assignedTasksCount={assignedTasks.length}
+              onAssignedTasksClick={() => setAssignedTasksDrawerOpen(true)}
             />
 
             {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
@@ -670,6 +678,17 @@ const MyGroup = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assigned Tasks Drawer */}
+      <AssignedTasksDrawer
+        open={assignedTasksDrawerOpen}
+        onOpenChange={setAssignedTasksDrawerOpen}
+        tasks={assignedTasks}
+        onRecruitClick={(notionPageId) => {
+          const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+          if (recruit) handleRecruitClick(recruit);
+        }}
+      />
     </Layout>
   );
 };
