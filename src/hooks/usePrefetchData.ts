@@ -25,38 +25,6 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 5 * 60 * 1000, // 5 minutes
         }),
 
-        // Group recruits - needed for My Group
-        queryClient.prefetchQuery({
-          queryKey: ['group-recruits'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-group-recruits');
-            return data;
-          },
-          staleTime: 2 * 60 * 1000, // 2 minutes
-        }),
-
-        // Assignable users for current user's context
-        queryClient.prefetchQuery({
-          queryKey: ['assignable-users', undefined, undefined],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-assignable-users', {
-              body: {}
-            });
-            return data?.assignableUsers || [];
-          },
-          staleTime: 5 * 60 * 1000, // 5 minutes
-        }),
-
-        // Calendar events
-        queryClient.prefetchQuery({
-          queryKey: ['calendar-events'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-calendar');
-            return data;
-          },
-          staleTime: 5 * 60 * 1000,
-        }),
-
         // Competitors for cheat sheet
         queryClient.prefetchQuery({
           queryKey: ['competitors'],
@@ -108,7 +76,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 5 * 60 * 1000,
         }),
 
-        // Daily entries (last 90 days)
+        // Daily entries (last 90 days) for insights
         queryClient.prefetchQuery({
           queryKey: ['daily-entries-recent', userId],
           queryFn: async () => {
@@ -123,6 +91,16 @@ export const usePrefetchData = (userId: string | undefined) => {
             return data || [];
           },
           staleTime: 2 * 60 * 1000,
+        }),
+
+        // Team members for reports
+        queryClient.prefetchQuery({
+          queryKey: ['team-members'],
+          queryFn: async () => {
+            const { data } = await supabase.functions.invoke('fetch-team-members');
+            return data;
+          },
+          staleTime: 5 * 60 * 1000,
         }),
       ]);
 
