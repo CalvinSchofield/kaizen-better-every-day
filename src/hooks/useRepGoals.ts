@@ -237,18 +237,15 @@ export const useRepGoals = () => {
     return upsertGoalsMutation.mutateAsync(updates);
   };
 
-  // Check if user has access to Goals page (Phase 1+ in Ramp to Blitz)
+  // Check if user has access to Goals page (Slack joined for rookies)
   const hasGoalsAccess = (): boolean => {
     if (!repData) return false;
     
     // Vets and Sophomores always have access
     if (repData.year === 'Vet' || repData.year === 'Sophomore') return true;
     
-    // Rookies need to be in Phase 1+ of Ramp to Blitz
-    const phase = repData.ramp_to_blitz_phase;
-    if (!phase || phase === 'Not started') return false;
-    
-    return true;
+    // Rookies need to have Slack joined to access Goals
+    return repData.slack_joined === true;
   };
 
   return {

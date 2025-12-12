@@ -119,14 +119,23 @@ export const SwipeableRecruitItem = ({
       if (!repData.ipad_assigned) {
         blockers.push({ icon: 'ipad', label: 'Missing iPad' });
       }
-      if (!repData.onboarding_complete) {
+      
+      // If any ramp phase is complete, onboarding is done (can't start ramp without completing onboarding)
+      const hasAnyRampProgress = repData.ramp_phase_1_complete || 
+        repData.ramp_phase_2_complete || 
+        repData.ramp_phase_3_complete || 
+        repData.ramp_phase_4_complete;
+      const effectiveOnboardingComplete = repData.onboarding_complete || hasAnyRampProgress;
+      
+      if (!effectiveOnboardingComplete) {
         blockers.push({ icon: 'onboarding', label: 'Onboarding Incomplete' });
       }
+      
       const hasIncompleteRamp = !repData.ramp_phase_1_complete || 
         !repData.ramp_phase_2_complete || 
         !repData.ramp_phase_3_complete || 
         !repData.ramp_phase_4_complete;
-      if (hasIncompleteRamp && repData.onboarding_complete) {
+      if (hasIncompleteRamp && effectiveOnboardingComplete) {
         blockers.push({ icon: 'ramp', label: 'Ramp Phases Incomplete' });
       }
     }

@@ -134,6 +134,13 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     const onboardingComplete = repData?.onboarding_complete ?? 
       (recruit.onboardingStatus?.toLowerCase() === 'complete');
     
+    // If any ramp phase is complete, onboarding is done (can't start ramp without completing onboarding)
+    const hasAnyRampProgress = repData?.ramp_phase_1_complete || 
+      repData?.ramp_phase_2_complete || 
+      repData?.ramp_phase_3_complete || 
+      repData?.ramp_phase_4_complete;
+    const effectiveOnboardingComplete = onboardingComplete || hasAnyRampProgress;
+    
     // Only show blockers for Signed or later stages
     const signedStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
     const isSignedOrLater = signedStages.some(s => recruit.stage === s);
@@ -142,12 +149,12 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
       if (!ipadAssigned) {
         blockers.push({ icon: 'ipad', label: 'No iPad' });
       }
-      if (!onboardingComplete) {
+      if (!effectiveOnboardingComplete) {
         blockers.push({ icon: 'onboarding', label: 'Onboarding' });
       }
       
       // Check ramp phases - only show if onboarding is complete
-      if (onboardingComplete && repData) {
+      if (effectiveOnboardingComplete && repData) {
         const rampComplete = repData.ramp_phase_1_complete && 
           repData.ramp_phase_2_complete && 
           repData.ramp_phase_3_complete && 

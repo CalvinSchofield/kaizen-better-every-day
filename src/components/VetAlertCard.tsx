@@ -152,7 +152,10 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
 
           const needsIpad = !rookie.ipadAssigned;
           const status = rookie.onboardingStatus?.toLowerCase() || "";
-          const needsOnboarding = !status.includes("phase 4");
+          // If status includes any "phase" reference (e.g., "Phase 4 ✅"), they've completed onboarding
+          // Can't start ramp to blitz without completing onboarding first
+          const hasRampProgress = status.includes("phase");
+          const needsOnboarding = !hasRampProgress && !status.includes("complete");
 
           // Only add alert if rookie needs iPad OR onboarding
           if (needsIpad || needsOnboarding) {
