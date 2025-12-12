@@ -128,11 +128,19 @@ export const TodaysFocusHero = ({
           </Badge>
         </div>
         
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-3">
           {topRecommendation.reason}
         </p>
 
-        {/* Show only the FIRST missing item as next step */}
+        {/* Show scheduled follow-up indicator if due today */}
+        {topRecommendation.scheduledFollowUp?.isDueToday && (
+          <div className="mb-3">
+            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+              <Calendar className="h-3 w-3 mr-1" />
+              Follow-up scheduled for today
+            </Badge>
+          </div>
+        )}
         {topRecommendation.missingItems && topRecommendation.missingItems.length > 0 && (
           <div className="mb-4">
             <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5">

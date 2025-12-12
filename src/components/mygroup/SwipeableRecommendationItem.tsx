@@ -158,10 +158,16 @@ export const SwipeableRecommendationItem = ({
                 {recommendation.reason}
               </Badge>
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className="text-xs">
                 {recommendation.recruit.stage}
               </Badge>
+              {recommendation.scheduledFollowUp?.isDueToday && (
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Due Today
+                </Badge>
+              )}
               {recommendation.daysSinceContact !== null && (
                 <span className="text-xs text-muted-foreground">
                   {recommendation.daysSinceContact}d ago
