@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGroupRecruits";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Calendar, AlertTriangle, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users } from "lucide-react";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 // Primary stages always shown
 const PRIMARY_STAGES = [
   { key: '100 List', label: '100 List', color: 'bg-muted' },
@@ -37,6 +38,22 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const [showSecondary, setShowSecondary] = useState(false);
   const updateStageMutation = useUpdateRecruitStage();
 
+  // Fetch reps data to get blocker info (iPad, onboarding, ramp phases)
+  const { data: repsData } = useQuery({
+    queryKey: ['reps-blockers'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('reps')
+        .select('notion_page_id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
+      return data || [];
+    },
+  });
+
+  // Create a map for quick lookup
+  const repsBlockerMap = new Map(
+    repsData?.map(r => [r.notion_page_id, r]) || []
+  );
+
   // Filter recruits for display
   // - For "Potential Follow Up", only show if follow-up date is today or past
   // - Always exclude "Not Interested" and "Signed but Not Interested" from primary view
@@ -61,7 +78,6 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   };
 
   // Get the most recent contact date from Supabase activities
-  // Prioritize phone_call and in_person activities as they represent actual contact
   const getLastContactFromActivities = (recruitNotionId: string): string | null => {
     const recruitActivities = activities.filter(a => 
       a.rep_notion_page_id === recruitNotionId &&
@@ -70,12 +86,19 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     
     if (recruitActivities.length === 0) return null;
     
-    // Sort by created_at descending to get most recent
     const sorted = [...recruitActivities].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     
     return sorted[0].created_at;
+  };
+
+  // Get days since last contact
+  const getDaysSinceContact = (recruit: Recruit): number | null => {
+    const activityLastContact = getLastContactFromActivities(recruit.notionPageId);
+    const lastContact = activityLastContact || recruit.lastContact;
+    if (!lastContact) return null;
+    return differenceInDays(new Date(), parseISO(lastContact));
   };
 
   // Get the scheduled follow-up info for display
@@ -93,30 +116,68 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
       return { date: dueDate, label: format(dueDate, 'MMM d'), isFuture: true, isToday: false };
     }
     
-    return null; // Past dates don't show badge
+    return null;
   };
 
-  // Show stale warning based on stage-specific thresholds
-  // Uses the latest contact from Supabase activities, falling back to Notion lastContact
-  const isStale = (recruit: Recruit) => {
-    const stage = recruit.stage?.toLowerCase() || '';
+  // Get blocker icons for a recruit
+  const getBlockers = (recruit: Recruit) => {
+    const blockers: { icon: 'ipad' | 'onboarding' | 'ramp'; label: string }[] = [];
     
-    // Don't show warning for completed/closed stages
-    if (stage.includes('not interested')) return false;
+    // Check reps table data first, fall back to Notion data
+    const repData = repsBlockerMap.get(recruit.notionPageId);
     
-    // Get last contact from our Supabase activities first (more reliable)
-    const activityLastContact = getLastContactFromActivities(recruit.notionPageId);
-    const lastContact = activityLastContact || recruit.lastContact;
+    const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
+    const onboardingComplete = repData?.onboarding_complete ?? 
+      (recruit.onboardingStatus?.toLowerCase() === 'complete');
     
-    // For Sold reps, 14 day threshold (they need less frequent check-ins)
-    if (stage.includes('sold') || stage.includes('5+')) {
-      if (!lastContact) return false;
-      return differenceInDays(new Date(), parseISO(lastContact)) >= 14;
+    // Only show blockers for Signed or later stages
+    const signedStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+    const isSignedOrLater = signedStages.some(s => recruit.stage === s);
+    
+    if (isSignedOrLater) {
+      if (!ipadAssigned) {
+        blockers.push({ icon: 'ipad', label: 'No iPad' });
+      }
+      if (!onboardingComplete) {
+        blockers.push({ icon: 'onboarding', label: 'Onboarding' });
+      }
+      
+      // Check ramp phases - only show if onboarding is complete
+      if (onboardingComplete && repData) {
+        const rampComplete = repData.ramp_phase_1_complete && 
+          repData.ramp_phase_2_complete && 
+          repData.ramp_phase_3_complete && 
+          repData.ramp_phase_4_complete;
+        if (!rampComplete) {
+          blockers.push({ icon: 'ramp', label: 'Ramp' });
+        }
+      }
     }
     
-    // For all other stages (100 List, Reached Out, Evaluating, Signed, Shadow), 7 days
-    if (!lastContact) return true; // Never contacted = needs attention
-    return differenceInDays(new Date(), parseISO(lastContact)) >= 7;
+    return blockers;
+  };
+
+  // Get upcoming blitz countdown
+  const getUpcomingBlitz = (recruit: Recruit) => {
+    if (!recruit.committedBlitzes?.length) return null;
+    
+    const today = startOfToday();
+    const upcomingBlitzes = recruit.committedBlitzes
+      .map(b => ({ ...b, startDate: parseISO(b.date) }))
+      .filter(b => isAfter(b.startDate, today) || isSameDay(b.startDate, today))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    if (upcomingBlitzes.length === 0) return null;
+    
+    const nextBlitz = upcomingBlitzes[0];
+    const daysUntil = differenceInDays(nextBlitz.startDate, today);
+    
+    return {
+      name: nextBlitz.name,
+      daysUntil,
+      isUrgent: daysUntil <= 7,
+      isWarning: daysUntil <= 14 && daysUntil > 7,
+    };
   };
 
   const handleDragStart = (e: React.DragEvent, recruit: Recruit) => {
@@ -197,45 +258,93 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
               onClick={() => handleRecruitClick(recruit)}
             >
               <CardContent className="p-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{recruit.name}</p>
-                    {recruit.phone && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{recruit.phone}</span>
-                      </div>
-                    )}
-                  </div>
-                  {isStale(recruit) && (
-                    <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                  )}
-                </div>
-                {/* Scheduled follow-up badge */}
-                {(() => {
-                  const followUp = getScheduledFollowUp(recruit);
-                  if (!followUp) return null;
-                  return (
-                    <div className="flex items-center gap-1 text-xs mt-2">
-                      <Badge 
-                        variant="outline" 
-                        className={followUp.isToday 
-                          ? "bg-primary/10 text-primary border-primary/30" 
-                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                        }
+                {/* Row 1: Name + Blocker icons */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium truncate flex-1">{recruit.name}</p>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {getBlockers(recruit).map((blocker, idx) => (
+                      <span 
+                        key={idx} 
+                        className="text-amber-500" 
+                        title={blocker.label}
                       >
-                        <Clock className="h-3 w-3 mr-1" />
-                        {followUp.isToday ? 'Due Today' : followUp.label}
-                      </Badge>
-                    </div>
-                  );
-                })()}
-                {recruit.nextAction && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-2 py-1">
-                    <Calendar className="h-3 w-3" />
-                    <span className="truncate">{recruit.nextAction}</span>
+                        {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                        {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                        {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Row 2: Team name */}
+                {recruit.teamName && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                    <Users className="h-3 w-3" />
+                    <span className="truncate">{recruit.teamName}</span>
                   </div>
                 )}
+
+                {/* Row 3: Badges - follow-up, days since contact, blitz countdown */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  {/* Scheduled follow-up badge */}
+                  {(() => {
+                    const followUp = getScheduledFollowUp(recruit);
+                    if (!followUp) return null;
+                    return (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
+                          ? "bg-primary/10 text-primary border-primary/30" 
+                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                        }`}
+                      >
+                        <Clock className="h-2.5 w-2.5 mr-0.5" />
+                        {followUp.isToday ? 'Today' : followUp.label}
+                      </Badge>
+                    );
+                  })()}
+
+                  {/* Days since contact */}
+                  {(() => {
+                    const days = getDaysSinceContact(recruit);
+                    if (days === null) {
+                      return (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                          No contact
+                        </Badge>
+                      );
+                    }
+                    const isStale = days >= 7;
+                    return (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] px-1.5 py-0 ${isStale ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
+                      >
+                        {days}d ago
+                      </Badge>
+                    );
+                  })()}
+
+                  {/* Blitz countdown */}
+                  {(() => {
+                    const blitz = getUpcomingBlitz(recruit);
+                    if (!blitz) return null;
+                    return (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] px-1.5 py-0 ${
+                          blitz.isUrgent 
+                            ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                            : blitz.isWarning 
+                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                              : 'bg-green-500/10 text-green-600 border-green-500/30'
+                        }`}
+                      >
+                        🎯 {blitz.daysUntil}d
+                      </Badge>
+                    );
+                  })()}
+                </div>
               </CardContent>
             </Card>
           ))}
