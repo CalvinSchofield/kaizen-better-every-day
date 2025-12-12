@@ -37,16 +37,13 @@ serve(async (req) => {
       });
     }
 
-    // Get current user's rep data
-    const { data: currentRep, error: repError } = await supabase
-      .from('reps')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // Get request body for recruit context
+    const body = await req.json().catch(() => ({}));
+    const { recruitNotionPageId } = body;
 
-    if (repError || !currentRep) {
-      console.log('User rep data not found for user:', user.id);
-      return new Response(JSON.stringify({ error: 'User rep data not found', assignableUsers: [] }), {
+    if (!recruitNotionPageId) {
+      console.log('No recruitNotionPageId provided, returning empty list');
+      return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -58,13 +55,39 @@ serve(async (req) => {
       return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
     };
 
-    const cleanName = stripEmojis(currentRep.name);
-    const cleanTeamLeader = stripEmojis(currentRep.team_leader);
-    
-    console.log('Fetching assignable users for:', currentRep.name, '(clean:', cleanName, ') Team leader:', currentRep.team_leader, '(clean:', cleanTeamLeader, ')');
+    // Get current user's rep data
+    const { data: currentRep } = await supabase
+      .from('reps')
+      .select('user_id, name, notion_page_id')
+      .eq('user_id', user.id)
+      .single();
 
-    // Build list of assignable users based on STRICT upline/downline hierarchy only
-    // No teammates - only people directly above or below in the recruiting chain
+    // Get all reps to build the upline chain
+    const { data: allReps } = await supabase
+      .from('reps')
+      .select('user_id, name, notion_page_id, team_leader');
+
+    if (!allReps || allReps.length === 0) {
+      return new Response(JSON.stringify({ assignableUsers: [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Find the recruit by notion page ID
+    const recruit = allReps.find(r => r.notion_page_id === recruitNotionPageId);
+    
+    if (!recruit) {
+      console.log('Recruit not found for notion page ID:', recruitNotionPageId);
+      return new Response(JSON.stringify({ assignableUsers: [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Finding assignable users for recruit:', recruit.name);
+
+    // Build upline chain for the recruit
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -72,99 +95,55 @@ serve(async (req) => {
       notionPageId: string;
     }> = [];
 
-    // 1. Add downline reps (people where current user is their team leader) - DIRECT RECRUITS ONLY
-    if (cleanName) {
-      const { data: downlineReps } = await supabase
-        .from('reps')
-        .select('user_id, name, notion_page_id, team_leader')
-        .ilike('team_leader', `%${cleanName}%`)
-        .neq('user_id', user.id);
+    // Function to find a rep by name (handles emoji matching)
+    const findRepByName = (targetName: string | null): typeof allReps[0] | undefined => {
+      if (!targetName) return undefined;
+      const cleanTarget = stripEmojis(targetName).toLowerCase();
+      return allReps.find(r => {
+        const cleanName = stripEmojis(r.name).toLowerCase();
+        return cleanName.includes(cleanTarget) || cleanTarget.includes(cleanName);
+      });
+    };
 
-      if (downlineReps) {
-        for (const rep of downlineReps) {
-          assignableUsers.push({
-            userId: rep.user_id,
-            name: rep.name,
-            role: 'Your Recruit',
-            notionPageId: rep.notion_page_id || '',
-          });
-        }
-        console.log(`Found ${downlineReps.length} direct downline reps`);
-      }
-    }
+    // Start with the recruit's team leader and go up the chain
+    let currentTeamLeader = recruit.team_leader;
+    let level = 0;
+    const maxLevels = 10; // Prevent infinite loops
+    const addedUserIds = new Set<string>();
 
-    // 2. Add team leader (direct upline only)
-    if (cleanTeamLeader) {
-      const { data: leaderReps } = await supabase
-        .from('reps')
-        .select('user_id, name, notion_page_id')
-        .neq('user_id', user.id);
-
-      if (leaderReps) {
-        for (const leader of leaderReps) {
-          const leaderCleanName = stripEmojis(leader.name);
-          if (leaderCleanName.toLowerCase().includes(cleanTeamLeader.toLowerCase())) {
-            if (!assignableUsers.find(u => u.userId === leader.user_id)) {
-              assignableUsers.push({
-                userId: leader.user_id,
-                name: leader.name,
-                role: 'Team Leader',
-                notionPageId: leader.notion_page_id || '',
-              });
-            }
-          }
-        }
-        console.log(`Found ${assignableUsers.filter(u => u.role === 'Team Leader').length} team leaders`);
-      }
-    }
-
-    // 3. Add recruits of recruits (second-level downline) - for area directors/mgmt leads
-    // This allows a leader to assign tasks to their recruits' recruits
-    if (cleanName) {
-      // First get direct recruits
-      const { data: directRecruits } = await supabase
-        .from('reps')
-        .select('name')
-        .ilike('team_leader', `%${cleanName}%`);
+    while (currentTeamLeader && level < maxLevels) {
+      const leader = findRepByName(currentTeamLeader);
       
-      if (directRecruits && directRecruits.length > 0) {
-        // Then get recruits of those recruits
-        for (const directRecruit of directRecruits) {
-          const cleanRecruitName = stripEmojis(directRecruit.name);
-          if (cleanRecruitName) {
-            const { data: secondLevelRecruits } = await supabase
-              .from('reps')
-              .select('user_id, name, notion_page_id')
-              .ilike('team_leader', `%${cleanRecruitName}%`)
-              .neq('user_id', user.id);
-            
-            if (secondLevelRecruits) {
-              for (const rep of secondLevelRecruits) {
-                if (!assignableUsers.find(u => u.userId === rep.user_id)) {
-                  assignableUsers.push({
-                    userId: rep.user_id,
-                    name: rep.name,
-                    role: 'Downline',
-                    notionPageId: rep.notion_page_id || '',
-                  });
-                }
-              }
-            }
-          }
-        }
+      if (!leader || !leader.user_id) {
+        break;
       }
+
+      // Don't add the current user to the list (they're the default "Me" option)
+      // Also don't add duplicates
+      if (leader.user_id !== user.id && !addedUserIds.has(leader.user_id)) {
+        const role = level === 0 ? 'Team Leader' : level === 1 ? 'Upline' : 'Senior Leader';
+        assignableUsers.push({
+          userId: leader.user_id,
+          name: leader.name,
+          role,
+          notionPageId: leader.notion_page_id || '',
+        });
+        addedUserIds.add(leader.user_id);
+        console.log(`Added ${leader.name} as ${role} (level ${level})`);
+      }
+
+      // Move up the chain
+      currentTeamLeader = leader.team_leader;
+      
+      // Stop if the leader is their own team leader (top of chain)
+      if (leader.team_leader && stripEmojis(leader.team_leader).toLowerCase() === stripEmojis(leader.name).toLowerCase()) {
+        break;
+      }
+      
+      level++;
     }
 
-    // Sort: Team Leader first, then Your Recruit, then Downline
-    const roleOrder = { 'Team Leader': 0, 'Your Recruit': 1, 'Downline': 2 };
-    assignableUsers.sort((a, b) => {
-      const orderA = roleOrder[a.role as keyof typeof roleOrder] ?? 99;
-      const orderB = roleOrder[b.role as keyof typeof roleOrder] ?? 99;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.name.localeCompare(b.name);
-    });
-
-    console.log(`Total assignable users: ${assignableUsers.length} for ${currentRep.name}`);
+    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit.name}`);
 
     return new Response(JSON.stringify({ assignableUsers }), {
       status: 200,
