@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,12 +53,17 @@ export const ScheduleFollowUpDrawer = ({
     
     setIsLoading(true);
     try {
+      // Format as date-only string (YYYY-MM-DD) to avoid timezone shifts
+      // Use local timezone to get the date the user actually selected
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const dateOnlyString = formatInTimeZone(selectedDate, userTimezone, 'yyyy-MM-dd');
+      
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
         activityType: 'next_step',
         notes: notes || `Follow up scheduled for ${format(selectedDate, 'MMM d')}`,
         nextAction: `Follow up on ${format(selectedDate, 'MMM d, yyyy')}`,
-        nextActionDue: selectedDate.toISOString(),
+        nextActionDue: dateOnlyString,
       });
       toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}`);
       onOpenChange(false);

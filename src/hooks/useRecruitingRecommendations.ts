@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, parseISO } from "date-fns";
+import { differenceInDays, parseISO, startOfDay, isAfter } from "date-fns";
 
 export interface RecruitRecommendation {
   recruit: Recruit;
@@ -62,12 +62,27 @@ export const useRecruitingRecommendations = (
 
     // Build a map of latest activity per recruit
     const lastContactMap = new Map<string, Date>();
+    // Build a map of scheduled follow-ups (track the latest next_action_due per recruit)
+    const scheduledFollowUpMap = new Map<string, { dueDate: Date; createdAt: Date }>();
+    const today = startOfDay(now);
+    
     activities.forEach(activity => {
       if (activity.activity_type === 'phone_call' || activity.activity_type === 'in_person') {
         const existing = lastContactMap.get(activity.rep_notion_page_id);
         const activityDate = parseISO(activity.created_at);
         if (!existing || activityDate > existing) {
           lastContactMap.set(activity.rep_notion_page_id, activityDate);
+        }
+      }
+      
+      // Track scheduled follow-ups (next_step with next_action_due)
+      if (activity.activity_type === 'next_step' && activity.next_action_due) {
+        const dueDate = parseISO(activity.next_action_due);
+        const createdAt = parseISO(activity.created_at);
+        const existing = scheduledFollowUpMap.get(activity.rep_notion_page_id);
+        // Keep the most recently created scheduling
+        if (!existing || createdAt > existing.createdAt) {
+          scheduledFollowUpMap.set(activity.rep_notion_page_id, { dueDate, createdAt });
         }
       }
     });
@@ -86,6 +101,14 @@ export const useRecruitingRecommendations = (
       const daysSinceContact = lastContact 
         ? differenceInDays(now, lastContact)
         : null;
+      
+      // Check if recruit has a follow-up scheduled for AFTER today
+      // If so, skip them - there's nothing to do until that date
+      const scheduledFollowUp = scheduledFollowUpMap.get(recruit.notionPageId);
+      if (scheduledFollowUp && isAfter(scheduledFollowUp.dueDate, today)) {
+        console.log(`[Recommendations] Skipping ${recruit.name} - follow-up scheduled for ${scheduledFollowUp.dueDate.toISOString().split('T')[0]}`);
+        return; // Skip this recruit
+      }
       
       const cadence = STAGE_CADENCE[recruit.stage] || 7;
       let priority = 0;
