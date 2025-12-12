@@ -52,7 +52,16 @@ serve(async (req) => {
       });
     }
 
-    console.log('Fetching assignable users for:', currentRep.name, 'Team leader:', currentRep.team_leader);
+    // Helper function to strip emojis for searching
+    const stripEmojis = (text: string | null): string => {
+      if (!text) return '';
+      return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
+    };
+
+    const cleanName = stripEmojis(currentRep.name);
+    const cleanTeamLeader = stripEmojis(currentRep.team_leader);
+    
+    console.log('Fetching assignable users for:', currentRep.name, '(clean:', cleanName, ') Team leader:', currentRep.team_leader, '(clean:', cleanTeamLeader, ')');
 
     // Build list of assignable users based on STRICT upline/downline hierarchy only
     // No teammates - only people directly above or below in the recruiting chain
@@ -64,11 +73,11 @@ serve(async (req) => {
     }> = [];
 
     // 1. Add downline reps (people where current user is their team leader) - DIRECT RECRUITS ONLY
-    if (currentRep.name) {
+    if (cleanName) {
       const { data: downlineReps } = await supabase
         .from('reps')
         .select('user_id, name, notion_page_id, team_leader')
-        .ilike('team_leader', `%${currentRep.name}%`)
+        .ilike('team_leader', `%${cleanName}%`)
         .neq('user_id', user.id);
 
       if (downlineReps) {
@@ -85,45 +94,48 @@ serve(async (req) => {
     }
 
     // 2. Add team leader (direct upline only)
-    if (currentRep.team_leader) {
+    if (cleanTeamLeader) {
       const { data: leaderReps } = await supabase
         .from('reps')
         .select('user_id, name, notion_page_id')
-        .ilike('name', `%${currentRep.team_leader}%`)
         .neq('user_id', user.id);
 
       if (leaderReps) {
         for (const leader of leaderReps) {
-          if (!assignableUsers.find(u => u.userId === leader.user_id)) {
-            assignableUsers.push({
-              userId: leader.user_id,
-              name: leader.name,
-              role: 'Team Leader',
-              notionPageId: leader.notion_page_id || '',
-            });
+          const leaderCleanName = stripEmojis(leader.name);
+          if (leaderCleanName.toLowerCase().includes(cleanTeamLeader.toLowerCase())) {
+            if (!assignableUsers.find(u => u.userId === leader.user_id)) {
+              assignableUsers.push({
+                userId: leader.user_id,
+                name: leader.name,
+                role: 'Team Leader',
+                notionPageId: leader.notion_page_id || '',
+              });
+            }
           }
         }
-        console.log(`Found ${leaderReps?.length || 0} team leaders`);
+        console.log(`Found ${assignableUsers.filter(u => u.role === 'Team Leader').length} team leaders`);
       }
     }
 
     // 3. Add recruits of recruits (second-level downline) - for area directors/mgmt leads
     // This allows a leader to assign tasks to their recruits' recruits
-    if (currentRep.name) {
+    if (cleanName) {
       // First get direct recruits
       const { data: directRecruits } = await supabase
         .from('reps')
         .select('name')
-        .ilike('team_leader', `%${currentRep.name}%`);
+        .ilike('team_leader', `%${cleanName}%`);
       
       if (directRecruits && directRecruits.length > 0) {
         // Then get recruits of those recruits
         for (const directRecruit of directRecruits) {
-          if (directRecruit.name) {
+          const cleanRecruitName = stripEmojis(directRecruit.name);
+          if (cleanRecruitName) {
             const { data: secondLevelRecruits } = await supabase
               .from('reps')
               .select('user_id, name, notion_page_id')
-              .ilike('team_leader', `%${directRecruit.name}%`)
+              .ilike('team_leader', `%${cleanRecruitName}%`)
               .neq('user_id', user.id);
             
             if (secondLevelRecruits) {
