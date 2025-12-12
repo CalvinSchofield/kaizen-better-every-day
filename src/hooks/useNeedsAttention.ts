@@ -153,17 +153,24 @@ export const useNeedsAttention = (
         const repData = repDataMap.get(recruit.notionPageId);
         if (!repData) return;
 
-        const onboardingComplete = repData.onboarding_complete ?? false;
-        const trainingsComplete = repData.trainings_complete ?? false;
-        const slackJoined = repData.slack_joined ?? false;
         const ipadAssigned = repData.ipad_assigned ?? false;
         const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
+
+        // If any ramp phase is complete, foundational onboarding is done (can't start ramp without completing onboarding)
+        const hasAnyRampProgress = repData.ramp_phase_1_complete || 
+          repData.ramp_phase_2_complete || 
+          repData.ramp_phase_3_complete || 
+          repData.ramp_phase_4_complete;
+        
+        const onboardingComplete = (repData.onboarding_complete ?? false) || hasAnyRampProgress;
+        const trainingsComplete = (repData.trainings_complete ?? false) || hasAnyRampProgress;
+        const slackJoined = (repData.slack_joined ?? false) || hasAnyRampProgress;
 
         // Onboarding is complete when: onboarding video done AND trainings done AND slack joined
         // (iPad is tracked separately as it's more of a logistics item)
         const foundationalComplete = onboardingComplete && trainingsComplete && slackJoined;
         
-        // If they've completed all foundational onboarding, they go to Blitz Prep instead
+        // If they've completed all foundational onboarding (or have ramp progress), they go to Blitz Prep instead
         if (foundationalComplete) return;
 
         const missingItems: string[] = [];

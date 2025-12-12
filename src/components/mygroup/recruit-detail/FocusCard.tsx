@@ -53,9 +53,15 @@ export const FocusCard = ({
     const isBlitzImminent = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 7;
     
     const isRookie = recruitRepData.year === 'Rookie' || !recruitRepData.year;
-    const isOnboardingComplete = recruitRepData.onboarding_complete === true;
-    const isTrainingsComplete = recruitRepData.trainings_complete === true;
-    const isSlackJoined = recruitRepData.slack_joined === true;
+    
+    // If any ramp phase is complete, onboarding is done (can't start ramp without completing onboarding)
+    const hasAnyRampProgress = recruitRepData.ramp_phase_1_complete || 
+      recruitRepData.ramp_phase_2_complete || 
+      recruitRepData.ramp_phase_3_complete || 
+      recruitRepData.ramp_phase_4_complete;
+    const isOnboardingComplete = recruitRepData.onboarding_complete === true || hasAnyRampProgress;
+    const isTrainingsComplete = recruitRepData.trainings_complete === true || hasAnyRampProgress;
+    const isSlackJoined = recruitRepData.slack_joined === true || hasAnyRampProgress;
     const isRampPhase4Complete = recruitRepData.ramp_phase_4_complete === true;
     const hasIpad = recruitRepData.ipad_assigned === true;
     
