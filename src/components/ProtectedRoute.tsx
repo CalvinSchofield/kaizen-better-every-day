@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
+import { usePrefetchData } from "@/hooks/usePrefetchData";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +12,9 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Prefetch critical data once authenticated
+  usePrefetchData(user?.id);
 
   useEffect(() => {
     const updateTimezone = async (userId: string) => {
