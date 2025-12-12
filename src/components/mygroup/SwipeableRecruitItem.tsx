@@ -107,9 +107,13 @@ export const SwipeableRecruitItem = ({
     onDirectText?.(item.recruit);
   };
 
-  // Get blockers based on rep data
+  // Get blockers based on rep data - only for Rookies (vets/sophomores don't need ramp-to-blitz training)
   const getBlockers = () => {
     const blockers: { icon: 'ipad' | 'onboarding' | 'ramp'; label: string }[] = [];
+    
+    // Only show blocker icons for Rookies
+    const isRookie = item.recruit.year === 'Rookie' || item.recruit.year === '2025' || item.recruit.year === '2026';
+    if (!isRookie) return blockers;
     
     if (repData) {
       if (!repData.ipad_assigned) {

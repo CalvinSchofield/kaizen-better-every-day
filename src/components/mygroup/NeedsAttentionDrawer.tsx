@@ -1034,6 +1034,7 @@ export const NeedsAttentionDrawer = ({
   const isBlitzPrepCategory = category.id === 'blitz-prep';
   const isNoBlitzCategory = category.id === 'no-commitment';
   const isReadinessCategory = category.id === 'readiness';
+  const isHotLeadsCategory = category.id === 'hot-leads';
 
   return (
     <>
@@ -1071,8 +1072,8 @@ export const NeedsAttentionDrawer = ({
             )}
           </DrawerHeader>
 
-          {/* Icon legend for swipeable items */}
-          {!isOnboardingCategory && !isBlitzPrepCategory && !isReadinessCategory && (
+          {/* Icon legend for swipeable items - only for categories with rookies who need ramp training */}
+          {!isOnboardingCategory && !isBlitzPrepCategory && !isReadinessCategory && !isHotLeadsCategory && (
             <div className="flex items-center gap-4 text-xs text-muted-foreground px-4 py-2 border-b bg-muted/30">
               <div className="flex items-center gap-1">
                 <Tablet className="h-3 w-3 text-amber-500" />
