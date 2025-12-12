@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
 import { motion, useMotionValue, useTransform, PanInfo, useAnimation } from "framer-motion";
-import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, Check, Calendar, Tablet, BookOpen, Target, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -32,6 +33,14 @@ interface SwipeableRecruitItemProps {
   onContact?: (recruit: Recruit) => void;
   onDirectCall?: (recruit: Recruit) => void;
   onDirectText?: (recruit: Recruit) => void;
+  repData?: {
+    ipad_assigned?: boolean;
+    onboarding_complete?: boolean;
+    ramp_phase_1_complete?: boolean;
+    ramp_phase_2_complete?: boolean;
+    ramp_phase_3_complete?: boolean;
+    ramp_phase_4_complete?: boolean;
+  } | null;
 }
 
 export const SwipeableRecruitItem = ({
@@ -42,6 +51,7 @@ export const SwipeableRecruitItem = ({
   onContact,
   onDirectCall,
   onDirectText,
+  repData,
 }: SwipeableRecruitItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
@@ -97,6 +107,69 @@ export const SwipeableRecruitItem = ({
     onDirectText?.(item.recruit);
   };
 
+  // Get blockers based on rep data
+  const getBlockers = () => {
+    const blockers: { icon: 'ipad' | 'onboarding' | 'ramp'; label: string }[] = [];
+    
+    if (repData) {
+      if (!repData.ipad_assigned) {
+        blockers.push({ icon: 'ipad', label: 'Missing iPad' });
+      }
+      if (!repData.onboarding_complete) {
+        blockers.push({ icon: 'onboarding', label: 'Onboarding Incomplete' });
+      }
+      const hasIncompleteRamp = !repData.ramp_phase_1_complete || 
+        !repData.ramp_phase_2_complete || 
+        !repData.ramp_phase_3_complete || 
+        !repData.ramp_phase_4_complete;
+      if (hasIncompleteRamp && repData.onboarding_complete) {
+        blockers.push({ icon: 'ramp', label: 'Ramp Phases Incomplete' });
+      }
+    }
+    
+    return blockers;
+  };
+
+  // Get upcoming blitz info
+  const getUpcomingBlitz = () => {
+    if (!item.recruit.committedBlitzes || item.recruit.committedBlitzes.length === 0) return null;
+    
+    const today = startOfToday();
+    const upcomingBlitzes = item.recruit.committedBlitzes
+      .filter(b => b.date)
+      .map(b => ({ ...b, startDate: parseISO(b.date) }))
+      .filter(b => isAfter(b.startDate, today) || isSameDay(b.startDate, today))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    if (upcomingBlitzes.length === 0) return null;
+    
+    const nextBlitz = upcomingBlitzes[0];
+    const daysUntil = differenceInDays(nextBlitz.startDate, today);
+    
+    return {
+      name: nextBlitz.name,
+      daysUntil,
+      isUrgent: daysUntil <= 7,
+      isWarning: daysUntil <= 14,
+    };
+  };
+
+  // Get scheduled follow-up
+  const getScheduledFollowUp = () => {
+    if (!item.recruit.nextActionDue) return null;
+    const dueDate = parseISO(item.recruit.nextActionDue);
+    const today = startOfToday();
+    const isToday = isSameDay(dueDate, today);
+    return {
+      isToday,
+      label: isToday ? 'Today' : format(dueDate, 'MMM d'),
+    };
+  };
+
+  const blockers = getBlockers();
+  const upcomingBlitz = getUpcomingBlitz();
+  const followUp = getScheduledFollowUp();
+
   return (
     <div ref={constraintsRef} className="relative overflow-hidden rounded-lg">
       {/* Left action background (Contacted) - swipe right */}
@@ -137,36 +210,85 @@ export const SwipeableRecruitItem = ({
         animate={controls}
         whileTap={{ cursor: 'grabbing' }}
         className={cn(
-          "bg-card rounded-lg p-4 border border-l-4 shadow-sm cursor-grab active:cursor-grabbing relative",
+          "bg-card rounded-lg p-3 border border-l-4 shadow-sm cursor-grab active:cursor-grabbing relative",
           URGENCY_STYLES[item.urgency],
           isCommitted && "shadow-lg"
         )}
       >
-        {/* Main content */}
+        {/* Row 1: Name + Blocker icons */}
         <div 
-          className="flex items-start justify-between gap-3"
+          className="flex items-start justify-between gap-2"
           onClick={() => {
             onRecruitClick(item.recruit);
             onDrawerClose();
           }}
         >
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-medium">
+            <div className="flex items-center gap-2">
+              <span className="font-medium truncate">
                 {stripEmojis(item.recruit.name)}
               </span>
-              <Badge variant="outline" className="text-xs">
-                {item.recruit.stage}
-              </Badge>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {blockers.map((blocker, idx) => (
+                  <span key={idx} className="text-amber-500">
+                    {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                    {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                    {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {item.reason}
-            </p>
+            
+            {/* Row 2: Team name */}
             {item.recruit.teamName && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {item.recruit.teamName}
-              </p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                <Users className="h-3 w-3" />
+                <span className="truncate">{item.recruit.teamName}</span>
+              </div>
             )}
+            
+            {/* Row 3: Badges - follow-up, days since contact, blitz countdown */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-2">
+              {/* Scheduled follow-up badge */}
+              {followUp && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0 ${followUp.isToday 
+                    ? "bg-primary/10 text-primary border-primary/30" 
+                    : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                  }`}
+                >
+                  <Clock className="h-2.5 w-2.5 mr-0.5" />
+                  {followUp.label}
+                </Badge>
+              )}
+
+              {/* Days since contact */}
+              {item.daysSinceContact !== undefined && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0 ${item.daysSinceContact >= 7 ? 'text-amber-600 border-amber-500/30' : 'text-muted-foreground'}`}
+                >
+                  {item.daysSinceContact}d ago
+                </Badge>
+              )}
+
+              {/* Blitz countdown */}
+              {upcomingBlitz && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0 ${
+                    upcomingBlitz.isUrgent 
+                      ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                      : upcomingBlitz.isWarning 
+                        ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                        : 'bg-green-500/10 text-green-600 border-green-500/30'
+                  }`}
+                >
+                  🎯 {upcomingBlitz.daysUntil}d
+                </Badge>
+              )}
+            </div>
           </div>
           
           <div className="flex gap-1 flex-shrink-0">
