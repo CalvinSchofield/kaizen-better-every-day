@@ -3,7 +3,6 @@ import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGrou
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
@@ -264,22 +263,13 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium truncate flex-1">{recruit.name}</p>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <TooltipProvider delayDuration={200}>
-                      {getBlockers(recruit).map((blocker, idx) => (
-                        <Tooltip key={idx}>
-                          <TooltipTrigger asChild>
-                            <span className="text-amber-500 cursor-help">
-                              {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
-                              {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
-                              {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {blocker.label}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </TooltipProvider>
+                    {getBlockers(recruit).map((blocker, idx) => (
+                      <span key={idx} className="text-amber-500">
+                        {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                        {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                        {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
@@ -362,6 +352,22 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
   return (
     <>
+      {/* Icon legend */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3 px-1">
+        <div className="flex items-center gap-1">
+          <Tablet className="h-3 w-3 text-amber-500" />
+          <span>No iPad</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <BookOpen className="h-3 w-3 text-amber-500" />
+          <span>Onboarding</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Target className="h-3 w-3 text-amber-500" />
+          <span>Ramp</span>
+        </div>
+      </div>
+
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4">
         {PRIMARY_STAGES.map(renderStageColumn)}
       </div>
