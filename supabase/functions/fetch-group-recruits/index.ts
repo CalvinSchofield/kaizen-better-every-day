@@ -58,7 +58,8 @@ serve(async (req) => {
       });
     }
 
-    const { accessibleNotionIds, includeActivities = true } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { accessibleNotionIds, includeActivities = true } = body;
 
     if (!accessibleNotionIds || accessibleNotionIds.length === 0) {
       return new Response(JSON.stringify({ recruits: [], activities: [] }), {
