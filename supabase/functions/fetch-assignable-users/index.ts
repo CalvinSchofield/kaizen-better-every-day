@@ -39,10 +39,10 @@ serve(async (req) => {
 
     // Get request body for recruit context
     const body = await req.json().catch(() => ({}));
-    const { recruitNotionPageId } = body;
+    const { recruitNotionPageId, recruitTeamLeader } = body;
 
-    if (!recruitNotionPageId) {
-      console.log('No recruitNotionPageId provided, returning empty list');
+    if (!recruitNotionPageId && !recruitTeamLeader) {
+      console.log('No recruitNotionPageId or recruitTeamLeader provided, returning empty list');
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,18 +74,23 @@ serve(async (req) => {
       });
     }
 
-    // Find the recruit by notion page ID
-    const recruit = allReps.find(r => r.notion_page_id === recruitNotionPageId);
+    // Find the recruit by notion page ID, or use the provided team leader as fallback
+    const recruit = recruitNotionPageId 
+      ? allReps.find(r => r.notion_page_id === recruitNotionPageId)
+      : null;
     
-    if (!recruit) {
-      console.log('Recruit not found for notion page ID:', recruitNotionPageId);
+    // Determine the starting team leader - either from the recruit record or the fallback
+    const startingTeamLeader = recruit?.team_leader || recruitTeamLeader;
+    
+    if (!startingTeamLeader) {
+      console.log('No team leader found for recruit:', recruitNotionPageId);
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Finding assignable users for recruit:', recruit.name);
+    console.log('Finding assignable users starting from team_leader:', startingTeamLeader);
 
     // Build upline chain for the recruit
     const assignableUsers: Array<{
@@ -106,7 +111,7 @@ serve(async (req) => {
     };
 
     // Start with the recruit's team leader and go up the chain
-    let currentTeamLeader = recruit.team_leader;
+    let currentTeamLeader = startingTeamLeader;
     let level = 0;
     const maxLevels = 10; // Prevent infinite loops
     const addedUserIds = new Set<string>();
@@ -168,7 +173,7 @@ serve(async (req) => {
       level++;
     }
 
-    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit.name}`);
+    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit?.name || recruitNotionPageId || 'unknown'}`);
 
     return new Response(JSON.stringify({ assignableUsers }), {
       status: 200,

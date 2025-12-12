@@ -46,6 +46,7 @@ export const ScheduleFollowUpDrawer = ({
   const logActivityMutation = useLogRecruitActivity();
   const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
     recruitNotionPageId: recruit?.notionPageId,
+    recruitTeamLeader: recruit?.teamName, // Fallback for recruits not in reps table
   });
 
   const quickDates = [
