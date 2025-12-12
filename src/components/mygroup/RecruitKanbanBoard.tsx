@@ -3,6 +3,7 @@ import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGrou
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
@@ -263,17 +264,22 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium truncate flex-1">{recruit.name}</p>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {getBlockers(recruit).map((blocker, idx) => (
-                      <span 
-                        key={idx} 
-                        className="text-amber-500" 
-                        title={blocker.label}
-                      >
-                        {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
-                        {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
-                      </span>
-                    ))}
+                    <TooltipProvider delayDuration={200}>
+                      {getBlockers(recruit).map((blocker, idx) => (
+                        <Tooltip key={idx}>
+                          <TooltipTrigger asChild>
+                            <span className="text-amber-500 cursor-help">
+                              {blocker.icon === 'ipad' && <Tablet className="h-3.5 w-3.5" />}
+                              {blocker.icon === 'onboarding' && <BookOpen className="h-3.5 w-3.5" />}
+                              {blocker.icon === 'ramp' && <Target className="h-3.5 w-3.5" />}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {blocker.label}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </TooltipProvider>
                   </div>
                 </div>
 
