@@ -108,7 +108,7 @@ const MyGroup = () => {
       
       const { data } = await supabase
         .from('reps')
-        .select('name, team_leader')
+        .select('name, team_leader, notion_page_id')
         .eq('user_id', user.id)
         .single();
       
@@ -607,6 +607,8 @@ const MyGroup = () => {
         onRecruitClick={handleRecruitClick}
         blitzes={allBlitzes}
         repDataMap={repDataMap}
+        currentUserNotionId={currentUserRep?.notion_page_id}
+        currentUserName={currentUserRep?.name}
       />
       <QuickViewDrawer
         open={quickViewOpen}

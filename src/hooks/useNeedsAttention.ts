@@ -647,8 +647,8 @@ export const useNeedsAttention = (
     rookiesForReadiness.forEach(recruit => {
       const repData = repDataMap?.get(recruit.notionPageId);
       
-      // Must have completed phase 1 (check from repData if available)
-      const phase1Complete = repData?.ramp_phase_1_complete ?? false;
+      // Must have completed phase 1 - check Supabase first, then fall back to Notion data
+      const phase1Complete = repData?.ramp_phase_1_complete ?? recruit.phase1Complete ?? false;
       if (!phase1Complete) return;
       
       const userId = repData?.user_id;
