@@ -23,6 +23,7 @@ import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { generateSmartTextMessage } from "@/utils/smartTextMessage";
 
 // iPad request email helper
 const sendIpadRequestEmail = (recruitName: string, email: string | null, phone: string | null) => {
@@ -47,6 +48,8 @@ interface NeedsAttentionDrawerProps {
   onRecruitClick: (recruit: Recruit) => void;
   blitzes?: BlitzEvent[];
   repDataMap?: Map<string, any>;
+  currentUserNotionId?: string | null;
+  currentUserName?: string | null;
 }
 
 // Strip emojis from name
@@ -774,13 +777,17 @@ const ReadinessItem = ({
   onRecruitClick,
   onOpenChange,
   blitzes,
-  repDataMap
+  repDataMap,
+  currentUserNotionId,
+  currentUserName,
 }: {
   item: AttentionRecruit;
   onRecruitClick: (recruit: Recruit) => void;
   onOpenChange: (open: boolean) => void;
   blitzes: BlitzEvent[];
   repDataMap?: Map<string, any>;
+  currentUserNotionId?: string | null;
+  currentUserName?: string | null;
 }) => {
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
   
@@ -817,12 +824,26 @@ const ReadinessItem = ({
   const rolePlaysStatus = getProgressStatus(readiness?.rolePlaysGoal || 0, readiness?.rolePlaysProgress || 0);
   const mnlStatus = getProgressStatus(readiness?.mnlGoal || 0, readiness?.mnlProgress || 0);
 
+  // Determine relationship to recruit
+  const isRecruiter = currentUserNotionId && item.recruit.recruiterNotionId === currentUserNotionId;
+  const isTeamLeader = currentUserNotionId && repData?.team_leader === currentUserNotionId;
+
   const handleText = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (item.recruit.phone) {
-      window.location.href = `sms:${item.recruit.phone}`;
+      // Generate smart prefilled message
+      const message = generateSmartTextMessage({
+        recruitName: stripEmojis(item.recruit.name) || item.recruit.name,
+        readinessProgress: readiness || undefined,
+        isRecruiter: !!isRecruiter,
+        isTeamLeader: !!isTeamLeader,
+        currentUserName: currentUserName || undefined,
+      });
+      
+      // Encode the message for SMS
+      const encodedMessage = encodeURIComponent(message);
+      window.location.href = `sms:${item.recruit.phone}?body=${encodedMessage}`;
     }
-    // No phone case is handled by hiding the button when no phone
   };
 
   return (
@@ -983,7 +1004,9 @@ export const NeedsAttentionDrawer = ({
   category,
   onRecruitClick,
   blitzes = [],
-  repDataMap
+  repDataMap,
+  currentUserNotionId,
+  currentUserName,
 }: NeedsAttentionDrawerProps) => {
   const [scheduleRecruit, setScheduleRecruit] = useState<Recruit | null>(null);
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
@@ -1148,6 +1171,8 @@ export const NeedsAttentionDrawer = ({
                     onOpenChange={onOpenChange}
                     blitzes={blitzes}
                     repDataMap={repDataMap}
+                    currentUserNotionId={currentUserNotionId}
+                    currentUserName={currentUserName}
                   />
                 );
               }

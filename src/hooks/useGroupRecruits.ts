@@ -31,6 +31,13 @@ export interface Recruit {
   onboardingStatus?: string | null;
   ipadAssigned?: boolean;
   blitzReady?: boolean;
+  // Ramp-to-blitz phase data from Notion (fallback for recruits not in Supabase)
+  rampToBlitzPhase?: string | null;
+  phase1Complete?: boolean;
+  phase2Complete?: boolean;
+  phase3Complete?: boolean;
+  phase4Complete?: boolean;
+  onboardingComplete?: boolean;
 }
 
 export interface RecruitActivity {

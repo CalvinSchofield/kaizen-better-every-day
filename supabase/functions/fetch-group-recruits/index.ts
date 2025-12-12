@@ -110,10 +110,11 @@ serve(async (req) => {
           
           if (recruiterRelation && accessibleNotionIds.includes(recruiterRelation)) {
             const getName = (prop: any) => prop?.title?.[0]?.plain_text || prop?.rich_text?.[0]?.plain_text || '';
-            const getSelect = (prop: any) => prop?.select?.name || '';
+            const getSelectLocal = (prop: any) => prop?.select?.name || '';
             const getPhone = (prop: any) => prop?.phone_number || '';
             const getEmail = (prop: any) => prop?.email || '';
             const getDate = (prop: any) => prop?.date?.start || null;
+            const getCheckbox = (prop: any) => prop?.checkbox ?? false;
             
             // Collect blitz trip relation IDs
             const blitzTripRelationIds: string[] = [];
@@ -129,14 +130,23 @@ serve(async (req) => {
               name: getName(props['Name']),
               phone: getPhone(props['Phone']),
               email: getEmail(props['Email']),
-              stage: getSelect(props['Stage']),
+              stage: getSelectLocal(props['Stage']),
               recruiterNotionId: recruiterRelation,
-              year: getSelect(props['Year']),
+              year: getSelectLocal(props['Year']),
               lastContact: getDate(props['Last Contact']),
               nextAction: getName(props['Next Action']),
               nextActionDue: getDate(props['Next Action Due']),
               createdAt: page.created_time,
               blitzTripRelationIds, // Temporary field, will be replaced with full data
+              // Ramp-to-blitz phase data from Notion (fallback for recruits not in Supabase)
+              rampToBlitzPhase: getSelectLocal(props['Ramp to Blitz Phase']) || null,
+              phase1Complete: getCheckbox(props['Phase 1 ✅']),
+              phase2Complete: getCheckbox(props['Phase 2 ✅']),
+              phase3Complete: getCheckbox(props['Phase 3 ✅']),
+              phase4Complete: getCheckbox(props['Phase 4 ✅']),
+              onboardingComplete: getCheckbox(props['Onboarding Complete']),
+              ipadAssigned: getCheckbox(props['iPad Assigned']),
+              blitzReady: getCheckbox(props['Blitz Ready']),
             });
           }
         }
