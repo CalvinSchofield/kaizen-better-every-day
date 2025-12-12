@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format, addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
@@ -162,11 +163,13 @@ export const ScheduleFollowUpDrawer = ({
           </Popover>
 
           {/* Assign to selector */}
-          {assignableUsers.length > 0 && (
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Assign to (optional)
-              </label>
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              Assign to (optional)
+            </label>
+            {assignableUsersLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : assignableUsers.length > 0 ? (
               <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
                 <PopoverTrigger asChild>
                   <Button
@@ -212,8 +215,17 @@ export const ScheduleFollowUpDrawer = ({
                   </div>
                 </PopoverContent>
               </Popover>
-            </div>
-          )}
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                disabled
+              >
+                <User className="h-4 w-4 mr-2" />
+                Me (default)
+              </Button>
+            )}
+          </div>
         </div>
 
         <DrawerFooter className="border-t">
