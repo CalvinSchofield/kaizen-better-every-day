@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, parseISO, startOfDay, isAfter } from "date-fns";
+import { differenceInDays, parseISO, startOfDay, isAfter, format, isSameDay } from "date-fns";
 
 export interface RecruitRecommendation {
   recruit: Recruit;
@@ -10,6 +10,11 @@ export interface RecruitRecommendation {
   daysSinceContact: number | null;
   daysUntilBlitz?: number;
   missingItems?: string[];
+  scheduledFollowUp?: {
+    dueDate: Date;
+    isDueToday: boolean;
+    formattedDate: string;
+  };
 }
 
 interface BlitzEvent {
@@ -104,10 +109,20 @@ export const useRecruitingRecommendations = (
       
       // Check if recruit has a follow-up scheduled for AFTER today
       // If so, skip them - there's nothing to do until that date
-      const scheduledFollowUp = scheduledFollowUpMap.get(recruit.notionPageId);
-      if (scheduledFollowUp && isAfter(scheduledFollowUp.dueDate, today)) {
-        console.log(`[Recommendations] Skipping ${recruit.name} - follow-up scheduled for ${scheduledFollowUp.dueDate.toISOString().split('T')[0]}`);
+      const scheduledFollowUpData = scheduledFollowUpMap.get(recruit.notionPageId);
+      if (scheduledFollowUpData && isAfter(scheduledFollowUpData.dueDate, today)) {
+        console.log(`[Recommendations] Skipping ${recruit.name} - follow-up scheduled for ${scheduledFollowUpData.dueDate.toISOString().split('T')[0]}`);
         return; // Skip this recruit
+      }
+      
+      // Track if follow-up is due today for display
+      let scheduledFollowUp: RecruitRecommendation['scheduledFollowUp'];
+      if (scheduledFollowUpData && isSameDay(scheduledFollowUpData.dueDate, today)) {
+        scheduledFollowUp = {
+          dueDate: scheduledFollowUpData.dueDate,
+          isDueToday: true,
+          formattedDate: 'Today',
+        };
       }
       
       const cadence = STAGE_CADENCE[recruit.stage] || 7;
@@ -309,6 +324,7 @@ export const useRecruitingRecommendations = (
           daysSinceContact,
           daysUntilBlitz,
           missingItems,
+          scheduledFollowUp,
         });
       }
     });
