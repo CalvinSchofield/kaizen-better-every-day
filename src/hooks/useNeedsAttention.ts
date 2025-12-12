@@ -185,7 +185,7 @@ export const useNeedsAttention = (
             : missingItems.slice(0, 2).join(' & ') + (missingItems.length > 2 ? ` +${missingItems.length - 2}` : '');
           
           // Check for upcoming blitz to add urgency context
-          const rawCommitments = repData.committed_blitzes || [];
+          const rawCommitments = repData?.committed_blitzes || recruit.committedBlitzes || [];
           const committedBlitzIds: string[] = Array.isArray(rawCommitments)
             ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
             : [];
