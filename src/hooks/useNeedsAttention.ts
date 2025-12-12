@@ -143,28 +143,27 @@ export const useNeedsAttention = (
     // This shows anyone who hasn't completed ALL foundational items (onboarding, trainings, slack)
     const onboardingRecruits: AttentionRecruit[] = [];
     
-    if (repDataMap) {
-      // Only rookies in active stages (Signed or Shadow)
-      const rookieRecruits = recruits.filter(r => 
-        (r.stage === 'Signed' || r.stage === 'Shadow ✅') && r.year === 'Rookie'
-      );
+    // Only rookies in active stages (Signed or Shadow)
+    const rookieRecruits = recruits.filter(r => 
+      (r.stage === 'Signed' || r.stage === 'Shadow ✅') && r.year === 'Rookie'
+    );
 
-      rookieRecruits.forEach(recruit => {
-        const repData = repDataMap.get(recruit.notionPageId);
-        if (!repData) return;
+    rookieRecruits.forEach(recruit => {
+      const repData = repDataMap?.get(recruit.notionPageId);
 
-        const ipadAssigned = repData.ipad_assigned ?? false;
-        const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
+      // Use Supabase data if available, otherwise fall back to Notion data
+      const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
+      const rampPhase = repData?.ramp_to_blitz_phase || 'Not started';
 
-        // If any ramp phase is complete, foundational onboarding is done (can't start ramp without completing onboarding)
-        const hasAnyRampProgress = repData.ramp_phase_1_complete || 
-          repData.ramp_phase_2_complete || 
-          repData.ramp_phase_3_complete || 
-          repData.ramp_phase_4_complete;
-        
-        const onboardingComplete = (repData.onboarding_complete ?? false) || hasAnyRampProgress;
-        const trainingsComplete = (repData.trainings_complete ?? false) || hasAnyRampProgress;
-        const slackJoined = (repData.slack_joined ?? false) || hasAnyRampProgress;
+      // If any ramp phase is complete, foundational onboarding is done (can't start ramp without completing onboarding)
+      const hasAnyRampProgress = (repData?.ramp_phase_1_complete || recruit.phase1Complete) || 
+        (repData?.ramp_phase_2_complete || recruit.phase2Complete) || 
+        (repData?.ramp_phase_3_complete || recruit.phase3Complete) || 
+        (repData?.ramp_phase_4_complete || recruit.phase4Complete);
+      
+      const onboardingComplete = (repData?.onboarding_complete ?? recruit.onboardingComplete ?? false) || hasAnyRampProgress;
+      const trainingsComplete = (repData?.trainings_complete ?? recruit.trainingsComplete ?? false) || hasAnyRampProgress;
+      const slackJoined = (repData?.slack_joined ?? recruit.slackJoined ?? false) || hasAnyRampProgress;
 
         // Onboarding is complete when: onboarding video done AND trainings done AND slack joined
         // (iPad is tracked separately as it's more of a logistics item)
@@ -233,10 +232,9 @@ export const useNeedsAttention = (
               ipadAssigned,
               rampPhase,
             },
-          });
-        }
-      });
-    }
+        });
+      }
+    });
 
     if (onboardingRecruits.length > 0) {
       categories.push({
@@ -267,33 +265,31 @@ export const useNeedsAttention = (
     // This shows everyone who is IN the ramp to blitz process but not yet done with all 4 phases
     const blitzPrepRecruits: AttentionRecruit[] = [];
     
-    if (repDataMap) {
-      // Only rookies in active stages
-      const rookieRecruits = recruits.filter(r => 
-        (r.stage === 'Signed' || r.stage === 'Shadow ✅') && r.year === 'Rookie'
-      );
+    // Only rookies in active stages
+    const blitzPrepRookieRecruits = recruits.filter(r => 
+      (r.stage === 'Signed' || r.stage === 'Shadow ✅') && r.year === 'Rookie'
+    );
 
-      rookieRecruits.forEach(recruit => {
-        const repData = repDataMap.get(recruit.notionPageId);
-        if (!repData) return;
+    blitzPrepRookieRecruits.forEach(recruit => {
+      const repData = repDataMap?.get(recruit.notionPageId);
 
-        // Get onboarding status
-        const onboardingComplete = repData.onboarding_complete ?? false;
-        const trainingsComplete = repData.trainings_complete ?? false;
-        const slackJoined = repData.slack_joined ?? false;
-        const ipadAssigned = repData.ipad_assigned ?? false;
-        const rampPhase = repData.ramp_to_blitz_phase || 'Not started';
+      // Use Supabase data if available, otherwise fall back to Notion data
+      const onboardingComplete = repData?.onboarding_complete ?? recruit.onboardingComplete ?? false;
+      const trainingsComplete = repData?.trainings_complete ?? recruit.trainingsComplete ?? false;
+      const slackJoined = repData?.slack_joined ?? recruit.slackJoined ?? false;
+      const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
+      const rampPhase = repData?.ramp_to_blitz_phase || 'Not started';
 
-        // REQUIREMENT: Must have completed ALL foundational onboarding (onboarding + trainings + slack)
-        // If not, they'll be in the Onboarding tab instead
-        const foundationalComplete = onboardingComplete && trainingsComplete && slackJoined;
-        if (!foundationalComplete) return;
+      // REQUIREMENT: Must have completed ALL foundational onboarding (onboarding + trainings + slack)
+      // If not, they'll be in the Onboarding tab instead
+      const foundationalComplete = onboardingComplete && trainingsComplete && slackJoined;
+      if (!foundationalComplete) return;
 
-        // Check ramp phases
-        const phase1Complete = repData.ramp_phase_1_complete ?? false;
-        const phase2Complete = repData.ramp_phase_2_complete ?? false;
-        const phase3Complete = repData.ramp_phase_3_complete ?? false;
-        const phase4Complete = repData.ramp_phase_4_complete ?? false;
+      // Check ramp phases - Supabase first, then Notion fallback
+      const phase1Complete = repData?.ramp_phase_1_complete ?? recruit.phase1Complete ?? false;
+      const phase2Complete = repData?.ramp_phase_2_complete ?? recruit.phase2Complete ?? false;
+      const phase3Complete = repData?.ramp_phase_3_complete ?? recruit.phase3Complete ?? false;
+      const phase4Complete = repData?.ramp_phase_4_complete ?? recruit.phase4Complete ?? false;
 
         // If all phases complete, they're ready - no blitz prep needed
         if (phase1Complete && phase2Complete && phase3Complete && phase4Complete) return;
@@ -374,9 +370,8 @@ export const useNeedsAttention = (
             phase4Complete,
             incompletePhases,
           },
-        });
       });
-    }
+    });
 
     if (blitzPrepRecruits.length > 0) {
       categories.push({

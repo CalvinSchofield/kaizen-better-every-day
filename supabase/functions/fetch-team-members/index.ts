@@ -100,9 +100,21 @@ function processReps(reps: any[]): any[] {
     const recruiter = getSelect(props["Recruiter"]);
     const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
     const teamIds = getRelation(props["Teams"]); // Get team relation IDs
+    
+    // Ramp-to-blitz phase completion checkboxes
+    const phase1Complete = getCheckbox(props["Phase 1 ✅"]);
+    const phase2Complete = getCheckbox(props["Phase 2 ✅"]);
+    const phase3Complete = getCheckbox(props["Phase 3 ✅"]);
+    const phase4Complete = getCheckbox(props["Phase 4 ✅"]);
+    
+    // Onboarding checkboxes (for fallback when not in Supabase reps table)
+    const onboardingComplete = getCheckbox(props["Onboarding Complete"]);
+    const trainingsComplete = getCheckbox(props["Trainings Complete"]);
+    const slackJoined = getCheckbox(props["Slack ✅"]);
 
     const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
-                      onboardingStatus === "Blitz ready";
+                      onboardingStatus === "Blitz ready" ||
+                      phase4Complete;
 
     return {
       notionPageId: page.id,
@@ -118,6 +130,15 @@ function processReps(reps: any[]): any[] {
       recruiter,
       teamName,
       teamIds, // Include team IDs for filtering
+      // Ramp-to-blitz phase completion
+      phase1Complete,
+      phase2Complete,
+      phase3Complete,
+      phase4Complete,
+      // Onboarding completion
+      onboardingComplete,
+      trainingsComplete,
+      slackJoined,
     };
   });
 }

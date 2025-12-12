@@ -38,6 +38,8 @@ export interface Recruit {
   phase3Complete?: boolean;
   phase4Complete?: boolean;
   onboardingComplete?: boolean;
+  trainingsComplete?: boolean;
+  slackJoined?: boolean;
 }
 
 export interface RecruitActivity {
@@ -162,6 +164,14 @@ export const useGroupRecruits = () => {
                 onboardingStatus: member.onboardingStatus || null,
                 ipadAssigned: member.ipadAssigned ?? false,
                 blitzReady: member.blitzReady ?? false,
+                // Ramp-to-blitz phase completion from Notion
+                phase1Complete: member.phase1Complete ?? false,
+                phase2Complete: member.phase2Complete ?? false,
+                phase3Complete: member.phase3Complete ?? false,
+                phase4Complete: member.phase4Complete ?? false,
+                onboardingComplete: member.onboardingComplete ?? false,
+                trainingsComplete: member.trainingsComplete ?? false,
+                slackJoined: member.slackJoined ?? false,
               };
             });
         } else {
@@ -191,6 +201,14 @@ export const useGroupRecruits = () => {
                 onboardingStatus: member.onboardingStatus || null,
                 ipadAssigned: member.ipadAssigned ?? false,
                 blitzReady: member.blitzReady ?? false,
+                // Ramp-to-blitz phase completion from Notion
+                phase1Complete: member.phase1Complete ?? false,
+                phase2Complete: member.phase2Complete ?? false,
+                phase3Complete: member.phase3Complete ?? false,
+                phase4Complete: member.phase4Complete ?? false,
+                onboardingComplete: member.onboardingComplete ?? false,
+                trainingsComplete: member.trainingsComplete ?? false,
+                slackJoined: member.slackJoined ?? false,
               };
             });
         }
@@ -227,6 +245,14 @@ export const useGroupRecruits = () => {
               onboardingStatus: member.onboardingStatus || null,
               ipadAssigned: member.ipadAssigned ?? false,
               blitzReady: member.blitzReady ?? false,
+              // Ramp-to-blitz phase completion from Notion
+              phase1Complete: member.phase1Complete ?? false,
+              phase2Complete: member.phase2Complete ?? false,
+              phase3Complete: member.phase3Complete ?? false,
+              phase4Complete: member.phase4Complete ?? false,
+              onboardingComplete: member.onboardingComplete ?? false,
+              trainingsComplete: member.trainingsComplete ?? false,
+              slackJoined: member.slackJoined ?? false,
             };
           });
       }
