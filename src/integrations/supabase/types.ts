@@ -377,6 +377,8 @@ export type Database = {
       recruit_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["recruit_activity_type"]
+          assigned_to_user_id: string | null
+          assignment_status: string | null
           completed_at: string | null
           created_at: string
           id: string
@@ -388,6 +390,8 @@ export type Database = {
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["recruit_activity_type"]
+          assigned_to_user_id?: string | null
+          assignment_status?: string | null
           completed_at?: string | null
           created_at?: string
           id?: string
@@ -399,6 +403,8 @@ export type Database = {
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["recruit_activity_type"]
+          assigned_to_user_id?: string | null
+          assignment_status?: string | null
           completed_at?: string | null
           created_at?: string
           id?: string

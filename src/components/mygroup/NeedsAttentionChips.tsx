@@ -6,6 +6,8 @@ interface NeedsAttentionChipsProps {
   categories: AttentionCategory[];
   selectedCategory: string | null;
   onCategoryClick: (categoryId: string) => void;
+  assignedTasksCount?: number;
+  onAssignedTasksClick?: () => void;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -15,17 +17,38 @@ const CATEGORY_COLORS: Record<string, string> = {
   'hot-leads': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20',
   'training-progress': 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20', // Onboarding
   'readiness': 'bg-violet-500/10 text-violet-600 border-violet-500/30 hover:bg-violet-500/20',
+  'assigned-to-me': 'bg-indigo-500/10 text-indigo-600 border-indigo-500/30 hover:bg-indigo-500/20',
 };
 
 export const NeedsAttentionChips = ({ 
   categories, 
   selectedCategory,
-  onCategoryClick 
+  onCategoryClick,
+  assignedTasksCount = 0,
+  onAssignedTasksClick,
 }: NeedsAttentionChipsProps) => {
-  if (categories.length === 0) return null;
+  const hasContent = categories.length > 0 || assignedTasksCount > 0;
+  if (!hasContent) return null;
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+      {/* Assigned to Me chip - show first if there are tasks */}
+      {assignedTasksCount > 0 && (
+        <Badge
+          variant="outline"
+          className={cn(
+            "cursor-pointer whitespace-nowrap px-3 py-1.5 text-sm transition-all flex-shrink-0",
+            CATEGORY_COLORS['assigned-to-me'],
+            selectedCategory === 'assigned-to-me' && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+          )}
+          onClick={onAssignedTasksClick}
+        >
+          <span className="mr-1.5">📋</span>
+          <span className="font-medium">{assignedTasksCount}</span>
+          <span className="ml-1 opacity-80">Assigned to me</span>
+        </Badge>
+      )}
+      
       {categories.map((category) => (
         <Badge
           key={category.id}

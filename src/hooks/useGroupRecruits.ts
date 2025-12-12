@@ -450,6 +450,7 @@ export const useLogRecruitActivity = () => {
       nextAction,
       nextActionDue,
       updateLastContact = false,
+      assignedToUserId,
     }: { 
       recruitNotionId: string; 
       activityType: 'phone_call' | 'in_person' | 'note' | 'next_step';
@@ -457,19 +458,20 @@ export const useLogRecruitActivity = () => {
       nextAction?: string;
       nextActionDue?: string;
       updateLastContact?: boolean;
+      assignedToUserId?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('log-recruit-activity', {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { recruitNotionId, activityType, notes, nextAction, nextActionDue, updateLastContact },
+        body: { recruitNotionId, activityType, notes, nextAction, nextActionDue, updateLastContact, assignedToUserId },
       });
 
       if (error) throw error;
-      return { ...data, tempId: `temp-${Date.now()}`, recruitNotionId, activityType, notes, nextAction, nextActionDue };
+      return { ...data, tempId: `temp-${Date.now()}`, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
     },
-    onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue }) => {
+    onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
       const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
@@ -486,6 +488,8 @@ export const useLogRecruitActivity = () => {
           notes: notes || null,
           next_action: nextAction || null,
           next_action_due: nextActionDue || null,
+          assigned_to_user_id: assignedToUserId || null,
+          assignment_status: assignedToUserId ? 'pending' : null,
           completed_at: null,
           created_at: new Date().toISOString(),
         };
@@ -506,6 +510,7 @@ export const useLogRecruitActivity = () => {
     },
     onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       if (data?.recruitNotionId) {
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', data.recruitNotionId] });
       }
