@@ -93,15 +93,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 2 * 60 * 1000,
         }),
 
-        // Team members for reports
-        queryClient.prefetchQuery({
-          queryKey: ['team-members'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-team-members');
-            return data;
-          },
-          staleTime: 5 * 60 * 1000,
-        }),
+        // Note: team-members requires leaderNotionPageId, prefetch happens in useTeamLiveData
       ]);
 
       console.log('[Prefetch] All critical data prefetched');

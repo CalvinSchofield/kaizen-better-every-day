@@ -154,10 +154,18 @@ Deno.serve(async (req) => {
       throw new Error("NOTION_API_KEY not configured");
     }
 
-    const { leaderNotionPageId, fetchAllForAccessLevel, accessibleNotionIds } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { leaderNotionPageId, fetchAllForAccessLevel, accessibleNotionIds } = body;
 
     if (!leaderNotionPageId) {
-      throw new Error("Leader Notion page ID is required");
+      // Return empty result if no leader ID provided (e.g., prefetch call)
+      return new Response(
+        JSON.stringify({ teamMembers: [], isTeamLead: false }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
     }
 
     console.log(`Fetching team members for leader: ${leaderNotionPageId}, accessLevel: ${fetchAllForAccessLevel || 'team_lead'}, accessibleNotionIds count: ${accessibleNotionIds?.length || 0}`);
