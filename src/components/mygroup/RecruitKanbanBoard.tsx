@@ -119,9 +119,13 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     return null;
   };
 
-  // Get blocker icons for a recruit
+  // Get blocker icons for a recruit - only for Rookies (vets/sophomores don't need ramp-to-blitz training)
   const getBlockers = (recruit: Recruit) => {
     const blockers: { icon: 'ipad' | 'onboarding' | 'ramp'; label: string }[] = [];
+    
+    // Only show blocker icons for Rookies
+    const isRookie = recruit.year === 'Rookie' || recruit.year === '2025' || recruit.year === '2026';
+    if (!isRookie) return blockers;
     
     // Check reps table data first, fall back to Notion data
     const repData = repsBlockerMap.get(recruit.notionPageId);
