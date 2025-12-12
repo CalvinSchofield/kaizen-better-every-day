@@ -54,7 +54,8 @@ serve(async (req) => {
 
     console.log('Fetching assignable users for:', currentRep.name, 'Team leader:', currentRep.team_leader);
 
-    // Build list of assignable users based on hierarchy from Supabase data
+    // Build list of assignable users based on STRICT upline/downline hierarchy only
+    // No teammates - only people directly above or below in the recruiting chain
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -62,11 +63,11 @@ serve(async (req) => {
       notionPageId: string;
     }> = [];
 
-    // 1. Add downline reps (people where current user is their team leader)
+    // 1. Add downline reps (people where current user is their team leader) - DIRECT RECRUITS ONLY
     if (currentRep.name) {
       const { data: downlineReps } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id')
+        .select('user_id, name, notion_page_id, team_leader')
         .ilike('team_leader', `%${currentRep.name}%`)
         .neq('user_id', user.id);
 
@@ -79,11 +80,11 @@ serve(async (req) => {
             notionPageId: rep.notion_page_id || '',
           });
         }
-        console.log(`Found ${downlineReps.length} downline reps`);
+        console.log(`Found ${downlineReps.length} direct downline reps`);
       }
     }
 
-    // 2. Add team leader (upline)
+    // 2. Add team leader (direct upline only)
     if (currentRep.team_leader) {
       const { data: leaderReps } = await supabase
         .from('reps')
@@ -106,31 +107,44 @@ serve(async (req) => {
       }
     }
 
-    // 3. Add teammates (people who share the same team leader)
-    if (currentRep.team_leader) {
-      const { data: teammates } = await supabase
+    // 3. Add recruits of recruits (second-level downline) - for area directors/mgmt leads
+    // This allows a leader to assign tasks to their recruits' recruits
+    if (currentRep.name) {
+      // First get direct recruits
+      const { data: directRecruits } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id')
-        .ilike('team_leader', `%${currentRep.team_leader}%`)
-        .neq('user_id', user.id);
-
-      if (teammates) {
-        for (const teammate of teammates) {
-          if (!assignableUsers.find(u => u.userId === teammate.user_id)) {
-            assignableUsers.push({
-              userId: teammate.user_id,
-              name: teammate.name,
-              role: 'Teammate',
-              notionPageId: teammate.notion_page_id || '',
-            });
+        .select('name')
+        .ilike('team_leader', `%${currentRep.name}%`);
+      
+      if (directRecruits && directRecruits.length > 0) {
+        // Then get recruits of those recruits
+        for (const directRecruit of directRecruits) {
+          if (directRecruit.name) {
+            const { data: secondLevelRecruits } = await supabase
+              .from('reps')
+              .select('user_id, name, notion_page_id')
+              .ilike('team_leader', `%${directRecruit.name}%`)
+              .neq('user_id', user.id);
+            
+            if (secondLevelRecruits) {
+              for (const rep of secondLevelRecruits) {
+                if (!assignableUsers.find(u => u.userId === rep.user_id)) {
+                  assignableUsers.push({
+                    userId: rep.user_id,
+                    name: rep.name,
+                    role: 'Downline',
+                    notionPageId: rep.notion_page_id || '',
+                  });
+                }
+              }
+            }
           }
         }
-        console.log(`Found ${teammates?.length || 0} teammates`);
       }
     }
 
-    // Sort: Team Leader first, then Your Recruit, then Teammate
-    const roleOrder = { 'Team Leader': 0, 'Your Recruit': 1, 'Teammate': 2, 'Rep': 3 };
+    // Sort: Team Leader first, then Your Recruit, then Downline
+    const roleOrder = { 'Team Leader': 0, 'Your Recruit': 1, 'Downline': 2 };
     assignableUsers.sort((a, b) => {
       const orderA = roleOrder[a.role as keyof typeof roleOrder] ?? 99;
       const orderB = roleOrder[b.role as keyof typeof roleOrder] ?? 99;
