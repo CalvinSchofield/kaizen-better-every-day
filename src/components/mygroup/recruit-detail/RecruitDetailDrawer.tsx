@@ -603,6 +603,17 @@ export const RecruitDetailDrawer = ({
                 </div>
                 
                 <div>
+                  <Label>Notes</Label>
+                  <Textarea 
+                    value={editNotes} 
+                    onChange={(e) => setEditNotes(e.target.value)} 
+                    placeholder="Activity notes" 
+                    className="mt-1" 
+                    rows={3} 
+                  />
+                </div>
+                
+                <div>
                   <Label>Date</Label>
                   <Input 
                     type="date" 
@@ -612,40 +623,6 @@ export const RecruitDetailDrawer = ({
                   />
                 </div>
                 
-                {selectedActivity.activity_type === 'next_step' ? (
-                  <>
-                    <div>
-                      <Label>Next Step</Label>
-                      <Input 
-                        value={selectedActivity.next_action || ''} 
-                        onChange={(e) => setSelectedActivity({...selectedActivity, next_action: e.target.value})} 
-                        placeholder="What's the next step?" 
-                        className="mt-1" 
-                      />
-                    </div>
-                    <div>
-                      <Label>Due Date</Label>
-                      <Input 
-                        type="date" 
-                        value={selectedActivity.next_action_due || ''} 
-                        onChange={(e) => setSelectedActivity({...selectedActivity, next_action_due: e.target.value})} 
-                        className="mt-1" 
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <Label>Notes</Label>
-                    <Textarea 
-                      value={editNotes} 
-                      onChange={(e) => setEditNotes(e.target.value)} 
-                      placeholder="Activity notes" 
-                      className="mt-1" 
-                      rows={3} 
-                    />
-                  </div>
-                )}
-                
                 <Button 
                   className="w-full" 
                   onClick={() => {
@@ -653,9 +630,7 @@ export const RecruitDetailDrawer = ({
                     updateActivityMutation.mutate(
                       { 
                         activityId: selectedActivity.id, 
-                        notes: selectedActivity.activity_type === 'next_step' ? selectedActivity.notes : editNotes,
-                        nextAction: selectedActivity.activity_type === 'next_step' ? selectedActivity.next_action || undefined : undefined,
-                        nextActionDue: selectedActivity.activity_type === 'next_step' ? selectedActivity.next_action_due || undefined : undefined,
+                        notes: editNotes,
                       },
                       {
                         onSuccess: () => {
