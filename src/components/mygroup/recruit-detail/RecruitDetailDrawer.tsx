@@ -577,6 +577,144 @@ export const RecruitDetailDrawer = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Edit Activity Drawer */}
+      <Drawer open={editActivityOpen} onOpenChange={(o) => { setEditActivityOpen(o); if (!o) setSelectedActivity(null); }}>
+        <DrawerContent className="max-h-[85dvh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center justify-between">
+              <span>Edit Activity</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            {selectedActivity && (
+              <>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  {getActivityIcon(selectedActivity.activity_type, selectedActivity.notes)}
+                  <span className="capitalize">{selectedActivity.activity_type.replace('_', ' ')}</span>
+                </div>
+                
+                <div>
+                  <Label>Date</Label>
+                  <Input 
+                    type="date" 
+                    value={editDate} 
+                    onChange={(e) => setEditDate(e.target.value)} 
+                    className="mt-1" 
+                  />
+                </div>
+                
+                {selectedActivity.activity_type === 'next_step' ? (
+                  <>
+                    <div>
+                      <Label>Next Step</Label>
+                      <Input 
+                        value={selectedActivity.next_action || ''} 
+                        onChange={(e) => setSelectedActivity({...selectedActivity, next_action: e.target.value})} 
+                        placeholder="What's the next step?" 
+                        className="mt-1" 
+                      />
+                    </div>
+                    <div>
+                      <Label>Due Date</Label>
+                      <Input 
+                        type="date" 
+                        value={selectedActivity.next_action_due || ''} 
+                        onChange={(e) => setSelectedActivity({...selectedActivity, next_action_due: e.target.value})} 
+                        className="mt-1" 
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <Label>Notes</Label>
+                    <Textarea 
+                      value={editNotes} 
+                      onChange={(e) => setEditNotes(e.target.value)} 
+                      placeholder="Activity notes" 
+                      className="mt-1" 
+                      rows={3} 
+                    />
+                  </div>
+                )}
+                
+                <Button 
+                  className="w-full" 
+                  onClick={() => {
+                    if (!selectedActivity) return;
+                    updateActivityMutation.mutate(
+                      { 
+                        activityId: selectedActivity.id, 
+                        notes: selectedActivity.activity_type === 'next_step' ? selectedActivity.notes : editNotes,
+                        nextAction: selectedActivity.activity_type === 'next_step' ? selectedActivity.next_action || undefined : undefined,
+                        nextActionDue: selectedActivity.activity_type === 'next_step' ? selectedActivity.next_action_due || undefined : undefined,
+                      },
+                      {
+                        onSuccess: () => {
+                          toast.success('Activity updated');
+                          setEditActivityOpen(false);
+                          setSelectedActivity(null);
+                          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+                        },
+                        onError: () => toast.error("Couldn't update activity"),
+                      }
+                    );
+                  }}
+                  disabled={updateActivityMutation.isPending}
+                >
+                  {updateActivityMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Delete Activity Confirm */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this activity log. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!selectedActivity) return;
+                setIsDeleting(true);
+                deleteActivityMutation.mutate(selectedActivity.id, {
+                  onSuccess: () => {
+                    toast.success('Activity deleted');
+                    setDeleteConfirmOpen(false);
+                    setEditActivityOpen(false);
+                    setSelectedActivity(null);
+                    setIsDeleting(false);
+                    queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+                  },
+                  onError: () => {
+                    toast.error("Couldn't delete activity");
+                    setIsDeleting(false);
+                  },
+                });
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
