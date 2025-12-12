@@ -514,10 +514,14 @@ export const useUpdateRecruitActivity = () => {
       activityId, 
       notes,
       createdAt,
+      nextAction,
+      nextActionDue,
     }: { 
       activityId: string; 
       notes?: string;
       createdAt?: string;
+      nextAction?: string;
+      nextActionDue?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -525,6 +529,8 @@ export const useUpdateRecruitActivity = () => {
       const updateData: Record<string, any> = {};
       if (notes !== undefined) updateData.notes = notes;
       if (createdAt !== undefined) updateData.created_at = createdAt;
+      if (nextAction !== undefined) updateData.next_action = nextAction;
+      if (nextActionDue !== undefined) updateData.next_action_due = nextActionDue;
 
       const { error } = await supabase
         .from('recruit_activities')
@@ -533,7 +539,7 @@ export const useUpdateRecruitActivity = () => {
         .eq('logged_by_user_id', session.user.id);
 
       if (error) throw error;
-      return { activityId, notes, createdAt };
+      return { activityId, notes, createdAt, nextAction, nextActionDue };
     },
     onMutate: async ({ activityId, notes, createdAt }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
