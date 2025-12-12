@@ -1045,7 +1045,7 @@ const Home = () => {
     },
     actions: [{
       label: "Join Slack",
-      href: "https://join.slack.com/t/vivint-chy4678/shared_invite/zt-3g30ikq9e-RugmfMRBUCu4qx5S0GUgZw"
+      href: "https://join.slack.com/t/kaizen-better-daily/shared_invite/zt-3g30ikq9e-RugmfMRBUCu4qx5S0GUgZw"
     }, {
       label: "Intro Example",
       variant: "outline",
