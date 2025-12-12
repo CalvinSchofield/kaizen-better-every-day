@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGroupRecruits";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Calendar, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Phone, Calendar, AlertTriangle, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
-import { differenceInDays, parseISO, isAfter, isBefore, startOfToday } from "date-fns";
+import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -76,6 +76,24 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     );
     
     return sorted[0].created_at;
+  };
+
+  // Get the scheduled follow-up info for display
+  const getScheduledFollowUp = (recruit: Recruit) => {
+    if (!recruit.nextActionDue) return null;
+    
+    const dueDate = parseISO(recruit.nextActionDue);
+    const today = startOfToday();
+    
+    if (isSameDay(dueDate, today)) {
+      return { date: dueDate, label: 'Today', isFuture: false, isToday: true };
+    }
+    
+    if (isAfter(dueDate, today)) {
+      return { date: dueDate, label: format(dueDate, 'MMM d'), isFuture: true, isToday: false };
+    }
+    
+    return null; // Past dates don't show badge
   };
 
   // Show stale warning based on stage-specific thresholds
@@ -193,6 +211,25 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                     <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                   )}
                 </div>
+                {/* Scheduled follow-up badge */}
+                {(() => {
+                  const followUp = getScheduledFollowUp(recruit);
+                  if (!followUp) return null;
+                  return (
+                    <div className="flex items-center gap-1 text-xs mt-2">
+                      <Badge 
+                        variant="outline" 
+                        className={followUp.isToday 
+                          ? "bg-primary/10 text-primary border-primary/30" 
+                          : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                        }
+                      >
+                        <Clock className="h-3 w-3 mr-1" />
+                        {followUp.isToday ? 'Due Today' : followUp.label}
+                      </Badge>
+                    </div>
+                  );
+                })()}
                 {recruit.nextAction && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-2 py-1">
                     <Calendar className="h-3 w-3" />
