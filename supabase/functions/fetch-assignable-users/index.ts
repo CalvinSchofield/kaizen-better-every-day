@@ -110,12 +110,32 @@ serve(async (req) => {
     let level = 0;
     const maxLevels = 10; // Prevent infinite loops
     const addedUserIds = new Set<string>();
+    const visitedNames = new Set<string>(); // Prevent infinite loops from circular references
+
+    console.log(`Starting upline chain from team_leader: ${currentTeamLeader}`);
 
     while (currentTeamLeader && level < maxLevels) {
+      const cleanCurrentLeader = stripEmojis(currentTeamLeader).toLowerCase();
+      
+      // Prevent infinite loop if we've seen this name before
+      if (visitedNames.has(cleanCurrentLeader)) {
+        console.log(`Already visited ${currentTeamLeader}, stopping chain`);
+        break;
+      }
+      visitedNames.add(cleanCurrentLeader);
+
       const leader = findRepByName(currentTeamLeader);
       
-      if (!leader || !leader.user_id) {
+      if (!leader) {
+        console.log(`Could not find leader matching: ${currentTeamLeader}`);
         break;
+      }
+
+      if (!leader.user_id) {
+        console.log(`Leader ${leader.name} has no user_id, continuing chain`);
+        currentTeamLeader = leader.team_leader;
+        level++;
+        continue;
       }
 
       // Don't add the current user to the list (they're the default "Me" option)
@@ -130,16 +150,21 @@ serve(async (req) => {
         });
         addedUserIds.add(leader.user_id);
         console.log(`Added ${leader.name} as ${role} (level ${level})`);
+      } else if (leader.user_id === user.id) {
+        console.log(`Skipping ${leader.name} (current user)`);
       }
 
-      // Move up the chain
-      currentTeamLeader = leader.team_leader;
+      // Move up the chain - use the leader's team_leader
+      const nextLeader = leader.team_leader;
+      console.log(`${leader.name}'s team_leader is: ${nextLeader}`);
       
-      // Stop if the leader is their own team leader (top of chain)
-      if (leader.team_leader && stripEmojis(leader.team_leader).toLowerCase() === stripEmojis(leader.name).toLowerCase()) {
+      // Stop if no next leader or self-referential
+      if (!nextLeader) {
+        console.log('No next team_leader, stopping chain');
         break;
       }
       
+      currentTeamLeader = nextLeader;
       level++;
     }
 
