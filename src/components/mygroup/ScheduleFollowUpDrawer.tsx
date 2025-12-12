@@ -44,7 +44,9 @@ export const ScheduleFollowUpDrawer = ({
   const [showAssigneePopover, setShowAssigneePopover] = useState(false);
   
   const logActivityMutation = useLogRecruitActivity();
-  const { data: assignableUsers = [] } = useAssignableUsers();
+  const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
+    recruitNotionPageId: recruit?.notionPageId,
+  });
 
   const quickDates = [
     { label: 'Tomorrow', date: addDays(new Date(), 1) },

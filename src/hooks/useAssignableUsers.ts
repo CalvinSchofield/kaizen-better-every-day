@@ -8,11 +8,19 @@ export interface AssignableUser {
   notionPageId: string;
 }
 
-export const useAssignableUsers = () => {
+interface UseAssignableUsersOptions {
+  recruitNotionPageId?: string;
+}
+
+export const useAssignableUsers = (options?: UseAssignableUsersOptions) => {
+  const { recruitNotionPageId } = options || {};
+  
   return useQuery({
-    queryKey: ['assignable-users'],
+    queryKey: ['assignable-users', recruitNotionPageId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('fetch-assignable-users');
+      const { data, error } = await supabase.functions.invoke('fetch-assignable-users', {
+        body: { recruitNotionPageId }
+      });
       
       if (error) {
         console.error('Error fetching assignable users:', error);
@@ -22,5 +30,6 @@ export const useAssignableUsers = () => {
       return (data?.assignableUsers || []) as AssignableUser[];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!recruitNotionPageId, // Only fetch when we have a recruit
   });
 };
