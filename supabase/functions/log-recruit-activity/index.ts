@@ -42,7 +42,8 @@ serve(async (req) => {
       activityType, 
       notes, 
       nextAction, 
-      nextActionDue
+      nextActionDue,
+      assignedToUserId
     } = await req.json();
 
     // Auto-set updateLastContact for phone_call and in_person activities
@@ -56,16 +57,25 @@ serve(async (req) => {
     }
 
     // Insert activity
+    const insertData: any = {
+      rep_notion_page_id: recruitNotionId,
+      activity_type: activityType,
+      logged_by_user_id: user.id,
+      notes,
+      next_action: nextAction,
+      next_action_due: nextActionDue,
+    };
+
+    // Add assignment if specified
+    if (assignedToUserId) {
+      insertData.assigned_to_user_id = assignedToUserId;
+      insertData.assignment_status = 'pending';
+      console.log(`Task assigned to user ${assignedToUserId}`);
+    }
+
     const { data: activity, error: insertError } = await supabase
       .from('recruit_activities')
-      .insert({
-        rep_notion_page_id: recruitNotionId,
-        activity_type: activityType,
-        logged_by_user_id: user.id,
-        notes,
-        next_action: nextAction,
-        next_action_due: nextActionDue,
-      })
+      .insert(insertData)
       .select()
       .single();
 

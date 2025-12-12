@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, User, ChevronDown } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { useAssignableUsers, AssignableUser } from "@/hooks/useAssignableUsers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -39,8 +40,11 @@ export const ScheduleFollowUpDrawer = ({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState<AssignableUser | null>(null);
+  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
   
   const logActivityMutation = useLogRecruitActivity();
+  const { data: assignableUsers = [] } = useAssignableUsers();
 
   const quickDates = [
     { label: 'Tomorrow', date: addDays(new Date(), 1) },
@@ -64,12 +68,16 @@ export const ScheduleFollowUpDrawer = ({
         notes: notes || `Follow up scheduled for ${format(selectedDate, 'MMM d')}`,
         nextAction: `Follow up on ${format(selectedDate, 'MMM d, yyyy')}`,
         nextActionDue: dateOnlyString,
+        assignedToUserId: selectedAssignee?.userId,
       });
-      toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}`);
+      
+      const assigneeText = selectedAssignee ? ` (assigned to ${selectedAssignee.name})` : '';
+      toast.success(`Follow-up scheduled for ${format(selectedDate, 'MMM d')}${assigneeText}`);
       onOpenChange(false);
       onComplete?.();
       setNotes('');
       setSelectedDate(addDays(new Date(), 1));
+      setSelectedAssignee(null);
     } catch (error) {
       console.error('Failed to schedule follow-up:', error);
       toast.error('Failed to schedule follow-up');
@@ -149,6 +157,60 @@ export const ScheduleFollowUpDrawer = ({
               />
             </PopoverContent>
           </Popover>
+
+          {/* Assign to selector */}
+          {assignableUsers.length > 0 && (
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Assign to (optional)
+              </label>
+              <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    role="combobox"
+                  >
+                    <span className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      {selectedAssignee ? selectedAssignee.name : "Me (default)"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-2" align="start">
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant={!selectedAssignee ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setSelectedAssignee(null);
+                        setShowAssigneePopover(false);
+                      }}
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Me (default)
+                    </Button>
+                    {assignableUsers.map((user) => (
+                      <Button
+                        key={user.userId}
+                        variant={selectedAssignee?.userId === user.userId ? "secondary" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => {
+                          setSelectedAssignee(user);
+                          setShowAssigneePopover(false);
+                        }}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        <span className="flex-1 text-left">{user.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{user.role}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
         </div>
 
         <DrawerFooter className="border-t">
