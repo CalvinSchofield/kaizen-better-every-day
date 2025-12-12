@@ -15,8 +15,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
-    const repsDatabaseId = Deno.env.get('NOTION_REPS_DATABASE_ID');
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -47,45 +45,16 @@ serve(async (req) => {
       .single();
 
     if (repError || !currentRep) {
+      console.log('User rep data not found for user:', user.id);
       return new Response(JSON.stringify({ error: 'User rep data not found', assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Query Notion for team hierarchy
-    if (!notionApiKey || !repsDatabaseId) {
-      console.error('Missing Notion configuration');
-      return new Response(JSON.stringify({ assignableUsers: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log('Fetching assignable users for:', currentRep.name, 'Team leader:', currentRep.team_leader);
 
-    // Fetch all reps from Notion to build hierarchy
-    const notionResponse = await fetch(`https://api.notion.com/v1/databases/${repsDatabaseId}/query`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${notionApiKey}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        page_size: 100,
-      }),
-    });
-
-    if (!notionResponse.ok) {
-      console.error('Notion API error:', await notionResponse.text());
-      return new Response(JSON.stringify({ assignableUsers: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const notionData = await notionResponse.json();
-    
-    // Build list of assignable users based on hierarchy
+    // Build list of assignable users based on hierarchy from Supabase data
     const assignableUsers: Array<{
       userId: string;
       name: string;
@@ -93,101 +62,16 @@ serve(async (req) => {
       notionPageId: string;
     }> = [];
 
-    // Get all reps from Supabase to match with Notion data
-    const { data: allReps } = await supabase
-      .from('reps')
-      .select('user_id, name, email, notion_page_id, team_leader');
+    // 1. Add downline reps (people where current user is their team leader)
+    if (currentRep.name) {
+      const { data: downlineReps } = await supabase
+        .from('reps')
+        .select('user_id, name, notion_page_id')
+        .ilike('team_leader', `%${currentRep.name}%`)
+        .neq('user_id', user.id);
 
-    const repsMap = new Map(allReps?.map(r => [r.notion_page_id, r]) || []);
-    const repsByEmail = new Map(allReps?.map(r => [r.email?.toLowerCase(), r]) || []);
-    const repsByName = new Map(allReps?.map(r => [r.name?.toLowerCase(), r]) || []);
-
-    // Find current user's position in hierarchy
-    const currentUserTeamLeader = currentRep.team_leader;
-    
-    // Parse Notion results to find hierarchy
-    for (const page of notionData.results) {
-      const props = page.properties;
-      
-      // Get name from Notion
-      const nameProperty = props['Name'];
-      let name = '';
-      if (nameProperty?.type === 'title' && nameProperty.title?.[0]?.plain_text) {
-        name = nameProperty.title[0].plain_text;
-      }
-      
-      // Get email from Notion
-      const emailProperty = props['Email'];
-      let email = '';
-      if (emailProperty?.type === 'email') {
-        email = emailProperty.email || '';
-      }
-
-      // Get team leader from Notion
-      const teamLeaderProperty = props['Team Leader'] || props['Team'];
-      let teamLeader = '';
-      if (teamLeaderProperty?.type === 'select' && teamLeaderProperty.select?.name) {
-        teamLeader = teamLeaderProperty.select.name;
-      } else if (teamLeaderProperty?.type === 'rich_text' && teamLeaderProperty.rich_text?.[0]?.plain_text) {
-        teamLeader = teamLeaderProperty.rich_text[0].plain_text;
-      }
-
-      const notionPageId = page.id;
-      
-      // Find matching Supabase user
-      let matchedRep = repsMap.get(notionPageId);
-      if (!matchedRep && email) {
-        matchedRep = repsByEmail.get(email.toLowerCase());
-      }
-      if (!matchedRep && name) {
-        matchedRep = repsByName.get(name.toLowerCase());
-      }
-
-      if (!matchedRep || matchedRep.user_id === user.id) continue;
-
-      // Determine if this person is in user's hierarchy
-      let isAssignable = false;
-      let role = 'Rep';
-
-      // Check if this is user's team leader (upline)
-      if (currentUserTeamLeader && name.toLowerCase().includes(currentUserTeamLeader.toLowerCase())) {
-        isAssignable = true;
-        role = 'Team Leader';
-      }
-
-      // Check if user is this person's team leader (downline)
-      if (teamLeader && currentRep.name && teamLeader.toLowerCase().includes(currentRep.name.toLowerCase())) {
-        isAssignable = true;
-        role = 'Your Recruit';
-      }
-
-      // Check if they share the same team leader (peer - also assignable for collaboration)
-      if (teamLeader && currentUserTeamLeader && 
-          teamLeader.toLowerCase() === currentUserTeamLeader.toLowerCase()) {
-        isAssignable = true;
-        role = 'Teammate';
-      }
-
-      if (isAssignable && matchedRep.user_id) {
-        assignableUsers.push({
-          userId: matchedRep.user_id,
-          name: matchedRep.name || name,
-          role,
-          notionPageId: matchedRep.notion_page_id || notionPageId,
-        });
-      }
-    }
-
-    // Also add any reps where current user appears as their team leader in Supabase
-    const { data: downlineReps } = await supabase
-      .from('reps')
-      .select('user_id, name, notion_page_id')
-      .ilike('team_leader', `%${currentRep.name}%`)
-      .neq('user_id', user.id);
-
-    if (downlineReps) {
-      for (const rep of downlineReps) {
-        if (!assignableUsers.find(u => u.userId === rep.user_id)) {
+      if (downlineReps) {
+        for (const rep of downlineReps) {
           assignableUsers.push({
             userId: rep.user_id,
             name: rep.name,
@@ -195,26 +79,53 @@ serve(async (req) => {
             notionPageId: rep.notion_page_id || '',
           });
         }
+        console.log(`Found ${downlineReps.length} downline reps`);
       }
     }
 
-    // Add team leader from Supabase if exists
+    // 2. Add team leader (upline)
     if (currentRep.team_leader) {
-      const { data: leaderRep } = await supabase
+      const { data: leaderReps } = await supabase
         .from('reps')
         .select('user_id, name, notion_page_id')
         .ilike('name', `%${currentRep.team_leader}%`)
-        .neq('user_id', user.id)
-        .limit(1)
-        .single();
+        .neq('user_id', user.id);
 
-      if (leaderRep && !assignableUsers.find(u => u.userId === leaderRep.user_id)) {
-        assignableUsers.push({
-          userId: leaderRep.user_id,
-          name: leaderRep.name,
-          role: 'Team Leader',
-          notionPageId: leaderRep.notion_page_id || '',
-        });
+      if (leaderReps) {
+        for (const leader of leaderReps) {
+          if (!assignableUsers.find(u => u.userId === leader.user_id)) {
+            assignableUsers.push({
+              userId: leader.user_id,
+              name: leader.name,
+              role: 'Team Leader',
+              notionPageId: leader.notion_page_id || '',
+            });
+          }
+        }
+        console.log(`Found ${leaderReps?.length || 0} team leaders`);
+      }
+    }
+
+    // 3. Add teammates (people who share the same team leader)
+    if (currentRep.team_leader) {
+      const { data: teammates } = await supabase
+        .from('reps')
+        .select('user_id, name, notion_page_id')
+        .ilike('team_leader', `%${currentRep.team_leader}%`)
+        .neq('user_id', user.id);
+
+      if (teammates) {
+        for (const teammate of teammates) {
+          if (!assignableUsers.find(u => u.userId === teammate.user_id)) {
+            assignableUsers.push({
+              userId: teammate.user_id,
+              name: teammate.name,
+              role: 'Teammate',
+              notionPageId: teammate.notion_page_id || '',
+            });
+          }
+        }
+        console.log(`Found ${teammates?.length || 0} teammates`);
       }
     }
 
@@ -227,7 +138,7 @@ serve(async (req) => {
       return a.name.localeCompare(b.name);
     });
 
-    console.log(`Found ${assignableUsers.length} assignable users for ${currentRep.name}`);
+    console.log(`Total assignable users: ${assignableUsers.length} for ${currentRep.name}`);
 
     return new Response(JSON.stringify({ assignableUsers }), {
       status: 200,
