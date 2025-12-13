@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { getDaysUntilBlitz, formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   Tablet,
   Plane,
@@ -314,7 +315,7 @@ const BlitzManagementSection = ({
                 const isCommitted = committedBlitzIds.includes(blitz.id);
                 const blitzDate = new Date(blitz.date);
                 const isLoading = isUpdating === blitz.id;
-                const daysUntil = differenceInDays(blitzDate, now);
+                const daysUntil = getDaysUntilBlitz(blitz.date);
                 
                 return (
                   <div key={blitz.id} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
@@ -331,8 +332,10 @@ const BlitzManagementSection = ({
                         <p className="text-xs text-muted-foreground">
                           {format(blitzDate, 'MMM d')}
                           {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
-                          {daysUntil <= 14 && daysUntil >= 0 && (
-                            <span className="ml-1 text-amber-500">· {daysUntil}d away</span>
+                          {daysUntil !== null && daysUntil <= 14 && daysUntil >= 0 && (
+                            <span className="ml-1 text-amber-500">
+                              · {daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `${daysUntil}d away`}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -369,8 +372,7 @@ const BlitzReadinessWarnings = ({
   
   const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
   const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
-  const blitzTripDate = recruitRepData.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
-  const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, new Date()) : null;
+  const daysToBlitz = getDaysUntilBlitz(recruitRepData.blitz_trip_date);
   const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
   
   const isRampComplete = recruitRepData.ramp_phase_4_complete === true;
@@ -390,7 +392,7 @@ const BlitzReadinessWarnings = ({
     <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
       <div className="flex items-center gap-2 text-sm font-medium text-destructive mb-2">
         <AlertTriangle className="h-4 w-4" />
-        Blitz in {daysToBlitz} days - Not Ready
+        Blitz {formatDaysUntilBlitz(daysToBlitz)} - Not Ready
       </div>
       <ul className="text-xs text-destructive/80 space-y-1 ml-6">
         {issues.map((issue, i) => (
