@@ -375,7 +375,7 @@ export const RecruitDetailDrawer = ({
     if (!pendingOnboardingStep || !recruitRepData) return;
     const { field, value } = pendingOnboardingStep;
     
-    // Define step order for cascading uncomplete
+    // Define step order for cascading complete/uncomplete
     const allStepsOrder = [
       'onboarding_complete', 'trainings_complete', 'slack_joined',
       'ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'
@@ -390,10 +390,21 @@ export const RecruitDetailDrawer = ({
       'ramp_phase_3_complete': 'rampPhase3Complete', 'ramp_phase_4_complete': 'rampPhase4Complete',
     };
     
-    // Build updates object - if uncompleting, also uncomplete all subsequent steps
+    // Build updates object
+    // If completing a step, also complete all PREVIOUS steps (sequential requirement)
+    // If uncompleting a step, also uncomplete all SUBSEQUENT steps
     const updates: Record<string, boolean> = { [field]: value };
-    if (!value) {
-      const fieldIndex = allStepsOrder.indexOf(field);
+    const fieldIndex = allStepsOrder.indexOf(field);
+    
+    if (value) {
+      // Completing: mark all previous steps as complete too
+      allStepsOrder.slice(0, fieldIndex).forEach(prevField => {
+        if (!recruitRepData[prevField as keyof typeof recruitRepData]) {
+          updates[prevField] = true;
+        }
+      });
+    } else {
+      // Uncompleting: mark all subsequent steps as incomplete too
       allStepsOrder.slice(fieldIndex + 1).forEach(subsequentField => {
         if (recruitRepData[subsequentField as keyof typeof recruitRepData]) {
           updates[subsequentField] = false;
