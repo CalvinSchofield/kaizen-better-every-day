@@ -20,6 +20,7 @@ import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard"
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
+import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import {
   Sheet,
   SheetContent,
@@ -603,9 +604,9 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           {!upcomingBlitzForRsvp && nextBlitz && (() => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const tripDate = new Date(nextBlitz.date);
-            const diffTime = tripDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Use calendar-day-based calculation for accurate "tomorrow" display
+            const diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
             
             // Check if user is currently within the blitz date range
             const blitzStart = new Date(nextBlitz.date);
@@ -617,17 +618,19 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             let ctaText = "";
             let ctaIcon = "";
             
+            const locationName = nextBlitz.location?.split(',')[0] || 'Your blitz';
+            
             if (diffDays === 0) {
-              ctaText = `${nextBlitz.location || 'Your blitz'} today — you got this!`;
+              ctaText = `${locationName} today — you got this!`;
               ctaIcon = "🔥";
             } else if (diffDays === 1) {
-              ctaText = `1 day until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              ctaText = `${locationName} tomorrow — prep makes perfect`;
               ctaIcon = "⚡";
             } else if (diffDays <= 8) {
-              ctaText = `${diffDays} days until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+              ctaText = `${locationName} in ${diffDays} days — prep makes perfect`;
               ctaIcon = "⚡";
             } else {
-              ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training!`;
+              ctaText = `${locationName} in ${diffDays} days — stay sharp and keep training!`;
               ctaIcon = "🎯";
             }
             
@@ -641,7 +644,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   <div className="flex items-center gap-3">
                     <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                     <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                      {diffDays === 0 ? ctaText : `${nextBlitz.location} this week — you got this!`}
+                      {ctaText}
                     </p>
                   </div>
                   

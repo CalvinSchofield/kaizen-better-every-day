@@ -26,6 +26,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
 
@@ -1200,32 +1201,33 @@ const Home = () => {
             
             let ctaText = "";
             let ctaIcon = "";
+            let diffDays = 0;
             
             if (!hasValidBlitz) {
               ctaText = "Pick a blitz trip and commit to making your first sale";
               ctaIcon = "📅";
             } else {
-              const tripDate = new Date(nextBlitz.date);
-              const diffTime = tripDate.getTime() - today.getTime();
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const locationName = nextBlitz.location?.split(',')[0] || 'Your blitz';
+              
+              // Use calendar-day-based calculation for accurate "tomorrow" display
+              diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
               
               if (diffDays === 0) {
-                ctaText = `${nextBlitz.location || 'Your blitz'} today — you got this!`;
+                ctaText = `${locationName} today — you got this!`;
                 ctaIcon = "🔥";
               } else if (diffDays === 1) {
-                ctaText = `1 day until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+                ctaText = `${locationName} tomorrow — prep makes perfect`;
                 ctaIcon = "⚡";
               } else if (diffDays <= 8) {
-                ctaText = `${diffDays} days until ${nextBlitz.location || 'your blitz'} — prep makes perfect`;
+                ctaText = `${locationName} in ${diffDays} days — prep makes perfect`;
                 ctaIcon = "⚡";
               } else {
-                ctaText = `${nextBlitz.location || 'Your blitz'} in ${diffDays} days — stay sharp and keep training! Focus on role plays with leaders`;
+                ctaText = `${locationName} in ${diffDays} days — stay sharp and keep training! Focus on role plays with leaders`;
                 ctaIcon = "🎯";
               }
             }
             
             const showWeather = weather.length > 0 && hasValidBlitz;
-            const weatherDiffDays = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
             
             // Check if user is currently within the blitz date range
             const blitzStart = nextBlitz ? new Date(nextBlitz.date) : null;
@@ -1244,7 +1246,7 @@ const Home = () => {
                   <div className="flex items-center gap-3">
                     <span className="text-2xl flex-shrink-0">{ctaIcon}</span>
                     <p className="text-primary-foreground/90 text-base font-medium leading-snug flex-1">
-                      {weatherDiffDays === 0 ? ctaText : `${nextBlitz.location} this week — you got this!`}
+                      {ctaText}
                     </p>
                   </div>
                   
@@ -1284,7 +1286,7 @@ const Home = () => {
             }
             
             // Only clickable if no blitz OR blitz is within 8 days (but not today)
-            const isClickable = !hasValidBlitz || (weatherDiffDays > 0 && weatherDiffDays <= 8);
+            const isClickable = !hasValidBlitz || (diffDays > 0 && diffDays <= 8);
             
             const handleCtaClick = () => {
               if (!isClickable) return;
