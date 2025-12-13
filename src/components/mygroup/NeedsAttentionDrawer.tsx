@@ -181,7 +181,15 @@ const PhaseConfirmationDrawer = ({
   );
 };
 
-// Training progress item component (Onboarding - no phase updates, just toggle items)
+// Onboarding status values progression
+const ONBOARDING_STATUS_ORDER = [
+  'Not Started',
+  'Onboarding ✅',
+  'Required Trainings ✅',
+  'Slack ✅',
+];
+
+// Training progress item component (Onboarding - toggle items to mark complete)
 const TrainingProgressItem = ({ 
   item,
   onRecruitClick,
@@ -202,59 +210,120 @@ const TrainingProgressItem = ({
   const handleToggle = async (field: string, currentValue: boolean) => {
     const newValue = !currentValue;
     
-    // Optimistic update
-    setLocalProgress({
-      ...progress,
-      [field]: newValue,
-    });
-    
-    try {
-      if (field === 'ipadAssigned') {
+    // For iPad, use the ipadAssigned field
+    if (field === 'ipadAssigned') {
+      // Optimistic update
+      setLocalProgress({
+        ...progress,
+        ipadAssigned: newValue,
+      });
+      
+      try {
         await updateStatusMutation.mutateAsync({
           rookieNotionPageId: item.recruit.notionPageId,
           ipadAssigned: newValue,
         });
         toast.success(`iPad ${newValue ? 'assigned' : 'unassigned'}`);
+      } catch (error) {
+        // Revert on error
+        setLocalProgress({
+          ...progress,
+          ipadAssigned: currentValue,
+        });
       }
+      return;
+    }
+    
+    // For onboarding steps, we need to update the onboardingStatus
+    // The steps follow this progression:
+    // Not Started -> Onboarding ✅ -> Required Trainings ✅ -> Slack ✅
+    // We can only mark the NEXT step as complete, not skip ahead
+    
+    let newStatus: string | undefined;
+    let newProgressState = { ...progress };
+    
+    if (field === 'onboardingComplete' && !progress.onboardingComplete && newValue) {
+      // Mark onboarding as complete
+      newStatus = 'Onboarding ✅';
+      newProgressState.onboardingComplete = true;
+    } else if (field === 'trainingsComplete' && progress.onboardingComplete && !progress.trainingsComplete && newValue) {
+      // Mark trainings as complete (must have onboarding done first)
+      newStatus = 'Required Trainings ✅';
+      newProgressState.trainingsComplete = true;
+    } else if (field === 'slackJoined' && progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined && newValue) {
+      // Mark slack as complete (must have trainings done first)
+      newStatus = 'Slack ✅';
+      newProgressState.slackJoined = true;
+    } else {
+      // Can't toggle this field (either wrong order or trying to uncheck)
+      toast.error("Steps must be completed in order");
+      return;
+    }
+    
+    // Optimistic update
+    setLocalProgress(newProgressState);
+    
+    try {
+      await updateStatusMutation.mutateAsync({
+        rookieNotionPageId: item.recruit.notionPageId,
+        onboardingStatus: newStatus,
+      });
+      toast.success(`Marked as ${newStatus}`);
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
       // Revert on error
-      setLocalProgress({
-        ...progress,
-        [field]: currentValue,
-      });
+      setLocalProgress(progress);
+      toast.error("Failed to update status");
     }
   };
 
+  // Determine which items are editable based on progression
+  // An item is editable if it's the next step in the sequence
+  const canEditOnboarding = !progress.onboardingComplete;
+  const canEditTrainings = progress.onboardingComplete && !progress.trainingsComplete;
+  const canEditSlack = progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined;
+  
   const progressItems = [
     { 
       key: 'onboardingComplete', 
       label: 'Onboarding', 
       value: progress.onboardingComplete,
       icon: GraduationCap,
-      editable: false
+      editable: canEditOnboarding
     },
     { 
       key: 'trainingsComplete', 
       label: 'Trainings', 
       value: progress.trainingsComplete,
       icon: BookOpen,
-      editable: false
+      editable: canEditTrainings
     },
     { 
       key: 'slackJoined', 
       label: 'Slack', 
       value: progress.slackJoined,
       icon: MessageCircle,
-      editable: false
+      editable: canEditSlack
     },
     { 
       key: 'ipadAssigned', 
       label: 'iPad', 
       value: progress.ipadAssigned,
       icon: Tablet,
-      editable: true
+      editable: true // iPad can always be toggled
     },
   ];
+
+  // Determine what step they're currently on for display
+  let currentStepLabel = 'Not started';
+  if (progress.slackJoined) {
+    currentStepLabel = 'Slack ✅';
+  } else if (progress.trainingsComplete) {
+    currentStepLabel = 'Required Trainings ✅';
+  } else if (progress.onboardingComplete) {
+    currentStepLabel = 'Onboarding ✅';
+  }
 
   return (
     <>
@@ -282,7 +351,7 @@ const TrainingProgressItem = ({
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              {item.onboardingStatus || 'Not started'}
+              {currentStepLabel}
             </p>
             {item.daysUntilBlitz !== undefined && item.daysUntilBlitz >= 0 && (
               <Badge variant="secondary" className="mt-1 text-xs">
@@ -318,7 +387,18 @@ const TrainingProgressItem = ({
                   {label}
                 </span>
               </div>
-              {editable && (
+              {editable && !value && (
+                updateStatusMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Switch
+                    checked={value}
+                    onCheckedChange={() => handleToggle(key, value)}
+                    className="scale-75"
+                  />
+                )
+              )}
+              {key === 'ipadAssigned' && value && (
                 updateStatusMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
