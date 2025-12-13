@@ -181,6 +181,97 @@ const PhaseConfirmationDrawer = ({
   );
 };
 
+// Onboarding step confirmation drawer
+const OnboardingStepConfirmationDrawer = ({
+  open,
+  onOpenChange,
+  recruitName,
+  stepLabel,
+  stepDescription,
+  onConfirm,
+  isLoading
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  recruitName: string;
+  stepLabel: string;
+  stepDescription: string;
+  onConfirm: () => void;
+  isLoading: boolean;
+}) => {
+  const stepDetails: Record<string, string[]> = {
+    'Onboarding': [
+      'Signed rep agreement',
+      'Completed I-9 form',
+      'Background check submitted',
+    ],
+    'Trainings': [
+      'Completed all required training modules',
+      'Passed required quizzes',
+    ],
+    'Slack': [
+      'Joined the Kaizen Slack workspace',
+      'Introduced themselves in the channel',
+    ],
+  };
+  
+  const tasks = stepDetails[stepLabel] || [];
+  
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader className="border-b">
+          <DrawerTitle>Mark {stepLabel} as Complete?</DrawerTitle>
+        </DrawerHeader>
+        <div className="p-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Confirm that <span className="font-medium text-foreground">{recruitName}</span> has 
+            completed <span className="font-medium text-foreground">{stepLabel}</span>
+          </p>
+          
+          {tasks.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-4 border space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Verify Completed
+              </p>
+              {tasks.map((task, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-foreground">{task}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <DrawerFooter className="border-t">
+          <Button 
+            onClick={onConfirm} 
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Confirm Complete'
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+            className="w-full"
+          >
+            Cancel
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+
 // Onboarding status values progression
 const ONBOARDING_STATUS_ORDER = [
   'Not Started',
@@ -202,6 +293,8 @@ const TrainingProgressItem = ({
   const updateStatusMutation = useUpdateRookieStatus();
   const queryClient = useQueryClient();
   const [localProgress, setLocalProgress] = useState<typeof item.trainingProgress | null>(null);
+  const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
+  const [pendingStep, setPendingStep] = useState<{ field: string; label: string; notionStatus: string } | null>(null);
 
   // Use local state for optimistic UI, fall back to prop
   const progress = localProgress ?? item.trainingProgress;
@@ -210,7 +303,7 @@ const TrainingProgressItem = ({
   const handleToggle = async (field: string, currentValue: boolean) => {
     const newValue = !currentValue;
     
-    // For iPad, use the ipadAssigned field
+    // For iPad, use the ipadAssigned field - no confirmation needed
     if (field === 'ipadAssigned') {
       // Optimistic update
       setLocalProgress({
@@ -234,41 +327,48 @@ const TrainingProgressItem = ({
       return;
     }
     
-    // For onboarding steps, we need to update the onboardingStatus
+    // For onboarding steps, open confirmation drawer
     // The steps follow this progression:
     // Not Started -> Onboarding ✅ -> Required Trainings ✅ -> Slack ✅
     // We can only mark the NEXT step as complete, not skip ahead
     
-    let newStatus: string | undefined;
-    let newProgressState = { ...progress };
-    
     if (field === 'onboardingComplete' && !progress.onboardingComplete && newValue) {
-      // Mark onboarding as complete
-      newStatus = 'Onboarding ✅';
-      newProgressState.onboardingComplete = true;
+      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Onboarding ✅' });
+      setConfirmDrawerOpen(true);
     } else if (field === 'trainingsComplete' && progress.onboardingComplete && !progress.trainingsComplete && newValue) {
-      // Mark trainings as complete (must have onboarding done first)
-      newStatus = 'Required Trainings ✅';
-      newProgressState.trainingsComplete = true;
+      setPendingStep({ field, label: 'Trainings', notionStatus: 'Required Trainings ✅' });
+      setConfirmDrawerOpen(true);
     } else if (field === 'slackJoined' && progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined && newValue) {
-      // Mark slack as complete (must have trainings done first)
-      newStatus = 'Slack ✅';
-      newProgressState.slackJoined = true;
+      setPendingStep({ field, label: 'Slack', notionStatus: 'Slack ✅' });
+      setConfirmDrawerOpen(true);
     } else {
       // Can't toggle this field (either wrong order or trying to uncheck)
       toast.error("Steps must be completed in order");
-      return;
+    }
+  };
+
+  const handleConfirmStep = async () => {
+    if (!pendingStep) return;
+    
+    const newProgressState = { ...progress };
+    if (pendingStep.field === 'onboardingComplete') {
+      newProgressState.onboardingComplete = true;
+    } else if (pendingStep.field === 'trainingsComplete') {
+      newProgressState.trainingsComplete = true;
+    } else if (pendingStep.field === 'slackJoined') {
+      newProgressState.slackJoined = true;
     }
     
     // Optimistic update
     setLocalProgress(newProgressState);
+    setConfirmDrawerOpen(false);
     
     try {
       await updateStatusMutation.mutateAsync({
         rookieNotionPageId: item.recruit.notionPageId,
-        onboardingStatus: newStatus,
+        onboardingStatus: pendingStep.notionStatus,
       });
-      toast.success(`Marked as ${newStatus}`);
+      toast.success(`Marked as ${pendingStep.notionStatus}`);
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
@@ -276,6 +376,8 @@ const TrainingProgressItem = ({
       setLocalProgress(progress);
       toast.error("Failed to update status");
     }
+    
+    setPendingStep(null);
   };
 
   // Determine which items are editable based on progression
@@ -438,6 +540,20 @@ const TrainingProgressItem = ({
           </div>
         )}
       </div>
+      
+      {/* Onboarding Step Confirmation Drawer */}
+      <OnboardingStepConfirmationDrawer
+        open={confirmDrawerOpen}
+        onOpenChange={(open) => {
+          setConfirmDrawerOpen(open);
+          if (!open) setPendingStep(null);
+        }}
+        recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
+        stepLabel={pendingStep?.label || ''}
+        stepDescription={pendingStep?.notionStatus || ''}
+        onConfirm={handleConfirmStep}
+        isLoading={updateStatusMutation.isPending}
+      />
     </>
   );
 };
