@@ -116,6 +116,7 @@ serve(async (req) => {
             const getEmail = (prop: any) => prop?.email || '';
             const getDate = (prop: any) => prop?.date?.start || null;
             const getCheckbox = (prop: any) => prop?.checkbox ?? false;
+            const getSelectValue = (prop: any) => prop?.select?.name || '';
             
             // Collect blitz trip relation IDs
             const blitzTripRelationIds: string[] = [];
@@ -125,6 +126,26 @@ serve(async (req) => {
                 allBlitzTripIds.add(rel.id);
               }
             }
+            
+            // Parse "Onboarding Step Completed" select property
+            // Values like "Phase 4 ✅", "Slack ✅", "Trainings Complete", etc.
+            const onboardingStepValue = getSelectValue(props['Onboarding Step Completed']);
+            
+            // Determine phase completion from the onboarding step value
+            // If they've reached Phase X, all previous phases are complete
+            const hasPhase4 = onboardingStepValue.includes('Phase 4');
+            const hasPhase3 = hasPhase4 || onboardingStepValue.includes('Phase 3');
+            const hasPhase2 = hasPhase3 || onboardingStepValue.includes('Phase 2');
+            const hasPhase1 = hasPhase2 || onboardingStepValue.includes('Phase 1');
+            
+            // Onboarding is complete if they've joined Slack OR started any ramp phase
+            // Values that indicate onboarding complete: "Slack ✅", or any "Phase X" value
+            const slackComplete = onboardingStepValue.includes('Slack');
+            const hasAnyRampPhase = hasPhase1 || hasPhase2 || hasPhase3 || hasPhase4;
+            const onboardingDone = slackComplete || hasAnyRampPhase;
+            
+            // Trainings are complete if they've reached Slack step or beyond
+            const trainingsComplete = slackComplete || hasAnyRampPhase || onboardingStepValue.includes('Trainings');
             
             rawRecruits.push({
               notionPageId: page.id,
@@ -139,13 +160,15 @@ serve(async (req) => {
               nextActionDue: getDate(props['Next Action Due']),
               createdAt: page.created_time,
               blitzTripRelationIds, // Temporary field, will be replaced with full data
-              // Ramp-to-blitz phase data from Notion (fallback for recruits not in Supabase)
-              rampToBlitzPhase: getSelectLocal(props['Ramp to Blitz Phase']) || null,
-              phase1Complete: getCheckbox(props['Phase 1 ✅']),
-              phase2Complete: getCheckbox(props['Phase 2 ✅']),
-              phase3Complete: getCheckbox(props['Phase 3 ✅']),
-              phase4Complete: getCheckbox(props['Phase 4 ✅']),
-              onboardingComplete: getCheckbox(props['Onboarding Complete']),
+              // Ramp-to-blitz phase data parsed from "Onboarding Step Completed" select
+              rampToBlitzPhase: onboardingStepValue || null,
+              phase1Complete: hasPhase1,
+              phase2Complete: hasPhase2,
+              phase3Complete: hasPhase3,
+              phase4Complete: hasPhase4,
+              onboardingComplete: onboardingDone,
+              trainingsComplete: trainingsComplete,
+              slackJoined: slackComplete || hasAnyRampPhase,
               ipadAssigned: getCheckbox(props['iPad Assigned']),
               blitzReady: getCheckbox(props['Blitz Ready']),
             });
