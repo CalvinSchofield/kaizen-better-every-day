@@ -58,7 +58,8 @@ export const useAssignedTasks = (recruits: Recruit[]) => {
       })) as AssignedTask[];
     },
     enabled: recruits.length > 0,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 10 * 1000, // 10 seconds - keep fresh for collaborative work
+    refetchInterval: 30 * 1000, // Refetch every 30 seconds as backup to realtime
   });
 };
 

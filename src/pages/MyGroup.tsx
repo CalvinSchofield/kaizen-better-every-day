@@ -10,6 +10,7 @@ import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useNeedsAttention, RepData, RepSummerConfigData } from "@/hooks/useNeedsAttention";
 import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
 import { useAssignedTasks } from "@/hooks/useAssignedTasks";
+import { useRecruitActivitiesRealtime, useRecruitSuggestionsRealtime } from "@/hooks/useRecruitActivitiesRealtime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
@@ -146,6 +147,11 @@ const MyGroup = () => {
   const allRecruits = groupData?.recruits || [];
   const pendingSuggestions = groupData?.pendingSuggestions || [];
   const activities = groupData?.activities || [];
+
+  // Subscribe to realtime updates for recruit activities and suggestions
+  const recruitNotionIds = useMemo(() => allRecruits.map(r => r.notionPageId), [allRecruits]);
+  useRecruitActivitiesRealtime(recruitNotionIds);
+  useRecruitSuggestionsRealtime(currentUserRep?.notion_page_id || null);
 
   // Fetch tasks assigned to current user
   const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
