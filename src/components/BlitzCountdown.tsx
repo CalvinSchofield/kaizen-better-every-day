@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
 
 interface WeatherForecast {
   date: string;
@@ -78,23 +79,13 @@ export const BlitzCountdown = ({
       return;
     }
 
-    try {
-      // Parse dates as UTC to avoid timezone shifts
-      const today = new Date();
-      const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-      const blitzDate = new Date(tripDate + 'T00:00:00Z');
-      
-      const diffTime = blitzDate.getTime() - todayUTC.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      setDaysUntil(diffDays);
+    // Use calendar-day-based calculation for accurate "tomorrow" display
+    const days = getDaysUntilBlitz(tripDate);
+    setDaysUntil(days);
 
-      // Fetch weather if trip is within 14 days and in the future
-      if (diffDays > 0 && diffDays <= 14 && tripLocation && tripEndDate) {
-        fetchWeather();
-      }
-    } catch (error) {
-      console.error("Error calculating days until blitz:", error);
-      setDaysUntil(null);
+    // Fetch weather if trip is within 14 days and in the future
+    if (days !== null && days > 0 && days <= 14 && tripLocation && tripEndDate) {
+      fetchWeather();
     }
   }, [tripDate, tripLocation, tripEndDate]);
 
@@ -106,9 +97,9 @@ export const BlitzCountdown = ({
     const locationName = tripLocation.split(',')[0]; // Get just city name
     
     if (daysUntil === 0) return `${locationName} starts today — you got this!`;
-    if (daysUntil === 1) return `1 day until ${locationName} — prep makes perfect`;
-    if (daysUntil <= 7) return `${daysUntil} days until ${locationName} — prep makes perfect`;
-    return `${daysUntil} days until ${locationName}`;
+    if (daysUntil === 1) return `${locationName} tomorrow — prep makes perfect`;
+    if (daysUntil <= 7) return `${locationName} in ${daysUntil} days — prep makes perfect`;
+    return `${locationName} in ${daysUntil} days`;
   };
   
   const getWeatherTip = () => {
