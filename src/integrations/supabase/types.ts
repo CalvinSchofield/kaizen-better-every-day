@@ -645,7 +645,7 @@ export type Database = {
           timezone: string | null
           trainings_complete: boolean | null
           updated_at: string | null
-          user_id: string
+          user_id: string | null
           year: string | null
         }
         Insert: {
@@ -696,7 +696,7 @@ export type Database = {
           timezone?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
-          user_id: string
+          user_id?: string | null
           year?: string | null
         }
         Update: {
@@ -747,7 +747,7 @@ export type Database = {
           timezone?: string | null
           trainings_complete?: boolean | null
           updated_at?: string | null
-          user_id?: string
+          user_id?: string | null
           year?: string | null
         }
         Relationships: []

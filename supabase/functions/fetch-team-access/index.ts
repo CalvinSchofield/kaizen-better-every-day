@@ -135,11 +135,13 @@ Deno.serve(async (req) => {
 
     if (isAreaDirector) accessLevel = 'area_director';
 
-    const getRepTeamInfo = (repNotionId: string, repTeamLeaderName?: string) => {
-      const repAsLeadTeam = teams.find(t => t.groupLeadId === repNotionId);
-      if (repAsLeadTeam) {
-        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id));
-        return { isTeamLead: true, teamId: repAsLeadTeam.id, teamName: repAsLeadTeam.name, mgmtGroupId: mgmtGroup?.id || null, mgmtGroupName: mgmtGroup?.name || null };
+    const getRepTeamInfo = (repNotionId: string | null, repTeamLeaderName?: string | null) => {
+      if (repNotionId) {
+        const repAsLeadTeam = teams.find(t => t.groupLeadId === repNotionId);
+        if (repAsLeadTeam) {
+          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id));
+          return { isTeamLead: true, teamId: repAsLeadTeam.id, teamName: repAsLeadTeam.name, mgmtGroupId: mgmtGroup?.id || null, mgmtGroupName: mgmtGroup?.name || null };
+        }
       }
       
       if (repTeamLeaderName) {
@@ -158,27 +160,47 @@ Deno.serve(async (req) => {
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
+    // Get ALL reps including ghost reps (user_id may be null)
+    const buildRepData = (rep: any, teamInfo: any) => ({
+      id: rep.id, // Supabase UUID for the rep record
+      userId: rep.user_id || null, // null for ghost reps
+      name: rep.name,
+      notionPageId: rep.notion_page_id,
+      phone: rep.phone || null,
+      year: rep.year || null,
+      stage: rep.stage || null,
+      isTeamLead: teamInfo.isTeamLead,
+      teamId: teamInfo.teamId,
+      teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null),
+      mgmtGroupId: teamInfo.mgmtGroupId,
+      mgmtGroupName: teamInfo.mgmtGroupName,
+      isGhostRep: !rep.user_id, // Flag to identify ghost reps
+      rampPhase1Complete: rep.ramp_phase_1_complete || false,
+    });
+
     if (accessLevel === 'area_director') {
-      // Area directors see ALL reps
-      const { data: allReps } = await supabase.from('reps').select('user_id, name, notion_page_id, team_leader, phone, year');
+      // Area directors see ALL reps including ghost reps
+      const { data: allReps } = await supabase
+        .from('reps')
+        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
       if (allReps) {
-        accessibleUserIds = allReps.map(r => r.user_id);
+        accessibleUserIds = allReps.filter(r => r.user_id).map(r => r.user_id!);
         accessibleReps = allReps.map(r => {
           const teamInfo = getRepTeamInfo(r.notion_page_id, r.team_leader);
-          return { userId: r.user_id, name: r.name, notionPageId: r.notion_page_id, phone: r.phone || null, year: r.year || null, isTeamLead: teamInfo.isTeamLead, teamId: teamInfo.teamId, teamName: teamInfo.teamName || (r.team_leader ? `Team ${r.team_leader}` : null), mgmtGroupId: teamInfo.mgmtGroupId, mgmtGroupName: teamInfo.mgmtGroupName };
+          return buildRepData(r, teamInfo);
         });
       }
     } else if (accessLevel === 'mgmt_group_lead') {
-      // MGMT group leads see only teams within their MGMT groups
       const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === userNotionPageId);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       
-      // Get all reps and filter to only those in accessible teams
-      const { data: allReps } = await supabase.from('reps').select('user_id, name, notion_page_id, team_leader, phone, year').not('notion_page_id', 'is', null);
+      const { data: allReps } = await supabase
+        .from('reps')
+        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete')
+        .not('notion_page_id', 'is', null);
       if (allReps) {
         for (const rep of allReps) {
           const teamInfo = getRepTeamInfo(rep.notion_page_id, rep.team_leader);
-          // Include rep if: they lead an accessible team OR they belong to an accessible team
           const isTeamLeadOfAccessibleTeam = accessibleTeamIds.some(teamId => {
             const team = teams.find(t => t.id === teamId);
             return team?.groupLeadId === rep.notion_page_id;
@@ -186,24 +208,24 @@ Deno.serve(async (req) => {
           const belongsToAccessibleTeam = teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId);
           
           if (isTeamLeadOfAccessibleTeam || belongsToAccessibleTeam) {
-            accessibleUserIds.push(rep.user_id);
-            accessibleReps.push({ userId: rep.user_id, name: rep.name, notionPageId: rep.notion_page_id, phone: rep.phone || null, year: rep.year || null, isTeamLead: teamInfo.isTeamLead, teamId: teamInfo.teamId, teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null), mgmtGroupId: teamInfo.mgmtGroupId, mgmtGroupName: teamInfo.mgmtGroupName });
+            if (rep.user_id) accessibleUserIds.push(rep.user_id);
+            accessibleReps.push(buildRepData(rep, teamInfo));
           }
         }
       }
       console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
     } else if (accessLevel === 'team_lead') {
-      // Team leads see ONLY reps on their specific team
       const userTeam = teams.find(t => t.groupLeadId === userNotionPageId);
       if (userTeam) {
-        const { data: allReps } = await supabase.from('reps').select('user_id, name, notion_page_id, team_leader, phone, year');
+        const { data: allReps } = await supabase
+          .from('reps')
+          .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
         if (allReps) {
           for (const rep of allReps) {
             const teamInfo = getRepTeamInfo(rep.notion_page_id, rep.team_leader);
-            // Only include reps that belong to THIS specific team
             if (teamInfo.teamId === userTeam.id) {
-              accessibleUserIds.push(rep.user_id);
-              accessibleReps.push({ userId: rep.user_id, name: rep.name, notionPageId: rep.notion_page_id, phone: rep.phone || null, year: rep.year || null, isTeamLead: teamInfo.isTeamLead, teamId: teamInfo.teamId, teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null), mgmtGroupId: teamInfo.mgmtGroupId, mgmtGroupName: teamInfo.mgmtGroupName });
+              if (rep.user_id) accessibleUserIds.push(rep.user_id);
+              accessibleReps.push(buildRepData(rep, teamInfo));
             }
           }
         }

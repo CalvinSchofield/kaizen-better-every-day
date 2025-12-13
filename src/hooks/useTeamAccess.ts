@@ -16,13 +16,17 @@ interface TeamAccessResponse {
   }>;
   accessibleUserIds: string[];
   accessibleReps: Array<{
-    userId: string;
+    id?: string; // Supabase UUID for the rep record
+    userId: string | null; // null for ghost reps (no app account)
     name: string;
     notionPageId: string;
     phone?: string | null;
     year?: string | null;
+    stage?: string | null;
     teamName?: string | null;
     mgmtGroupName?: string | null;
+    isGhostRep?: boolean; // true if rep has no app account
+    rampPhase1Complete?: boolean;
   }>;
 }
 
