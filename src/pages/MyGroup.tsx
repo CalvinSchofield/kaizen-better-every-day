@@ -345,9 +345,10 @@ const MyGroup = () => {
     setScheduleDrawerOpen(true);
   }, []);
 
-  // Handle completion from contact method drawer - animate out and dismiss
-  const handleContactMethodComplete = useCallback(() => {
-    if (contactingRecruit) {
+  // Handle completion from contact method drawer - only dismiss if connected
+  const handleContactMethodComplete = useCallback((wasConnected: boolean) => {
+    if (wasConnected && contactingRecruit) {
+      // Connected - animate out and dismiss
       setHeroAnimatingOut(true);
       const recruit = contactingRecruit;
       setTimeout(() => {
@@ -357,6 +358,10 @@ const MyGroup = () => {
         setContactingRecruit(null);
         setUndoBannerMessage(`Contact logged for ${recruit.name || 'recruit'}`);
       }, 300);
+    } else {
+      // Not connected (no answer) - just close, keep card visible
+      setContactingRecruit(null);
+      setContactMethodDrawerOpen(false);
     }
   }, [contactingRecruit, dismissRecruit]);
 

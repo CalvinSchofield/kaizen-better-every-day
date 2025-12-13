@@ -19,7 +19,8 @@ interface PostContactDrawerProps {
   recruit: Recruit | null;
   contactMethod?: 'call' | 'text' | 'in_person';
   defaultMethod?: 'call' | 'text' | 'in_person';
-  onComplete?: () => void;
+  /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
+  onComplete?: (wasConnected: boolean) => void;
 }
 
 // Strip emojis from name
@@ -67,20 +68,21 @@ export const PostContactDrawer = ({
       
       // For texts/in-person, always mark as connected (they inherently connected)
       const effectiveOutcome = isCall ? outcome : 'connected';
-      const outcomeLabel = effectiveOutcome === 'connected' ? 'Connected' : 'No answer';
+      const wasConnected = effectiveOutcome === 'connected';
+      const outcomeLabel = wasConnected ? 'Connected' : 'No answer';
       
       await logActivityMutation.mutateAsync({
         recruitNotionId: recruit.notionPageId,
         activityType: method === 'in_person' ? 'in_person' : 'phone_call',
         notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
-        updateLastContact: effectiveOutcome === 'connected', // Only update last contact if connected
+        updateLastContact: wasConnected, // Only update last contact if connected
       });
       
       if (isCall) {
         toast.success(
-          effectiveOutcome === 'connected' 
+          wasConnected 
             ? `Great! Logged call with ${firstName}` 
-            : `Logged attempt to reach ${firstName}`
+            : `Logged attempt - ${firstName} stays in your list`
         );
       } else {
         toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
@@ -90,7 +92,8 @@ export const PostContactDrawer = ({
       setOutcome(null);
       setNotes('');
       onOpenChange(false);
-      onComplete?.();
+      // Pass wasConnected to parent so it knows whether to dismiss the card
+      onComplete?.(wasConnected);
     } catch (error) {
       console.error('Failed to log contact:', error);
       toast.error('Failed to log contact');

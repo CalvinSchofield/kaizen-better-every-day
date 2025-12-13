@@ -18,6 +18,7 @@ import { SwipeableRecruitItem } from "./SwipeableRecruitItem";
 import { SwipeableBlitzItem } from "./SwipeableBlitzItem";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
+import { PostContactDrawer } from "./PostContactDrawer";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { toast } from "sonner";
@@ -1014,7 +1015,12 @@ export const NeedsAttentionDrawer = ({
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
   const [phoneDrawerRecruit, setPhoneDrawerRecruit] = useState<Recruit | null>(null);
   const [pendingPhoneAction, setPendingPhoneAction] = useState<'text' | 'call' | null>(null);
-  const logActivityMutation = useLogRecruitActivity();
+  
+  // Post-contact drawer state for direct call/text buttons
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [postContactRecruit, setPostContactRecruit] = useState<Recruit | null>(null);
+  const [postContactMethod, setPostContactMethod] = useState<'call' | 'text'>('call');
+  
   const queryClient = useQueryClient();
 
   if (!category) return null;
@@ -1024,7 +1030,7 @@ export const NeedsAttentionDrawer = ({
     setPendingPhoneAction(action);
   };
 
-  const handleCall = async (recruit: Recruit, e: React.MouseEvent) => {
+  const handleCall = (recruit: Recruit, e: React.MouseEvent) => {
     e.stopPropagation();
     
     if (!recruit.phone) {
@@ -1032,27 +1038,29 @@ export const NeedsAttentionDrawer = ({
       return;
     }
     
-    try {
-      await logActivityMutation.mutateAsync({
-        recruitNotionId: recruit.notionPageId,
-        activityType: 'phone_call',
-        notes: 'Call attempt',
-        updateLastContact: true,
-      });
-      toast.success('Call logged');
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
+    // Open phone app
     window.location.href = `tel:${recruit.phone}`;
+    
+    // Open post-contact drawer to log the call outcome
+    setPostContactRecruit(recruit);
+    setPostContactMethod('call');
+    setPostContactOpen(true);
   };
 
-  const handleText = async (recruit: Recruit, e: React.MouseEvent) => {
+  const handleText = (recruit: Recruit, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!recruit.phone) {
       openPhoneDrawer(recruit, 'text');
       return;
     }
+    
+    // Open SMS app
     window.location.href = `sms:${recruit.phone}`;
+    
+    // Open post-contact drawer to log the text
+    setPostContactRecruit(recruit);
+    setPostContactMethod('text');
+    setPostContactOpen(true);
   };
 
   const isOnboardingCategory = category.id === 'training-progress';
@@ -1157,6 +1165,22 @@ export const NeedsAttentionDrawer = ({
                       onDrawerClose={() => onOpenChange(false)}
                       onSchedule={(recruit) => setScheduleRecruit(recruit)}
                       onContact={(recruit) => setContactRecruit(recruit)}
+                      onDirectCall={(recruit) => {
+                        if (recruit.phone) {
+                          window.location.href = `tel:${recruit.phone}`;
+                          setPostContactRecruit(recruit);
+                          setPostContactMethod('call');
+                          setPostContactOpen(true);
+                        }
+                      }}
+                      onDirectText={(recruit) => {
+                        if (recruit.phone) {
+                          window.location.href = `sms:${recruit.phone}`;
+                          setPostContactRecruit(recruit);
+                          setPostContactMethod('text');
+                          setPostContactOpen(true);
+                        }
+                      }}
                       blitzes={blitzes}
                       repDataMap={repDataMap}
                     />
@@ -1188,6 +1212,22 @@ export const NeedsAttentionDrawer = ({
                   onDrawerClose={() => onOpenChange(false)}
                   onSchedule={(recruit) => setScheduleRecruit(recruit)}
                   onContact={(recruit) => setContactRecruit(recruit)}
+                  onDirectCall={(recruit) => {
+                    if (recruit.phone) {
+                      window.location.href = `tel:${recruit.phone}`;
+                      setPostContactRecruit(recruit);
+                      setPostContactMethod('call');
+                      setPostContactOpen(true);
+                    }
+                  }}
+                  onDirectText={(recruit) => {
+                    if (recruit.phone) {
+                      window.location.href = `sms:${recruit.phone}`;
+                      setPostContactRecruit(recruit);
+                      setPostContactMethod('text');
+                      setPostContactOpen(true);
+                    }
+                  }}
                   repData={repDataForItem}
                 />
               );
@@ -1221,6 +1261,22 @@ export const NeedsAttentionDrawer = ({
         pendingAction={pendingPhoneAction}
         onPhoneSaved={() => {
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        }}
+      />
+
+      {/* Post-Contact Drawer for direct call/text buttons */}
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={(open) => {
+          setPostContactOpen(open);
+          if (!open) setPostContactRecruit(null);
+        }}
+        recruit={postContactRecruit}
+        contactMethod={postContactMethod}
+        onComplete={() => {
+          // Just close - no auto-dismiss since we're inside a drawer
+          setPostContactOpen(false);
+          setPostContactRecruit(null);
         }}
       />
     </>
