@@ -28,11 +28,18 @@ export const ActivityTab = ({
   onActivityClick
 }: ActivityTabProps) => {
   
+  const isTextActivity = (type: string, notes?: string | null): boolean => {
+    if (type !== 'phone_call') return false;
+    const notesLower = notes?.toLowerCase() || '';
+    return notesLower.includes('text') || notesLower.startsWith('texted');
+  };
+
   const getActivityIcon = (type: string, notes?: string | null) => {
-    const isText = notes?.toLowerCase().includes('text') || notes?.toLowerCase().startsWith('texted');
+    if (isTextActivity(type, notes)) {
+      return <MessageSquare className="h-4 w-4 text-blue-500" />;
+    }
     
     if (type === 'phone_call') {
-      if (isText) return <MessageSquare className="h-4 w-4 text-blue-500" />;
       if (notes?.includes('Connected')) return <PhoneCall className="h-4 w-4 text-green-500" />;
       if (notes === 'No Answer' || notes === 'Call attempt') return <PhoneMissed className="h-4 w-4 text-muted-foreground" />;
       return <Phone className="h-4 w-4" />;
@@ -44,6 +51,12 @@ export const ActivityTab = ({
       case 'stage_change': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       default: return <Clock className="h-4 w-4" />;
     }
+  };
+
+  const getActivityLabel = (type: string, notes?: string | null): string => {
+    if (isTextActivity(type, notes)) return 'Text';
+    if (type === 'next_step') return 'Scheduled';
+    return type.replace('_', ' ');
   };
 
   const formatActivityDate = (dateString: string) => {
@@ -133,9 +146,7 @@ export const ActivityTab = ({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium capitalize">
-                            {activity.activity_type === 'next_step' 
-                              ? 'Scheduled' 
-                              : activity.activity_type.replace('_', ' ')}
+                            {getActivityLabel(activity.activity_type, activity.notes)}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {format(parseISO(activity.created_at), 'h:mm a')}
