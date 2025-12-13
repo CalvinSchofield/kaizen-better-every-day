@@ -10,7 +10,7 @@ import { TeamFilterSheet } from "@/components/TeamFilterSheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, subDays, startOfMonth, endOfMonth, startOfYear } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, startOfWeek, subWeeks } from "date-fns";
 import { useTeamCumulativeFP } from "@/hooks/useTeamCumulativeFP";
 import { ScopeBadge } from "@/components/reports/ScopeBadge";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
@@ -84,9 +84,11 @@ const TeamReports = () => {
       case 'yesterday':
         return { start: format(subDays(now, 1), 'yyyy-MM-dd'), end: format(subDays(now, 1), 'yyyy-MM-dd') };
       case 'week':
-        return { start: format(subDays(now, 7), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+        // This week: Sunday to today
+        return { start: format(startOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'month':
-        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
+        // This month: 1st to today
+        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
       case 'preseason':
         return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now < summerStartDate ? now : summerStartDate, 'yyyy-MM-dd') };
       case 'ytd':
@@ -97,7 +99,7 @@ const TeamReports = () => {
           end: customEndDate ? format(customEndDate, 'yyyy-MM-dd') : format(now, 'yyyy-MM-dd')
         };
       default:
-        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(endOfMonth(now), 'yyyy-MM-dd') };
+        return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
     }
   };
 
