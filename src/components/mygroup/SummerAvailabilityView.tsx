@@ -11,6 +11,7 @@ import {
   Users, Clock, LayoutList, GanttChart
 } from "lucide-react";
 import { format, differenceInDays, isAfter, isBefore, addDays } from "date-fns";
+import { stripEmojis } from "./recruit-detail/utils";
 import { toast } from "sonner";
 
 // Default summer dates
@@ -460,7 +461,7 @@ const SummerTimeline = ({ people, summerStart, summerEnd, todayStr }: SummerTime
               <div key={person.userId} className="flex items-center gap-2 h-8">
                 {/* Name */}
                 <div className="w-24 shrink-0 truncate text-xs font-medium text-foreground">
-                  {person.name.split(' ')[0]}
+                  {(stripEmojis(person.name) || person.name).split(' ')[0]}
                   {person.isSelf && <span className="text-muted-foreground ml-1">(You)</span>}
                 </div>
                 
@@ -521,7 +522,7 @@ const SummerTimeline = ({ people, summerStart, summerEnd, todayStr }: SummerTime
               {missingPeople.map(person => (
                 <div key={person.userId} className="flex items-center gap-2 h-7">
                   <div className="w-24 shrink-0 truncate text-xs text-muted-foreground">
-                    {person.name.split(' ')[0]}
+                    {(stripEmojis(person.name) || person.name).split(' ')[0]}
                     {person.isSelf && <span className="ml-1">(You)</span>}
                   </div>
                   <div className="flex-1 h-5 bg-destructive/10 rounded-md border border-dashed border-destructive/30 flex items-center justify-center">
@@ -672,7 +673,7 @@ const PersonSummerCard = ({ person, todayStr }: PersonSummerCardProps) => {
         <div className="flex-1 min-w-0">
           {/* Name row with badges */}
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <span className="font-medium text-sm truncate">{person.name}</span>
+            <span className="font-medium text-sm truncate">{stripEmojis(person.name) || person.name}</span>
             {person.isSelf && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">You</Badge>
             )}
