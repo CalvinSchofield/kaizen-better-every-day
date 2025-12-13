@@ -127,25 +127,27 @@ serve(async (req) => {
               }
             }
             
-            // Parse "Onboarding Step Completed" select property
-            // Values like "Phase 4 ✅", "Slack ✅", "Trainings Complete", etc.
+            // Parse "Onboarding Step Completed" status property
+            // Progression: Not Started → Onboarding ✅ → Required Trainings ✅ → Slack ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅
             const onboardingStepValue = getSelectValue(props['Onboarding Step Completed']);
+            const stepLower = onboardingStepValue.toLowerCase();
             
-            // Determine phase completion from the onboarding step value
-            // If they've reached Phase X, all previous phases are complete
-            const hasPhase4 = onboardingStepValue.includes('Phase 4');
-            const hasPhase3 = hasPhase4 || onboardingStepValue.includes('Phase 3');
-            const hasPhase2 = hasPhase3 || onboardingStepValue.includes('Phase 2');
-            const hasPhase1 = hasPhase2 || onboardingStepValue.includes('Phase 1');
+            // Determine what step they're at (each step implies all previous are complete)
+            const hasPhase4 = stepLower.includes('phase 4');
+            const hasPhase3 = hasPhase4 || stepLower.includes('phase 3');
+            const hasPhase2 = hasPhase3 || stepLower.includes('phase 2');
+            const hasPhase1 = hasPhase2 || stepLower.includes('phase 1');
+            const hasSlack = hasPhase1 || stepLower.includes('slack');
+            const hasTrainings = hasSlack || stepLower.includes('training');
+            const hasBasicOnboarding = hasTrainings || stepLower.includes('onboarding');
             
-            // Onboarding is complete if they've joined Slack OR started any ramp phase
-            // Values that indicate onboarding complete: "Slack ✅", or any "Phase X" value
-            const slackComplete = onboardingStepValue.includes('Slack');
-            const hasAnyRampPhase = hasPhase1 || hasPhase2 || hasPhase3 || hasPhase4;
-            const onboardingDone = slackComplete || hasAnyRampPhase;
-            
-            // Trainings are complete if they've reached Slack step or beyond
-            const trainingsComplete = slackComplete || hasAnyRampPhase || onboardingStepValue.includes('Trainings');
+            // slackJoined = they've reached "Slack ✅" or any phase (unlocks Goals page)
+            const slackJoined = hasSlack;
+            // trainingsComplete = they've reached "Required Trainings ✅" or beyond
+            const trainingsComplete = hasTrainings;
+            // onboardingComplete = they've completed basic onboarding through Slack (full onboarding done)
+            // This is when they can start Ramp to Blitz
+            const onboardingComplete = hasSlack;
             
             rawRecruits.push({
               notionPageId: page.id,
@@ -166,9 +168,9 @@ serve(async (req) => {
               phase2Complete: hasPhase2,
               phase3Complete: hasPhase3,
               phase4Complete: hasPhase4,
-              onboardingComplete: onboardingDone,
+              onboardingComplete: onboardingComplete,
               trainingsComplete: trainingsComplete,
-              slackJoined: slackComplete || hasAnyRampPhase,
+              slackJoined: slackJoined,
               ipadAssigned: getCheckbox(props['iPad Assigned']),
               blitzReady: getCheckbox(props['Blitz Ready']),
             });
