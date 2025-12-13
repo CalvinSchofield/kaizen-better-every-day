@@ -5,6 +5,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Map onboarding status to boolean flags
+function parseOnboardingStatus(status: string | undefined) {
+  if (!status) return {};
+  
+  const statusOrder = [
+    'Not started',
+    'Onboarding ✅',
+    'Required Trainings ✅',
+    'Slack ✅',
+    'Phase 1 ✅',
+    'Phase 2 ✅',
+    'Phase 3 ✅',
+    'Phase 4 ✅'
+  ];
+  
+  const index = statusOrder.indexOf(status);
+  
+  return {
+    onboarding_complete: index >= 1,
+    trainings_complete: index >= 2,
+    slack_joined: index >= 3,
+    ramp_phase_1_complete: index >= 4,
+    ramp_phase_2_complete: index >= 5,
+    ramp_phase_3_complete: index >= 6,
+    ramp_phase_4_complete: index >= 7,
+    ramp_to_blitz_phase: status,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -12,9 +41,17 @@ Deno.serve(async (req) => {
 
   try {
     const notionApiKey = Deno.env.get("NOTION_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
     if (!notionApiKey) {
       throw new Error("NOTION_API_KEY not configured");
     }
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Supabase environment variables not configured");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { 
       rookieNotionPageId, 
@@ -50,7 +87,7 @@ Deno.serve(async (req) => {
       rampPhase4Complete
     });
 
-    // Build the properties object dynamically
+    // Build the properties object dynamically for Notion
     const properties: any = {};
     
     if (onboardingStatus !== undefined) {
@@ -112,13 +149,54 @@ Deno.serve(async (req) => {
       throw new Error(`Notion API error: ${notionResponse.status} - ${errorText}`);
     }
 
-    const result = await notionResponse.json();
     console.log("Successfully updated rookie status in Notion");
+
+    // Also update Supabase reps table for immediate local sync
+    const supabaseUpdate: any = {};
+    
+    if (hasOnboardingUpdate) {
+      const parsedStatus = parseOnboardingStatus(onboardingStatus);
+      Object.assign(supabaseUpdate, parsedStatus);
+    }
+    
+    if (ipadAssigned !== undefined) {
+      supabaseUpdate.ipad_assigned = ipadAssigned;
+    }
+    
+    if (rampPhase1Complete !== undefined) {
+      supabaseUpdate.ramp_phase_1_complete = rampPhase1Complete;
+    }
+    if (rampPhase2Complete !== undefined) {
+      supabaseUpdate.ramp_phase_2_complete = rampPhase2Complete;
+    }
+    if (rampPhase3Complete !== undefined) {
+      supabaseUpdate.ramp_phase_3_complete = rampPhase3Complete;
+    }
+    if (rampPhase4Complete !== undefined) {
+      supabaseUpdate.ramp_phase_4_complete = rampPhase4Complete;
+    }
+
+    supabaseUpdate.updated_at = new Date().toISOString();
+
+    console.log("Updating Supabase reps table:", supabaseUpdate);
+
+    const { error: supabaseError } = await supabase
+      .from('reps')
+      .update(supabaseUpdate)
+      .eq('notion_page_id', rookieNotionPageId);
+
+    if (supabaseError) {
+      console.error("Supabase update error (non-fatal):", supabaseError);
+      // Don't throw - Notion update succeeded, Supabase sync can be retried
+    } else {
+      console.log("Successfully updated Supabase reps table");
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Rookie status updated in Notion"
+        message: "Rookie status updated in Notion and Supabase",
+        supabaseUpdate,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

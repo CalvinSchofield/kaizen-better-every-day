@@ -121,3 +121,64 @@ export const useRecruitSuggestionsRealtime = (leaderNotionId: string | null) => 
     };
   }, [leaderNotionId, queryClient]);
 };
+
+/**
+ * Hook that subscribes to realtime updates for reps table.
+ * This catches changes from Notion sync or direct updates for immediate UI refresh.
+ */
+export const useRepsRealtime = (recruitNotionIds: string[]) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (recruitNotionIds.length === 0) return;
+
+    console.log('[Realtime] Subscribing to reps table for', recruitNotionIds.length, 'recruits');
+
+    const channel = supabase
+      .channel('reps-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'reps',
+        },
+        (payload) => {
+          const updatedRep = payload.new as any;
+          
+          // Only process if this rep is one we're tracking
+          if (!updatedRep?.notion_page_id || !recruitNotionIds.includes(updatedRep.notion_page_id)) {
+            return;
+          }
+
+          console.log('[Realtime] reps change for:', updatedRep.name, updatedRep);
+
+          // Update the cached rep data immediately
+          queryClient.setQueriesData({ queryKey: ['recruits-rep-data'] }, (old: any) => {
+            if (!old || !Array.isArray(old)) return old;
+            return old.map((rep: any) => 
+              rep.notion_page_id === updatedRep.notion_page_id ? updatedRep : rep
+            );
+          });
+
+          // Also update the recruit-rep-data for individual lookups
+          queryClient.setQueryData(
+            ['recruit-rep-data', updatedRep.notion_page_id], 
+            updatedRep
+          );
+
+          // Invalidate group-recruits to refresh the main list
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+          queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'] });
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] reps subscription status:', status);
+      });
+
+    return () => {
+      console.log('[Realtime] Unsubscribing from reps');
+      supabase.removeChannel(channel);
+    };
+  }, [recruitNotionIds.join(','), queryClient]);
+};
