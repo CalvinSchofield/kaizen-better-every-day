@@ -24,7 +24,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
@@ -40,6 +51,14 @@ interface DetailsTabProps {
   stageShake: boolean;
 }
 
+// Exit stages that are always allowed and permanent exit stages that need confirmation
+const EXIT_STAGES = ['Not Interested', 'Potential Follow Up', 'Signed but Not Interested'];
+const PERMANENT_EXIT_STAGES = ['Not Interested', 'Signed but Not Interested'];
+
+// Separate stages into progression and exit for display purposes
+const PROGRESSION_STAGES = STAGES.filter(s => !EXIT_STAGES.includes(s));
+const EXIT_STAGE_OPTIONS = STAGES.filter(s => EXIT_STAGES.includes(s));
+
 export const DetailsTab = ({
   recruit,
   recruitRepData,
@@ -53,8 +72,23 @@ export const DetailsTab = ({
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
   const stageLocked = isRookie && !hasCompletedOnboarding;
   
-  // Exit stages are always allowed regardless of onboarding status
-  const EXIT_STAGES = ['Not Interested', 'Potential Follow Up', 'Signed but Not Interested'];
+  const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
+  
+  const handleStageSelect = (newStage: string) => {
+    // If it's a permanent exit stage, show confirmation dialog
+    if (PERMANENT_EXIT_STAGES.includes(newStage) && newStage !== recruit.stage) {
+      setPendingExitStage(newStage);
+    } else {
+      onStageChange(newStage);
+    }
+  };
+  
+  const confirmExitStage = () => {
+    if (pendingExitStage) {
+      onStageChange(pendingExitStage);
+      setPendingExitStage(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -85,15 +119,15 @@ export const DetailsTab = ({
         <Label className="text-sm text-muted-foreground">Stage</Label>
         <Select 
           value={recruit.stage} 
-          onValueChange={onStageChange}
+          onValueChange={handleStageSelect}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STAGES.map((stage) => {
-              const isExitStage = EXIT_STAGES.includes(stage);
-              const isDisabled = stageLocked && !isExitStage && stage !== recruit.stage;
+            {/* Progression Stages */}
+            {PROGRESSION_STAGES.map((stage) => {
+              const isDisabled = stageLocked && stage !== recruit.stage;
               return (
                 <SelectItem 
                   key={stage} 
@@ -105,6 +139,23 @@ export const DetailsTab = ({
                 </SelectItem>
               );
             })}
+            
+            {/* Separator before exit stages */}
+            <SelectSeparator className="my-1" />
+            
+            {/* Exit Stages - always available */}
+            <div className="px-2 py-1">
+              <span className="text-xs text-muted-foreground">Exit Options</span>
+            </div>
+            {EXIT_STAGE_OPTIONS.map((stage) => (
+              <SelectItem 
+                key={stage} 
+                value={stage}
+                className="text-muted-foreground"
+              >
+                {stage}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {stageLocked && (
@@ -113,6 +164,25 @@ export const DetailsTab = ({
           </p>
         )}
       </div>
+      
+      {/* Exit Stage Confirmation Dialog */}
+      <AlertDialog open={!!pendingExitStage} onOpenChange={(open) => !open && setPendingExitStage(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as {pendingExitStage}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark {recruitFirstName} as "{pendingExitStage}"? 
+              This will remove them from your active recruiting pipeline.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExitStage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, mark as {pendingExitStage}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
