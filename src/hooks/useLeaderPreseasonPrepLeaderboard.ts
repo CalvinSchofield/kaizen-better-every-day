@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTrainingPaceStatus, getWeekStartDateString } from "@/utils/timezoneUtils";
+import { useTeamAccess } from "./useTeamAccess";
 
 export type LeaderboardMetric = 'overall' | 'books' | 'training' | 'roleplays' | 'mnl';
 
@@ -31,6 +32,7 @@ export interface LeaderboardEntry {
   timezone: string;
   profilePhotoUrl: string | null;
   teamLeader: string | null;
+  teamName: string | null;
   // Weekly prep score (this week's effort - excludes books)
   weeklyPrepScore: number;
   // Books are ALL-TIME cumulative (not weekly)
@@ -43,26 +45,42 @@ export interface LeaderboardEntry {
   // Training pace status (weekly)
   trainingGoal: number; // in minutes
   trainingPaceStatus: 'ahead' | 'on-track' | 'behind' | 'no-goal';
+  // Whether they have set up standards
+  hasStandards: boolean;
 }
 
+// Valid stages for preseason prep tracking
+const VALID_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+
 export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall', showMyTeamOnly: boolean = false) => {
+  const { data: teamAccess } = useTeamAccess();
+  
   return useQuery({
-    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly],
+    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly, teamAccess?.accessibleReps?.length],
     queryFn: async () => {
       // Get current user's rep data first
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id;
 
-      // Fetch current user's name (for team filtering)
+      // Fetch current user's info (for team filtering and name)
       const { data: currentUserRep } = await supabase
         .from('reps')
-        .select('name')
+        .select('name, team_leader, notion_page_id')
         .eq('user_id', currentUserId || '')
         .single();
 
       const currentUserName = currentUserRep?.name || '';
 
-      // Fetch all rookies with setup_complete
+      // Get ALL qualifying rookies from team access (includes Notion-only reps)
+      // This gives us rookies who may not have a Supabase account yet
+      const accessibleRookies = (teamAccess?.accessibleReps || []).filter(r => 
+        r.year === 'Rookie' || r.year === '2026' || r.year === '2025'
+      );
+
+      // Get all rookie notion page IDs we have access to
+      const accessibleNotionIds = new Set(accessibleRookies.map(r => r.notionPageId));
+
+      // Fetch rep_goals for standards data
       const { data: goalsData, error: goalsError } = await supabase
         .from('rep_goals')
         .select(`
@@ -75,67 +93,156 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           role_plays_progress,
           monday_night_lights_progress,
           prep_score_history
-        `)
-        .eq('setup_complete', true);
+        `);
 
       if (goalsError) throw goalsError;
 
-      // Fetch rep info for names, timezones, profile photos, team_leader, stage, and ramp progress
+      // Create a map of user_id to goals
+      const goalsMap = new Map(goalsData?.map(g => [g.user_id, g]) || []);
+
+      // Fetch all reps data from Supabase (for those who have accounts)
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
         .select('user_id, name, timezone, notion_page_id, year, profile_photo_url, team_leader, stage, ramp_phase_1_complete');
 
       if (repsError) throw repsError;
 
-      // Valid stages for preseason prep tracking (Signed and beyond)
-      const validStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+      // Create a map of notion_page_id to rep data
+      const repsByNotionId = new Map(repsData?.map(r => [r.notion_page_id, r]) || []);
 
-      // Filter to only rookies who are Signed+ AND have completed Phase 1
-      let rookieReps = repsData?.filter(r => 
-        (r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year) &&
-        validStages.includes(r.stage || '') &&
-        r.ramp_phase_1_complete === true
-      ) || [];
-
-      // If showMyTeamOnly, filter to only rookies on the current leader's team
-      if (showMyTeamOnly && currentUserName) {
-        rookieReps = rookieReps.filter(r => 
-          r.team_leader?.includes(currentUserName)
-        );
+      // Also get fresh stage data from group recruits if available
+      const { data: { session } } = await supabase.auth.getSession();
+      let notionRecruits: any[] = [];
+      
+      if (session) {
+        try {
+          const { data: groupData } = await supabase.functions.invoke('fetch-group-recruits', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: { includeActivities: false },
+          });
+          notionRecruits = groupData?.recruits || [];
+        } catch (e) {
+          console.log('Could not fetch group recruits for leaderboard:', e);
+        }
       }
 
-      const rookieUserIds = rookieReps.map(r => r.user_id);
+      // Create map of notion page id to recruit data (includes stage)
+      const recruitsByNotionId = new Map(notionRecruits.map((r: any) => [r.notionPageId, r]));
 
-      // Count all rookies (with and without standards)
-      const totalRookies = rookieReps.length;
+      // Build the list of qualifying rookies
+      // A rookie qualifies if: they're a rookie AND in a valid stage AND have completed phase 1
+      const qualifyingRookies: Array<{
+        notionPageId: string;
+        name: string;
+        teamName: string | null;
+        mgmtGroupName: string | null;
+        userId: string | null;
+        stage: string;
+        phase1Complete: boolean;
+      }> = [];
 
-      // Count rookies without standards
-      const rookiesWithStandards = new Set(goalsData?.filter(g => 
-        rookieUserIds.includes(g.user_id)
-      ).map(g => g.user_id) || []);
+      for (const accessRep of accessibleRookies) {
+        // Check if we have Supabase data
+        const supabaseRep = repsByNotionId.get(accessRep.notionPageId);
+        // Check if we have Notion recruit data
+        const notionRecruit = recruitsByNotionId.get(accessRep.notionPageId);
+
+        // Determine stage - prefer Notion data (more current), fallback to Supabase
+        const stage = notionRecruit?.stage || supabaseRep?.stage || '';
+        
+        // Check if in valid stage
+        if (!VALID_STAGES.includes(stage)) continue;
+
+        // Check if phase 1 complete - from Notion first, then Supabase
+        const phase1Complete = notionRecruit?.phase1Complete ?? supabaseRep?.ramp_phase_1_complete ?? false;
+        
+        qualifyingRookies.push({
+          notionPageId: accessRep.notionPageId,
+          name: accessRep.name,
+          teamName: accessRep.teamName || null,
+          mgmtGroupName: accessRep.mgmtGroupName || null,
+          userId: supabaseRep?.user_id || null,
+          stage,
+          phase1Complete,
+        });
+      }
+
+      // If showMyTeamOnly, filter to only the current leader's direct team
+      let filteredRookies = qualifyingRookies;
+      if (showMyTeamOnly && teamAccess) {
+        // For team leads, filter by team name matching
+        // Find the current user's team based on their accessible teams
+        const currentUserTeams = teamAccess.teams.filter(t => {
+          // Check if the current user is the lead of this team
+          // The team lead's name should match the team's groupLeadId pattern
+          return t.name && accessibleRookies.some(r => r.teamName === t.name);
+        });
+
+        // Get team names the current user leads
+        const myTeamNames = new Set<string>();
+        
+        // For team leads, use the teams they have access to
+        if (teamAccess.accessLevel === 'team_lead') {
+          teamAccess.teams.forEach(t => myTeamNames.add(t.name));
+        } else if (teamAccess.accessLevel === 'mgmt_group_lead') {
+          // MGMT leads should see their own direct team when filtering
+          // Find teams where current user is the direct team lead
+          for (const team of teamAccess.teams) {
+            // Check if this team's lead name matches current user
+            const teamReps = accessibleRookies.filter(r => r.teamName === team.name);
+            // We need to check if the current user is the team lead
+            // Look at the team_leader field in Supabase reps
+            const repsInTeam = repsData?.filter(r => teamReps.some(tr => tr.notionPageId === r.notion_page_id));
+            if (repsInTeam?.some(r => r.team_leader?.includes(currentUserName))) {
+              myTeamNames.add(team.name);
+            }
+          }
+        }
+
+        // Filter to only rookies in my team
+        if (myTeamNames.size > 0) {
+          filteredRookies = qualifyingRookies.filter(r => 
+            r.teamName && myTeamNames.has(r.teamName)
+          );
+        } else {
+          // Fallback: check team_leader field directly
+          filteredRookies = qualifyingRookies.filter(r => {
+            const supabaseRep = repsByNotionId.get(r.notionPageId);
+            return supabaseRep?.team_leader?.includes(currentUserName);
+          });
+        }
+      }
+
+      // Count totals
+      const totalRookies = filteredRookies.length;
       
-      const rookiesWithoutStandards = totalRookies - rookiesWithStandards.size;
-
+      // Build entries
       const entries: LeaderboardEntry[] = [];
+      let rookiesWithStandardsCount = 0;
 
-      for (const goal of goalsData || []) {
-        if (!rookieUserIds.includes(goal.user_id)) continue;
+      for (const rookie of filteredRookies) {
+        const supabaseRep = repsByNotionId.get(rookie.notionPageId);
+        const goal = rookie.userId ? goalsMap.get(rookie.userId) : null;
+        const hasStandards = goal?.setup_complete === true;
 
-        const rep = repsData?.find(r => r.user_id === goal.user_id);
-        if (!rep) continue;
+        if (hasStandards) {
+          rookiesWithStandardsCount++;
+        }
 
-        const timezone = rep.timezone || 'America/Los_Angeles';
+        const timezone = supabaseRep?.timezone || 'America/Los_Angeles';
         const currentWeekStart = getWeekStartDateString(timezone);
-        const trainingGoalMinutes = (goal.training_hours_goal || 0) * 60;
+        const trainingGoalMinutes = (goal?.training_hours_goal || 0) * 60;
 
-        // Current cumulative values
-        const totalBooks = goal.books_progress || 0;
-        const currentTraining = goal.training_hours_progress || 0;
-        const currentRoleplays = goal.role_plays_progress || 0;
-        const currentMnl = goal.monday_night_lights_progress || 0;
+        // Current cumulative values (from goals if they exist)
+        const totalBooks = goal?.books_progress || 0;
+        const currentTraining = goal?.training_hours_progress || 0;
+        const currentRoleplays = goal?.role_plays_progress || 0;
+        const currentMnl = goal?.monday_night_lights_progress || 0;
 
         // Get last week's snapshot to calculate this week's delta
-        const rawHistory = goal.prep_score_history;
+        const rawHistory = goal?.prep_score_history;
         const history: PrepScoreHistory[] = Array.isArray(rawHistory) 
           ? (rawHistory as unknown as PrepScoreHistory[]) 
           : [];
@@ -160,15 +267,16 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         );
 
         entries.push({
-          userId: goal.user_id,
-          name: rep.name,
-          notionPageId: rep.notion_page_id,
+          userId: rookie.userId || rookie.notionPageId, // Use notionPageId as fallback
+          name: rookie.name,
+          notionPageId: rookie.notionPageId,
           timezone,
-          profilePhotoUrl: rep.profile_photo_url,
-          teamLeader: rep.team_leader,
+          profilePhotoUrl: supabaseRep?.profile_photo_url || null,
+          teamLeader: supabaseRep?.team_leader || null,
+          teamName: rookie.teamName,
           weeklyPrepScore,
           totalBooks,
-          booksGoal: goal.books_goal || 0,
+          booksGoal: goal?.books_goal || 0,
           weeklyTraining,
           weeklyRoleplays,
           weeklyMnl,
@@ -178,8 +286,11 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
             trainingGoalMinutes,
             timezone
           ),
+          hasStandards,
         });
       }
+
+      const rookiesWithoutStandards = totalRookies - rookiesWithStandardsCount;
 
       // Sort based on selected metric
       const sortedEntries = [...entries].sort((a, b) => {
@@ -212,7 +323,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
 
       return {
         entries: sortedEntries,
-        totalParticipants: sortedEntries.length,
+        totalParticipants: rookiesWithStandardsCount, // Those who have set up standards
         totalRookies,
         rookiesWithoutStandards,
         currentUserName,
@@ -224,5 +335,6 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       };
     },
     staleTime: 2 * 60 * 1000,
+    enabled: !!teamAccess, // Wait for team access data
   });
 };
