@@ -172,7 +172,7 @@ const MyGroup = () => {
       return data || [];
     },
     enabled: allRecruits.length > 0 && isLeader,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0, // Always refetch when invalidated for real-time updates
   });
 
   // Build repDataMap for useNeedsAttention
