@@ -295,7 +295,7 @@ export const useNeedsAttention = (
         if (phase1Complete && phase2Complete && phase3Complete && phase4Complete) return;
 
         // Check if committed to any upcoming blitz (for context)
-        const rawCommitments = repData.committed_blitzes || [];
+        const rawCommitments = repData?.committed_blitzes || recruit.committedBlitzes || [];
         const committedBlitzIds: string[] = Array.isArray(rawCommitments)
           ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
           : [];
