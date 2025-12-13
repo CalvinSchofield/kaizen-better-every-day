@@ -271,22 +271,22 @@ Deno.serve(async (req) => {
         const user = usersByEmail.get(email.toLowerCase());
         if (!user) continue;
 
-        // Get ramp phase
+        // Get ramp phase - Parse "Onboarding Step Completed" status property
+        // Progression: Not Started → Onboarding ✅ → Required Trainings ✅ → Slack ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅
         const rampPhase = getStatus(props["Onboarding Step Completed"]) || 
                           getSelect(props["Onboarding Step Completed"]) || "not started";
         const rampLower = rampPhase.toLowerCase();
         
-        const onboardingComplete = rampLower.includes("onboarding") || rampLower.includes("trainings") || 
-                                   rampLower.includes("slack") || rampLower.includes("phase");
-        const trainingsComplete = rampLower.includes("trainings") || rampLower.includes("slack") || 
-                                  rampLower.includes("phase");
-        const slackJoined = rampLower.includes("slack") || rampLower.includes("phase");
-        const rampPhase1Complete = rampLower.includes("phase 1") || rampLower.includes("phase 2") || 
-                                   rampLower.includes("phase 3") || rampLower.includes("phase 4");
-        const rampPhase2Complete = rampLower.includes("phase 2") || rampLower.includes("phase 3") || 
-                                   rampLower.includes("phase 4");
-        const rampPhase3Complete = rampLower.includes("phase 3") || rampLower.includes("phase 4");
+        // Determine what step they're at (each step implies all previous are complete)
         const rampPhase4Complete = rampLower.includes("phase 4");
+        const rampPhase3Complete = rampPhase4Complete || rampLower.includes("phase 3");
+        const rampPhase2Complete = rampPhase3Complete || rampLower.includes("phase 2");
+        const rampPhase1Complete = rampPhase2Complete || rampLower.includes("phase 1");
+        const slackJoined = rampPhase1Complete || rampLower.includes("slack");
+        const trainingsComplete = slackJoined || rampLower.includes("training");
+        // onboardingComplete = they've completed full onboarding (through Slack step)
+        // This is when they can start Ramp to Blitz
+        const onboardingComplete = slackJoined;
 
         // Get team leader from pre-fetched data
         let teamLeaderName = '';

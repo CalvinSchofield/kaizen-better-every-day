@@ -101,20 +101,21 @@ function processReps(reps: any[]): any[] {
     const teamName = getRollupText(props["Team Name"]) || getSelect(props["Team"]);
     const teamIds = getRelation(props["Teams"]); // Get team relation IDs
     
-    // Ramp-to-blitz phase completion checkboxes
-    const phase1Complete = getCheckbox(props["Phase 1 ✅"]);
-    const phase2Complete = getCheckbox(props["Phase 2 ✅"]);
-    const phase3Complete = getCheckbox(props["Phase 3 ✅"]);
-    const phase4Complete = getCheckbox(props["Phase 4 ✅"]);
+    // Parse "Onboarding Step Completed" status to derive phase completion
+    // Progression: Not Started → Onboarding ✅ → Required Trainings ✅ → Slack ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅
+    const statusLower = (onboardingStatus || '').toLowerCase();
     
-    // Onboarding checkboxes (for fallback when not in Supabase reps table)
-    const onboardingComplete = getCheckbox(props["Onboarding Complete"]);
-    const trainingsComplete = getCheckbox(props["Trainings Complete"]);
-    const slackJoined = getCheckbox(props["Slack ✅"]);
+    // Determine what step they're at (each step implies all previous are complete)
+    const phase4Complete = statusLower.includes('phase 4');
+    const phase3Complete = phase4Complete || statusLower.includes('phase 3');
+    const phase2Complete = phase3Complete || statusLower.includes('phase 2');
+    const phase1Complete = phase2Complete || statusLower.includes('phase 1');
+    const slackJoined = phase1Complete || statusLower.includes('slack');
+    const trainingsComplete = slackJoined || statusLower.includes('training');
+    // onboardingComplete = they've completed full onboarding (through Slack step)
+    const onboardingComplete = slackJoined;
 
-    const blitzReady = onboardingStatus === "Phase 4: Saddle Up!" || 
-                      onboardingStatus === "Blitz ready" ||
-                      phase4Complete;
+    const blitzReady = phase4Complete || statusLower.includes('blitz ready');
 
     return {
       notionPageId: page.id,
