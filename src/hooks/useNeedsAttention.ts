@@ -140,7 +140,7 @@ export const useNeedsAttention = (
 
     // 1. Onboarding - Rookies still completing foundational onboarding items
     // Onboarding shows: Not Started (only if Signed stage!), Onboarding ✅, Required Trainings ✅
-    // Once they are Slack ✅ they move to Blitz Prep (unless missing iPad, then stay here)
+    // ALSO includes: Anyone missing iPad (even if Slack ✅ or ramp phases started)
     const onboardingRecruits: AttentionRecruit[] = [];
     
     // Only rookies - stage check happens inside
@@ -164,29 +164,29 @@ export const useNeedsAttention = (
       const phase3Complete = repData?.ramp_phase_3_complete ?? recruit.phase3Complete ?? false;
       const phase4Complete = repData?.ramp_phase_4_complete ?? recruit.phase4Complete ?? false;
       
-      // If they have ANY ramp phase complete, they're in Blitz Prep, not Onboarding
-      if (phase1Complete || phase2Complete || phase3Complete || phase4Complete) return;
+      // ONBOARDING TAB CRITERIA:
+      // 1. Anyone who hasn't completed basic onboarding (not slackJoined yet) - if Signed stage
+      // 2. Anyone missing iPad (regardless of ramp phase progress) - iPad is critical!
       
-      // If slackJoined is true AND they have an iPad, they move to Blitz Prep
-      // If slackJoined but NO iPad, they stay in Onboarding to get their iPad
+      // If slackJoined AND has iPad, they're fully done with onboarding
       if (slackJoined && ipadAssigned) return;
       
       // ONBOARDING TAB CRITERIA:
       // 1. Not Started - only if stage is Signed (not earlier stages like Evaluating)
       // 2. Onboarding ✅ - working on trainings
       // 3. Required Trainings ✅ - working on Slack
-      // 4. Slack ✅ but missing iPad - needs iPad before they can really start
+      // 4. Missing iPad - needs iPad regardless of other progress (even if Slack ✅)
       
       const isNotStarted = !onboardingComplete && !trainingsComplete && !slackJoined;
       const isInOnboarding = onboardingComplete && !trainingsComplete;
       const isInTrainings = onboardingComplete && trainingsComplete && !slackJoined;
-      const isSlackButNoiPad = slackJoined && !ipadAssigned;
+      const isMissingIpad = !ipadAssigned;
       
       // For "Not Started", only include if they're Signed stage
       if (isNotStarted && recruit.stage !== 'Signed') return;
       
-      // Only include if they're in one of these onboarding states
-      if (!isNotStarted && !isInOnboarding && !isInTrainings && !isSlackButNoiPad) return;
+      // Include if: in onboarding states OR missing iPad (iPad is critical!)
+      if (!isNotStarted && !isInOnboarding && !isInTrainings && !isMissingIpad) return;
 
       const missingItems: string[] = [];
       if (!onboardingComplete) missingItems.push('Onboarding');
@@ -198,14 +198,17 @@ export const useNeedsAttention = (
       
       // Determine what they need next
       let nextStep: string;
-      if (isSlackButNoiPad) {
+      const slackDoneButNoiPad = slackJoined && !ipadAssigned;
+      if (slackDoneButNoiPad) {
         nextStep = 'iPad';
       } else if (!onboardingComplete) {
         nextStep = 'Onboarding';
       } else if (!trainingsComplete) {
         nextStep = 'Trainings';
-      } else {
+      } else if (!slackJoined) {
         nextStep = 'Slack';
+      } else {
+        nextStep = 'iPad';
       }
       
       // Check for upcoming blitz to add urgency context
@@ -230,13 +233,13 @@ export const useNeedsAttention = (
       const lastContact = lastContactMap.get(recruit.notionPageId);
       const daysSinceContact = lastContact ? differenceInDays(now, lastContact) : undefined;
       
-      // Higher urgency if they have a blitz coming up or are missing iPad at Slack stage
+      // Higher urgency if they have a blitz coming up or are missing iPad
       const hasUpcomingBlitz = nearestBlitzDays !== undefined && nearestBlitzDays <= 21;
       const urgencyLevel = hasUpcomingBlitz 
         ? 'high' 
-        : isSlackButNoiPad ? 'high' : missingItems.length >= 3 ? 'high' : 'medium';
+        : isMissingIpad ? 'high' : missingItems.length >= 3 ? 'high' : 'medium';
       
-      const reason = isSlackButNoiPad
+      const reason = slackDoneButNoiPad
         ? `${firstName} completed onboarding but needs iPad to start ramp to blitz`
         : hasUpcomingBlitz
         ? `${firstName} has blitz in ${nearestBlitzDays}d but needs ${nextStep}`
@@ -286,8 +289,8 @@ export const useNeedsAttention = (
     }
 
     // 2. Blitz Prep - Rookies working on Ramp to Blitz
-    // Shows: Slack ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅ (NOT Phase 4 ✅ - they're done!)
-    // Must have iPad to be in this tab (otherwise they're in Onboarding still)
+    // Shows: Anyone who hasn't completed all 4 ramp phases yet (slackJoined or any phase started)
+    // iPad requirement removed - they show here regardless of iPad status
     const blitzPrepRecruits: AttentionRecruit[] = [];
     
     // Only rookies
@@ -313,12 +316,11 @@ export const useNeedsAttention = (
       if (phase4Complete) return;
       
       // BLITZ PREP CRITERIA:
-      // Must be at Slack ✅ or higher (any ramp phase started) AND have iPad
-      // Status values that qualify: Slack ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅
+      // Anyone who has started ramp to blitz (slackJoined or any phase started) but hasn't finished
       const isInRampToBlitz = slackJoined || phase1Complete || phase2Complete || phase3Complete;
       
-      // Must have iPad to be working on ramp to blitz (otherwise still in Onboarding)
-      if (!isInRampToBlitz || !ipadAssigned) return;
+      // Must be in ramp to blitz to show in this tab
+      if (!isInRampToBlitz) return;
 
       // Check if committed to any upcoming blitz (for context)
       const rawCommitments = repData?.committed_blitzes || recruit.committedBlitzes || [];
