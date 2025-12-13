@@ -100,33 +100,36 @@ export const useUpdateRookieStatus = () => {
         optimisticUpdate.ramp_phase_4_complete = variables.rampPhase4Complete;
       }
 
-      // Optimistically update recruits-rep-data cache
-      queryClient.setQueriesData({ queryKey: ['recruits-rep-data'] }, (old: any) => {
-        if (!old || !Array.isArray(old)) return old;
-        return old.map((rep: any) => 
-          rep.notion_page_id === variables.rookieNotionPageId
-            ? { ...rep, ...optimisticUpdate }
-            : rep
-        );
-      });
+      // Optimistically update recruits-rep-data cache (uses partial key matching)
+      queryClient.setQueriesData(
+        { queryKey: ['recruits-rep-data'], exact: false }, 
+        (old: any) => {
+          if (!old || !Array.isArray(old)) return old;
+          return old.map((rep: any) => 
+            rep.notion_page_id === variables.rookieNotionPageId
+              ? { ...rep, ...optimisticUpdate }
+              : rep
+          );
+        }
+      );
 
       // Return context for rollback
       return { variables, optimisticUpdate };
     },
     onSuccess: () => {
-      // Invalidate relevant queries to refresh from server
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'] });
-      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
-      queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'] });
+      // Invalidate relevant queries to refresh from server (partial key matching)
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'], exact: false });
     },
     onError: (error, variables) => {
       console.error('Failed to update rookie status:', error);
       toast.error('Failed to update status');
       
       // Invalidate to refetch correct data after error
-      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
     },
   });
 };

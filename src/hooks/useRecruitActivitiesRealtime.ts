@@ -153,23 +153,12 @@ export const useRepsRealtime = (recruitNotionIds: string[]) => {
 
           console.log('[Realtime] reps change for:', updatedRep.name, updatedRep);
 
-          // Update the cached rep data immediately
-          queryClient.setQueriesData({ queryKey: ['recruits-rep-data'] }, (old: any) => {
-            if (!old || !Array.isArray(old)) return old;
-            return old.map((rep: any) => 
-              rep.notion_page_id === updatedRep.notion_page_id ? updatedRep : rep
-            );
-          });
-
-          // Also update the recruit-rep-data for individual lookups
-          queryClient.setQueryData(
-            ['recruit-rep-data', updatedRep.notion_page_id], 
-            updatedRep
-          );
-
-          // Invalidate group-recruits to refresh the main list
-          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-          queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'] });
+          // Invalidate all related queries to force refetch with fresh data
+          // This ensures repDataMap is rebuilt with new values (uses partial key matching)
+          queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
+          queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
+          queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'], exact: false });
         }
       )
       .subscribe((status) => {
