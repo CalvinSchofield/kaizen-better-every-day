@@ -38,18 +38,23 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
+
 interface RecruitDetailDrawerProps {
   recruit: Recruit | null;
   activities: RecruitActivity[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called when recruit is moved to an exit stage (Not Interested, Signed but Not Interested) */
+  onExitStage?: (recruitNotionId: string) => void;
 }
 
 export const RecruitDetailDrawer = ({ 
   recruit: recruitProp, 
   activities: initialActivities, 
   open, 
-  onOpenChange 
+  onOpenChange,
+  onExitStage 
 }: RecruitDetailDrawerProps) => {
   // Determine if recruit is blitz-ready (for default tab selection)
   const isRookie = recruitProp?.year === 'Rookie' || recruitProp?.year === '2025' || recruitProp?.year === '2026';
@@ -284,19 +289,72 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleStageChange = (newStage: string) => {
-    if (newStage === 'Potential Follow Up') {
-      setPotentialFollowUpOpen(true);
-      return;
-    }
     setPendingStage(newStage);
-    setStageConfirmOpen(true);
+    if (newStage === 'Potential Follow Up') {
+      // For Potential Follow Up, open the follow-up scheduling drawer
+      setPotentialFollowUpOpen(true);
+    } else {
+      // For other stages, show confirmation
+      setStageConfirmOpen(true);
+    }
   };
 
   const handleConfirmStageChange = () => {
     if (!pendingStage) return;
+    const isExitStage = EXIT_STAGES.includes(pendingStage);
     updateStageMutation.mutate({ recruitNotionId: recruit.notionPageId, newStage: pendingStage }, {
-      onSuccess: () => { toast.success(`Moved to ${pendingStage}`); setStageConfirmOpen(false); setPendingStage(null); },
+      onSuccess: () => { 
+        toast.success(`Moved to ${pendingStage}`); 
+        setStageConfirmOpen(false); 
+        setPendingStage(null);
+        // For exit stages, notify parent to dismiss the card
+        if (isExitStage && onExitStage) {
+          onExitStage(recruit.notionPageId);
+        }
+      },
       onError: () => { toast.error("Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); }
+    });
+  };
+
+  // Handle Potential Follow Up confirmation with scheduled date
+  const handleConfirmPotentialFollowUp = () => {
+    if (!followUpDate) {
+      toast.error('Please select a follow-up date');
+      return;
+    }
+    
+    updateStageMutation.mutate({ recruitNotionId: recruit.notionPageId, newStage: 'Potential Follow Up' }, {
+      onSuccess: () => {
+        // Log the scheduled follow-up activity
+        logActivityMutation.mutate({
+          recruitNotionId: recruit.notionPageId,
+          activityType: 'next_step',
+          notes: followUpNextStep || 'Scheduled follow-up',
+          nextAction: followUpNextStep || 'Follow up',
+          nextActionDue: followUpDate,
+          updateLastContact: false,
+        }, {
+          onSuccess: () => {
+            toast.success('Moved to Potential Follow Up with scheduled date');
+            setPotentialFollowUpOpen(false);
+            setPendingStage(null);
+            setFollowUpDate('');
+            setFollowUpNextStep('');
+            // Notify parent to dismiss the card
+            if (onExitStage) {
+              onExitStage(recruit.notionPageId);
+            }
+          },
+          onError: () => {
+            toast.error("Couldn't schedule follow-up");
+          }
+        });
+      },
+      onError: () => { 
+        toast.error("Couldn't update stage"); 
+        setStageShake(true); 
+        setTimeout(() => setStageShake(false), 500); 
+      }
     });
   };
 
@@ -531,6 +589,78 @@ export const RecruitDetailDrawer = ({
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setStageConfirmOpen(false); setPendingStage(null); }}>Cancel</Button>
               <Button className="flex-1" onClick={handleConfirmStageChange} disabled={updateStageMutation.isPending}>{updateStageMutation.isPending ? 'Saving...' : 'Confirm'}</Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Potential Follow Up Drawer - requires date selection */}
+      <Drawer open={potentialFollowUpOpen} onOpenChange={(open) => {
+        setPotentialFollowUpOpen(open);
+        if (!open) {
+          setPendingStage(null);
+          setFollowUpDate('');
+          setFollowUpNextStep('');
+        }
+      }}>
+        <DrawerContent>
+          <DrawerHeader><DrawerTitle>Schedule Follow Up</DrawerTitle></DrawerHeader>
+          <div className="p-4 space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-1">
+                Moving {recruitFirstName} to <span className="text-primary">Potential Follow Up</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                When should you follow up with them?
+              </p>
+            </div>
+            
+            <div>
+              <Label>Follow-up Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full mt-1 justify-start text-left font-normal">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {followUpDate ? format(parseISO(followUpDate), 'PPP') : 'Select date...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={followUpDate ? parseISO(followUpDate) : undefined}
+                    onSelect={(date) => date && setFollowUpDate(format(date, 'yyyy-MM-dd'))}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea 
+                value={followUpNextStep} 
+                onChange={(e) => setFollowUpNextStep(e.target.value)} 
+                placeholder="What's the next step?" 
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { 
+                setPotentialFollowUpOpen(false); 
+                setPendingStage(null);
+                setFollowUpDate('');
+                setFollowUpNextStep('');
+              }}>Cancel</Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleConfirmPotentialFollowUp} 
+                disabled={!followUpDate || updateStageMutation.isPending || logActivityMutation.isPending}
+              >
+                {updateStageMutation.isPending || logActivityMutation.isPending ? 'Saving...' : 'Confirm'}
+              </Button>
             </div>
           </div>
         </DrawerContent>

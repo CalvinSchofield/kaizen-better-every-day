@@ -634,6 +634,12 @@ const MyGroup = () => {
         onOpenChange={(open) => !open && setSelectedRecruit(null)}
         recruit={selectedRecruit}
         activities={filteredActivities.filter(a => a.rep_notion_page_id === selectedRecruit?.notionPageId)}
+        onExitStage={(notionPageId) => {
+          // Dismiss the recruit from hero/recommendations when moved to exit stage
+          dismissRecruit(notionPageId);
+          setLastDismissedRecruit({ notionPageId, name: selectedRecruit?.name || 'Recruit' });
+          setSelectedRecruit(null);
+        }}
       />
       <ContactMethodDrawer
         open={contactMethodDrawerOpen}
