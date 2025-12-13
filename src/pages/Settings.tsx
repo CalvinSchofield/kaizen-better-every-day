@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw, Clock, BarChart3, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -21,6 +21,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface CustomCounter {
   id: string;
@@ -69,6 +72,12 @@ export default function Settings() {
   // Intro wizard state - show immediately in Settings
   const [showIntroWizard, setShowIntroWizard] = useState(false);
   
+  // Profile state
+  const [name, setName] = useState("");
+  const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [hasProfileChanges, setHasProfileChanges] = useState(false);
+  
   // Summer dates state
   const [summerStart, setSummerStart] = useState<Date>();
   const [summerEnd, setSummerEnd] = useState<Date>();
@@ -103,6 +112,16 @@ export default function Settings() {
   const [isCrmOpen, setIsCrmOpen] = useState(false);
   const [isSavingCrm, setIsSavingCrm] = useState(false);
 
+  const TIMEZONE_OPTIONS = [
+    { value: "America/New_York", label: "Eastern Time (ET)" },
+    { value: "America/Chicago", label: "Central Time (CT)" },
+    { value: "America/Denver", label: "Mountain Time (MT)" },
+    { value: "America/Phoenix", label: "Arizona (MST)" },
+    { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+    { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+    { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
+  ];
+
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
   const isVet = repData?.year === "Vet";
@@ -116,6 +135,23 @@ export default function Settings() {
     : [];
   const maxCounters = 6;
   const canAddMore = customCounters.length < maxCounters;
+  
+  // Load profile values
+  useEffect(() => {
+    if (repData) {
+      setName(repData.name || "");
+      setTimezone(repData.timezone || "America/Los_Angeles");
+    }
+  }, [repData]);
+
+  // Track profile changes
+  useEffect(() => {
+    if (repData) {
+      const nameChanged = name !== (repData.name || "");
+      const timezoneChanged = timezone !== (repData.timezone || "America/Los_Angeles");
+      setHasProfileChanges(nameChanged || timezoneChanged);
+    }
+  }, [name, timezone, repData]);
   
   // Load summer dates and EFP mode from database on mount
   useEffect(() => {
@@ -153,6 +189,57 @@ export default function Settings() {
       setCancelRate(Math.round(goals.cancel_rate * 100));
     }
   }, [goals?.cancel_rate]);
+
+  const handleSaveProfile = async () => {
+    if (!repData?.id) return;
+    
+    if (!name.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter your name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingProfile(true);
+    
+    try {
+      const { error } = await supabase
+        .from('reps')
+        .update({
+          name: name.trim(),
+          timezone,
+        })
+        .eq('id', repData.id);
+      
+      if (error) throw error;
+      
+      await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+      
+      toast({
+        title: "Profile updated",
+        description: "Your changes have been saved",
+      });
+      
+      setHasProfileChanges(false);
+    } catch (error: any) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Failed to save",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handlePhotoUpdate = (_url: string | null) => {
+    queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+    queryClient.invalidateQueries({ queryKey: ['preseason-prep-leaderboard'] });
+    queryClient.invalidateQueries({ queryKey: ['rookie-of-week'] });
+  };
 
   const handleSaveCancelRate = async (newRate: number) => {
     setIsSavingCancelRate(true);
@@ -589,6 +676,61 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background p-4 pb-24">
       <div className="max-w-lg mx-auto space-y-6">
+        {/* Profile Section - Simple */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <ProfilePhotoUpload
+                currentPhotoUrl={repData?.profile_photo_url}
+                name={repData?.name || "User"}
+                onPhotoUpdated={handlePhotoUpdate}
+                size="md"
+                showRemoveButton={false}
+              />
+              <div className="flex-1 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs text-muted-foreground">Name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="timezone" className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Timezone
+                  </Label>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONE_OPTIONS.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            {hasProfileChanges && (
+              <Button
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile}
+                size="sm"
+                className="w-full mt-4"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSavingProfile ? "Saving..." : "Save Changes"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
         {/* Summer Season Dates - Collapsible */}
         <Card>
           <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>

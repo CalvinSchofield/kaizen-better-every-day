@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -27,7 +27,7 @@ import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
 import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
-import Profile from "./pages/Profile";
+// Profile route removed - merged into Settings (Personalize)
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -190,15 +190,10 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
+            {/* Redirect /profile to /settings */}
             <Route
               path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Profile />
-                  </Layout>
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/settings" replace />}
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
