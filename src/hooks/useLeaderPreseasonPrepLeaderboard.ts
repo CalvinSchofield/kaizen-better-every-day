@@ -169,50 +169,26 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         });
       }
 
-      // If showMyTeamOnly, filter to only the current leader's direct team
+      // If showMyTeamOnly, filter to only rookies whose team_leader matches current user's name
       let filteredRookies = qualifyingRookies;
-      if (showMyTeamOnly && teamAccess) {
-        // For team leads, filter by team name matching
-        // Find the current user's team based on their accessible teams
-        const currentUserTeams = teamAccess.teams.filter(t => {
-          // Check if the current user is the lead of this team
-          // The team lead's name should match the team's groupLeadId pattern
-          return t.name && accessibleRookies.some(r => r.teamName === t.name);
+      if (showMyTeamOnly && currentUserName) {
+        // Simple approach: filter to rookies whose team_leader contains the current user's name
+        // This works for all access levels (team lead, MGMT lead, Area Director)
+        filteredRookies = qualifyingRookies.filter(r => {
+          const supabaseRep = repsByNotionId.get(r.notionPageId);
+          const teamLeader = supabaseRep?.team_leader || '';
+          // Check if team_leader matches current user's name (case-insensitive, partial match)
+          const currentUserFirstName = currentUserName.split(' ')[0];
+          return teamLeader.toLowerCase().includes(currentUserFirstName.toLowerCase());
         });
-
-        // Get team names the current user leads
-        const myTeamNames = new Set<string>();
         
-        // For team leads, use the teams they have access to
-        if (teamAccess.accessLevel === 'team_lead') {
-          teamAccess.teams.forEach(t => myTeamNames.add(t.name));
-        } else if (teamAccess.accessLevel === 'mgmt_group_lead') {
-          // MGMT leads should see their own direct team when filtering
-          // Find teams where current user is the direct team lead
-          for (const team of teamAccess.teams) {
-            // Check if this team's lead name matches current user
-            const teamReps = accessibleRookies.filter(r => r.teamName === team.name);
-            // We need to check if the current user is the team lead
-            // Look at the team_leader field in Supabase reps
-            const repsInTeam = repsData?.filter(r => teamReps.some(tr => tr.notionPageId === r.notion_page_id));
-            if (repsInTeam?.some(r => r.team_leader?.includes(currentUserName))) {
-              myTeamNames.add(team.name);
-            }
-          }
-        }
-
-        // Filter to only rookies in my team
-        if (myTeamNames.size > 0) {
-          filteredRookies = qualifyingRookies.filter(r => 
-            r.teamName && myTeamNames.has(r.teamName)
-          );
-        } else {
-          // Fallback: check team_leader field directly
-          filteredRookies = qualifyingRookies.filter(r => {
-            const supabaseRep = repsByNotionId.get(r.notionPageId);
-            return supabaseRep?.team_leader?.includes(currentUserName);
-          });
-        }
+        console.log('[LeaderPreseasonPrepLeaderboard] My Team filter:', {
+          currentUserName,
+          currentUserFirstName: currentUserName.split(' ')[0],
+          totalQualifying: qualifyingRookies.length,
+          filteredCount: filteredRookies.length,
+          filteredNames: filteredRookies.map(r => r.name),
+        });
       }
 
       // Count totals
