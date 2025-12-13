@@ -382,7 +382,7 @@ export const RecruitDetailDrawer = ({
     ];
     
     const fieldToNotionStatus: Record<string, string> = {
-      'onboarding_complete': 'Onboarding ✅', 'trainings_complete': 'Trainings ✅', 'slack_joined': 'Slack Joined',
+      'onboarding_complete': 'Onboarding ✅', 'trainings_complete': 'Required Trainings ✅', 'slack_joined': 'Slack ✅',
       'ramp_phase_1_complete': 'Phase 1 ✅', 'ramp_phase_2_complete': 'Phase 2 ✅', 'ramp_phase_3_complete': 'Phase 3 ✅', 'ramp_phase_4_complete': 'Phase 4 ✅',
     };
     const fieldToEdgeFunctionParam: Record<string, string> = {
