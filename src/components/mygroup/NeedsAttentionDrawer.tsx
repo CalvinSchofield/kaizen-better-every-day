@@ -531,14 +531,24 @@ const TrainingProgressItem = ({
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
 
-        {/* Progress checklist */}
+        {/* Progress checklist - entire card is clickable */}
         <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
           {progressItems.map(({ key, label, value, icon: Icon, editable }) => (
-            <div 
+            <button 
               key={key}
+              type="button"
+              disabled={!editable || updateStatusMutation.isPending}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (editable) {
+                  handleToggle(key, value);
+                }
+              }}
               className={cn(
-                "flex items-center justify-between p-2 rounded-lg",
-                value ? "bg-green-500/10" : "bg-muted/50"
+                "flex items-center justify-between p-2 rounded-lg transition-colors text-left",
+                value ? "bg-green-500/10" : "bg-muted/50",
+                editable && !updateStatusMutation.isPending && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]",
+                !editable && "opacity-60 cursor-not-allowed"
               )}
             >
               <div className="flex items-center gap-2">
@@ -560,12 +570,13 @@ const TrainingProgressItem = ({
                 ) : (
                   <Switch
                     checked={value}
-                    onCheckedChange={() => handleToggle(key, value)}
-                    className="scale-75"
+                    onCheckedChange={() => {}}
+                    onClick={(e) => e.stopPropagation()}
+                    className="scale-75 pointer-events-none"
                   />
                 )
               )}
-            </div>
+            </button>
           ))}
         </div>
 
