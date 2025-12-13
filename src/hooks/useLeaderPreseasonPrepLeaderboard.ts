@@ -161,6 +161,9 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         // Check if phase 1 complete - from Notion first, then Supabase
         const phase1Complete = notionRecruit?.phase1Complete ?? supabaseRep?.ramp_phase_1_complete ?? false;
         
+        // Must have phase 1 complete to appear in leaderboard
+        if (!phase1Complete) continue;
+        
         qualifyingRookies.push({
           notionPageId: accessRep.notionPageId,
           name: accessRep.name,
