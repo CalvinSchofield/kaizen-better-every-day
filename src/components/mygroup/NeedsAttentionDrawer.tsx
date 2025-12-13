@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Phone, MessageSquare, ChevronRight, CheckCircle2, Circle, Tablet, BookOpen, MessageCircle, GraduationCap, Loader2, Mail, Calendar, Clock, Theater, Moon, Plane, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { 
   Drawer, 
@@ -531,7 +530,7 @@ const TrainingProgressItem = ({
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
 
-        {/* Progress checklist - entire card is clickable */}
+        {/* Progress checklist - simple clickable chips (no toggle switches) */}
         <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
           {progressItems.map(({ key, label, value, icon: Icon, editable }) => (
             <button 
@@ -545,37 +544,25 @@ const TrainingProgressItem = ({
                 }
               }}
               className={cn(
-                "flex items-center justify-between p-2 rounded-lg transition-colors text-left",
+                "flex items-center gap-2 p-2 rounded-lg transition-colors text-left",
                 value ? "bg-green-500/10" : "bg-muted/50",
                 editable && !updateStatusMutation.isPending && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]",
                 !editable && "opacity-60 cursor-not-allowed"
               )}
             >
-              <div className="flex items-center gap-2">
-                {value ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Circle className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span className={cn(
-                  "text-sm",
-                  value ? "text-green-600" : "text-muted-foreground"
-                )}>
-                  {label}
-                </span>
-              </div>
-              {editable && (
-                updateStatusMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : (
-                  <Switch
-                    checked={value}
-                    onCheckedChange={() => {}}
-                    onClick={(e) => e.stopPropagation()}
-                    className="scale-75 pointer-events-none"
-                  />
-                )
+              {updateStatusMutation.isPending && pendingStep?.field === key ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : value ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground" />
               )}
+              <span className={cn(
+                "text-sm",
+                value ? "text-green-600" : "text-muted-foreground"
+              )}>
+                {label}
+              </span>
             </button>
           ))}
         </div>
