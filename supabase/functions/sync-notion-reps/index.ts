@@ -25,7 +25,6 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       const response = await fetch(url, options);
       
       if (response.status === 429) {
-        // Longer delays: 2s, 4s, 8s, 16s, 32s, 64s
         const delay = Math.min(2000 * Math.pow(2, attempt), 64000);
         console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -50,7 +49,7 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
 async function batchFetchNotionPages(
   pageIds: string[], 
   notionApiKey: string, 
-  concurrency = 3 // Reduced from 10 to avoid rate limits
+  concurrency = 3
 ): Promise<Map<string, any>> {
   const results = new Map<string, any>();
   
@@ -83,7 +82,6 @@ async function batchFetchNotionPages(
       if (data) results.set(pageId, data);
     }
     
-    // Add delay between batches to avoid rate limiting
     if (i + concurrency < pageIds.length) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -149,7 +147,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const databaseId = "99130d187a8c4bbda60c77a230ddc364";
 
-    console.log("Starting optimized Notion sync...");
+    console.log("Starting optimized Notion sync (including ghost reps)...");
 
     // STEP 1: Fetch ALL pages from Notion (paginated)
     const allPages: NotionPage[] = [];
@@ -185,7 +183,7 @@ Deno.serve(async (req) => {
     
     console.log(`Fetched ${allPages.length} pages from Notion`);
 
-    // STEP 2: Fetch ALL auth users ONCE
+    // STEP 2: Fetch ALL auth users ONCE (for linking reps with accounts)
     const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
     if (authError) throw new Error(`Error fetching users: ${authError.message}`);
     
@@ -204,14 +202,12 @@ Deno.serve(async (req) => {
     for (const page of allPages) {
       const props = page.properties;
       
-      // Collect team IDs
       if (props.Teams?.relation) {
         for (const rel of props.Teams.relation) {
           teamIds.add(rel.id);
         }
       }
       
-      // Collect blitz trip IDs
       if (props["Preseason trips"]?.relation) {
         for (const rel of props["Preseason trips"].relation) {
           blitzTripIds.add(rel.id);
@@ -221,9 +217,9 @@ Deno.serve(async (req) => {
     
     console.log(`Found ${teamIds.size} unique teams, ${blitzTripIds.size} unique blitz trips`);
 
-    // STEP 4: Batch-fetch teams and blitz trips sequentially to avoid rate limits
+    // STEP 4: Batch-fetch teams and blitz trips
     const teamsData = await batchFetchNotionPages(Array.from(teamIds), notionApiKey, 3);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pause between batches
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const blitzTripsData = await batchFetchNotionPages(Array.from(blitzTripIds), notionApiKey, 3);
     
     console.log(`Fetched ${teamsData.size} teams, ${blitzTripsData.size} blitz trips`);
@@ -239,7 +235,7 @@ Deno.serve(async (req) => {
       }
     }
     
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pause before leaders fetch
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const leadersData = await batchFetchNotionPages(Array.from(leaderIds), notionApiKey, 3);
     console.log(`Fetched ${leadersData.size} leaders`);
 
@@ -256,8 +252,9 @@ Deno.serve(async (req) => {
       'Misael': '484-664-0518',
     };
 
-    // STEP 6: Process all reps using pre-fetched data
+    // STEP 6: Process ALL reps - including those without accounts (ghost reps)
     const syncedReps: string[] = [];
+    const ghostReps: string[] = [];
     const errors: any[] = [];
 
     for (const page of allPages) {
@@ -266,26 +263,24 @@ Deno.serve(async (req) => {
         const name = getTitle(props.Name) || getRichText(props.Name) || "Unknown";
         const email = getEmail(props.Email) || getRichText(props.Email);
 
-        if (!email) continue;
+        // Skip reps without a name
+        if (name === "Unknown" || !name.trim()) continue;
 
-        const user = usersByEmail.get(email.toLowerCase());
-        if (!user) continue;
+        // Check if this rep has an auth account
+        const user = email ? usersByEmail.get(email.toLowerCase()) : null;
+        const isGhostRep = !user;
 
         // Get ramp phase - Parse "Onboarding Step Completed" status property
-        // Progression: Not Started → Onboarding ✅ → Required Trainings ✅ → Slack ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅
         const rampPhase = getStatus(props["Onboarding Step Completed"]) || 
                           getSelect(props["Onboarding Step Completed"]) || "not started";
         const rampLower = rampPhase.toLowerCase();
         
-        // Determine what step they're at (each step implies all previous are complete)
         const rampPhase4Complete = rampLower.includes("phase 4");
         const rampPhase3Complete = rampPhase4Complete || rampLower.includes("phase 3");
         const rampPhase2Complete = rampPhase3Complete || rampLower.includes("phase 2");
         const rampPhase1Complete = rampPhase2Complete || rampLower.includes("phase 1");
         const slackJoined = rampPhase1Complete || rampLower.includes("slack");
         const trainingsComplete = slackJoined || rampLower.includes("training");
-        // onboardingComplete = they've completed full onboarding (through Slack step)
-        // This is when they can start Ramp to Blitz
         const onboardingComplete = slackJoined;
 
         // Get team leader from pre-fetched data
@@ -353,8 +348,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        const repData = {
-          user_id: user.id,
+        const repData: Record<string, any> = {
           notion_page_id: page.id,
           name,
           phone: getPhone(props.Phone) || getRichText(props.Phone),
@@ -384,49 +378,54 @@ Deno.serve(async (req) => {
           nudge_leader: getCheckbox(props["Nudge leader"]),
         };
 
+        // Only set user_id if they have an auth account
+        if (user) {
+          repData.user_id = user.id;
+        }
+
+        // Upsert using notion_page_id as the conflict target
         const { error: upsertError } = await supabase
           .from("reps")
-          .upsert(repData, { onConflict: "user_id" });
+          .upsert(repData, { onConflict: "notion_page_id" });
 
         if (upsertError) {
           errors.push({ name, error: upsertError.message });
         } else {
-          syncedReps.push(name);
+          if (isGhostRep) {
+            ghostReps.push(name);
+          } else {
+            syncedReps.push(name);
+          }
         }
       } catch (error: any) {
         errors.push({ pageId: page.id, error: error.message });
       }
     }
 
-    // STEP 7: Cleanup orphaned records
-    const notionEmails = new Set(
-      allPages
-        .map((page) => {
-          const email = getEmail(page.properties.Email) || getRichText(page.properties.Email);
-          return email?.toLowerCase();
-        })
-        .filter(Boolean)
-    );
-
-    const { data: allReps } = await supabase.from("reps").select("id, user_id, name");
+    // STEP 7: Cleanup orphaned records (reps in Supabase but not in Notion)
+    const notionPageIds = new Set(allPages.map(p => p.id));
+    
+    const { data: allReps } = await supabase.from("reps").select("id, notion_page_id, name");
     if (allReps) {
       for (const rep of allReps) {
-        const user = authData.users.find(u => u.id === rep.user_id);
-        if (!user || !notionEmails.has(user.email?.toLowerCase())) {
+        if (rep.notion_page_id && !notionPageIds.has(rep.notion_page_id)) {
+          console.log(`Removing orphaned rep: ${rep.name}`);
           await supabase.from("reps").delete().eq("id", rep.id);
         }
       }
     }
 
-    console.log(`Sync complete: ${syncedReps.length} reps synced`);
+    console.log(`Sync complete: ${syncedReps.length} reps with accounts, ${ghostReps.length} ghost reps`);
 
     return new Response(
       JSON.stringify({
         success: true,
         synced: syncedReps.length,
+        ghostReps: ghostReps.length,
         syncedReps,
+        ghostRepNames: ghostReps,
         errors: errors.length > 0 ? errors : undefined,
-        message: `Successfully synced ${syncedReps.length} reps from Notion`,
+        message: `Successfully synced ${syncedReps.length} reps with accounts and ${ghostReps.length} ghost reps from Notion`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

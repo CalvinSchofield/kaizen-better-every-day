@@ -26,13 +26,15 @@ interface PrepScoreHistory {
 }
 
 export interface LeaderboardEntry {
-  userId: string;
+  id: string; // notionPageId as unique identifier
+  userId: string | null; // null for ghost reps
   name: string;
   notionPageId: string | null;
   timezone: string;
   profilePhotoUrl: string | null;
   teamLeader: string | null;
   teamName: string | null;
+  isGhostRep: boolean;
   // Weekly prep score (this week's effort - excludes books)
   weeklyPrepScore: number;
   // Books are ALL-TIME cumulative (not weekly)
@@ -74,7 +76,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       // Get ALL qualifying rookies from team access (includes Notion-only reps)
       // This gives us rookies who may not have a Supabase account yet
       const accessibleRookies = (teamAccess?.accessibleReps || []).filter(r => 
-        r.year === 'Rookie' || r.year === '2026' || r.year === '2025'
+        r.year === 'Rookie' || r.year === '2026' || r.year === '2025' || !r.year
       );
 
       // Get all rookie notion page IDs we have access to
@@ -141,6 +143,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         userId: string | null;
         stage: string;
         phase1Complete: boolean;
+        isGhostRep: boolean;
       }> = [];
 
       for (const accessRep of accessibleRookies) {
@@ -166,6 +169,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           userId: supabaseRep?.user_id || null,
           stage,
           phase1Complete,
+          isGhostRep: !supabaseRep?.user_id,
         });
       }
 
@@ -243,13 +247,15 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         );
 
         entries.push({
-          userId: rookie.userId || rookie.notionPageId, // Use notionPageId as fallback
+          id: rookie.notionPageId,
+          userId: rookie.userId,
           name: rookie.name,
           notionPageId: rookie.notionPageId,
           timezone,
           profilePhotoUrl: supabaseRep?.profile_photo_url || null,
           teamLeader: supabaseRep?.team_leader || null,
           teamName: rookie.teamName,
+          isGhostRep: rookie.isGhostRep,
           weeklyPrepScore,
           totalBooks,
           booksGoal: goal?.books_goal || 0,
