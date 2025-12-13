@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw, Clock, BarChart3, Save } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Separator } from "@/components/ui/separator";
 
 interface CustomCounter {
@@ -74,7 +74,6 @@ export default function Settings() {
   
   // Profile state
   const [name, setName] = useState("");
-  const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [hasProfileChanges, setHasProfileChanges] = useState(false);
   
@@ -112,15 +111,6 @@ export default function Settings() {
   const [isCrmOpen, setIsCrmOpen] = useState(false);
   const [isSavingCrm, setIsSavingCrm] = useState(false);
 
-  const TIMEZONE_OPTIONS = [
-    { value: "America/New_York", label: "Eastern Time (ET)" },
-    { value: "America/Chicago", label: "Central Time (CT)" },
-    { value: "America/Denver", label: "Mountain Time (MT)" },
-    { value: "America/Phoenix", label: "Arizona (MST)" },
-    { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
-    { value: "America/Anchorage", label: "Alaska Time (AKT)" },
-    { value: "Pacific/Honolulu", label: "Hawaii Time (HST)" },
-  ];
 
 
   const canAddCustomCounters = repData?.year === "Vet" || repData?.year === "Sophomore";
@@ -140,7 +130,6 @@ export default function Settings() {
   useEffect(() => {
     if (repData) {
       setName(repData.name || "");
-      setTimezone(repData.timezone || "America/Los_Angeles");
     }
   }, [repData]);
 
@@ -148,10 +137,9 @@ export default function Settings() {
   useEffect(() => {
     if (repData) {
       const nameChanged = name !== (repData.name || "");
-      const timezoneChanged = timezone !== (repData.timezone || "America/Los_Angeles");
-      setHasProfileChanges(nameChanged || timezoneChanged);
+      setHasProfileChanges(nameChanged);
     }
-  }, [name, timezone, repData]);
+  }, [name, repData]);
   
   // Load summer dates and EFP mode from database on mount
   useEffect(() => {
@@ -209,7 +197,6 @@ export default function Settings() {
         .from('reps')
         .update({
           name: name.trim(),
-          timezone,
         })
         .eq('id', repData.id);
       
@@ -697,24 +684,6 @@ export default function Settings() {
                     placeholder="Your name"
                     className="h-9"
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="timezone" className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Timezone
-                  </Label>
-                  <Select value={timezone} onValueChange={setTimezone}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEZONE_OPTIONS.map((tz) => (
-                        <SelectItem key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>
