@@ -54,9 +54,8 @@ Deno.serve(async (req) => {
     const properties: any = {};
     
     if (onboardingStatus !== undefined) {
-      // Try select type first (most common), fall back to status if that fails
       properties["Onboarding Step Completed"] = {
-        select: {
+        status: {
           name: onboardingStatus
         }
       };

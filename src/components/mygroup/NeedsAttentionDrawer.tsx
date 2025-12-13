@@ -383,8 +383,8 @@ const TrainingProgressItem = ({
       setPendingStep({ field, label: 'Trainings', notionStatus: 'Onboarding ✅', isUndo: true });
       setConfirmDrawerOpen(true);
     } else if (field === 'onboardingComplete' && progress.onboardingComplete && !progress.trainingsComplete && !newValue) {
-      // Undo Onboarding (only if Trainings not done) - revert to Not Started
-      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Not Started', isUndo: true });
+      // Undo Onboarding (only if Trainings not done) - revert to Not started
+      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Not started', isUndo: true });
       setConfirmDrawerOpen(true);
     } else if (currentValue && !newValue) {
       // Trying to undo a step that has dependent steps completed
