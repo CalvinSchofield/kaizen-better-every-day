@@ -286,31 +286,35 @@ export const useRecruitingRecommendations = (
           reasonBadge = 'signed';
         }
       }
-      // TIER 3: Evaluating (hot leads)
+      // TIER 3: Evaluating (hot leads) - rookies get priority boost
       else if (recruit.stage === 'Evaluating') {
         if (daysSinceContact === null || daysSinceContact >= 3) {
-          priority = 80 - (daysSinceContact || 20);
+          const rookieBoost = isRookie ? 30 : 0;
+          priority = 80 + rookieBoost - (daysSinceContact || 20);
           reason = daysSinceContact !== null 
             ? `${firstName} is hot—${daysSinceContact}d since contact, follow up!`
             : `${firstName} is evaluating—reach out and close!`;
           reasonBadge = 'hot-lead';
         }
       }
-      // TIER 4: 100 List (never contacted)
+      // TIER 4: 100 List (never contacted) - rookies get priority boost
       else if (recruit.stage === '100 List' && daysSinceContact === null) {
-        priority = 40;
+        const rookieBoost = isRookie ? 20 : 0;
+        priority = 40 + rookieBoost;
         reason = `Time to reach out to ${firstName}`;
         reasonBadge = 'pipeline';
       }
-      // TIER 5: Stale contacts (any stage, 14+ days)
+      // TIER 5: Stale contacts (any stage, 14+ days) - rookies get priority boost
       else if (daysSinceContact !== null && daysSinceContact >= 14) {
-        priority = 20 + Math.min(daysSinceContact, 30);
+        const rookieBoost = isRookie ? 25 : 0;
+        priority = 20 + rookieBoost + Math.min(daysSinceContact, 30);
         reason = `${firstName} needs attention—${daysSinceContact}d since contact`;
         reasonBadge = 'stale';
       }
-      // TIER 6: Overdue based on cadence
+      // TIER 6: Overdue based on cadence - rookies get priority boost
       else if (daysSinceContact !== null && daysSinceContact >= cadence) {
-        priority = 30;
+        const rookieBoost = isRookie ? 20 : 0;
+        priority = 30 + rookieBoost;
         reason = `Follow up with ${firstName}—${daysSinceContact}d since last contact`;
         reasonBadge = 'overdue';
       }

@@ -51,8 +51,21 @@ export const RecruitDetailDrawer = ({
   open, 
   onOpenChange 
 }: RecruitDetailDrawerProps) => {
-  // Tab state
-  const [activeTab, setActiveTab] = useState<TabType>('progress');
+  // Determine if recruit is blitz-ready (for default tab selection)
+  const isRookie = recruitProp?.year === 'Rookie' || recruitProp?.year === '2025' || recruitProp?.year === '2026';
+  const isBlitzReady = recruitProp?.blitzReady === true;
+  
+  // Tab state - default to 'activity' for blitz-ready rookies, otherwise 'progress'
+  const defaultTab: TabType = (isRookie && isBlitzReady) ? 'activity' : 'progress';
+  const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+  
+  // Reset tab when drawer opens with a different recruit
+  useEffect(() => {
+    if (open && recruitProp) {
+      const newDefault: TabType = (isRookie && isBlitzReady) ? 'activity' : 'progress';
+      setActiveTab(newDefault);
+    }
+  }, [open, recruitProp?.notionPageId, isRookie, isBlitzReady]);
   
   // Dialog states
   const [logActivityOpen, setLogActivityOpen] = useState(false);
