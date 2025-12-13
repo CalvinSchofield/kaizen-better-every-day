@@ -52,6 +52,9 @@ export const DetailsTab = ({
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
   const stageLocked = isRookie && !hasCompletedOnboarding;
+  
+  // Exit stages are always allowed regardless of onboarding status
+  const EXIT_STAGES = ['Not Interested', 'Potential Follow Up', 'Signed but Not Interested'];
 
   return (
     <div className="space-y-4">
@@ -81,24 +84,32 @@ export const DetailsTab = ({
       <div className={stageShake ? 'animate-shake' : ''}>
         <Label className="text-sm text-muted-foreground">Stage</Label>
         <Select 
-          value={stageLocked ? 'Signed' : recruit.stage} 
+          value={recruit.stage} 
           onValueChange={onStageChange}
-          disabled={stageLocked}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STAGES.map((stage) => (
-              <SelectItem key={stage} value={stage}>
-                {stage}
-              </SelectItem>
-            ))}
+            {STAGES.map((stage) => {
+              const isExitStage = EXIT_STAGES.includes(stage);
+              const isDisabled = stageLocked && !isExitStage && stage !== recruit.stage;
+              return (
+                <SelectItem 
+                  key={stage} 
+                  value={stage}
+                  disabled={isDisabled}
+                  className={isDisabled ? 'opacity-50' : ''}
+                >
+                  {stage}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
         {stageLocked && (
           <p className="text-xs text-muted-foreground mt-1">
-            Stage locked until Onboarding ✅ is complete
+            Most stages locked until Onboarding ✅ is complete
           </p>
         )}
       </div>
