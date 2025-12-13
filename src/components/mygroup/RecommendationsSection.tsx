@@ -108,6 +108,18 @@ export const RecommendationsSection = ({
     }
   };
 
+  // Handle "Schedule for later today" from PostContactDrawer
+  const handleScheduleLaterToday = () => {
+    if (postContactRecruit) {
+      setSchedulingRecruit(postContactRecruit);
+      setPostContactRecruit(null);
+      setPostContactOpen(false);
+      setTimeout(() => {
+        setScheduleOpen(true);
+      }, 300);
+    }
+  };
+
   // Handle schedule complete - dismiss with animation
   const handleScheduleComplete = () => {
     if (schedulingRecruit && onDismiss) {
@@ -180,6 +192,16 @@ export const RecommendationsSection = ({
         onOpenChange={(open) => !open && setContactRecruit(null)}
         recruit={contactRecruit}
         onComplete={handleContactMethodComplete}
+        onScheduleLaterToday={() => {
+          if (contactRecruit) {
+            const recruit = contactRecruit;
+            setContactRecruit(null);
+            setTimeout(() => {
+              setSchedulingRecruit(recruit);
+              setScheduleOpen(true);
+            }, 300);
+          }
+        }}
       />
 
       {/* Schedule Follow-up Drawer */}
@@ -203,6 +225,7 @@ export const RecommendationsSection = ({
         recruit={postContactRecruit}
         contactMethod={postContactMethod}
         onComplete={handlePostContactComplete}
+        onScheduleLaterToday={handleScheduleLaterToday}
       />
     </>
   );

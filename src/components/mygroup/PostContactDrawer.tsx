@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserCheck, PhoneMissed, Loader2 } from "lucide-react";
+import { UserCheck, PhoneMissed, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -21,6 +21,8 @@ interface PostContactDrawerProps {
   defaultMethod?: 'call' | 'text' | 'in_person';
   /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
   onComplete?: (wasConnected: boolean) => void;
+  /** Called when user wants to schedule a follow-up for later today */
+  onScheduleLaterToday?: () => void;
 }
 
 // Strip emojis from name
@@ -36,6 +38,7 @@ export const PostContactDrawer = ({
   contactMethod,
   defaultMethod,
   onComplete,
+  onScheduleLaterToday,
 }: PostContactDrawerProps) => {
   // Use contactMethod if provided, otherwise use defaultMethod
   const method = contactMethod || defaultMethod || 'call';
@@ -211,6 +214,21 @@ export const PostContactDrawer = ({
               "Save & Continue"
             )}
           </Button>
+          {/* Show "Schedule for later today" when No Answer selected */}
+          {isCall && outcome === 'no_answer' && onScheduleLaterToday && (
+            <Button 
+              variant="outline"
+              onClick={() => {
+                handleSubmit();
+                onScheduleLaterToday();
+              }}
+              disabled={isLoading}
+              className="w-full"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Schedule for later today
+            </Button>
+          )}
           <Button 
             variant="ghost"
             onClick={handleClose}
