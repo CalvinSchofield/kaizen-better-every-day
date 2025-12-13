@@ -9,10 +9,13 @@ import {
   Plus,
   PhoneCall,
   PhoneMissed,
+  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitActivity } from "@/hooks/useGroupRecruits";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ActivityTabProps {
   activities: RecruitActivity[];
@@ -27,6 +30,42 @@ export const ActivityTab = ({
   onScheduleFollowUp,
   onActivityClick
 }: ActivityTabProps) => {
+  
+  // Get current user ID to compare with assigned_to_user_id
+  const { data: currentUserId } = useQuery({
+    queryKey: ['current-user-id'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || null;
+    },
+    staleTime: Infinity,
+  });
+
+  // Get assignee names for activities assigned to others
+  const assignedUserIds = [...new Set(
+    activities
+      .filter(a => a.assigned_to_user_id && a.assigned_to_user_id !== currentUserId)
+      .map(a => a.assigned_to_user_id!)
+  )];
+  
+  const { data: assigneeNames = {} } = useQuery({
+    queryKey: ['activity-assignee-names', assignedUserIds],
+    queryFn: async () => {
+      if (assignedUserIds.length === 0) return {};
+      const { data } = await supabase
+        .from('reps')
+        .select('user_id, name')
+        .in('user_id', assignedUserIds);
+      
+      const nameMap: Record<string, string> = {};
+      data?.forEach(rep => {
+        nameMap[rep.user_id] = rep.name.split(' ')[0]; // First name only
+      });
+      return nameMap;
+    },
+    enabled: assignedUserIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
   
   const isTextActivity = (type: string, notes?: string | null): boolean => {
     if (type !== 'phone_call') return false;
@@ -133,46 +172,61 @@ export const ActivityTab = ({
               
               {/* Activities for this date */}
               <div className="space-y-2">
-                {groupedActivities[dateKey].map((activity) => (
-                  <button
-                    key={activity.id}
-                    className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                    onClick={() => onActivityClick(activity)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5">
-                        {getActivityIcon(activity.activity_type, activity.notes)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium capitalize">
-                            {getActivityLabel(activity.activity_type, activity.notes)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(parseISO(activity.created_at), 'h:mm a')}
-                          </span>
+                {groupedActivities[dateKey].map((activity) => {
+                  const isAssignedToOther = activity.assigned_to_user_id && 
+                    activity.assigned_to_user_id !== currentUserId;
+                  const assigneeName = isAssignedToOther 
+                    ? assigneeNames[activity.assigned_to_user_id!] 
+                    : null;
+                  
+                  return (
+                    <button
+                      key={activity.id}
+                      className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      onClick={() => onActivityClick(activity)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">
+                          {getActivityIcon(activity.activity_type, activity.notes)}
                         </div>
-                        {activity.notes && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {activity.notes}
-                          </p>
-                        )}
-                        {activity.next_action && (
-                          <div className="mt-1.5 flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">
-                              Next: {activity.next_action}
-                            </Badge>
-                            {activity.next_action_due && (
-                              <span className="text-[10px] text-muted-foreground">
-                                Due {format(parseISO(activity.next_action_due), 'MMM d')}
-                              </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium capitalize">
+                              {getActivityLabel(activity.activity_type, activity.notes)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(parseISO(activity.created_at), 'h:mm a')}
+                            </span>
+                            {/* Show assignee badge if assigned to someone else */}
+                            {isAssignedToOther && assigneeName && (
+                              <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                                <UserCircle className="h-3 w-3" />
+                                {assigneeName}
+                              </Badge>
                             )}
                           </div>
-                        )}
+                          {activity.notes && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {activity.notes}
+                            </p>
+                          )}
+                          {activity.next_action && (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px]">
+                                Next: {activity.next_action}
+                              </Badge>
+                              {activity.next_action_due && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  Due {format(parseISO(activity.next_action_due), 'MMM d')}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}

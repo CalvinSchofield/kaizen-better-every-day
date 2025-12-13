@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,8 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { differenceInDays, parseISO, format } from "date-fns";
-import { AlertCircle, TrendingUp, Clock, Settings } from "lucide-react";
+import { AlertCircle, TrendingUp, Clock, Settings, UserCircle, CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { TabType, RecruitRepData, RecruitGoals, ContactForHelp } from "./types";
 import { stripEmojis, getFirstName, getStageDescription, getOnboardingStepDescription } from "./utils";
@@ -92,6 +94,8 @@ export const RecruitDetailDrawer = ({
   const [nextActionDue, setNextActionDue] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editDate, setEditDate] = useState('');
+  const [editAssignee, setEditAssignee] = useState<string | null>(null);
+  const [editDatePopoverOpen, setEditDatePopoverOpen] = useState(false);
   const [pendingPhoneAction, setPendingPhoneAction] = useState<'ask_help' | 'call' | 'text' | null>(null);
   const [phoneEntryTarget, setPhoneEntryTarget] = useState<'recruit' | 'contact'>('contact');
   const [newPhoneNumber, setNewPhoneNumber] = useState('');
@@ -108,6 +112,10 @@ export const RecruitDetailDrawer = ({
   const updateActivityMutation = useUpdateRecruitActivity();
   const deleteActivityMutation = useDeleteRecruitActivity();
   const { data: teamAccess } = useTeamAccess();
+  const { data: assignableUsers = [] } = useAssignableUsers({ 
+    recruitNotionPageId: recruitProp?.notionPageId,
+    recruitTeamLeader: recruitProp?.teamName 
+  });
   const queryClient = useQueryClient();
   const { checkAndUpdateStage } = useAutoStageProgression();
 
@@ -439,6 +447,7 @@ export const RecruitDetailDrawer = ({
     setSelectedActivity(activity);
     setEditNotes(activity.notes || '');
     setEditDate(format(parseISO(activity.created_at), 'yyyy-MM-dd'));
+    setEditAssignee(activity.assigned_to_user_id || null);
     setEditActivityOpen(true);
   };
 
@@ -722,7 +731,7 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Edit Activity Drawer */}
-      <Drawer open={editActivityOpen} onOpenChange={(o) => { setEditActivityOpen(o); if (!o) setSelectedActivity(null); }}>
+      <Drawer open={editActivityOpen} onOpenChange={(o) => { setEditActivityOpen(o); if (!o) { setSelectedActivity(null); setEditDatePopoverOpen(false); } }}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between">
@@ -737,7 +746,7 @@ export const RecruitDetailDrawer = ({
               </Button>
             </DrawerTitle>
           </DrawerHeader>
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 overflow-y-auto">
             {selectedActivity && (
               <>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -758,13 +767,61 @@ export const RecruitDetailDrawer = ({
                 
                 <div>
                   <Label>Date</Label>
-                  <Input 
-                    type="date" 
-                    value={editDate} 
-                    onChange={(e) => setEditDate(e.target.value)} 
-                    className="mt-1" 
-                  />
+                  <Popover open={editDatePopoverOpen} onOpenChange={setEditDatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal mt-1",
+                          !editDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {editDate ? format(parseISO(editDate), 'PPP') : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start" side="top">
+                      <CalendarComponent
+                        mode="single"
+                        selected={editDate ? parseISO(editDate) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setEditDate(format(date, 'yyyy-MM-dd'));
+                          }
+                          setEditDatePopoverOpen(false);
+                        }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
+
+                {/* Assignee selector - only show for next_step activities */}
+                {selectedActivity.activity_type === 'next_step' && (
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <UserCircle className="h-4 w-4" />
+                      Assigned To
+                    </Label>
+                    <Select 
+                      value={editAssignee || 'me'} 
+                      onValueChange={(v) => setEditAssignee(v === 'me' ? null : v)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="me">Me</SelectItem>
+                        {assignableUsers.map((user) => (
+                          <SelectItem key={user.userId} value={user.userId}>
+                            {user.name.split(' ')[0]} ({user.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 
                 <Button 
                   className="w-full" 
@@ -774,6 +831,7 @@ export const RecruitDetailDrawer = ({
                       { 
                         activityId: selectedActivity.id, 
                         notes: editNotes,
+                        assignedToUserId: selectedActivity.activity_type === 'next_step' ? editAssignee : undefined,
                       },
                       {
                         onSuccess: () => {
@@ -781,6 +839,7 @@ export const RecruitDetailDrawer = ({
                           setEditActivityOpen(false);
                           setSelectedActivity(null);
                           queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+                          queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
                         },
                         onError: () => toast.error("Couldn't update activity"),
                       }

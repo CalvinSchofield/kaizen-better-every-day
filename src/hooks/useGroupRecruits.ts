@@ -52,6 +52,8 @@ export interface RecruitActivity {
   next_action_due: string | null;
   completed_at: string | null;
   created_at: string;
+  assigned_to_user_id: string | null;
+  assignment_status: string | null;
 }
 
 export interface RecruitSuggestion {
@@ -554,12 +556,14 @@ export const useUpdateRecruitActivity = () => {
       createdAt,
       nextAction,
       nextActionDue,
+      assignedToUserId,
     }: { 
       activityId: string; 
       notes?: string;
       createdAt?: string;
       nextAction?: string;
       nextActionDue?: string;
+      assignedToUserId?: string | null;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -569,17 +573,25 @@ export const useUpdateRecruitActivity = () => {
       if (createdAt !== undefined) updateData.created_at = createdAt;
       if (nextAction !== undefined) updateData.next_action = nextAction;
       if (nextActionDue !== undefined) updateData.next_action_due = nextActionDue;
+      if (assignedToUserId !== undefined) {
+        updateData.assigned_to_user_id = assignedToUserId;
+        // If assigning to someone, set assignment status to pending
+        if (assignedToUserId) {
+          updateData.assignment_status = 'pending';
+        } else {
+          updateData.assignment_status = null;
+        }
+      }
 
       const { error } = await supabase
         .from('recruit_activities')
         .update(updateData)
-        .eq('id', activityId)
-        .eq('logged_by_user_id', session.user.id);
+        .eq('id', activityId);
 
       if (error) throw error;
-      return { activityId, notes, createdAt, nextAction, nextActionDue };
+      return { activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId };
     },
-    onMutate: async ({ activityId, notes, createdAt }) => {
+    onMutate: async ({ activityId, notes, createdAt, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
       const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
@@ -590,7 +602,12 @@ export const useUpdateRecruitActivity = () => {
           ...old,
           activities: old.activities.map((a: any) =>
             a.id === activityId
-              ? { ...a, notes: notes ?? a.notes, created_at: createdAt ?? a.created_at }
+              ? { 
+                  ...a, 
+                  notes: notes ?? a.notes, 
+                  created_at: createdAt ?? a.created_at,
+                  assigned_to_user_id: assignedToUserId !== undefined ? assignedToUserId : a.assigned_to_user_id,
+                }
               : a
           ),
         };
@@ -607,6 +624,7 @@ export const useUpdateRecruitActivity = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
     },
   });
 };
