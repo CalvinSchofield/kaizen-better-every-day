@@ -292,7 +292,8 @@ export const useGroupRecruits = () => {
       return { recruits, activities, pendingSuggestions };
     },
     enabled: !!teamAccess?.accessibleReps?.length && isLeader,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30, // 30 seconds - keep fresher for collaborative work
+    refetchInterval: 1000 * 60, // Refetch every minute as backup to realtime
   });
 
   return {
