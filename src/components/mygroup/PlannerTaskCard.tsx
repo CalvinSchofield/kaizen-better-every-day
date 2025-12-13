@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock } from "lucide-react";
+import { Phone, MessageSquare, CalendarDays, CheckCircle2, Users, Clock, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
@@ -9,6 +9,8 @@ import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGrou
 import { format, parseISO, isPast, isToday, addDays } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Helper to strip emojis from names
 const stripEmojis = (text: string | null): string | null => {
@@ -26,6 +28,38 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const logActivityMutation = useLogRecruitActivity();
+  
+  // Get current user ID to compare with assigned_to_user_id
+  const { data: currentUserId } = useQuery({
+    queryKey: ['current-user-id'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || null;
+    },
+    staleTime: Infinity,
+  });
+  
+  // Get assignee name if assigned to someone else
+  const isAssignedToOther = activity.assigned_to_user_id && 
+    activity.assigned_to_user_id !== currentUserId;
+  
+  const { data: assigneeName } = useQuery({
+    queryKey: ['assignee-name', activity.assigned_to_user_id],
+    queryFn: async () => {
+      if (!activity.assigned_to_user_id) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('name')
+        .eq('user_id', activity.assigned_to_user_id)
+        .single();
+      if (!data) return null;
+      // Strip emojis and get first name only
+      const cleanName = stripEmojis(data.name);
+      return cleanName?.split(' ')[0] || null;
+    },
+    enabled: !!isAssignedToOther,
+    staleTime: 5 * 60 * 1000,
+  });
   
   // Parse the date - handle both date-only strings and datetime strings
   const dueDate = activity.next_action_due ? parseISO(activity.next_action_due) : null;
@@ -145,9 +179,18 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
             {activity.next_action || 'Follow up'}
           </p>
-          <Badge variant="outline" className="text-xs mt-1.5">
-            {recruit.stage}
-          </Badge>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <Badge variant="outline" className="text-xs">
+              {recruit.stage}
+            </Badge>
+            {/* Show assignee badge if assigned to someone else */}
+            {isAssignedToOther && assigneeName && (
+              <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                <UserCircle className="h-3 w-3" />
+                {assigneeName}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex gap-1 flex-shrink-0">
           <Drawer open={completeOpen} onOpenChange={setCompleteOpen}>

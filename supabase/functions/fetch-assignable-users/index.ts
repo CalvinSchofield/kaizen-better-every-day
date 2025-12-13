@@ -147,9 +147,11 @@ serve(async (req) => {
       // Also don't add duplicates
       if (leader.user_id !== user.id && !addedUserIds.has(leader.user_id)) {
         const role = level === 0 ? 'Team Leader' : level === 1 ? 'Upline' : 'Senior Leader';
+        // Strip emojis from the name for clean display
+        const cleanName = stripEmojis(leader.name) || leader.name;
         assignableUsers.push({
           userId: leader.user_id,
-          name: leader.name,
+          name: cleanName,
           role,
           notionPageId: leader.notion_page_id || '',
         });

@@ -48,6 +48,12 @@ export const ActivityTab = ({
       .map(a => a.assigned_to_user_id!)
   )];
   
+  // Strip emojis helper
+  const stripEmojis = (text: string | null): string => {
+    if (!text) return '';
+    return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
+  };
+  
   const { data: assigneeNames = {} } = useQuery({
     queryKey: ['activity-assignee-names', assignedUserIds],
     queryFn: async () => {
@@ -59,7 +65,9 @@ export const ActivityTab = ({
       
       const nameMap: Record<string, string> = {};
       data?.forEach(rep => {
-        nameMap[rep.user_id] = rep.name.split(' ')[0]; // First name only
+        // Strip emojis and get first name only
+        const cleanName = stripEmojis(rep.name);
+        nameMap[rep.user_id] = cleanName.split(' ')[0];
       });
       return nameMap;
     },
