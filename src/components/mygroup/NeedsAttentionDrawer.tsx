@@ -305,7 +305,7 @@ const OnboardingStepConfirmationDrawer = ({
 
 // Onboarding status values progression
 const ONBOARDING_STATUS_ORDER = [
-  'Not Started',
+  'Not started',
   'Onboarding ✅',
   'Required Trainings ✅',
   'Slack ✅',
