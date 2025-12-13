@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { differenceInDays, parseISO } from "date-fns";
+import { getDaysUntilBlitz, formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   AlertTriangle, 
   Tablet, 
@@ -47,8 +48,7 @@ export const FocusCard = ({
     })();
     
     const hasBlitzCommitment = committedBlitzIds.length > 0;
-    const blitzTripDate = recruitRepData.blitz_trip_date ? parseISO(recruitRepData.blitz_trip_date) : null;
-    const daysToBlitz = blitzTripDate ? differenceInDays(blitzTripDate, now) : null;
+    const daysToBlitz = getDaysUntilBlitz(recruitRepData.blitz_trip_date);
     const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
     const isBlitzImminent = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 7;
     
@@ -83,11 +83,12 @@ export const FocusCard = ({
     // ========== CRITICAL: Blitz approaching with blockers ==========
     
     if (hasBlitzCommitment && isBlitzImminent && !hasIpad) {
+      const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 100,
         type: 'critical',
         icon: 'tablet',
-        title: `No iPad with ${daysToBlitz} days to blitz!`,
+        title: `No iPad with blitz ${blitzTimeLabel}!`,
         description: `${recruitFirstName} needs an iPad assigned before ${recruitRepData.blitz_trip_name || 'the blitz'}`,
         actionLabel: 'Assign iPad',
         actionTab: 'details'
@@ -95,11 +96,12 @@ export const FocusCard = ({
     }
     
     if (hasBlitzCommitment && isBlitzImminent && !isRampPhase4Complete && isRookie) {
+      const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 98,
         type: 'critical',
         icon: 'graduation',
-        title: `Ramp incomplete with ${daysToBlitz} days to blitz!`,
+        title: `Ramp incomplete with blitz ${blitzTimeLabel}!`,
         description: `${recruitFirstName} is on ${getCurrentRampPhase()} - needs to complete Ramp to Blitz`,
         actionLabel: 'View Progress',
         actionTab: 'progress'
@@ -107,11 +109,12 @@ export const FocusCard = ({
     }
     
     if (hasBlitzCommitment && isBlitzImminent && !isOnboardingComplete && isRookie) {
+      const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 97,
         type: 'critical',
         icon: 'alert',
-        title: `Onboarding incomplete with ${daysToBlitz} days to blitz!`,
+        title: `Onboarding incomplete with blitz ${blitzTimeLabel}!`,
         description: `${recruitFirstName} hasn't finished onboarding yet`,
         actionLabel: 'View Progress',
         actionTab: 'progress'
@@ -121,24 +124,26 @@ export const FocusCard = ({
     // ========== HIGH: Blitz approaching with issues ==========
     
     if (hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !hasIpad) {
+      const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 85,
         type: 'high',
         icon: 'tablet',
         title: `No iPad assigned`,
-        description: `${recruitFirstName} has a blitz in ${daysToBlitz} days but no iPad`,
+        description: `${recruitFirstName} has blitz ${blitzTimeLabel} but no iPad`,
         actionLabel: 'Assign iPad',
         actionTab: 'details'
       });
     }
     
     if (hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !isRampPhase4Complete && isRookie) {
+      const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 83,
         type: 'high',
         icon: 'graduation',
         title: `Ramp to Blitz incomplete`,
-        description: `${recruitFirstName} is on ${getCurrentRampPhase()} with blitz in ${daysToBlitz} days`,
+        description: `${recruitFirstName} is on ${getCurrentRampPhase()} with blitz ${blitzTimeLabel}`,
         actionLabel: 'View Progress',
         actionTab: 'progress'
       });

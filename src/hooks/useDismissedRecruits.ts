@@ -1,34 +1,110 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const STORAGE_KEY = 'kaizen-dismissed-recruits';
 
 /**
- * Session-based dismissed recruits tracking.
- * Dismissed recruits persist in sessionStorage across page navigations
- * but are cleared on full browser refresh/session end.
+ * Persisted dismissed recruits tracking.
+ * Dismissed recruits sync to database for cross-device persistence.
+ * Session storage used as cache for fast access.
  */
 export const useDismissedRecruits = () => {
-  // Initialize from sessionStorage
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return new Set(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error('[DismissedRecruits] Error reading from sessionStorage:', e);
-    }
-    return new Set();
-  });
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [isLoaded, setIsLoaded] = useState(false);
+  const queryClient = useQueryClient();
+  const isSyncing = useRef(false);
 
-  // Persist to sessionStorage whenever dismissedIds changes
+  // Load from database on mount
   useEffect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...dismissedIds]));
-    } catch (e) {
-      console.error('[DismissedRecruits] Error writing to sessionStorage:', e);
-    }
-  }, [dismissedIds]);
+    const loadFromDatabase = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setIsLoaded(true);
+          return;
+        }
+
+        // First check sessionStorage for fast initial load
+        const cached = sessionStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          try {
+            const cachedIds = JSON.parse(cached);
+            if (Array.isArray(cachedIds)) {
+              setDismissedIds(new Set(cachedIds));
+            }
+          } catch (e) {
+            console.error('[DismissedRecruits] Error parsing cache:', e);
+          }
+        }
+
+        // Then load from database
+        const { data: repData, error } = await supabase
+          .from('reps')
+          .select('dismissed_recruit_ids')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('[DismissedRecruits] Error loading from database:', error);
+          setIsLoaded(true);
+          return;
+        }
+
+        if (repData?.dismissed_recruit_ids) {
+          const dbIds = Array.isArray(repData.dismissed_recruit_ids) 
+            ? repData.dismissed_recruit_ids as string[]
+            : [];
+          setDismissedIds(new Set(dbIds));
+          // Update session cache
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(dbIds));
+        }
+
+        setIsLoaded(true);
+      } catch (e) {
+        console.error('[DismissedRecruits] Error in loadFromDatabase:', e);
+        setIsLoaded(true);
+      }
+    };
+
+    loadFromDatabase();
+  }, []);
+
+  // Sync to database when dismissedIds changes (debounced)
+  useEffect(() => {
+    if (!isLoaded || isSyncing.current) return;
+
+    const syncToDatabase = async () => {
+      isSyncing.current = true;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const idsArray = [...dismissedIds];
+        
+        // Update session cache immediately
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(idsArray));
+
+        // Sync to database
+        const { error } = await supabase
+          .from('reps')
+          .update({ dismissed_recruit_ids: idsArray })
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('[DismissedRecruits] Error syncing to database:', error);
+        }
+      } catch (e) {
+        console.error('[DismissedRecruits] Error in syncToDatabase:', e);
+      } finally {
+        isSyncing.current = false;
+      }
+    };
+
+    // Debounce sync to avoid too many requests
+    const timeout = setTimeout(syncToDatabase, 500);
+    return () => clearTimeout(timeout);
+  }, [dismissedIds, isLoaded]);
 
   const dismissRecruit = useCallback((recruitNotionId: string) => {
     setDismissedIds(prev => {
@@ -50,12 +126,21 @@ export const useDismissedRecruits = () => {
     return dismissedIds.has(recruitNotionId);
   }, [dismissedIds]);
 
-  const clearDismissed = useCallback(() => {
+  const clearDismissed = useCallback(async () => {
     setDismissedIds(new Set());
+    sessionStorage.removeItem(STORAGE_KEY);
+    
+    // Also clear in database
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('reps')
+          .update({ dismissed_recruit_ids: [] })
+          .eq('user_id', user.id);
+      }
     } catch (e) {
-      // Ignore
+      console.error('[DismissedRecruits] Error clearing in database:', e);
     }
   }, []);
 
@@ -66,5 +151,6 @@ export const useDismissedRecruits = () => {
     isRecuitDismissed,
     clearDismissed,
     dismissedCount: dismissedIds.size,
+    isLoaded,
   };
 };

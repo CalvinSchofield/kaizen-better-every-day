@@ -105,9 +105,11 @@ export const TodaysFocusHero = ({
         )}>
           {isCritical ? "Urgent Action Needed" : "Today's Focus"}
         </span>
-        {topRecommendation.daysUntilBlitz !== undefined && (
+        {topRecommendation.daysUntilBlitz !== undefined && topRecommendation.daysUntilBlitz >= 0 && (
           <Badge variant="outline" className="ml-auto text-xs border-purple-500/50 text-purple-600 bg-purple-500/10">
-            Blitz in {topRecommendation.daysUntilBlitz}d
+            {topRecommendation.daysUntilBlitz === 0 ? 'Blitz today' : 
+             topRecommendation.daysUntilBlitz === 1 ? 'Blitz tomorrow' : 
+             `Blitz in ${topRecommendation.daysUntilBlitz}d`}
           </Badge>
         )}
       </div>

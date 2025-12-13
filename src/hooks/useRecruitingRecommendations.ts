@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, parseISO, startOfDay, isAfter, format, isSameDay } from "date-fns";
+import { differenceInDays, differenceInCalendarDays, parseISO, startOfDay, isAfter, format, isSameDay } from "date-fns";
 
 export interface RecruitRecommendation {
   recruit: Recruit;
@@ -94,8 +94,8 @@ export const useRecruitingRecommendations = (
 
     // Find upcoming blitzes within 21 days for blitz proximity checks
     const upcomingBlitzes = (blitzes || []).filter(b => {
-      const blitzDate = parseISO(b.date);
-      const daysUntil = differenceInDays(blitzDate, now);
+      const blitzDate = startOfDay(parseISO(b.date));
+      const daysUntil = differenceInCalendarDays(blitzDate, today);
       return daysUntil >= 0 && daysUntil <= 21;
     });
     
@@ -171,7 +171,7 @@ export const useRecruitingRecommendations = (
         // Find nearest committed blitz
         for (const blitz of upcomingBlitzes) {
           if (committedBlitzIds.includes(blitz.id)) {
-            const days = differenceInDays(parseISO(blitz.date), now);
+            const days = differenceInCalendarDays(startOfDay(parseISO(blitz.date)), today);
             console.log(`[Recommendations] ${recruit.name} matches blitz ${blitz.name} in ${days} days`);
             if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
               nearestBlitzDays = days;

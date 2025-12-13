@@ -283,9 +283,11 @@ const TrainingProgressItem = ({
             <p className="text-sm text-muted-foreground">
               {item.onboardingStatus || 'Not started'}
             </p>
-            {item.daysUntilBlitz && (
+            {item.daysUntilBlitz !== undefined && item.daysUntilBlitz >= 0 && (
               <Badge variant="secondary" className="mt-1 text-xs">
-                Blitz in {item.daysUntilBlitz}d
+                {item.daysUntilBlitz === 0 ? 'Blitz today' : 
+                 item.daysUntilBlitz === 1 ? 'Blitz tomorrow' : 
+                 `Blitz in ${item.daysUntilBlitz}d`}
               </Badge>
             )}
           </div>

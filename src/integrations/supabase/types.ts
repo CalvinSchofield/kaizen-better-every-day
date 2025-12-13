@@ -612,6 +612,7 @@ export type Database = {
           crm_enabled: boolean | null
           custom_counter_config: Json | null
           declined_blitz_rsvps: Json | null
+          dismissed_recruit_ids: Json | null
           efp_mode_enabled: boolean | null
           email: string | null
           id: string
@@ -662,6 +663,7 @@ export type Database = {
           crm_enabled?: boolean | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
+          dismissed_recruit_ids?: Json | null
           efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
@@ -712,6 +714,7 @@ export type Database = {
           crm_enabled?: boolean | null
           custom_counter_config?: Json | null
           declined_blitz_rsvps?: Json | null
+          dismissed_recruit_ids?: Json | null
           efp_mode_enabled?: boolean | null
           email?: string | null
           id?: string
