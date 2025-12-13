@@ -181,7 +181,7 @@ const PhaseConfirmationDrawer = ({
   );
 };
 
-// Onboarding step confirmation drawer
+// Onboarding step confirmation drawer (for completing steps)
 const OnboardingStepConfirmationDrawer = ({
   open,
   onOpenChange,
@@ -189,7 +189,8 @@ const OnboardingStepConfirmationDrawer = ({
   stepLabel,
   stepDescription,
   onConfirm,
-  isLoading
+  isLoading,
+  isUndo = false
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -198,6 +199,7 @@ const OnboardingStepConfirmationDrawer = ({
   stepDescription: string;
   onConfirm: () => void;
   isLoading: boolean;
+  isUndo?: boolean;
 }) => {
   const stepDetails: Record<string, string[]> = {
     'Onboarding': [
@@ -217,36 +219,64 @@ const OnboardingStepConfirmationDrawer = ({
   
   const tasks = stepDetails[stepLabel] || [];
   
+  // For undo, explain what will happen
+  const undoConsequences: Record<string, string> = {
+    'Onboarding': 'This will also reset Trainings and Slack status.',
+    'Trainings': 'This will also reset Slack status.',
+    'Slack': '',
+  };
+  
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader className="border-b">
-          <DrawerTitle>Mark {stepLabel} as Complete?</DrawerTitle>
+          <DrawerTitle>
+            {isUndo ? `Undo ${stepLabel} Completion?` : `Mark ${stepLabel} as Complete?`}
+          </DrawerTitle>
         </DrawerHeader>
         <div className="p-4 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Confirm that <span className="font-medium text-foreground">{recruitName}</span> has 
-            completed <span className="font-medium text-foreground">{stepLabel}</span>
-          </p>
-          
-          {tasks.length > 0 && (
-            <div className="bg-muted/50 rounded-lg p-4 border space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                Verify Completed
+          {isUndo ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to undo <span className="font-medium text-foreground">{stepLabel}</span> for{' '}
+                <span className="font-medium text-foreground">{recruitName}</span>?
               </p>
-              {tasks.map((task, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <span className="text-sm text-foreground">{task}</span>
+              {undoConsequences[stepLabel] && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    ⚠️ {undoConsequences[stepLabel]}
+                  </p>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Confirm that <span className="font-medium text-foreground">{recruitName}</span> has 
+                completed <span className="font-medium text-foreground">{stepLabel}</span>
+              </p>
+              
+              {tasks.length > 0 && (
+                <div className="bg-muted/50 rounded-lg p-4 border space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Verify Completed
+                  </p>
+                  {tasks.map((task, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <Circle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <span className="text-sm text-foreground">{task}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
         <DrawerFooter className="border-t">
           <Button 
             onClick={onConfirm} 
             disabled={isLoading}
+            variant={isUndo ? "destructive" : "default"}
             className="w-full"
           >
             {isLoading ? (
@@ -254,6 +284,8 @@ const OnboardingStepConfirmationDrawer = ({
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Updating...
               </>
+            ) : isUndo ? (
+              'Undo Step'
             ) : (
               'Confirm Complete'
             )}
@@ -294,7 +326,7 @@ const TrainingProgressItem = ({
   const queryClient = useQueryClient();
   const [localProgress, setLocalProgress] = useState<typeof item.trainingProgress | null>(null);
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
-  const [pendingStep, setPendingStep] = useState<{ field: string; label: string; notionStatus: string } | null>(null);
+  const [pendingStep, setPendingStep] = useState<{ field: string; label: string; notionStatus: string; isUndo: boolean } | null>(null);
 
   // Use local state for optimistic UI, fall back to prop
   const progress = localProgress ?? item.trainingProgress;
@@ -330,19 +362,35 @@ const TrainingProgressItem = ({
     // For onboarding steps, open confirmation drawer
     // The steps follow this progression:
     // Not Started -> Onboarding ✅ -> Required Trainings ✅ -> Slack ✅
-    // We can only mark the NEXT step as complete, not skip ahead
     
+    // COMPLETING a step (forward progression)
     if (field === 'onboardingComplete' && !progress.onboardingComplete && newValue) {
-      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Onboarding ✅' });
+      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Onboarding ✅', isUndo: false });
       setConfirmDrawerOpen(true);
     } else if (field === 'trainingsComplete' && progress.onboardingComplete && !progress.trainingsComplete && newValue) {
-      setPendingStep({ field, label: 'Trainings', notionStatus: 'Required Trainings ✅' });
+      setPendingStep({ field, label: 'Trainings', notionStatus: 'Required Trainings ✅', isUndo: false });
       setConfirmDrawerOpen(true);
     } else if (field === 'slackJoined' && progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined && newValue) {
-      setPendingStep({ field, label: 'Slack', notionStatus: 'Slack ✅' });
+      setPendingStep({ field, label: 'Slack', notionStatus: 'Slack ✅', isUndo: false });
       setConfirmDrawerOpen(true);
+    }
+    // UNDOING a step (backward progression) - only allow undoing the most recent step
+    else if (field === 'slackJoined' && progress.slackJoined && !newValue) {
+      // Undo Slack - revert to Required Trainings ✅
+      setPendingStep({ field, label: 'Slack', notionStatus: 'Required Trainings ✅', isUndo: true });
+      setConfirmDrawerOpen(true);
+    } else if (field === 'trainingsComplete' && progress.trainingsComplete && !progress.slackJoined && !newValue) {
+      // Undo Trainings (only if Slack not done) - revert to Onboarding ✅
+      setPendingStep({ field, label: 'Trainings', notionStatus: 'Onboarding ✅', isUndo: true });
+      setConfirmDrawerOpen(true);
+    } else if (field === 'onboardingComplete' && progress.onboardingComplete && !progress.trainingsComplete && !newValue) {
+      // Undo Onboarding (only if Trainings not done) - revert to Not Started
+      setPendingStep({ field, label: 'Onboarding', notionStatus: 'Not Started', isUndo: true });
+      setConfirmDrawerOpen(true);
+    } else if (currentValue && !newValue) {
+      // Trying to undo a step that has dependent steps completed
+      toast.error("Undo later steps first");
     } else {
-      // Can't toggle this field (either wrong order or trying to uncheck)
       toast.error("Steps must be completed in order");
     }
   };
@@ -351,12 +399,28 @@ const TrainingProgressItem = ({
     if (!pendingStep) return;
     
     const newProgressState = { ...progress };
-    if (pendingStep.field === 'onboardingComplete') {
-      newProgressState.onboardingComplete = true;
-    } else if (pendingStep.field === 'trainingsComplete') {
-      newProgressState.trainingsComplete = true;
-    } else if (pendingStep.field === 'slackJoined') {
-      newProgressState.slackJoined = true;
+    
+    if (pendingStep.isUndo) {
+      // Undoing - reset the step and all dependent steps
+      if (pendingStep.field === 'onboardingComplete') {
+        newProgressState.onboardingComplete = false;
+        newProgressState.trainingsComplete = false;
+        newProgressState.slackJoined = false;
+      } else if (pendingStep.field === 'trainingsComplete') {
+        newProgressState.trainingsComplete = false;
+        newProgressState.slackJoined = false;
+      } else if (pendingStep.field === 'slackJoined') {
+        newProgressState.slackJoined = false;
+      }
+    } else {
+      // Completing
+      if (pendingStep.field === 'onboardingComplete') {
+        newProgressState.onboardingComplete = true;
+      } else if (pendingStep.field === 'trainingsComplete') {
+        newProgressState.trainingsComplete = true;
+      } else if (pendingStep.field === 'slackJoined') {
+        newProgressState.slackJoined = true;
+      }
     }
     
     // Optimistic update
@@ -368,7 +432,7 @@ const TrainingProgressItem = ({
         rookieNotionPageId: item.recruit.notionPageId,
         onboardingStatus: pendingStep.notionStatus,
       });
-      toast.success(`Marked as ${pendingStep.notionStatus}`);
+      toast.success(pendingStep.isUndo ? `Reverted to ${pendingStep.notionStatus}` : `Marked as ${pendingStep.notionStatus}`);
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
@@ -381,10 +445,11 @@ const TrainingProgressItem = ({
   };
 
   // Determine which items are editable based on progression
-  // An item is editable if it's the next step in the sequence
-  const canEditOnboarding = !progress.onboardingComplete;
-  const canEditTrainings = progress.onboardingComplete && !progress.trainingsComplete;
-  const canEditSlack = progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined;
+  // Forward: can edit the next uncompleted step
+  // Backward: can undo the most recently completed step
+  const canEditOnboarding = !progress.onboardingComplete || (progress.onboardingComplete && !progress.trainingsComplete);
+  const canEditTrainings = (progress.onboardingComplete && !progress.trainingsComplete) || (progress.trainingsComplete && !progress.slackJoined);
+  const canEditSlack = (progress.onboardingComplete && progress.trainingsComplete && !progress.slackJoined) || progress.slackJoined;
   
   const progressItems = [
     { 
@@ -489,18 +554,7 @@ const TrainingProgressItem = ({
                   {label}
                 </span>
               </div>
-              {editable && !value && (
-                updateStatusMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : (
-                  <Switch
-                    checked={value}
-                    onCheckedChange={() => handleToggle(key, value)}
-                    className="scale-75"
-                  />
-                )
-              )}
-              {key === 'ipadAssigned' && value && (
+              {editable && (
                 updateStatusMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
@@ -553,6 +607,7 @@ const TrainingProgressItem = ({
         stepDescription={pendingStep?.notionStatus || ''}
         onConfirm={handleConfirmStep}
         isLoading={updateStatusMutation.isPending}
+        isUndo={pendingStep?.isUndo || false}
       />
     </>
   );
