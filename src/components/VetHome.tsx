@@ -788,6 +788,36 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </Card>
         )}
 
+        {/* Unified Blitz Management - For leaders, show above recruiting flow */}
+        {isLeader && (
+          <div data-blitz-card>
+            <VetBlitzCard 
+              repData={repData} 
+              allBlitzes={allBlitzes}
+              teamMembers={teamMembers}
+              isTeamLead={isTeamLead}
+              isLoadingBlitzes={blitzesLoading}
+              isLoadingTeam={teamLoading}
+              accessLevel={teamAccessData?.accessLevel || 'none'}
+              mgmtGroups={teamAccessData?.mgmtGroups || []}
+              teams={teamAccessData?.teams || []}
+              onTeamMemberUpdate={(notionPageId, updates) => {
+                setTeamMembers(prev => 
+                  prev.map(m => 
+                    m.notionPageId === notionPageId 
+                      ? { ...m, ...updates }
+                      : m
+                  )
+                );
+              }}
+              onCommitmentChange={() => {
+                // Delayed refresh to allow optimistic state to settle
+                setTimeout(() => handleRefresh(), 3000);
+              }}
+            />
+          </div>
+        )}
+
         {/* Recruiting Flow Carousel */}
         <Card className="mb-6">
           <CardHeader>
@@ -801,33 +831,35 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           </CardContent>
         </Card>
 
-        {/* Unified Blitz Management - Always render, show skeleton when loading */}
-        <div data-blitz-card>
-          <VetBlitzCard 
-            repData={repData} 
-            allBlitzes={allBlitzes}
-            teamMembers={teamMembers}
-            isTeamLead={isTeamLead}
-            isLoadingBlitzes={blitzesLoading}
-            isLoadingTeam={teamLoading}
-            accessLevel={teamAccessData?.accessLevel || 'none'}
-            mgmtGroups={teamAccessData?.mgmtGroups || []}
-            teams={teamAccessData?.teams || []}
-            onTeamMemberUpdate={(notionPageId, updates) => {
-              setTeamMembers(prev => 
-                prev.map(m => 
-                  m.notionPageId === notionPageId 
-                    ? { ...m, ...updates }
-                    : m
-                )
-              );
-            }}
-            onCommitmentChange={() => {
-              // Delayed refresh to allow optimistic state to settle
-              setTimeout(() => handleRefresh(), 3000);
-            }}
-          />
-        </div>
+        {/* Blitz Management for non-leaders - show below recruiting flow */}
+        {!isLeader && (
+          <div data-blitz-card>
+            <VetBlitzCard 
+              repData={repData} 
+              allBlitzes={allBlitzes}
+              teamMembers={teamMembers}
+              isTeamLead={isTeamLead}
+              isLoadingBlitzes={blitzesLoading}
+              isLoadingTeam={teamLoading}
+              accessLevel={teamAccessData?.accessLevel || 'none'}
+              mgmtGroups={teamAccessData?.mgmtGroups || []}
+              teams={teamAccessData?.teams || []}
+              onTeamMemberUpdate={(notionPageId, updates) => {
+                setTeamMembers(prev => 
+                  prev.map(m => 
+                    m.notionPageId === notionPageId 
+                      ? { ...m, ...updates }
+                      : m
+                  )
+                );
+              }}
+              onCommitmentChange={() => {
+                // Delayed refresh to allow optimistic state to settle
+                setTimeout(() => handleRefresh(), 3000);
+              }}
+            />
+          </div>
+        )}
 
         {/* 5-5-5 Callout at Bottom */}
         <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5">
