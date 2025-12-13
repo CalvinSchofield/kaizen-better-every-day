@@ -74,9 +74,9 @@ export const RecommendationsSection = ({
     setPostContactOpen(true);
   };
 
-  // Handle contact method complete - dismiss with animation
-  const handleContactMethodComplete = () => {
-    if (contactRecruit && onDismiss) {
+  // Handle contact method complete - only dismiss if connected
+  const handleContactMethodComplete = (wasConnected: boolean) => {
+    if (wasConnected && contactRecruit && onDismiss) {
       setAnimatingOutId(contactRecruit.notionPageId);
       const recruit = contactRecruit;
       setTimeout(() => {
@@ -89,9 +89,10 @@ export const RecommendationsSection = ({
     }
   };
 
-  // Handle post-contact complete (direct call/text) - dismiss with animation
-  const handlePostContactComplete = () => {
-    if (postContactRecruit && onDismiss) {
+  // Handle post-contact complete (direct call/text) - only dismiss if connected
+  const handlePostContactComplete = (wasConnected: boolean) => {
+    if (wasConnected && postContactRecruit && onDismiss) {
+      // Connected - dismiss the card
       setAnimatingOutId(postContactRecruit.notionPageId);
       const recruit = postContactRecruit;
       setTimeout(() => {
@@ -101,6 +102,7 @@ export const RecommendationsSection = ({
         setPostContactOpen(false);
       }, 300);
     } else {
+      // Not connected (no answer) - just close drawer, keep card visible
       setPostContactRecruit(null);
       setPostContactOpen(false);
     }

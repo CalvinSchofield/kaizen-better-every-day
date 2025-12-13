@@ -15,7 +15,8 @@ interface ContactMethodDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
-  onComplete?: () => void;
+  /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
+  onComplete?: (wasConnected: boolean) => void;
 }
 
 // Strip emojis from name
@@ -50,12 +51,11 @@ export const ContactMethodDrawer = ({
     }, 300);
   };
 
-  const handlePostContactClose = (wasCompleted?: boolean) => {
+  const handlePostContactComplete = (wasConnected: boolean) => {
     setShowPostContactDrawer(false);
     setSelectedMethod(null);
-    if (wasCompleted) {
-      onComplete?.();
-    }
+    // Pass through whether contact was actually made
+    onComplete?.(wasConnected);
   };
 
   const handleClose = () => {
@@ -119,10 +119,15 @@ export const ContactMethodDrawer = ({
 
       <PostContactDrawer
         open={showPostContactDrawer}
-        onOpenChange={(open) => handlePostContactClose(!open)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowPostContactDrawer(false);
+            setSelectedMethod(null);
+          }
+        }}
         recruit={recruit}
         defaultMethod={selectedMethod || undefined}
-        onComplete={() => handlePostContactClose(true)}
+        onComplete={handlePostContactComplete}
       />
     </>
   );
