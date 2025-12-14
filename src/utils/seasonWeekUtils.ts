@@ -1,16 +1,17 @@
 import { differenceInCalendarDays, startOfWeek, getDay, parseISO, format, addDays } from 'date-fns';
 
 // Season definitions - Monday of week 1 for each season
+// Season definitions - Sunday of week 1 for each season (weeks run Sun-Sat)
 const SEASON_DEFINITIONS: Record<number, { preseason: Date; summer: Date; extension: Date }> = {
   2025: {
-    preseason: new Date(2024, 8, 30), // Sept 30, 2024 (Monday)
-    summer: new Date(2025, 3, 14),    // Apr 14, 2025 (Monday)
-    extension: new Date(2025, 8, 1),  // Sept 1, 2025 (Monday)
+    preseason: new Date(2024, 8, 29), // Sep 29, 2024 (Sunday week 1)
+    summer: new Date(2025, 3, 13),    // Apr 13, 2025 (Sunday week 1)
+    extension: new Date(2025, 7, 31), // Aug 31, 2025 (Sunday week 1)
   },
   2026: {
-    preseason: new Date(2025, 8, 29), // Sept 29, 2025 (Monday)
-    summer: new Date(2026, 3, 13),    // Apr 13, 2026 (Monday)
-    extension: new Date(2026, 7, 31), // Aug 31, 2026 (Monday)
+    preseason: new Date(2025, 8, 28), // Sep 28, 2025 (Sunday week 1)
+    summer: new Date(2026, 3, 12),    // Apr 12, 2026 (Sunday week 1)
+    extension: new Date(2026, 7, 30), // Aug 30, 2026 (Sunday week 1)
   },
 };
 
