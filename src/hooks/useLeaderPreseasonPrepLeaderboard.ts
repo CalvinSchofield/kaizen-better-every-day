@@ -72,6 +72,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         .single();
 
       const currentUserName = currentUserRep?.name || '';
+      const currentUserNotionPageId = currentUserRep?.notion_page_id || '';
 
       // Get ALL qualifying rookies from team access (includes Notion-only reps)
       // This gives us rookies who may not have a Supabase account yet
@@ -176,22 +177,31 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         });
       }
 
-      // If showMyTeamOnly, filter to only rookies whose team_leader matches current user's name
+      // If showMyTeamOnly, filter to only rookies that belong to current user
+      // Check both team_leader (recruits on their team) and recruiter (people they recruited)
       let filteredRookies = qualifyingRookies;
       if (showMyTeamOnly && currentUserName) {
-        // Simple approach: filter to rookies whose team_leader contains the current user's name
-        // This works for all access levels (team lead, MGMT lead, Area Director)
+        const currentUserFirstName = currentUserName.split(' ')[0].toLowerCase();
+        
         filteredRookies = qualifyingRookies.filter(r => {
+          // Check Notion recruit data first for recruiter info
+          const notionRecruit = recruitsByNotionId.get(r.notionPageId);
+          const recruiterFromNotion = notionRecruit?.recruiter || '';
+          
+          // Check Supabase rep data for team_leader
           const supabaseRep = repsByNotionId.get(r.notionPageId);
           const teamLeader = supabaseRep?.team_leader || '';
-          // Check if team_leader matches current user's name (case-insensitive, partial match)
-          const currentUserFirstName = currentUserName.split(' ')[0];
-          return teamLeader.toLowerCase().includes(currentUserFirstName.toLowerCase());
+          
+          // Match if current user is their team_leader OR their recruiter
+          const matchesTeamLeader = teamLeader.toLowerCase().includes(currentUserFirstName);
+          const matchesRecruiter = recruiterFromNotion.toLowerCase().includes(currentUserFirstName);
+          
+          return matchesTeamLeader || matchesRecruiter;
         });
         
         console.log('[LeaderPreseasonPrepLeaderboard] My Team filter:', {
           currentUserName,
-          currentUserFirstName: currentUserName.split(' ')[0],
+          currentUserFirstName,
           totalQualifying: qualifyingRookies.length,
           filteredCount: filteredRookies.length,
           filteredNames: filteredRookies.map(r => r.name),
