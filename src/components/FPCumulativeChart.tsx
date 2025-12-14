@@ -8,7 +8,10 @@ import { useCumulativeFP, CumulativeDataPoint } from "@/hooks/useCumulativeFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { TrendingUp, TrendingDown, ChevronDown, Target } from "lucide-react";
+import { useMeVsMe } from "@/hooks/useMeVsMe";
+import { useHistoricalCumulativeData } from "@/hooks/useHistoricalComparison";
+import { getSeasonInfo } from "@/utils/seasonWeekUtils";
+import { TrendingUp, TrendingDown, ChevronDown, Target, History } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type GroupBy = 'day' | 'week' | 'month';
@@ -43,11 +46,23 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   const [metricType, setMetricType] = useState<MetricType>('primary');
   const [showGoalLine, setShowGoalLine] = useState(true);
   const [selectedGoalLine, setSelectedGoalLine] = useState<GoalLineType>('preseason');
+  const [showHistoricalLine, setShowHistoricalLine] = useState(false);
   
   const { data: personalData, isLoading: personalLoading } = useCumulativeFP();
   const { efpModeEnabled } = useEfpMode();
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
+  const { isEnabled: meVsMeEnabled, dataSummary } = useMeVsMe();
+  
+  // Fetch historical data for comparison (2025)
+  const comparisonYear = 2025;
+  const { data: historicalData, isLoading: historicalLoading } = useHistoricalCumulativeData(
+    comparisonYear, 
+    meVsMeEnabled && showHistoricalLine
+  );
+  
+  // Check if we have historical data available
+  const hasHistoricalData = meVsMeEnabled && (dataSummary?.totalDays || 0) > 0;
 
   // Use team data if provided, otherwise use personal data
   const cumulativeData = teamData || personalData;
@@ -218,6 +233,18 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     return !isBefore(date, start) && !isAfter(date, end);
   };
 
+  // Build a map of historical data by season week + day for matching
+  const historicalMap = useMemo(() => {
+    if (!historicalData || historicalData.length === 0) return new Map();
+    const map = new Map<string, number>();
+    historicalData.forEach(entry => {
+      const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
+      const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
+      map.set(key, value);
+    });
+    return map;
+  }, [historicalData, metricType]);
+
   // Group data by day/week/month
   const groupedData = () => {
     if (groupBy === 'day') {
@@ -227,6 +254,15 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         const cumValue = metricType === 'primary' 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
+        
+        // Get matching historical value by season week + day
+        const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
+        let historicalCumulative: number | undefined;
+        if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
+          const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
+          historicalCumulative = historicalMap.get(key);
+        }
+        
         return {
           date: point.date,
           displayDate: format(parseISO(point.date), "MMM d"),
@@ -237,6 +273,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           mustDoPace: pacePoint?.mustDoPace,
           willDoPace: pacePoint?.willDoPace,
           couldDoPace: pacePoint?.couldDoPace,
+          historicalCumulative,
         };
       });
     }
@@ -255,6 +292,14 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         ? point.cumulative 
         : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
       
+      // Get matching historical value
+      const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
+      let historicalCumulative: number | undefined;
+      if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
+        const histKey = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
+        historicalCumulative = historicalMap.get(histKey);
+      }
+      
       if (!grouped[key]) {
         grouped[key] = {
           date: key,
@@ -268,6 +313,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           mustDoPace: pacePoint?.mustDoPace,
           willDoPace: pacePoint?.willDoPace,
           couldDoPace: pacePoint?.couldDoPace,
+          historicalCumulative,
         };
       } else {
         grouped[key].cumulative = cumValue;
@@ -281,6 +327,8 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         if (pacePoint?.mustDoPace !== undefined) grouped[key].mustDoPace = pacePoint.mustDoPace;
         if (pacePoint?.willDoPace !== undefined) grouped[key].willDoPace = pacePoint.willDoPace;
         if (pacePoint?.couldDoPace !== undefined) grouped[key].couldDoPace = pacePoint.couldDoPace;
+        // Keep the latest historical value for the group
+        if (historicalCumulative !== undefined) grouped[key].historicalCumulative = historicalCumulative;
       }
     });
 
@@ -352,7 +400,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         </p>
         <div className="text-xs space-y-1">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground">Total {currentMetricLabel}:</span>
+            <span className="text-muted-foreground">{new Date().getFullYear()} {currentMetricLabel}:</span>
             <span className="font-semibold" style={{ color: chartConfig.cumulative.color }}>
               {metricType === 'secondary' && !efpModeEnabled
                 ? `$${data.cumulative.toFixed(0)}`
@@ -361,6 +409,18 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                   : data.cumulative.toFixed(1)}
             </span>
           </div>
+          {showHistoricalLine && data.historicalCumulative != null && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">{comparisonYear} {currentMetricLabel}:</span>
+              <span className="font-medium text-amber-600 dark:text-amber-400">
+                {metricType === 'secondary' && !efpModeEnabled
+                  ? `$${data.historicalCumulative.toFixed(0)}`
+                  : (efpModeEnabled && metricType === 'primary')
+                    ? data.historicalCumulative.toFixed(2)
+                    : data.historicalCumulative.toFixed(1)}
+              </span>
+            </div>
+          )}
           {showGoalLine && goalPaceValue != null && metricType === 'primary' && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">{getGoalLineLabel()} Pace:</span>
@@ -476,6 +536,19 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                   >
                     <Target className="w-3 h-3" />
                     Goal
+                  </Button>
+                )}
+
+                {/* Historical Line Toggle */}
+                {hasHistoricalData && (
+                  <Button
+                    variant={showHistoricalLine ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowHistoricalLine(!showHistoricalLine)}
+                    className="text-xs h-7 px-2 gap-1"
+                  >
+                    <History className="w-3 h-3" />
+                    {comparisonYear}
                   </Button>
                 )}
               </div>
@@ -607,6 +680,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                   animationDuration={800}
                 />
               )}
+              
+              {/* Historical Pace Line */}
+              {showHistoricalLine && (
+                <Line
+                  type="monotone"
+                  dataKey="historicalCumulative"
+                  stroke="hsl(38, 92%, 50%)"
+                  strokeWidth={2}
+                  strokeOpacity={0.8}
+                  dot={false}
+                  connectNulls={true}
+                  animationDuration={800}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
           </ChartContainer>
@@ -655,7 +742,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 )}
               </div>
               {/* Legend icons */}
-              <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground flex-wrap">
                 {highlightDateRange && (
                   <>
                     <span className="flex items-center gap-1.5">
@@ -671,20 +758,26 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
                 {!highlightDateRange && (
                   <span className="flex items-center gap-1.5">
                     <span className="w-4 h-0.5 rounded bg-primary" />
-                    Actual
+                    {new Date().getFullYear()} Actual
                   </span>
                 )}
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-0.5 rounded bg-muted-foreground border-dashed" style={{ borderBottom: '1.5px dashed' }} />
                   {getGoalLineLabel()} Pace
                 </span>
+                {showHistoricalLine && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
+                    {comparisonYear} Actual
+                  </span>
+                )}
               </div>
             </div>
           )}
           
           {/* Legend when only highlight is shown (no goal line) */}
           {highlightDateRange && !(canShowGoalLine && showGoalLine) && (
-            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="w-4 h-0.5 rounded bg-muted-foreground/40" />
                 All Time
@@ -692,6 +785,26 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
               <span className="flex items-center gap-1.5">
                 <span className="w-4 h-0.5 rounded bg-primary" />
                 Selected Period
+              </span>
+              {showHistoricalLine && (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
+                  {comparisonYear} Actual
+                </span>
+              )}
+            </div>
+          )}
+          
+          {/* Legend when only historical line is shown (no goal line, no highlight) */}
+          {showHistoricalLine && !(canShowGoalLine && showGoalLine) && !highlightDateRange && (
+            <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded bg-primary" />
+                {new Date().getFullYear()} Actual
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded" style={{ backgroundColor: 'hsl(38, 92%, 50%)' }} />
+                {comparisonYear} Actual
               </span>
             </div>
           )}
