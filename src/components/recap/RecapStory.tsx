@@ -10,6 +10,10 @@ import { RecapTimingSlide } from './RecapTimingSlide';
 import { RecapComparisonSlide } from './RecapComparisonSlide';
 import { RecapSummarySlide } from './RecapSummarySlide';
 import { RecapRecordsSlide } from './RecapRecordsSlide';
+import { RecapMeVsMeSlide } from './RecapMeVsMeSlide';
+import { useRecapMeVsMeComparison } from '@/hooks/useRecapMeVsMeComparison';
+import { useMeVsMe } from '@/hooks/useMeVsMe';
+import { useEfpMode } from '@/hooks/useEfpMode';
 import confetti from 'canvas-confetti';
 
 interface RecapStoryProps {
@@ -36,6 +40,11 @@ const gradients = [
 export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
+  
+  // Me vs Me hooks
+  const { isEnabled: meVsMeEnabled } = useMeVsMe();
+  const { efpModeEnabled } = useEfpMode();
+  const { data: meVsMeData } = useRecapMeVsMeComparison(stats.period);
 
   // Check if any personal records were set
   const hasRecords = 
@@ -104,6 +113,20 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       comparison={stats.comparison}
     />
   );
+
+  // Add Me vs Me slide if enabled and has historical data
+  if (meVsMeEnabled && meVsMeData?.hasHistoricalData) {
+    slides.push(
+      <RecapMeVsMeSlide
+        key="mevsme"
+        period={stats.period}
+        comparisonYear={meVsMeData.comparisonYear}
+        comparison={meVsMeData.comparison}
+        hasHistoricalData={meVsMeData.hasHistoricalData}
+        efpModeEnabled={efpModeEnabled}
+      />
+    );
+  }
 
   slides.push(
     <RecapSummarySlide key="summary" stats={stats} />
