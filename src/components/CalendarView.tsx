@@ -16,6 +16,7 @@ import { GoalProgressCard } from "@/components/GoalProgressCard";
 import { CalendarSummaryTeaser } from "@/components/CalendarSummaryTeaser";
 import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { useCalendarHistorical } from "@/hooks/useCalendarHistorical";
 
 const PRESEASON_END = '2026-04-11';
 
@@ -53,6 +54,16 @@ export const CalendarView = ({
   // Use controlled or internal state
   const viewMode = controlledViewMode ?? internalViewMode;
   const setViewMode = onViewModeChange ?? setInternalViewMode;
+  
+  // Me vs Me historical data for calendar overlay (must be after viewMode is defined)
+  const { 
+    historicalByDate, 
+    cumulativeComparison, 
+    periodHistoricalTotals, 
+    comparisonYear, 
+    hasHistoricalData: hasMeVsMeData,
+    isEnabled: meVsMeEnabled 
+  } = useCalendarHistorical(currentDate, viewMode, entries);
   
   // Calculate daily goal using centralized pace calculator
   const dailyGoal = useMemo(() => {
@@ -398,7 +409,7 @@ export const CalendarView = ({
           ))}
 
           {/* Calendar days */}
-          {days.map((day, idx) => {
+{days.map((day, idx) => {
             const entry = getEntryForDate(day);
             const isKnocking = isKnockingDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -412,6 +423,9 @@ export const CalendarView = ({
             // Check for cancelled sales
             const salesLog = entry?.sales_log || [];
             const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
+            
+            // Me vs Me historical data for this day
+            const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
 
             return (
               <div
@@ -445,6 +459,12 @@ export const CalendarView = ({
                     {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
+                {/* Me vs Me historical overlay - bottom left */}
+                {historicalDay && historicalDay.fpPlus > 0 && (
+                  <div className="absolute bottom-0.5 left-1 text-[8px] text-muted-foreground/50 font-medium">
+                    '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -460,7 +480,7 @@ export const CalendarView = ({
           ))}
 
           {/* Week days */}
-          {days.map((day, idx) => {
+{days.map((day, idx) => {
             const entry = getEntryForDate(day);
             const isKnocking = isKnockingDay(day);
             const isTodayDate = isToday(day);
@@ -473,6 +493,9 @@ export const CalendarView = ({
             // Check for cancelled sales
             const salesLog = entry?.sales_log || [];
             const hasCancelledSale = Array.isArray(salesLog) && salesLog.some((s: any) => s.install_status === 'cancelled');
+            
+            // Me vs Me historical data for this day
+            const historicalDay = meVsMeEnabled && hasMeVsMeData ? historicalByDate.get(dateStr) : null;
 
             return (
               <div
@@ -525,6 +548,12 @@ export const CalendarView = ({
                     )}
                   </div>
                 )}
+                {/* Me vs Me historical overlay - bottom left */}
+                {historicalDay && historicalDay.fpPlus > 0 && (
+                  <div className="absolute bottom-1 left-1.5 text-[9px] text-muted-foreground/50 font-medium">
+                    '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -568,6 +597,10 @@ export const CalendarView = ({
           viewTotals={viewTotals}
           prevPeriodTotals={prevPeriodTotals}
           entries={entries}
+          cumulativeComparison={cumulativeComparison}
+          periodHistoricalTotals={periodHistoricalTotals}
+          comparisonYear={comparisonYear}
+          hasHistoricalData={hasMeVsMeData && meVsMeEnabled}
         />
       )}
 

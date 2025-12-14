@@ -1,8 +1,23 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, TrendingDown, Sparkles, BarChart3, ChevronRight } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { TrendingUp, TrendingDown, Sparkles, BarChart3, ChevronRight, History } from "lucide-react";
+import { format } from "date-fns";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { SeasonType } from "@/utils/seasonWeekUtils";
+
+interface CumulativeComparison {
+  currentTotal: number;
+  historicalTotal: number;
+  delta: number;
+  throughDayNumber: number;
+  seasonType: SeasonType;
+}
+
+interface PeriodHistoricalTotals {
+  fpPlus: number;
+  prmr: number;
+  week?: number;
+}
 
 interface CalendarSummaryTeaserProps {
   viewMode: "week" | "month";
@@ -23,6 +38,11 @@ interface CalendarSummaryTeaserProps {
     daysWorked: number;
   };
   entries: any[];
+  // Me vs Me historical props
+  cumulativeComparison?: CumulativeComparison | null;
+  periodHistoricalTotals?: PeriodHistoricalTotals | null;
+  comparisonYear?: number;
+  hasHistoricalData?: boolean;
 }
 
 export const CalendarSummaryTeaser = ({
@@ -33,6 +53,10 @@ export const CalendarSummaryTeaser = ({
   viewTotals,
   prevPeriodTotals,
   entries,
+  cumulativeComparison,
+  periodHistoricalTotals,
+  comparisonYear,
+  hasHistoricalData = false,
 }: CalendarSummaryTeaserProps) => {
   const navigate = useNavigate();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
@@ -145,6 +169,14 @@ export const CalendarSummaryTeaser = ({
     : `$${viewTotals.prmr.toFixed(0)}`;
   const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
 
+  // Calculate historical comparison for current period
+  const periodHistoricalDelta = useMemo(() => {
+    if (!hasHistoricalData || !periodHistoricalTotals) return null;
+    const currentValue = efpModeEnabled ? calculateEfp(viewTotals.prmr) : viewTotals.fpPlus;
+    const historicalValue = efpModeEnabled ? calculateEfp(periodHistoricalTotals.prmr) : periodHistoricalTotals.fpPlus;
+    return currentValue - historicalValue;
+  }, [hasHistoricalData, periodHistoricalTotals, viewTotals, efpModeEnabled, calculateEfp]);
+
   return (
     <div 
       onClick={handleNavigateToInsights}
@@ -196,6 +228,34 @@ export const CalendarSummaryTeaser = ({
             <span>
               {isImproving ? "+" : ""}{fpChange.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'} vs last {viewMode}
             </span>
+          </div>
+        )}
+
+        {/* Me vs Me Historical Comparison Section */}
+        {hasHistoricalData && (
+          <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+            {/* Period vs Last Year */}
+            {periodHistoricalDelta !== null && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <History className="h-3 w-3 text-muted-foreground" />
+                <span className={periodHistoricalDelta >= 0 ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}>
+                  {periodHistoricalDelta >= 0 ? "+" : ""}{periodHistoricalDelta.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'}
+                </span>
+                <span className="text-muted-foreground">
+                  vs '{String(comparisonYear).slice(-2)} {viewMode === 'week' && periodHistoricalTotals?.week ? `Week ${periodHistoricalTotals.week}` : format(currentDate, 'MMM')}
+                </span>
+              </div>
+            )}
+
+            {/* Cumulative "Through Day X" */}
+            {cumulativeComparison && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Through Day {cumulativeComparison.throughDayNumber}:</span>
+                <span className={cumulativeComparison.delta >= 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-orange-600 dark:text-orange-400 font-medium"}>
+                  {cumulativeComparison.delta >= 0 ? "+" : ""}{cumulativeComparison.delta.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'} vs '{String(comparisonYear).slice(-2)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
