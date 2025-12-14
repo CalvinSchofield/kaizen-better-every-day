@@ -106,7 +106,23 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    // Find the header row - it might not be the first row (could have title rows above)
+    let headerRowIdx = 0;
+    let headers: string[] = [];
+    
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const potentialHeaders = lines[i].toLowerCase().split(',').map(h => h.trim());
+      // Check if this row has "date" column - that's our header row
+      if (potentialHeaders.some(h => h === 'date' || h === 'entry_date')) {
+        headerRowIdx = i;
+        headers = potentialHeaders;
+        break;
+      }
+    }
+    
+    if (headers.length === 0) {
+      throw new Error('Could not find header row with "Date" column');
+    }
     
     // Find column indices - support multiple naming conventions
     const dateIdx = headers.findIndex(h => h === 'date' || h === 'entry_date');
@@ -116,19 +132,16 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     const transitionsIdx = headers.findIndex(h => h.includes('transition'));
     const presentationsIdx = headers.findIndex(h => h.includes('presentation'));
     const closesIdx = headers.findIndex(h => h.includes('close'));
-    // "Actual" column is the EFP/FP+ value in common spreadsheets
+    // Look for EFP/FP column with multiple naming conventions
     const fpIdx = headers.findIndex(h => h === 'actual' || h.includes('fp') || h.includes('efp'));
     const prmrIdx = headers.findIndex(h => h.includes('prmr') || h.includes('revenue'));
     // "Working Time" column with values like "4h 38m"
     const hoursIdx = headers.findIndex(h => h.includes('hour') || h.includes('working time'));
 
-    if (dateIdx === -1) {
-      throw new Error('CSV must have a "Date" column');
-    }
-
     const rows: ParsedRow[] = [];
     
-    for (let i = 1; i < lines.length; i++) {
+    // Start from the row after headers
+    for (let i = headerRowIdx + 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.length < 2) continue;
 
@@ -364,9 +377,9 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
                 <div className="text-sm text-muted-foreground">
                   <p className="font-medium text-foreground mb-1">Supported columns:</p>
                   <p><span className="font-medium">Required:</span> Date</p>
-                  <p><span className="font-medium">Performance:</span> Actual (your {metricType === 'efp' ? 'EFP' : 'FP+'})</p>
-                  <p><span className="font-medium">Activity:</span> Doors Knocked, Decision Makers, Pitches, Transitions, Presentations, Closes</p>
-                  <p><span className="font-medium">Time:</span> Working Time (e.g., "4h 38m")</p>
+                  <p><span className="font-medium">Performance:</span> {metricType === 'efp' ? 'EFP' : 'FP+'} or PRMR</p>
+                  <p><span className="font-medium">Activity:</span> Doors, Decision Makers, Pitches, Transitions, Presentations, Closes</p>
+                  <p><span className="font-medium">Time:</span> Working Time or Hours</p>
                 </div>
               </div>
             </CardContent>
