@@ -16,6 +16,7 @@ import { PendingInstallAlertCard } from "@/components/PendingInstallAlertCard";
 import { VetBlitzCard } from "@/components/VetBlitzCard";
 import { FPCumulativeChart } from "@/components/FPCumulativeChart";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
+import { MeVsMeMotivationCard } from "@/components/MeVsMeMotivationCard";
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,6 +185,9 @@ export const KnockingModeHome = ({
         
         {/* Period Recap CTA - shows when recap is available and not yet viewed */}
         <RecapCTACard />
+        
+        {/* Me vs Me Motivation Card - shows week comparison when enabled */}
+        <MeVsMeMotivationCard />
         
         {/* Pre-work layout: Weather first, then Activity, Focus, Leaderboard, YTD */}
         {!hasStartedWorkToday && (
