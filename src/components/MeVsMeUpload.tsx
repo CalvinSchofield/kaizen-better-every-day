@@ -49,11 +49,27 @@ function parseWorkingTime(timeStr: string): number {
   return hours + (mins / 60);
 }
 
-// Parse dates like "Tue, Oct 1, 2024" or "Mon, Jan 6, 2025"
+// Parse dates - handles Excel serial numbers, various text formats
 function parseDateFlexible(dateStr: string): string | null {
-  if (!dateStr || typeof dateStr !== 'string') return null;
+  if (!dateStr) return null;
+  
+  // Handle if it's a number (Excel serial date)
+  const numValue = typeof dateStr === 'number' ? dateStr : parseFloat(String(dateStr).trim());
+  if (!isNaN(numValue) && numValue > 40000 && numValue < 60000) {
+    // Excel serial number: days since Dec 30, 1899
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    console.log('[MeVsMeUpload] Parsed Excel serial', numValue, 'to', `${year}-${month}-${day}`);
+    return `${year}-${month}-${day}`;
+  }
+  
+  if (typeof dateStr !== 'string') return null;
   
   const trimmed = dateStr.trim();
+  if (!trimmed) return null;
   
   // Try YYYY-MM-DD first
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
@@ -89,6 +105,7 @@ function parseDateFlexible(dateStr: string): string | null {
     return parsed.toISOString().split('T')[0];
   }
   
+  console.log('[MeVsMeUpload] Failed to parse date:', dateStr);
   return null;
 }
 
