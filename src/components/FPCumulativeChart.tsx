@@ -804,10 +804,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           {highlightDateRange && !(canShowGoalLine && showGoalLine) && (
             <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground pt-2 flex-wrap">
               <span className="flex items-center gap-1.5">
-                <span className="w-4 h-0.5 rounded bg-muted-foreground/40" />
-                All Time
-              </span>
-              <span className="flex items-center gap-1.5">
                 <span className="w-4 h-0.5 rounded bg-primary" />
                 Selected Period
               </span>
