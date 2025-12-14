@@ -193,6 +193,37 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     };
   }, [goals, cumulativeData, plannedDays, today]);
 
+  // Build a map of historical data by season week + day for matching
+  // NOTE: This hook must be called before any early returns to maintain hook order
+  const historicalMap = useMemo(() => {
+    if (!historicalData || historicalData.length === 0) return new Map();
+    const map = new Map<string, number>();
+    historicalData.forEach(entry => {
+      const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
+      const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
+      map.set(key, value);
+    });
+    return map;
+  }, [historicalData, metricType]);
+
+  // Determine which grouping options are available based on data length
+  const hasEnoughForWeek = (cumulativeData?.length || 0) >= 7;
+  const hasEnoughForMonth = (cumulativeData?.length || 0) >= 14;
+
+  // Determine labels based on mode and metric type
+  const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
+  const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
+  const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
+
+  // Helper to check if a date is within highlight range
+  const isInHighlightRange = (dateStr: string): boolean => {
+    if (!highlightDateRange) return false;
+    const date = parseLocalDate(dateStr);
+    const start = new Date(highlightDateRange.start.getFullYear(), highlightDateRange.start.getMonth(), highlightDateRange.start.getDate());
+    const end = new Date(highlightDateRange.end.getFullYear(), highlightDateRange.end.getMonth(), highlightDateRange.end.getDate());
+    return !isBefore(date, start) && !isAfter(date, end);
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -214,36 +245,6 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   if (!cumulativeData || cumulativeData.length === 0) {
     return null;
   }
-
-  // Determine which grouping options are available based on data length
-  const hasEnoughForWeek = cumulativeData.length >= 7;
-  const hasEnoughForMonth = cumulativeData.length >= 14;
-
-  // Determine labels based on mode and metric type
-  const primaryLabel = efpModeEnabled ? "EFP" : "FP+";
-  const secondaryLabel = efpModeEnabled ? "FP+" : "PRMR";
-  const currentMetricLabel = metricType === 'primary' ? primaryLabel : secondaryLabel;
-
-  // Helper to check if a date is within highlight range
-  const isInHighlightRange = (dateStr: string): boolean => {
-    if (!highlightDateRange) return false;
-    const date = parseLocalDate(dateStr);
-    const start = new Date(highlightDateRange.start.getFullYear(), highlightDateRange.start.getMonth(), highlightDateRange.start.getDate());
-    const end = new Date(highlightDateRange.end.getFullYear(), highlightDateRange.end.getMonth(), highlightDateRange.end.getDate());
-    return !isBefore(date, start) && !isAfter(date, end);
-  };
-
-  // Build a map of historical data by season week + day for matching
-  const historicalMap = useMemo(() => {
-    if (!historicalData || historicalData.length === 0) return new Map();
-    const map = new Map<string, number>();
-    historicalData.forEach(entry => {
-      const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
-      const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
-      map.set(key, value);
-    });
-    return map;
-  }, [historicalData, metricType]);
 
   // Group data by day/week/month
   const groupedData = () => {
