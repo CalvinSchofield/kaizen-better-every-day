@@ -1,17 +1,30 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Trophy, Upload, Trash2, FileSpreadsheet, Calendar, Loader2 } from 'lucide-react';
+import { Trophy, Upload, Trash2, FileSpreadsheet, Calendar, Loader2, ChevronDown } from 'lucide-react';
 import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { MeVsMeUpload } from './MeVsMeUpload';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
-export const MeVsMeSettings = () => {
+interface MeVsMeSettingsProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export const MeVsMeSettings = ({ isOpen, onOpenChange }: MeVsMeSettingsProps) => {
   const { isEnabled, isLoading, dataSummary, toggleEnabled, isToggling, deleteAllData, isDeleting } = useMeVsMe();
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  const getSummaryText = () => {
+    if (!isEnabled) return "Disabled";
+    if (!dataSummary) return "Enabled, no data";
+    return `Enabled, ${dataSummary.totalDays} days imported`;
+  };
 
   const handleToggle = (enabled: boolean) => {
     toggleEnabled(enabled);
@@ -36,16 +49,27 @@ export const MeVsMeSettings = () => {
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-primary" />
-            <CardTitle>Me vs Me</CardTitle>
-          </div>
-          <CardDescription>
-            Compare your current performance against previous years
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <Collapsible open={isOpen} onOpenChange={onOpenChange}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    Me vs Me
+                  </CardTitle>
+                  {!isOpen && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {getSummaryText()}
+                    </p>
+                  )}
+                </div>
+                <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-6">
           {/* Enable Toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
@@ -138,9 +162,11 @@ export const MeVsMeSettings = () => {
                 </AlertDialogContent>
               </AlertDialog>
             )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
 
       <MeVsMeUpload open={uploadOpen} onClose={() => setUploadOpen(false)} />
     </>
