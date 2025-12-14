@@ -227,19 +227,24 @@ export const useHistoricalComparison = ({
   };
 };
 
-export const useHistoricalCumulativeData = (comparisonYear: number, enabled: boolean = true) => {
+export const useHistoricalCumulativeData = (comparisonYear: number, enabled: boolean = true, seasonType?: SeasonType) => {
+  // Determine current season type if not provided
+  const currentSeasonInfo = useMemo(() => getSeasonInfo(new Date()), []);
+  const targetSeasonType = seasonType || currentSeasonInfo?.type || 'preseason';
+  
   return useQuery({
-    queryKey: ['historical-cumulative', comparisonYear],
+    queryKey: ['historical-cumulative', comparisonYear, targetSeasonType],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
       
+      // Only fetch data for the matching season type (preseason vs preseason, summer vs summer)
       const { data, error } = await supabase
         .from('historical_entries')
         .select('*')
         .eq('user_id', user.id)
         .eq('season_year', comparisonYear)
-        .order('season_type', { ascending: true })
+        .eq('season_type', targetSeasonType)
         .order('season_week', { ascending: true })
         .order('day_of_week', { ascending: true });
       
