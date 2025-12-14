@@ -64,7 +64,7 @@ const TrackWithLayout = () => {
   const [isEarlySaveConfirmOpen, setIsEarlySaveConfirmOpen] = useState(false);
   const [isEarlyEndConfirmOpen, setIsEarlyEndConfirmOpen] = useState(false);
   const [isPostSaveSuccessOpen, setIsPostSaveSuccessOpen] = useState(false);
-  const [lastSavedSummary, setLastSavedSummary] = useState({ doors: 0, presentations: 0, closes: 0, fpPlus: 0, prmr: 0 });
+  const [lastSavedSummary, setLastSavedSummary] = useState({ doors: 0, dms: 0, pitches: 0, transitions: 0, presentations: 0, closes: 0, fpPlus: 0, prmr: 0, hoursWorked: 0 });
   const [syncStatus, setSyncStatus] = useState<'synced' | 'pending' | 'error'>('synced');
   
   // Sales logger state
@@ -240,13 +240,36 @@ const TrackWithLayout = () => {
       // Clear localStorage backup
       clearBackup();
       setSyncStatus('synced');
-      // Store summary for success sheet
+      // Store summary for success sheet (including Me vs Me comparison data)
+      // Calculate hours worked from start/end times
+      let hoursWorked = 0;
+      if (data.work_start_time && data.work_end_time) {
+        const start = new Date(data.work_start_time);
+        const end = new Date(data.work_end_time);
+        hoursWorked = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+        
+        // Subtract break time
+        if (data.break_periods && Array.isArray(data.break_periods)) {
+          const breakMinutes = data.break_periods.reduce((total: number, bp: any) => {
+            if (bp.start && bp.end) {
+              return total + (new Date(bp.end).getTime() - new Date(bp.start).getTime()) / (1000 * 60);
+            }
+            return total;
+          }, 0);
+          hoursWorked = Math.max(0, hoursWorked - breakMinutes / 60);
+        }
+      }
+      
       setLastSavedSummary({
         doors: data.doors_knocked || 0,
+        dms: data.decision_makers || 0,
+        pitches: data.pitches || 0,
+        transitions: data.transitions || 0,
         presentations: data.presentations || 0,
         closes: data.closes || 0,
         fpPlus: data.fp_plus || 0,
         prmr: data.prmr || 0,
+        hoursWorked,
       });
       // Show success sheet
       setIsPostSaveSuccessOpen(true);
