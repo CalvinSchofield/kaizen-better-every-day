@@ -25,7 +25,11 @@ export const useCalendarHistorical = (
   entries: any[]
 ) => {
   const { isEnabled } = useMeVsMe();
-  const comparisonYear = new Date().getFullYear() - 1;
+  
+  // Get the season year from the current date, then subtract 1 for comparison
+  // E.g., Dec 2025 is 2026 preseason, so compare to 2025 preseason
+  const currentSeasonInfo = getSeasonInfo(currentDate);
+  const comparisonYear = currentSeasonInfo ? currentSeasonInfo.year - 1 : new Date().getFullYear() - 1;
 
   // Fetch historical entries for the comparison period
   const { data: historicalData, isLoading } = useQuery({
