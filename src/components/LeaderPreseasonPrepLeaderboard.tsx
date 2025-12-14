@@ -245,8 +245,24 @@ const LeaderCompetitionSummary = ({
   // Only show leaders who have actual points - no point showing rankings for 0 activity
   const leadersWithPoints = leaderStats.filter(l => l.totalScore > 0);
   
-  // If no leaders have points yet, don't show the competition section
-  if (leadersWithPoints.length === 0) return null;
+  // If no leaders have points yet, show motivational message
+  if (leadersWithPoints.length === 0) {
+    return (
+      <Card className="p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-full bg-primary/10">
+            <Trophy className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm">Leader Competition</h3>
+            <p className="text-xs text-muted-foreground">
+              Help your rookies complete training goals to get on the board!
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   // Get top 3 leaders with points
   const topLeaders = leadersWithPoints.slice(0, 3);
