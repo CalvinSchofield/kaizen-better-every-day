@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, useMotionValue, useTransform, PanInfo, useAnimation } from "framer-motion";
-import { Phone, MessageSquare, ChevronRight, Check, Calendar } from "lucide-react";
+import { Phone, MessageSquare, ChevronRight, Check, Calendar, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -53,6 +55,38 @@ export const SwipeableTaskItem = ({
   const constraintsRef = useRef(null);
   const x = useMotionValue(0);
   const controls = useAnimation();
+
+  // Get current user ID to compare with assigned_to_user_id
+  const { data: currentUserId } = useQuery({
+    queryKey: ['current-user-id'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || null;
+    },
+    staleTime: Infinity,
+  });
+
+  // Check if task is assigned to someone else
+  const isAssignedToOther = activity?.assigned_to_user_id && 
+    activity.assigned_to_user_id !== currentUserId;
+
+  // Get assignee name if assigned to someone else
+  const { data: assigneeName } = useQuery({
+    queryKey: ['assignee-name', activity?.assigned_to_user_id],
+    queryFn: async () => {
+      if (!activity?.assigned_to_user_id) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('name')
+        .eq('user_id', activity.assigned_to_user_id)
+        .single();
+      if (!data) return null;
+      const cleanName = stripEmojis(data.name);
+      return cleanName?.split(' ')[0] || null;
+    },
+    enabled: !!isAssignedToOther,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Play demo animation on mount if requested
   useEffect(() => {
@@ -184,10 +218,17 @@ export const SwipeableTaskItem = ({
                 {displayReason}
               </div>
             )}
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <Badge variant="outline" className="text-xs">
                 {recruit.stage}
               </Badge>
+              {/* Show assignee badge if assigned to someone else */}
+              {isAssignedToOther && assigneeName && (
+                <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30">
+                  <UserCircle className="h-3 w-3" />
+                  {assigneeName}
+                </Badge>
+              )}
               {daysSinceContact !== null && daysSinceContact !== undefined && (
                 <span className="text-xs text-muted-foreground">
                   {daysSinceContact}d ago
