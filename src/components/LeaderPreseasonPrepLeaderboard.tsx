@@ -242,10 +242,16 @@ const LeaderCompetitionSummary = ({
 }) => {
   if (!leaderStats || leaderStats.length === 0) return null;
 
-  // Get top 3 leaders
-  const topLeaders = leaderStats.slice(0, 3);
-  const currentUserRank = leaderStats.findIndex(l => l.leader.includes(currentUserName)) + 1;
-  const currentUserStats = leaderStats.find(l => l.leader.includes(currentUserName));
+  // Only show leaders who have actual points - no point showing rankings for 0 activity
+  const leadersWithPoints = leaderStats.filter(l => l.totalScore > 0);
+  
+  // If no leaders have points yet, don't show the competition section
+  if (leadersWithPoints.length === 0) return null;
+
+  // Get top 3 leaders with points
+  const topLeaders = leadersWithPoints.slice(0, 3);
+  const currentUserRank = leadersWithPoints.findIndex(l => l.leader.includes(currentUserName)) + 1;
+  const currentUserStats = leadersWithPoints.find(l => l.leader.includes(currentUserName));
   const isCurrentUserTop3 = currentUserRank > 0 && currentUserRank <= 3;
 
   // Extract first name only from leader name
