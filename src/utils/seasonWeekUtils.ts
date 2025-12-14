@@ -99,8 +99,8 @@ export function mapToComparisonDate(currentDate: Date, comparisonYear: number): 
   const comparisonSeasonStart = getSeasonStartDate(comparisonYear, currentSeasonInfo.type);
   if (!comparisonSeasonStart) return null;
   
-  // Calculate days from season start
-  const daysFromStart = (currentSeasonInfo.week - 1) * 7 + (currentSeasonInfo.dayOfWeek === 0 ? 6 : currentSeasonInfo.dayOfWeek - 1);
+  // Calculate days from season start (weeks run Sun-Sat, so dayOfWeek 0=Sun matches directly)
+  const daysFromStart = (currentSeasonInfo.week - 1) * 7 + currentSeasonInfo.dayOfWeek;
   
   return addDays(comparisonSeasonStart, daysFromStart);
 }
