@@ -229,9 +229,26 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
 
   const parseExcelToCSV = useCallback(async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
+    // Use raw: true to get raw values, and cellText to preserve text formatting
+    const workbook = XLSX.read(buffer, { type: 'array', cellText: true, cellDates: true });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_csv(firstSheet);
+    
+    // Use blankrows: false to skip empty rows, and RS (row separator) to avoid issues with newlines in cells
+    // Replace any newlines within cells with spaces before converting to CSV
+    const range = XLSX.utils.decode_range(firstSheet['!ref'] || 'A1');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = firstSheet[cellRef];
+        if (cell && cell.v && typeof cell.v === 'string') {
+          // Replace line breaks within cell values with spaces
+          cell.v = cell.v.replace(/[\r\n]+/g, ' ');
+          if (cell.w) cell.w = cell.w.replace(/[\r\n]+/g, ' ');
+        }
+      }
+    }
+    
+    return XLSX.utils.sheet_to_csv(firstSheet, { blankrows: false });
   }, []);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
