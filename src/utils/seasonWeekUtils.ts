@@ -38,12 +38,23 @@ export function getSeasonStartDate(year: number, seasonType: SeasonType): Date |
 export function getSeasonInfo(date: Date): SeasonInfo | null {
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   
-  // Try to find which season this date belongs to
-  for (const [yearStr, seasons] of Object.entries(SEASON_DEFINITIONS)) {
-    const year = parseInt(yearStr);
+  // Sort years in descending order so we check newest seasons first
+  // This ensures Oct 2025 matches 2026 preseason (Sep 29, 2025) before 2025 extension (Sep 1, 2025)
+  const sortedYears = Object.keys(SEASON_DEFINITIONS)
+    .map(y => parseInt(y))
+    .sort((a, b) => b - a);
+  
+  for (const year of sortedYears) {
+    const seasons = SEASON_DEFINITIONS[year];
     
-    // Check extension first (latest in year)
+    // Check extension first (latest in the season year)
     if (dateOnly >= seasons.extension) {
+      // But make sure we're not past the next year's preseason
+      const nextYear = SEASON_DEFINITIONS[year + 1];
+      if (nextYear && dateOnly >= nextYear.preseason) {
+        continue; // This date belongs to next year's preseason, not this year's extension
+      }
+      
       const daysSinceStart = differenceInCalendarDays(dateOnly, seasons.extension);
       const week = Math.floor(daysSinceStart / 7) + 1;
       const dayOfWeek = getDay(dateOnly); // 0 = Sunday, 1 = Monday, etc.
