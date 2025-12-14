@@ -247,10 +247,10 @@ export const CalendarSummaryTeaser = ({
               </div>
             )}
 
-            {/* Cumulative "Through Day X" */}
+            {/* Cumulative "Up until today" */}
             {cumulativeComparison && (
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground">Through Day {cumulativeComparison.throughDayNumber}:</span>
+                <span className="text-muted-foreground">Up until today:</span>
                 <span className={cumulativeComparison.delta >= 0 ? "text-green-600 dark:text-green-400 font-medium" : "text-orange-600 dark:text-orange-400 font-medium"}>
                   {cumulativeComparison.delta >= 0 ? "+" : ""}{cumulativeComparison.delta.toFixed(1)} {efpModeEnabled ? 'EFP' : 'FP+'} vs '{String(comparisonYear).slice(-2)}
                 </span>

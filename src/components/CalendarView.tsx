@@ -459,8 +459,8 @@ export const CalendarView = ({
                     {efpModeEnabled ? formatValue(calculateEfp(entry.prmr || 0)) : formatValue(entry.fp_plus || 0)}
                   </div>
                 )}
-                {/* Me vs Me historical overlay - bottom left */}
-                {historicalDay && historicalDay.fpPlus > 0 && (
+                {/* Me vs Me historical overlay - bottom left, only show on days without current results */}
+                {!hasEntry && historicalDay && historicalDay.fpPlus > 0 && (
                   <div className="absolute bottom-0.5 left-1 text-[8px] text-muted-foreground/50 font-medium">
                     '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
                   </div>
@@ -548,8 +548,8 @@ export const CalendarView = ({
                     )}
                   </div>
                 )}
-                {/* Me vs Me historical overlay - bottom left */}
-                {historicalDay && historicalDay.fpPlus > 0 && (
+                {/* Me vs Me historical overlay - bottom left, only show on days without current results */}
+                {!hasEntry && historicalDay && historicalDay.fpPlus > 0 && (
                   <div className="absolute bottom-1 left-1.5 text-[9px] text-muted-foreground/50 font-medium">
                     '{String(comparisonYear).slice(-2)}: {efpModeEnabled ? formatValue(historicalDay.prmr / 85) : formatValue(historicalDay.fpPlus)}
                   </div>
