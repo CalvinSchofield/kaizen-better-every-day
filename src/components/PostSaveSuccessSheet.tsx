@@ -1,10 +1,15 @@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, BarChart3, Target, Sparkles } from "lucide-react";
+import { CheckCircle2, Calendar, BarChart3, Target, Sparkles, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useMeVsMe } from "@/hooks/useMeVsMe";
+import { useEfpMode } from "@/hooks/useEfpMode";
 import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { getSeasonInfo } from "@/utils/seasonWeekUtils";
 import confetti from "canvas-confetti";
 
 interface PostSaveSuccessSheetProps {
@@ -12,10 +17,14 @@ interface PostSaveSuccessSheetProps {
   onOpenChange: (open: boolean) => void;
   summary: {
     doors: number;
+    dms?: number;
+    pitches?: number;
+    transitions?: number;
     presentations: number;
     closes: number;
     fpPlus: number;
     prmr: number;
+    hoursWorked?: number;
   };
   onKeepWorking: () => void;
 }
@@ -29,6 +38,146 @@ export const PostSaveSuccessSheet = ({
   const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { plannedDays } = usePlannedDays();
+  const { isEnabled: meVsMeEnabled } = useMeVsMe();
+  const { efpModeEnabled, calculateEfp } = useEfpMode();
+  
+  // Get current season info and comparison year
+  const seasonInfo = useMemo(() => getSeasonInfo(new Date()), []);
+  const comparisonYear = seasonInfo ? seasonInfo.year - 1 : 2025;
+  
+  // Calculate day number from season start
+  const dayNumber = useMemo(() => {
+    if (!seasonInfo) return null;
+    return (seasonInfo.week - 1) * 7 + seasonInfo.dayOfWeek;
+  }, [seasonInfo]);
+  
+  // Fetch historical entry for the same day number
+  const { data: historicalEntry } = useQuery({
+    queryKey: ['historical-day-comparison', comparisonYear, seasonInfo?.type, dayNumber],
+    queryFn: async () => {
+      if (!dayNumber || !seasonInfo) return null;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      // Find entry with matching day number
+      const { data, error } = await supabase
+        .from('historical_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('season_year', comparisonYear)
+        .eq('season_type', seasonInfo.type);
+      
+      if (error || !data) return null;
+      
+      // Find entry matching day number
+      const matchingEntry = data.find(entry => {
+        const entryDayNumber = (entry.season_week - 1) * 7 + entry.day_of_week;
+        return entryDayNumber === dayNumber;
+      });
+      
+      return matchingEntry || null;
+    },
+    enabled: open && meVsMeEnabled && !!seasonInfo && !!dayNumber,
+    staleTime: 5 * 60 * 1000,
+  });
+  
+  // Calculate comparison metrics
+  const comparison = useMemo(() => {
+    if (!historicalEntry) return null;
+    
+    const currentEfp = efpModeEnabled ? calculateEfp(summary.prmr) : summary.fpPlus;
+    const historicalEfp = efpModeEnabled 
+      ? calculateEfp(historicalEntry.prmr || 0) 
+      : (historicalEntry.fp_plus || 0);
+    
+    // Priority order for metrics
+    const metrics = [
+      { 
+        key: 'efp', 
+        label: efpModeEnabled ? 'EFP' : 'FP+', 
+        current: currentEfp, 
+        historical: historicalEfp,
+        format: (v: number) => v.toFixed(1)
+      },
+      { 
+        key: 'prmr', 
+        label: 'PRMR', 
+        current: summary.prmr, 
+        historical: historicalEntry.prmr || 0,
+        format: (v: number) => `$${Math.round(v)}`
+      },
+      { 
+        key: 'closes', 
+        label: 'closes', 
+        current: summary.closes, 
+        historical: historicalEntry.closes || 0,
+        format: (v: number) => v.toString()
+      },
+      { 
+        key: 'presentations', 
+        label: 'presentations', 
+        current: summary.presentations, 
+        historical: historicalEntry.presentations || 0,
+        format: (v: number) => v.toString()
+      },
+      { 
+        key: 'transitions', 
+        label: 'transitions', 
+        current: summary.transitions || 0, 
+        historical: historicalEntry.transitions || 0,
+        format: (v: number) => v.toString()
+      },
+      { 
+        key: 'hours', 
+        label: 'hours', 
+        current: summary.hoursWorked || 0, 
+        historical: historicalEntry.hours_worked || 0,
+        format: (v: number) => v.toFixed(1)
+      },
+      { 
+        key: 'pitches', 
+        label: 'pitches', 
+        current: summary.pitches || 0, 
+        historical: historicalEntry.pitches || 0,
+        format: (v: number) => v.toString()
+      },
+      { 
+        key: 'dms', 
+        label: 'DMs', 
+        current: summary.dms || 0, 
+        historical: historicalEntry.decision_makers || 0,
+        format: (v: number) => v.toString()
+      },
+      { 
+        key: 'doors', 
+        label: 'doors', 
+        current: summary.doors, 
+        historical: historicalEntry.doors_knocked || 0,
+        format: (v: number) => v.toString()
+      },
+    ];
+    
+    // Find first metric with a meaningful delta (both have data)
+    const significantMetric = metrics.find(m => 
+      (m.current > 0 || m.historical > 0) && 
+      m.current !== m.historical
+    );
+    
+    if (!significantMetric) return null;
+    
+    const delta = significantMetric.current - significantMetric.historical;
+    const isAhead = delta > 0;
+    const isBehind = delta < 0;
+    
+    return {
+      metric: significantMetric,
+      delta,
+      isAhead,
+      isBehind,
+      year: comparisonYear,
+    };
+  }, [historicalEntry, summary, efpModeEnabled, calculateEfp, comparisonYear]);
   
   // Calculate daily goal based on remaining planned days
   const dailyGoal = useMemo(() => {
@@ -127,6 +276,36 @@ export const PostSaveSuccessSheet = ({
                     : "Right on target!"}
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Me vs Me Comparison Card */}
+        {meVsMeEnabled && comparison && (
+          <div className="px-4 mb-4">
+            <div className={`rounded-xl p-4 ${comparison.isAhead ? 'bg-green-500/10 border border-green-500/20' : comparison.isBehind ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-muted/50'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                {comparison.isAhead ? (
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                ) : comparison.isBehind ? (
+                  <TrendingDown className="h-4 w-4 text-orange-500" />
+                ) : (
+                  <Minus className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm font-medium">vs {comparison.year} You</span>
+              </div>
+              <p className={`text-lg font-semibold ${comparison.isAhead ? 'text-green-600' : comparison.isBehind ? 'text-orange-600' : 'text-foreground'}`}>
+                {comparison.isAhead ? (
+                  <>Beat your {comparison.year} self by {comparison.metric.format(Math.abs(comparison.delta))} {comparison.metric.label}!</>
+                ) : comparison.isBehind ? (
+                  <>{comparison.metric.format(Math.abs(comparison.delta))} {comparison.metric.label} behind your {comparison.year} pace</>
+                ) : (
+                  <>Matching your {comparison.year} performance</>
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Day {dayNumber} of {seasonInfo?.type}
+              </p>
             </div>
           </div>
         )}
