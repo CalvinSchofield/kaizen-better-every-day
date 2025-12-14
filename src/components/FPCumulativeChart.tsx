@@ -196,13 +196,17 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
   // Build a map of historical data by season week + day for matching
   // NOTE: This hook must be called before any early returns to maintain hook order
   const historicalMap = useMemo(() => {
-    if (!historicalData || historicalData.length === 0) return new Map();
+    if (!historicalData || historicalData.length === 0) {
+      console.log('[FPCumulativeChart] No historical data available, map empty');
+      return new Map();
+    }
     const map = new Map<string, number>();
     historicalData.forEach(entry => {
       const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
       const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
       map.set(key, value);
     });
+    console.log('[FPCumulativeChart] Historical map built with', map.size, 'entries. Sample keys:', Array.from(map.keys()).slice(0, 5));
     return map;
   }, [historicalData, metricType]);
 
@@ -262,6 +266,9 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
           const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
           historicalCumulative = historicalMap.get(key);
+          if (idx === 0) {
+            console.log('[FPCumulativeChart] First point lookup:', point.date, '-> seasonInfo:', seasonInfo, '-> key:', key, '-> found:', historicalCumulative);
+          }
         }
         
         return {
