@@ -168,11 +168,11 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
         ? parseWorkingTime(hoursValue)
         : parseFloat(hoursValue) || 0;
 
-      // Only include rows that have at least some data (not just empty days)
+      // Only require Date + FP/EFP - everything else is optional
       const doors = doorsIdx >= 0 ? parseInt(values[doorsIdx]) || 0 : 0;
-      const hasData = fpPlus > 0 || doors > 0 || hoursWorked > 0;
       
-      if (!hasData) continue;
+      // Skip rows with no FP+ value
+      if (fpPlus <= 0) continue;
 
       rows.push({
         date: parsedDate,
@@ -375,11 +375,10 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground mb-1">Supported columns:</p>
-                  <p><span className="font-medium">Required:</span> Date</p>
-                  <p><span className="font-medium">Performance:</span> {metricType === 'efp' ? 'EFP' : 'FP+'} or PRMR</p>
-                  <p><span className="font-medium">Activity:</span> Doors, Decision Makers, Pitches, Transitions, Presentations, Closes</p>
-                  <p><span className="font-medium">Time:</span> Working Time or Hours</p>
+                  <p className="font-medium text-foreground mb-1">Required columns:</p>
+                  <p>Date, {metricType === 'efp' ? 'EFP' : 'FP+'}</p>
+                  <p className="font-medium text-foreground mt-2 mb-1">Optional columns:</p>
+                  <p>Doors, Decision Makers, Pitches, Transitions, Presentations, Closes, Working Time</p>
                 </div>
               </div>
             </CardContent>
