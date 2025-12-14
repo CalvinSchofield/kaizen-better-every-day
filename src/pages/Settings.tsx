@@ -111,6 +111,9 @@ export default function Settings() {
   // CRM state
   const [isCrmOpen, setIsCrmOpen] = useState(false);
   const [isSavingCrm, setIsSavingCrm] = useState(false);
+  
+  // Me vs Me state
+  const [isMeVsMeOpen, setIsMeVsMeOpen] = useState(false);
 
 
 
@@ -702,8 +705,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Me vs Me Settings - Only for vets/sophomores */}
-        {repData?.year !== 'Rookie' && <MeVsMeSettings />}
 
         {/* Summer Season Dates - Collapsible */}
         <Card>
@@ -1062,6 +1063,11 @@ export default function Settings() {
             </CollapsibleContent>
           </Collapsible>
         </Card>
+
+        {/* Me vs Me Settings - Only for vets/sophomores */}
+        {repData?.year !== 'Rookie' && (
+          <MeVsMeSettings isOpen={isMeVsMeOpen} onOpenChange={setIsMeVsMeOpen} />
+        )}
 
         {/* Notifications - Collapsible */}
         {notificationsSupported && (
