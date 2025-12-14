@@ -104,6 +104,7 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
 
   const parseCSV = useCallback((text: string, isEfp: boolean): ParsedRow[] => {
     const lines = text.trim().split('\n');
+    console.log('[MeVsMeUpload] Total lines:', lines.length);
     if (lines.length < 2) return [];
 
     // Find the header row - it might not be the first row (could have title rows above)
@@ -112,15 +113,18 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     
     for (let i = 0; i < Math.min(lines.length, 10); i++) {
       const potentialHeaders = lines[i].toLowerCase().split(',').map(h => h.trim());
+      console.log('[MeVsMeUpload] Row', i, 'headers:', potentialHeaders.slice(0, 6));
       // Check if this row has "date" column - that's our header row
       if (potentialHeaders.some(h => h === 'date' || h === 'entry_date')) {
         headerRowIdx = i;
         headers = potentialHeaders;
+        console.log('[MeVsMeUpload] Found header row at index:', i);
         break;
       }
     }
     
     if (headers.length === 0) {
+      console.log('[MeVsMeUpload] No header row found!');
       throw new Error('Could not find header row with "Date" column');
     }
     
@@ -133,12 +137,16 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     const presentationsIdx = headers.findIndex(h => h.includes('presentation'));
     const closesIdx = headers.findIndex(h => h.includes('close'));
     // Look for EFP/FP column with multiple naming conventions
-    const fpIdx = headers.findIndex(h => h === 'actual' || h.includes('fp') || h.includes('efp'));
+    const fpIdx = headers.findIndex(h => h === 'actual' || h === 'efp' || h === 'fp' || h === 'fp+' || h.includes('fp') || h.includes('efp'));
     const prmrIdx = headers.findIndex(h => h.includes('prmr') || h.includes('revenue'));
     // "Working Time" column with values like "4h 38m"
-    const hoursIdx = headers.findIndex(h => h.includes('hour') || h.includes('working time'));
+    const hoursIdx = headers.findIndex(h => h.includes('hour') || h.includes('working') || h.includes('duration'));
+
+    console.log('[MeVsMeUpload] Column indices - date:', dateIdx, 'fp:', fpIdx, 'doors:', doorsIdx);
 
     const rows: ParsedRow[] = [];
+    let skippedNoDate = 0;
+    let skippedNoFP = 0;
     
     // Start from the row after headers
     for (let i = headerRowIdx + 1; i < lines.length; i++) {
@@ -147,7 +155,10 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
 
       const dateStr = values[dateIdx];
       const parsedDate = parseDateFlexible(dateStr);
-      if (!parsedDate) continue;
+      if (!parsedDate) {
+        skippedNoDate++;
+        continue;
+      }
 
       // Get the FP/EFP value
       const fpValue = fpIdx >= 0 ? parseFloat(values[fpIdx]) || 0 : 0;
@@ -172,7 +183,10 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
       const doors = doorsIdx >= 0 ? parseInt(values[doorsIdx]) || 0 : 0;
       
       // Skip rows with no FP+ value
-      if (fpPlus <= 0) continue;
+      if (fpPlus <= 0) {
+        skippedNoFP++;
+        continue;
+      }
 
       rows.push({
         date: parsedDate,
@@ -186,6 +200,11 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
         prmr: prmr,
         hours_worked: hoursWorked,
       });
+    }
+
+    console.log('[MeVsMeUpload] Parsing complete - valid rows:', rows.length, 'skipped (no date):', skippedNoDate, 'skipped (no FP):', skippedNoFP);
+    if (rows.length > 0) {
+      console.log('[MeVsMeUpload] First valid row:', rows[0]);
     }
 
     return rows;
