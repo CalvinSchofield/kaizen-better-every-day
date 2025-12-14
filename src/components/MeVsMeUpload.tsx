@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from '@/components/ui/drawer';
-import { Upload, FileSpreadsheet, Check, AlertCircle, X, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface ParsedRow {
   date: string;
@@ -27,12 +28,67 @@ interface UploadSummary {
   totalRows: number;
   validRows: number;
   invalidRows: number;
-  yearsSummary: Record<number, { preseason: number; summer: number; extension: number }>;
 }
 
 interface MeVsMeUploadProps {
   open: boolean;
   onClose: () => void;
+}
+
+// Parse working time strings like "4h 38m", "2h 3m", "5h 13m"
+function parseWorkingTime(timeStr: string): number {
+  if (!timeStr || typeof timeStr !== 'string') return 0;
+  
+  const hourMatch = timeStr.match(/(\d+)h/);
+  const minMatch = timeStr.match(/(\d+)m/);
+  
+  const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
+  const mins = minMatch ? parseInt(minMatch[1]) : 0;
+  
+  return hours + (mins / 60);
+}
+
+// Parse dates like "Tue, Oct 1, 2024" or "Mon, Jan 6, 2025"
+function parseDateFlexible(dateStr: string): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  
+  const trimmed = dateStr.trim();
+  
+  // Try YYYY-MM-DD first
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Try MM/DD/YYYY
+  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, month, day, year] = slashMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  // Try "Tue, Oct 1, 2024" format
+  const months: Record<string, string> = {
+    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+  };
+  
+  const longMatch = trimmed.match(/(?:\w+,\s*)?(\w+)\s+(\d{1,2}),?\s*(\d{4})/i);
+  if (longMatch) {
+    const [, monthName, day, year] = longMatch;
+    const monthNum = months[monthName.toLowerCase().slice(0, 3)];
+    if (monthNum) {
+      return `${year}-${monthNum}-${day.padStart(2, '0')}`;
+    }
+  }
+  
+  // Try native Date parsing as fallback
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  
+  return null;
 }
 
 export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
@@ -42,9 +98,10 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [metricType, setMetricType] = useState<'efp' | 'fp'>('efp');
   const queryClient = useQueryClient();
 
-  const parseCSV = useCallback((text: string): ParsedRow[] => {
+  const parseCSV = useCallback((text: string, isEfp: boolean): ParsedRow[] => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
 
@@ -58,12 +115,14 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     const transitionsIdx = headers.findIndex(h => h.includes('transition'));
     const presentationsIdx = headers.findIndex(h => h.includes('presentation'));
     const closesIdx = headers.findIndex(h => h.includes('close'));
-    const fpIdx = headers.findIndex(h => h.includes('fp') || h.includes('efp'));
+    // "Actual" column is the EFP/FP+ value in common spreadsheets
+    const fpIdx = headers.findIndex(h => h === 'actual' || h.includes('fp') || h.includes('efp'));
     const prmrIdx = headers.findIndex(h => h.includes('prmr') || h.includes('revenue'));
-    const hoursIdx = headers.findIndex(h => h.includes('hour'));
+    // "Working Time" column with values like "4h 38m"
+    const hoursIdx = headers.findIndex(h => h.includes('hour') || h.includes('working time'));
 
     if (dateIdx === -1) {
-      throw new Error('CSV must have a "date" column');
+      throw new Error('CSV must have a "Date" column');
     }
 
     const rows: ParsedRow[] = [];
@@ -73,19 +132,45 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
       if (values.length < 2) continue;
 
       const dateStr = values[dateIdx];
-      if (!dateStr) continue;
+      const parsedDate = parseDateFlexible(dateStr);
+      if (!parsedDate) continue;
+
+      // Get the FP/EFP value
+      const fpValue = fpIdx >= 0 ? parseFloat(values[fpIdx]) || 0 : 0;
+      
+      // If user tracked EFP, calculate PRMR from it (EFP × 85)
+      // If user tracked FP+, we don't have PRMR unless they provided it
+      let prmr = prmrIdx >= 0 ? parseFloat(values[prmrIdx]) || 0 : 0;
+      let fpPlus = fpValue;
+      
+      if (isEfp && fpValue > 0 && prmr === 0) {
+        // User tracked EFP, calculate PRMR
+        prmr = fpValue * 85;
+      }
+
+      // Parse working time (handles "4h 38m" format)
+      const hoursValue = hoursIdx >= 0 ? values[hoursIdx] : '';
+      const hoursWorked = typeof hoursValue === 'string' && hoursValue.includes('h') 
+        ? parseWorkingTime(hoursValue)
+        : parseFloat(hoursValue) || 0;
+
+      // Only include rows that have at least some data (not just empty days)
+      const doors = doorsIdx >= 0 ? parseInt(values[doorsIdx]) || 0 : 0;
+      const hasData = fpPlus > 0 || doors > 0 || hoursWorked > 0;
+      
+      if (!hasData) continue;
 
       rows.push({
-        date: dateStr,
-        doors_knocked: doorsIdx >= 0 ? parseInt(values[doorsIdx]) || 0 : 0,
+        date: parsedDate,
+        doors_knocked: doors,
         decision_makers: dmsIdx >= 0 ? parseInt(values[dmsIdx]) || 0 : 0,
         pitches: pitchesIdx >= 0 ? parseInt(values[pitchesIdx]) || 0 : 0,
         transitions: transitionsIdx >= 0 ? parseInt(values[transitionsIdx]) || 0 : 0,
         presentations: presentationsIdx >= 0 ? parseInt(values[presentationsIdx]) || 0 : 0,
         closes: closesIdx >= 0 ? parseInt(values[closesIdx]) || 0 : 0,
-        fp_plus: fpIdx >= 0 ? parseFloat(values[fpIdx]) || 0 : 0,
-        prmr: prmrIdx >= 0 ? parseFloat(values[prmrIdx]) || 0 : 0,
-        hours_worked: hoursIdx >= 0 ? parseFloat(values[hoursIdx]) || 0 : 0,
+        fp_plus: fpPlus,
+        prmr: prmr,
+        hours_worked: hoursWorked,
       });
     }
 
@@ -98,7 +183,7 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     if (!selectedFile) return;
 
     if (!selectedFile.name.endsWith('.csv')) {
-      setError('Please select a CSV file');
+      setError('Please select a CSV file. Export your Excel sheet as CSV first.');
       return;
     }
 
@@ -106,26 +191,43 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     
     try {
       const text = await selectedFile.text();
-      const rows = parseCSV(text);
+      const rows = parseCSV(text, metricType === 'efp');
       
       if (rows.length === 0) {
-        setError('No valid data rows found in CSV');
+        setError('No valid data rows found. Make sure your CSV has a "Date" column and data with activity.');
         return;
       }
 
       setParsedData(rows);
       
-      // Generate summary (will be calculated by edge function)
       setUploadSummary({
         totalRows: rows.length,
         validRows: rows.length,
         invalidRows: 0,
-        yearsSummary: {},
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse CSV');
     }
-  }, [parseCSV]);
+  }, [parseCSV, metricType]);
+
+  // Re-parse when metric type changes
+  const handleMetricTypeChange = useCallback(async (value: 'efp' | 'fp') => {
+    setMetricType(value);
+    if (file) {
+      try {
+        const text = await file.text();
+        const rows = parseCSV(text, value === 'efp');
+        setParsedData(rows);
+        setUploadSummary({
+          totalRows: rows.length,
+          validRows: rows.length,
+          invalidRows: 0,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse CSV');
+      }
+    }
+  }, [file, parseCSV]);
 
   const handleUpload = async () => {
     if (parsedData.length === 0) return;
@@ -184,11 +286,30 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
             Import Historical Data
           </DrawerTitle>
           <DrawerDescription>
-            Upload a CSV file with your past season data to enable Me vs Me comparisons
+            Upload a CSV export of your past season tracking spreadsheet
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="px-4 pb-4 space-y-4 overflow-y-auto">
+          {/* Metric Type Selection */}
+          <div className="space-y-3">
+            <Label>What metric did you track?</Label>
+            <RadioGroup value={metricType} onValueChange={(v) => handleMetricTypeChange(v as 'efp' | 'fp')}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="efp" id="efp" />
+                <Label htmlFor="efp" className="font-normal cursor-pointer">
+                  EFP (Daily PRMR ÷ 85)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="fp" id="fp" />
+                <Label htmlFor="fp" className="font-normal cursor-pointer">
+                  FP+ (Accounts sold)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* File Input */}
           <div className="space-y-2">
             <Label htmlFor="csv-file">Select CSV File</Label>
@@ -202,15 +323,18 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
           </div>
 
           {/* Expected Format */}
-          <Card className="bg-muted/50">
-            <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground mb-2">Expected CSV columns:</p>
-              <code className="text-xs block bg-background p-2 rounded">
-                date, doors_knocked, decision_makers, pitches, transitions, presentations, closes, fp_plus, prmr, hours_worked
-              </code>
-              <p className="text-xs text-muted-foreground mt-2">
-                Date format: YYYY-MM-DD or MM/DD/YYYY
-              </p>
+          <Card className="bg-muted/50 border-muted">
+            <CardContent className="pt-4 space-y-2">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground mb-1">Supported columns:</p>
+                  <p><span className="font-medium">Required:</span> Date</p>
+                  <p><span className="font-medium">Performance:</span> Actual (your {metricType === 'efp' ? 'EFP' : 'FP+'})</p>
+                  <p><span className="font-medium">Activity:</span> Doors Knocked, Decision Makers, Pitches, Transitions, Presentations, Closes</p>
+                  <p><span className="font-medium">Time:</span> Working Time (e.g., "4h 38m")</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -224,22 +348,23 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
 
           {/* Upload Summary */}
           {uploadSummary && parsedData.length > 0 && (
-            <Card>
+            <Card className="border-green-500/30 bg-green-500/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
                   Ready to Import
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  <strong>{uploadSummary.validRows}</strong> days of data found
+              <CardContent className="space-y-1">
+                <p className="text-sm">
+                  <strong>{uploadSummary.validRows}</strong> days with data found
                 </p>
-                {parsedData.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Date range: {parsedData[0].date} to {parsedData[parsedData.length - 1].date}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  {parsedData[0].date} → {parsedData[parsedData.length - 1].date}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Total {metricType === 'efp' ? 'EFP' : 'FP+'}: {parsedData.reduce((sum, r) => sum + r.fp_plus, 0).toFixed(1)}
+                </p>
               </CardContent>
             </Card>
           )}
