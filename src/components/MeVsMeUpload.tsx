@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import * as XLSX from 'xlsx';
 
 interface ParsedRow {
   date: string;
@@ -177,24 +178,48 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
     return rows;
   }, []);
 
+  const parseExcelToCSV = useCallback(async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_csv(firstSheet);
+  }, []);
+
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    if (!selectedFile.name.endsWith('.csv')) {
-      setError('Please select a CSV file. Export your Excel sheet as CSV first.');
+    const fileName = selectedFile.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    const isNumbers = fileName.endsWith('.numbers');
+
+    if (isNumbers) {
+      setError('Apple Numbers files need to be exported first. In Numbers: File → Export To → Excel (.xlsx)');
+      return;
+    }
+
+    if (!isCSV && !isExcel) {
+      setError('Please select a CSV or Excel (.xlsx) file.');
       return;
     }
 
     setFile(selectedFile);
     
     try {
-      const text = await selectedFile.text();
-      const rows = parseCSV(text, metricType === 'efp');
+      let csvText: string;
+      
+      if (isExcel) {
+        csvText = await parseExcelToCSV(selectedFile);
+      } else {
+        csvText = await selectedFile.text();
+      }
+      
+      const rows = parseCSV(csvText, metricType === 'efp');
       
       if (rows.length === 0) {
-        setError('No valid data rows found. Make sure your CSV has a "Date" column and data with activity.');
+        setError('No valid data rows found. Make sure your file has a "Date" column and data with activity.');
         return;
       }
 
@@ -206,17 +231,26 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
         invalidRows: 0,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse CSV');
+      setError(err instanceof Error ? err.message : 'Failed to parse file');
     }
-  }, [parseCSV, metricType]);
+  }, [parseCSV, parseExcelToCSV, metricType]);
 
   // Re-parse when metric type changes
   const handleMetricTypeChange = useCallback(async (value: 'efp' | 'fp') => {
     setMetricType(value);
     if (file) {
       try {
-        const text = await file.text();
-        const rows = parseCSV(text, value === 'efp');
+        const fileName = file.name.toLowerCase();
+        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+        
+        let csvText: string;
+        if (isExcel) {
+          csvText = await parseExcelToCSV(file);
+        } else {
+          csvText = await file.text();
+        }
+        
+        const rows = parseCSV(csvText, value === 'efp');
         setParsedData(rows);
         setUploadSummary({
           totalRows: rows.length,
@@ -224,10 +258,10 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
           invalidRows: 0,
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to parse CSV');
+        setError(err instanceof Error ? err.message : 'Failed to parse file');
       }
     }
-  }, [file, parseCSV]);
+  }, [file, parseCSV, parseExcelToCSV]);
 
   const handleUpload = async () => {
     if (parsedData.length === 0) return;
@@ -286,7 +320,7 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
             Import Historical Data
           </DrawerTitle>
           <DrawerDescription>
-            Upload a CSV export of your past season tracking spreadsheet
+            Upload your past season tracking spreadsheet (Excel or CSV)
           </DrawerDescription>
         </DrawerHeader>
 
@@ -312,11 +346,11 @@ export const MeVsMeUpload = ({ open, onClose }: MeVsMeUploadProps) => {
 
           {/* File Input */}
           <div className="space-y-2">
-            <Label htmlFor="csv-file">Select CSV File</Label>
+            <Label htmlFor="csv-file">Select File</Label>
             <Input
               id="csv-file"
               type="file"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls"
               onChange={handleFileChange}
               disabled={isUploading}
             />
