@@ -193,21 +193,42 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     };
   }, [goals, cumulativeData, plannedDays, today]);
 
-  // Build a map of historical data by season type + week + day for matching
+  // Build a map of historical data by "days since season start" for proper alignment
+  // This uses the day number within the season (0-indexed) to match current year to historical
   // NOTE: This hook must be called before any early returns to maintain hook order
-  const historicalMap = useMemo(() => {
+  const historicalByDayNumber = useMemo(() => {
     if (!historicalData || historicalData.length === 0) {
-      return new Map<string, number>();
+      return new Map<number, number>();
     }
-    const map = new Map<string, number>();
+    const map = new Map<number, number>();
     historicalData.forEach(entry => {
-      // Key format: seasonType-week-dayOfWeek (e.g., "preseason-1-1" for preseason week 1 Monday)
-      const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
+      // Calculate day number from season start: (week-1)*7 + dayOfWeek
+      const dayNumber = (entry.seasonWeek - 1) * 7 + entry.dayOfWeek;
       const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
-      map.set(key, value);
+      map.set(dayNumber, value);
     });
     return map;
   }, [historicalData, metricType]);
+  
+  // Get cumulative historical value for a given day number (carries forward last known value)
+  const getHistoricalCumulativeForDay = (dayNumber: number): number | undefined => {
+    if (historicalByDayNumber.size === 0) return undefined;
+    
+    // If exact match exists, use it
+    if (historicalByDayNumber.has(dayNumber)) {
+      return historicalByDayNumber.get(dayNumber);
+    }
+    
+    // Otherwise find the last known value before this day
+    let lastValue: number | undefined;
+    for (let d = dayNumber - 1; d >= 0; d--) {
+      if (historicalByDayNumber.has(d)) {
+        lastValue = historicalByDayNumber.get(d);
+        break;
+      }
+    }
+    return lastValue;
+  };
 
   // Determine which grouping options are available based on data length
   const hasEnoughForWeek = (cumulativeData?.length || 0) >= 7;
@@ -259,12 +280,12 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         
-        // Get matching historical value by season type + week + day
+        // Get matching historical value by day number within season
         const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
         let historicalCumulative: number | undefined;
-        if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
-          const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
-          historicalCumulative = historicalMap.get(key);
+        if (showHistoricalLine && seasonInfo && historicalByDayNumber.size > 0) {
+          const dayNumber = (seasonInfo.week - 1) * 7 + seasonInfo.dayOfWeek;
+          historicalCumulative = getHistoricalCumulativeForDay(dayNumber);
         }
         
         return {
@@ -296,12 +317,12 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         ? point.cumulative 
         : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
       
-      // Get matching historical value by season type + week + day
+      // Get matching historical value by day number within season
       const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
       let historicalCumulative: number | undefined;
-      if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
-        const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
-        historicalCumulative = historicalMap.get(key);
+      if (showHistoricalLine && seasonInfo && historicalByDayNumber.size > 0) {
+        const dayNumber = (seasonInfo.week - 1) * 7 + seasonInfo.dayOfWeek;
+        historicalCumulative = getHistoricalCumulativeForDay(dayNumber);
       }
       
       if (!grouped[key]) {
