@@ -193,16 +193,20 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     };
   }, [goals, cumulativeData, plannedDays, today]);
 
-  // Build an array of historical cumulative values by knocking day index
+  // Build a map of historical data by season type + week + day for matching
   // NOTE: This hook must be called before any early returns to maintain hook order
-  const historicalCumulativeArray = useMemo(() => {
+  const historicalMap = useMemo(() => {
     if (!historicalData || historicalData.length === 0) {
-      return [];
+      return new Map<string, number>();
     }
-    // Return cumulative values in order by knocking day
-    return historicalData.map(entry => 
-      metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr
-    );
+    const map = new Map<string, number>();
+    historicalData.forEach(entry => {
+      // Key format: seasonType-week-dayOfWeek (e.g., "preseason-1-1" for preseason week 1 Monday)
+      const key = `${entry.seasonType}-${entry.seasonWeek}-${entry.dayOfWeek}`;
+      const value = metricType === 'primary' ? entry.cumulativeFp : entry.cumulativePrmr;
+      map.set(key, value);
+    });
+    return map;
   }, [historicalData, metricType]);
 
   // Determine which grouping options are available based on data length
@@ -255,10 +259,12 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
           ? point.cumulative 
           : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
         
-        // Get matching historical value by knocking day index
+        // Get matching historical value by season type + week + day
+        const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
         let historicalCumulative: number | undefined;
-        if (showHistoricalLine && historicalCumulativeArray.length > 0 && idx < historicalCumulativeArray.length) {
-          historicalCumulative = historicalCumulativeArray[idx];
+        if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
+          const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
+          historicalCumulative = historicalMap.get(key);
         }
         
         return {
@@ -290,10 +296,12 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
         ? point.cumulative 
         : (efpModeEnabled ? point.cumulativeFp : point.cumulativePrmr);
       
-      // Get matching historical value by knocking day index
+      // Get matching historical value by season type + week + day
+      const seasonInfo = getSeasonInfo(parseLocalDate(point.date));
       let historicalCumulative: number | undefined;
-      if (showHistoricalLine && historicalCumulativeArray.length > 0 && idx < historicalCumulativeArray.length) {
-        historicalCumulative = historicalCumulativeArray[idx];
+      if (showHistoricalLine && seasonInfo && historicalMap.size > 0) {
+        const key = `${seasonInfo.type}-${seasonInfo.week}-${seasonInfo.dayOfWeek}`;
+        historicalCumulative = historicalMap.get(key);
       }
       
       if (!grouped[key]) {
