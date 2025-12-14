@@ -209,6 +209,69 @@ export type Database = {
         }
         Relationships: []
       }
+      historical_entries: {
+        Row: {
+          closes: number | null
+          created_at: string | null
+          day_of_week: number
+          decision_makers: number | null
+          doors_knocked: number | null
+          fp_plus: number | null
+          hours_worked: number | null
+          id: string
+          original_date: string
+          pitches: number | null
+          presentations: number | null
+          prmr: number | null
+          season_type: string
+          season_week: number
+          season_year: number
+          transitions: number | null
+          upgrade_prmr: number | null
+          user_id: string
+        }
+        Insert: {
+          closes?: number | null
+          created_at?: string | null
+          day_of_week: number
+          decision_makers?: number | null
+          doors_knocked?: number | null
+          fp_plus?: number | null
+          hours_worked?: number | null
+          id?: string
+          original_date: string
+          pitches?: number | null
+          presentations?: number | null
+          prmr?: number | null
+          season_type: string
+          season_week: number
+          season_year: number
+          transitions?: number | null
+          upgrade_prmr?: number | null
+          user_id: string
+        }
+        Update: {
+          closes?: number | null
+          created_at?: string | null
+          day_of_week?: number
+          decision_makers?: number | null
+          doors_knocked?: number | null
+          fp_plus?: number | null
+          hours_worked?: number | null
+          id?: string
+          original_date?: string
+          pitches?: number | null
+          presentations?: number | null
+          prmr?: number | null
+          season_type?: string
+          season_week?: number
+          season_year?: number
+          transitions?: number | null
+          upgrade_prmr?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       note_tags: {
         Row: {
           created_at: string
@@ -619,6 +682,7 @@ export type Database = {
           intro_seen: boolean | null
           ipad_assigned: boolean | null
           last_nudge_time: string | null
+          me_vs_me_enabled: boolean | null
           name: string
           notion_page_id: string | null
           nudge_leader: boolean | null
@@ -670,6 +734,7 @@ export type Database = {
           intro_seen?: boolean | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
+          me_vs_me_enabled?: boolean | null
           name: string
           notion_page_id?: string | null
           nudge_leader?: boolean | null
@@ -721,6 +786,7 @@ export type Database = {
           intro_seen?: boolean | null
           ipad_assigned?: boolean | null
           last_nudge_time?: string | null
+          me_vs_me_enabled?: boolean | null
           name?: string
           notion_page_id?: string | null
           nudge_leader?: boolean | null

@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { MeVsMeSettings } from "@/components/MeVsMeSettings";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -700,6 +701,10 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Me vs Me Settings - Only for vets/sophomores */}
+        {repData?.year !== 'Rookie' && <MeVsMeSettings />}
+
         {/* Summer Season Dates - Collapsible */}
         <Card>
           <Collapsible open={isSummerDatesOpen} onOpenChange={setIsSummerDatesOpen}>

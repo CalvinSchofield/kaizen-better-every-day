@@ -1,0 +1,165 @@
+import { differenceInCalendarDays, startOfWeek, getDay, parseISO, format, addDays } from 'date-fns';
+
+// Season definitions - Monday of week 1 for each season
+const SEASON_DEFINITIONS: Record<number, { preseason: Date; summer: Date; extension: Date }> = {
+  2025: {
+    preseason: new Date(2024, 8, 30), // Sept 30, 2024 (Monday)
+    summer: new Date(2025, 3, 14),    // Apr 14, 2025 (Monday)
+    extension: new Date(2025, 8, 1),  // Sept 1, 2025 (Monday)
+  },
+  2026: {
+    preseason: new Date(2025, 8, 29), // Sept 29, 2025 (Monday)
+    summer: new Date(2026, 3, 13),    // Apr 13, 2026 (Monday)
+    extension: new Date(2026, 7, 31), // Aug 31, 2026 (Monday)
+  },
+};
+
+export type SeasonType = 'preseason' | 'summer' | 'extension';
+
+export interface SeasonInfo {
+  year: number;
+  type: SeasonType;
+  week: number;
+  dayOfWeek: number; // 1 (Monday) through 6 (Saturday), 0 for Sunday
+}
+
+/**
+ * Get the season week start date for a given year and season type
+ */
+export function getSeasonStartDate(year: number, seasonType: SeasonType): Date | null {
+  const yearDef = SEASON_DEFINITIONS[year];
+  if (!yearDef) return null;
+  return yearDef[seasonType];
+}
+
+/**
+ * Determine which season a date falls into
+ */
+export function getSeasonInfo(date: Date): SeasonInfo | null {
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  // Try to find which season this date belongs to
+  for (const [yearStr, seasons] of Object.entries(SEASON_DEFINITIONS)) {
+    const year = parseInt(yearStr);
+    
+    // Check extension first (latest in year)
+    if (dateOnly >= seasons.extension) {
+      const daysSinceStart = differenceInCalendarDays(dateOnly, seasons.extension);
+      const week = Math.floor(daysSinceStart / 7) + 1;
+      const dayOfWeek = getDay(dateOnly); // 0 = Sunday, 1 = Monday, etc.
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 0 : dayOfWeek; // Keep Sunday as 0
+      
+      return { year, type: 'extension', week, dayOfWeek: adjustedDayOfWeek };
+    }
+    
+    // Check summer
+    if (dateOnly >= seasons.summer) {
+      const daysSinceStart = differenceInCalendarDays(dateOnly, seasons.summer);
+      const week = Math.floor(daysSinceStart / 7) + 1;
+      const dayOfWeek = getDay(dateOnly);
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 0 : dayOfWeek;
+      
+      return { year, type: 'summer', week, dayOfWeek: adjustedDayOfWeek };
+    }
+    
+    // Check preseason (may start in previous calendar year)
+    if (dateOnly >= seasons.preseason) {
+      const daysSinceStart = differenceInCalendarDays(dateOnly, seasons.preseason);
+      const week = Math.floor(daysSinceStart / 7) + 1;
+      const dayOfWeek = getDay(dateOnly);
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 0 : dayOfWeek;
+      
+      return { year, type: 'preseason', week, dayOfWeek: adjustedDayOfWeek };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Map a current date to its equivalent date in a comparison year
+ * Returns the date in the comparison year that has the same season week and day
+ */
+export function mapToComparisonDate(currentDate: Date, comparisonYear: number): Date | null {
+  const currentSeasonInfo = getSeasonInfo(currentDate);
+  if (!currentSeasonInfo) return null;
+  
+  const comparisonSeasonStart = getSeasonStartDate(comparisonYear, currentSeasonInfo.type);
+  if (!comparisonSeasonStart) return null;
+  
+  // Calculate days from season start
+  const daysFromStart = (currentSeasonInfo.week - 1) * 7 + (currentSeasonInfo.dayOfWeek === 0 ? 6 : currentSeasonInfo.dayOfWeek - 1);
+  
+  return addDays(comparisonSeasonStart, daysFromStart);
+}
+
+/**
+ * Get the equivalent season week/day for a given date in another year
+ */
+export function getComparisonSeasonInfo(currentDate: Date, comparisonYear: number): SeasonInfo | null {
+  const currentSeasonInfo = getSeasonInfo(currentDate);
+  if (!currentSeasonInfo) return null;
+  
+  return {
+    year: comparisonYear,
+    type: currentSeasonInfo.type,
+    week: currentSeasonInfo.week,
+    dayOfWeek: currentSeasonInfo.dayOfWeek,
+  };
+}
+
+/**
+ * Format a date for display in season context
+ */
+export function formatSeasonDate(date: Date): string {
+  const info = getSeasonInfo(date);
+  if (!info) return format(date, 'MMM d, yyyy');
+  
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayName = dayNames[getDay(date)];
+  
+  return `${info.type.charAt(0).toUpperCase() + info.type.slice(1)} Week ${info.week}, ${dayName}`;
+}
+
+/**
+ * Parse CSV date string to Date object
+ */
+export function parseCSVDate(dateStr: string): Date | null {
+  try {
+    // Try common formats
+    if (dateStr.includes('/')) {
+      // MM/DD/YYYY or M/D/YYYY
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[0]) - 1;
+        const day = parseInt(parts[1]);
+        const year = parseInt(parts[2]);
+        return new Date(year, month, day);
+      }
+    } else if (dateStr.includes('-')) {
+      // YYYY-MM-DD
+      return parseISO(dateStr);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calculate hours worked from start/end times
+ */
+export function calculateHoursWorked(startTime: string | null, endTime: string | null, breakMinutes: number = 0): number {
+  if (!startTime || !endTime) return 0;
+  
+  try {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffMs = end.getTime() - start.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const breakHours = breakMinutes / 60;
+    return Math.max(0, diffHours - breakHours);
+  } catch {
+    return 0;
+  }
+}
