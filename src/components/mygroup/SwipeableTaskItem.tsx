@@ -7,6 +7,7 @@ import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { SkipMenu } from "./SkipMenu";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -30,6 +31,8 @@ interface SwipeableTaskItemProps {
   onContact?: (recruit: Recruit) => void;
   onDirectCall?: (recruit: Recruit) => void;
   onDirectText?: (recruit: Recruit) => void;
+  onSkipForNow?: (recruit: Recruit) => void;
+  onSkipToday?: (recruit: Recruit) => void;
   showSwipeDemo?: boolean;
   onDemoComplete?: () => void;
   isOverdue?: boolean;
@@ -46,6 +49,8 @@ export const SwipeableTaskItem = ({
   onContact,
   onDirectCall,
   onDirectText,
+  onSkipForNow,
+  onSkipToday,
   showSwipeDemo = false,
   onDemoComplete,
   isOverdue = false,
@@ -237,6 +242,13 @@ export const SwipeableTaskItem = ({
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
+            {(onSkipForNow || onSkipToday) && (
+              <SkipMenu
+                onSkipForNow={() => onSkipForNow?.(recruit)}
+                onSkipToday={() => onSkipToday?.(recruit)}
+                className="h-8 w-8"
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"

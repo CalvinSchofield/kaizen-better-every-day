@@ -70,6 +70,9 @@ interface WeekPlannerSectionProps {
   onDismiss?: (recruit: Recruit, message: string) => void;
   // Recommendations passed from parent (already filtered, excluding hero at index 0)
   recommendations?: ReturnType<typeof useRecruitingRecommendations>;
+  // Skip handlers from parent
+  onSkipForNow?: (recruit: Recruit) => void;
+  onSkipToday?: (recruit: Recruit) => void;
 }
 
 export const WeekPlannerSection = ({ 
@@ -81,6 +84,8 @@ export const WeekPlannerSection = ({
   dismissedIds,
   onDismiss,
   recommendations: passedRecommendations,
+  onSkipForNow,
+  onSkipToday,
 }: WeekPlannerSectionProps) => {
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const handleDemoComplete = useCallback(() => setShowSwipeHint(false), []);
@@ -413,6 +418,8 @@ export const WeekPlannerSection = ({
                       onRecruitClick={handleLocalRecruitClick}
                       onContact={handleSwipeContact}
                       onSchedule={handleSwipeSchedule}
+                      onSkipForNow={onSkipForNow}
+                      onSkipToday={onSkipToday}
                       showSwipeDemo={index === 0 && todayTasks.length === 0}
                       onDemoComplete={handleDemoComplete}
                     />

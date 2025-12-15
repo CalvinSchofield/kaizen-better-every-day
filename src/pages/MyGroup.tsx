@@ -9,6 +9,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useNeedsAttention, RepData, RepSummerConfigData } from "@/hooks/useNeedsAttention";
 import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
+import { useSkippedRecruits } from "@/hooks/useSkippedRecruits";
 import { useAssignedTasks } from "@/hooks/useAssignedTasks";
 import { useRecruitActivitiesRealtime, useRecruitSuggestionsRealtime, useRepsRealtime } from "@/hooks/useRecruitActivitiesRealtime";
 import { Button } from "@/components/ui/button";
@@ -300,6 +301,9 @@ const MyGroup = () => {
 
   // Dismissed recruits for Today's Focus
   const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed } = useDismissedRecruits();
+  
+  // Temporary skip system for "skip for now" and "skip today"
+  const { skipForNow, skipToday, isSkipped } = useSkippedRecruits();
 
   // Calculate needs attention metrics for chips - use allBlitzesIncludingPast to properly detect past attendance
   const { categories, totalCount } = useNeedsAttention(
@@ -311,7 +315,7 @@ const MyGroup = () => {
     repSummerConfigMap
   );
 
-  // Get smart recommendations with blitz awareness, filtering out dismissed ones
+  // Get smart recommendations with blitz awareness, filtering out dismissed and skipped ones
   const rawRecommendations = useRecruitingRecommendations(
     filteredRecruits, 
     filteredActivities,
@@ -319,8 +323,10 @@ const MyGroup = () => {
     repDataMap
   );
   const recommendations = useMemo(() => {
-    return rawRecommendations.filter(r => !isRecuitDismissed(r.recruit.notionPageId));
-  }, [rawRecommendations, isRecuitDismissed]);
+    return rawRecommendations.filter(r => 
+      !isRecuitDismissed(r.recruit.notionPageId) && !isSkipped(r.recruit.notionPageId)
+    );
+  }, [rawRecommendations, isRecuitDismissed, isSkipped]);
 
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
@@ -468,6 +474,8 @@ const MyGroup = () => {
               onViewAll={() => setQuickViewOpen(true)}
               onContactClick={handleHeroContact}
               onScheduleClick={handleHeroSchedule}
+              onSkipForNow={(recruit) => skipForNow(recruit.notionPageId)}
+              onSkipToday={(recruit) => skipToday(recruit.notionPageId)}
               animatingOut={heroAnimatingOut}
             />
 
@@ -501,6 +509,8 @@ const MyGroup = () => {
               dismissedIds={dismissedIds}
               onDismiss={handleWeekPlannerDismiss}
               recommendations={recommendations.slice(1)}
+              onSkipForNow={(recruit) => skipForNow(recruit.notionPageId)}
+              onSkipToday={(recruit) => skipToday(recruit.notionPageId)}
             />
 
             {/* Pending Suggestions */}

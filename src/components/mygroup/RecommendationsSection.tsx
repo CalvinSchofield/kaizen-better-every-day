@@ -14,6 +14,8 @@ interface RecommendationsSectionProps {
   maxItems?: number;
   dismissedIds?: Set<string>;
   onDismiss?: (recruit: Recruit, message: string) => void;
+  onSkipForNow?: (recruit: Recruit) => void;
+  onSkipToday?: (recruit: Recruit) => void;
 }
 
 export const RecommendationsSection = ({ 
@@ -22,6 +24,8 @@ export const RecommendationsSection = ({
   maxItems = 5,
   dismissedIds,
   onDismiss,
+  onSkipForNow,
+  onSkipToday,
 }: RecommendationsSectionProps) => {
   // Contact method drawer state (Call/Text/In Person options)
   const [contactRecruit, setContactRecruit] = useState<Recruit | null>(null);
@@ -179,6 +183,8 @@ export const RecommendationsSection = ({
                   onSchedule={handleSchedule}
                   onDirectCall={handleDirectCall}
                   onDirectText={handleDirectText}
+                  onSkipForNow={onSkipForNow}
+                  onSkipToday={onSkipToday}
                 />
               </motion.div>
             ))}
