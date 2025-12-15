@@ -90,12 +90,14 @@ export const BlitzCountdown = ({
   }, [tripDate, tripLocation, tripEndDate]);
 
   const getCompactMessage = () => {
-    if (daysUntil === null || daysUntil < 0 || !tripName || !tripLocation) {
+    if (daysUntil === null || !tripName || !tripLocation) {
       return "No blitz scheduled yet";
     }
     
     const locationName = tripLocation.split(',')[0]; // Get just city name
     
+    // If negative days (blitz already started but within the trip), show "this week"
+    if (daysUntil < 0) return `${locationName} this week — you got this!`;
     if (daysUntil === 0) return `${locationName} starts today — you got this!`;
     if (daysUntil === 1) return `${locationName} tomorrow — prep makes perfect`;
     if (daysUntil <= 7) return `${locationName} in ${daysUntil} days — prep makes perfect`;
@@ -118,11 +120,13 @@ export const BlitzCountdown = ({
     return "Perfect knocking weather — prep your pitch and pack smart!";
   };
 
-  const shouldShowWeather = weather.length > 0 && daysUntil !== null && daysUntil > 0 && daysUntil <= 14;
-  const hasBlitz = tripName && tripDate && daysUntil !== null && daysUntil >= 0;
+  // Show weather if trip is upcoming or ongoing (daysUntil can be negative if mid-trip)
+  const shouldShowWeather = weather.length > 0 && daysUntil !== null && daysUntil <= 14;
+  const hasBlitz = tripName && tripDate && daysUntil !== null;
 
   const getEmoji = () => {
     if (!hasBlitz) return "📅";
+    if (daysUntil !== null && daysUntil < 0) return "🔥"; // Ongoing blitz
     if (daysUntil === 0) return "🎯";
     if (daysUntil && daysUntil <= 3) return "🚀";
     if (daysUntil && daysUntil <= 7) return "⚡";

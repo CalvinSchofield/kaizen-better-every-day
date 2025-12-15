@@ -620,7 +620,11 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             
             const locationName = nextBlitz.location?.split(',')[0] || 'Your blitz';
             
-            if (diffDays === 0) {
+            if (diffDays < 0) {
+              // Currently mid-blitz
+              ctaText = `${locationName} this week — you got this!`;
+              ctaIcon = "🔥";
+            } else if (diffDays === 0) {
               ctaText = `${locationName} today — you got this!`;
               ctaIcon = "🔥";
             } else if (diffDays === 1) {

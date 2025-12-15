@@ -843,19 +843,14 @@ const BlitzPrepProgressItem = ({
                 {item.recruit.stage}
               </Badge>
             </div>
-            {/* Blitz commitment indicator */}
-            {hasBlitzCommitted && item.blitzName && item.daysUntilBlitz !== undefined ? (
+            {/* Blitz commitment indicator - only show if has blitz with proximity */}
+            {hasBlitzCommitted && item.blitzName && item.daysUntilBlitz !== undefined && item.daysUntilBlitz >= 0 && (
               <Badge 
                 variant={item.daysUntilBlitz <= 7 ? "destructive" : item.daysUntilBlitz <= 14 ? "default" : "secondary"}
                 className="text-xs"
               >
                 <Plane className="w-3 h-3 mr-1" />
-                {item.blitzName} in {item.daysUntilBlitz}d
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600 dark:text-amber-400">
-                <Calendar className="w-3 h-3 mr-1" />
-                No blitz committed
+                {item.daysUntilBlitz === 0 ? `${item.blitzName} today` : `${item.blitzName} in ${item.daysUntilBlitz}d`}
               </Badge>
             )}
           </div>

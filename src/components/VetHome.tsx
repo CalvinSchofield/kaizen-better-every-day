@@ -132,7 +132,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     return endDate < new Date();
   });
 
-  const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const daysUntilBlitz = nextBlitz ? getDaysUntilBlitz(nextBlitz.date) : null;
 
   // Fetch weather when blitz is within 8 days OR when weather sheet opens
   useEffect(() => {
@@ -599,7 +599,11 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             
             const locationName = nextBlitz.location?.split(',')[0] || 'Your blitz';
             
-            if (diffDays === 0) {
+            if (diffDays < 0) {
+              // Currently mid-blitz
+              ctaText = `${locationName} this week — you got this!`;
+              ctaIcon = "🔥";
+            } else if (diffDays === 0) {
               ctaText = `${locationName} today — you got this!`;
               ctaIcon = "🔥";
             } else if (diffDays === 1) {
