@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Exit stages that should be completely skipped - leader manually set these
+const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
+
+// Check if stage is an exit stage (case-insensitive)
+const isExitStage = (stage: string | null): boolean => {
+  if (!stage) return false;
+  return EXIT_STAGES.some(es => es.toLowerCase() === stage.toLowerCase());
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,6 +51,33 @@ Deno.serve(async (req) => {
 
     console.log(`Logging attendance for blitz: ${blitzName} (${blitzId}), end date: ${blitzEndDate}`);
 
+    // Get the current user's rep record to check processed_blitz_ids
+    const { data: currentUserRep } = await supabase
+      .from("reps")
+      .select("notion_page_id, processed_blitz_ids")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // Check if this blitz was already processed (database check, not localStorage)
+    const processedBlitzIds = (currentUserRep?.processed_blitz_ids as string[]) || [];
+    if (processedBlitzIds.includes(blitzId)) {
+      console.log(`Blitz ${blitzName} already processed for this user, skipping`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          blitzName,
+          attendeesCount: 0,
+          loggedCount: 0,
+          skipped: true,
+          reason: "Already processed",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
     // Fetch all reps from Notion who have this blitz in their Preseason Trips
     const repsResponse = await fetch(
       `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
@@ -75,13 +111,21 @@ Deno.serve(async (req) => {
     console.log(`Found ${attendees.length} attendees for blitz ${blitzName}`);
 
     const activityDate = blitzEndDate || new Date().toISOString().split('T')[0];
-    const results: { name: string; success: boolean; error?: string }[] = [];
+    const results: { name: string; success: boolean; error?: string; skipped?: boolean }[] = [];
 
     for (const rep of attendees) {
       const repNotionId = rep.id;
       const repName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
+      const repStage = rep.properties?.Stage?.select?.name || null;
 
       try {
+        // SKIP ENTIRELY if recruit is in an exit stage
+        if (isExitStage(repStage)) {
+          console.log(`Skipping ${repName} - in exit stage "${repStage}"`);
+          results.push({ name: repName, success: true, skipped: true, error: `In exit stage: ${repStage}` });
+          continue;
+        }
+
         // Check if we already logged attendance for this rep + blitz
         const { data: existingActivity } = await supabase
           .from("recruit_activities")
@@ -89,7 +133,7 @@ Deno.serve(async (req) => {
           .eq("rep_notion_page_id", repNotionId)
           .eq("activity_type", "in_person")
           .ilike("notes", `%${blitzName}%`)
-          .single();
+          .maybeSingle();
 
         if (existingActivity) {
           console.log(`Already logged attendance for ${repName} at ${blitzName}`);
@@ -148,8 +192,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    console.log(`Completed: ${successCount}/${attendees.length} attendees logged`);
+    // Mark this blitz as processed in the database (persists across devices)
+    if (currentUserRep?.notion_page_id) {
+      const updatedProcessedIds = [...processedBlitzIds, blitzId];
+      const { error: updateError } = await supabase
+        .from("reps")
+        .update({ processed_blitz_ids: updatedProcessedIds })
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        console.error("Failed to update processed_blitz_ids:", updateError);
+      } else {
+        console.log(`Marked blitz ${blitzId} as processed in database`);
+      }
+    }
+
+    const successCount = results.filter(r => r.success && !r.skipped).length;
+    const skippedCount = results.filter(r => r.skipped).length;
+    console.log(`Completed: ${successCount} logged, ${skippedCount} skipped (exit stages)`);
 
     return new Response(
       JSON.stringify({
@@ -157,6 +217,7 @@ Deno.serve(async (req) => {
         blitzName,
         attendeesCount: attendees.length,
         loggedCount: successCount,
+        skippedCount,
         results,
       }),
       {
