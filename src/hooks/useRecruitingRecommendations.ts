@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, differenceInCalendarDays, parseISO, startOfDay, isAfter, format, isSameDay } from "date-fns";
+import { parseISO, isAfter, format, isSameDay, startOfDay } from "date-fns";
+import { getDaysUntilBlitz, getDaysSinceDate, getTodayDateString } from "@/utils/blitzDateUtils";
 
 export interface RecruitRecommendation {
   recruit: Recruit;
@@ -94,18 +95,16 @@ export const useRecruitingRecommendations = (
 
     // Find upcoming blitzes within 21 days for blitz proximity checks
     const upcomingBlitzes = (blitzes || []).filter(b => {
-      const blitzDate = startOfDay(parseISO(b.date));
-      const daysUntil = differenceInCalendarDays(blitzDate, today);
-      return daysUntil >= 0 && daysUntil <= 21;
+      const daysUntil = getDaysUntilBlitz(b.date);
+      return daysUntil !== null && daysUntil >= 0 && daysUntil <= 21;
     });
     
     console.log('[Recommendations] Upcoming blitzes (within 21 days):', upcomingBlitzes.map(b => ({ id: b.id, name: b.name, date: b.date })));
 
     recruits.forEach(recruit => {
       const lastContact = lastContactMap.get(recruit.notionPageId);
-      const daysSinceContact = lastContact 
-        ? differenceInDays(now, lastContact)
-        : null;
+      const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
+      const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
       
       // Check if recruit has a follow-up scheduled for AFTER today
       // If so, skip them - there's nothing to do until that date
@@ -171,9 +170,9 @@ export const useRecruitingRecommendations = (
         // Find nearest committed blitz
         for (const blitz of upcomingBlitzes) {
           if (committedBlitzIds.includes(blitz.id)) {
-            const days = differenceInCalendarDays(startOfDay(parseISO(blitz.date)), today);
+            const days = getDaysUntilBlitz(blitz.date);
             console.log(`[Recommendations] ${recruit.name} matches blitz ${blitz.name} in ${days} days`);
-            if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
+            if (days !== null && days >= 0 && (nearestBlitzDays === undefined || days < nearestBlitzDays)) {
               nearestBlitzDays = days;
               nearestBlitzName = blitz.name;
               hasUpcomingBlitz = true;

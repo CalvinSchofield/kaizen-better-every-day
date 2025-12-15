@@ -26,7 +26,9 @@ const getCachedWeather = (): CachedWeather | null => {
     const cached = localStorage.getItem(WEATHER_CACHE_KEY);
     if (!cached) return null;
     const parsed = JSON.parse(cached) as CachedWeather;
-    const today = new Date().toISOString().split("T")[0];
+    // Use local timezone for date comparison
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     // Check if cache is valid (same day and not expired)
     if (parsed.date === today && Date.now() - parsed.timestamp < WEATHER_CACHE_DURATION) {
       return parsed;
@@ -39,10 +41,11 @@ const getCachedWeather = (): CachedWeather | null => {
 
 const setCachedWeather = (data: CachedWeather['data']) => {
   try {
+    const now = new Date();
     const cache: CachedWeather = {
       data,
       timestamp: Date.now(),
-      date: new Date().toISOString().split("T")[0],
+      date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     };
     localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cache));
   } catch {
@@ -101,7 +104,9 @@ export const KnockingModeWeatherCard = ({ repData, isOnActiveBlitz }: KnockingMo
       }
 
       try {
-        const today = new Date().toISOString().split("T")[0];
+        // Use local timezone for date
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         let requestBody: any = {
           startDate: today,
           endDate: today,
