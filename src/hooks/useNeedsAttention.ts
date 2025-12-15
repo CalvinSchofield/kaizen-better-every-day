@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Recruit, RecruitActivity } from "./useGroupRecruits";
-import { differenceInDays, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
+import { getDaysUntilBlitz, getDaysSinceDate, getTodayDateString } from "@/utils/blitzDateUtils";
 
 export interface AttentionCategory {
   id: string;
@@ -131,11 +132,10 @@ export const useNeedsAttention = (
       }
     });
 
-    // Find upcoming blitzes within 30 days
+    // Find upcoming blitzes within 30 days using timezone-aware calculation
     const upcomingBlitzes = blitzes.filter(b => {
-      const blitzDate = parseISO(b.date);
-      const daysUntil = differenceInDays(blitzDate, now);
-      return daysUntil >= 0 && daysUntil <= 30;
+      const daysUntil = getDaysUntilBlitz(b.date);
+      return daysUntil !== null && daysUntil >= 0 && daysUntil <= 30;
     });
 
     // 1. Onboarding - Rookies still completing foundational onboarding items
@@ -221,17 +221,18 @@ export const useNeedsAttention = (
       let nearestBlitzName: string | undefined;
       for (const blitz of upcomingBlitzes) {
         if (committedBlitzIds.includes(blitz.id)) {
-          const days = differenceInDays(parseISO(blitz.date), now);
-          if (nearestBlitzDays === undefined || days < nearestBlitzDays) {
+          const days = getDaysUntilBlitz(blitz.date);
+          if (days !== null && days >= 0 && (nearestBlitzDays === undefined || days < nearestBlitzDays)) {
             nearestBlitzDays = days;
             nearestBlitzName = blitz.name;
           }
         }
       }
       
-      // Get days since last contact
+      // Get days since last contact using timezone-aware calculation
       const lastContact = lastContactMap.get(recruit.notionPageId);
-      const daysSinceContact = lastContact ? differenceInDays(now, lastContact) : undefined;
+      const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
+      const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) ?? undefined : undefined;
       
       // Higher urgency if they have a blitz coming up or are missing iPad
       const hasUpcomingBlitz = nearestBlitzDays !== undefined && nearestBlitzDays <= 21;
@@ -333,8 +334,8 @@ export const useNeedsAttention = (
       
       for (const blitz of upcomingBlitzes) {
         if (committedBlitzIds.includes(blitz.id)) {
-          const daysUntil = differenceInDays(parseISO(blitz.date), now);
-          if (daysUntil >= 0 && daysUntil <= 30) {
+          const daysUntil = getDaysUntilBlitz(blitz.date);
+          if (daysUntil !== null && daysUntil >= 0 && daysUntil <= 30) {
             if (!nearestCommittedBlitz || daysUntil < nearestCommittedBlitz.daysUntil) {
               nearestCommittedBlitz = { blitz, daysUntil };
             }
@@ -431,7 +432,8 @@ export const useNeedsAttention = (
       }
 
       const lastContact = lastContactMap.get(recruit.notionPageId);
-      const daysSince = lastContact ? differenceInDays(now, lastContact) : null;
+      const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
+      const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
 
       const thresholds: Record<string, number> = {
         'Signed': 7,
@@ -622,7 +624,8 @@ export const useNeedsAttention = (
     
     recruits.filter(r => r.stage === 'Evaluating').forEach(recruit => {
       const lastContact = lastContactMap.get(recruit.notionPageId);
-      const daysSince = lastContact ? differenceInDays(now, lastContact) : null;
+      const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
+      const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
 
       const firstName = recruit.name?.split(' ')[0] || 'Recruit';
       let reason: string;

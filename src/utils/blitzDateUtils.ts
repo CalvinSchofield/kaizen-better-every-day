@@ -1,10 +1,8 @@
-import { startOfDay, differenceInCalendarDays, parseISO, isValid } from "date-fns";
-
 /**
  * Calculate the number of calendar days until a blitz starts.
- * This counts calendar days, not 24-hour periods.
+ * Uses the user's local timezone for accurate day counting.
  * 
- * Examples:
+ * Examples (in user's local timezone):
  * - If today is Saturday and blitz is Sunday: returns 1 ("tomorrow")
  * - If today is Saturday and blitz is Saturday: returns 0 ("today")
  * - If today is Saturday and blitz is Monday: returns 2
@@ -20,16 +18,31 @@ export const getDaysUntilBlitz = (
   if (!blitzDateStr) return null;
   
   try {
-    // Parse the blitz date as a local date (no timezone offset)
-    const blitzDate = parseISO(blitzDateStr);
-    if (!isValid(blitzDate)) return null;
+    // Get user's local timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     
-    // Use startOfDay to compare calendar days, not exact times
-    const todayStart = startOfDay(fromDate);
-    const blitzStart = startOfDay(blitzDate);
+    // Get today's date string in user's local timezone
+    const todayFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: userTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const todayStr = todayFormatter.format(fromDate); // Returns YYYY-MM-DD in en-CA locale
     
-    // differenceInCalendarDays counts calendar days properly
-    return differenceInCalendarDays(blitzStart, todayStart);
+    // Parse both dates as YYYY-MM-DD (treating them as local dates)
+    const [todayYear, todayMonth, todayDay] = todayStr.split('-').map(Number);
+    const [blitzYear, blitzMonth, blitzDay] = blitzDateStr.split('-').map(Number);
+    
+    // Create dates at noon (to avoid DST edge cases) for comparison
+    const todayDate = new Date(todayYear, todayMonth - 1, todayDay, 12, 0, 0);
+    const blitzDate = new Date(blitzYear, blitzMonth - 1, blitzDay, 12, 0, 0);
+    
+    // Calculate difference in days
+    const diffTime = blitzDate.getTime() - todayDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
   } catch (e) {
     console.error('[getDaysUntilBlitz] Error calculating days:', e);
     return null;
@@ -60,4 +73,36 @@ export const formatDaysUntilBlitzShort = (days: number | null): string => {
   if (days === 0) return 'today';
   if (days === 1) return '1d';
   return `${days}d`;
+};
+
+/**
+ * Get the current date as YYYY-MM-DD string in user's local timezone.
+ * Use this for consistent date comparisons throughout the app.
+ */
+export const getTodayDateString = (): string => {
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: userTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+};
+
+/**
+ * Calculate days since a date string in user's local timezone.
+ * @param dateStr The date as YYYY-MM-DD string
+ * @returns Number of days since the date, or null if invalid
+ */
+export const getDaysSinceDate = (dateStr: string | null | undefined): number | null => {
+  if (!dateStr) return null;
+  
+  try {
+    const daysUntil = getDaysUntilBlitz(dateStr);
+    if (daysUntil === null) return null;
+    return -daysUntil; // Negate to get "days since" instead of "days until"
+  } catch (e) {
+    return null;
+  }
 };

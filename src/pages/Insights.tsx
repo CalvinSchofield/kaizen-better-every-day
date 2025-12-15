@@ -125,7 +125,11 @@ export default function Insights() {
   const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
     if (!blitz.date || !blitz.endDate) return false;
     
-    const todayStr = now.toISOString().split('T')[0];
+    // Use local date, not UTC, to avoid timezone conversion issues
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
     const blitzStartStr = blitz.date;
     const isStartingToday = todayStr === blitzStartStr;
     const startDate = new Date(blitz.date + 'T00:00:00');

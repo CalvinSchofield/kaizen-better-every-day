@@ -190,7 +190,9 @@ export const useRepGoals = () => {
 
       // Handle streak logic when training is logged
       if (updates.training_hours_progress !== undefined && goals) {
-        const today = new Date().toISOString().split('T')[0];
+        // Use local timezone for date comparison
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const lastDate = goals.last_training_date;
         
         if (lastDate === today) {
