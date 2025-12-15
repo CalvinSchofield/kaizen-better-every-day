@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { SkipMenu } from "./SkipMenu";
 
 interface TodaysFocusHeroProps {
   topRecommendation: RecruitRecommendation | null;
@@ -12,6 +13,8 @@ interface TodaysFocusHeroProps {
   onViewAll: () => void;
   onContactClick?: (recruit: Recruit) => void;
   onScheduleClick?: (recruit: Recruit) => void;
+  onSkipForNow?: (recruit: Recruit) => void;
+  onSkipToday?: (recruit: Recruit) => void;
   animatingOut?: boolean;
 }
 
@@ -48,8 +51,20 @@ export const TodaysFocusHero = ({
   onViewAll,
   onContactClick,
   onScheduleClick,
+  onSkipForNow,
+  onSkipToday,
   animatingOut = false
 }: TodaysFocusHeroProps) => {
+
+  const handleSkipForNow = () => {
+    if (!topRecommendation) return;
+    onSkipForNow?.(topRecommendation.recruit);
+  };
+
+  const handleSkipToday = () => {
+    if (!topRecommendation) return;
+    onSkipToday?.(topRecommendation.recruit);
+  };
 
   const handleContact = () => {
     if (!topRecommendation) return;
@@ -105,13 +120,22 @@ export const TodaysFocusHero = ({
         )}>
           {isCritical ? "Urgent Action Needed" : "Today's Focus"}
         </span>
-        {topRecommendation.daysUntilBlitz !== undefined && topRecommendation.daysUntilBlitz >= 0 && (
-          <Badge variant="outline" className="ml-auto text-xs border-purple-500/50 text-purple-600 bg-purple-500/10">
-            {topRecommendation.daysUntilBlitz === 0 ? 'Blitz today' : 
-             topRecommendation.daysUntilBlitz === 1 ? 'Blitz tomorrow' : 
-             `Blitz in ${topRecommendation.daysUntilBlitz}d`}
-          </Badge>
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          {topRecommendation.daysUntilBlitz !== undefined && topRecommendation.daysUntilBlitz >= 0 && (
+            <Badge variant="outline" className="text-xs border-purple-500/50 text-purple-600 bg-purple-500/10">
+              {topRecommendation.daysUntilBlitz === 0 ? 'Blitz today' : 
+               topRecommendation.daysUntilBlitz === 1 ? 'Blitz tomorrow' : 
+               `Blitz in ${topRecommendation.daysUntilBlitz}d`}
+            </Badge>
+          )}
+          <SkipMenu 
+            onSkipForNow={handleSkipForNow}
+            onSkipToday={handleSkipToday}
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7"
+          />
+        </div>
       </div>
 
       <div 

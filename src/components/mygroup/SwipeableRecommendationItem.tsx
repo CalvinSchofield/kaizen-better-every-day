@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { SkipMenu } from "./SkipMenu";
 
 // Sticky threshold - must drag past this to commit
 const SWIPE_COMMIT_THRESHOLD = 100;
@@ -35,6 +36,8 @@ interface SwipeableRecommendationItemProps {
   onContact?: (recruit: Recruit) => void;
   onDirectCall?: (recruit: Recruit) => void;
   onDirectText?: (recruit: Recruit) => void;
+  onSkipForNow?: (recruit: Recruit) => void;
+  onSkipToday?: (recruit: Recruit) => void;
 }
 
 export const SwipeableRecommendationItem = ({
@@ -44,6 +47,8 @@ export const SwipeableRecommendationItem = ({
   onContact,
   onDirectCall,
   onDirectText,
+  onSkipForNow,
+  onSkipToday,
 }: SwipeableRecommendationItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const constraintsRef = useRef(null);
@@ -176,6 +181,11 @@ export const SwipeableRecommendationItem = ({
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
+            <SkipMenu
+              onSkipForNow={() => onSkipForNow?.(recommendation.recruit)}
+              onSkipToday={() => onSkipToday?.(recommendation.recruit)}
+              className="h-8 w-8"
+            />
             <Button
               variant="ghost"
               size="icon"
