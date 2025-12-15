@@ -19,6 +19,9 @@ const STAGE_PROGRESSION_ORDER = [
   // 'Not Interested',
 ];
 
+// Exit/terminal stages that auto-progression should NEVER override
+const EXIT_STAGES = ['Potential Follow Up', 'Not Interested', 'Signed but Not Interested'];
+
 // Get stage index (returns -1 for terminal/unknown stages)
 const getStageIndex = (stage: string | null): number => {
   if (!stage) return -1;
@@ -29,7 +32,13 @@ const getStageIndex = (stage: string | null): number => {
 };
 
 // Check if we can progress from current stage to new stage (forward only)
+// IMPORTANT: Never auto-progress FROM an exit stage - these are manually set by leaders
 export const canProgressToStage = (currentStage: string | null, newStage: string): boolean => {
+  // Never auto-progress from exit stages - leader manually put them there
+  if (currentStage && EXIT_STAGES.some(es => es.toLowerCase() === currentStage.toLowerCase())) {
+    return false;
+  }
+  
   const currentIndex = getStageIndex(currentStage);
   const newIndex = getStageIndex(newStage);
   
