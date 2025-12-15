@@ -692,6 +692,7 @@ export type Database = {
           personal_fp: number | null
           personal_fp_goal: number | null
           phone: string | null
+          processed_blitz_ids: Json | null
           profile_photo_url: string | null
           ramp_phase_1_complete: boolean | null
           ramp_phase_2_complete: boolean | null
@@ -744,6 +745,7 @@ export type Database = {
           personal_fp?: number | null
           personal_fp_goal?: number | null
           phone?: string | null
+          processed_blitz_ids?: Json | null
           profile_photo_url?: string | null
           ramp_phase_1_complete?: boolean | null
           ramp_phase_2_complete?: boolean | null
@@ -796,6 +798,7 @@ export type Database = {
           personal_fp?: number | null
           personal_fp_goal?: number | null
           phone?: string | null
+          processed_blitz_ids?: Json | null
           profile_photo_url?: string | null
           ramp_phase_1_complete?: boolean | null
           ramp_phase_2_complete?: boolean | null

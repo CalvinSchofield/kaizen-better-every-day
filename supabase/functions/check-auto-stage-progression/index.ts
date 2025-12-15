@@ -9,7 +9,6 @@ const corsHeaders = {
 // Stage progression order - higher index = more advanced
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
-  'Potential Follow Up',
   'Reached Out',
   'Reached out',
   'Evaluating',
@@ -18,6 +17,15 @@ const STAGE_PROGRESSION_ORDER = [
   'Sold 💲',
   'Sold (5+) 💰',
 ];
+
+// Exit stages that should NEVER be auto-overridden - leader manually set these
+const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
+
+// Check if stage is an exit stage (case-insensitive)
+const isExitStage = (stage: string | null): boolean => {
+  if (!stage) return false;
+  return EXIT_STAGES.some(es => es.toLowerCase() === stage.toLowerCase());
+};
 
 const getStageIndex = (stage: string | null): number => {
   if (!stage) return -1;
@@ -28,6 +36,11 @@ const getStageIndex = (stage: string | null): number => {
 };
 
 const canProgressToStage = (currentStage: string | null, newStage: string): boolean => {
+  // NEVER auto-progress from exit stages - leader manually put them there
+  if (isExitStage(currentStage)) {
+    return false;
+  }
+  
   const currentIndex = getStageIndex(currentStage);
   const newIndex = getStageIndex(newStage);
   if (currentIndex === -1 || newIndex === -1) return true;

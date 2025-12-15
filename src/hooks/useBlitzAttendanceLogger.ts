@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface BlitzEvent {
   id: string;
@@ -12,28 +13,29 @@ interface BlitzEvent {
 // Global lock to prevent multiple components from processing simultaneously
 let globalProcessingLock = false;
 
-// Read processed blitzes from localStorage once at module level
-const getProcessedBlitzes = (): Set<string> => {
-  try {
-    const stored = localStorage.getItem('processed-blitz-attendance');
-    if (stored) {
-      return new Set(JSON.parse(stored));
-    }
-  } catch (e) {
-    console.error('Error parsing processed blitz attendance:', e);
-  }
-  return new Set();
-};
-
-const markBlitzProcessed = (blitzId: string) => {
-  const processed = getProcessedBlitzes();
-  processed.add(blitzId);
-  localStorage.setItem('processed-blitz-attendance', JSON.stringify([...processed]));
-};
-
 export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: boolean = false) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const hasRunRef = useRef(false);
+
+  // Fetch processed blitz IDs from database (persists across devices)
+  const { data: processedBlitzIds = [] } = useQuery({
+    queryKey: ['processed-blitz-ids'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      const { data } = await supabase
+        .from('reps')
+        .select('processed_blitz_ids')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      return (data?.processed_blitz_ids as string[]) || [];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    enabled,
+  });
 
   const logBlitzAttendance = useCallback(async (blitz: BlitzEvent) => {
     try {
@@ -53,15 +55,15 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
 
       if (error) throw error;
 
-      // Mark as processed in localStorage
-      markBlitzProcessed(blitz.id);
+      // Invalidate the query to refresh processed IDs
+      queryClient.invalidateQueries({ queryKey: ['processed-blitz-ids'] });
 
       return { success: true, data };
     } catch (error: any) {
       console.error('Error logging blitz attendance:', error);
       return { success: false, error: error.message };
     }
-  }, []);
+  }, [queryClient]);
 
   // Auto-log for ended or ending-today blitzes (after 6 PM local on end date)
   useEffect(() => {
@@ -77,9 +79,6 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
       return;
     }
 
-    // Get processed blitzes BEFORE starting async work
-    const processedBlitzes = getProcessedBlitzes();
-
     const processBlitzes = async () => {
       // Set lock immediately
       globalProcessingLock = true;
@@ -91,10 +90,11 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
         const currentHour = now.getHours();
 
         console.log(`[BlitzAttendance] Checking ${allBlitzes.length} blitzes for auto-logging`);
-        console.log(`[BlitzAttendance] Already processed: ${[...processedBlitzes].join(', ') || 'none'}`);
+        console.log(`[BlitzAttendance] Already processed (from DB): ${processedBlitzIds.join(', ') || 'none'}`);
 
         const blitzesToLog = allBlitzes.filter(blitz => {
-          if (processedBlitzes.has(blitz.id)) {
+          // Check database-persisted processed IDs
+          if (processedBlitzIds.includes(blitz.id)) {
             console.log(`[BlitzAttendance] Skipping ${blitz.name} - already processed`);
             return false;
           }
@@ -127,10 +127,12 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
             console.log(`[BlitzAttendance] Calling edge function for ${blitz.name}...`);
             const result = await logBlitzAttendance(blitz);
             console.log(`[BlitzAttendance] Result for ${blitz.name}:`, result);
-            if (result.success) {
+            
+            // Only show toast if we actually logged something (not skipped)
+            if (result.success && result.data?.loggedCount > 0) {
               toast({
                 title: "Blitz Attendance Logged",
-                description: `Logged attendance for ${result.data?.loggedCount || 0} attendees from ${blitz.name}`,
+                description: `Logged attendance for ${result.data.loggedCount} attendees from ${blitz.name}`,
               });
             }
           }
@@ -146,10 +148,10 @@ export const useBlitzAttendanceLogger = (allBlitzes: BlitzEvent[], enabled: bool
     };
 
     processBlitzes();
-  }, [allBlitzes, enabled, logBlitzAttendance, toast]);
+  }, [allBlitzes, enabled, logBlitzAttendance, toast, processedBlitzIds]);
 
   return {
     logBlitzAttendance,
-    isProcessed: (blitzId: string) => getProcessedBlitzes().has(blitzId),
+    isProcessed: (blitzId: string) => processedBlitzIds.includes(blitzId),
   };
 };
