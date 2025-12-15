@@ -78,22 +78,35 @@ Deno.serve(async (req) => {
       throw new Error("At least one field must be provided for update");
     }
 
+    // If ramp phase updates are provided, convert them to onboardingStatus
+    // The Notion database uses "Onboarding Step Completed" status field
+    let effectiveOnboardingStatus = onboardingStatus;
+    if (hasRampPhaseUpdate && !hasOnboardingUpdate) {
+      // Determine the highest phase being marked complete
+      if (rampPhase4Complete) {
+        effectiveOnboardingStatus = 'Phase 4 ✅';
+      } else if (rampPhase3Complete) {
+        effectiveOnboardingStatus = 'Phase 3 ✅';
+      } else if (rampPhase2Complete) {
+        effectiveOnboardingStatus = 'Phase 2 ✅';
+      } else if (rampPhase1Complete) {
+        effectiveOnboardingStatus = 'Phase 1 ✅';
+      }
+    }
+
     console.log(`Updating rookie ${rookieNotionPageId}`, { 
-      onboardingStatus, 
-      ipadAssigned,
-      rampPhase1Complete,
-      rampPhase2Complete,
-      rampPhase3Complete,
-      rampPhase4Complete
+      onboardingStatus: effectiveOnboardingStatus, 
+      ipadAssigned
     });
 
     // Build the properties object dynamically for Notion
     const properties: any = {};
     
-    if (onboardingStatus !== undefined) {
+    // Use effectiveOnboardingStatus which includes converted ramp phase updates
+    if (effectiveOnboardingStatus !== undefined) {
       properties["Onboarding Step Completed"] = {
         status: {
-          name: onboardingStatus
+          name: effectiveOnboardingStatus
         }
       };
     }
@@ -101,31 +114,6 @@ Deno.serve(async (req) => {
     if (ipadAssigned !== undefined) {
       properties["iPad Assigned"] = {
         checkbox: ipadAssigned
-      };
-    }
-
-    // Ramp phase checkboxes - using the Notion property names
-    if (rampPhase1Complete !== undefined) {
-      properties["Ramp Phase 1 Complete"] = {
-        checkbox: rampPhase1Complete
-      };
-    }
-
-    if (rampPhase2Complete !== undefined) {
-      properties["Ramp Phase 2 Complete"] = {
-        checkbox: rampPhase2Complete
-      };
-    }
-
-    if (rampPhase3Complete !== undefined) {
-      properties["Ramp Phase 3 Complete"] = {
-        checkbox: rampPhase3Complete
-      };
-    }
-
-    if (rampPhase4Complete !== undefined) {
-      properties["Ramp Phase 4 Complete"] = {
-        checkbox: rampPhase4Complete
       };
     }
 
@@ -154,26 +142,14 @@ Deno.serve(async (req) => {
     // Also update Supabase reps table for immediate local sync
     const supabaseUpdate: any = {};
     
-    if (hasOnboardingUpdate) {
-      const parsedStatus = parseOnboardingStatus(onboardingStatus);
+    // If we have an effective onboarding status, parse it for Supabase
+    if (effectiveOnboardingStatus !== undefined) {
+      const parsedStatus = parseOnboardingStatus(effectiveOnboardingStatus);
       Object.assign(supabaseUpdate, parsedStatus);
     }
     
     if (ipadAssigned !== undefined) {
       supabaseUpdate.ipad_assigned = ipadAssigned;
-    }
-    
-    if (rampPhase1Complete !== undefined) {
-      supabaseUpdate.ramp_phase_1_complete = rampPhase1Complete;
-    }
-    if (rampPhase2Complete !== undefined) {
-      supabaseUpdate.ramp_phase_2_complete = rampPhase2Complete;
-    }
-    if (rampPhase3Complete !== undefined) {
-      supabaseUpdate.ramp_phase_3_complete = rampPhase3Complete;
-    }
-    if (rampPhase4Complete !== undefined) {
-      supabaseUpdate.ramp_phase_4_complete = rampPhase4Complete;
     }
 
     supabaseUpdate.updated_at = new Date().toISOString();

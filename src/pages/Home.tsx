@@ -1212,7 +1212,11 @@ const Home = () => {
               // Use calendar-day-based calculation for accurate "tomorrow" display
               diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
               
-              if (diffDays === 0) {
+              if (diffDays < 0) {
+                // Currently mid-blitz
+                ctaText = `${locationName} this week — you got this!`;
+                ctaIcon = "🔥";
+              } else if (diffDays === 0) {
                 ctaText = `${locationName} today — you got this!`;
                 ctaIcon = "🔥";
               } else if (diffDays === 1) {
