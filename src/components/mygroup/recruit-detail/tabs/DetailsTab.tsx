@@ -72,6 +72,11 @@ export const DetailsTab = ({
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
   const stageLocked = isRookie && !hasCompletedOnboarding;
   
+  // Check if recruit is in an early stage (not yet signed)
+  const stageLower = (recruit.stage || '').toLowerCase();
+  const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
+  const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+  
   const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
   
   const handleStageSelect = (newStage: string) => {
@@ -92,8 +97,18 @@ export const DetailsTab = ({
 
   return (
     <div className="space-y-4">
-      {/* iPad Assignment */}
-      {isRookie && !recruitRepData?.ramp_phase_4_complete && (
+      {/* Recruiter Info - show for early stages */}
+      {isEarlyStage && recruit.recruiterName && (
+        <div className="bg-muted/50 border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+            <span>Recruited by</span>
+          </div>
+          <p className="font-medium">{recruit.recruiterName}</p>
+        </div>
+      )}
+      
+      {/* iPad Assignment - only show for Signed+ stages */}
+      {isRookie && !isEarlyStage && !recruitRepData?.ramp_phase_4_complete && (
         <IpadAssignmentCard 
           recruit={recruit}
           recruitRepData={recruitRepData}
@@ -101,14 +116,14 @@ export const DetailsTab = ({
         />
       )}
       
-      {/* Blitz Commitments */}
+      {/* Blitz Commitments - show for all */}
       <BlitzManagementSection 
         recruit={recruit}
         recruitRepData={recruitRepData}
         queryClient={queryClient}
       />
       
-      {/* Blitz Readiness Warnings */}
+      {/* Blitz Readiness Warnings - already filters internally */}
       <BlitzReadinessWarnings 
         recruit={recruit}
         recruitRepData={recruitRepData}

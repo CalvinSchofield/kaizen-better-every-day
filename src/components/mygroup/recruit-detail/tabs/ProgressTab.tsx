@@ -24,6 +24,33 @@ export const ProgressTab = ({
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   
+  // Check if recruit is in an early stage (not yet signed)
+  const stageLower = (recruit.stage || '').toLowerCase();
+  const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
+  const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+  
+  // For early-stage recruits, show a simplified view
+  if (isEarlyStage) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center py-6 text-muted-foreground">
+          <p className="text-sm mb-2">Progress tracking unlocks after signing</p>
+          <p className="text-xs">Move {recruitFirstName} to "Signed" to track onboarding & blitz prep</p>
+        </div>
+        
+        {/* Show recruiter info as context */}
+        {recruit.recruiterName && (
+          <div className="bg-muted/50 border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <span>Recruited by</span>
+            </div>
+            <p className="font-medium">{recruit.recruiterName}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
   if (!recruitRepData) {
     return (
       <div className="text-center py-8 text-muted-foreground">
