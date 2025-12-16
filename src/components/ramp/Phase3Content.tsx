@@ -364,6 +364,38 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                   </div>
                 </div>
               )}
+
+              {/* Street Genie Walkthrough Videos */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Street Genie Deep Dive (Conveyour)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Optional walkthrough videos to master Street Genie features
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { title: "Current Area", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8816ae62a2b0187a218b" },
+                    { title: "Building Packages", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d88dbae62a2b30c7ecf47" },
+                    { title: "Sales Tools", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d895d3c63a20e0b39a949" },
+                    { title: "Prequalification", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d89d00866a2156d333117" },
+                    { title: "Emergency Contacts & Passwords", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a330866a217ce67a982" },
+                    { title: "Send Docs and Schedule Install", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a8fae62a2b7cc7691c8" },
+                    { title: "Setting Solar Leads", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8aa6ae62a2b7cc7691cc" },
+                    { title: "Summary Tab", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b51ae62a2ba241bd93e" },
+                    { title: "Extra Options", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b8e3c63a2160331f6d6" },
+                  ].map((video) => (
+                    <a
+                      key={video.title}
+                      href={video.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-sm"
+                    >
+                      <Circle className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      <span>{video.title}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
