@@ -1,6 +1,5 @@
-import { ChevronRight, Check } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { RampHeroProgress } from "@/components/ramp/RampHeroProgress";
@@ -29,71 +28,64 @@ export const RookieRampHeroSection = ({
   const navigate = useNavigate();
   const allPrereqsComplete = prerequisites.onboarding && prerequisites.trainings && prerequisites.slack;
 
-  return (
-    <div className="space-y-4">
-      {/* Prerequisites Section - Collapsed when complete */}
-      {allPrereqsComplete ? (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <Check className="h-4 w-4 text-emerald-600" />
-          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Setup Complete</span>
-          <span className="text-xs text-muted-foreground ml-1">
-            Onboarding · Trainings · Slack
-          </span>
-        </div>
-      ) : (
-        <Card className="border-warning/30">
-          <CardContent className="p-4">
-            <p className="text-sm font-medium mb-3">Complete these first:</p>
-            <div className="space-y-2">
-              <PrereqItem 
-                label="Complete Onboarding" 
-                complete={prerequisites.onboarding} 
-                href="https://onboardingtool.vivint.com/"
-              />
-              <PrereqItem 
-                label="Required Trainings" 
-                complete={prerequisites.trainings} 
-                href="https://dthvivinttraining.conveyour.com/ui/portal"
-              />
-              <PrereqItem 
-                label="Join Slack" 
-                complete={prerequisites.slack} 
-                href="https://join.slack.com/t/kaizen-better-daily/shared_invite/zt-3g30ikq9e-RugmfMRBUCu4qx5S0GUgZw"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+  // If prerequisites not complete, show them as primary focus
+  if (!allPrereqsComplete) {
+    return (
+      <Card className="border-warning/30">
+        <CardContent className="p-4">
+          <p className="text-sm font-medium mb-3">Complete these first:</p>
+          <div className="space-y-2">
+            <PrereqItem 
+              label="Complete Onboarding" 
+              complete={prerequisites.onboarding} 
+              href="https://onboardingtool.vivint.com/"
+            />
+            <PrereqItem 
+              label="Required Trainings" 
+              complete={prerequisites.trainings} 
+              href="https://dthvivinttraining.conveyour.com/ui/portal"
+            />
+            <PrereqItem 
+              label="Join Slack" 
+              complete={prerequisites.slack} 
+              href="https://join.slack.com/t/kaizen-better-daily/shared_invite/zt-3g30ikq9e-RugmfMRBUCu4qx5S0GUgZw"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      {/* Ramp to Blitz Hero - Primary focus when prerequisites done */}
-      {allPrereqsComplete && (
-        <Card className="border-primary/30 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="p-4 pb-3">
-              <RampHeroProgress
-                phases={phases}
-                activePhase={activePhase}
-                repData={repData}
-                onPhaseSelect={onPhaseSelect}
-              />
-            </div>
-            
-            <div className="px-4 pb-4">
-              <Button 
-                onClick={() => navigate('/ramp-to-blitz')}
-                className="w-full rounded-xl gap-2"
-                size="lg"
-              >
-                Continue Your Prep
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+  // Prerequisites complete - show Ramp to Blitz hero only (no banner)
+  return (
+    <Card className="border-primary/30 overflow-hidden">
+      <CardContent className="p-0">
+        <div className="p-4 pb-3">
+          <RampHeroProgress
+            phases={phases}
+            activePhase={activePhase}
+            repData={repData}
+            onPhaseSelect={onPhaseSelect}
+          />
+        </div>
+        
+        <div className="px-4 pb-4">
+          <Button 
+            onClick={() => navigate('/ramp-to-blitz')}
+            className="w-full rounded-xl gap-2"
+            size="lg"
+          >
+            Continue Your Prep
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
+
+import { Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const PrereqItem = ({ 
   label, 
