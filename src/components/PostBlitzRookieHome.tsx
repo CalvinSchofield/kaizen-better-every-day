@@ -390,6 +390,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   // RSVP Logic - Check if we should show RSVP for next upcoming blitz
   // Shows at 21 days (first ask) AND again at 10 days (confirmation)
+  // Shows for ALL reps including those already committed (with different language)
   const declinedBlitzes = (repData.declined_blitz_rsvps as string[]) || [];
   const upcomingBlitzForRsvp = allBlitzes.find((blitz) => {
     const today = new Date();
@@ -403,21 +404,16 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const inSecondWindow = daysUntil >= 0 && daysUntil <= 10;
     if (!inFirstWindow && !inSecondWindow) return false;
     
-    // Must not be already committed
-    const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === blitz.id);
-    
-    // For 10-day window, show even if committed (reconfirm) but not if declined
-    if (inSecondWindow) {
-      if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
-      return true; // Show for confirmation even if committed
-    }
-    
-    // For 21-day window, don't show if committed or declined
-    if (isCommitted) return false;
+    // Skip if already declined or locally responded
     if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
     
     return true;
   });
+  
+  // Check if the RSVP blitz is already committed (for different language)
+  const isRsvpBlitzCommitted = upcomingBlitzForRsvp 
+    ? (repData.committed_blitzes as any[])?.some((b: any) => b.id === upcomingBlitzForRsvp.id) 
+    : false;
   
   // Clear optimistic state when data updates from DB
   useEffect(() => {
@@ -560,11 +556,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             </div>
           </div>
 
-          {/* RSVP Card - Shows when blitz is within 2 weeks and not committed */}
+          {/* RSVP Card - Shows for upcoming blitz within windows */}
           {upcomingBlitzForRsvp && (
             <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
               <p className="text-primary-foreground/90 text-base font-medium mb-3">
-                📆 {upcomingBlitzForRsvp.location} in {Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days — you in?
+                {isRsvpBlitzCommitted 
+                  ? `📆 Still planning on ${upcomingBlitzForRsvp.location} in ${Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days?`
+                  : `📆 ${upcomingBlitzForRsvp.location} in ${Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days — you in?`
+                }
               </p>
               <div className="flex gap-3">
                 <Button
@@ -572,7 +571,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground"
                 >
                   <Check className="w-5 h-5 mr-2" />
-                  Yes
+                  {isRsvpBlitzCommitted ? "Still in!" : "Yes"}
                 </Button>
                 <Button
                   onClick={handleRsvpNo}
@@ -580,7 +579,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
                   className="flex-1 h-11 text-base bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30"
                 >
                   <X className="w-5 h-5 mr-2" />
-                  No
+                  {isRsvpBlitzCommitted ? "Can't make it" : "No"}
                 </Button>
               </div>
             </div>
