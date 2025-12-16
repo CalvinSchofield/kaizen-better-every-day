@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, Loader2, Calendar, MapPin, History, AlertTriangle, X } from "lucide-react";
+import { Check, Loader2, Calendar, MapPin, History, AlertTriangle, X, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -53,6 +53,7 @@ export const BlitzCommitmentDrawer = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [declinedBlitzIds, setDeclinedBlitzIds] = useState<string[]>([]);
+  const [clearingDeclineId, setClearingDeclineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch declined blitzes for this recruit
@@ -89,6 +90,37 @@ export const BlitzCommitmentDrawer = ({
         ? prev.filter(id => id !== blitzId)
         : [...prev, blitzId]
     );
+  };
+
+  const handleClearDecline = async (blitzId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClearingDeclineId(blitzId);
+    
+    try {
+      const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
+        body: {
+          blitzId,
+          repNotionPageId: recruitNotionPageId,
+          isDeclined: false,
+        },
+      });
+
+      if (error) throw error;
+
+      // Optimistic update - remove from local state
+      setDeclinedBlitzIds(prev => prev.filter(id => id !== blitzId));
+      
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['blitz-attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      
+      toast.success('Declined status cleared');
+    } catch (error) {
+      console.error('Failed to clear declined status:', error);
+      toast.error('Failed to clear declined status');
+    } finally {
+      setClearingDeclineId(null);
+    }
   };
 
   const hasChanges = JSON.stringify(pendingCommitments.sort()) !== JSON.stringify(currentCommitments.sort());
@@ -165,6 +197,7 @@ export const BlitzCommitmentDrawer = ({
   const renderBlitzCard = (blitz: BlitzEvent, isPast: boolean = false) => {
     const isCommitted = pendingCommitments.includes(blitz.id);
     const isDeclined = declinedBlitzIds.includes(blitz.id);
+    const isClearing = clearingDeclineId === blitz.id;
     const blitzDate = parseISO(blitz.date);
     const endDate = blitz.endDate ? parseISO(blitz.endDate) : null;
     
@@ -221,6 +254,24 @@ export const BlitzCommitmentDrawer = ({
                 <MapPin className="w-3 h-3" />
                 <span>{blitz.location}</span>
               </div>
+            )}
+
+            {/* Undo Decline button for declined blitzes */}
+            {!isPast && !isCommitted && isDeclined && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={(e) => handleClearDecline(blitz.id, e)}
+                disabled={isClearing}
+              >
+                {isClearing ? (
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : (
+                  <Undo2 className="w-3 h-3 mr-1" />
+                )}
+                Undo Decline
+              </Button>
             )}
           </div>
 
