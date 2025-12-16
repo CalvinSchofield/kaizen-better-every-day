@@ -1209,24 +1209,40 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                       onOpenChange={() => toggleInviteList(blitz.id)}
                     >
                       <div className="space-y-2">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="outline" className="w-full">
-                            {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                      <CollapsibleTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between">
+                            <span className="flex items-center">
+                              {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                              {(() => {
+                                const uninvitedCount = uncommittedMembers.filter(
+                                  member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId) &&
+                                           !(declinedMembers[blitz.id] || []).includes(member.notionPageId)
+                                ).length;
+                                
+                                if (uninvitedCount === 0) {
+                                  return (
+                                    <>
+                                      {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
+                                      <Check className="h-4 w-4 ml-2 text-green-500" />
+                                    </>
+                                  );
+                                }
+                                
+                                return `${committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} (${uninvitedCount})`;
+                              })()}
+                            </span>
                             {(() => {
-                              const uninvitedCount = uncommittedMembers.filter(
-                                member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId)
+                              const declinedCount = uncommittedMembers.filter(
+                                member => (declinedMembers[blitz.id] || []).includes(member.notionPageId)
                               ).length;
-                              
-                              if (uninvitedCount === 0) {
+                              if (declinedCount > 0) {
                                 return (
-                                  <>
-                                    {committedMembers.length > 0 ? "Invite More" : "Invite Team Members"}
-                                    <Check className="h-4 w-4 ml-2 text-green-500" />
-                                  </>
+                                  <Badge variant="outline" className="ml-2 text-xs text-destructive border-destructive/30 bg-destructive/10">
+                                    {declinedCount} declined
+                                  </Badge>
                                 );
                               }
-                              
-                              return `${committedMembers.length > 0 ? "Invite More" : "Invite Team Members"} (${uninvitedCount})`;
+                              return null;
                             })()}
                           </Button>
                         </CollapsibleTrigger>
