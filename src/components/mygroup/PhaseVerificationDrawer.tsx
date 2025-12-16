@@ -13,8 +13,10 @@ export const PHASE_ITEMS: Record<number, {
     selfServiceItems: [
       { id: "what-is-blitz", label: "Watched 'What is a Blitz?'" },
       { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
-      { id: "phase1-goals-reviewed", label: "Reviewed goals questions (Why/What/How)" },
-      { id: "phase1-goals-texted-leader", label: "Texted leader about goals (waiting)" }
+      { id: "phase1-goals-why", label: "Reviewed Why" },
+      { id: "phase1-goals-what", label: "Reviewed What" },
+      { id: "phase1-goals-how", label: "Reviewed How" },
+      { id: "phase1-goals-texted-leader", label: "Texted leader, waiting on goals call" }
     ],
     leaderItems: [
       { label: "Goals call completed", description: "Set Must Do, Will Do, Could Do FP+ targets together" },
