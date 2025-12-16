@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import type { RepData } from "@/hooks/useRepData";
 interface Phase1ContentProps {
   repData: RepData | null;
   isComplete: boolean;
+  scrollToStepKey?: string | null;
+  onScrollComplete?: () => void;
 }
 
 interface VideoSection {
@@ -48,7 +50,7 @@ const VIDEOS: VideoSection[] = [
   },
 ];
 
-export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
+export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollComplete }: Phase1ContentProps) => {
   const navigate = useNavigate();
   const { goals } = useRepGoals();
   const { saveProgress } = useRampProgress(repData?.user_id);
@@ -58,7 +60,44 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
   const [goalsReviewed, setGoalsReviewed] = useState(false);
   const [expandedGoalsSection, setExpandedGoalsSection] = useState<string | null>("why");
 
+  // Refs for scrolling
+  const videosRef = useRef<HTMLDivElement>(null);
+  const goalsRef = useRef<HTMLDivElement>(null);
+  const blitzRef = useRef<HTMLDivElement>(null);
+
   const goalsSetupComplete = goals?.setup_complete === true;
+
+  // Handle scroll to step
+  useEffect(() => {
+    if (!scrollToStepKey) return;
+
+    const scrollAndExpand = () => {
+      switch (scrollToStepKey) {
+        case 'videos':
+          setExpandedVideo('what-is-blitz');
+          videosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'goals':
+          setExpandedGoalsSection('why');
+          goalsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'blitz':
+          blitzRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+      }
+      onScrollComplete?.();
+    };
+
+    // Small delay to ensure DOM is ready
+    setTimeout(scrollAndExpand, 150);
+  }, [scrollToStepKey, onScrollComplete]);
+
+  // Load watched videos from database on mount
+  useEffect(() => {
+    if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
+      setWatchedVideos(new Set(repData.watched_videos as string[]));
+    }
+  }, [repData?.watched_videos]);
 
   // Load watched videos from database on mount
   useEffect(() => {
@@ -177,7 +216,7 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
       )}
 
       {/* Video Section */}
-      <div className="space-y-3">
+      <div ref={videosRef} className="space-y-3">
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Watch & Learn
         </h4>
@@ -219,7 +258,7 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
       </Card>
 
       {/* Goals Review Section */}
-      <div className="space-y-3">
+      <div ref={goalsRef} className="space-y-3">
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Review Your Goals
         </h4>
@@ -429,10 +468,11 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
         )}
 
         {/* Commit to Blitz */}
-        <Card className={cn(
-          "transition-all duration-200",
-          hasCommittedBlitz && "bg-primary/5 border-primary/20"
-        )}>
+        <div ref={blitzRef}>
+          <Card className={cn(
+            "transition-all duration-200",
+            hasCommittedBlitz && "bg-primary/5 border-primary/20"
+          )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
@@ -474,6 +514,7 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

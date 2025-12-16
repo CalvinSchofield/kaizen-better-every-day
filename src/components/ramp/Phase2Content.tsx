@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock, Camera, Send, X, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ interface Phase2ContentProps {
   repData: RepData | null;
   isComplete: boolean;
   onOpenPitchGuide: (guide: "takeover" | "upgrade") => void;
+  scrollToStepKey?: string | null;
+  onScrollComplete?: () => void;
 }
 
 interface ProductLink {
@@ -117,7 +119,7 @@ const UPGRADES_CONTENT = {
   }
 };
 
-export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2ContentProps) => {
+export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToStepKey, onScrollComplete }: Phase2ContentProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>("product");
   const [productStudied, setProductStudied] = useState(false);
   const [quizPassed, setQuizPassed] = useState(false);
@@ -126,7 +128,47 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
   const [pitchSubmitted, setPitchSubmitted] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<CameraInfo | null>(null);
 
+  // Refs for scrolling
+  const productRef = useRef<HTMLDivElement>(null);
+  const quizRef = useRef<HTMLDivElement>(null);
+  const upgradesRef = useRef<HTMLDivElement>(null);
+  const takeoverRef = useRef<HTMLDivElement>(null);
+  const pitchRef = useRef<HTMLDivElement>(null);
+
   const { saveProgress } = useRampProgress(repData?.user_id);
+
+  // Handle scroll to step
+  useEffect(() => {
+    if (!scrollToStepKey) return;
+
+    const scrollAndExpand = () => {
+      switch (scrollToStepKey) {
+        case 'product':
+          setExpandedSection('product');
+          productRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'quiz':
+          setExpandedSection('product');
+          quizRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'upgrades':
+          setExpandedSection('upgrades');
+          upgradesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'takeover':
+          setExpandedSection('takeover');
+          takeoverRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'pitch':
+          setExpandedSection('pitch');
+          pitchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+      }
+      onScrollComplete?.();
+    };
+
+    setTimeout(scrollAndExpand, 150);
+  }, [scrollToStepKey, onScrollComplete]);
 
   // Load progress from watched_videos
   useEffect(() => {
@@ -249,6 +291,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
       )}
 
       {/* Step 1: Product Knowledge */}
+      <div ref={productRef} />
       <TrainingSection
         id="product"
         title="Study the Product"
@@ -306,6 +349,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
       </TrainingSection>
 
       {/* Step 2: Product Quiz */}
+      <div ref={quizRef} />
       <TrainingSection
         id="quiz"
         title="Product Knowledge Quiz"
@@ -346,6 +390,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
       </TrainingSection>
 
       {/* Step 3: Upgrades 101 */}
+      <div ref={upgradesRef} />
       <TrainingSection
         id="upgrades"
         title="Upgrades 101"
@@ -470,6 +515,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
       </TrainingSection>
 
       {/* Step 4: Takeover Door Approach */}
+      <div ref={takeoverRef} />
       <TrainingSection
         id="takeover"
         title="Takeover Door Approach"
@@ -510,6 +556,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
       </TrainingSection>
 
       {/* Step 5: Submit Your Pitches */}
+      <div ref={pitchRef} />
       <TrainingSection
         id="submitpitches"
         title="Submit Your Pitches"
