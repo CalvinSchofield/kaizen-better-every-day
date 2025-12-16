@@ -1347,22 +1347,6 @@ const Home = () => {
             );
           })()}
           
-          {/* Progress Bar */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-primary-foreground/70 font-medium">Overall Progress</span>
-              <span className="text-sm text-primary-foreground font-semibold">{completedSteps}/{totalSteps}</span>
-            </div>
-            <Progress 
-              value={progressPercentage} 
-              className={`h-2 bg-primary-foreground/20 transition-all duration-700 ease-out ${animateProgress ? 'animate-pulse' : ''}`}
-            />
-            <style>{`
-              [data-state="complete"] .progress-indicator {
-                background: hsl(var(--primary-foreground)) !important;
-              }
-            `}</style>
-          </div>
         </div>
       </div>
 
