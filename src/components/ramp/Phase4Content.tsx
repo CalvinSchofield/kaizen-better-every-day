@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ExternalLink, ChevronDown, ChevronUp, Shield, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Circle, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ChevronDown, ChevronUp, Shield, AlertTriangle, Brain, Battery, RefreshCw, Heart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -343,30 +343,87 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
         isExpanded={expandedSection === "playbook"}
         onToggle={() => setExpandedSection(expandedSection === "playbook" ? null : "playbook")}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             The blitz will have ups and downs. Plan now for how you'll respond when things get tough, so you bounce back quickly.
           </p>
 
+          {/* Handling Rejection */}
           <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <h5 className="font-medium text-sm">This playbook covers:</h5>
-            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>How to handle rejection</li>
-              <li>Staying motivated on slow days</li>
-              <li>Mental reset techniques</li>
-              <li>When to push through vs. take a break</li>
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              Handling Rejection
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1.5">
+              <li>• <strong>It's not personal</strong> - They're rejecting the timing, not you</li>
+              <li>• <strong>Numbers game</strong> - Every "no" gets you closer to a "yes"</li>
+              <li>• <strong>3-second rule</strong> - Feel it, then move on within 3 seconds</li>
+              <li>• <strong>Learn something</strong> - What could you try differently next time?</li>
             </ul>
           </div>
 
-          <a
-            href="https://calvinschofield.notion.site/When-It-Gets-Tough-Your-Playbook-d6d63908789b4b7587b861bd5b382f71"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
-          >
-            <span className="font-medium text-sm text-primary">Read Your Playbook</span>
-            <ExternalLink className="w-4 h-4 text-primary" />
-          </a>
+          {/* Slow Days */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Battery className="w-4 h-4 text-primary" />
+              Staying Motivated on Slow Days
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1.5">
+              <li>• <strong>Focus on activity</strong> - Control the controllables (doors, pitches)</li>
+              <li>• <strong>Remember your why</strong> - Why are you doing this?</li>
+              <li>• <strong>Find a win</strong> - Celebrate small victories (great pitch, good convo)</li>
+              <li>• <strong>Change something</strong> - New area, different approach, fresh energy</li>
+            </ul>
+          </div>
+
+          {/* Mental Reset */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-primary" />
+              Quick Mental Reset
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1.5">
+              <li>• <strong>5 deep breaths</strong> - Reset your nervous system</li>
+              <li>• <strong>Power pose</strong> - Stand tall, shoulders back for 30 seconds</li>
+              <li>• <strong>Gratitude check</strong> - Name 3 things you're grateful for</li>
+              <li>• <strong>Call a teammate</strong> - Quick pep talk goes a long way</li>
+            </ul>
+          </div>
+
+          {/* Push Through vs Break */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Brain className="w-4 h-4 text-primary" />
+              Push Through vs. Take a Break
+            </h5>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p><strong>Push through when:</strong></p>
+              <ul className="ml-4 space-y-1">
+                <li>• You're just having a slow streak (numbers will turn)</li>
+                <li>• You haven't hit your daily activity goal yet</li>
+                <li>• You're feeling lazy, not exhausted</li>
+              </ul>
+              <p className="mt-2"><strong>Take a break when:</strong></p>
+              <ul className="ml-4 space-y-1">
+                <li>• You're physically exhausted or dehydrated</li>
+                <li>• Your pitch quality is suffering</li>
+                <li>• You need food/water to perform</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Encouragement */}
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Heart className="w-4 h-4 text-primary mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-primary">Remember</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Every successful rep has bad days. What separates them is how quickly they bounce back. You've got this!
+                </p>
+              </div>
+            </div>
+          </div>
 
           {!playbookReady && (
             <Button 
