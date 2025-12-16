@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PhaseData } from "@/pages/RampToBlitz";
 import type { RepData } from "@/hooks/useRepData";
+import { Phase1Content } from "./Phase1Content";
 
 interface RampPhaseContentProps {
   phase: PhaseData;
@@ -40,19 +41,14 @@ export const RampPhaseContent = ({ phase, repData }: RampPhaseContentProps) => {
     );
   }
 
-  // Placeholder content for each phase - will be replaced with real content
+  // Render Phase 1 with dedicated component
+  if (phase.id === 1) {
+    return <Phase1Content repData={repData} isComplete={phase.isComplete} />;
+  }
+
+  // Placeholder content for phases 2-4 - will be replaced with real content
   const getPhaseContent = () => {
     switch (phase.id) {
-      case 1:
-        return {
-          title: "Set Goals",
-          description: "Get onboarded and ready for your journey",
-          tasks: [
-            { id: "1-1", title: "Watch: What is a blitz?", description: "Learn about blitzes and how you get paid", isComplete: false, type: "video" as const },
-            { id: "1-2", title: "Schedule Goals Call", description: "Set up a call with your leader to set your goals", isComplete: false, type: "action" as const, requiresLeader: true },
-            { id: "1-3", title: "Commit to a Blitz", description: "Choose your first blitz trip", isComplete: !!repData?.committed_blitzes && Array.isArray(repData.committed_blitzes) && repData.committed_blitzes.length > 0, type: "action" as const },
-          ],
-        };
       case 2:
         return {
           title: "Start Trainings",
