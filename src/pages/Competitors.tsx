@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, Loader2, RefreshCw, Search, X, ChevronDown, Star, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { motion, AnimatePresence } from "framer-motion";
+
+const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
 
 // Category display names mapped to database values
 const CATEGORIES = [
@@ -30,6 +32,7 @@ export default function Competitors() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useLocalStorage<string[]>("competitor-favorites", []);
   const [isAiMode, setIsAiMode] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   
   // AI recommendation state
@@ -37,6 +40,15 @@ export default function Competitors() {
   const [aiRecommendation, setAiRecommendation] = useState("");
   const [aiCompetitors, setAiCompetitors] = useState<Array<{ name: string; notion_page_id: string }>>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
+
+  // Check if current user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email?.toLowerCase() === ADMIN_EMAIL);
+    };
+    checkAdmin();
+  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -161,7 +173,7 @@ export default function Competitors() {
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Button
+            <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/tools")}
@@ -171,15 +183,17 @@ export default function Competitors() {
               </Button>
               <h1 className="text-2xl font-bold">Competitor Cheat Sheet</h1>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSync}
-              disabled={syncing}
-              className="rounded-full"
-            >
-              <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSync}
+                disabled={syncing}
+                className="rounded-full"
+              >
+                <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
           </div>
 
           {/* Unified Search/AI Input */}

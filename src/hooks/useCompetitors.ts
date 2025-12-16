@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Competitor {
@@ -24,107 +24,40 @@ export interface Competitor {
 }
 
 // Cache for 30 days - competitor data rarely changes
-const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const STALE_TIME = 30 * 24 * 60 * 60 * 1000;
 
 export const useCompetitors = () => {
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Load from cache and only fetch if cache is stale or empty
-  useEffect(() => {
-    const loadData = async () => {
-      const cached = localStorage.getItem('competitors-cache');
-      
-      if (cached) {
-        try {
-          const { data, timestamp } = JSON.parse(cached);
-          const isRecent = Date.now() - timestamp < CACHE_TTL_MS;
-          
-          if (isRecent && data.length > 0) {
-            // Cache is fresh - use it and skip network
-            setCompetitors(data);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error('Failed to parse cached competitors:', e);
-        }
-      }
-      
-      // Cache is stale or empty - fetch from Supabase
-      await fetchFromSupabase();
-    };
-    
-    loadData();
-  }, []);
-
-  const fetchFromSupabase = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
+  const { data: competitors = [], isLoading: loading, error: queryError, refetch } = useQuery({
+    queryKey: ['competitors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('competitors')
         .select('*')
         .order('name', { ascending: true });
 
-      if (fetchError) throw fetchError;
-
-      const competitorData = (data || []) as Competitor[];
-      setCompetitors(competitorData);
-      
-      // Cache the data
-      localStorage.setItem('competitors-cache', JSON.stringify({
-        data: competitorData,
-        timestamp: Date.now()
-      }));
-    } catch (err) {
-      console.error('Error fetching competitors:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch competitors');
-      
-      // Fall back to any cached data
-      const cached = localStorage.getItem('competitors-cache');
-      if (cached) {
-        try {
-          const { data } = JSON.parse(cached);
-          if (data.length > 0) {
-            setCompetitors(data);
-          }
-        } catch (e) {
-          console.error('Failed to parse cached competitors:', e);
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) throw error;
+      return (data || []) as Competitor[];
+    },
+    staleTime: STALE_TIME,
+    gcTime: STALE_TIME, // Keep in cache for 30 days
+  });
 
   const syncFromNotion = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const { error: syncError } = await supabase.functions.invoke('sync-notion-competitors');
 
-      const { error: syncError } = await supabase.functions.invoke('sync-notion-competitors');
+    if (syncError) throw syncError;
 
-      if (syncError) throw syncError;
-
-      // Clear cache and refetch
-      localStorage.removeItem('competitors-cache');
-      await fetchFromSupabase();
-    } catch (err) {
-      console.error('Error syncing competitors:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sync competitors');
-    } finally {
-      setLoading(false);
-    }
+    // Invalidate cache to force refetch
+    await queryClient.invalidateQueries({ queryKey: ['competitors'] });
   };
 
   return {
     competitors,
     loading,
-    error,
-    refetch: fetchFromSupabase,
+    error: queryError ? (queryError as Error).message : null,
+    refetch,
     syncFromNotion,
   };
 };
