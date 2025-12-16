@@ -148,20 +148,72 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
         isExpanded={expandedSection === "packing"}
         onToggle={() => setExpandedSection(expandedSection === "packing" ? null : "packing")}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Review the packing list to make sure you have everything for the trip.
+            Make sure you have everything packed for the trip:
           </p>
           
-          <a
-            href="https://calvinschofield.notion.site/Packing-List-Blitz-Trips-63bbc6dd1afd4340a9c9ca5533c838b4"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
-          >
-            <span className="font-medium text-sm text-primary">View Packing List</span>
-            <ExternalLink className="w-4 h-4 text-primary" />
-          </a>
+          {/* Clothing Section */}
+          <div className="space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Shirt className="w-4 h-4 text-primary" />
+              Clothing
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+              <li>3-5 knocking polos/shirts</li>
+              <li>Comfortable pants/shorts (khakis, joggers)</li>
+              <li>Comfortable walking shoes</li>
+              <li>Socks & underwear for each day</li>
+              <li>Light jacket or hoodie (evening)</li>
+              <li>Sleepwear</li>
+              <li>Casual clothes for downtime</li>
+            </ul>
+          </div>
+
+          {/* Knocking Gear Section */}
+          <div className="space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Tablet className="w-4 h-4 text-primary" />
+              Knocking Gear
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+              <li>iPad (charged, apps logged in)</li>
+              <li>iPad charger & cable</li>
+              <li>ID Badge</li>
+              <li>Portable battery pack</li>
+              <li>Sunglasses</li>
+              <li>Hat or cap</li>
+              <li>Sunscreen</li>
+              <li>Water bottle</li>
+            </ul>
+          </div>
+
+          {/* Personal Items Section */}
+          <div className="space-y-2">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <IdCard className="w-4 h-4 text-primary" />
+              Personal Items
+            </h5>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+              <li>Phone & charger</li>
+              <li>Wallet & ID</li>
+              <li>Toiletries (toothbrush, deodorant, etc.)</li>
+              <li>Any medications</li>
+              <li>Earbuds/headphones</li>
+              <li>Snacks for the car/doors</li>
+            </ul>
+          </div>
+
+          {/* Nice to Have Section */}
+          <div className="space-y-2 border-t pt-3">
+            <h5 className="font-medium text-sm text-muted-foreground">Nice to Have</h5>
+            <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+              <li>Umbrella (just in case)</li>
+              <li>Notebook & pen</li>
+              <li>Pillow for car rides</li>
+              <li>Book or entertainment</li>
+            </ul>
+          </div>
 
           {!packingDone && (
             <Button 
