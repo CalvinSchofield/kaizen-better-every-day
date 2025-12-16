@@ -118,26 +118,30 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
   const someMissing = !hasIpad || !hasUniforms || !hasBadge;
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Phase Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold">Saddle Up!</h3>
-          <p className="text-sm text-muted-foreground">
-            Final preparations for your blitz
-          </p>
+    <div className="space-y-5 pb-20">
+      {/* Completed Steps as Chips */}
+      {completedSteps > 0 && completedSteps < 3 && (
+        <div className="flex flex-wrap gap-2">
+          {packingDone && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Packed
+            </div>
+          )}
+          {essentialsChecked && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Essentials
+            </div>
+          )}
+          {playbookReady && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Playbook
+            </div>
+          )}
         </div>
-        {isComplete ? (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Complete
-          </Badge>
-        ) : (
-          <Badge variant="outline">
-            {completedSteps}/3 done
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Step 1: Packing List */}
       <TrainingSection

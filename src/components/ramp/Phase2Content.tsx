@@ -211,26 +211,42 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-4 pb-20">
-      {/* Phase Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold">Start Trainings</h3>
-          <p className="text-sm text-muted-foreground">
-            Learn the product and master your pitch
-          </p>
+    <div className="space-y-5 pb-20">
+      {/* Completed Steps as Chips */}
+      {completedSteps > 0 && completedSteps < 5 && (
+        <div className="flex flex-wrap gap-2">
+          {productStudied && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Product
+            </div>
+          )}
+          {quizPassed && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Quiz
+            </div>
+          )}
+          {upgradesStudied && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Upgrades
+            </div>
+          )}
+          {takeoverStudied && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Takeover
+            </div>
+          )}
+          {pitchSubmitted && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Pitch
+            </div>
+          )}
         </div>
-        {isComplete ? (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Complete
-          </Badge>
-        ) : (
-          <Badge variant="outline">
-            {completedSteps}/5 done
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Step 1: Product Knowledge */}
       <TrainingSection

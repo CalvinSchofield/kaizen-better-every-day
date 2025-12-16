@@ -151,26 +151,30 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Phase Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold">Set Goals</h3>
-          <p className="text-sm text-muted-foreground">
-            Learn what blitzes are and how you get paid
-          </p>
+    <div className="space-y-5 pb-20">
+      {/* Completed Steps as Chips */}
+      {completedSteps > 0 && completedSteps < 3 && (
+        <div className="flex flex-wrap gap-2">
+          {requiredVideosWatched && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Videos watched
+            </div>
+          )}
+          {(goalsReviewed || goalsSetupComplete) && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Goals reviewed
+            </div>
+          )}
+          {hasCommittedBlitz && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Blitz committed
+            </div>
+          )}
         </div>
-        {isComplete ? (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Complete
-          </Badge>
-        ) : (
-          <Badge variant="outline">
-            {completedSteps}/3 done
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Video Section */}
       <div className="space-y-3">
