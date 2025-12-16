@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Tablet, MessageSquare, ExternalLink, ChevronDown, ChevronUp, Video, Heart, Users } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { CheckCircle2, Circle, Tablet, MessageSquare, ExternalLink, ChevronDown, ChevronUp, Heart, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
 import type { RepData } from "@/hooks/useRepData";
+
+// Detect if running as PWA on iPhone
+const useIsIPhonePWA = () => {
+  return useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const userAgent = navigator.userAgent || '';
+    const isIPhone = /iPhone/i.test(userAgent);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                  (window.navigator as any).standalone === true;
+    return isIPhone && isPWA;
+  }, []);
+};
 
 interface Phase3ContentProps {
   repData: RepData | null;
@@ -101,6 +113,8 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
     }
   };
 
+  const isIPhonePWA = useIsIPhonePWA();
+
   const completedSteps = [ipadReady, whyWritten, practiceScheduled].filter(Boolean).length;
 
   return (
@@ -149,30 +163,46 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
             <ExternalLink className="w-4 h-4 text-primary" />
           </a>
 
-          {/* Bonus Videos */}
+          {/* Bonus Videos - Embedded */}
           <div className="border-t pt-3 mt-3">
-            <p className="text-xs text-muted-foreground mb-2 font-medium">Bonus Videos (Optional)</p>
-            <div className="space-y-2">
-              <a
-                href="https://youtu.be/ig_9Pvg1SqE"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <Video className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">How to use Street Genie to prospect</span>
-                <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto" />
-              </a>
-              <a
-                href="https://youtu.be/KLu5xYUkMwo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <Video className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">iOS Work Mode Setup</span>
-                <Badge variant="outline" className="ml-auto text-xs">iOS only</Badge>
-              </a>
+            <p className="text-xs text-muted-foreground mb-3 font-medium">Bonus Videos (Optional)</p>
+            <div className="space-y-4">
+              {/* Street Genie Video */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">How to use Street Genie to prospect</p>
+                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src="https://www.youtube.com/embed/ig_9Pvg1SqE"
+                    title="How to use Street Genie to prospect"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="border-0"
+                  />
+                </div>
+              </div>
+
+              {/* iOS Work Mode Video - Only show on iPhone PWA */}
+              {isIPhonePWA && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">iOS Work Mode Setup</p>
+                    <Badge variant="outline" className="text-xs">iOS</Badge>
+                  </div>
+                  <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src="https://www.youtube.com/embed/KLu5xYUkMwo"
+                      title="iOS Work Mode Setup"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="border-0"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
