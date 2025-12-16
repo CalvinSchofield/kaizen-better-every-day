@@ -27,6 +27,8 @@ import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
+import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
 
@@ -136,6 +138,7 @@ const Home = () => {
   const [blitzListExpanded, setBlitzListExpanded] = useState(false);
   const [isCommittingBlitz, setIsCommittingBlitz] = useState<string | null>(null);
   const [isUncommittingBlitz, setIsUncommittingBlitz] = useState<string | null>(null);
+  const [activeRampPhase, setActiveRampPhase] = useState<PhaseId>(1);
   const [nextBlitz, setNextBlitz] = useState<{ 
     name: string; 
     date: string; 
@@ -1427,127 +1430,58 @@ const Home = () => {
             </Card>;
       })}
 
-        {/* Ramp to Blitz Card with Sub-Phases */}
-        <Card className={`transition-all ${!slackComplete ? "opacity-60" : allRampPhasesComplete ? "border-success/50" : "border-primary shadow-orange"}`}>
-          <CardHeader className="pb-3">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 mt-1">
-                {allRampPhasesComplete ? <CheckCircle2 className="w-6 h-6 text-success" /> : !slackComplete ? <Lock className="w-6 h-6 text-locked" /> : <Circle className="w-6 h-6 text-muted-foreground" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <CardTitle className="text-lg leading-tight flex-1 min-w-0">Ramp to Blitz</CardTitle>
-                  {allRampPhasesComplete ? <Badge className="bg-success text-success-foreground">✓ Completed</Badge> : !slackComplete ? <Badge className="bg-locked text-locked-foreground">🔒 Locked</Badge> : <Badge className="bg-warning text-warning-foreground">In Progress</Badge>}
-                </div>
-                {slackComplete && <CardDescription className="text-sm leading-relaxed">
-                    {allRampPhasesComplete ? "Tap any phase to review the content." : "Work through all 4 phases to be ready for your first blitz."}
-                  </CardDescription>}
-              </div>
-            </div>
-          </CardHeader>
+        {/* Ramp to Blitz Hero Section - New Design */}
+        {(() => {
+          // Build phases data for RookieRampHeroSection
+          const rampPhasesData: PhaseData[] = [
+            {
+              id: 1 as PhaseId,
+              title: "Set Goals",
+              subtitle: "Onboard and get ready",
+              isComplete: phase1Complete,
+              isLocked: false,
+            },
+            {
+              id: 2 as PhaseId,
+              title: "Start Trainings",
+              subtitle: "Learn the fundamentals",
+              isComplete: phase2Complete,
+              isLocked: !phase1Complete,
+            },
+            {
+              id: 3 as PhaseId,
+              title: "Practice",
+              subtitle: "Sharpen your skills",
+              isComplete: phase3Complete,
+              isLocked: !phase2Complete,
+            },
+            {
+              id: 4 as PhaseId,
+              title: "Saddle Up!",
+              subtitle: "Final preparations",
+              isComplete: phase4Complete,
+              isLocked: !phase3Complete,
+            },
+          ];
 
-          {slackComplete && <CardContent className="pt-0 space-y-3">
-              <Accordion 
-                type="single" 
-                collapsible 
-                className="space-y-3"
-                defaultValue={
-                  phase4Complete ? undefined :
-                  phase3Complete ? "phase-4" :
-                  phase2Complete ? "phase-3" :
-                  phase1Complete ? "phase-2" :
-                  slackComplete ? "phase-1" :
-                  undefined
-                }
-              >
-                {rampPhases.map(phase => {
-                  const phaseStatus = getPhaseStatus(phase.id);
-                  
-                  // Locked phases cannot be expanded
-                  if (phaseStatus.locked) {
-                    return (
-                      <div key={phase.id} className="border rounded-lg opacity-60 bg-muted/30">
-                        <div className="flex items-center justify-between w-full p-4 rounded-lg cursor-not-allowed">
-                          <div className="flex items-center gap-3 flex-1">
-                            <Lock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                            <div className="flex items-center gap-2 flex-wrap flex-1">
-                              <span className="font-semibold text-sm">{phase.title}</span>
-                              <Badge variant="outline" className="text-xs">🔒 Locked</Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <AccordionItem key={phase.id} value={`phase-${phase.id}`} className={`border rounded-lg ${phaseStatus.completed ? "bg-success/5 border-success/30" : "bg-card"}`}>
-                      <AccordionTrigger className="flex items-center justify-between w-full p-4 hover:bg-accent/50 transition-colors rounded-lg [&[data-state=open]>svg]:rotate-180">
-                        <div className="flex items-center gap-3 flex-1">
-                          {phaseStatus.completed ? <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0" /> : <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0" />}
-                          <div className="flex items-center gap-2 flex-wrap flex-1">
-                            <span className="font-semibold text-sm">{phase.title}</span>
-                            {phaseStatus.completed && <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">✓ Complete</Badge>}
-                          </div>
-                        </div>
-                      </AccordionTrigger>
+          // Determine active phase (first incomplete unlocked phase)
+          const currentActivePhase = rampPhasesData.find(p => !p.isComplete && !p.isLocked)?.id || 
+            (rampPhasesData.every(p => p.isComplete) ? 4 : 1) as PhaseId;
 
-                      <AccordionContent className="px-4 pb-4 space-y-2">
-                        {phase.tasks.map(task => {
-                          const isCompleted = completedTasks.has(task.id);
-                          return (
-                            <div key={task.id} className="flex items-start gap-3 py-2 group">
-                              <Checkbox 
-                                checked={isCompleted} 
-                                onCheckedChange={() => handleTaskClick(task.id, task.href, task.onClick)} 
-                                className="mt-0.5 flex-shrink-0" 
-                              />
-                              <button 
-                                onClick={() => handleTaskClick(task.id, task.href, task.onClick)} 
-                                className="flex-1 text-left text-sm group-hover:text-primary transition-colors"
-                              >
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={isCompleted ? "line-through text-muted-foreground" : ""}>
-                                    {task.label}
-                                  </span>
-                                  {task.duration && <span className="text-xs text-muted-foreground">({task.duration})</span>}
-                                </div>
-                              </button>
-                            </div>
-                          );
-                        })}
-                        
-                        {/* Show encouragement when all tasks are completed */}
-                        {phase.tasks.every(task => completedTasks.has(task.id)) && !phaseStatus.completed && (
-                          <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                🎉 Great work! You've completed all tasks for Phase {phase.id}.
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Text your leaders to let them know you're done with Phase {phase.id} so they can verify and unlock the next phase!
-                              </p>
-                            </div>
-                            <Button
-                              onClick={handleNudge}
-                              disabled={isNudging}
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                            >
-                              <span className="mr-2">🫵</span>
-                              {isNudging ? "Nudging..." : "Nudge"}
-                            </Button>
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-            </CardContent>}
-
-        </Card>
+          return (
+            <RookieRampHeroSection
+              repData={repData}
+              prerequisites={{
+                onboarding: onboardingComplete,
+                trainings: trainingsComplete,
+                slack: slackComplete,
+              }}
+              phases={rampPhasesData}
+              activePhase={currentActivePhase}
+              onPhaseSelect={setActiveRampPhase}
+            />
+          );
+        })()}
 
         {/* Blitz Management Card - Show after Phase 1 is complete */}
         {phase1Complete && (

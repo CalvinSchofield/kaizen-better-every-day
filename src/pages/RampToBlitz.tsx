@@ -44,7 +44,7 @@ const RampToBlitz = () => {
   // Check if user is a vet or sophomore - they can navigate freely without blockers
   const isVetOrSophomore = repData?.year === 'Vet' || repData?.year === 'Sophomore';
 
-  // Phase 1 completion
+  // Phase 1 completion - ALL phases require leader verification (no auto-complete)
   const watchedVideoIds = Array.isArray(repData?.watched_videos)
     ? (repData!.watched_videos as string[])
     : [];
@@ -58,10 +58,9 @@ const RampToBlitz = () => {
     (repData!.committed_blitzes as unknown[]).length > 0;
 
   const goalsSetupComplete = goals?.setup_complete === true;
-  const phase1AutoComplete =
-    requiredPhase1VideosWatched && goalsSetupComplete && hasCommittedBlitz;
-
-  const phase1Complete = (repData?.ramp_phase_1_complete ?? false) || phase1AutoComplete;
+  
+  // Leader verification is required for all phases - no auto-complete
+  const phase1Complete = repData?.ramp_phase_1_complete ?? false;
 
   // Phase 2-4 progress tracking
   const phase2Progress = {
@@ -199,7 +198,12 @@ const RampToBlitz = () => {
           phase2Progress={phase2Progress}
           phase3Progress={phase3Progress}
           phase4Progress={phase4Progress}
+          phase1LeaderVerified={repData?.ramp_phase_1_complete ?? false}
+          phase2LeaderVerified={repData?.ramp_phase_2_complete ?? false}
+          phase3LeaderVerified={repData?.ramp_phase_3_complete ?? false}
+          phase4LeaderVerified={repData?.ramp_phase_4_complete ?? false}
           onScrollToStep={handleScrollToStep}
+          teamLeaderPhone={repData?.team_leader_phone}
         />
       </div>
 

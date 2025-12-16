@@ -1,6 +1,5 @@
-import { ArrowRight, Play, Target, BookOpen, Tablet, PackageCheck, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Play, Target, BookOpen, Tablet, PackageCheck, CheckCircle2, Clock, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { PhaseId } from "@/pages/RampToBlitz";
 
 interface NextStepInfo {
@@ -34,8 +33,50 @@ interface RampNextStepProps {
     essentialsChecked: boolean;
     playbookReady: boolean;
   };
+  // Leader verification status
+  phase1LeaderVerified?: boolean;
+  phase2LeaderVerified?: boolean;
+  phase3LeaderVerified?: boolean;
+  phase4LeaderVerified?: boolean;
   onScrollToStep: (stepKey: string) => void;
+  teamLeaderPhone?: string | null;
 }
+
+// Check if self-service items are complete for a phase
+const isSelfServiceComplete = (
+  phaseId: PhaseId,
+  watchedVideos: string[],
+  goalsSetupComplete: boolean,
+  hasCommittedBlitz: boolean,
+  phase2Progress: RampNextStepProps['phase2Progress'],
+  phase3Progress: RampNextStepProps['phase3Progress'],
+  phase4Progress: RampNextStepProps['phase4Progress']
+): boolean => {
+  const requiredVideos = ["what-is-blitz", "how-pay-works"];
+  const requiredWatched = requiredVideos.every(v => watchedVideos.includes(v));
+
+  if (phaseId === 1) {
+    return requiredWatched && goalsSetupComplete && hasCommittedBlitz;
+  }
+  if (phaseId === 2) {
+    return phase2Progress.productStudied && 
+           phase2Progress.quizPassed && 
+           phase2Progress.upgradesStudied && 
+           phase2Progress.takeoverStudied && 
+           phase2Progress.pitchSubmitted;
+  }
+  if (phaseId === 3) {
+    return phase3Progress.ipadReady && 
+           phase3Progress.whyWritten && 
+           phase3Progress.practiceScheduled;
+  }
+  if (phaseId === 4) {
+    return phase4Progress.packingDone && 
+           phase4Progress.essentialsChecked && 
+           phase4Progress.playbookReady;
+  }
+  return false;
+};
 
 // Determine the next step based on progress
 const getNextStep = (
@@ -220,8 +261,68 @@ export const RampNextStep = ({
   phase2Progress,
   phase3Progress,
   phase4Progress,
-  onScrollToStep
+  phase1LeaderVerified = false,
+  phase2LeaderVerified = false,
+  phase3LeaderVerified = false,
+  phase4LeaderVerified = false,
+  onScrollToStep,
+  teamLeaderPhone
 }: RampNextStepProps) => {
+  // Check if current phase's self-service is complete
+  const selfServiceComplete = isSelfServiceComplete(
+    activePhase,
+    watchedVideos,
+    goalsSetupComplete,
+    hasCommittedBlitz,
+    phase2Progress,
+    phase3Progress,
+    phase4Progress
+  );
+
+  // Check if current phase is leader verified
+  const isLeaderVerified = 
+    (activePhase === 1 && phase1LeaderVerified) ||
+    (activePhase === 2 && phase2LeaderVerified) ||
+    (activePhase === 3 && phase3LeaderVerified) ||
+    (activePhase === 4 && phase4LeaderVerified);
+
+  // If self-service complete but not leader verified - show waiting state
+  if (selfServiceComplete && !isLeaderVerified) {
+    const handleTextLeader = () => {
+      if (teamLeaderPhone) {
+        window.open(`sms:${teamLeaderPhone}`, "_self");
+      } else {
+        window.open("sms:", "_self");
+      }
+    };
+
+    return (
+      <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <Clock className="w-4 h-4 text-emerald-600" />
+          </div>
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            Phase {activePhase} Complete!
+          </p>
+        </div>
+        
+        <p className="text-sm text-muted-foreground mb-4">
+          You've finished everything in this phase. Your leader will verify and unlock the next phase.
+        </p>
+        
+        <Button 
+          onClick={handleTextLeader}
+          variant="outline"
+          className="w-full rounded-xl gap-2 border-emerald-500/30 hover:bg-emerald-500/10"
+        >
+          <MessageCircle className="w-4 h-4" />
+          Text Your Leader
+        </Button>
+      </div>
+    );
+  }
+
   const nextStep = getNextStep(
     activePhase,
     watchedVideos,
@@ -233,7 +334,7 @@ export const RampNextStep = ({
   );
 
   if (!nextStep) {
-    // All done in current phase
+    // All done in current phase (and verified)
     return (
       <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-2xl p-5">
         <div className="flex items-center gap-4">
