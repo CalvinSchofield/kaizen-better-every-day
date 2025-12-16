@@ -123,7 +123,7 @@ const Training = () => {
     },
     {
       title: "Ramp to Blitz",
-      description: "Your preseason training program",
+      description: "What to do before your first door",
       icon: Rocket,
       inAppRoute: "/ramp-to-blitz",
       items: [],
