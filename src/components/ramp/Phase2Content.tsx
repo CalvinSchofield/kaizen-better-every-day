@@ -37,26 +37,29 @@ const UPGRADES_CONTENT = {
   whatAre: {
     title: "What are upgrades?",
     icon: Lightbulb,
-    content: "Upgrades are sales made to existing Vivint customers. These customers already trust the brand and have a working system — your job is to show them the latest and greatest technology that's come out since they first signed up."
+    content: "Vivint constantly releases newer, better products. Like smartphones, SmartHomes can be upgraded with new features and equipment. This creates great opportunities to offer current customers more and earn money doing it."
   },
   whyDo: {
     title: "Why do upgrades?",
     icon: DollarSign,
     items: [
-      "Higher close rates — they already know and trust Vivint",
-      "Easier conversations — no need to sell the company, just the new tech",
-      "Great PRMR — upgrade deals often have strong commissions",
-      "Build confidence before knocking fresh doors"
+      "Fastest first commission",
+      "Build momentum early",
+      "Learn real stories to establish credibility fast",
+      "Climb the payscale",
+      "Avoid bagel days 🥯"
     ]
   },
   whichDoors: {
     title: "Which doors should you focus on?",
     icon: MapPin,
-    items: [
-      "Customers with older equipment (2+ years)",
-      "Homes with basic packages missing cameras",
-      "Customers who've had service issues",
-      "Anyone without the latest smart home features"
+    intro: "Focus on customers with older Vivint equipment—they're most likely to upgrade, just like someone with an old iPhone is more likely to get the newest model.",
+    subtitle: "Look for people that have these cameras:",
+    cameras: [
+      { name: "Doorbell Camera", note: null },
+      { name: "Doorbell Camera Pro", note: "does not say Gen II" },
+      { name: "Outdoor Camera", note: null },
+      { name: "Outdoor Camera Pro", note: "does not say Gen II" }
     ]
   }
 };
@@ -323,13 +326,20 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
               </div>
               <h5 className="font-semibold text-sm">{UPGRADES_CONTENT.whichDoors.title}</h5>
             </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+              {UPGRADES_CONTENT.whichDoors.intro}
+            </p>
+            <p className="text-xs font-medium text-foreground mb-2">{UPGRADES_CONTENT.whichDoors.subtitle}</p>
             <ul className="space-y-2">
-              {UPGRADES_CONTENT.whichDoors.items.map((item, idx) => (
+              {UPGRADES_CONTENT.whichDoors.cameras.map((camera, idx) => (
                 <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
                   <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0 mt-0.5">
                     <span className="text-xs font-semibold text-orange-500">{idx + 1}</span>
                   </div>
-                  <span>{item}</span>
+                  <span>
+                    {camera.name}
+                    {camera.note && <span className="text-xs italic text-muted-foreground/70 ml-1">({camera.note})</span>}
+                  </span>
                 </li>
               ))}
             </ul>
