@@ -17,6 +17,7 @@ export interface RecruitRepData {
   blitz_trip_name?: string;
   blitz_trip_location?: string;
   notion_page_id?: string;
+  watched_videos?: string[];
 }
 
 export interface RecruitGoals {

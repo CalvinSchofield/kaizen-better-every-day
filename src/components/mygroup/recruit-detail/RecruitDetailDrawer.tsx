@@ -20,6 +20,7 @@ import { FocusCard } from "./FocusCard";
 import { ProgressTab } from "./tabs/ProgressTab";
 import { ActivityTab } from "./tabs/ActivityTab";
 import { DetailsTab } from "./tabs/DetailsTab";
+import { PhaseVerificationDrawer } from "../PhaseVerificationDrawer";
 
 // Import all the dialog components from the original file
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,9 @@ export const RecruitDetailDrawer = ({
   const [pendingStage, setPendingStage] = useState<string | null>(null);
   const [onboardingConfirmOpen, setOnboardingConfirmOpen] = useState(false);
   const [pendingOnboardingStep, setPendingOnboardingStep] = useState<{ field: string; label: string; value: boolean } | null>(null);
+  const [phaseVerificationOpen, setPhaseVerificationOpen] = useState(false);
+  const [pendingPhaseVerification, setPendingPhaseVerification] = useState<{ phase: number; field: string } | null>(null);
+  const [isPhaseVerifying, setIsPhaseVerifying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [stageShake, setStageShake] = useState(false);
   const [activityShake, setActivityShake] = useState(false);
@@ -367,8 +371,53 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleOnboardingStepClick = (field: string, label: string, currentValue: boolean) => {
-    setPendingOnboardingStep({ field, label, value: !currentValue });
-    setOnboardingConfirmOpen(true);
+    // For ramp phases being completed, show the phase verification drawer
+    const rampPhaseFields = ['ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'];
+    const isRampPhase = rampPhaseFields.includes(field);
+    const isCompleting = !currentValue; // If current is false, clicking will complete it
+    
+    if (isRampPhase && isCompleting) {
+      const phaseNum = parseInt(field.replace('ramp_phase_', '').replace('_complete', ''));
+      setPendingPhaseVerification({ phase: phaseNum, field });
+      setPhaseVerificationOpen(true);
+    } else {
+      // For basic onboarding steps or uncompleting, use simple confirmation
+      setPendingOnboardingStep({ field, label, value: !currentValue });
+      setOnboardingConfirmOpen(true);
+    }
+  };
+
+  const handleConfirmPhaseVerification = async () => {
+    if (!pendingPhaseVerification || !recruitRepData || !recruit) return;
+    setIsPhaseVerifying(true);
+    
+    try {
+      const phaseParams: Record<string, boolean> = {};
+      phaseParams[`rampPhase${pendingPhaseVerification.phase}Complete`] = true;
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        body: {
+          rookieNotionPageId: recruit.notionPageId,
+          ...phaseParams
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Phase ${pendingPhaseVerification.phase} verified!`, {
+        description: "Notion and database updated"
+      });
+
+      setPhaseVerificationOpen(false);
+      setPendingPhaseVerification(null);
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+    } catch (error: any) {
+      console.error('Error confirming phase:', error);
+      toast.error('Failed to verify phase');
+    } finally {
+      setIsPhaseVerifying(false);
+    }
   };
 
   const handleConfirmOnboardingChange = async () => {
@@ -903,6 +952,19 @@ export const RecruitDetailDrawer = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Phase Verification Drawer */}
+      {recruit && recruitRepData && pendingPhaseVerification && (
+        <PhaseVerificationDrawer
+          open={phaseVerificationOpen}
+          onOpenChange={setPhaseVerificationOpen}
+          recruitName={recruit.name}
+          phase={pendingPhaseVerification.phase}
+          watchedVideos={Array.isArray(recruitRepData.watched_videos) ? recruitRepData.watched_videos as string[] : []}
+          isSubmitting={isPhaseVerifying}
+          onConfirm={handleConfirmPhaseVerification}
+        />
+      )}
     </>
   );
 };
