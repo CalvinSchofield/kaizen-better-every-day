@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb } from "lucide-react";
+import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useRepGoals } from "@/hooks/useRepGoals";
+import { useNavigate } from "react-router-dom";
 import type { RepData } from "@/hooks/useRepData";
 
 interface Phase1ContentProps {
@@ -47,11 +49,15 @@ const VIDEOS: VideoSection[] = [
 ];
 
 export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
+  const navigate = useNavigate();
+  const { goals } = useRepGoals();
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
   const [expandedVideo, setExpandedVideo] = useState<string | null>("what-is-blitz");
   const [isDownloading, setIsDownloading] = useState(false);
   const [goalsReviewed, setGoalsReviewed] = useState(false);
   const [expandedGoalsSection, setExpandedGoalsSection] = useState<string | null>("why");
+
+  const goalsSetupComplete = goals?.setup_complete === true;
 
   // Load watched videos from database on mount
   useEffect(() => {
@@ -143,7 +149,7 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
 
   const completedSteps = [
     requiredVideosWatched,
-    goalsReviewed,
+    goalsReviewed || goalsSetupComplete,
     hasCommittedBlitz,
   ].filter(Boolean).length;
 
@@ -327,40 +333,70 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
           Take Action
         </h4>
 
-        {/* Text Leader to Schedule Goals Call */}
+        {/* Goals Call / View Goals */}
         <Card className={cn(
           "transition-all duration-200",
-          !goalsReviewed && "opacity-60"
+          goalsSetupComplete && "bg-primary/5 border-primary/20",
+          !goalsReviewed && !goalsSetupComplete && "opacity-60"
         )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
-                <Circle className="w-5 h-5 text-muted-foreground/50" />
+                {goalsSetupComplete ? (
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                ) : (
+                  <Circle className="w-5 h-5 text-muted-foreground/50" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                  <h4 className="font-medium text-sm">Schedule Goals Call</h4>
+                  {goalsSetupComplete ? (
+                    <Target className="w-4 h-4 text-primary" />
+                  ) : (
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                  )}
+                  <h4 className={cn(
+                    "font-medium text-sm",
+                    goalsSetupComplete && "text-muted-foreground"
+                  )}>
+                    {goalsSetupComplete ? "Goals Set" : "Schedule Goals Call"}
+                  </h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {goalsReviewed 
-                    ? `Text ${repData?.team_leader?.split(' ')[0] || 'your leader'} to set up your goals call`
-                    : "Review the goals sections above first"
+                  {goalsSetupComplete 
+                    ? "Your goals are set! Track your progress on the Goals page."
+                    : goalsReviewed 
+                      ? `Text ${repData?.team_leader?.split(' ')[0] || 'your leader'} to set up your goals call`
+                      : "Review the goals sections above first"
                   }
                 </p>
-                <Badge variant="outline" className="mt-2 text-xs">
-                  Requires leader
-                </Badge>
+                {!goalsSetupComplete && (
+                  <Badge variant="outline" className="mt-2 text-xs">
+                    Requires leader
+                  </Badge>
+                )}
               </div>
-              <Button 
-                variant={goalsReviewed ? "default" : "outline"}
-                size="sm" 
-                className="shrink-0"
-                onClick={handleTextLeader}
-                disabled={!goalsReviewed}
-              >
-                Text Leader
-              </Button>
+              {goalsSetupComplete ? (
+                <Button 
+                  variant="default"
+                  size="sm" 
+                  className="shrink-0"
+                  onClick={() => navigate('/goals')}
+                >
+                  <ExternalLink className="w-3 h-3 mr-1.5" />
+                  View Goals
+                </Button>
+              ) : (
+                <Button 
+                  variant={goalsReviewed ? "default" : "outline"}
+                  size="sm" 
+                  className="shrink-0"
+                  onClick={handleTextLeader}
+                  disabled={!goalsReviewed}
+                >
+                  Text Leader
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
