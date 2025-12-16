@@ -372,6 +372,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       </TrainingSection>
 
       {/* Step 3: Playbook for Tough Times */}
+      <div ref={playbookRef} />
       <TrainingSection
         title="When It Gets Tough"
         icon={<Shield className="w-4 h-4" />}

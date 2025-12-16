@@ -427,6 +427,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       </TrainingSection>
 
       {/* Step 3: 1-on-1 Practice */}
+      <div ref={practiceRef} />
       <TrainingSection
         title="1-on-1 Pitch Practice"
         icon={<Users className="w-4 h-4" />}
