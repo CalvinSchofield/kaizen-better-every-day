@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CheckCircle2, Circle, Tablet, MessageSquare, ExternalLink, ChevronDown, ChevronUp, Heart, Users } from "lucide-react";
+import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, Download, LogIn, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,20 +148,68 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
         isExpanded={expandedSection === "ipad"}
         onToggle={() => setExpandedSection(expandedSection === "ipad" ? null : "ipad")}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Get your iPad set up and learn the apps and tools you'll use on the doors.
+            Get your iPad set up with the apps and tools you'll use on the doors.
           </p>
           
-          <a
-            href="https://calvinschofield.notion.site/Tools-to-Sell-iPad-setup-guide-112cda9d37034831bed0dafbc12364f1"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
-          >
-            <span className="font-medium text-sm text-primary">iPad Setup Guide</span>
-            <ExternalLink className="w-4 h-4 text-primary" />
-          </a>
+          {/* iPad Setup Guide - In App */}
+          <div className="space-y-4">
+            {/* Step 1: Get Your iPad */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <h5 className="font-medium text-sm flex items-center gap-2">
+                <Tablet className="w-4 h-4 text-primary" />
+                1. Get Your iPad
+              </h5>
+              <p className="text-sm text-muted-foreground">
+                If you don't have an iPad yet, text your leader to get one assigned. Make sure it's charged and ready.
+              </p>
+            </div>
+
+            {/* Step 2: Install Required Apps */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <h5 className="font-medium text-sm flex items-center gap-2">
+                <Download className="w-4 h-4 text-primary" />
+                2. Install Required Apps
+              </h5>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                <li><strong>Vivint Sales App</strong> - Main selling tool</li>
+                <li><strong>Street Genie</strong> - Prospecting & lead lookup</li>
+                <li><strong>Google Maps</strong> - Navigation</li>
+                <li><strong>Kaizen</strong> - This app (add to home screen)</li>
+              </ul>
+            </div>
+
+            {/* Step 3: Log Into Everything */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <h5 className="font-medium text-sm flex items-center gap-2">
+                <LogIn className="w-4 h-4 text-primary" />
+                3. Log Into Everything
+              </h5>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                <li>Sign into Vivint Sales App with your rep credentials</li>
+                <li>Sign into Street Genie (ask leader for login)</li>
+                <li>Make sure Google Maps has your account</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                Test each app before the blitz to make sure everything works!
+              </p>
+            </div>
+
+            {/* Step 4: Set Up Your Workspace */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <h5 className="font-medium text-sm flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                4. Set Up Your Workspace
+              </h5>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                <li>Enable location services for all sales apps</li>
+                <li>Turn on Do Not Disturb during knocking hours</li>
+                <li>Keep brightness at 50%+ (easier to see outdoors)</li>
+                <li>Charge to 100% before each knocking block</li>
+              </ul>
+            </div>
+          </div>
 
           {/* Bonus Videos - Embedded */}
           <div className="border-t pt-3 mt-3">
