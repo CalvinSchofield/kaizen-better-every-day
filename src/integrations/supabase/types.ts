@@ -702,6 +702,8 @@ export type Database = {
           recruiter: string | null
           reps_with_sale: number | null
           reps_with_sale_goal: number | null
+          rsvp_first_window_ack_blitz_ids: string[]
+          rsvp_second_window_ack_blitz_ids: string[]
           sales_logger_enabled: boolean | null
           slack_joined: boolean | null
           stage: string | null
@@ -756,6 +758,8 @@ export type Database = {
           recruiter?: string | null
           reps_with_sale?: number | null
           reps_with_sale_goal?: number | null
+          rsvp_first_window_ack_blitz_ids?: string[]
+          rsvp_second_window_ack_blitz_ids?: string[]
           sales_logger_enabled?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
@@ -810,6 +814,8 @@ export type Database = {
           recruiter?: string | null
           reps_with_sale?: number | null
           reps_with_sale_goal?: number | null
+          rsvp_first_window_ack_blitz_ids?: string[]
+          rsvp_second_window_ack_blitz_ids?: string[]
           sales_logger_enabled?: boolean | null
           slack_joined?: boolean | null
           stage?: string | null
