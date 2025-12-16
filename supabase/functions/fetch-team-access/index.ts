@@ -9,27 +9,60 @@ const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
 const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
 const AREA_DIRECTOR_EMAIL = 'calvinjschofield@gmail.com';
 
+const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes
+
+type NotionQueryResponse = {
+  results?: any[];
+  [key: string]: any;
+};
+
+let mgmtGroupsCache: { fetchedAt: number; data: NotionQueryResponse } | null = null;
+let teamsCache: { fetchedAt: number; data: NotionQueryResponse } | null = null;
+
+const isFresh = (cache: { fetchedAt: number } | null) =>
+  !!cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
+
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 6): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
+
       if (response.status === 429) {
-        // Exponential backoff with longer delays for rate limiting
-        const delay = Math.min(2000 * Math.pow(2, attempt), 32000);
-        console.info(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const retryAfterHeader = response.headers.get('retry-after');
+        const retryAfterMs = retryAfterHeader
+          ? Math.max(0, Number(retryAfterHeader)) * 1000
+          : 0;
+
+        // Exponential backoff, but also respect Retry-After when provided
+        const backoffMs = Math.min(2000 * Math.pow(2, attempt), 32000);
+        const delayMs = Math.max(backoffMs, retryAfterMs);
+
+        console.info(
+          `Rate limited (429). Retrying in ${delayMs}ms... (attempt ${attempt + 1}/${maxRetries})`,
+        );
+
+        // On final attempt, return the 429 response so the caller can fall back gracefully.
+        if (attempt === maxRetries - 1) {
+          return response;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
+
       if (!response.ok) {
         console.error(`Notion API error: ${response.status} ${response.statusText}`);
       }
+
       return response;
     } catch (error) {
       console.error(`Fetch error (attempt ${attempt + 1}):`, error);
       if (attempt === maxRetries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, attempt)));
+      await new Promise((resolve) => setTimeout(resolve, 2000 * Math.pow(2, attempt)));
     }
   }
+
+  // Should be unreachable, but keeps TypeScript happy.
   throw new Error('Failed after retries');
 }
 
@@ -88,23 +121,57 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Fetch sequentially to reduce rate limit pressure
-    const mgmtGroupsResponse = await fetchWithRetry(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: notionHeaders,
-      body: JSON.stringify({}),
-    });
-    const mgmtGroupsData = await mgmtGroupsResponse.json();
-    
+    const getNotionDb = async (
+      cacheKey: 'mgmt' | 'teams',
+      databaseId: string,
+    ): Promise<NotionQueryResponse> => {
+      const cache = cacheKey === 'mgmt' ? mgmtGroupsCache : teamsCache;
+      if (isFresh(cache)) {
+        return cache!.data;
+      }
+
+      try {
+        const response = await fetchWithRetry(
+          `https://api.notion.com/v1/databases/${databaseId}/query`,
+          {
+            method: 'POST',
+            headers: notionHeaders,
+            body: JSON.stringify({}),
+          },
+        );
+
+        const json = (await response.json()) as NotionQueryResponse;
+
+        // If we were rate-limited or got an error, prefer stale cache if available.
+        if (!response.ok) {
+          if (cache?.data) {
+            console.warn(
+              `Using stale cache for ${cacheKey} database due to Notion response ${response.status}.`,
+            );
+            return cache.data;
+          }
+          return { results: [] };
+        }
+
+        const nextCache = { fetchedAt: Date.now(), data: json };
+        if (cacheKey === 'mgmt') mgmtGroupsCache = nextCache;
+        else teamsCache = nextCache;
+
+        return json;
+      } catch (e) {
+        console.error(`Failed to fetch Notion ${cacheKey} DB. Falling back to cache.`, e);
+        if (cache?.data) return cache.data;
+        return { results: [] };
+      }
+    };
+
+    // Fetch sequentially + cache to reduce rate limit pressure
+    const mgmtGroupsData = await getNotionDb('mgmt', MGMT_DATABASE_ID);
+
     // Small delay between requests to help with rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const teamsResponse = await fetchWithRetry(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
-      method: 'POST',
-      headers: notionHeaders,
-      body: JSON.stringify({}),
-    });
-    const teamsData = await teamsResponse.json();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const teamsData = await getNotionDb('teams', TEAMS_DATABASE_ID);
 
     const mgmtGroups: any[] = [];
     const teams: any[] = [];
