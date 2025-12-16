@@ -378,21 +378,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     ? (repData.committed_blitzes as any[])?.some((b: any) => b.id === upcomingBlitzForRsvp.id) 
     : false;
   
-  // Clear optimistic state when data updates from DB
-  useEffect(() => {
-    if (locallyRespondedBlitzIds.length > 0) {
-      // Remove any blitz IDs that are now in the DB (either committed or declined)
-      const updatedIds = locallyRespondedBlitzIds.filter(id => {
-        const isCommitted = (repData.committed_blitzes as any[])?.some((b: any) => b.id === id);
-        const isDeclined = declinedBlitzes.includes(id);
-        return !isCommitted && !isDeclined;
-      });
-      
-      if (updatedIds.length !== locallyRespondedBlitzIds.length) {
-        setLocallyRespondedBlitzIds(updatedIds);
-      }
-    }
-  }, [repData.committed_blitzes, declinedBlitzes, locallyRespondedBlitzIds]);
+  // Note: We intentionally DO NOT clear locallyRespondedBlitzIds based on DB state
+  // The optimistic state should persist for the session to prevent RSVP from re-appearing
+  // especially for already-committed reps who click "Still in!"
 
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
