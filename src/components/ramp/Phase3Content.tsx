@@ -365,13 +365,16 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 </div>
               )}
 
-              {/* Street Genie Walkthrough Videos */}
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Street Genie Deep Dive (Conveyour)</p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Optional walkthrough videos to master Street Genie features
-                </p>
-                <div className="space-y-2">
+              {/* Street Genie Walkthrough Videos - Collapsible */}
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-sm">
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className="font-medium">Street Genie Deep Dive</span>
+                    <span className="text-xs text-muted-foreground">9 optional walkthrough videos</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2 space-y-2">
                   {[
                     { title: "Current Area", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8816ae62a2b0187a218b" },
                     { title: "Building Packages", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d88dbae62a2b30c7ecf47" },
@@ -394,8 +397,8 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                       <span>{video.title}</span>
                     </a>
                   ))}
-                </div>
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </div>
 
