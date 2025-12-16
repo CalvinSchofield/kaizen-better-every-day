@@ -185,6 +185,7 @@ const RampToBlitz = () => {
           activePhase={activePhase}
           repData={repData}
           onPhaseSelect={setActivePhase}
+          goalsSetupComplete={goalsSetupComplete}
         />
       </div>
 

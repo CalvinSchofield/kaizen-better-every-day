@@ -73,7 +73,7 @@ const Home = () => {
   const queryClient = useQueryClient();
   const { hasSeenIntro, markIntroComplete } = useIntroStatus(repData?.user_id);
   const teamAccess = useTeamAccess();
-  const { hasGoalsAccess } = useRepGoals();
+  const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
   
   // Auto-refresh on component mount (when PWA reopens)
@@ -1401,6 +1401,7 @@ const Home = () => {
               phases={rampPhasesData}
               activePhase={currentActivePhase}
               onPhaseSelect={setActiveRampPhase}
+              goalsSetupComplete={goals?.setup_complete === true}
             />
           );
         })()}
