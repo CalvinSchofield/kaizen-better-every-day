@@ -9,19 +9,25 @@ const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
 const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
 const AREA_DIRECTOR_EMAIL = 'calvinjschofield@gmail.com';
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 6): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
       if (response.status === 429) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        // Exponential backoff with longer delays for rate limiting
+        const delay = Math.min(2000 * Math.pow(2, attempt), 32000);
+        console.info(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
+      if (!response.ok) {
+        console.error(`Notion API error: ${response.status} ${response.statusText}`);
+      }
       return response;
     } catch (error) {
+      console.error(`Fetch error (attempt ${attempt + 1}):`, error);
       if (attempt === maxRetries - 1) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, attempt)));
     }
   }
   throw new Error('Failed after retries');
@@ -82,23 +88,23 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    const [mgmtGroupsResponse, teamsResponse] = await Promise.all([
-      fetchWithRetry(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
-        method: 'POST',
-        headers: notionHeaders,
-        body: JSON.stringify({}),
-      }),
-      fetchWithRetry(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
-        method: 'POST',
-        headers: notionHeaders,
-        body: JSON.stringify({}),
-      }),
-    ]);
-
-    const [mgmtGroupsData, teamsData] = await Promise.all([
-      mgmtGroupsResponse.json(),
-      teamsResponse.json(),
-    ]);
+    // Fetch sequentially to reduce rate limit pressure
+    const mgmtGroupsResponse = await fetchWithRetry(`https://api.notion.com/v1/databases/${MGMT_DATABASE_ID}/query`, {
+      method: 'POST',
+      headers: notionHeaders,
+      body: JSON.stringify({}),
+    });
+    const mgmtGroupsData = await mgmtGroupsResponse.json();
+    
+    // Small delay between requests to help with rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const teamsResponse = await fetchWithRetry(`https://api.notion.com/v1/databases/${TEAMS_DATABASE_ID}/query`, {
+      method: 'POST',
+      headers: notionHeaders,
+      body: JSON.stringify({}),
+    });
+    const teamsData = await teamsResponse.json();
 
     const mgmtGroups: any[] = [];
     const teams: any[] = [];
