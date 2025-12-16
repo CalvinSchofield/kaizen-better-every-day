@@ -9,7 +9,8 @@ import {
   Plane,
   CheckCircle2,
   AlertCircle,
-  GraduationCap
+  GraduationCap,
+  Phone
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,96 @@ export const FocusCard = ({
     const daysSinceContact = recruit.lastContact 
       ? differenceInDays(now, parseISO(recruit.lastContact))
       : null;
+    
+    // ========== EARLY STAGE: Focus on moving toward Signed ==========
+    
+    if (isEarlyStage) {
+      const stage = recruit.stage || '';
+      
+      if (stageLower.includes('100') || stageLower.includes('list')) {
+        // 100 List - need to reach out
+        if (daysSinceContact === null) {
+          issues.push({
+            priority: 80,
+            type: 'high',
+            icon: 'phone',
+            title: 'Ready to reach out',
+            description: `${recruitFirstName} is on your 100 list - time to make first contact`,
+            actionLabel: 'Log Contact',
+            actionTab: 'activity'
+          });
+        } else if (daysSinceContact >= 7) {
+          issues.push({
+            priority: 75,
+            type: 'medium',
+            icon: 'clock',
+            title: `${daysSinceContact} days since contact`,
+            description: `Follow up with ${recruitFirstName} to gauge interest`,
+            actionLabel: 'Log Contact',
+            actionTab: 'activity'
+          });
+        } else {
+          issues.push({
+            priority: 40,
+            type: 'low',
+            icon: 'target',
+            title: 'Recently contacted',
+            description: `Contacted ${daysSinceContact} day${daysSinceContact === 1 ? '' : 's'} ago - waiting for response`,
+            actionTab: 'activity'
+          });
+        }
+      } else if (stageLower.includes('reached') || stageLower.includes('out')) {
+        // Reached Out - need to follow up and evaluate
+        if (daysSinceContact && daysSinceContact >= 5) {
+          issues.push({
+            priority: 70,
+            type: 'high',
+            icon: 'clock',
+            title: `${daysSinceContact} days since contact`,
+            description: `Follow up with ${recruitFirstName} to move forward`,
+            actionLabel: 'Log Contact',
+            actionTab: 'activity'
+          });
+        } else {
+          issues.push({
+            priority: 50,
+            type: 'medium',
+            icon: 'target',
+            title: 'Waiting for response',
+            description: `${recruitFirstName} was reached out to - follow up to start evaluation`,
+            actionLabel: 'Log Contact',
+            actionTab: 'activity'
+          });
+        }
+      } else if (stageLower.includes('evaluat')) {
+        // Evaluating - need to close them
+        if (daysSinceContact && daysSinceContact >= 3) {
+          issues.push({
+            priority: 75,
+            type: 'high',
+            icon: 'clock',
+            title: `${daysSinceContact} days since contact`,
+            description: `Stay in touch with ${recruitFirstName} while they're deciding`,
+            actionLabel: 'Log Contact',
+            actionTab: 'activity'
+          });
+        } else {
+          issues.push({
+            priority: 60,
+            type: 'medium',
+            icon: 'target',
+            title: 'Actively evaluating',
+            description: `${recruitFirstName} is considering - help them make a decision`,
+            actionLabel: 'View Activity',
+            actionTab: 'activity'
+          });
+        }
+      }
+      
+      // Return early for early-stage recruits - don't show other warnings
+      issues.sort((a, b) => b.priority - a.priority);
+      return issues[0] || null;
+    }
     
     // ========== CRITICAL: Blitz approaching with blockers (only for Signed+) ==========
     
@@ -237,6 +328,8 @@ export const FocusCard = ({
       case 'clock': return <Clock className="h-5 w-5" />;
       case 'check': return <CheckCircle2 className="h-5 w-5" />;
       case 'plane': return <Plane className="h-5 w-5" />;
+      case 'phone': return <Phone className="h-5 w-5" />;
+      case 'target': return <Target className="h-5 w-5" />;
       default: return <AlertTriangle className="h-5 w-5" />;
     }
   };
