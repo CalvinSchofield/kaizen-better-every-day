@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Shield, Zap, DoorOpen, Presentation, Lock, ExternalLink, Download, DollarSign, Rocket, ChevronRight } from "lucide-react";
+import { FileText, Shield, Zap, DoorOpen, Presentation, Lock, ExternalLink, Download, DollarSign, Rocket, ChevronRight, MessageSquare } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,8 @@ interface TrainingCategory {
   }>;
 }
 
+type UserType = "pre-blitz-onboarding" | "pre-blitz-ramp" | "post-blitz-rookie" | "vet-sophomore";
+
 const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
@@ -47,11 +49,28 @@ const Training = () => {
     }
   }, [searchParams, setSearchParams]);
   
-  // Check if user is a vet or sophomore
-  const isVetOrSophomore = repData?.year === "Vet" || repData?.year === "Sophomore";
-  
-  // Check phase 4 completion
-  const phase4Complete = repData?.ramp_phase_4_complete || false;
+  // Determine user type for dynamic content ordering
+  const getUserType = (): UserType => {
+    if (!repData) return "pre-blitz-onboarding";
+    
+    const isVetOrSoph = repData.year === "Vet" || repData.year === "Sophomore";
+    if (isVetOrSoph) return "vet-sophomore";
+    
+    const isPostBlitz = repData.ramp_phase_4_complete;
+    if (isPostBlitz) return "post-blitz-rookie";
+    
+    // Check if past basic onboarding (in ramp phases)
+    const phase = repData.ramp_to_blitz_phase?.toLowerCase() || "";
+    const inRampPhases = phase.includes("phase") || phase.includes("trainings ✅") || phase.includes("slack ✅");
+    if (inRampPhases) return "pre-blitz-ramp";
+    
+    return "pre-blitz-onboarding";
+  };
+
+  const userType = getUserType();
+  const isVetOrSophomore = userType === "vet-sophomore";
+  const isPreBlitz = userType === "pre-blitz-onboarding" || userType === "pre-blitz-ramp";
+  const showObjections = userType !== "pre-blitz-onboarding"; // Show for ramp phases, post-blitz, and vets
 
   // Determine journey stage for dynamic recommendations
   const getJourneyStage = () => {
@@ -87,48 +106,80 @@ const Training = () => {
     setPreviousStage(journeyStage);
   }, [journeyStage, previousStage]);
 
-  const categories: TrainingCategory[] = [
-    {
-      title: "Door Approaches",
-      description: "Master the three core approaches",
-      icon: DoorOpen,
-      items: [
-        { title: "Takeover Pitch", href: "#", inAppGuide: "takeover" },
-        { title: "Fresh Pitch", href: "#", inAppGuide: "fresh" },
-        { title: "Upgrade Pitch", href: "#", inAppGuide: "upgrade" },
-      ],
-    },
-    {
-      title: "The Pitch & Presentation",
-      description: "From door to paperwork",
-      icon: Presentation,
-      items: [
-        { title: "In-Home Presentation", href: "https://calvinschofield.notion.site/In-Home-Presentation-18c070fe3bc280648438c57ea4c5d0b7" },
-        { title: "Smooth Paperwork Process", href: "https://calvinschofield.notion.site/Smooth-paperwork-process-18c070fe3bc280a59a4fdc241ebbb2c6" },
-      ],
-    },
-    {
-      title: "Product Knowledge",
-      description: "Deep dive into Vivint systems",
-      icon: Shield,
-      items: [
-        { title: "Vivint App", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=4db5a381976b269050e0b0121153afbc&in_context=true" },
-        { title: "Doorbell Camera", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fd976b45976b269050e0b0121153afce&&in_context=true" },
-        { title: "Outdoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=d2f7c8a897b8b6104599b09ad053afff&&in_context=true" },
-        { title: "Indoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=bed76385976b269050e0b0121153afe4&in_context=true" },
-        { title: "24/7 Playback", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fde76385976b269050e0b0121153afc0&&in_context=true" },
-        { title: "Smart Lock", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=e6362bc1976b269050e0b0121153afb6&in_context=true" },
-        { title: "Smart Thermostat", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=9e466fc1976b269050e0b0121153afe2&&in_context=true" },
-      ],
-    },
-    {
-      title: "Ramp to Blitz",
-      description: "What to do before your first door",
-      icon: Rocket,
-      inAppRoute: "/ramp-to-blitz",
-      items: [],
-    },
-  ];
+  // Base categories
+  const doorApproaches: TrainingCategory = {
+    title: "Door Approaches",
+    description: "Master the three core approaches",
+    icon: DoorOpen,
+    items: [
+      { title: "Takeover Pitch", href: "#", inAppGuide: "takeover" },
+      { title: "Fresh Pitch", href: "#", inAppGuide: "fresh" },
+      { title: "Upgrade Pitch", href: "#", inAppGuide: "upgrade" },
+    ],
+  };
+
+  const pitchPresentation: TrainingCategory = {
+    title: "The Pitch & Presentation",
+    description: "From door to paperwork",
+    icon: Presentation,
+    items: [
+      { title: "In-Home Presentation", href: "https://calvinschofield.notion.site/In-Home-Presentation-18c070fe3bc280648438c57ea4c5d0b7" },
+      { title: "Smooth Paperwork Process", href: "https://calvinschofield.notion.site/Smooth-paperwork-process-18c070fe3bc280a59a4fdc241ebbb2c6" },
+    ],
+  };
+
+  const productKnowledge: TrainingCategory = {
+    title: "Product Knowledge",
+    description: "Deep dive into Vivint systems",
+    icon: Shield,
+    items: [
+      { title: "Vivint App", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=4db5a381976b269050e0b0121153afbc&in_context=true" },
+      { title: "Doorbell Camera", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fd976b45976b269050e0b0121153afce&&in_context=true" },
+      { title: "Outdoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=d2f7c8a897b8b6104599b09ad053afff&&in_context=true" },
+      { title: "Indoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=bed76385976b269050e0b0121153afe4&in_context=true" },
+      { title: "24/7 Playback", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fde76385976b269050e0b0121153afc0&&in_context=true" },
+      { title: "Smart Lock", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=e6362bc1976b269050e0b0121153afb6&in_context=true" },
+      { title: "Smart Thermostat", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=9e466fc1976b269050e0b0121153afe2&&in_context=true" },
+    ],
+  };
+
+  const rampToBlitz: TrainingCategory = {
+    title: "Ramp to Blitz",
+    description: "What to do before your first door",
+    icon: Rocket,
+    inAppRoute: "/ramp-to-blitz",
+    items: [],
+  };
+
+  const objections: TrainingCategory = {
+    title: "Common Objections",
+    description: "Quick responses to what you'll hear at doors",
+    icon: MessageSquare,
+    inAppRoute: "/tools/objections",
+    items: [],
+  };
+
+  // Get categories based on user type
+  const getOrderedCategories = (): TrainingCategory[] => {
+    switch (userType) {
+      case "pre-blitz-onboarding":
+        // Motivational videos shown above, then Ramp to Blitz hero, Door Approaches, Product Knowledge
+        return [doorApproaches, productKnowledge];
+      case "pre-blitz-ramp":
+        // Ramp to Blitz hero shown above, then Door Approaches, Pitch, Product, Objections
+        return [doorApproaches, pitchPresentation, productKnowledge, objections];
+      case "post-blitz-rookie":
+        // Door Approaches, Pitch, Product, Objections
+        return [doorApproaches, pitchPresentation, productKnowledge, objections];
+      case "vet-sophomore":
+        // Payscales shown above, then Door Approaches, Pitch, Product, Objections
+        return [doorApproaches, pitchPresentation, productKnowledge, objections];
+      default:
+        return [doorApproaches, pitchPresentation, productKnowledge];
+    }
+  };
+
+  const categories = getOrderedCategories();
 
   // Dynamic recommended content based on journey stage
   const getRecommendedContent = () => {
@@ -145,13 +196,13 @@ const Training = () => {
         ];
       case "ramp-mid":
         return [
-          { title: "Common Objections", href: "https://calvinschofield.notion.site/common-objections" },
+          { title: "Common Objections", href: "/tools/objections" },
           { title: "Competitor Cheat Sheet", href: "https://calvinschofield.notion.site/Competitor-Cheat-Sheet-19e070fe3bc2801eb801fbfea8622be0" },
         ];
       case "blitz-ready":
         return [
           { title: "Review Door Approaches", href: "#door-approaches" },
-          { title: "Common Objections", href: "https://calvinschofield.notion.site/common-objections" },
+          { title: "Common Objections", href: "/tools/objections" },
         ];
       default:
         return [
@@ -212,7 +263,7 @@ const Training = () => {
     <div className="min-h-screen bg-background">
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Pay Scales - Hidden for Rookies */}
+        {/* Pay Scales - Only for Vets/Sophomores */}
         {isVetOrSophomore && (
           <Card>
             <CardHeader>
@@ -242,8 +293,31 @@ const Training = () => {
           </Card>
         )}
 
-        {/* Just-in-Time Training / Motivational Content - Hidden for Vets/Sophomores */}
-        {!isVetOrSophomore && (
+        {/* Ramp to Blitz Hero Card - Only for Pre-Blitz Rookies */}
+        {isPreBlitz && (
+          <Card 
+            className="cursor-pointer border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50 transition-all"
+            onClick={() => navigate("/ramp-to-blitz")}
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Rocket className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Ramp to Blitz</h3>
+                    <p className="text-sm text-muted-foreground">What to do before your first door</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Motivational Content - Only for Pre-Blitz Onboarding Rookies */}
+        {userType === "pre-blitz-onboarding" && (
           <Card 
             className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
               animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'
@@ -254,49 +328,76 @@ const Training = () => {
                 <Zap className={`w-5 h-5 text-primary transition-all duration-500 ${animateRecommended ? 'scale-110' : 'scale-100'}`} />
                 <CardTitle className="text-lg transition-all duration-500 ease-out">
                   <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                    {journeyStage === "motivation" ? "Stay Motivated" : "Recommended for You"}
+                    Stay Motivated
                   </span>
                 </CardTitle>
               </div>
               <CardDescription className="transition-all duration-500 ease-out">
                 <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                  {journeyStage === "motivation" 
-                    ? "Watch these while you complete your onboarding steps"
-                    : "Based on your current step in the journey"
-                  }
+                  Watch these while you complete your onboarding steps
                 </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="transition-all duration-500 ease-out">
-                {journeyStage === "motivation" ? (
-                  <div className={`transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-                    <MotivationalVideoCarousel />
-                  </div>
-                ) : (
-                  <div className={`space-y-2 transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-                    {recommendedContent.map((item, idx) => (
-                      <a
-                        key={item.title}
-                        href={item.href}
-                        target={item.href.startsWith("http") ? "_blank" : undefined}
-                        rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                        className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-all duration-300 group"
-                        style={{ 
-                          transitionDelay: animateRecommended ? '0ms' : `${idx * 80}ms`,
-                          transform: animateRecommended ? 'translateX(-10px)' : 'translateX(0)'
-                        }}
-                      >
-                        <span className="font-medium group-hover:text-primary transition-colors duration-200">{item.title}</span>
-                        {item.href.startsWith("http") ? (
-                          <ExternalLink className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
-                        ) : (
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </a>
-                    ))}
-                  </div>
-                )}
+                <div className={`transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                  <MotivationalVideoCarousel />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recommended For You - Only for Pre-Blitz Ramp or Post-Blitz Rookies */}
+        {(userType === "pre-blitz-ramp" || userType === "post-blitz-rookie") && (
+          <Card 
+            className={`border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 transition-all duration-700 ease-out ${
+              animateRecommended ? 'scale-105 shadow-lg' : 'scale-100'
+            }`}
+          >
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className={`w-5 h-5 text-primary transition-all duration-500 ${animateRecommended ? 'scale-110' : 'scale-100'}`} />
+                <CardTitle className="text-lg transition-all duration-500 ease-out">
+                  <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+                    Recommended for You
+                  </span>
+                </CardTitle>
+              </div>
+              <CardDescription className="transition-all duration-500 ease-out">
+                <span className={`inline-block transition-all duration-500 ${animateRecommended ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+                  Based on your current step in the journey
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className={`space-y-2 transition-all duration-500 ${animateRecommended ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                {recommendedContent.map((item, idx) => (
+                  <a
+                    key={item.title}
+                    href={item.href}
+                    onClick={(e) => {
+                      if (item.href.startsWith("/")) {
+                        e.preventDefault();
+                        navigate(item.href);
+                      }
+                    }}
+                    target={item.href.startsWith("http") ? "_blank" : undefined}
+                    rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                    className="flex items-center justify-between p-3 rounded-lg bg-card hover:bg-accent transition-all duration-300 group"
+                    style={{ 
+                      transitionDelay: animateRecommended ? '0ms' : `${idx * 80}ms`,
+                      transform: animateRecommended ? 'translateX(-10px)' : 'translateX(0)'
+                    }}
+                  >
+                    <span className="font-medium group-hover:text-primary transition-colors duration-200">{item.title}</span>
+                    {item.href.startsWith("http") ? (
+                      <ExternalLink className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </a>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -307,7 +408,7 @@ const Training = () => {
           const Icon = category.icon;
           const isLocked = category.locked;
           
-          // Handle categories with in-app routes (like Ramp to Blitz)
+          // Handle categories with in-app routes (like Objections)
           if (category.inAppRoute) {
             return (
               <Card 
