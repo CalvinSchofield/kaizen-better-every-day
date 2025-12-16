@@ -16,18 +16,31 @@ interface NotionPage {
   properties: Record<string, NotionProperty>;
 }
 
-// Retry helper for Notion API with exponential backoff
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 5): Promise<Response> {
+// Retry helper for Notion API with exponential backoff and jitter
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 8): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
       
-      // If rate limited (429), retry with exponential backoff
+      // If rate limited (429), retry with exponential backoff + jitter
       if (response.status === 429) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000); // Max 32 seconds
-        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        // Check for Retry-After header
+        const retryAfter = response.headers.get('Retry-After');
+        let delay: number;
+        
+        if (retryAfter) {
+          delay = parseInt(retryAfter, 10) * 1000;
+        } else {
+          // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 64s, 64s, 64s
+          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 64000);
+          // Add jitter (0-25% of base delay) to prevent thundering herd
+          const jitter = Math.random() * baseDelay * 0.25;
+          delay = baseDelay + jitter;
+        }
+        
+        console.log(`Rate limited (429). Retrying in ${Math.round(delay)}ms... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -39,8 +52,9 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
       
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 32000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const baseDelay = Math.min(2000 * Math.pow(2, attempt), 64000);
+        const jitter = Math.random() * baseDelay * 0.25;
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
       }
     }
   }
@@ -147,19 +161,11 @@ Deno.serve(async (req) => {
 
         const location = getRichText(props.Location) || getSelect(props.Location);
         
-        // Detailed logging for Address 1 - check all possible property name variations
-        console.log(`\n=== Address 1 Debug for ${name} ===`);
-        console.log('All property names:', Object.keys(props));
-        console.log('Address 1 property exists:', !!props["Address 1"]);
-        console.log('Address 1 property type:', props["Address 1"]?.type);
-        console.log('Address 1 full property:', JSON.stringify(props["Address 1"], null, 2));
-        
         // Try multiple variations of the property name
         const address1 = getPlace(props["Address 1"]) || getRichText(props["Address 1"]) || 
                         getPlace(props["Address1"]) || getRichText(props["Address1"]) ||
                         getPlace(props["address 1"]) || getRichText(props["address 1"]);
-        console.log('Extracted address1 value:', address1);
-        console.log('=== End Address 1 Debug ===\n');
+        
         
         const wifi1 = getRichText(props["WiFi 1"]);
         const code1 = getRichText(props["Code 1"]);
