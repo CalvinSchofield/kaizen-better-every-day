@@ -1405,8 +1405,8 @@ const Home = () => {
           );
         })()}
 
-        {/* 2. Competition & Standards - Show after prerequisites complete */}
-        {hasGoalsAccess && (
+        {/* 2. Competition & Standards - Show after Phase 1 complete (implies goals set with leader) */}
+        {hasGoalsAccess && phase1Complete && (
           <PreseasonPrepLeaderboard />
         )}
 
