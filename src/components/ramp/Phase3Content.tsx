@@ -29,6 +29,18 @@ const IPAD_SETUP_STEPS = [
   'phase3-ipad-step4',
 ] as const;
 
+const STREET_GENIE_VIDEOS = [
+  { id: 'phase3-sg-current-area', title: "Current Area", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8816ae62a2b0187a218b" },
+  { id: 'phase3-sg-building-packages', title: "Building Packages", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d88dbae62a2b30c7ecf47" },
+  { id: 'phase3-sg-sales-tools', title: "Sales Tools", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d895d3c63a20e0b39a949" },
+  { id: 'phase3-sg-prequalification', title: "Prequalification", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d89d00866a2156d333117" },
+  { id: 'phase3-sg-emergency-contacts', title: "Emergency Contacts & Passwords", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a330866a217ce67a982" },
+  { id: 'phase3-sg-send-docs', title: "Send Docs and Schedule Install", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a8fae62a2b7cc7691c8" },
+  { id: 'phase3-sg-solar-leads', title: "Setting Solar Leads", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8aa6ae62a2b7cc7691cc" },
+  { id: 'phase3-sg-summary-tab', title: "Summary Tab", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b51ae62a2ba241bd93e" },
+  { id: 'phase3-sg-extra-options', title: "Extra Options", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b8e3c63a2160331f6d6" },
+] as const;
+
 interface Phase3ContentProps {
   repData: RepData | null;
   isComplete: boolean;
@@ -42,6 +54,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   const [whyWritten, setWhyWritten] = useState(false);
   const [practiceScheduled, setPracticeScheduled] = useState(false);
   const [ipadStepsChecked, setIpadStepsChecked] = useState<Record<string, boolean>>({});
+  const [streetGenieVideosWatched, setStreetGenieVideosWatched] = useState<Record<string, boolean>>({});
 
   // Refs for scrolling
   const ipadRef = useRef<HTMLDivElement>(null);
@@ -89,6 +102,13 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         stepsChecked[step] = watched.includes(step);
       });
       setIpadStepsChecked(stepsChecked);
+
+      // Load Street Genie video progress
+      const sgWatched: Record<string, boolean> = {};
+      STREET_GENIE_VIDEOS.forEach(video => {
+        sgWatched[video.id] = watched.includes(video.id);
+      });
+      setStreetGenieVideosWatched(sgWatched);
     }
   }, [repData?.watched_videos]);
 
@@ -104,6 +124,19 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   };
 
   const allIpadStepsComplete = IPAD_SETUP_STEPS.every(step => ipadStepsChecked[step]);
+
+  const handleToggleStreetGenieVideo = async (videoId: string) => {
+    const isCurrentlyWatched = streetGenieVideosWatched[videoId];
+    
+    if (!isCurrentlyWatched) {
+      const success = await saveProgress(videoId);
+      if (success) {
+        setStreetGenieVideosWatched(prev => ({ ...prev, [videoId]: true }));
+      }
+    }
+  };
+
+  const streetGenieWatchedCount = Object.values(streetGenieVideosWatched).filter(Boolean).length;
 
   const handleIpadReady = async () => {
     const success = await saveProgress('phase3-ipad-ready');
@@ -365,37 +398,38 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 </div>
               )}
 
-              {/* Street Genie Walkthrough Videos - Collapsible */}
+              {/* Street Genie Walkthrough Videos - Collapsible with Checkboxes */}
               <Collapsible>
                 <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-sm">
                   <div className="flex flex-col items-start gap-0.5">
                     <span className="font-medium">Street Genie Deep Dive</span>
-                    <span className="text-xs text-muted-foreground">9 optional walkthrough videos</span>
+                    <span className="text-xs text-muted-foreground">
+                      {streetGenieWatchedCount}/{STREET_GENIE_VIDEOS.length} optional videos watched
+                    </span>
                   </div>
                   <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-2 space-y-2">
-                  {[
-                    { title: "Current Area", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8816ae62a2b0187a218b" },
-                    { title: "Building Packages", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d88dbae62a2b30c7ecf47" },
-                    { title: "Sales Tools", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d895d3c63a20e0b39a949" },
-                    { title: "Prequalification", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d89d00866a2156d333117" },
-                    { title: "Emergency Contacts & Passwords", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a330866a217ce67a982" },
-                    { title: "Send Docs and Schedule Install", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8a8fae62a2b7cc7691c8" },
-                    { title: "Setting Solar Leads", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8aa6ae62a2b7cc7691cc" },
-                    { title: "Summary Tab", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b51ae62a2ba241bd93e" },
-                    { title: "Extra Options", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b8e3c63a2160331f6d6" },
-                  ].map((video) => (
-                    <a
-                      key={video.title}
-                      href={video.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-sm"
+                  {STREET_GENIE_VIDEOS.map((video) => (
+                    <div
+                      key={video.id}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 text-sm"
                     >
-                      <Circle className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                      <span>{video.title}</span>
-                    </a>
+                      <Checkbox
+                        id={video.id}
+                        checked={streetGenieVideosWatched[video.id] || false}
+                        onCheckedChange={() => handleToggleStreetGenieVideo(video.id)}
+                        className="flex-shrink-0"
+                      />
+                      <a
+                        href={video.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 hover:text-primary transition-colors"
+                      >
+                        {video.title}
+                      </a>
+                    </div>
                   ))}
                 </CollapsibleContent>
               </Collapsible>

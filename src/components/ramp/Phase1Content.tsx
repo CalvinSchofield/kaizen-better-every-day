@@ -102,6 +102,12 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     Array.isArray(repData.committed_blitzes) && 
     repData.committed_blitzes.length > 0;
 
+  // Check if opted out of blitz (can't attend any)
+  const hasOptedOutOfBlitz = watchedVideos.has('phase1-blitz-opted-out');
+
+  // Check if rep has texted leader about goals (self-report waiting on leader)
+  const hasTextedLeaderGoals = watchedVideos.has('phase1-goals-texted-leader');
+
   const handleVideoWatched = async (videoId: string) => {
     const video = VIDEOS.find(v => v.id === videoId);
     
@@ -180,8 +186,8 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
 
   const completedSteps = [
     requiredVideosWatched,
-    goalsReviewed || goalsSetupComplete,
-    hasCommittedBlitz,
+    goalsReviewed || goalsSetupComplete || hasTextedLeaderGoals,
+    hasCommittedBlitz || hasOptedOutOfBlitz,
   ].filter(Boolean).length;
 
   return (
@@ -195,16 +201,16 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               Videos watched
             </div>
           )}
-          {(goalsReviewed || goalsSetupComplete) && (
+          {(goalsReviewed || goalsSetupComplete || hasTextedLeaderGoals) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Goals reviewed
+              {goalsSetupComplete ? "Goals set" : hasTextedLeaderGoals ? "Waiting on leader" : "Goals reviewed"}
             </div>
           )}
-          {hasCommittedBlitz && (
+          {(hasCommittedBlitz || hasOptedOutOfBlitz) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Blitz committed
+              {hasCommittedBlitz ? "Blitz committed" : "No blitz available"}
             </div>
           )}
         </div>
@@ -374,14 +380,16 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         {/* Goals Call / View Goals */}
         <Card className={cn(
           "transition-all duration-200",
-          goalsSetupComplete && "bg-primary/5 border-primary/20",
-          !goalsReviewed && !goalsSetupComplete && "opacity-60"
+          (goalsSetupComplete || hasTextedLeaderGoals) && "bg-primary/5 border-primary/20",
+          !goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && "opacity-60"
         )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
                 {goalsSetupComplete ? (
                   <CheckCircle2 className="w-5 h-5 text-primary" />
+                ) : hasTextedLeaderGoals ? (
+                  <CheckCircle2 className="w-5 h-5 text-amber-500" />
                 ) : (
                   <Circle className="w-5 h-5 text-muted-foreground/50" />
                 )}
@@ -397,20 +405,27 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                     "font-medium text-sm",
                     goalsSetupComplete && "text-muted-foreground"
                   )}>
-                    {goalsSetupComplete ? "Goals Set" : "Schedule Goals Call"}
+                    {goalsSetupComplete ? "Goals Set" : hasTextedLeaderGoals ? "Waiting on Leader" : "Schedule Goals Call"}
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {goalsSetupComplete 
                     ? "Your goals are set! Track your progress on the Goals page."
-                    : goalsReviewed 
-                      ? `Text ${repData?.team_leader?.split(' ')[0] || 'your leader'} to set up your goals call`
-                      : "Review the goals sections above first"
+                    : hasTextedLeaderGoals
+                      ? "You've reached out - your leader will set up your goals call"
+                      : goalsReviewed 
+                        ? `Text ${repData?.team_leader?.split(' ')[0] || 'your leader'} to set up your goals call`
+                        : "Review the goals sections above first"
                   }
                 </p>
-                {!goalsSetupComplete && (
+                {!goalsSetupComplete && !hasTextedLeaderGoals && (
                   <Badge variant="outline" className="mt-2 text-xs">
                     Requires leader
+                  </Badge>
+                )}
+                {hasTextedLeaderGoals && !goalsSetupComplete && (
+                  <Badge variant="outline" className="mt-2 text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Waiting on leader
                   </Badge>
                 )}
               </div>
@@ -424,7 +439,7 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                   <ExternalLink className="w-3 h-3 mr-1.5" />
                   View Goals
                 </Button>
-              ) : (
+              ) : !hasTextedLeaderGoals ? (
                 <Button 
                   variant={goalsReviewed ? "default" : "outline"}
                   size="sm" 
@@ -434,8 +449,31 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 >
                   Text Leader
                 </Button>
-              )}
+              ) : null}
             </div>
+            {/* Self-report: I've texted my leader */}
+            {goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <Button 
+                  variant="ghost"
+                  size="sm" 
+                  className="w-full text-muted-foreground"
+                  onClick={async () => {
+                    const success = await saveProgress('phase1-goals-texted-leader');
+                    if (success) {
+                      setWatchedVideos(prev => new Set([...prev, 'phase1-goals-texted-leader']));
+                      toast({
+                        title: "Got it!",
+                        description: "Your leader will mark your goals complete after your call",
+                      });
+                    }
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  I've texted my leader, waiting on them
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -465,16 +503,15 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           </Card>
         )}
 
-        {/* Commit to Blitz */}
         <div ref={blitzRef}>
           <Card className={cn(
             "transition-all duration-200",
-            hasCommittedBlitz && "bg-primary/5 border-primary/20"
+            (hasCommittedBlitz || hasOptedOutOfBlitz) && "bg-primary/5 border-primary/20"
           )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
-                {hasCommittedBlitz ? (
+                {hasCommittedBlitz || hasOptedOutOfBlitz ? (
                   <CheckCircle2 className="w-5 h-5 text-primary" />
                 ) : (
                   <Circle className="w-5 h-5 text-muted-foreground/50" />
@@ -485,19 +522,21 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                   <Rocket className="w-4 h-4 text-primary" />
                   <h4 className={cn(
                     "font-medium text-sm",
-                    hasCommittedBlitz && "text-muted-foreground"
+                    (hasCommittedBlitz || hasOptedOutOfBlitz) && "text-muted-foreground"
                   )}>
-                    Commit to a Blitz
+                    {hasCommittedBlitz ? "Blitz Committed" : hasOptedOutOfBlitz ? "No Blitz Available" : "Commit to a Blitz"}
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {hasCommittedBlitz 
                     ? "You've committed to your first blitz!" 
-                    : "Choose your first blitz trip to get on the doors"
+                    : hasOptedOutOfBlitz
+                      ? "You've reviewed the blitzes but can't attend one before summer"
+                      : "Choose your first blitz trip to get on the doors"
                   }
                 </p>
               </div>
-              {!hasCommittedBlitz && (
+              {!hasCommittedBlitz && !hasOptedOutOfBlitz && (
                 <Button 
                   variant="default" 
                   size="sm" 
@@ -510,6 +549,29 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                 </Button>
               )}
             </div>
+            {/* Opt-out option for reps who can't attend any blitz */}
+            {!hasCommittedBlitz && !hasOptedOutOfBlitz && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <Button 
+                  variant="ghost"
+                  size="sm" 
+                  className="w-full text-muted-foreground"
+                  onClick={async () => {
+                    const success = await saveProgress('phase1-blitz-opted-out');
+                    if (success) {
+                      setWatchedVideos(prev => new Set([...prev, 'phase1-blitz-opted-out']));
+                      toast({
+                        title: "Got it",
+                        description: "You can always commit to a blitz later if one becomes available",
+                      });
+                    }
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  I've looked but can't attend a blitz
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
         </div>

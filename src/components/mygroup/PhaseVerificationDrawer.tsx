@@ -13,11 +13,12 @@ export const PHASE_ITEMS: Record<number, {
     selfServiceItems: [
       { id: "what-is-blitz", label: "Watched 'What is a Blitz?'" },
       { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
-      { id: "phase1-goals-reviewed", label: "Reviewed goals questions (Why/What/How)" }
+      { id: "phase1-goals-reviewed", label: "Reviewed goals questions (Why/What/How)" },
+      { id: "phase1-goals-texted-leader", label: "Texted leader about goals (waiting)" }
     ],
     leaderItems: [
       { label: "Goals call completed", description: "Set Must Do, Will Do, Could Do FP+ targets together" },
-      { label: "Blitz committed", description: "Picked a blitz trip to attend" }
+      { label: "Blitz committed OR opted out", description: "Picked a blitz trip or confirmed no blitz available" }
     ]
   },
   2: {
@@ -27,7 +28,7 @@ export const PHASE_ITEMS: Record<number, {
       { id: "phase2-quiz-passed", label: "Passed product knowledge quiz" },
       { id: "phase2-upgrades", label: "Reviewed Upgrades 101" },
       { id: "phase2-takeover", label: "Reviewed Takeover Door Approach" },
-      { id: "phase2-pitch-submitted", label: "Submitted pitch recordings" }
+      { id: "phase2-pitches-sent-waiting", label: "Sent pitches, waiting on feedback" }
     ],
     leaderItems: [
       { label: "Pitch feedback", description: "Review and provide feedback on their pitch recordings" }
@@ -38,7 +39,7 @@ export const PHASE_ITEMS: Record<number, {
     selfServiceItems: [
       { id: "phase3-ipad-ready", label: "iPad setup reviewed" },
       { id: "phase3-why-written", label: "Wrote their personal 'Why'" },
-      { id: "phase3-practice-scheduled", label: "Scheduled 1-on-1 practice" }
+      { id: "phase3-practice-scheduled", label: "Scheduled/completed 1-on-1 practice" }
     ],
     leaderItems: [
       { label: "1-on-1 pitch practice", description: "Complete practice session together" }
