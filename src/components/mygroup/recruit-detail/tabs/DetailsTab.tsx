@@ -468,16 +468,18 @@ const BlitzReadinessWarnings = ({
   const isOnboardingComplete = recruitRepData.onboarding_complete === true;
   const hasIpad = recruitRepData.ipad_assigned === true;
   
-  // Only show iPad warning for Signed+ stages
+  // Only show warnings for Signed+ stages
   const showIpadWarning = isSignedOrBeyond && !hasIpad;
+  const showOnboardingWarning = isSignedOrBeyond && !isOnboardingComplete;
+  const showRampWarning = isSignedOrBeyond && !isRampComplete;
   
-  const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || showIpadWarning);
+  const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (showRampWarning || showOnboardingWarning || showIpadWarning);
   
   if (!hasReadinessIssues) return null;
   
   const issues: string[] = [];
-  if (!isOnboardingComplete) issues.push('Onboarding incomplete');
-  if (!isRampComplete) issues.push('Ramp to Blitz incomplete');
+  if (showOnboardingWarning) issues.push('Onboarding incomplete');
+  if (showRampWarning) issues.push('Ramp to Blitz incomplete');
   if (showIpadWarning) issues.push('No iPad assigned');
   
   return (
