@@ -1,0 +1,142 @@
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useRepData } from "@/hooks/useRepData";
+import { useHeader } from "@/contexts/HeaderContext";
+import { RampPhaseProgress } from "@/components/ramp/RampPhaseProgress";
+import { RampPhaseContent } from "@/components/ramp/RampPhaseContent";
+
+export type PhaseId = 1 | 2 | 3 | 4;
+
+export interface PhaseData {
+  id: PhaseId;
+  title: string;
+  subtitle: string;
+  isComplete: boolean;
+  isLocked: boolean;
+}
+
+const RampToBlitz = () => {
+  const navigate = useNavigate();
+  const { repData } = useRepData();
+  const { setCustomTitle } = useHeader();
+  const [activePhase, setActivePhase] = useState<PhaseId>(1);
+
+  useEffect(() => {
+    setCustomTitle("Ramp to Blitz");
+    return () => {
+      setCustomTitle(null);
+    };
+  }, [setCustomTitle]);
+
+  // Determine phase completion and lock status
+  const phases: PhaseData[] = [
+    {
+      id: 1,
+      title: "Set Goals",
+      subtitle: "Onboard and get ready",
+      isComplete: repData?.ramp_phase_1_complete || false,
+      isLocked: false, // Phase 1 is never locked
+    },
+    {
+      id: 2,
+      title: "Start Trainings",
+      subtitle: "Learn the fundamentals",
+      isComplete: repData?.ramp_phase_2_complete || false,
+      isLocked: !repData?.ramp_phase_1_complete,
+    },
+    {
+      id: 3,
+      title: "Practice",
+      subtitle: "Sharpen your skills",
+      isComplete: repData?.ramp_phase_3_complete || false,
+      isLocked: !repData?.ramp_phase_2_complete,
+    },
+    {
+      id: 4,
+      title: "Saddle Up!",
+      subtitle: "Final preparations",
+      isComplete: repData?.ramp_phase_4_complete || false,
+      isLocked: !repData?.ramp_phase_3_complete,
+    },
+  ];
+
+  // Auto-select the current active phase (first incomplete, unlocked phase)
+  useEffect(() => {
+    const currentPhase = phases.find(p => !p.isComplete && !p.isLocked);
+    if (currentPhase) {
+      setActivePhase(currentPhase.id);
+    } else if (phases.every(p => p.isComplete)) {
+      // All complete, show phase 4
+      setActivePhase(4);
+    }
+  }, [repData?.ramp_phase_1_complete, repData?.ramp_phase_2_complete, repData?.ramp_phase_3_complete, repData?.ramp_phase_4_complete]);
+
+  const currentPhase = phases.find(p => p.id === activePhase)!;
+  const completedCount = phases.filter(p => p.isComplete).length;
+
+  return (
+    <div className="min-h-screen bg-background pt-[max(0.5rem,env(safe-area-inset-top))]">
+      {/* Back Button Header */}
+      <div className="px-4 py-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1 -ml-2">
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </Button>
+      </div>
+
+      {/* Progress Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <RampPhaseProgress
+            phases={phases} 
+            activePhase={activePhase} 
+            onPhaseSelect={setActivePhase} 
+          />
+        </div>
+      </div>
+
+      {/* Phase Content */}
+      <div className="max-w-lg mx-auto px-4 py-6">
+        <RampPhaseContent 
+          phase={currentPhase}
+          repData={repData}
+        />
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border/50 pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-lg mx-auto px-4 py-3 flex justify-between items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActivePhase(prev => Math.max(1, prev - 1) as PhaseId)}
+            disabled={activePhase === 1}
+            className="gap-1"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </Button>
+          
+          <span className="text-sm text-muted-foreground">
+            {completedCount}/4 Complete
+          </span>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActivePhase(prev => Math.min(4, prev + 1) as PhaseId)}
+            disabled={activePhase === 4 || phases[activePhase]?.isLocked}
+            className="gap-1"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RampToBlitz;
