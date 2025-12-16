@@ -353,10 +353,13 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   };
 
   // RSVP Logic - Check if we should show RSVP for next upcoming blitz
-  // Shows at 21 days (first ask) AND again at 10 days (confirmation)
-  // Shows for ALL reps including those already committed (with different language)
-  // IMPORTANT: Once user responds to ANY RSVP, don't show any more until next session
+  // Shows at 21-14 days (first ask) AND again at 10-0 days (confirmation ask)
+  // Tracks per-window acknowledgement so responding in first window doesn't show again until second window
+  // Edge case: if user opens app for first time in both windows, only show once (second window takes precedence)
   const declinedBlitzes = (repData.declined_blitz_rsvps as string[]) || [];
+  const firstWindowAckBlitzIds = (repData as any).rsvp_first_window_ack_blitz_ids || [];
+  const secondWindowAckBlitzIds = (repData as any).rsvp_second_window_ack_blitz_ids || [];
+  
   const upcomingBlitzForRsvp = hasRespondedToRsvpThisSession ? null : allBlitzes.find((blitz) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -369,27 +372,56 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
     const inSecondWindow = daysUntil >= 0 && daysUntil <= 10;
     if (!inFirstWindow && !inSecondWindow) return false;
     
-    // Skip if already declined or locally responded
+    // Skip if already declined or locally responded this session
     if (declinedBlitzes.includes(blitz.id) || locallyRespondedBlitzIds.includes(blitz.id)) return false;
+    
+    // Per-window acknowledgement logic:
+    // - If in second window and already ack'd second window -> skip
+    // - If in first window and already ack'd first window -> skip
+    // - If in second window and only ack'd first window -> show (double confirmation)
+    // - Edge case: if ack'd second window, never show again for this blitz
+    if (secondWindowAckBlitzIds.includes(blitz.id)) return false;
+    if (inFirstWindow && firstWindowAckBlitzIds.includes(blitz.id)) return false;
     
     return true;
   });
+  
+  // Determine which window we're in for the RSVP blitz
+  const rsvpBlitzDaysUntil = upcomingBlitzForRsvp ? (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const blitzDate = new Date(upcomingBlitzForRsvp.date);
+    blitzDate.setHours(0, 0, 0, 0);
+    return Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  })() : null;
+  const isInSecondWindow = rsvpBlitzDaysUntil !== null && rsvpBlitzDaysUntil >= 0 && rsvpBlitzDaysUntil <= 10;
   
   // Check if the RSVP blitz is already committed (for different language)
   const isRsvpBlitzCommitted = upcomingBlitzForRsvp 
     ? (repData.committed_blitzes as any[])?.some((b: any) => b.id === upcomingBlitzForRsvp.id) 
     : false;
   
-  // Note: We intentionally DO NOT clear locallyRespondedBlitzIds based on DB state
-  // The optimistic state should persist for the session to prevent RSVP from re-appearing
-  // Once hasRespondedToRsvpThisSession is true, no RSVPs will show until next page load
+  // Helper to save window acknowledgement to database
+  const saveWindowAck = async (blitzId: string, isSecondWindow: boolean) => {
+    const columnName = isSecondWindow ? 'rsvp_second_window_ack_blitz_ids' : 'rsvp_first_window_ack_blitz_ids';
+    const currentAcks = isSecondWindow ? secondWindowAckBlitzIds : firstWindowAckBlitzIds;
+    const newAcks = [...new Set([...currentAcks, blitzId])];
+    
+    await supabase
+      .from('reps')
+      .update({ [columnName]: newAcks })
+      .eq('id', repData.id);
+  };
 
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
     
-    // Set session flag to prevent any more RSVPs from showing
+    // Set session flag to prevent any more RSVPs from showing this session
     setHasRespondedToRsvpThisSession(true);
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
+    
+    // Save window acknowledgement so it doesn't reappear until next window (or never if second window)
+    await saveWindowAck(upcomingBlitzForRsvp.id, isInSecondWindow);
     
     // Commit to the blitz
     const currentCommitments = (repData.committed_blitzes as any[]) || [];
@@ -454,9 +486,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const handleRsvpNo = async () => {
     if (!upcomingBlitzForRsvp) return;
     
-    // Set session flag to prevent any more RSVPs from showing
+    // Set session flag to prevent any more RSVPs from showing this session
     setHasRespondedToRsvpThisSession(true);
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
+    
+    // Save window acknowledgement
+    await saveWindowAck(upcomingBlitzForRsvp.id, isInSecondWindow);
     
     // Add to declined list in rep's record
     const newDeclined = [...declinedBlitzes, upcomingBlitzForRsvp.id];
