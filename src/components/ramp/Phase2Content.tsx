@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock, Camera, Send } from "lucide-react";
+import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock, Camera, Send, X, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
@@ -20,6 +21,16 @@ interface ProductLink {
   href: string;
 }
 
+interface CameraInfo {
+  name: string;
+  note: string;
+  image: string;
+  painPoints: {
+    title: string;
+    description: string;
+  }[];
+}
+
 const PRODUCT_KNOWLEDGE_LINKS: ProductLink[] = [
   { title: "Vivint App", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=4db5a381976b269050e0b0121153afbc&in_context=true" },
   { title: "Doorbell Camera", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fd976b45976b269050e0b0121153afce&&in_context=true" },
@@ -32,31 +43,51 @@ const PRODUCT_KNOWLEDGE_LINKS: ProductLink[] = [
 
 const PRODUCT_QUIZ_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform";
 
-// Camera images for upgrades section
-const CAMERA_IMAGES = [
+// Camera images and pain points for upgrades section
+const CAMERA_DATA: CameraInfo[] = [
   {
     name: "Doorbell Camera",
-    note: "Original model - white circular design",
-    description: "Look for the original round white doorbell camera",
-    image: "/images/cameras/doorbell-original.png"
+    note: "Original model",
+    image: "/images/cameras/doorbell-camera.jpeg",
+    painPoints: [
+      { title: "Bad at night", description: "Poor night vision quality makes it hard to see who's at the door after dark" },
+      { title: "Miss things", description: "Only records 30 second clips — you miss important moments" },
+      { title: "Has to have the WiFi", description: "Falls offline all the time when WiFi hiccups" },
+      { title: "Button falls off a lot", description: "Mechanical doorbell button breaks often" }
+    ]
   },
   {
     name: "Doorbell Camera Pro",
     note: "does not say Gen II",
-    description: "Black rectangular with round button - no 'Gen II' label",
-    image: "/images/cameras/doorbell-pro.png"
+    image: "/images/cameras/doorbell-camera-pro.jpeg",
+    painPoints: [
+      { title: "Has to have the WiFi", description: "Falls offline all the time when WiFi hiccups" },
+      { title: "24/7 is unreliable", description: "Can only do it with WiFi working and if they have the 'space monkey' DVR" },
+      { title: "Not as smart", description: "Older processor — doesn't notify all the time or maybe too much when it doesn't matter" },
+      { title: "Not great audio", description: "Speaker and microphone aren't as good as the new one" }
+    ]
   },
   {
     name: "Outdoor Camera",
     note: "Original model",
-    description: "Older square-shaped outdoor camera",
-    image: "/images/cameras/outdoor-original.png"
+    image: "/images/cameras/outdoor-camera.jpeg",
+    painPoints: [
+      { title: "No sound", description: "Literally just video — no sound or talking through cameras" },
+      { title: "Not clear", description: "Bad quality and can't see anything at night" },
+      { title: "Miss things", description: "Only records 30 second clips — you miss important moments" },
+      { title: "Has to have the WiFi", description: "Falls offline all the time when WiFi hiccups" }
+    ]
   },
   {
     name: "Outdoor Camera Pro",
     note: "does not say Gen II",
-    description: "Black cylindrical design - no 'Gen II' label",
-    image: "/images/cameras/outdoor-pro.png"
+    image: "/images/cameras/outdoor-camera-pro.jpeg",
+    painPoints: [
+      { title: "Has to have the WiFi", description: "Falls offline all the time when WiFi hiccups" },
+      { title: "24/7 is unreliable", description: "Can only do it with WiFi working and if they have the 'space monkey' DVR" },
+      { title: "Not as smart", description: "Older processor — doesn't notify all the time or maybe too much when it doesn't matter" },
+      { title: "Not great audio", description: "Speaker and microphone aren't as good as the new one" }
+    ]
   }
 ];
 
@@ -93,6 +124,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
   const [upgradesStudied, setUpgradesStudied] = useState(false);
   const [takeoverStudied, setTakeoverStudied] = useState(false);
   const [pitchSubmitted, setPitchSubmitted] = useState(false);
+  const [selectedCamera, setSelectedCamera] = useState<CameraInfo | null>(null);
 
   const { saveProgress } = useRampProgress(repData?.user_id);
 
@@ -355,13 +387,18 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
             
             {/* Camera cards grid */}
             <div className="grid grid-cols-2 gap-2">
-              {CAMERA_IMAGES.map((camera, idx) => (
+              {CAMERA_DATA.map((camera, idx) => (
                 <div 
                   key={idx} 
-                  className="rounded-xl bg-background/80 border border-orange-500/20 p-3 flex flex-col items-center text-center"
+                  onClick={() => setSelectedCamera(camera)}
+                  className="rounded-xl bg-background/80 border border-orange-500/20 p-3 flex flex-col items-center text-center cursor-pointer hover:bg-orange-500/5 active:scale-[0.98] transition-all"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-2">
-                    <Camera className="w-6 h-6 text-orange-500" />
+                  <div className="w-16 h-16 rounded-xl bg-white flex items-center justify-center mb-2 overflow-hidden">
+                    <img 
+                      src={camera.image} 
+                      alt={camera.name}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <span className="text-xs font-medium text-foreground leading-tight">{camera.name}</span>
                   {camera.note && (
@@ -499,6 +536,67 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
           </p>
         </div>
       </TrainingSection>
+
+      {/* Camera Detail Drawer */}
+      <Drawer open={!!selectedCamera} onOpenChange={(open) => !open && setSelectedCamera(null)}>
+        <DrawerContent className="max-h-[90dvh]">
+          <DrawerHeader className="border-b border-border/50 pb-4">
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-lg font-bold">{selectedCamera?.name}</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9">
+                  <X className="w-5 h-5" />
+                </Button>
+              </DrawerClose>
+            </div>
+            {selectedCamera?.note && (
+              <p className="text-sm text-muted-foreground italic">({selectedCamera.note})</p>
+            )}
+          </DrawerHeader>
+          
+          <div className="p-4 space-y-4 overflow-y-auto">
+            {/* Camera Image */}
+            <div className="flex justify-center">
+              <div className="w-32 h-32 rounded-2xl bg-white border border-border/50 flex items-center justify-center overflow-hidden">
+                <img 
+                  src={selectedCamera?.image} 
+                  alt={selectedCamera?.name || ''}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Why customers upgrade */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-orange-500" />
+                </div>
+                <h4 className="font-semibold text-sm">Why customers want to upgrade</h4>
+              </div>
+              
+              <div className="space-y-2">
+                {selectedCamera?.painPoints.map((point, idx) => (
+                  <div 
+                    key={idx}
+                    className="rounded-xl bg-orange-500/5 border border-orange-500/20 p-3"
+                  >
+                    <p className="font-medium text-sm text-foreground">{point.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{point.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tip */}
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-4">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-primary">Tip:</span> When you see this camera at a door, bring up these pain points to help the customer realize they're missing out on newer technology!
+              </p>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };
