@@ -46,6 +46,10 @@ export interface RepData {
   crm_detailed_enabled: boolean | null;
   profile_photo_url: string | null;
   watched_videos: unknown; // JSONB array of watched video IDs
+  ipad_assigned: boolean | null;
+  intro_seen: boolean | null;
+  sales_logger_enabled: boolean | null;
+  me_vs_me_enabled: boolean | null;
 }
 
 // Helper to get user-specific cache key
