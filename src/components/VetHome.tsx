@@ -84,6 +84,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const [teamLoading, setTeamLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [locallyRespondedBlitzIds, setLocallyRespondedBlitzIds] = useState<string[]>([]);
+  const [hasRespondedToRsvpThisSession, setHasRespondedToRsvpThisSession] = useState(false);
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const [weather, setWeather] = useState<Array<{ date: string; dayName: string; high: number; low: number; weatherCode: number; precipitation: number }>>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
@@ -354,8 +355,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   // RSVP Logic - Check if we should show RSVP for next upcoming blitz
   // Shows at 21 days (first ask) AND again at 10 days (confirmation)
   // Shows for ALL reps including those already committed (with different language)
+  // IMPORTANT: Once user responds to ANY RSVP, don't show any more until next session
   const declinedBlitzes = (repData.declined_blitz_rsvps as string[]) || [];
-  const upcomingBlitzForRsvp = allBlitzes.find((blitz) => {
+  const upcomingBlitzForRsvp = hasRespondedToRsvpThisSession ? null : allBlitzes.find((blitz) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const blitzDate = new Date(blitz.date);
@@ -380,11 +382,13 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   
   // Note: We intentionally DO NOT clear locallyRespondedBlitzIds based on DB state
   // The optimistic state should persist for the session to prevent RSVP from re-appearing
-  // especially for already-committed reps who click "Still in!"
+  // Once hasRespondedToRsvpThisSession is true, no RSVPs will show until next page load
 
   const handleRsvpYes = async () => {
     if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
     
+    // Set session flag to prevent any more RSVPs from showing
+    setHasRespondedToRsvpThisSession(true);
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
     // Commit to the blitz
@@ -450,6 +454,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const handleRsvpNo = async () => {
     if (!upcomingBlitzForRsvp) return;
     
+    // Set session flag to prevent any more RSVPs from showing
+    setHasRespondedToRsvpThisSession(true);
     setLocallyRespondedBlitzIds(prev => [...prev, upcomingBlitzForRsvp.id]); // Optimistic update - hides RSVP immediately
     
     // Add to declined list in rep's record
