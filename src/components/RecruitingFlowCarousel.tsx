@@ -8,7 +8,6 @@ import {
   FileCheck, 
   Rocket, 
   Trophy, 
-  GraduationCap,
   Copy,
   ExternalLink
 } from "lucide-react";
@@ -84,14 +83,6 @@ const FLOW_STEPS: FlowStep[] = [
     links: [
       { label: "Preseason Trips", url: "https://calvinschofield.notion.site/preseason-trips?v=a85a815c7d1a42fd84d87b9b632582bc&source=copy_link", type: "notion" }
     ]
-  },
-  {
-    step: 7,
-    title: "Path to Pro",
-    icon: GraduationCap,
-    links: [],
-    comingSoon: true,
-    guideText: "For now, focus on training your people. One well trained rookie is worth more than multiple poorly trained rookies. I recommend role plays and one-on-one trainings."
   }
 ];
 

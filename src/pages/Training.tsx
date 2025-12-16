@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, TrendingUp, Shield, Zap, DoorOpen, Presentation, MessageSquare, Lock, ExternalLink, Download, DollarSign, ChevronLeft } from "lucide-react";
+import { FileText, Shield, Zap, DoorOpen, Presentation, Lock, ExternalLink, Download, DollarSign, Rocket } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,15 +120,13 @@ const Training = () => {
       ],
     },
     {
-      title: "Path to Pro",
-      description: "Advanced modules for post-blitz mastery",
-      icon: TrendingUp,
-      locked: !phase4Complete,
+      title: "Ramp to Blitz",
+      description: "Review your preseason training content",
+      icon: Rocket,
       items: [
-        { title: "Advanced Closing Techniques", href: "#" },
-        { title: "Territory Management", href: "#" },
-        { title: "Customer Relationship Building", href: "#" },
-        { title: "Upselling Strategies", href: "#" },
+        { title: "Goals & Gameplan", href: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link" },
+        { title: "Welcome Page", href: "https://calvinschofield.notion.site/Welcome-f1ba376d8a1644e29aa8c57566620675" },
+        { title: "Preseason Trips", href: "https://calvinschofield.notion.site/preseason-trips?v=a85a815c7d1a42fd84d87b9b632582bc&source=copy_link" },
       ],
     },
   ];
@@ -153,8 +151,8 @@ const Training = () => {
         ];
       case "blitz-ready":
         return [
-          { title: "Path to Pro Modules", href: "#path-to-pro" },
-          { title: "Advanced Techniques", href: "#path-to-pro" },
+          { title: "Review Door Approaches", href: "#door-approaches" },
+          { title: "Common Objections", href: "https://calvinschofield.notion.site/common-objections" },
         ];
       default:
         return [
@@ -313,22 +311,18 @@ const Training = () => {
             <Card 
               key={category.title} 
               id={category.title.toLowerCase().replace(/\s+/g, '-')}
-              className={isLocked || category.title === "Path to Pro" ? "opacity-50" : ""}
+              className={isLocked ? "opacity-50" : ""}
             >
               <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg">{category.title}</CardTitle>
-                  {isLocked ? (
+                  {isLocked && (
                     <Badge variant="outline" className="ml-auto">
                       <Lock className="w-3 h-3 mr-1" />
                       Locked
                     </Badge>
-                  ) : category.title === "Path to Pro" ? (
-                    <Badge variant="outline" className="ml-auto text-xs">
-                      Coming soon
-                    </Badge>
-                  ) : null}
+                  )}
                 </div>
                 <CardDescription>
                   {isLocked 
@@ -339,7 +333,7 @@ const Training = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {category.items.map((item) => {
-                  const isDisabled = isLocked || category.title === "Path to Pro";
+                  const isDisabled = isLocked;
                   const hasInAppGuide = !!item.inAppGuide;
                   
                   const handleClick = (e: React.MouseEvent) => {
