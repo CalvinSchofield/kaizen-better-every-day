@@ -1,4 +1,4 @@
-import { Check, Circle, Users, X } from "lucide-react";
+import { Check, Circle, Users, X, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
@@ -67,6 +67,7 @@ interface PhaseVerificationDrawerProps {
   phase: number;
   watchedVideos: string[];
   isSubmitting: boolean;
+  hasError?: boolean;
   onConfirm: () => void;
 }
 
@@ -77,6 +78,7 @@ export const PhaseVerificationDrawer = ({
   phase,
   watchedVideos,
   isSubmitting,
+  hasError = false,
   onConfirm,
 }: PhaseVerificationDrawerProps) => {
   const phaseInfo = PHASE_ITEMS[phase];
@@ -163,6 +165,16 @@ export const PhaseVerificationDrawer = ({
             </div>
           </div>
 
+          {/* Error State */}
+          {hasError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+              <p className="text-sm text-destructive">
+                Failed to verify phase. Check your connection and try again.
+              </p>
+            </div>
+          )}
+
           {/* Confirmation Note */}
           <p className="text-xs text-center text-muted-foreground px-4">
             By verifying, you confirm you've completed the leader items with {recruitName} and they're ready to move on to {phase === 4 ? 'Blitz!' : `Phase ${phase + 1}`}.
@@ -180,12 +192,21 @@ export const PhaseVerificationDrawer = ({
               Cancel
             </Button>
             <Button
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+              className={`flex-1 ${hasError ? 'bg-primary hover:bg-primary/90' : 'bg-emerald-600 hover:bg-emerald-700'}`}
               onClick={onConfirm}
               disabled={isSubmitting}
             >
-              <Check className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Verifying...' : 'Verify Phase'}
+              {hasError ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Retrying...' : 'Retry'}
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Verifying...' : 'Verify Phase'}
+                </>
+              )}
             </Button>
           </div>
         </div>

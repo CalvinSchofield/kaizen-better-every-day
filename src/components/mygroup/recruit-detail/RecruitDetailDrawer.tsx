@@ -107,6 +107,7 @@ export const RecruitDetailDrawer = ({
   const [phaseVerificationOpen, setPhaseVerificationOpen] = useState(false);
   const [pendingPhaseVerification, setPendingPhaseVerification] = useState<{ phase: number; field: string } | null>(null);
   const [isPhaseVerifying, setIsPhaseVerifying] = useState(false);
+  const [hasPhaseError, setHasPhaseError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [stageShake, setStageShake] = useState(false);
   const [activityShake, setActivityShake] = useState(false);
@@ -390,6 +391,7 @@ export const RecruitDetailDrawer = ({
   const handleConfirmPhaseVerification = async () => {
     if (!pendingPhaseVerification || !recruitRepData || !recruit) return;
     setIsPhaseVerifying(true);
+    setHasPhaseError(false);
     
     try {
       const phaseParams: Record<string, boolean> = {};
@@ -410,11 +412,13 @@ export const RecruitDetailDrawer = ({
 
       setPhaseVerificationOpen(false);
       setPendingPhaseVerification(null);
+      setHasPhaseError(false);
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
     } catch (error: any) {
       console.error('Error confirming phase:', error);
-      toast.error('Failed to verify phase');
+      setHasPhaseError(true);
+      // Don't close the drawer so user can retry
     } finally {
       setIsPhaseVerifying(false);
     }
@@ -957,11 +961,15 @@ export const RecruitDetailDrawer = ({
       {recruit && recruitRepData && pendingPhaseVerification && (
         <PhaseVerificationDrawer
           open={phaseVerificationOpen}
-          onOpenChange={setPhaseVerificationOpen}
+          onOpenChange={(open) => {
+            setPhaseVerificationOpen(open);
+            if (!open) setHasPhaseError(false);
+          }}
           recruitName={recruit.name}
           phase={pendingPhaseVerification.phase}
           watchedVideos={Array.isArray(recruitRepData.watched_videos) ? recruitRepData.watched_videos as string[] : []}
           isSubmitting={isPhaseVerifying}
+          hasError={hasPhaseError}
           onConfirm={handleConfirmPhaseVerification}
         />
       )}

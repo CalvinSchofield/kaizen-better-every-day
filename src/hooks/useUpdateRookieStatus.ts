@@ -41,6 +41,37 @@ function parseOnboardingStatus(status: string | undefined) {
   };
 }
 
+// Retry helper with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Don't retry on auth errors
+      if (error instanceof Error && error.message.includes('Not authenticated')) {
+        throw error;
+      }
+      
+      // Wait before next retry (exponential backoff with jitter)
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500;
+        console.log(`[UpdateRookieStatus] Retry ${attempt + 1}/${maxRetries} after ${Math.round(delay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
 export const useUpdateRookieStatus = () => {
   const queryClient = useQueryClient();
 
@@ -57,21 +88,24 @@ export const useUpdateRookieStatus = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('update-rookie-status', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { 
-          rookieNotionPageId, 
-          onboardingStatus, 
-          ipadAssigned,
-          rampPhase1Complete,
-          rampPhase2Complete,
-          rampPhase3Complete,
-          rampPhase4Complete
-        },
-      });
+      // Wrap the API call in retry logic for network resilience
+      return retryWithBackoff(async () => {
+        const { data, error } = await supabase.functions.invoke('update-rookie-status', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: { 
+            rookieNotionPageId, 
+            onboardingStatus, 
+            ipadAssigned,
+            rampPhase1Complete,
+            rampPhase2Complete,
+            rampPhase3Complete,
+            rampPhase4Complete
+          },
+        });
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      }, 3, 1000);
     },
     onMutate: async (variables) => {
       // Cancel any outgoing refetches
@@ -125,11 +159,21 @@ export const useUpdateRookieStatus = () => {
     },
     onError: (error, variables) => {
       console.error('Failed to update rookie status:', error);
-      toast.error('Failed to update status');
+      
+      // More helpful error message based on error type
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('Failed to fetch')) {
+        toast.error('Network error - check your connection and try again');
+      } else {
+        toast.error('Failed to verify phase');
+      }
       
       // Invalidate to refetch correct data after error
       queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
     },
+    // Enable React Query's built-in retry for additional resilience
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 };
