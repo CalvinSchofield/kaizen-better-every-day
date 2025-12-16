@@ -451,6 +451,14 @@ const BlitzReadinessWarnings = ({
 }) => {
   if (!recruitRepData) return null;
   
+  // Check if recruit is in a stage where iPad matters (Signed+, excluding exit stages)
+  const stageLower = (recruit.stage || '').toLowerCase();
+  const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
+  const exitStages = ['not interested', 'potential follow up', 'signed but not interested'];
+  const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+  const isExitStage = exitStages.some(s => stageLower.includes(s));
+  const isSignedOrBeyond = !isEarlyStage && !isExitStage;
+  
   const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
   const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
   const daysToBlitz = getDaysUntilBlitz(recruitRepData.blitz_trip_date);
@@ -460,14 +468,17 @@ const BlitzReadinessWarnings = ({
   const isOnboardingComplete = recruitRepData.onboarding_complete === true;
   const hasIpad = recruitRepData.ipad_assigned === true;
   
-  const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || !hasIpad);
+  // Only show iPad warning for Signed+ stages
+  const showIpadWarning = isSignedOrBeyond && !hasIpad;
+  
+  const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (!isRampComplete || !isOnboardingComplete || showIpadWarning);
   
   if (!hasReadinessIssues) return null;
   
   const issues: string[] = [];
   if (!isOnboardingComplete) issues.push('Onboarding incomplete');
   if (!isRampComplete) issues.push('Ramp to Blitz incomplete');
-  if (!hasIpad) issues.push('No iPad assigned');
+  if (showIpadWarning) issues.push('No iPad assigned');
   
   return (
     <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
