@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock } from "lucide-react";
+import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock, Camera, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,34 @@ const PRODUCT_KNOWLEDGE_LINKS: ProductLink[] = [
 
 const PRODUCT_QUIZ_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform";
 
+// Camera images for upgrades section
+const CAMERA_IMAGES = [
+  {
+    name: "Doorbell Camera",
+    note: "Original model - white circular design",
+    description: "Look for the original round white doorbell camera",
+    image: "/images/cameras/doorbell-original.png"
+  },
+  {
+    name: "Doorbell Camera Pro",
+    note: "does not say Gen II",
+    description: "Black rectangular with round button - no 'Gen II' label",
+    image: "/images/cameras/doorbell-pro.png"
+  },
+  {
+    name: "Outdoor Camera",
+    note: "Original model",
+    description: "Older square-shaped outdoor camera",
+    image: "/images/cameras/outdoor-original.png"
+  },
+  {
+    name: "Outdoor Camera Pro",
+    note: "does not say Gen II",
+    description: "Black cylindrical design - no 'Gen II' label",
+    image: "/images/cameras/outdoor-pro.png"
+  }
+];
+
 // Upgrades 101 content
 const UPGRADES_CONTENT = {
   whatAre: {
@@ -54,13 +82,7 @@ const UPGRADES_CONTENT = {
     title: "Which doors should you focus on?",
     icon: MapPin,
     intro: "Focus on customers with older Vivint equipment—they're most likely to upgrade, just like someone with an old iPhone is more likely to get the newest model.",
-    subtitle: "Look for people that have these cameras:",
-    cameras: [
-      { name: "Doorbell Camera", note: null },
-      { name: "Doorbell Camera Pro", note: "does not say Gen II" },
-      { name: "Outdoor Camera", note: null },
-      { name: "Outdoor Camera Pro", note: "does not say Gen II" }
-    ]
+    subtitle: "Look for people that have these cameras:"
   }
 };
 
@@ -142,7 +164,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
 
     const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
     const message = encodeURIComponent(
-      "Hey! I've studied the product and practiced my pitches. I'm ready to record my pitch video for feedback. What's the best way to send it to you?"
+      "Hey! I've studied the product and practiced my pitches. I'm ready to send my Takeover pitch and Upgrade pitch recordings for feedback. What's the best way to send them to you?"
     );
     
     window.location.href = `sms:${cleanPhone}?body=${message}`;
@@ -280,7 +302,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
         id="upgrades"
         title="Upgrades 101"
         icon={<Target className="w-4 h-4" />}
-        description="Understand the upgrade opportunity"
+        description="Learn upgrades and what to say"
         isComplete={upgradesStudied}
         isLocked={!quizPassed}
         isExpanded={expandedSection === "upgrades"}
@@ -329,20 +351,57 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               {UPGRADES_CONTENT.whichDoors.intro}
             </p>
-            <p className="text-xs font-medium text-foreground mb-2">{UPGRADES_CONTENT.whichDoors.subtitle}</p>
-            <ul className="space-y-2">
-              {UPGRADES_CONTENT.whichDoors.cameras.map((camera, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-xs font-semibold text-orange-500">{idx + 1}</span>
+            <p className="text-xs font-medium text-foreground mb-3">{UPGRADES_CONTENT.whichDoors.subtitle}</p>
+            
+            {/* Camera cards grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {CAMERA_IMAGES.map((camera, idx) => (
+                <div 
+                  key={idx} 
+                  className="rounded-xl bg-background/80 border border-orange-500/20 p-3 flex flex-col items-center text-center"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-2">
+                    <Camera className="w-6 h-6 text-orange-500" />
                   </div>
-                  <span>
-                    {camera.name}
-                    {camera.note && <span className="text-xs italic text-muted-foreground/70 ml-1">({camera.note})</span>}
-                  </span>
-                </li>
+                  <span className="text-xs font-medium text-foreground leading-tight">{camera.name}</span>
+                  {camera.note && (
+                    <span className="text-[10px] italic text-muted-foreground mt-0.5">({camera.note})</span>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
+          </div>
+
+          {/* What to say on upgrades - CTA to module */}
+          <div className="rounded-xl bg-gradient-to-br from-primary/15 via-primary/10 to-transparent border border-primary/25 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-primary" />
+              </div>
+              <h5 className="font-semibold text-sm">What to say on upgrades</h5>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              Study the Upgrade Door Approach and know it like the back of your hand.
+            </p>
+            
+            {/* Upgrade Module CTA */}
+            <div 
+              onClick={() => onOpenPitchGuide("upgrade")}
+              className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 to-primary/10 border border-primary/30 p-4 cursor-pointer active:scale-[0.98] transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <Play className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-sm">Upgrade Pitch Module</h5>
+                    <p className="text-xs text-muted-foreground">Step-by-step script with audio</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform shrink-0" />
+              </div>
+            </div>
           </div>
 
           {!upgradesStudied && (
@@ -397,64 +456,59 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
         </div>
       </TrainingSection>
 
-      {/* Step 5: What to Say (Upgrade Pitch) */}
+      {/* Step 5: Submit Your Pitches */}
       <TrainingSection
-        id="whattosay"
-        title="What to Say on Upgrades"
-        icon={<MessageSquare className="w-4 h-4" />}
-        description="Master your upgrade pitch"
+        id="submitpitches"
+        title="Submit Your Pitches"
+        icon={<Send className="w-4 h-4" />}
+        description="Record and send both pitches for feedback"
         isComplete={pitchSubmitted}
         isLocked={!takeoverStudied}
         requiresLeader
-        isExpanded={expandedSection === "whattosay"}
-        onToggle={() => setExpandedSection(expandedSection === "whattosay" ? null : "whattosay")}
+        isExpanded={expandedSection === "submitpitches"}
+        onToggle={() => setExpandedSection(expandedSection === "submitpitches" ? null : "submitpitches")}
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Now that you understand upgrades, learn exactly what to say when you knock on an existing customer's door.
-          </p>
-
-          {/* Upgrade Module CTA */}
-          <div 
-            onClick={() => onOpenPitchGuide("upgrade")}
-            className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/30 p-5 cursor-pointer active:scale-[0.98] transition-all group"
-          >
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h5 className="font-semibold">Upgrade Pitch Module</h5>
-                  <p className="text-xs text-muted-foreground">Step-by-step script with audio</p>
-                </div>
+          {/* Info card */}
+          <div className="rounded-xl bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                <Video className="w-5 h-5 text-violet-500" />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-primary font-medium">Start learning</span>
-                <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+              <div>
+                <h5 className="font-semibold text-sm mb-1">Record Both Pitches</h5>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Record yourself delivering both your <span className="font-medium text-foreground">Takeover pitch</span> and <span className="font-medium text-foreground">Upgrade pitch</span>. Send both videos to your leader for feedback.
+                </p>
               </div>
             </div>
-            {/* Decorative gradient */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
           </div>
 
-          <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-            <h5 className="font-medium text-sm">Ready for feedback?</h5>
-            <p className="text-xs text-muted-foreground">
-              Once you've practiced your pitch, record yourself and send it to your leader for feedback.
-            </p>
-          </div>
+          {/* Instructions link */}
+          <a
+            href="https://calvinschofield.notion.site/Pitch-Feedback-Instructions-03901d3e606b4aa29fbc5f5b20de8a8e"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-all group active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium group-hover:text-primary transition-colors">
+              <ExternalLink className="w-4 h-4" />
+              View Pitch Feedback Instructions
+            </span>
+            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+          </a>
 
+          {/* Text leader CTA */}
           <Button 
-            className="w-full rounded-xl h-12"
+            className="w-full rounded-xl h-14 text-base"
             onClick={handleTextLeaderForPitch}
           >
-            <Video className="w-4 h-4 mr-2" />
-            Text Leader to Submit Pitch
+            <MessageSquare className="w-5 h-5 mr-2" />
+            Text Leader to Submit Pitches
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Your leader will mark this complete after reviewing your pitch
+            Your leader will mark this complete after reviewing both pitches
           </p>
         </div>
       </TrainingSection>
