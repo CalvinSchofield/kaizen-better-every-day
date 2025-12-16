@@ -401,6 +401,32 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
           </CardContent>
         </Card>
 
+        {/* Goals Preview - Show when goals are set */}
+        {goalsSetupComplete && goals && (
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 text-primary" />
+                <h4 className="font-medium text-sm">Your FP+ Goals</h4>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 rounded-lg bg-background/50">
+                  <p className="text-xs text-muted-foreground mb-1">Must Do</p>
+                  <p className="text-lg font-bold text-foreground">{goals.must_do_fp_goal || 0}</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-background/50 ring-2 ring-primary/20">
+                  <p className="text-xs text-muted-foreground mb-1">Will Do</p>
+                  <p className="text-lg font-bold text-primary">{goals.will_do_fp_goal || 0}</p>
+                </div>
+                <div className="text-center p-3 rounded-lg bg-background/50">
+                  <p className="text-xs text-muted-foreground mb-1">Could Do</p>
+                  <p className="text-lg font-bold text-foreground">{goals.could_do_fp_goal || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Commit to Blitz */}
         <Card className={cn(
           "transition-all duration-200",
