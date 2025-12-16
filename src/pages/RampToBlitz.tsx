@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRepData } from "@/hooks/useRepData";
+import { useRepGoals } from "@/hooks/useRepGoals";
 import { useHeader } from "@/contexts/HeaderContext";
 import { RampPhaseProgress } from "@/components/ramp/RampPhaseProgress";
 import { RampPhaseContent } from "@/components/ramp/RampPhaseContent";
@@ -23,6 +24,7 @@ export interface PhaseData {
 const RampToBlitz = () => {
   const navigate = useNavigate();
   const { repData } = useRepData();
+  const { goals } = useRepGoals();
   const { setCustomTitle } = useHeader();
   const [activePhase, setActivePhase] = useState<PhaseId>(1);
   const [activePitchGuide, setActivePitchGuide] = useState<PitchGuideType>(null);
@@ -34,13 +36,33 @@ const RampToBlitz = () => {
     };
   }, [setCustomTitle]);
 
+  // Phase 1 completion is currently driven by in-app tasks (videos, goals set, blitz committed).
+  // If leaders also mark ramp_phase_1_complete, that still counts.
+  const watchedVideoIds = Array.isArray(repData?.watched_videos)
+    ? (repData!.watched_videos as string[])
+    : [];
+
+  const requiredPhase1VideosWatched = ["what-is-blitz", "how-pay-works"].every((id) =>
+    watchedVideoIds.includes(id)
+  );
+
+  const hasCommittedBlitz =
+    Array.isArray(repData?.committed_blitzes) &&
+    (repData!.committed_blitzes as unknown[]).length > 0;
+
+  const goalsSetupComplete = goals?.setup_complete === true;
+  const phase1AutoComplete =
+    requiredPhase1VideosWatched && goalsSetupComplete && hasCommittedBlitz;
+
+  const phase1Complete = (repData?.ramp_phase_1_complete ?? false) || phase1AutoComplete;
+
   // Determine phase completion and lock status
   const phases: PhaseData[] = [
     {
       id: 1,
       title: "Set Goals",
       subtitle: "Onboard and get ready",
-      isComplete: repData?.ramp_phase_1_complete || false,
+      isComplete: phase1Complete,
       isLocked: false, // Phase 1 is never locked
     },
     {
@@ -48,7 +70,7 @@ const RampToBlitz = () => {
       title: "Start Trainings",
       subtitle: "Learn the fundamentals",
       isComplete: repData?.ramp_phase_2_complete || false,
-      isLocked: !repData?.ramp_phase_1_complete,
+      isLocked: !phase1Complete,
     },
     {
       id: 3,
@@ -68,14 +90,19 @@ const RampToBlitz = () => {
 
   // Auto-select the current active phase (first incomplete, unlocked phase)
   useEffect(() => {
-    const currentPhase = phases.find(p => !p.isComplete && !p.isLocked);
+    const currentPhase = phases.find((p) => !p.isComplete && !p.isLocked);
     if (currentPhase) {
       setActivePhase(currentPhase.id);
-    } else if (phases.every(p => p.isComplete)) {
+    } else if (phases.every((p) => p.isComplete)) {
       // All complete, show phase 4
       setActivePhase(4);
     }
-  }, [repData?.ramp_phase_1_complete, repData?.ramp_phase_2_complete, repData?.ramp_phase_3_complete, repData?.ramp_phase_4_complete]);
+  }, [
+    phase1Complete,
+    repData?.ramp_phase_2_complete,
+    repData?.ramp_phase_3_complete,
+    repData?.ramp_phase_4_complete,
+  ]);
 
   const currentPhase = phases.find(p => p.id === activePhase)!;
   const completedCount = phases.filter(p => p.isComplete).length;
