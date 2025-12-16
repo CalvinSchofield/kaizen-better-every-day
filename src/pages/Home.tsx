@@ -1368,69 +1368,7 @@ const Home = () => {
 
       {/* Journey Steps */}
       <div className="max-w-lg mx-auto px-4 -mt-4 space-y-4 pb-6">
-        {/* Rookie of the Week & Prep Leaderboard - Show above journey for Phase 1+ rookies */}
-        {hasGoalsAccess && (
-          <>
-            <PreseasonPrepLeaderboard />
-          </>
-        )}
-        
-        {steps.map(step => {
-        const isExpanded = step.status.inProgress && !step.status.completed;
-        return <Card key={step.id} className={`transition-all ${step.status.locked ? "opacity-60" : step.status.completed ? "border-success/50" : step.status.inProgress ? "border-primary shadow-orange" : ""}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1">{getStatusIcon(step.status)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <CardTitle className="text-lg leading-tight flex-1 min-w-0">{step.title}</CardTitle>
-                      {getStatusBadge(step.status)}
-                    </div>
-                    {isExpanded && <CardDescription className="text-sm leading-relaxed">
-                        {step.description}
-                      </CardDescription>}
-                  </div>
-                </div>
-              </CardHeader>
-
-              {isExpanded && <CardContent className="pt-0 space-y-2">
-                  {step.actions.map((action, actionIndex) => {
-                    if (action.href && !action.onClick) {
-                      return (
-                        <Button 
-                          key={actionIndex} 
-                          variant={action.variant || "default"} 
-                          className="w-full" 
-                          size="lg" 
-                          disabled={step.status.locked}
-                          onClick={() => openLink(action.href!)}
-                        >
-                          {action.label}
-                        </Button>
-                      );
-                    }
-                    return (
-                      <Button 
-                        key={actionIndex} 
-                        variant={action.variant || "default"} 
-                        className="w-full" 
-                        size="lg" 
-                        disabled={step.status.locked} 
-                        onClick={action.onClick}
-                      >
-                        {action.label}
-                      </Button>
-                    );
-                  })}
-                </CardContent>}
-
-              {step.status.completed && !isExpanded && <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground">Step completed!</p>
-                </CardContent>}
-            </Card>;
-      })}
-
-        {/* Ramp to Blitz Hero Section - New Design */}
+        {/* 1. Ramp to Blitz Hero Section - Primary focus */}
         {(() => {
           // Build phases data for RookieRampHeroSection
           const rampPhasesData: PhaseData[] = [
@@ -1483,7 +1421,12 @@ const Home = () => {
           );
         })()}
 
-        {/* Blitz Management Card - Show after Phase 1 is complete */}
+        {/* 2. Competition & Standards - Show after prerequisites complete */}
+        {hasGoalsAccess && (
+          <PreseasonPrepLeaderboard />
+        )}
+
+        {/* 3. Blitz Management Card - Show at bottom after Phase 1 complete */}
         {phase1Complete && (
           <Card className="border-primary/30">
             <CardHeader className="pb-3">
