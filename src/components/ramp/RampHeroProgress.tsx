@@ -13,17 +13,22 @@ interface RampHeroProgressProps {
   goalsSetupComplete?: boolean;
 }
 
-// Define all trackable items per phase
+// Define all REQUIRED trackable items per phase (excludes BONUS items)
 const PHASE_ITEMS = {
   1: {
-    total: 4, // 2 required videos + goals + blitz
+    total: 4, // 2 required videos + goals reviewed (counts as 1) + blitz (counts as 1)
     getCompleted: (watched: string[], repData: RepData | null, goalsSetupComplete: boolean) => {
       let count = 0;
-      // Required videos (count as 1 item each)
+      // Required videos only (not pay-deep-dive bonus)
       if (watched.includes('what-is-blitz')) count++;
       if (watched.includes('how-pay-works')) count++;
-      // Goals (reviewed, setup complete, or texted leader)
-      if (watched.includes('phase1-goals-reviewed') || goalsSetupComplete || watched.includes('phase1-goals-texted-leader')) count++;
+      // Goals sections (Why/What/How) - all 3 must be done to count, OR legacy, OR texted leader, OR setup complete
+      const whyReviewed = watched.includes('phase1-goals-why');
+      const whatReviewed = watched.includes('phase1-goals-what');
+      const howReviewed = watched.includes('phase1-goals-how');
+      const allGoalsSectionsReviewed = whyReviewed && whatReviewed && howReviewed;
+      // Goals (reviewed via all sections, setup complete, or texted leader)
+      if (allGoalsSectionsReviewed || watched.includes('phase1-goals-reviewed') || goalsSetupComplete || watched.includes('phase1-goals-texted-leader')) count++;
       // Blitz commitment or opt-out
       const hasBlitz = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes) && repData.committed_blitzes.length > 0;
       if (hasBlitz || watched.includes('phase1-blitz-opted-out')) count++;
@@ -43,7 +48,7 @@ const PHASE_ITEMS = {
     }
   },
   3: {
-    total: 3, // iPad ready, why written, practice scheduled
+    total: 3, // iPad ready, why written, practice scheduled (StreetGenie videos are BONUS)
     getCompleted: (watched: string[]) => {
       let count = 0;
       if (watched.includes('phase3-ipad-ready')) count++;

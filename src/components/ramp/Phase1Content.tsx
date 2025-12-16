@@ -181,14 +181,27 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     .filter(v => v.isRequired)
     .every(v => watchedVideos.has(v.id));
 
-  // Check if goals have been reviewed (saved to watched_videos)
-  const goalsReviewed = watchedVideos.has('phase1-goals-reviewed');
+  // Check if individual goals sections have been reviewed
+  const whyReviewed = watchedVideos.has('phase1-goals-why');
+  const whatReviewed = watchedVideos.has('phase1-goals-what');
+  const howReviewed = watchedVideos.has('phase1-goals-how');
+  const allGoalsSectionsReviewed = whyReviewed && whatReviewed && howReviewed;
+  
+  // Legacy check for old data
+  const goalsReviewed = watchedVideos.has('phase1-goals-reviewed') || allGoalsSectionsReviewed;
 
   const completedSteps = [
     requiredVideosWatched,
     goalsReviewed || goalsSetupComplete || hasTextedLeaderGoals,
     hasCommittedBlitz || hasOptedOutOfBlitz,
   ].filter(Boolean).length;
+
+  const handleGoalsSectionComplete = async (sectionId: string) => {
+    const success = await saveProgress(sectionId);
+    if (success) {
+      setWatchedVideos(prev => new Set([...prev, sectionId]));
+    }
+  };
 
   return (
     <div className="space-y-5 pb-20">
@@ -274,6 +287,8 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           icon={<Lightbulb className="w-4 h-4" />}
           isExpanded={expandedGoalsSection === "why"}
           onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "why" ? null : "why")}
+          isComplete={whyReviewed}
+          onMarkComplete={() => handleGoalsSectionComplete('phase1-goals-why')}
         >
           <div className="space-y-3 text-sm text-muted-foreground">
             <p className="italic">Why do you want to work here? What is it that drives you?</p>
@@ -295,6 +310,8 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           icon={<Target className="w-4 h-4" />}
           isExpanded={expandedGoalsSection === "what"}
           onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "what" ? null : "what")}
+          isComplete={whatReviewed}
+          onMarkComplete={() => handleGoalsSectionComplete('phase1-goals-what')}
         >
           <div className="space-y-3 text-sm text-muted-foreground">
             <p className="italic">What do you hope to get from the experience, both financially and not?</p>
@@ -327,6 +344,8 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           icon={<BookOpen className="w-4 h-4" />}
           isExpanded={expandedGoalsSection === "how"}
           onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "how" ? null : "how")}
+          isComplete={howReviewed}
+          onMarkComplete={() => handleGoalsSectionComplete('phase1-goals-how')}
         >
           <div className="space-y-3 text-sm text-muted-foreground">
             <p className="italic">How do we make it happen together?</p>
@@ -348,27 +367,6 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
             </div>
           </div>
         </GoalsSection>
-
-        {/* Mark as Reviewed Button */}
-        {!goalsReviewed && !goalsSetupComplete && (
-          <Button 
-            variant="outline" 
-            className="w-full"
-            onClick={async () => {
-              const success = await saveProgress('phase1-goals-reviewed');
-              if (success) {
-                setWatchedVideos(prev => new Set([...prev, 'phase1-goals-reviewed']));
-                toast({
-                  title: "Goals reviewed!",
-                  description: "Now text your leader to schedule your goals call",
-                });
-              }
-            }}
-          >
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            I've Thought About My Goals
-          </Button>
-        )}
       </div>
 
       {/* Action Items */}
@@ -674,20 +672,31 @@ interface GoalsSectionProps {
   icon: React.ReactNode;
   isExpanded: boolean;
   onToggle: () => void;
+  isComplete?: boolean;
+  onMarkComplete?: () => void;
   children: React.ReactNode;
 }
 
-const GoalsSection = ({ id, title, icon, isExpanded, onToggle, children }: GoalsSectionProps) => {
+const GoalsSection = ({ id, title, icon, isExpanded, onToggle, isComplete, onMarkComplete, children }: GoalsSectionProps) => {
   return (
-    <Card className="transition-all duration-200 overflow-hidden">
+    <Card className={cn(
+      "transition-all duration-200 overflow-hidden",
+      isComplete && "bg-primary/5 border-primary/20"
+    )}>
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <CollapsibleTrigger asChild>
           <CardContent className="p-4 cursor-pointer">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                {icon}
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center",
+                isComplete ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
+              )}>
+                {isComplete ? <CheckCircle2 className="w-4 h-4" /> : icon}
               </div>
-              <h4 className="font-medium text-sm flex-1">{title}</h4>
+              <h4 className={cn(
+                "font-medium text-sm flex-1",
+                isComplete && "text-muted-foreground"
+              )}>{title}</h4>
               <div className="shrink-0">
                 {isExpanded ? (
                   <ChevronUp className="w-5 h-5 text-muted-foreground" />
@@ -700,8 +709,22 @@ const GoalsSection = ({ id, title, icon, isExpanded, onToggle, children }: Goals
         </CollapsibleTrigger>
         
         <CollapsibleContent>
-          <div className="px-4 pb-4">
+          <div className="px-4 pb-4 space-y-3">
             {children}
+            {!isComplete && onMarkComplete && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkComplete();
+                }}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                I've reviewed this
+              </Button>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>

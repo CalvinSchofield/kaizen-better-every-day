@@ -28,8 +28,10 @@ const PHASE_ITEMS: Record<number, {
     selfServiceItems: [
       { id: "what-is-blitz", label: "Watched 'What is a Blitz?'" },
       { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
-      { id: "phase1-goals-reviewed", label: "Reviewed goals questions (Why/What/How)" },
-      { id: "phase1-goals-texted-leader", label: "Texted leader about goals (waiting)" }
+      { id: "phase1-goals-why", label: "Reviewed Why" },
+      { id: "phase1-goals-what", label: "Reviewed What" },
+      { id: "phase1-goals-how", label: "Reviewed How" },
+      { id: "phase1-goals-texted-leader", label: "Texted leader, waiting on goals call" }
     ],
     leaderItems: [
       { label: "Goals call completed", description: "Set Must Do, Will Do, Could Do FP+ targets together" },
@@ -115,9 +117,14 @@ export const LeaderRookieReviewCard = () => {
           const watchedVideos = Array.isArray(rep.watched_videos) ? rep.watched_videos : [];
 
           // Check Phase 1 self-service completion
-          // Self-service: videos watched + goals reviewed (NOT goals setup complete, NOT blitz committed)
-          const phase1SelfServiceIds = ["what-is-blitz", "how-pay-works", "phase1-goals-reviewed"];
-          const phase1SelfComplete = phase1SelfServiceIds.every(id => watchedVideos.includes(id));
+          // Self-service: videos watched + goals reviewed (via sections or legacy) OR texted leader
+          const phase1VideosDone = watchedVideos.includes("what-is-blitz") && watchedVideos.includes("how-pay-works");
+          const phase1GoalsReviewed = (
+            (watchedVideos.includes('phase1-goals-why') && watchedVideos.includes('phase1-goals-what') && watchedVideos.includes('phase1-goals-how')) ||
+            watchedVideos.includes('phase1-goals-reviewed') ||
+            watchedVideos.includes('phase1-goals-texted-leader')
+          );
+          const phase1SelfComplete = phase1VideosDone && phase1GoalsReviewed;
           
           if (phase1SelfComplete && !rep.ramp_phase_1_complete) {
             const completedItems = PHASE_ITEMS[1].selfServiceItems
@@ -134,10 +141,14 @@ export const LeaderRookieReviewCard = () => {
             return;
           }
 
-          // Check Phase 2
+          // Check Phase 2 - include waiting on pitch feedback state
           if (rep.ramp_phase_1_complete) {
-            const phase2SelfServiceIds = ["phase2-product", "phase2-quiz-passed", "phase2-upgrades", "phase2-takeover", "phase2-pitch-submitted"];
-            const phase2SelfComplete = phase2SelfServiceIds.every(id => watchedVideos.includes(id));
+            const phase2SelfComplete = 
+              watchedVideos.includes("phase2-product") &&
+              watchedVideos.includes("phase2-quiz-passed") &&
+              watchedVideos.includes("phase2-upgrades") &&
+              watchedVideos.includes("phase2-takeover") &&
+              (watchedVideos.includes("phase2-pitch-submitted") || watchedVideos.includes("phase2-pitches-sent-waiting"));
             
             if (phase2SelfComplete && !rep.ramp_phase_2_complete) {
               const completedItems = PHASE_ITEMS[2].selfServiceItems
