@@ -30,6 +30,8 @@ interface TrainingCategory {
 
 type UserType = "pre-blitz-onboarding" | "pre-blitz-ramp" | "post-blitz-rookie" | "vet-sophomore";
 
+// Check if user has completed at least phase 1 (can be any user type)
+
 const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
@@ -71,6 +73,13 @@ const Training = () => {
   const isVetOrSophomore = userType === "vet-sophomore";
   const isPreBlitz = userType === "pre-blitz-onboarding" || userType === "pre-blitz-ramp";
   const showObjections = userType !== "pre-blitz-onboarding"; // Show for ramp phases, post-blitz, and vets
+  
+  // Show books for vets/sophomores OR any rookie who has completed at least phase 1
+  const hasCompletedPhase1 = repData?.ramp_phase_1_complete || 
+    (repData?.ramp_to_blitz_phase?.toLowerCase() || "").includes("phase") ||
+    (repData?.ramp_to_blitz_phase?.toLowerCase() || "").includes("trainings ✅") ||
+    (repData?.ramp_to_blitz_phase?.toLowerCase() || "").includes("slack ✅");
+  const showBooks = isVetOrSophomore || hasCompletedPhase1;
 
   // Determine journey stage for dynamic recommendations
   const getJourneyStage = () => {
@@ -514,8 +523,8 @@ const Training = () => {
           );
         })}
 
-        {/* Sales Books Section with Checkboxes */}
-        <BooksSection />
+        {/* Sales Books Section with Checkboxes - Only for vets or phase 1+ rookies */}
+        {showBooks && <BooksSection />}
       </div>
     </div>
   );
