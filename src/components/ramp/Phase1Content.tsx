@@ -57,7 +57,6 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
   const [expandedVideo, setExpandedVideo] = useState<string | null>("what-is-blitz");
   const [isDownloading, setIsDownloading] = useState(false);
-  const [goalsReviewed, setGoalsReviewed] = useState(false);
   const [expandedGoalsSection, setExpandedGoalsSection] = useState<string | null>("why");
 
   // Refs for scrolling
@@ -91,13 +90,6 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     // Small delay to ensure DOM is ready
     setTimeout(scrollAndExpand, 150);
   }, [scrollToStepKey, onScrollComplete]);
-
-  // Load watched videos from database on mount
-  useEffect(() => {
-    if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
-      setWatchedVideos(new Set(repData.watched_videos as string[]));
-    }
-  }, [repData?.watched_videos]);
 
   // Load watched videos from database on mount
   useEffect(() => {
@@ -182,6 +174,9 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
   const requiredVideosWatched = VIDEOS
     .filter(v => v.isRequired)
     .every(v => watchedVideos.has(v.id));
+
+  // Check if goals have been reviewed (saved to watched_videos)
+  const goalsReviewed = watchedVideos.has('phase1-goals-reviewed');
 
   const completedSteps = [
     requiredVideosWatched,
@@ -349,16 +344,19 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         </GoalsSection>
 
         {/* Mark as Reviewed Button */}
-        {!goalsReviewed && (
+        {!goalsReviewed && !goalsSetupComplete && (
           <Button 
             variant="outline" 
             className="w-full"
-            onClick={() => {
-              setGoalsReviewed(true);
-              toast({
-                title: "Goals reviewed!",
-                description: "Now text your leader to schedule your goals call",
-              });
+            onClick={async () => {
+              const success = await saveProgress('phase1-goals-reviewed');
+              if (success) {
+                setWatchedVideos(prev => new Set([...prev, 'phase1-goals-reviewed']));
+                toast({
+                  title: "Goals reviewed!",
+                  description: "Now text your leader to schedule your goals call",
+                });
+              }
             }}
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />

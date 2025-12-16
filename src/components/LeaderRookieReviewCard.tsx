@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Clock, Check, X } from "lucide-react";
+import { ChevronRight, Clock, Check, X, Circle, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,40 +17,57 @@ interface RookieNeedingReview {
   completedItems: string[];
 }
 
-// Define self-service items for each phase
-const PHASE_ITEMS: Record<number, { label: string; items: string[] }> = {
+// Define self-service items and leader-required items for each phase
+const PHASE_ITEMS: Record<number, { 
+  label: string; 
+  selfServiceItems: { id: string; label: string }[];
+  leaderItems: { label: string; description: string }[];
+}> = {
   1: {
     label: "Onboard & Get Ready",
-    items: [
-      "Watched intro videos (What is Blitz, How Pay Works)",
-      "Completed Goals Setup with leader call",
-      "Committed to a blitz trip"
+    selfServiceItems: [
+      { id: "what-is-blitz", label: "Watched 'What is a Blitz?'" },
+      { id: "how-pay-works", label: "Watched 'How You Get Paid'" },
+      { id: "phase1-goals-reviewed", label: "Reviewed goals questions (Why/What/How)" }
+    ],
+    leaderItems: [
+      { label: "Goals call completed", description: "Set Must Do, Will Do, Could Do FP+ targets together" },
+      { label: "Blitz committed", description: "Picked a blitz trip to attend" }
     ]
   },
   2: {
     label: "Start Training",
-    items: [
-      "Studied product materials",
-      "Passed product quiz",
-      "Reviewed Upgrades 101",
-      "Reviewed Takeover Door Approach",
-      "Submitted pitch recording"
+    selfServiceItems: [
+      { id: "phase2-product", label: "Studied product materials" },
+      { id: "phase2-quiz-passed", label: "Passed product knowledge quiz" },
+      { id: "phase2-upgrades", label: "Reviewed Upgrades 101" },
+      { id: "phase2-takeover", label: "Reviewed Takeover Door Approach" },
+      { id: "phase2-pitch-submitted", label: "Submitted pitch recordings" }
+    ],
+    leaderItems: [
+      { label: "Pitch feedback", description: "Review and provide feedback on their pitch recordings" }
     ]
   },
   3: {
     label: "Practice",
-    items: [
-      "iPad setup reviewed",
-      "Wrote their 'Why'",
-      "Scheduled 1-on-1 practice"
+    selfServiceItems: [
+      { id: "phase3-ipad-ready", label: "iPad setup reviewed" },
+      { id: "phase3-why-written", label: "Wrote their personal 'Why'" },
+      { id: "phase3-practice-scheduled", label: "Scheduled 1-on-1 practice" }
+    ],
+    leaderItems: [
+      { label: "1-on-1 pitch practice", description: "Complete practice session together" }
     ]
   },
   4: {
     label: "Saddle Up",
-    items: [
-      "Reviewed packing list",
-      "Self-reported equipment (iPad, Uniforms, ID Badge)",
-      "Reviewed 'When It Gets Tough' playbook"
+    selfServiceItems: [
+      { id: "phase4-packing-done", label: "Reviewed packing list" },
+      { id: "phase4-essentials-checked", label: "Self-reported equipment ready (iPad, Uniforms, ID)" },
+      { id: "phase4-playbook-ready", label: "Reviewed 'When It Gets Tough' playbook" }
+    ],
+    leaderItems: [
+      { label: "Final check-in", description: "Confirm they're ready for blitz" }
     ]
   }
 };
@@ -64,7 +81,6 @@ export const LeaderRookieReviewCard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
-  // Get all accessible reps from full hierarchy (Team Lead → MGMT → Area Director)
   const accessibleReps = teamAccess?.accessibleReps || [];
 
   useEffect(() => {
@@ -75,7 +91,6 @@ export const LeaderRookieReviewCard = () => {
 
     const fetchRookiesNeedingReview = async () => {
       try {
-        // Get notion page IDs from accessible reps (includes full upline hierarchy)
         const accessibleNotionIds = accessibleReps
           .map((r: any) => r.notion_page_id)
           .filter(Boolean);
@@ -85,42 +100,28 @@ export const LeaderRookieReviewCard = () => {
           return;
         }
 
-        // Get all rookie rep data to check self-service completion
         const { data: repsData } = await supabase
           .from('reps')
           .select('notion_page_id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id')
           .in('notion_page_id', accessibleNotionIds);
 
-        // Get goals data for setup_complete check
-        const userIds = (repsData || []).map(r => r.user_id).filter(Boolean);
-        const { data: goalsData } = userIds.length > 0 
-          ? await supabase
-              .from('rep_goals')
-              .select('user_id, setup_complete')
-              .in('user_id', userIds)
-          : { data: [] };
-
-        const goalsMap = new Map((goalsData || []).map(g => [g.user_id, g.setup_complete]));
-
         const rookiesNeedingReview: RookieNeedingReview[] = [];
 
         (repsData || []).forEach((rep: any) => {
-          // Only check rookies (year is 'Rookie' or null for new reps)
-          if (rep.year !== 'Rookie' && rep.year !== null) return;
+          // Only check rookies
+          if (rep.year !== 'Rookie' && rep.year !== null && rep.year !== '2025' && rep.year !== '2026') return;
 
           const watchedVideos = Array.isArray(rep.watched_videos) ? rep.watched_videos : [];
-          const goalsSetupComplete = rep.user_id ? goalsMap.get(rep.user_id) === true : false;
-          const hasCommittedBlitz = Array.isArray(rep.committed_blitzes) && rep.committed_blitzes.length > 0;
 
           // Check Phase 1 self-service completion
-          const phase1VideosWatched = ["what-is-blitz", "how-pay-works"].every(id => watchedVideos.includes(id));
-          const phase1SelfComplete = phase1VideosWatched && goalsSetupComplete && hasCommittedBlitz;
+          // Self-service: videos watched + goals reviewed (NOT goals setup complete, NOT blitz committed)
+          const phase1SelfServiceIds = ["what-is-blitz", "how-pay-works", "phase1-goals-reviewed"];
+          const phase1SelfComplete = phase1SelfServiceIds.every(id => watchedVideos.includes(id));
           
           if (phase1SelfComplete && !rep.ramp_phase_1_complete) {
-            const completedItems: string[] = [];
-            if (phase1VideosWatched) completedItems.push("Watched intro videos (What is Blitz, How Pay Works)");
-            if (goalsSetupComplete) completedItems.push("Completed Goals Setup with leader call");
-            if (hasCommittedBlitz) completedItems.push("Committed to a blitz trip");
+            const completedItems = PHASE_ITEMS[1].selfServiceItems
+              .filter(item => watchedVideos.includes(item.id))
+              .map(item => item.label);
             
             rookiesNeedingReview.push({
               notionPageId: rep.notion_page_id,
@@ -134,21 +135,14 @@ export const LeaderRookieReviewCard = () => {
 
           // Check Phase 2
           if (rep.ramp_phase_1_complete) {
-            const phase2Items = [
-              { id: "phase2-product", label: "Studied product materials" },
-              { id: "phase2-quiz-passed", label: "Passed product quiz" },
-              { id: "phase2-upgrades", label: "Reviewed Upgrades 101" },
-              { id: "phase2-takeover", label: "Reviewed Takeover Door Approach" },
-              { id: "phase2-pitch-submitted", label: "Submitted pitch recording" }
-            ];
+            const phase2SelfServiceIds = ["phase2-product", "phase2-quiz-passed", "phase2-upgrades", "phase2-takeover", "phase2-pitch-submitted"];
+            const phase2SelfComplete = phase2SelfServiceIds.every(id => watchedVideos.includes(id));
             
-            const completedItems = phase2Items
-              .filter(item => watchedVideos.includes(item.id))
-              .map(item => item.label);
-            
-            const phase2Complete = phase2Items.every(item => watchedVideos.includes(item.id));
-            
-            if (phase2Complete && !rep.ramp_phase_2_complete) {
+            if (phase2SelfComplete && !rep.ramp_phase_2_complete) {
+              const completedItems = PHASE_ITEMS[2].selfServiceItems
+                .filter(item => watchedVideos.includes(item.id))
+                .map(item => item.label);
+              
               rookiesNeedingReview.push({
                 notionPageId: rep.notion_page_id,
                 name: rep.name,
@@ -162,19 +156,14 @@ export const LeaderRookieReviewCard = () => {
 
           // Check Phase 3
           if (rep.ramp_phase_2_complete) {
-            const phase3Items = [
-              { id: "phase3-ipad-ready", label: "iPad setup reviewed" },
-              { id: "phase3-why-written", label: "Wrote their 'Why'" },
-              { id: "phase3-practice-scheduled", label: "Scheduled 1-on-1 practice" }
-            ];
+            const phase3SelfServiceIds = ["phase3-ipad-ready", "phase3-why-written", "phase3-practice-scheduled"];
+            const phase3SelfComplete = phase3SelfServiceIds.every(id => watchedVideos.includes(id));
             
-            const completedItems = phase3Items
-              .filter(item => watchedVideos.includes(item.id))
-              .map(item => item.label);
-            
-            const phase3Complete = phase3Items.every(item => watchedVideos.includes(item.id));
-            
-            if (phase3Complete && !rep.ramp_phase_3_complete) {
+            if (phase3SelfComplete && !rep.ramp_phase_3_complete) {
+              const completedItems = PHASE_ITEMS[3].selfServiceItems
+                .filter(item => watchedVideos.includes(item.id))
+                .map(item => item.label);
+              
               rookiesNeedingReview.push({
                 notionPageId: rep.notion_page_id,
                 name: rep.name,
@@ -188,19 +177,14 @@ export const LeaderRookieReviewCard = () => {
 
           // Check Phase 4
           if (rep.ramp_phase_3_complete) {
-            const phase4Items = [
-              { id: "phase4-packing-done", label: "Reviewed packing list" },
-              { id: "phase4-essentials-checked", label: "Self-reported equipment (iPad, Uniforms, ID Badge)" },
-              { id: "phase4-playbook-ready", label: "Reviewed 'When It Gets Tough' playbook" }
-            ];
+            const phase4SelfServiceIds = ["phase4-packing-done", "phase4-essentials-checked", "phase4-playbook-ready"];
+            const phase4SelfComplete = phase4SelfServiceIds.every(id => watchedVideos.includes(id));
             
-            const completedItems = phase4Items
-              .filter(item => watchedVideos.includes(item.id))
-              .map(item => item.label);
-            
-            const phase4Complete = phase4Items.every(item => watchedVideos.includes(item.id));
-            
-            if (phase4Complete && !rep.ramp_phase_4_complete) {
+            if (phase4SelfComplete && !rep.ramp_phase_4_complete) {
+              const completedItems = PHASE_ITEMS[4].selfServiceItems
+                .filter(item => watchedVideos.includes(item.id))
+                .map(item => item.label);
+              
               rookiesNeedingReview.push({
                 notionPageId: rep.notion_page_id,
                 name: rep.name,
@@ -244,11 +228,9 @@ export const LeaderRookieReviewCard = () => {
         description: "Notion and database updated"
       });
 
-      // Remove from local list
       setRookiesReady(prev => prev.filter(r => r.notionPageId !== selectedRookie.notionPageId));
       setSelectedRookie(null);
 
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['rep-data'] });
     } catch (error: any) {
@@ -288,7 +270,7 @@ export const LeaderRookieReviewCard = () => {
               </div>
               <p className="text-sm text-muted-foreground">
                 {rookiesReady.length === 1 
-                  ? `${rookiesReady[0].name} completed Phase ${rookiesReady[0].currentPhase}` 
+                  ? `${rookiesReady[0].name} completed Phase ${rookiesReady[0].currentPhase} self-service` 
                   : `${rookiesReady.length} rookies waiting for phase verification`}
               </p>
             </div>
@@ -296,7 +278,6 @@ export const LeaderRookieReviewCard = () => {
             <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
           </div>
 
-          {/* Show all rookies if more than one */}
           {rookiesReady.length > 1 && (
             <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-2">
               {rookiesReady.map((rookie) => (
@@ -328,7 +309,7 @@ export const LeaderRookieReviewCard = () => {
             </DrawerTitle>
           </DrawerHeader>
           
-          <div className="p-4 space-y-4 overflow-y-auto">
+          <div className="p-4 space-y-5 overflow-y-auto">
             {/* Rookie Info */}
             <div className="text-center">
               <h3 className="text-lg font-semibold">{selectedRookie?.name}</h3>
@@ -337,26 +318,66 @@ export const LeaderRookieReviewCard = () => {
               </p>
             </div>
 
-            {/* Completed Items Checklist */}
-            <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">
-                Completed self-service items:
-              </p>
-              <div className="space-y-2">
-                {selectedRookie?.completedItems.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="h-3 w-3 text-white" />
+            {/* Phase Overview */}
+            <div className="space-y-4">
+              {/* Self-Service Items (Completed by Rep) */}
+              <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                    Rep completed on their own
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {phaseInfo?.selfServiceItems.map((item, idx) => {
+                    const isCompleted = selectedRookie?.completedItems.includes(item.label);
+                    return (
+                      <div key={idx} className="flex items-start gap-2">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                          isCompleted ? 'bg-emerald-500' : 'bg-muted'
+                        }`}>
+                          {isCompleted ? (
+                            <Check className="h-3 w-3 text-white" />
+                          ) : (
+                            <Circle className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        <span className={`text-sm ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Leader-Required Items */}
+              <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-primary" />
+                  <p className="text-sm font-semibold text-primary">
+                    You verify together
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {phaseInfo?.leaderItems.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="h-3 w-3 text-primary" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">{item.label}</span>
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                      </div>
                     </div>
-                    <span className="text-sm">{item}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Confirmation Note */}
-            <p className="text-xs text-center text-muted-foreground">
-              By verifying, you confirm {selectedRookie?.name} has completed all Phase {selectedRookie?.currentPhase} requirements. This will update Notion and unlock the next phase.
+            <p className="text-xs text-center text-muted-foreground px-4">
+              By verifying, you confirm you've completed the leader items with {selectedRookie?.name} and they're ready to move on to {selectedRookie?.currentPhase === 4 ? 'Blitz!' : `Phase ${(selectedRookie?.currentPhase || 0) + 1}`}.
             </p>
 
             {/* Action Buttons */}
