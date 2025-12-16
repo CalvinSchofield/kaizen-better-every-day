@@ -36,6 +36,9 @@ const RampToBlitz = () => {
     };
   }, [setCustomTitle]);
 
+  // Check if user is a vet or sophomore - they can navigate freely without blockers
+  const isVetOrSophomore = repData?.year === 'Vet' || repData?.year === 'Sophomore';
+
   // Phase 1 completion is currently driven by in-app tasks (videos, goals set, blitz committed).
   // If leaders also mark ramp_phase_1_complete, that still counts.
   const watchedVideoIds = Array.isArray(repData?.watched_videos)
@@ -57,6 +60,7 @@ const RampToBlitz = () => {
   const phase1Complete = (repData?.ramp_phase_1_complete ?? false) || phase1AutoComplete;
 
   // Determine phase completion and lock status
+  // Vets and sophomores can access all phases without blockers
   const phases: PhaseData[] = [
     {
       id: 1,
@@ -70,21 +74,21 @@ const RampToBlitz = () => {
       title: "Start Trainings",
       subtitle: "Learn the fundamentals",
       isComplete: repData?.ramp_phase_2_complete || false,
-      isLocked: !phase1Complete,
+      isLocked: isVetOrSophomore ? false : !phase1Complete,
     },
     {
       id: 3,
       title: "Practice",
       subtitle: "Sharpen your skills",
       isComplete: repData?.ramp_phase_3_complete || false,
-      isLocked: !repData?.ramp_phase_2_complete,
+      isLocked: isVetOrSophomore ? false : !repData?.ramp_phase_2_complete,
     },
     {
       id: 4,
       title: "Saddle Up!",
       subtitle: "Final preparations",
       isComplete: repData?.ramp_phase_4_complete || false,
-      isLocked: !repData?.ramp_phase_3_complete,
+      isLocked: isVetOrSophomore ? false : !repData?.ramp_phase_3_complete,
     },
   ];
 
