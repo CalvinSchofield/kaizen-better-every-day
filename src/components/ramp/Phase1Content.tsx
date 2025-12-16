@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { CheckCircle2, Circle, Download, Play, Calendar, Rocket, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle2, Circle, Download, Play, MessageSquare, Rocket, ChevronDown, ChevronUp, BookOpen, Target, Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { RepData } from "@/hooks/useRepData";
 
 interface Phase1ContentProps {
@@ -49,19 +50,42 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
   const [expandedVideo, setExpandedVideo] = useState<string | null>("what-is-blitz");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [goalsReviewed, setGoalsReviewed] = useState(false);
+  const [expandedGoalsSection, setExpandedGoalsSection] = useState<string | null>("why");
+
+  // Load watched videos from database on mount
+  useEffect(() => {
+    if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
+      setWatchedVideos(new Set(repData.watched_videos as string[]));
+    }
+  }, [repData?.watched_videos]);
 
   const hasCommittedBlitz = repData?.committed_blitzes && 
     Array.isArray(repData.committed_blitzes) && 
     repData.committed_blitzes.length > 0;
 
-  const handleVideoWatched = (videoId: string) => {
-    setWatchedVideos(prev => new Set([...prev, videoId]));
+  const handleVideoWatched = async (videoId: string) => {
+    const newWatchedVideos = new Set([...watchedVideos, videoId]);
+    setWatchedVideos(newWatchedVideos);
+    
     const video = VIDEOS.find(v => v.id === videoId);
     if (video?.isRequired) {
       toast({
         title: "Video completed!",
         description: `You've watched "${video.title}"`,
       });
+    }
+
+    // Persist to database
+    if (repData?.user_id) {
+      const { error } = await supabase
+        .from('reps')
+        .update({ watched_videos: Array.from(newWatchedVideos) })
+        .eq('user_id', repData.user_id);
+      
+      if (error) {
+        console.error('Failed to save video progress:', error);
+      }
     }
   };
 
@@ -93,12 +117,24 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
     }
   };
 
-  const handleScheduleGoalsCall = () => {
-    // This could open a calendly link or similar
-    toast({
-      title: "Coming soon",
-      description: "Goals call scheduling will be available soon. Contact your leader directly for now.",
-    });
+  const handleTextLeader = () => {
+    if (!repData?.team_leader_phone) {
+      toast({
+        title: "No leader phone found",
+        description: "Contact your recruiter to get connected with your leader",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Clean the phone number
+    const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      "Hey! I've been thinking about my goals and I'm ready to go over them with you. When can we jump on a call?"
+    );
+    
+    // Open SMS with prefilled message
+    window.location.href = `sms:${cleanPhone}?body=${message}`;
   };
 
   const requiredVideosWatched = VIDEOS
@@ -107,6 +143,7 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
 
   const completedSteps = [
     requiredVideosWatched,
+    goalsReviewed,
     hasCommittedBlitz,
   ].filter(Boolean).length;
 
@@ -174,15 +211,126 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
         </CardContent>
       </Card>
 
+      {/* Goals Review Section */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          Review Your Goals
+        </h4>
+        <p className="text-xs text-muted-foreground">
+          Think about these questions before your goals call with your leader
+        </p>
+
+        {/* WHY Section */}
+        <GoalsSection
+          id="why"
+          title="Why"
+          icon={<Lightbulb className="w-4 h-4" />}
+          isExpanded={expandedGoalsSection === "why"}
+          onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "why" ? null : "why")}
+        >
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p className="italic">Why do you want to work here? What is it that drives you?</p>
+            <ul className="space-y-2 list-disc list-inside">
+              <li>Why do you want to sell?</li>
+              <li>What lifestyle do you unlock by making good money in a summer? What about your life will change if you hit your goals?</li>
+              <li>How does success this summer affect you in the long run? Where do you see yourself in the next 5 years?</li>
+              <li>Who do you want to impact as part of your success?</li>
+              <li>What motivates you on a deeper level beyond financial gain?</li>
+              <li>What sort of lifestyle goals do you want to achieve in the future because of your hard work now?</li>
+            </ul>
+          </div>
+        </GoalsSection>
+
+        {/* WHAT Section */}
+        <GoalsSection
+          id="what"
+          title="What"
+          icon={<Target className="w-4 h-4" />}
+          isExpanded={expandedGoalsSection === "what"}
+          onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "what" ? null : "what")}
+        >
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p className="italic">What do you hope to get from the experience, both financially and not?</p>
+            
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between">
+                <span className="font-medium">Must-do goal</span>
+                <span>What <em>has to</em> happen. Minimum to cover your expenses.</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Will-do goal</span>
+                <span>The goal you want to tackle. Average rookie makes $38k.</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Could-do goal</span>
+                <span>Top rookies earn $85k+. Full commitment required.</span>
+              </div>
+            </div>
+
+            <p className="text-xs">
+              Think about your monthly expenses × months off. That's your starting point for must-do.
+            </p>
+          </div>
+        </GoalsSection>
+
+        {/* HOW Section */}
+        <GoalsSection
+          id="how"
+          title="How"
+          icon={<BookOpen className="w-4 h-4" />}
+          isExpanded={expandedGoalsSection === "how"}
+          onToggle={() => setExpandedGoalsSection(expandedGoalsSection === "how" ? null : "how")}
+        >
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p className="italic">How do we make it happen together?</p>
+            
+            <p>You'll set these commitments with your leader:</p>
+            <ul className="space-y-1 list-disc list-inside">
+              <li>Hours per week training on your own time</li>
+              <li>Books to read before summer starts</li>
+              <li>Monday Night Lights trainings to attend</li>
+              <li>Role plays with a vet before summer</li>
+              <li>Blitzes to attend</li>
+              <li>Pre-summer sales target</li>
+            </ul>
+
+            <div className="bg-muted/30 rounded-lg p-3 border-l-2 border-primary/50">
+              <p className="text-xs italic">
+                "You don't rise to the level of your goals, you fall to the level of your systems" — James Clear
+              </p>
+            </div>
+          </div>
+        </GoalsSection>
+
+        {/* Mark as Reviewed Button */}
+        {!goalsReviewed && (
+          <Button 
+            variant="outline" 
+            className="w-full"
+            onClick={() => {
+              setGoalsReviewed(true);
+              toast({
+                title: "Goals reviewed!",
+                description: "Now text your leader to schedule your goals call",
+              });
+            }}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            I've Thought About My Goals
+          </Button>
+        )}
+      </div>
+
       {/* Action Items */}
       <div className="space-y-3">
         <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Take Action
         </h4>
 
-        {/* Schedule Goals Call */}
+        {/* Text Leader to Schedule Goals Call */}
         <Card className={cn(
           "transition-all duration-200",
+          !goalsReviewed && "opacity-60"
         )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
@@ -191,23 +339,27 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <MessageSquare className="w-4 h-4 text-primary" />
                   <h4 className="font-medium text-sm">Schedule Goals Call</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Set up a call with your leader to set your season goals
+                  {goalsReviewed 
+                    ? `Text ${repData?.team_leader?.split(' ')[0] || 'your leader'} to set up your goals call`
+                    : "Review the goals sections above first"
+                  }
                 </p>
                 <Badge variant="outline" className="mt-2 text-xs">
                   Requires leader
                 </Badge>
               </div>
               <Button 
-                variant="outline" 
+                variant={goalsReviewed ? "default" : "outline"}
                 size="sm" 
                 className="shrink-0"
-                onClick={handleScheduleGoalsCall}
+                onClick={handleTextLeader}
+                disabled={!goalsReviewed}
               >
-                Schedule
+                Text Leader
               </Button>
             </div>
           </CardContent>
@@ -250,7 +402,6 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
                   size="sm" 
                   className="shrink-0"
                   onClick={() => {
-                    // Navigate to home page blitz selection
                     window.location.href = '/';
                   }}
                 >
@@ -329,10 +480,6 @@ const VideoCard = ({ video, isWatched, isExpanded, onToggle, onWatched }: VideoC
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 className="absolute inset-0 w-full h-full"
-                onLoad={() => {
-                  // Mark as watched after video loads (user can interact)
-                  // In a real app, you'd track actual video completion
-                }}
               />
             </div>
             
@@ -350,6 +497,47 @@ const VideoCard = ({ video, isWatched, isExpanded, onToggle, onWatched }: VideoC
                 Mark as Watched
               </Button>
             )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+};
+
+interface GoalsSectionProps {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const GoalsSection = ({ id, title, icon, isExpanded, onToggle, children }: GoalsSectionProps) => {
+  return (
+    <Card className="transition-all duration-200 overflow-hidden">
+      <Collapsible open={isExpanded} onOpenChange={onToggle}>
+        <CollapsibleTrigger asChild>
+          <CardContent className="p-4 cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                {icon}
+              </div>
+              <h4 className="font-medium text-sm flex-1">{title}</h4>
+              <div className="shrink-0">
+                {isExpanded ? (
+                  <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="px-4 pb-4">
+            {children}
           </div>
         </CollapsibleContent>
       </Collapsible>
