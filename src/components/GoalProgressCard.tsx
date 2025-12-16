@@ -85,7 +85,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     }, { fpPlus: 0, prmr: 0 });
   }, [entries, currentDate, viewMode]);
 
-  // Count days in period: WORKED (from entries) + REMAINING PLANNED (future)
+  // Count days in period: WORKED (from entries) + REMAINING PLANNED (today or future, not yet worked)
   const { daysWorkedInPeriod, totalDaysInPeriod } = useMemo(() => {
     const periodStart = viewMode === "month" 
       ? startOfMonth(currentDate) 
@@ -99,21 +99,30 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     const todayStr = format(today, 'yyyy-MM-dd');
     
     // Count days ACTUALLY worked in this period (knocking days from entries)
-    // Knocking day = doors >= 5 AND work_start_time AND work_end_time set
+    // Knocking day = doors >= 4 AND work_start_time AND work_end_time set
     const workedDays = entries.filter(e => {
       if (e.entry_date < periodStartStr || e.entry_date > periodEndStr) return false;
       return (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time;
     }).length;
     
-    // Count future planned days (from today forward to end of period)
-    const futurePlanned = plannedDays?.filter(d => 
-      d.planned_date > todayStr && d.planned_date <= periodEndStr
+    // Get dates that have been worked (as a set for quick lookup)
+    const workedDatesSet = new Set(
+      entries.filter(e => (e.doors_knocked || 0) >= 4 && !!e.work_start_time && !!e.work_end_time)
+        .map(e => e.entry_date)
+    );
+    
+    // Count planned days from today forward that haven't been worked yet
+    // Use >= todayStr so today counts as remaining if not yet worked
+    const remainingPlanned = plannedDays?.filter(d => 
+      d.planned_date >= todayStr && 
+      d.planned_date <= periodEndStr &&
+      !workedDatesSet.has(d.planned_date)
     ).length || 0;
     
-    // Total = worked + future planned
+    // Total = worked + remaining planned (including today if planned but not worked)
     return {
       daysWorkedInPeriod: workedDays,
-      totalDaysInPeriod: workedDays + futurePlanned
+      totalDaysInPeriod: workedDays + remainingPlanned
     };
   }, [entries, plannedDays, currentDate, viewMode, today]);
 
