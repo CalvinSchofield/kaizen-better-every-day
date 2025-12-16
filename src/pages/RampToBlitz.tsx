@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useRepData } from "@/hooks/useRepData";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useHeader } from "@/contexts/HeaderContext";
-import { RampPhaseProgress } from "@/components/ramp/RampPhaseProgress";
+import { RampHeroProgress } from "@/components/ramp/RampHeroProgress";
+import { RampNextStep } from "@/components/ramp/RampNextStep";
 import { RampPhaseContent } from "@/components/ramp/RampPhaseContent";
 import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
+import confetti from "canvas-confetti";
 
 export type PhaseId = 1 | 2 | 3 | 4;
 export type PitchGuideType = "takeover" | "upgrade" | null;
@@ -28,6 +30,8 @@ const RampToBlitz = () => {
   const { setCustomTitle } = useHeader();
   const [activePhase, setActivePhase] = useState<PhaseId>(1);
   const [activePitchGuide, setActivePitchGuide] = useState<PitchGuideType>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const prevCompletedPhasesRef = useRef<number>(0);
 
   useEffect(() => {
     setCustomTitle("Ramp to Blitz");
@@ -39,8 +43,7 @@ const RampToBlitz = () => {
   // Check if user is a vet or sophomore - they can navigate freely without blockers
   const isVetOrSophomore = repData?.year === 'Vet' || repData?.year === 'Sophomore';
 
-  // Phase 1 completion is currently driven by in-app tasks (videos, goals set, blitz committed).
-  // If leaders also mark ramp_phase_1_complete, that still counts.
+  // Phase 1 completion
   const watchedVideoIds = Array.isArray(repData?.watched_videos)
     ? (repData!.watched_videos as string[])
     : [];
@@ -59,15 +62,35 @@ const RampToBlitz = () => {
 
   const phase1Complete = (repData?.ramp_phase_1_complete ?? false) || phase1AutoComplete;
 
+  // Phase 2-4 progress tracking
+  const phase2Progress = {
+    productStudied: watchedVideoIds.includes('phase2-product'),
+    quizPassed: watchedVideoIds.includes('phase2-quiz-passed'),
+    upgradesStudied: watchedVideoIds.includes('phase2-upgrades'),
+    takeoverStudied: watchedVideoIds.includes('phase2-takeover'),
+    pitchSubmitted: watchedVideoIds.includes('phase2-pitch-submitted'),
+  };
+
+  const phase3Progress = {
+    ipadReady: watchedVideoIds.includes('phase3-ipad-ready'),
+    whyWritten: watchedVideoIds.includes('phase3-why-written'),
+    practiceScheduled: watchedVideoIds.includes('phase3-practice-scheduled'),
+  };
+
+  const phase4Progress = {
+    packingDone: watchedVideoIds.includes('phase4-packing-done'),
+    essentialsChecked: watchedVideoIds.includes('phase4-essentials-checked'),
+    playbookReady: watchedVideoIds.includes('phase4-playbook-ready'),
+  };
+
   // Determine phase completion and lock status
-  // Vets and sophomores can access all phases without blockers
   const phases: PhaseData[] = [
     {
       id: 1,
       title: "Set Goals",
       subtitle: "Onboard and get ready",
       isComplete: phase1Complete,
-      isLocked: false, // Phase 1 is never locked
+      isLocked: false,
     },
     {
       id: 2,
@@ -92,13 +115,28 @@ const RampToBlitz = () => {
     },
   ];
 
+  const completedCount = phases.filter(p => p.isComplete).length;
+
+  // Confetti celebration when a phase completes
+  useEffect(() => {
+    if (completedCount > prevCompletedPhasesRef.current && completedCount > 0) {
+      // A phase just completed - fire confetti!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#f97316', '#fb923c', '#fdba74', '#22c55e', '#4ade80']
+      });
+    }
+    prevCompletedPhasesRef.current = completedCount;
+  }, [completedCount]);
+
   // Auto-select the current active phase (first incomplete, unlocked phase)
   useEffect(() => {
     const currentPhase = phases.find((p) => !p.isComplete && !p.isLocked);
     if (currentPhase) {
       setActivePhase(currentPhase.id);
     } else if (phases.every((p) => p.isComplete)) {
-      // All complete, show phase 4
       setActivePhase(4);
     }
   }, [
@@ -108,8 +146,11 @@ const RampToBlitz = () => {
     repData?.ramp_phase_4_complete,
   ]);
 
-  const currentPhase = phases.find(p => p.id === activePhase)!;
-  const completedCount = phases.filter(p => p.isComplete).length;
+  // Handle scroll to specific step
+  const handleScrollToStep = (stepKey: string) => {
+    // For now, just scroll to content area - phases handle their own expansion
+    contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Handle pitch guide display
   if (activePitchGuide === "takeover") {
@@ -129,21 +170,34 @@ const RampToBlitz = () => {
         </Button>
       </div>
 
-      {/* Progress Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border/50">
-        <div className="max-w-lg mx-auto px-4 py-4">
-          <RampPhaseProgress
-            phases={phases} 
-            activePhase={activePhase} 
-            onPhaseSelect={setActivePhase} 
-          />
-        </div>
+      {/* Hero Progress Section */}
+      <div className="max-w-lg mx-auto px-4 pb-4">
+        <RampHeroProgress
+          phases={phases}
+          activePhase={activePhase}
+          repData={repData}
+          onPhaseSelect={setActivePhase}
+        />
+      </div>
+
+      {/* Next Step Hero */}
+      <div className="max-w-lg mx-auto px-4 pb-4">
+        <RampNextStep
+          activePhase={activePhase}
+          watchedVideos={watchedVideoIds}
+          goalsSetupComplete={goalsSetupComplete}
+          hasCommittedBlitz={hasCommittedBlitz}
+          phase2Progress={phase2Progress}
+          phase3Progress={phase3Progress}
+          phase4Progress={phase4Progress}
+          onScrollToStep={handleScrollToStep}
+        />
       </div>
 
       {/* Phase Content */}
-      <div className="max-w-lg mx-auto px-4 py-6">
+      <div ref={contentRef} className="max-w-lg mx-auto px-4 py-4">
         <RampPhaseContent 
-          phase={currentPhase}
+          phase={phases.find(p => p.id === activePhase)!}
           repData={repData}
           onOpenPitchGuide={setActivePitchGuide}
         />
@@ -163,8 +217,8 @@ const RampToBlitz = () => {
             Previous
           </Button>
           
-          <span className="text-sm text-muted-foreground">
-            {completedCount}/4 Complete
+          <span className="text-sm text-muted-foreground font-medium">
+            Phase {activePhase} of 4
           </span>
 
           <Button

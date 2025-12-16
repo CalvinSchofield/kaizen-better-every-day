@@ -147,26 +147,30 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
   const completedSteps = [ipadReady, whyWritten, practiceScheduled].filter(Boolean).length;
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Phase Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold">Practice</h3>
-          <p className="text-sm text-muted-foreground">
-            Get your tools ready and practice your skills
-          </p>
+    <div className="space-y-5 pb-20">
+      {/* Completed Steps as Chips */}
+      {completedSteps > 0 && completedSteps < 3 && (
+        <div className="flex flex-wrap gap-2">
+          {ipadReady && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              iPad ready
+            </div>
+          )}
+          {whyWritten && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Why written
+            </div>
+          )}
+          {practiceScheduled && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Practice done
+            </div>
+          )}
         </div>
-        {isComplete ? (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Complete
-          </Badge>
-        ) : (
-          <Badge variant="outline">
-            {completedSteps}/3 done
-          </Badge>
-        )}
-      </div>
+      )}
 
       {/* Step 1: iPad Setup */}
       <TrainingSection
