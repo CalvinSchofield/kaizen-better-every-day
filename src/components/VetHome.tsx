@@ -16,6 +16,7 @@ import { PreseasonStandardsCard } from "@/components/PreseasonStandardsCard";
 import { LeaderPreseasonPrepLeaderboard } from "@/components/LeaderPreseasonPrepLeaderboard";
 import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard";
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
+import { LeaderRookieReviewCard } from "@/components/LeaderRookieReviewCard";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
@@ -735,6 +736,9 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             }}
           />
         )}
+
+        {/* Leader Rookie Review CTA - shows when rookies need phase verification */}
+        <LeaderRookieReviewCard />
 
         {/* Pending Install Alert - shows after 7 PM if pending installs */}
         <PendingInstallAlertCard />
