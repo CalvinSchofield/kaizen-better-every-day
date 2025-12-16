@@ -38,6 +38,14 @@ export const FocusCard = ({
     const issues: FocusIssue[] = [];
     const now = new Date();
     
+    // Check if recruit is in a stage where iPad matters (Signed+, excluding exit stages)
+    const stageLower = (recruit.stage || '').toLowerCase();
+    const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
+    const exitStages = ['not interested', 'potential follow up', 'signed but not interested'];
+    const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+    const isExitStage = exitStages.some(s => stageLower.includes(s));
+    const isSignedOrBeyond = !isEarlyStage && !isExitStage;
+    
     // Parse committed blitzes
     const committedBlitzIds = (() => {
       const raw = recruitRepData.committed_blitzes;
@@ -80,9 +88,9 @@ export const FocusCard = ({
       ? differenceInDays(now, parseISO(recruit.lastContact))
       : null;
     
-    // ========== CRITICAL: Blitz approaching with blockers ==========
+    // ========== CRITICAL: Blitz approaching with blockers (only for Signed+) ==========
     
-    if (hasBlitzCommitment && isBlitzImminent && !hasIpad) {
+    if (isSignedOrBeyond && hasBlitzCommitment && isBlitzImminent && !hasIpad) {
       const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 100,
@@ -121,9 +129,9 @@ export const FocusCard = ({
       });
     }
     
-    // ========== HIGH: Blitz approaching with issues ==========
+    // ========== HIGH: Blitz approaching with issues (only for Signed+) ==========
     
-    if (hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !hasIpad) {
+    if (isSignedOrBeyond && hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !hasIpad) {
       const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 85,
@@ -149,9 +157,9 @@ export const FocusCard = ({
       });
     }
     
-    // ========== HIGH: No blitz but missing critical items ==========
+    // ========== HIGH: No blitz but missing critical items (only for Signed+) ==========
     
-    if (!hasIpad && isRookie && !isRampPhase4Complete) {
+    if (isSignedOrBeyond && !hasIpad && isRookie && !isRampPhase4Complete) {
       issues.push({
         priority: 70,
         type: 'high',
