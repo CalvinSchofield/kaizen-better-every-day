@@ -6,8 +6,11 @@ import { useRepData } from "@/hooks/useRepData";
 import { useHeader } from "@/contexts/HeaderContext";
 import { RampPhaseProgress } from "@/components/ramp/RampPhaseProgress";
 import { RampPhaseContent } from "@/components/ramp/RampPhaseContent";
+import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
+import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
 
 export type PhaseId = 1 | 2 | 3 | 4;
+export type PitchGuideType = "takeover" | "upgrade" | null;
 
 export interface PhaseData {
   id: PhaseId;
@@ -22,6 +25,7 @@ const RampToBlitz = () => {
   const { repData } = useRepData();
   const { setCustomTitle } = useHeader();
   const [activePhase, setActivePhase] = useState<PhaseId>(1);
+  const [activePitchGuide, setActivePitchGuide] = useState<PitchGuideType>(null);
 
   useEffect(() => {
     setCustomTitle("Ramp to Blitz");
@@ -76,6 +80,14 @@ const RampToBlitz = () => {
   const currentPhase = phases.find(p => p.id === activePhase)!;
   const completedCount = phases.filter(p => p.isComplete).length;
 
+  // Handle pitch guide display
+  if (activePitchGuide === "takeover") {
+    return <TakeoverPitchGuide onBack={() => setActivePitchGuide(null)} />;
+  }
+  if (activePitchGuide === "upgrade") {
+    return <UpgradePitchGuide onBack={() => setActivePitchGuide(null)} />;
+  }
+
   return (
     <div className="min-h-screen bg-background pt-[max(0.5rem,env(safe-area-inset-top))]">
       {/* Back Button Header */}
@@ -102,6 +114,7 @@ const RampToBlitz = () => {
         <RampPhaseContent 
           phase={currentPhase}
           repData={repData}
+          onOpenPitchGuide={setActivePitchGuide}
         />
       </div>
 

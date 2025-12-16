@@ -3,13 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { PhaseData } from "@/pages/RampToBlitz";
+import type { PhaseData, PitchGuideType } from "@/pages/RampToBlitz";
 import type { RepData } from "@/hooks/useRepData";
 import { Phase1Content } from "./Phase1Content";
+import { Phase2Content } from "./Phase2Content";
 
 interface RampPhaseContentProps {
   phase: PhaseData;
   repData: RepData | null;
+  onOpenPitchGuide: (guide: "takeover" | "upgrade") => void;
 }
 
 // Placeholder task structure - will be expanded with real content
@@ -22,7 +24,7 @@ interface PhaseTask {
   type: 'video' | 'action' | 'quiz' | 'checklist' | 'leader-confirm';
 }
 
-export const RampPhaseContent = ({ phase, repData }: RampPhaseContentProps) => {
+export const RampPhaseContent = ({ phase, repData, onOpenPitchGuide }: RampPhaseContentProps) => {
   if (phase.isLocked) {
     return (
       <Card className="border-dashed">
@@ -46,21 +48,14 @@ export const RampPhaseContent = ({ phase, repData }: RampPhaseContentProps) => {
     return <Phase1Content repData={repData} isComplete={phase.isComplete} />;
   }
 
-  // Placeholder content for phases 2-4 - will be replaced with real content
+  // Render Phase 2 with dedicated component
+  if (phase.id === 2) {
+    return <Phase2Content repData={repData} isComplete={phase.isComplete} onOpenPitchGuide={onOpenPitchGuide} />;
+  }
+
+  // Placeholder content for phases 3-4 - will be replaced with real content
   const getPhaseContent = () => {
     switch (phase.id) {
-      case 2:
-        return {
-          title: "Start Trainings",
-          description: "Learn the fundamentals of door-to-door sales",
-          tasks: [
-            { id: "2-1", title: "Product Basics Training", description: "Learn about our products and services", isComplete: false, type: "video" as const },
-            { id: "2-2", title: "Product Knowledge Quiz", description: "Test your understanding (80% to pass)", isComplete: false, type: "quiz" as const },
-            { id: "2-3", title: "Upgrades 101", description: "Master the upgrade pitch", isComplete: false, type: "video" as const },
-            { id: "2-4", title: "Door Approach Training", description: "Learn and practice door approaches", isComplete: false, type: "video" as const },
-            { id: "2-5", title: "Submit Pitch Video", description: "Record yourself and get feedback", isComplete: false, type: "leader-confirm" as const, requiresLeader: true },
-          ],
-        };
       case 3:
         return {
           title: "Practice",
