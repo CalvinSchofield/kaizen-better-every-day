@@ -3,6 +3,7 @@ import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, He
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -21,6 +22,13 @@ const useIsIPhonePWA = () => {
   }, []);
 };
 
+const IPAD_SETUP_STEPS = [
+  'phase3-ipad-step1',
+  'phase3-ipad-step2',
+  'phase3-ipad-step3',
+  'phase3-ipad-step4',
+] as const;
+
 interface Phase3ContentProps {
   repData: RepData | null;
   isComplete: boolean;
@@ -31,6 +39,7 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
   const [ipadReady, setIpadReady] = useState(false);
   const [whyWritten, setWhyWritten] = useState(false);
   const [practiceScheduled, setPracticeScheduled] = useState(false);
+  const [ipadStepsChecked, setIpadStepsChecked] = useState<Record<string, boolean>>({});
 
   const { saveProgress } = useRampProgress(repData?.user_id);
 
@@ -41,8 +50,28 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
       setIpadReady(watched.includes('phase3-ipad-ready'));
       setWhyWritten(watched.includes('phase3-why-written'));
       setPracticeScheduled(watched.includes('phase3-practice-scheduled'));
+      
+      // Load iPad setup step progress
+      const stepsChecked: Record<string, boolean> = {};
+      IPAD_SETUP_STEPS.forEach(step => {
+        stepsChecked[step] = watched.includes(step);
+      });
+      setIpadStepsChecked(stepsChecked);
     }
   }, [repData?.watched_videos]);
+
+  const handleToggleIpadStep = async (stepId: string) => {
+    const isCurrentlyChecked = ipadStepsChecked[stepId];
+    
+    if (!isCurrentlyChecked) {
+      const success = await saveProgress(stepId);
+      if (success) {
+        setIpadStepsChecked(prev => ({ ...prev, [stepId]: true }));
+      }
+    }
+  };
+
+  const allIpadStepsComplete = IPAD_SETUP_STEPS.every(step => ipadStepsChecked[step]);
 
   const handleIpadReady = async () => {
     const success = await saveProgress('phase3-ipad-ready');
@@ -157,59 +186,106 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
           <div className="space-y-4">
             {/* Step 1: Get Your iPad */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <h5 className="font-medium text-sm flex items-center gap-2">
-                <Tablet className="w-4 h-4 text-primary" />
-                1. Get Your iPad
-              </h5>
-              <p className="text-sm text-muted-foreground">
-                If you don't have an iPad yet, text your leader to get one assigned. Make sure it's charged and ready.
-              </p>
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="ipad-step1"
+                  checked={ipadStepsChecked['phase3-ipad-step1'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step1')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="ipad-step1" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <Tablet className="w-4 h-4 text-primary" />
+                    1. Get Your iPad
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    If you don't have an iPad yet, text your leader to get one assigned. Make sure it's charged and ready.
+                  </p>
+                </label>
+              </div>
             </div>
 
             {/* Step 2: Install Required Apps */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <h5 className="font-medium text-sm flex items-center gap-2">
-                <Download className="w-4 h-4 text-primary" />
-                2. Install Required Apps
-              </h5>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                <li><strong>Vivint Sales App</strong> - Main selling tool</li>
-                <li><strong>Street Genie</strong> - Prospecting & lead lookup</li>
-                <li><strong>Google Maps</strong> - Navigation</li>
-                <li><strong>Kaizen</strong> - This app (add to home screen)</li>
-              </ul>
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="ipad-step2"
+                  checked={ipadStepsChecked['phase3-ipad-step2'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step2')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="ipad-step2" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <Download className="w-4 h-4 text-primary" />
+                    2. Install Required Apps
+                  </h5>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
+                    <li><strong>Vivint Sales App</strong> - Main selling tool</li>
+                    <li><strong>Street Genie</strong> - Prospecting & lead lookup</li>
+                    <li><strong>Google Maps</strong> - Navigation</li>
+                    <li><strong>Kaizen</strong> - This app (add to home screen)</li>
+                  </ul>
+                </label>
+              </div>
             </div>
 
             {/* Step 3: Log Into Everything */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <h5 className="font-medium text-sm flex items-center gap-2">
-                <LogIn className="w-4 h-4 text-primary" />
-                3. Log Into Everything
-              </h5>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                <li>Sign into Vivint Sales App with your rep credentials</li>
-                <li>Sign into Street Genie (ask leader for login)</li>
-                <li>Make sure Google Maps has your account</li>
-              </ul>
-              <p className="text-xs text-muted-foreground mt-2 italic">
-                Test each app before the blitz to make sure everything works!
-              </p>
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="ipad-step3"
+                  checked={ipadStepsChecked['phase3-ipad-step3'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step3')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="ipad-step3" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <LogIn className="w-4 h-4 text-primary" />
+                    3. Log Into Everything
+                  </h5>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
+                    <li>Sign into Vivint Sales App with your rep credentials</li>
+                    <li>Sign into Street Genie (ask leader for login)</li>
+                    <li>Make sure Google Maps has your account</li>
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    Test each app before the blitz to make sure everything works!
+                  </p>
+                </label>
+              </div>
             </div>
 
             {/* Step 4: Set Up Your Workspace */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <h5 className="font-medium text-sm flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                4. Set Up Your Workspace
-              </h5>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                <li>Enable location services for all sales apps</li>
-                <li>Turn on Do Not Disturb during knocking hours</li>
-                <li>Keep brightness at 50%+ (easier to see outdoors)</li>
-                <li>Charge to 100% before each knocking block</li>
-              </ul>
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="ipad-step4"
+                  checked={ipadStepsChecked['phase3-ipad-step4'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step4')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="ipad-step4" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    4. Set Up Your Workspace
+                  </h5>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
+                    <li>Enable location services for all sales apps</li>
+                    <li>Turn on Do Not Disturb during knocking hours</li>
+                    <li>Keep brightness at 50%+ (easier to see outdoors)</li>
+                    <li>Charge to 100% before each knocking block</li>
+                  </ul>
+                </label>
+              </div>
             </div>
           </div>
+
+          {/* Progress indicator */}
+          {!ipadReady && (
+            <div className="text-xs text-muted-foreground text-center">
+              {Object.values(ipadStepsChecked).filter(Boolean).length}/4 steps completed
+            </div>
+          )}
 
           {/* Bonus Videos - Embedded */}
           <div className="border-t pt-3 mt-3">
