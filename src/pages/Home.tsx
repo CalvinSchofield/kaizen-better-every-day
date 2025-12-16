@@ -570,14 +570,12 @@ const Home = () => {
     // Skip confetti on initial mount to prevent firing on every navigation
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
-      if (previousProgress !== completedSteps) {
-        setPreviousProgress(completedSteps);
-      }
+      setPreviousProgress(completedSteps);
       return;
     }
 
-    // Only celebrate when moving forward AND not on initial load
-    if (completedSteps > previousProgress && previousProgress > 0) {
+    // Celebrate when progress increases (works for realtime updates too)
+    if (completedSteps > previousProgress) {
       setAnimateProgress(true);
       
       // Trigger haptic feedback
@@ -585,7 +583,7 @@ const Home = () => {
         navigator.vibrate([100, 50, 100]); // Double vibration pattern
       }
       
-      // Trigger confetti only when progressing forward
+      // Trigger confetti
       confetti({
         particleCount: 100,
         spread: 70,
@@ -612,7 +610,7 @@ const Home = () => {
       setTimeout(() => setAnimateProgress(false), 1000);
     }
     
-    // Always update previous progress to track changes in both directions
+    // Always update previous progress to track changes
     if (previousProgress !== completedSteps) {
       setPreviousProgress(completedSteps);
     }

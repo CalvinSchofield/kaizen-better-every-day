@@ -153,9 +153,9 @@ export const useRepData = () => {
   const { data: repData, isLoading: loading } = useQuery({
     queryKey: ['rep-data', currentUserId],
     enabled: !!currentUserId, // Only run when we have a user ID
-    staleTime: 5 * 60 * 1000, // 5 minutes - consider data fresh
+    staleTime: 1 * 60 * 1000, // 1 minute - more responsive to changes
     gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Refresh when app comes back to foreground
     retry: 1,
     initialData: getInitialData() ?? undefined, // Use cached data immediately to prevent flicker
     queryFn: async () => {
@@ -257,7 +257,7 @@ export const useRepData = () => {
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Set up automatic periodic sync from Notion every 5 minutes
+    // Set up automatic periodic sync from Notion every 2 minutes
     const syncInterval = setInterval(async () => {
       console.log("Auto-syncing from Notion...");
       try {
@@ -266,7 +266,21 @@ export const useRepData = () => {
       } catch (error) {
         console.error("Auto-sync error:", error);
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 2 * 60 * 1000); // 2 minutes - more responsive for leader updates
+
+    // PWA visibility change handler - sync when app comes back to foreground
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log("App became visible, syncing from Notion...");
+        try {
+          await supabase.functions.invoke("sync-notion-reps");
+          await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
+        } catch (error) {
+          console.error("Visibility sync error:", error);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Set up realtime subscription to instantly reflect database changes
     // CRITICAL: Filter to only process changes for the CURRENT USER
@@ -305,6 +319,7 @@ export const useRepData = () => {
 
     return () => {
       clearInterval(syncInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       supabase.removeChannel(channel);
     };
   }, [queryClient, toast, currentUserId]);
