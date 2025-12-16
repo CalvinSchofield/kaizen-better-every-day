@@ -103,7 +103,7 @@ export const FocusCard = ({
       });
     }
     
-    if (hasBlitzCommitment && isBlitzImminent && !isRampPhase4Complete && isRookie) {
+    if (isSignedOrBeyond && hasBlitzCommitment && isBlitzImminent && !isRampPhase4Complete && isRookie) {
       const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 98,
@@ -116,7 +116,7 @@ export const FocusCard = ({
       });
     }
     
-    if (hasBlitzCommitment && isBlitzImminent && !isOnboardingComplete && isRookie) {
+    if (isSignedOrBeyond && hasBlitzCommitment && isBlitzImminent && !isOnboardingComplete && isRookie) {
       const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 97,
@@ -144,7 +144,7 @@ export const FocusCard = ({
       });
     }
     
-    if (hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !isRampPhase4Complete && isRookie) {
+    if (isSignedOrBeyond && hasBlitzCommitment && isBlitzApproaching && !isBlitzImminent && !isRampPhase4Complete && isRookie) {
       const blitzTimeLabel = formatDaysUntilBlitz(daysToBlitz);
       issues.push({
         priority: 83,
@@ -171,7 +171,7 @@ export const FocusCard = ({
       });
     }
     
-    if (!isOnboardingComplete && isRookie) {
+    if (isSignedOrBeyond && !isOnboardingComplete && isRookie) {
       issues.push({
         priority: 65,
         type: 'high',
@@ -183,7 +183,7 @@ export const FocusCard = ({
       });
     }
     
-    if (isSlackJoined && !isRampPhase4Complete && isRookie) {
+    if (isSignedOrBeyond && isSlackJoined && !isRampPhase4Complete && isRookie) {
       issues.push({
         priority: 60,
         type: 'medium',
