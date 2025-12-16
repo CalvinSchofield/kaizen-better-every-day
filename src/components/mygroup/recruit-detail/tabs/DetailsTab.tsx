@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { getDaysUntilBlitz, formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
@@ -12,6 +12,7 @@ import {
   History,
   Calendar,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -287,6 +288,23 @@ const BlitzManagementSection = ({
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   
+  // Fetch declined blitzes for this recruit
+  const { data: declinedBlitzIds = [] } = useQuery({
+    queryKey: ['recruit-declined-blitzes', recruit?.notionPageId],
+    queryFn: async () => {
+      if (!recruit?.notionPageId) return [];
+      const { data, error } = await supabase
+        .from('blitz_declines')
+        .select('blitz_id')
+        .eq('rep_notion_page_id', recruit.notionPageId);
+      
+      if (error) return [];
+      return data.map(d => d.blitz_id);
+    },
+    enabled: !!recruit?.notionPageId,
+    staleTime: 30000,
+  });
+  
   const committedBlitzIds = useMemo(() => {
     const rawFromSupabase = recruitRepData?.committed_blitzes;
     const rawFromNotion = recruit?.committedBlitzes;
@@ -306,6 +324,7 @@ const BlitzManagementSection = ({
   
   const futureBlitzes = allBlitzes;
   const committedFutureCount = futureBlitzes.filter(b => committedBlitzIds.includes(b.id)).length;
+  const declinedFutureCount = futureBlitzes.filter(b => declinedBlitzIds.includes(b.id) && !committedBlitzIds.includes(b.id)).length;
   
   const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
     if (!recruit?.notionPageId) return;
@@ -334,6 +353,10 @@ const BlitzManagementSection = ({
       if (error) throw error;
       toast.success(isCurrentlyCommitted ? `Removed from ${blitzName}` : `Committed to ${blitzName}`);
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      // Clear declined status if committing
+      if (!isCurrentlyCommitted) {
+        queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.notionPageId] });
+      }
     } catch (error) {
       queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
         old ? { ...old, committed_blitzes: committedBlitzIds } : old
@@ -345,12 +368,13 @@ const BlitzManagementSection = ({
   };
   
   const getSummaryText = () => {
-    if (committedFutureCount === 0 && pastBlitzes.length === 0) {
+    if (committedFutureCount === 0 && pastBlitzes.length === 0 && declinedFutureCount === 0) {
       return "No blitz history yet";
     }
     const parts: string[] = [];
     if (committedFutureCount > 0) parts.push(`${committedFutureCount} upcoming`);
     if (pastBlitzes.length > 0) parts.push(`${pastBlitzes.length} attended`);
+    if (declinedFutureCount > 0) parts.push(`${declinedFutureCount} declined`);
     return parts.join(' · ');
   };
   
@@ -409,22 +433,40 @@ const BlitzManagementSection = ({
               </div>
               {futureBlitzes.map((blitz) => {
                 const isCommitted = committedBlitzIds.includes(blitz.id);
+                const isDeclined = declinedBlitzIds.includes(blitz.id) && !isCommitted;
                 const blitzDate = new Date(blitz.date);
                 const isLoading = isUpdating === blitz.id;
                 const daysUntil = getDaysUntilBlitz(blitz.date);
                 
                 return (
                   <div key={blitz.id} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                    isCommitted ? 'bg-primary/5 border-primary/30' : 'bg-muted/50 border-border'
+                    isCommitted 
+                      ? 'bg-primary/5 border-primary/30' 
+                      : isDeclined 
+                        ? 'bg-destructive/5 border-destructive/30' 
+                        : 'bg-muted/50 border-border'
                   }`}>
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isCommitted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                        isCommitted 
+                          ? 'bg-primary/20 text-primary' 
+                          : isDeclined 
+                            ? 'bg-destructive/20 text-destructive'
+                            : 'bg-muted text-muted-foreground'
                       }`}>
-                        {isCommitted ? <Plane className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                        {isCommitted ? <Plane className="h-4 w-4" /> : isDeclined ? <X className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
                       </div>
                       <div>
-                        <p className="text-sm font-medium">{blitz.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-medium ${isDeclined ? 'line-through text-muted-foreground' : ''}`}>
+                            {blitz.name}
+                          </p>
+                          {isDeclined && (
+                            <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
+                              Declined
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {format(blitzDate, 'MMM d')}
                           {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}

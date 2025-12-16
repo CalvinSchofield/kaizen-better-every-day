@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, Loader2, Calendar, MapPin, History, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Check, Loader2, Calendar, MapPin, History, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -52,7 +52,26 @@ export const BlitzCommitmentDrawer = ({
   const [pendingCommitments, setPendingCommitments] = useState<string[]>(currentCommitments);
   const [isUpdating, setIsUpdating] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [declinedBlitzIds, setDeclinedBlitzIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
+
+  // Fetch declined blitzes for this recruit
+  useEffect(() => {
+    const fetchDeclinedBlitzes = async () => {
+      if (!recruitNotionPageId || !open) return;
+      
+      const { data, error } = await supabase
+        .from('blitz_declines')
+        .select('blitz_id')
+        .eq('rep_notion_page_id', recruitNotionPageId);
+      
+      if (!error && data) {
+        setDeclinedBlitzIds(data.map(d => d.blitz_id));
+      }
+    };
+    
+    fetchDeclinedBlitzes();
+  }, [recruitNotionPageId, open]);
 
   const today = startOfDay(new Date());
 
@@ -145,6 +164,7 @@ export const BlitzCommitmentDrawer = ({
 
   const renderBlitzCard = (blitz: BlitzEvent, isPast: boolean = false) => {
     const isCommitted = pendingCommitments.includes(blitz.id);
+    const isDeclined = declinedBlitzIds.includes(blitz.id);
     const blitzDate = parseISO(blitz.date);
     const endDate = blitz.endDate ? parseISO(blitz.endDate) : null;
     
@@ -156,14 +176,18 @@ export const BlitzCommitmentDrawer = ({
             ? isPast 
               ? 'border-green-500 bg-green-500/10' 
               : 'border-primary bg-primary/10' 
-            : 'border-border bg-card hover:border-muted-foreground/30'
+            : isDeclined && !isPast
+              ? 'border-destructive/50 bg-destructive/5'
+              : 'border-border bg-card hover:border-muted-foreground/30'
         }`}
         onClick={() => toggleBlitz(blitz.id)}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="font-medium text-sm">{blitz.name}</span>
+              <span className={`font-medium text-sm ${isDeclined && !isCommitted ? 'line-through text-muted-foreground' : ''}`}>
+                {blitz.name}
+              </span>
               {isPast && isCommitted && (
                 <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
                   <Check className="w-3 h-3 mr-1" />
@@ -174,6 +198,12 @@ export const BlitzCommitmentDrawer = ({
                 <Badge variant="default" className="text-xs">
                   <Check className="w-3 h-3 mr-1" />
                   Committed
+                </Badge>
+              )}
+              {!isPast && !isCommitted && isDeclined && (
+                <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/30">
+                  <X className="w-3 h-3 mr-1" />
+                  Declined
                 </Badge>
               )}
             </div>
@@ -199,9 +229,12 @@ export const BlitzCommitmentDrawer = ({
               ? isPast
                 ? 'bg-green-500 border-green-500 text-white'
                 : 'bg-primary border-primary text-primary-foreground' 
-              : 'border-muted-foreground/30'
+              : isDeclined && !isPast
+                ? 'bg-destructive/20 border-destructive/50'
+                : 'border-muted-foreground/30'
           }`}>
             {isCommitted && <Check className="w-4 h-4" />}
+            {!isCommitted && isDeclined && !isPast && <X className="w-3 h-3 text-destructive" />}
           </div>
         </div>
       </div>
