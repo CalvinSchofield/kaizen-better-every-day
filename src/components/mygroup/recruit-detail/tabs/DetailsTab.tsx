@@ -374,7 +374,17 @@ const BlitzManagementSection = ({
     const parts: string[] = [];
     if (committedFutureCount > 0) parts.push(`${committedFutureCount} upcoming`);
     if (pastBlitzes.length > 0) parts.push(`${pastBlitzes.length} attended`);
-    if (declinedFutureCount > 0) parts.push(`${declinedFutureCount} declined`);
+    if (declinedFutureCount > 0) {
+      // Show the actual blitz name(s) that were declined
+      const declinedBlitzNames = futureBlitzes
+        .filter(b => declinedBlitzIds.includes(b.id) && !committedBlitzIds.includes(b.id))
+        .map(b => b.name);
+      if (declinedBlitzNames.length === 1) {
+        parts.push(`declined ${declinedBlitzNames[0]}`);
+      } else {
+        parts.push(`${declinedFutureCount} declined`);
+      }
+    }
     return parts.join(' · ');
   };
   
@@ -508,6 +518,9 @@ const BlitzReadinessWarnings = ({
 }) => {
   if (!recruitRepData) return null;
   
+  // Vets and Sophomores don't need ramp-to-blitz, so skip ramp warnings for them
+  const isRookie = recruitRepData.year === 'Rookie' || !recruitRepData.year;
+  
   // Check if recruit is in a stage where iPad matters (Signed+, excluding exit stages)
   const stageLower = (recruit.stage || '').toLowerCase();
   const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
@@ -526,9 +539,9 @@ const BlitzReadinessWarnings = ({
   const hasIpad = recruitRepData.ipad_assigned === true;
   
   // Only show warnings for Signed+ stages
-  const showIpadWarning = isSignedOrBeyond && !hasIpad;
-  const showOnboardingWarning = isSignedOrBeyond && !isOnboardingComplete;
-  const showRampWarning = isSignedOrBeyond && !isRampComplete;
+  const showIpadWarning = isSignedOrBeyond && !hasIpad && isRookie; // Only rookies need iPad tracking
+  const showOnboardingWarning = isSignedOrBeyond && !isOnboardingComplete && isRookie; // Only rookies need onboarding
+  const showRampWarning = isSignedOrBeyond && !isRampComplete && isRookie; // Only rookies need ramp-to-blitz
   
   const hasReadinessIssues = hasBlitzCommitment && isBlitzApproaching && (showRampWarning || showOnboardingWarning || showIpadWarning);
   
