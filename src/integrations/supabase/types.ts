@@ -711,6 +711,7 @@ export type Database = {
           trainings_complete: boolean | null
           updated_at: string | null
           user_id: string | null
+          watched_videos: Json | null
           year: string | null
         }
         Insert: {
@@ -764,6 +765,7 @@ export type Database = {
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id?: string | null
+          watched_videos?: Json | null
           year?: string | null
         }
         Update: {
@@ -817,6 +819,7 @@ export type Database = {
           trainings_complete?: boolean | null
           updated_at?: string | null
           user_id?: string | null
+          watched_videos?: Json | null
           year?: string | null
         }
         Relationships: []
