@@ -6,15 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { Loader2, LogIn, UserPlus, KeyRound } from "lucide-react";
 import { PWAInstallGate } from "@/components/PWAInstallGate";
 import { isPWAInstalled, hasUserSignedUp, markUserSignedUp, shouldBypassPWAGate } from "@/utils/pwaDetection";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,10 +25,23 @@ const Auth = () => {
   const isPWA = isPWAInstalled();
 
   useEffect(() => {
+    // Listen for auth state changes to detect password recovery
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordReset(true);
+      } else if (event === 'SIGNED_IN' && session && !isPasswordReset) {
+        const setupComplete = localStorage.getItem('kaizen-setup-complete');
+        if (setupComplete) {
+          navigate("/");
+        } else {
+          navigate("/setup");
+        }
+      }
+    });
+
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        // Check if setup has been completed
+      if (session && !isPasswordReset) {
         const setupComplete = localStorage.getItem('kaizen-setup-complete');
         if (setupComplete) {
           navigate("/");
@@ -37,11 +52,67 @@ const Auth = () => {
     });
 
     // Set default view based on signup history
-    // If user has signed up before on this device, default to login
     if (hasUserSignedUp()) {
       setIsLogin(true);
     }
-  }, [navigate]);
+
+    return () => subscription.unsubscribe();
+  }, [navigate, isPasswordReset]);
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully changed.",
+      });
+
+      setIsPasswordReset(false);
+      setPassword("");
+      setConfirmPassword("");
+      
+      // Redirect to home
+      const setupComplete = localStorage.getItem('kaizen-setup-complete');
+      if (setupComplete) {
+        navigate("/");
+      } else {
+        navigate("/setup");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update password.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,10 +202,72 @@ const Auth = () => {
     }
   };
 
-  // PWA install gate disabled temporarily
-  // if (!isPWA && !shouldBypassPWAGate(email)) {
-  //   return <PWAInstallGate />;
-  // }
+  // Password reset form
+  if (isPasswordReset) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <KeyRound className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Set New Password</CardTitle>
+            <CardDescription>
+              Enter your new password below
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Update Password
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
