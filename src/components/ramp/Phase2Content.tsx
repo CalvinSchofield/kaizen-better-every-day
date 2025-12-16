@@ -182,6 +182,11 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
     }
   }, [repData?.watched_videos]);
 
+  // Check if rep has self-reported sending pitches (waiting on leader feedback)
+  const hasTextedLeaderPitches = repData?.watched_videos && 
+    Array.isArray(repData.watched_videos) && 
+    (repData.watched_videos as string[]).includes('phase2-pitches-sent-waiting');
+
   const handleMarkProductStudied = async () => {
     const success = await saveProgress('phase2-product');
     if (success) {
@@ -586,17 +591,49 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
 
 
           {/* Text leader CTA */}
-          <Button 
-            className="w-full rounded-xl h-14 text-base"
-            onClick={handleTextLeaderForPitch}
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            Text Leader to Submit Pitches
-          </Button>
+          {!hasTextedLeaderPitches && (
+            <Button 
+              className="w-full rounded-xl h-14 text-base"
+              onClick={handleTextLeaderForPitch}
+            >
+              <MessageSquare className="w-5 h-5 mr-2" />
+              Text Leader to Submit Pitches
+            </Button>
+          )}
 
-          <p className="text-xs text-muted-foreground text-center">
-            Your leader will mark this complete after reviewing both pitches
-          </p>
+          {hasTextedLeaderPitches ? (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-center">
+              <p className="text-sm font-medium text-amber-600">Waiting on leader feedback</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your leader will mark this complete after reviewing both pitches
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground text-center">
+                Your leader will mark this complete after reviewing both pitches
+              </p>
+              
+              {/* Self-report: I've sent my pitches */}
+              <Button 
+                variant="ghost"
+                size="sm" 
+                className="w-full text-muted-foreground mt-2"
+                onClick={async () => {
+                  const success = await saveProgress('phase2-pitches-sent-waiting');
+                  if (success) {
+                    toast({
+                      title: "Got it!",
+                      description: "Your leader will mark this complete after reviewing your pitches",
+                    });
+                  }
+                }}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                I've sent my pitches, waiting on feedback
+              </Button>
+            </>
+          )}
         </div>
       </TrainingSection>
 
