@@ -27,6 +27,7 @@ import Goals from "./pages/Goals";
 import MyGroup from "./pages/MyGroup";
 import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
+import RampToBlitz from "./pages/RampToBlitz";
 // Profile route removed - merged into Settings (Personalize)
 
 const queryClient = new QueryClient({
@@ -187,6 +188,14 @@ const App = () => {
                   <Layout>
                     <Customers />
                   </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ramp-to-blitz"
+              element={
+                <ProtectedRoute>
+                  <RampToBlitz />
                 </ProtectedRoute>
               }
             />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { FileText, Shield, Zap, DoorOpen, Presentation, Lock, ExternalLink, Download, DollarSign, Rocket } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { FileText, Shield, Zap, DoorOpen, Presentation, Lock, ExternalLink, Download, DollarSign, Rocket, ChevronRight } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { BooksSection } from "@/components/BooksSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ interface TrainingCategory {
   description: string;
   icon: any;
   locked?: boolean;
+  inAppRoute?: string;
   items: Array<{
     title: string;
     href: string;
@@ -30,6 +31,7 @@ interface TrainingCategory {
 const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
@@ -121,13 +123,10 @@ const Training = () => {
     },
     {
       title: "Ramp to Blitz",
-      description: "Review your preseason training content",
+      description: "Your preseason training program",
       icon: Rocket,
-      items: [
-        { title: "Goals & Gameplan", href: "https://calvinschofield.notion.site/goals-and-gameplan?source=copy_link" },
-        { title: "Welcome Page", href: "https://calvinschofield.notion.site/Welcome-f1ba376d8a1644e29aa8c57566620675" },
-        { title: "Preseason Trips", href: "https://calvinschofield.notion.site/preseason-trips?v=a85a815c7d1a42fd84d87b9b632582bc&source=copy_link" },
-      ],
+      inAppRoute: "/ramp-to-blitz",
+      items: [],
     },
   ];
 
@@ -307,6 +306,33 @@ const Training = () => {
         {categories.map((category) => {
           const Icon = category.icon;
           const isLocked = category.locked;
+          
+          // Handle categories with in-app routes (like Ramp to Blitz)
+          if (category.inAppRoute) {
+            return (
+              <Card 
+                key={category.title}
+                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => navigate(category.inAppRoute!)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{category.title}</h3>
+                        <p className="text-sm text-muted-foreground">{category.description}</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          
           return (
             <Card 
               key={category.title} 
