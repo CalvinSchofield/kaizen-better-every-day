@@ -484,19 +484,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
             </div>
           </div>
 
-          {/* Instructions link */}
-          <a
-            href="https://calvinschofield.notion.site/Pitch-Feedback-Instructions-03901d3e606b4aa29fbc5f5b20de8a8e"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-all group active:scale-[0.98]"
-          >
-            <span className="flex items-center gap-2 text-sm font-medium group-hover:text-primary transition-colors">
-              <ExternalLink className="w-4 h-4" />
-              View Pitch Feedback Instructions
-            </span>
-            <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-          </a>
 
           {/* Text leader CTA */}
           <Button 
