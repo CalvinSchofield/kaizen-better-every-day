@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useRepGoals } from "@/hooks/useRepGoals";
+import { useRampProgress } from "@/hooks/useRampProgress";
 import { useNavigate } from "react-router-dom";
 import type { RepData } from "@/hooks/useRepData";
 
@@ -51,6 +51,7 @@ const VIDEOS: VideoSection[] = [
 export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
   const navigate = useNavigate();
   const { goals } = useRepGoals();
+  const { saveProgress } = useRampProgress(repData?.user_id);
   const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set());
   const [expandedVideo, setExpandedVideo] = useState<string | null>("what-is-blitz");
   const [isDownloading, setIsDownloading] = useState(false);
@@ -71,27 +72,23 @@ export const Phase1Content = ({ repData, isComplete }: Phase1ContentProps) => {
     repData.committed_blitzes.length > 0;
 
   const handleVideoWatched = async (videoId: string) => {
+    const video = VIDEOS.find(v => v.id === videoId);
+    
+    // Optimistically update UI
     const newWatchedVideos = new Set([...watchedVideos, videoId]);
     setWatchedVideos(newWatchedVideos);
     
-    const video = VIDEOS.find(v => v.id === videoId);
-    if (video?.isRequired) {
+    // Save with safe merge
+    const success = await saveProgress(videoId);
+    
+    if (success && video?.isRequired) {
       toast({
         title: "Video completed!",
         description: `You've watched "${video.title}"`,
       });
-    }
-
-    // Persist to database
-    if (repData?.user_id) {
-      const { error } = await supabase
-        .from('reps')
-        .update({ watched_videos: Array.from(newWatchedVideos) })
-        .eq('user_id', repData.user_id);
-      
-      if (error) {
-        console.error('Failed to save video progress:', error);
-      }
+    } else if (!success) {
+      // Revert on failure
+      setWatchedVideos(watchedVideos);
     }
   };
 

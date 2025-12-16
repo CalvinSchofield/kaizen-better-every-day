@@ -1,0 +1,371 @@
+import { useState, useEffect } from "react";
+import { CheckCircle2, Circle, Tablet, MessageSquare, ExternalLink, ChevronDown, ChevronUp, Video, Heart, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import { useRampProgress } from "@/hooks/useRampProgress";
+import type { RepData } from "@/hooks/useRepData";
+
+interface Phase3ContentProps {
+  repData: RepData | null;
+  isComplete: boolean;
+}
+
+export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
+  const [expandedSection, setExpandedSection] = useState<string | null>("ipad");
+  const [ipadReady, setIpadReady] = useState(false);
+  const [whyWritten, setWhyWritten] = useState(false);
+  const [practiceScheduled, setPracticeScheduled] = useState(false);
+
+  const { saveProgress } = useRampProgress(repData?.user_id);
+
+  // Load progress from watched_videos
+  useEffect(() => {
+    if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
+      const watched = repData.watched_videos as string[];
+      setIpadReady(watched.includes('phase3-ipad-ready'));
+      setWhyWritten(watched.includes('phase3-why-written'));
+      setPracticeScheduled(watched.includes('phase3-practice-scheduled'));
+    }
+  }, [repData?.watched_videos]);
+
+  const handleIpadReady = async () => {
+    const success = await saveProgress('phase3-ipad-ready');
+    if (success) {
+      setIpadReady(true);
+      toast({
+        title: "iPad ready! ✅",
+        description: "You're set up with the tools to sell",
+      });
+    }
+  };
+
+  const handleTextLeaderWhy = () => {
+    if (!repData?.team_leader_phone) {
+      toast({
+        title: "No leader phone found",
+        description: "Contact your recruiter to get connected with your leader",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      "Here's why I'm going on the blitz and what I want to learn:\n\n[Write your why here - what skills do you want to develop? What do you want to LEARN (not earn)?]"
+    );
+    
+    window.location.href = `sms:${cleanPhone}?body=${message}`;
+  };
+
+  const handleWhyWritten = async () => {
+    const success = await saveProgress('phase3-why-written');
+    if (success) {
+      setWhyWritten(true);
+      toast({
+        title: "Your 'Why' is locked in! 💪",
+        description: "Remember this when times get tough",
+      });
+    }
+  };
+
+  const handleTextLeaderPractice = () => {
+    if (!repData?.team_leader_phone) {
+      toast({
+        title: "No leader phone found",
+        description: "Contact your recruiter to get connected with your leader",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanPhone = repData.team_leader_phone.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      "I'm ready to do a 1-on-1 pitch practice session. Can we schedule a time, or could you connect me with a vet on the team to practice with?"
+    );
+    
+    window.location.href = `sms:${cleanPhone}?body=${message}`;
+  };
+
+  const handlePracticeScheduled = async () => {
+    const success = await saveProgress('phase3-practice-scheduled');
+    if (success) {
+      setPracticeScheduled(true);
+      toast({
+        title: "Practice complete! 🎯",
+        description: "You're ready for the blitz",
+      });
+    }
+  };
+
+  const completedSteps = [ipadReady, whyWritten, practiceScheduled].filter(Boolean).length;
+
+  return (
+    <div className="space-y-6 pb-20">
+      {/* Phase Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-bold">Practice</h3>
+          <p className="text-sm text-muted-foreground">
+            Get your tools ready and practice your skills
+          </p>
+        </div>
+        {isComplete ? (
+          <Badge className="bg-primary/10 text-primary border-primary/20">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Complete
+          </Badge>
+        ) : (
+          <Badge variant="outline">
+            {completedSteps}/3 done
+          </Badge>
+        )}
+      </div>
+
+      {/* Step 1: iPad Setup */}
+      <TrainingSection
+        title="Get Your iPad Ready"
+        icon={<Tablet className="w-4 h-4" />}
+        description="Learn the tools you'll use to sell"
+        isComplete={ipadReady}
+        isExpanded={expandedSection === "ipad"}
+        onToggle={() => setExpandedSection(expandedSection === "ipad" ? null : "ipad")}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Get your iPad set up and learn the apps and tools you'll use on the doors.
+          </p>
+          
+          <a
+            href="https://calvinschofield.notion.site/Tools-to-Sell-iPad-setup-guide-112cda9d37034831bed0dafbc12364f1"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+          >
+            <span className="font-medium text-sm text-primary">iPad Setup Guide</span>
+            <ExternalLink className="w-4 h-4 text-primary" />
+          </a>
+
+          {/* Bonus Videos */}
+          <div className="border-t pt-3 mt-3">
+            <p className="text-xs text-muted-foreground mb-2 font-medium">Bonus Videos (Optional)</p>
+            <div className="space-y-2">
+              <a
+                href="https://youtu.be/ig_9Pvg1SqE"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <Video className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">How to use Street Genie to prospect</span>
+                <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto" />
+              </a>
+              <a
+                href="https://youtu.be/KLu5xYUkMwo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <Video className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">iOS Work Mode Setup</span>
+                <Badge variant="outline" className="ml-auto text-xs">iOS only</Badge>
+              </a>
+            </div>
+          </div>
+
+          {!ipadReady && (
+            <Button 
+              className="w-full mt-3"
+              onClick={handleIpadReady}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              My iPad is Ready
+            </Button>
+          )}
+        </div>
+      </TrainingSection>
+
+      {/* Step 2: Write Your Why */}
+      <TrainingSection
+        title="Write Your Why"
+        icon={<Heart className="w-4 h-4" />}
+        description="Define your purpose for the blitz"
+        isComplete={whyWritten}
+        isLocked={!ipadReady}
+        requiresLeader
+        isExpanded={expandedSection === "why"}
+        onToggle={() => setExpandedSection(expandedSection === "why" ? null : "why")}
+      >
+        <div className="space-y-3">
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <h5 className="font-medium text-sm">Think about:</h5>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>Why are you going on this blitz?</li>
+              <li>What skills do you want to develop?</li>
+              <li>What do you want to <strong>LEARN</strong> (not earn)?</li>
+            </ul>
+          </div>
+          
+          <p className="text-sm text-muted-foreground">
+            Write down your "why" and send it to your leader. This will anchor you when things get tough.
+          </p>
+
+          <Button 
+            className="w-full"
+            onClick={handleTextLeaderWhy}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Text My "Why" to Leader
+          </Button>
+
+          {!whyWritten && (
+            <Button 
+              variant="outline"
+              className="w-full"
+              onClick={handleWhyWritten}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              I've Sent My "Why"
+            </Button>
+          )}
+        </div>
+      </TrainingSection>
+
+      {/* Step 3: 1-on-1 Practice */}
+      <TrainingSection
+        title="1-on-1 Pitch Practice"
+        icon={<Users className="w-4 h-4" />}
+        description="Practice with a vet before blitz"
+        isComplete={practiceScheduled}
+        isLocked={!whyWritten}
+        requiresLeader
+        isExpanded={expandedSection === "practice"}
+        onToggle={() => setExpandedSection(expandedSection === "practice" ? null : "practice")}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Schedule a 1-on-1 pitch practice session with your leader or another vet on the team. This hands-on practice is crucial for building confidence.
+          </p>
+
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <h5 className="font-medium text-sm">What to practice:</h5>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>Fresh door approach and pitch</li>
+              <li>Handling common objections</li>
+              <li>Transition to close</li>
+            </ul>
+          </div>
+
+          <Button 
+            className="w-full"
+            onClick={handleTextLeaderPractice}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Text Leader to Schedule Practice
+          </Button>
+
+          {!practiceScheduled && (
+            <Button 
+              variant="outline"
+              className="w-full"
+              onClick={handlePracticeScheduled}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              I've Done My 1-on-1 Practice
+            </Button>
+          )}
+          
+          <p className="text-xs text-muted-foreground text-center">
+            Mark complete after you've practiced with a vet or leader
+          </p>
+        </div>
+      </TrainingSection>
+    </div>
+  );
+};
+
+interface TrainingSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  description: string;
+  isComplete: boolean;
+  isLocked?: boolean;
+  requiresLeader?: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const TrainingSection = ({
+  title,
+  icon,
+  description,
+  isComplete,
+  isLocked,
+  requiresLeader,
+  isExpanded,
+  onToggle,
+  children,
+}: TrainingSectionProps) => {
+  return (
+    <Card className={cn(
+      "transition-all duration-200 overflow-hidden",
+      isComplete && "bg-primary/5 border-primary/20",
+      isLocked && "opacity-50"
+    )}>
+      <Collapsible open={isExpanded && !isLocked} onOpenChange={isLocked ? undefined : onToggle}>
+        <CollapsibleTrigger asChild disabled={isLocked}>
+          <CardContent className={cn("p-4", !isLocked && "cursor-pointer")}>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                {isComplete ? (
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                ) : (
+                  <Circle className="w-5 h-5 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-primary">{icon}</span>
+                  <h4 className={cn(
+                    "font-medium text-sm",
+                    isComplete && "text-muted-foreground"
+                  )}>
+                    {title}
+                  </h4>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {isLocked ? "Complete previous step to unlock" : description}
+                </p>
+                {requiresLeader && !isLocked && (
+                  <Badge variant="outline" className="mt-2 text-xs">
+                    Requires leader
+                  </Badge>
+                )}
+              </div>
+              {!isLocked && (
+                <div className="shrink-0">
+                  {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-4 pb-4 pt-0 border-t">
+            <div className="pt-4">
+              {children}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+};

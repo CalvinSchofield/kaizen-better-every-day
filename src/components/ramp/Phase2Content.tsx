@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useRampProgress } from "@/hooks/useRampProgress";
 import type { RepData } from "@/hooks/useRepData";
 
 interface Phase2ContentProps {
@@ -40,6 +40,8 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
   const [takeoverStudied, setTakeoverStudied] = useState(false);
   const [pitchSubmitted, setPitchSubmitted] = useState(false);
 
+  const { saveProgress } = useRampProgress(repData?.user_id);
+
   // Load progress from watched_videos
   useEffect(() => {
     if (repData?.watched_videos && Array.isArray(repData.watched_videos)) {
@@ -52,57 +54,48 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide }: Phase2C
     }
   }, [repData?.watched_videos]);
 
-  const saveProgress = async (itemId: string) => {
-    if (!repData?.user_id) return;
-    
-    const currentWatched = Array.isArray(repData.watched_videos) ? repData.watched_videos as string[] : [];
-    if (!currentWatched.includes(itemId)) {
-      const newWatched = [...currentWatched, itemId];
-      const { error } = await supabase
-        .from('reps')
-        .update({ watched_videos: newWatched })
-        .eq('user_id', repData.user_id);
-      
-      if (error) {
-        console.error('Failed to save progress:', error);
-      }
+  const handleMarkProductStudied = async () => {
+    const success = await saveProgress('phase2-product');
+    if (success) {
+      setProductStudied(true);
+      toast({
+        title: "Product knowledge complete!",
+        description: "Now take the quiz to test your knowledge",
+      });
     }
   };
 
-  const handleMarkProductStudied = async () => {
-    setProductStudied(true);
-    await saveProgress('phase2-product');
-    toast({
-      title: "Product knowledge complete!",
-      description: "Now take the quiz to test your knowledge",
-    });
-  };
-
   const handleQuizComplete = async () => {
-    setQuizPassed(true);
-    await saveProgress('phase2-quiz-passed');
-    toast({
-      title: "Quiz passed! 🎉",
-      description: "Great job! You've demonstrated your product knowledge",
-    });
+    const success = await saveProgress('phase2-quiz-passed');
+    if (success) {
+      setQuizPassed(true);
+      toast({
+        title: "Quiz passed! 🎉",
+        description: "Great job! You've demonstrated your product knowledge",
+      });
+    }
   };
 
   const handleUpgradesStudied = async () => {
-    setUpgradesStudied(true);
-    await saveProgress('phase2-upgrades');
-    toast({
-      title: "Upgrades 101 complete!",
-      description: "You now know how to pitch upgrades",
-    });
+    const success = await saveProgress('phase2-upgrades');
+    if (success) {
+      setUpgradesStudied(true);
+      toast({
+        title: "Upgrades 101 complete!",
+        description: "You now know how to pitch upgrades",
+      });
+    }
   };
 
   const handleTakeoverStudied = async () => {
-    setTakeoverStudied(true);
-    await saveProgress('phase2-takeover');
-    toast({
-      title: "Takeover approach complete!",
-      description: "Ready to handle existing system homes",
-    });
+    const success = await saveProgress('phase2-takeover');
+    if (success) {
+      setTakeoverStudied(true);
+      toast({
+        title: "Takeover approach complete!",
+        description: "Ready to handle existing system homes",
+      });
+    }
   };
 
   const handleTextLeaderForPitch = () => {
