@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Users, ChevronRight, Clock } from "lucide-react";
+import { ChevronRight, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -20,65 +20,52 @@ export const LeaderRookieReviewCard = () => {
   const [loading, setLoading] = useState(true);
 
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  // Get all accessible reps from full hierarchy (Team Lead → MGMT → Area Director)
+  const accessibleReps = teamAccess?.accessibleReps || [];
 
   useEffect(() => {
-    if (!isLeader) {
+    if (!isLeader || accessibleReps.length === 0) {
       setLoading(false);
       return;
     }
 
     const fetchRookiesNeedingReview = async () => {
       try {
-        // Fetch team members from Notion
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData?.user?.id) return;
+        // Get notion page IDs from accessible reps (includes full upline hierarchy)
+        const accessibleNotionIds = accessibleReps
+          .map((r: any) => r.notion_page_id)
+          .filter(Boolean);
 
-        // Get current user's notion page id
-        const { data: repData } = await supabase
-          .from('reps')
-          .select('notion_page_id')
-          .eq('user_id', userData.user.id)
-          .single();
-
-        if (!repData?.notion_page_id) return;
-
-        // Fetch team members
-        const { data: teamData } = await supabase.functions.invoke('fetch-team-members', {
-          body: { leaderNotionPageId: repData.notion_page_id },
-        });
-
-        if (!teamData?.teamMembers) return;
+        if (accessibleNotionIds.length === 0) {
+          setLoading(false);
+          return;
+        }
 
         // Get all rookie rep data to check self-service completion
         const { data: repsData } = await supabase
           .from('reps')
-          .select('notion_page_id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
-          .in('notion_page_id', teamData.teamMembers.map((m: any) => m.notionPageId));
+          .select('notion_page_id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id')
+          .in('notion_page_id', accessibleNotionIds);
 
         // Get goals data for setup_complete check
-        const { data: goalsData } = await supabase
-          .from('rep_goals')
-          .select('user_id, setup_complete');
+        const userIds = (repsData || []).map(r => r.user_id).filter(Boolean);
+        const { data: goalsData } = userIds.length > 0 
+          ? await supabase
+              .from('rep_goals')
+              .select('user_id, setup_complete')
+              .in('user_id', userIds)
+          : { data: [] };
 
         const goalsMap = new Map((goalsData || []).map(g => [g.user_id, g.setup_complete]));
-
-        // Get user_ids for reps
-        const { data: userLinks } = await supabase
-          .from('reps')
-          .select('notion_page_id, user_id')
-          .in('notion_page_id', teamData.teamMembers.map((m: any) => m.notionPageId));
-
-        const userIdMap = new Map((userLinks || []).map(r => [r.notion_page_id, r.user_id]));
 
         const rookiesNeedingReview: RookieNeedingReview[] = [];
 
         (repsData || []).forEach((rep: any) => {
-          // Only check rookies
+          // Only check rookies (year is 'Rookie' or null for new reps)
           if (rep.year !== 'Rookie' && rep.year !== null) return;
 
           const watchedVideos = Array.isArray(rep.watched_videos) ? rep.watched_videos : [];
-          const userId = userIdMap.get(rep.notion_page_id);
-          const goalsSetupComplete = userId ? goalsMap.get(userId) === true : false;
+          const goalsSetupComplete = rep.user_id ? goalsMap.get(rep.user_id) === true : false;
           const hasCommittedBlitz = Array.isArray(rep.committed_blitzes) && rep.committed_blitzes.length > 0;
 
           // Check Phase 1 self-service completion
@@ -160,7 +147,7 @@ export const LeaderRookieReviewCard = () => {
     };
 
     fetchRookiesNeedingReview();
-  }, [isLeader]);
+  }, [isLeader, accessibleReps]);
 
   if (!isLeader || loading || rookiesReady.length === 0) {
     return null;
