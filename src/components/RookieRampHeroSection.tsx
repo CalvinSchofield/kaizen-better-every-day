@@ -16,6 +16,7 @@ interface RookieRampHeroSectionProps {
   phases: PhaseData[];
   activePhase: PhaseId;
   onPhaseSelect: (phase: PhaseId) => void;
+  goalsSetupComplete?: boolean;
 }
 
 export const RookieRampHeroSection = ({
@@ -24,6 +25,7 @@ export const RookieRampHeroSection = ({
   phases,
   activePhase,
   onPhaseSelect,
+  goalsSetupComplete = false,
 }: RookieRampHeroSectionProps) => {
   const navigate = useNavigate();
   const allPrereqsComplete = prerequisites.onboarding && prerequisites.trainings && prerequisites.slack;
@@ -66,6 +68,7 @@ export const RookieRampHeroSection = ({
             activePhase={activePhase}
             repData={repData}
             onPhaseSelect={onPhaseSelect}
+            goalsSetupComplete={goalsSetupComplete}
           />
         </div>
         

@@ -10,21 +10,104 @@ interface RampHeroProgressProps {
   activePhase: PhaseId;
   repData: RepData | null;
   onPhaseSelect: (phase: PhaseId) => void;
+  goalsSetupComplete?: boolean;
 }
 
+// Define all trackable items per phase
+const PHASE_ITEMS = {
+  1: {
+    total: 4, // 2 required videos + goals + blitz
+    getCompleted: (watched: string[], repData: RepData | null, goalsSetupComplete: boolean) => {
+      let count = 0;
+      // Required videos (count as 1 item each)
+      if (watched.includes('what-is-blitz')) count++;
+      if (watched.includes('how-pay-works')) count++;
+      // Goals (reviewed, setup complete, or texted leader)
+      if (watched.includes('phase1-goals-reviewed') || goalsSetupComplete || watched.includes('phase1-goals-texted-leader')) count++;
+      // Blitz commitment or opt-out
+      const hasBlitz = repData?.committed_blitzes && Array.isArray(repData.committed_blitzes) && repData.committed_blitzes.length > 0;
+      if (hasBlitz || watched.includes('phase1-blitz-opted-out')) count++;
+      return count;
+    }
+  },
+  2: {
+    total: 5, // product, quiz, upgrades, takeover, pitch
+    getCompleted: (watched: string[]) => {
+      let count = 0;
+      if (watched.includes('phase2-product')) count++;
+      if (watched.includes('phase2-quiz-passed')) count++;
+      if (watched.includes('phase2-upgrades')) count++;
+      if (watched.includes('phase2-takeover')) count++;
+      if (watched.includes('phase2-pitch-submitted') || watched.includes('phase2-pitches-sent-waiting')) count++;
+      return count;
+    }
+  },
+  3: {
+    total: 3, // iPad ready, why written, practice scheduled
+    getCompleted: (watched: string[]) => {
+      let count = 0;
+      if (watched.includes('phase3-ipad-ready')) count++;
+      if (watched.includes('phase3-why-written')) count++;
+      if (watched.includes('phase3-practice-scheduled')) count++;
+      return count;
+    }
+  },
+  4: {
+    total: 3, // packing, essentials, playbook
+    getCompleted: (watched: string[]) => {
+      let count = 0;
+      if (watched.includes('phase4-packing-done')) count++;
+      if (watched.includes('phase4-essentials-checked')) count++;
+      if (watched.includes('phase4-playbook-ready')) count++;
+      return count;
+    }
+  }
+};
+
 // Motivational messages based on progress
-const getMotivationalMessage = (completedCount: number, daysUntilBlitz: number | null): string => {
-  if (completedCount === 4) return "You're blitz ready! Let's go crush it.";
-  if (completedCount === 3) return "Almost there! One more phase to go.";
-  if (completedCount === 2) return "Halfway done. Keep the momentum!";
-  if (completedCount === 1) return "Great start! You're building strong.";
+const getMotivationalMessage = (progressPercent: number, daysUntilBlitz: number | null): string => {
+  if (progressPercent >= 100) return "You're blitz ready! Let's go crush it.";
+  if (progressPercent >= 75) return "Almost there! Keep pushing.";
+  if (progressPercent >= 50) return "Halfway done. Keep the momentum!";
+  if (progressPercent >= 25) return "Great start! You're building strong.";
   if (daysUntilBlitz !== null && daysUntilBlitz <= 3) return "Blitz is soon! Let's lock in.";
   return "Let's get you blitz ready.";
 };
 
-export const RampHeroProgress = ({ phases, activePhase, repData, onPhaseSelect }: RampHeroProgressProps) => {
+export const RampHeroProgress = ({ phases, activePhase, repData, onPhaseSelect, goalsSetupComplete = false }: RampHeroProgressProps) => {
   const completedCount = phases.filter(p => p.isComplete).length;
-  const progressPercent = (completedCount / 4) * 100;
+  
+  // Calculate granular progress based on individual action items
+  const { progressPercent, totalItems, completedItems } = useMemo(() => {
+    const watched = (repData?.watched_videos as string[]) || [];
+    
+    let total = 0;
+    let completed = 0;
+    
+    // For each phase, calculate items
+    phases.forEach((phase) => {
+      const phaseConfig = PHASE_ITEMS[phase.id];
+      if (phase.isComplete) {
+        // If phase is complete, count all items as done
+        total += phaseConfig.total;
+        completed += phaseConfig.total;
+      } else if (!phase.isLocked) {
+        // If phase is active (not locked, not complete), count actual progress
+        total += phaseConfig.total;
+        if (phase.id === 1) {
+          completed += phaseConfig.getCompleted(watched, repData, goalsSetupComplete);
+        } else {
+          completed += (phaseConfig.getCompleted as (watched: string[]) => number)(watched);
+        }
+      } else {
+        // If phase is locked, just count the total
+        total += phaseConfig.total;
+      }
+    });
+    
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { progressPercent: percent, totalItems: total, completedItems: completed };
+  }, [phases, repData?.watched_videos, repData?.committed_blitzes, goalsSetupComplete]);
   
   // Calculate days until blitz
   const daysUntilBlitz = useMemo(() => {
@@ -125,7 +208,7 @@ export const RampHeroProgress = ({ phases, activePhase, repData, onPhaseSelect }
 
             {/* Motivational Message */}
             <p className="text-base font-medium text-foreground">
-              {getMotivationalMessage(completedCount, daysUntilBlitz)}
+              {getMotivationalMessage(progressPercent, daysUntilBlitz)}
             </p>
 
             {/* Current Phase Indicator */}
