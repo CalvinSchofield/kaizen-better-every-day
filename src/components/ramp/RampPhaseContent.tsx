@@ -11,9 +11,17 @@ interface RampPhaseContentProps {
   phase: PhaseData;
   repData: RepData | null;
   onOpenPitchGuide: (guide: "takeover" | "upgrade") => void;
+  scrollToStepKey?: string | null;
+  onScrollComplete?: () => void;
 }
 
-export const RampPhaseContent = ({ phase, repData, onOpenPitchGuide }: RampPhaseContentProps) => {
+export const RampPhaseContent = ({ 
+  phase, 
+  repData, 
+  onOpenPitchGuide,
+  scrollToStepKey,
+  onScrollComplete 
+}: RampPhaseContentProps) => {
   if (phase.isLocked) {
     return (
       <Card className="border-dashed">
@@ -34,22 +42,51 @@ export const RampPhaseContent = ({ phase, repData, onOpenPitchGuide }: RampPhase
 
   // Render Phase 1 with dedicated component
   if (phase.id === 1) {
-    return <Phase1Content repData={repData} isComplete={phase.isComplete} />;
+    return (
+      <Phase1Content 
+        repData={repData} 
+        isComplete={phase.isComplete} 
+        scrollToStepKey={scrollToStepKey}
+        onScrollComplete={onScrollComplete}
+      />
+    );
   }
 
   // Render Phase 2 with dedicated component
   if (phase.id === 2) {
-    return <Phase2Content repData={repData} isComplete={phase.isComplete} onOpenPitchGuide={onOpenPitchGuide} />;
+    return (
+      <Phase2Content 
+        repData={repData} 
+        isComplete={phase.isComplete} 
+        onOpenPitchGuide={onOpenPitchGuide}
+        scrollToStepKey={scrollToStepKey}
+        onScrollComplete={onScrollComplete}
+      />
+    );
   }
 
   // Render Phase 3 with dedicated component
   if (phase.id === 3) {
-    return <Phase3Content repData={repData} isComplete={phase.isComplete} />;
+    return (
+      <Phase3Content 
+        repData={repData} 
+        isComplete={phase.isComplete}
+        scrollToStepKey={scrollToStepKey}
+        onScrollComplete={onScrollComplete}
+      />
+    );
   }
 
   // Render Phase 4 with dedicated component
   if (phase.id === 4) {
-    return <Phase4Content repData={repData} isComplete={phase.isComplete} />;
+    return (
+      <Phase4Content 
+        repData={repData} 
+        isComplete={phase.isComplete}
+        scrollToStepKey={scrollToStepKey}
+        onScrollComplete={onScrollComplete}
+      />
+    );
   }
 
   return null;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const RampToBlitz = () => {
   const { setCustomTitle } = useHeader();
   const [activePhase, setActivePhase] = useState<PhaseId>(1);
   const [activePitchGuide, setActivePitchGuide] = useState<PitchGuideType>(null);
+  const [scrollToStepKey, setScrollToStepKey] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const prevCompletedPhasesRef = useRef<number>(0);
 
@@ -146,11 +147,19 @@ const RampToBlitz = () => {
     repData?.ramp_phase_4_complete,
   ]);
 
+  // Clear scrollToStepKey after it's been processed
+  const clearScrollToStep = useCallback(() => {
+    setScrollToStepKey(null);
+  }, []);
+
   // Handle scroll to specific step
-  const handleScrollToStep = (stepKey: string) => {
-    // For now, just scroll to content area - phases handle their own expansion
-    contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const handleScrollToStep = useCallback((stepKey: string) => {
+    setScrollToStepKey(stepKey);
+    // Scroll to content area after a short delay to allow expansion
+    setTimeout(() => {
+      contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, []);
 
   // Handle pitch guide display
   if (activePitchGuide === "takeover") {
@@ -200,6 +209,8 @@ const RampToBlitz = () => {
           phase={phases.find(p => p.id === activePhase)!}
           repData={repData}
           onOpenPitchGuide={setActivePitchGuide}
+          scrollToStepKey={scrollToStepKey}
+          onScrollComplete={clearScrollToStep}
         />
       </div>
 

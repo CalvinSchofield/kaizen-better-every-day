@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, Download, LogIn, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,16 +32,48 @@ const IPAD_SETUP_STEPS = [
 interface Phase3ContentProps {
   repData: RepData | null;
   isComplete: boolean;
+  scrollToStepKey?: string | null;
+  onScrollComplete?: () => void;
 }
 
-export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
+export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollComplete }: Phase3ContentProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>("ipad");
   const [ipadReady, setIpadReady] = useState(false);
   const [whyWritten, setWhyWritten] = useState(false);
   const [practiceScheduled, setPracticeScheduled] = useState(false);
   const [ipadStepsChecked, setIpadStepsChecked] = useState<Record<string, boolean>>({});
 
+  // Refs for scrolling
+  const ipadRef = useRef<HTMLDivElement>(null);
+  const whyRef = useRef<HTMLDivElement>(null);
+  const practiceRef = useRef<HTMLDivElement>(null);
+
   const { saveProgress } = useRampProgress(repData?.user_id);
+
+  // Handle scroll to step
+  useEffect(() => {
+    if (!scrollToStepKey) return;
+
+    const scrollAndExpand = () => {
+      switch (scrollToStepKey) {
+        case 'ipad':
+          setExpandedSection('ipad');
+          ipadRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'why':
+          setExpandedSection('why');
+          whyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'practice':
+          setExpandedSection('practice');
+          practiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+      }
+      onScrollComplete?.();
+    };
+
+    setTimeout(scrollAndExpand, 150);
+  }, [scrollToStepKey, onScrollComplete]);
 
   // Load progress from watched_videos
   useEffect(() => {
@@ -173,6 +205,7 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
       )}
 
       {/* Step 1: iPad Setup */}
+      <div ref={ipadRef} />
       <TrainingSection
         title="Get Your iPad Ready"
         icon={<Tablet className="w-4 h-4" />}
@@ -347,6 +380,7 @@ export const Phase3Content = ({ repData, isComplete }: Phase3ContentProps) => {
       </TrainingSection>
 
       {/* Step 2: Write Your Why */}
+      <div ref={whyRef} />
       <TrainingSection
         title="Write Your Why"
         icon={<Heart className="w-4 h-4" />}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, Circle, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ChevronDown, ChevronUp, Shield, AlertTriangle, Brain, Battery, RefreshCw, Heart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +13,11 @@ import type { RepData } from "@/hooks/useRepData";
 interface Phase4ContentProps {
   repData: RepData | null;
   isComplete: boolean;
+  scrollToStepKey?: string | null;
+  onScrollComplete?: () => void;
 }
 
-export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
+export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollComplete }: Phase4ContentProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>("packing");
   const [packingDone, setPackingDone] = useState(false);
   const [essentialsChecked, setEssentialsChecked] = useState(false);
@@ -26,7 +28,37 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
   const [hasUniforms, setHasUniforms] = useState(false);
   const [hasBadge, setHasBadge] = useState(false);
 
+  // Refs for scrolling
+  const packingRef = useRef<HTMLDivElement>(null);
+  const essentialsRef = useRef<HTMLDivElement>(null);
+  const playbookRef = useRef<HTMLDivElement>(null);
+
   const { saveProgress, updateIpadStatus } = useRampProgress(repData?.user_id);
+
+  // Handle scroll to step
+  useEffect(() => {
+    if (!scrollToStepKey) return;
+
+    const scrollAndExpand = () => {
+      switch (scrollToStepKey) {
+        case 'packing':
+          setExpandedSection('packing');
+          packingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'essentials':
+          setExpandedSection('essentials');
+          essentialsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        case 'playbook':
+          setExpandedSection('playbook');
+          playbookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+      }
+      onScrollComplete?.();
+    };
+
+    setTimeout(scrollAndExpand, 150);
+  }, [scrollToStepKey, onScrollComplete]);
 
   // Load progress from watched_videos
   useEffect(() => {
@@ -144,6 +176,7 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
       )}
 
       {/* Step 1: Packing List */}
+      <div ref={packingRef} />
       <TrainingSection
         title="Pack Your Bags"
         icon={<PackageCheck className="w-4 h-4" />}
@@ -232,6 +265,7 @@ export const Phase4Content = ({ repData, isComplete }: Phase4ContentProps) => {
       </TrainingSection>
 
       {/* Step 2: Knocking Essentials */}
+      <div ref={essentialsRef} />
       <TrainingSection
         title="Knocking Essentials Check"
         icon={<Tablet className="w-4 h-4" />}
