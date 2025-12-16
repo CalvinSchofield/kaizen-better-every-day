@@ -6,24 +6,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Notion API helper with retry logic
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+// Notion API helper with retry logic and jitter
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 8): Promise<Response> {
   let lastError: Error | null = null;
-  for (let i = 0; i < maxRetries; i++) {
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
+      
+      // If rate limited (429), retry with exponential backoff + jitter
       if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get('Retry-After') || '1');
-        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        // Check for Retry-After header
+        const retryAfter = response.headers.get('Retry-After');
+        let delay: number;
+        
+        if (retryAfter) {
+          delay = parseInt(retryAfter, 10) * 1000 || 60000;
+        } else {
+          // Exponential backoff with jitter: base delay * 2^attempt + random jitter
+          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 90000); // Max 90 seconds
+          const jitter = Math.random() * 1000; // 0-1 second jitter
+          delay = baseDelay + jitter;
+        }
+        
+        console.log(`Rate limited (429). Retrying in ${Math.round(delay)}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
+      
       return response;
-    } catch (error) {
-      lastError = error as Error;
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(2000 * Math.pow(2, attempt), 90000) + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
-  throw lastError || new Error('Max retries exceeded');
+  
+  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
 }
 
 serve(async (req) => {

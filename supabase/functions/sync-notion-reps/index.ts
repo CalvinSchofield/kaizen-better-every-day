@@ -16,17 +16,30 @@ interface NotionPage {
   properties: Record<string, NotionProperty>;
 }
 
-// Retry helper for Notion API with exponential backoff
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 6): Promise<Response> {
+// Retry helper for Notion API with exponential backoff and jitter
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 8): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
       
+      // If rate limited (429), retry with exponential backoff + jitter
       if (response.status === 429) {
-        const delay = Math.min(2000 * Math.pow(2, attempt), 64000);
-        console.log(`Rate limited (429). Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        // Check for Retry-After header
+        const retryAfter = response.headers.get('Retry-After');
+        let delay: number;
+        
+        if (retryAfter) {
+          delay = parseInt(retryAfter, 10) * 1000 || 60000;
+        } else {
+          // Exponential backoff with jitter: base delay * 2^attempt + random jitter
+          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 90000); // Max 90 seconds
+          const jitter = Math.random() * 1000; // 0-1 second jitter
+          delay = baseDelay + jitter;
+        }
+        
+        console.log(`Rate limited (429). Retrying in ${Math.round(delay)}ms... (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -36,7 +49,7 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       lastError = error;
       console.log(`Fetch error: ${error.message}. Retrying... (attempt ${attempt + 1}/${maxRetries})`);
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(2000 * Math.pow(2, attempt), 64000);
+        const delay = Math.min(2000 * Math.pow(2, attempt), 90000) + Math.random() * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
