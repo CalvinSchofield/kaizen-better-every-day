@@ -23,29 +23,43 @@ export interface Competitor {
   updated_at: string;
 }
 
+// Cache for 30 days - competitor data rarely changes
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 export const useCompetitors = () => {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load from localStorage on mount for instant offline access
+  // Load from cache and only fetch if cache is stale or empty
   useEffect(() => {
-    const cached = localStorage.getItem('competitors-cache');
-    if (cached) {
-      try {
-        const { data, timestamp } = JSON.parse(cached);
-        const isRecent = Date.now() - timestamp < 60 * 60 * 1000; // 1 hour
-        if (isRecent && data.length > 0) {
-          setCompetitors(data);
-          setLoading(false);
+    const loadData = async () => {
+      const cached = localStorage.getItem('competitors-cache');
+      
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          const isRecent = Date.now() - timestamp < CACHE_TTL_MS;
+          
+          if (isRecent && data.length > 0) {
+            // Cache is fresh - use it and skip network
+            setCompetitors(data);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached competitors:', e);
         }
-      } catch (e) {
-        console.error('Failed to parse cached competitors:', e);
       }
-    }
+      
+      // Cache is stale or empty - fetch from Supabase
+      await fetchFromSupabase();
+    };
+    
+    loadData();
   }, []);
 
-  const fetchCompetitors = async () => {
+  const fetchFromSupabase = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -60,7 +74,7 @@ export const useCompetitors = () => {
       const competitorData = (data || []) as Competitor[];
       setCompetitors(competitorData);
       
-      // Cache the data locally for offline access
+      // Cache the data
       localStorage.setItem('competitors-cache', JSON.stringify({
         data: competitorData,
         timestamp: Date.now()
@@ -69,17 +83,16 @@ export const useCompetitors = () => {
       console.error('Error fetching competitors:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch competitors');
       
-      // If fetch fails and we have no data, try to load from cache
-      if (competitors.length === 0) {
-        const cached = localStorage.getItem('competitors-cache');
-        if (cached) {
-          try {
-            const { data } = JSON.parse(cached);
+      // Fall back to any cached data
+      const cached = localStorage.getItem('competitors-cache');
+      if (cached) {
+        try {
+          const { data } = JSON.parse(cached);
+          if (data.length > 0) {
             setCompetitors(data);
-            setError('Showing cached data (offline)');
-          } catch (e) {
-            console.error('Failed to parse cached competitors:', e);
           }
+        } catch (e) {
+          console.error('Failed to parse cached competitors:', e);
         }
       }
     } finally {
@@ -96,8 +109,9 @@ export const useCompetitors = () => {
 
       if (syncError) throw syncError;
 
-      // Refetch after sync
-      await fetchCompetitors();
+      // Clear cache and refetch
+      localStorage.removeItem('competitors-cache');
+      await fetchFromSupabase();
     } catch (err) {
       console.error('Error syncing competitors:', err);
       setError(err instanceof Error ? err.message : 'Failed to sync competitors');
@@ -106,15 +120,11 @@ export const useCompetitors = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCompetitors();
-  }, []);
-
   return {
     competitors,
     loading,
     error,
-    refetch: fetchCompetitors,
+    refetch: fetchFromSupabase,
     syncFromNotion,
   };
 };
