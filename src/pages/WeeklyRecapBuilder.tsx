@@ -120,6 +120,34 @@ export default function WeeklyRecapBuilder() {
     
     setGeneratedReport(prev => {
       if (!prev) return null;
+      
+      const fieldPath = editField.field.split('.');
+      
+      // Handle nested paths like "top10Rookies.reps.0.fp"
+      if (fieldPath.length > 2 && fieldPath[1] === 'reps') {
+        const arrayKey = fieldPath[0]; // e.g., "top10Rookies"
+        const repIndex = parseInt(fieldPath[2], 10);
+        const propKey = fieldPath[3]; // e.g., "fp" or "efp"
+        
+        // Clone the array from data or existing edits
+        const existingArray = prev.edits?.[arrayKey] || prev.data?.[arrayKey] || [];
+        const newArray = existingArray.map((item: any, idx: number) => {
+          if (idx === repIndex) {
+            return { ...item, [propKey]: value };
+          }
+          return item;
+        });
+        
+        return {
+          ...prev,
+          edits: {
+            ...prev.edits,
+            [arrayKey]: newArray,
+          }
+        };
+      }
+      
+      // Simple field like "officeTotals.fp"
       return {
         ...prev,
         edits: {

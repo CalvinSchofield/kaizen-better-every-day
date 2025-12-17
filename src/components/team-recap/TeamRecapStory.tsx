@@ -63,6 +63,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
         title="TOP ROOKIES" 
         reps={data.top10Rookies}
         accentColor="text-green-500"
+        slideKey="top10Rookies"
+        onEditValue={onEditValue}
       />
     );
   }
@@ -74,6 +76,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
         title="TOP SOPHOMORES" 
         reps={data.top10Sophomores}
         accentColor="text-blue-500"
+        slideKey="top10Sophomores"
+        onEditValue={onEditValue}
       />
     );
   }
@@ -85,6 +89,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
         title="TOP VETS" 
         reps={data.top10Vets}
         accentColor="text-purple-500"
+        slideKey="top10Vets"
+        onEditValue={onEditValue}
       />
     );
   }
