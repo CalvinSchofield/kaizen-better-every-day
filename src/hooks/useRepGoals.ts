@@ -239,15 +239,25 @@ export const useRepGoals = () => {
     return upsertGoalsMutation.mutateAsync(updates);
   };
 
-  // Check if user has access to Goals page (Slack joined for rookies)
+  // Check if user has access to Goals page (Slack joined or Phase 1+ complete for rookies)
   const hasGoalsAccess = (): boolean => {
     if (!repData) return false;
     
     // Vets and Sophomores always have access
     if (repData.year === 'Vet' || repData.year === 'Sophomore') return true;
     
-    // Rookies need to have Slack joined to access Goals
-    return repData.slack_joined === true;
+    // Rookies need to have Slack joined OR have completed Phase 1+ (which implies prerequisites done)
+    if (repData.slack_joined === true) return true;
+    
+    // Check if any ramp phase is complete (phase 1+ implies all prerequisites including slack)
+    const phase = repData.ramp_to_blitz_phase?.toLowerCase() || '';
+    const hasCompletedPhase = phase.includes('phase 1') && phase.includes('✅') ||
+                              phase.includes('phase 2') && phase.includes('✅') ||
+                              phase.includes('phase 3') && phase.includes('✅') ||
+                              phase.includes('phase 4') && phase.includes('✅') ||
+                              repData.ramp_phase_1_complete === true;
+    
+    return hasCompletedPhase;
   };
 
   return {
