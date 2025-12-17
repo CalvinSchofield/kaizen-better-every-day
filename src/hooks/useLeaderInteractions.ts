@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
-export type InteractionType = 'weekly_training' | 'monthly_review' | 'tough_conversation' | 'praise' | 'check_in';
+export type InteractionType = 'weekly_training' | 'monthly_review' | 'tough_conversation' | 'praise' | 'check_in' | 'team_training';
 
 export interface LeaderInteraction {
   id: string;

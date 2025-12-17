@@ -1,16 +1,28 @@
 import { Check, CheckCircle2, Calendar, Circle, Lock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Recruit } from "@/hooks/useGroupRecruits";
-import { RecruitRepData, RecruitGoals } from "../types";
+import { RecruitRepData, RecruitGoals, RecruitSummerConfig } from "../types";
 import { getFirstName } from "../utils";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import { SummerProgressTab } from "./SummerProgressTab";
+
+interface DailyEntry {
+  entry_date: string;
+  fp_plus: number;
+  work_start_time: string | null;
+  work_end_time: string | null;
+  doors_knocked: number;
+  is_finalized: boolean;
+}
 
 interface ProgressTabProps {
   recruit: Recruit;
   recruitRepData: RecruitRepData | null;
   recruitGoals: RecruitGoals | null;
   recruitYtdFP: number;
+  summerConfig?: RecruitSummerConfig | null;
+  summerEntries?: DailyEntry[];
   onOnboardingStepClick: (field: string, label: string, currentValue: boolean) => void;
 }
 
@@ -19,10 +31,30 @@ export const ProgressTab = ({
   recruitRepData,
   recruitGoals,
   recruitYtdFP,
+  summerConfig,
+  summerEntries = [],
   onOnboardingStepClick
 }: ProgressTabProps) => {
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
+  
+  // Check if recruit is in summer mode
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const isInSummer = summerConfig?.personalSummerStart && today >= summerConfig.personalSummerStart;
+  
+  // If in summer and has summer config, show summer progress tab
+  if (isInSummer && summerConfig?.personalSummerStart && summerConfig?.personalSummerEnd) {
+    return (
+      <SummerProgressTab
+        recruitName={recruit.name}
+        summerStart={summerConfig.personalSummerStart}
+        summerEnd={summerConfig.personalSummerEnd}
+        goals={recruitGoals}
+        entries={summerEntries}
+        currentFpPlus={recruitYtdFP}
+      />
+    );
+  }
   
   // Check if recruit is in an early stage (not yet signed)
   const stageLower = (recruit.stage || '').toLowerCase();
