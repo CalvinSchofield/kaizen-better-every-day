@@ -15,15 +15,22 @@ export const usePreseasonFP = () => {
       // Query all finalized entries before summer start date
       const { data: entries, error } = await supabase
         .from('daily_entries')
-        .select('fp_plus, prmr, upgrade_prmr, sales_log')
+        .select('fp_plus, prmr, upgrade_prmr, sales_log, doors_knocked, work_start_time, work_end_time')
         .eq('user_id', user.id)
         .eq('is_finalized', true)
         .lt('entry_date', GLOBAL_SUMMER_START);
 
       if (error) {
         console.error('Error fetching preseason FP:', error);
-        return { totalFP: 0, totalPRMR: 0, totalEFP: 0 };
+        return { totalFP: 0, totalPRMR: 0, totalEFP: 0, knockingDays: 0 };
       }
+
+      // Count knocking days (4+ doors with start and end time)
+      const knockingDays = entries?.filter(entry => 
+        (entry.doors_knocked || 0) >= 4 && 
+        entry.work_start_time && 
+        entry.work_end_time
+      ).length || 0;
 
       // Calculate totals
       // IMPORTANT: Unfunded sales (installed but cancelled) still count toward GOAL PROGRESS
@@ -86,6 +93,8 @@ export const usePreseasonFP = () => {
         fundedFP: Math.round(fundedFP * 10) / 10,
         fundedPRMR: Math.round(fundedPRMR * 100) / 100,
         fundedEFP: Math.round(fundedEFP * 100) / 100,
+        // Knocking days count for pace calculations
+        knockingDays,
       };
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
@@ -100,6 +109,8 @@ export const usePreseasonFP = () => {
     fundedFP: data?.fundedFP ?? 0,
     fundedPRMR: data?.fundedPRMR ?? 0,
     fundedEFP: data?.fundedEFP ?? 0,
+    // Knocking days for pace calculations
+    knockingDays: data?.knockingDays ?? 0,
     isLoading 
   };
 };

@@ -9,6 +9,8 @@ import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { usePreseasonFP } from "@/hooks/usePreseasonFP";
+import { calculateSalesPace } from "@/utils/salesPaceCalculator";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +25,7 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const { goals, hasGoalsAccess, isLoading: goalsLoading } = useRepGoals();
   const { plannedDays } = usePlannedDays();
   const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { totalFP, totalPRMR, knockingDays } = usePreseasonFP();
   const [isEditing, setIsEditing] = useState(false);
 
   // Get goals from localStorage with defaults (fallback if no goals set)
@@ -33,34 +36,26 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
   const [presentationsInput, setPresentationsInput] = useState("2");
   const [fpInput, setFpInput] = useState("1");
 
-  // Calculate daily FP+ goal from goals & plans
+  // Calculate daily FP+ goal using centralized pace calculator (same as Calendar)
   const calculatedDailyFpGoal = useMemo(() => {
     if (!goals?.setup_complete || !plannedDays) return null;
     
-    // Get the active goal tier (use will_do if must_do is met, etc.)
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // Use centralized pace calculator for consistency across app
+    const result = calculateSalesPace({
+      goals,
+      plannedDays,
+      knockingDays,
+      currentFpPlus: totalFP,
+      currentPrmr: totalPRMR,
+      efpModeEnabled,
+      calculateEfp,
+    });
     
-    // Get remaining planned days from today onwards
-    const remainingPlannedDays = plannedDays.filter(d => d.planned_date >= todayStr);
+    if (!result) return null;
     
-    if (remainingPlannedDays.length === 0) return null;
-    
-    // Calculate current FP+ from track data
-    const currentFP = entry?.fp_plus || 0;
-    
-    // Use the "Will Do" goal as the target (middle tier)
-    const targetFP = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
-    
-    // For now, use a simple daily target based on planned days
-    // This is a simplified calculation - actual would consider current progress
-    const remainingFP = Math.max(0, targetFP - currentFP);
-    const dailyGoal = remainingPlannedDays.length > 0 
-      ? Math.round((remainingFP / remainingPlannedDays.length) * 10) / 10
-      : 0;
-    
-    return Math.max(dailyGoal, 0.5); // Minimum 0.5 FP+ per day
-  }, [goals, plannedDays, entry]);
+    // Return the fixed daily goal (same value shown on calendar)
+    return Math.round(result.dailyGoal * 10) / 10;
+  }, [goals, plannedDays, knockingDays, totalFP, totalPRMR, efpModeEnabled, calculateEfp]);
 
   // Load goals from localStorage on mount (fallback for users without goals)
   useEffect(() => {
