@@ -81,7 +81,7 @@ export function SuperlativesSlide({ superlatives }: SuperlativesSlideProps) {
         className="flex items-center justify-center gap-2 mb-6"
       >
         <Star className="w-6 h-6 text-yellow-400" />
-        <h2 className="text-xl font-bold text-yellow-400">SUPERLATIVES</h2>
+        <h2 className="text-xl font-bold text-yellow-400">SHOUTOUTS</h2>
       </motion.div>
 
       {/* Superlative cards */}

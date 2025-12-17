@@ -1,48 +1,84 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ArrowLeft, Calendar, Sparkles, Eye, Check, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWeeklyReportData } from '@/hooks/useWeeklyReportData';
-import { useWeeklyReports, useSaveReport, WeeklyReport, WeeklyReportData } from '@/hooks/useWeeklyReports';
+import { useSaveReport, WeeklyReport } from '@/hooks/useWeeklyReports';
 import { TeamRecapStory } from '@/components/team-recap/TeamRecapStory';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 type ReportType = 'weekly' | 'monthly' | 'blitz';
+
+interface PeriodOption {
+  label: string;
+  start: string;
+  end: string;
+}
 
 export default function WeeklyRecapBuilder() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [reportType, setReportType] = useState<ReportType>('weekly');
+  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [generatedReport, setGeneratedReport] = useState<WeeklyReport | null>(null);
   
-  // Calculate period based on type
   const now = new Date();
-  const getPeriod = () => {
+
+  // Generate period options based on report type
+  const periodOptions = useMemo((): PeriodOption[] => {
     if (reportType === 'weekly') {
-      const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-      const lastWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-      return { start: format(lastWeekStart, 'yyyy-MM-dd'), end: format(lastWeekEnd, 'yyyy-MM-dd') };
+      // Last 6 weeks
+      return Array.from({ length: 6 }, (_, i) => {
+        const weekStart = startOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
+        return {
+          label: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
+          start: format(weekStart, 'yyyy-MM-dd'),
+          end: format(weekEnd, 'yyyy-MM-dd'),
+        };
+      });
     } else if (reportType === 'monthly') {
-      const lastMonthStart = startOfMonth(subMonths(now, 1));
-      const lastMonthEnd = endOfMonth(subMonths(now, 1));
-      return { start: format(lastMonthStart, 'yyyy-MM-dd'), end: format(lastMonthEnd, 'yyyy-MM-dd') };
+      // Last 6 months
+      return Array.from({ length: 6 }, (_, i) => {
+        const monthStart = startOfMonth(subMonths(now, i + 1));
+        const monthEnd = endOfMonth(subMonths(now, i + 1));
+        return {
+          label: format(monthStart, 'MMMM yyyy'),
+          start: format(monthStart, 'yyyy-MM-dd'),
+          end: format(monthEnd, 'yyyy-MM-dd'),
+        };
+      });
     }
-    // For blitz, use last week as placeholder
-    const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-    const lastWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-    return { start: format(lastWeekStart, 'yyyy-MM-dd'), end: format(lastWeekEnd, 'yyyy-MM-dd') };
+    // For blitz - placeholder for now, would fetch from committed blitzes
+    return Array.from({ length: 4 }, (_, i) => {
+      const weekStart = startOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
+      return {
+        label: `Blitz ${i + 1}`,
+        start: format(weekStart, 'yyyy-MM-dd'),
+        end: format(weekEnd, 'yyyy-MM-dd'),
+      };
+    });
+  }, [reportType]);
+
+  // Reset selection when report type changes
+  const handleReportTypeChange = (type: ReportType) => {
+    setReportType(type);
+    setSelectedPeriodIndex(0);
+    setGeneratedReport(null);
   };
 
-  const period = getPeriod();
+  const selectedPeriod = periodOptions[selectedPeriodIndex] || periodOptions[0];
   
   const { data: reportData, isLoading, refetch } = useWeeklyReportData({
     reportType,
-    periodStart: period.start,
-    periodEnd: period.end,
+    periodStart: selectedPeriod?.start || '',
+    periodEnd: selectedPeriod?.end || '',
     enabled: false,
   });
 
@@ -54,8 +90,8 @@ export default function WeeklyRecapBuilder() {
       const report: WeeklyReport = {
         id: '',
         report_type: reportType,
-        period_start: period.start,
-        period_end: period.end,
+        period_start: selectedPeriod.start,
+        period_end: selectedPeriod.end,
         scope: 'office',
         generated_by: '',
         generated_at: new Date().toISOString(),
@@ -96,7 +132,7 @@ export default function WeeklyRecapBuilder() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-lg font-bold">Weekly Recap Builder</h1>
+            <h1 className="text-lg font-bold">Recap Builder</h1>
             <p className="text-xs text-muted-foreground">Generate team recognition</p>
           </div>
         </div>
@@ -111,25 +147,47 @@ export default function WeeklyRecapBuilder() {
               Report Type
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex gap-2">
               {(['weekly', 'monthly', 'blitz'] as ReportType[]).map((type) => (
                 <Button
                   key={type}
                   variant={reportType === type ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setReportType(type)}
+                  onClick={() => handleReportTypeChange(type)}
                   className="flex-1 capitalize"
                 >
                   {type}
                 </Button>
               ))}
             </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              {reportType === 'weekly' && `Week of ${format(new Date(period.start), 'MMM d')} - ${format(new Date(period.end), 'MMM d')}`}
-              {reportType === 'monthly' && format(new Date(period.start), 'MMMM yyyy')}
-              {reportType === 'blitz' && `${format(new Date(period.start), 'MMM d')} - ${format(new Date(period.end), 'MMM d')}`}
-            </p>
+
+            {/* Period Selector */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Select period:</p>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex gap-2 pb-2">
+                  {periodOptions.map((option, idx) => (
+                    <Button
+                      key={option.start}
+                      variant={selectedPeriodIndex === idx ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPeriodIndex(idx);
+                        setGeneratedReport(null);
+                      }}
+                      className={cn(
+                        "shrink-0 text-xs",
+                        selectedPeriodIndex === idx && "ring-2 ring-primary"
+                      )}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
           </CardContent>
         </Card>
 

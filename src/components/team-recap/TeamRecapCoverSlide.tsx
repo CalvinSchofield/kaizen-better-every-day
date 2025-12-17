@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-import KaizenLogo from '@/components/KaizenLogo';
+import { Trophy } from 'lucide-react';
 
 interface TeamRecapCoverSlideProps {
   reportType: 'weekly' | 'monthly' | 'blitz';
@@ -28,41 +28,31 @@ export function TeamRecapCoverSlide({ reportType, periodStart, periodEnd }: Team
 
   return (
     <div className="h-full flex flex-col items-center justify-center px-8 text-center">
-      {/* Logo */}
+      {/* Trophy icon */}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="mb-8 w-24 h-24 text-primary"
+        className="mb-8"
       >
-        <KaizenLogo />
+        <Trophy className="w-20 h-20 text-primary" />
       </motion.div>
 
-      {/* KAIZEN text */}
+      {/* Period title */}
       <motion.h1
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.4 }}
-        className="text-5xl font-black tracking-wider text-primary mb-2"
-      >
-        KAIZEN
-      </motion.h1>
-
-      {/* Period title */}
-      <motion.h2
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-        className="text-2xl font-bold text-foreground mb-2"
+        className="text-3xl font-black tracking-wider text-foreground mb-3"
       >
         {periodTitle}
-      </motion.h2>
+      </motion.h1>
 
       {/* Period subtitle */}
       <motion.p
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.8 }}
+        transition={{ duration: 0.5, delay: 0.6 }}
         className="text-lg text-muted-foreground"
       >
         {periodSubtitle}
@@ -72,7 +62,7 @@ export function TeamRecapCoverSlide({ reportType, periodStart, periodEnd }: Team
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 1.2 }}
+        transition={{ duration: 0.5, delay: 1.0 }}
         className="absolute bottom-16 text-sm text-muted-foreground"
       >
         Tap to continue →
