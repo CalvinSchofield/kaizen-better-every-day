@@ -292,8 +292,8 @@ export const useGroupRecruits = () => {
       return { recruits, activities, pendingSuggestions };
     },
     enabled: !!teamAccess?.accessibleReps?.length && isLeader,
-    staleTime: 1000 * 30, // 30 seconds - keep fresher for collaborative work
-    refetchInterval: 1000 * 60, // Refetch every minute as backup to realtime
+    staleTime: 1000 * 60 * 3, // 3 minutes - longer cache to reduce Notion API calls
+    refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes as backup to realtime
   });
 
   return {

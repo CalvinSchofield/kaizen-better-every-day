@@ -262,23 +262,49 @@ export const useRepData = () => {
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Set up automatic periodic sync from Notion every 2 minutes
+    // Throttle Notion syncs to avoid rate limiting
+    // Only sync if 5+ minutes have passed since last sync
+    const SYNC_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
+    const lastSyncKey = `notion-sync-last-${currentUserId}`;
+    
+    const shouldSync = () => {
+      const lastSync = localStorage.getItem(lastSyncKey);
+      if (!lastSync) return true;
+      return Date.now() - parseInt(lastSync, 10) > SYNC_THROTTLE_MS;
+    };
+    
+    const markSynced = () => {
+      localStorage.setItem(lastSyncKey, Date.now().toString());
+    };
+
+    // Set up automatic periodic sync from Notion every 5 minutes (reduced from 2)
     const syncInterval = setInterval(async () => {
-      console.log("Auto-syncing from Notion...");
+      if (!shouldSync()) {
+        console.log("[Notion Sync] Throttled - too soon since last sync");
+        return;
+      }
+      console.log("[Notion Sync] Auto-syncing from Notion...");
       try {
         await supabase.functions.invoke("sync-notion-reps");
+        markSynced();
         await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
       } catch (error) {
         console.error("Auto-sync error:", error);
       }
-    }, 2 * 60 * 1000); // 2 minutes - more responsive for leader updates
+    }, 5 * 60 * 1000); // 5 minutes - reduced frequency to avoid rate limiting
 
     // PWA visibility change handler - sync when app comes back to foreground
+    // But only if enough time has passed since last sync
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        console.log("App became visible, syncing from Notion...");
+        if (!shouldSync()) {
+          console.log("[Notion Sync] Visibility change throttled - too soon since last sync");
+          return;
+        }
+        console.log("[Notion Sync] App became visible, syncing from Notion...");
         try {
           await supabase.functions.invoke("sync-notion-reps");
+          markSynced();
           await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
         } catch (error) {
           console.error("Visibility sync error:", error);
