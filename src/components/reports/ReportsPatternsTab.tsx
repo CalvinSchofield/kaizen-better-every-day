@@ -115,27 +115,31 @@ export const ReportsPatternsTab = ({
             <h3 className="font-semibold">FP+ by Day of Week</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Total team FP+ averaged per weekday
+            Average FP+ per rep when they work on each day
           </p>
           
-          {/* Day comparison bars */}
           <div className="space-y-2">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
-              const dayData = insightsData.dayOfWeekData?.[day];
-              if (!dayData || dayData.count === 0) return null;
+            {[
+              { short: 'Mon', key: 'monday' },
+              { short: 'Tue', key: 'tuesday' },
+              { short: 'Wed', key: 'wednesday' },
+              { short: 'Thu', key: 'thursday' },
+              { short: 'Fri', key: 'friday' },
+              { short: 'Sat', key: 'saturday' },
+            ].map(({ short, key }) => {
+              const dayData = insightsData.dayOfWeekData?.[key];
+              if (!dayData || dayData.daysWorked === 0) return null;
               
-              const avgFp = dayData.fp / dayData.count;
-              const maxAvg = Math.max(
-                ...Object.values(insightsData.dayOfWeekData as Record<string, { fp: number; count: number }>)
-                  .filter(d => d.count > 0)
-                  .map(d => d.fp / d.count)
-              );
+              const avgFp = dayData.avgFp || 0;
+              const allDays = Object.values(insightsData.dayOfWeekData as Record<string, { avgFp: number; daysWorked: number }>)
+                .filter(d => d.daysWorked > 0);
+              const maxAvg = allDays.length > 0 ? Math.max(...allDays.map(d => d.avgFp || 0)) : 0;
               const widthPercent = maxAvg > 0 ? (avgFp / maxAvg) * 100 : 0;
               const isBest = avgFp === maxAvg && maxAvg > 0;
               
               return (
-                <div key={day} className="flex items-center gap-2">
-                  <div className="w-10 text-xs font-medium text-muted-foreground">{day}</div>
+                <div key={key} className="flex items-center gap-2">
+                  <div className="w-10 text-xs font-medium text-muted-foreground">{short}</div>
                   <div className="flex-1 h-6 bg-muted/30 rounded overflow-hidden relative">
                     <div 
                       className={`h-full rounded transition-all ${isBest ? 'bg-primary' : 'bg-muted-foreground/30'}`}
@@ -143,20 +147,20 @@ export const ReportsPatternsTab = ({
                     />
                     <div className="absolute inset-0 flex items-center px-2">
                       <span className={`text-xs font-semibold ${isBest ? 'text-primary-foreground' : ''}`}>
-                        {avgFp.toFixed(1)} FP+
+                        {avgFp.toFixed(1)} FP+/rep
                       </span>
                     </div>
                   </div>
-                  <div className="w-16 text-xs text-muted-foreground text-right">
-                    {dayData.count} day{dayData.count !== 1 ? 's' : ''}
+                  <div className="w-20 text-xs text-muted-foreground text-right">
+                    {dayData.daysWorked} entries
                   </div>
                 </div>
               );
             })}
           </div>
           
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            Highlighted bar = best performing day
+          <p className="text-xs text-muted-foreground mt-3">
+            "Entries" = number of rep work days (e.g., 5 reps working one Tuesday = 5 entries)
           </p>
         </Card>
       )}
