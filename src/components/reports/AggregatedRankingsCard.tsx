@@ -253,6 +253,7 @@ export const AggregatedRankingsCard = ({
       hoursWorked: rep.hoursWorked,
       daysWorked: rep.daysWorked,
       workStartTime: rep.workStartTime,
+      timezone: rep.timezone,
     };
   };
 

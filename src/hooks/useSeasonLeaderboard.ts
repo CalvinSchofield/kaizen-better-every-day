@@ -7,6 +7,7 @@ interface LeaderboardEntry {
   name: string;
   value: number;
   timeValue?: string;
+  isSaturday?: boolean;
 }
 
 interface SeasonLeaderboard {
@@ -22,6 +23,23 @@ interface SeasonLeaderboard {
   earliestDoor: LeaderboardEntry | null;
   latestDoor: LeaderboardEntry | null;
 }
+
+// Extract local time-of-day as minutes since midnight
+const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
+  try {
+    const date = new Date(timestamp);
+    const localTime = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: timezone,
+    }).format(date);
+    const [hours, minutes] = localTime.split(':').map(Number);
+    return hours * 60 + minutes;
+  } catch {
+    return 0;
+  }
+};
 
 export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = false) => {
   return useQuery({
@@ -69,7 +87,7 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
       // Fetch all finalized entries for the season
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, entry_date, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
         .eq("is_finalized", true);
@@ -92,12 +110,16 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
         upgradePrmr: number;
         upgradeFp: number;
         hoursWorked: number;
-        earliestDoorTime: number | null;
-        latestDoorTime: number | null;
+        earliestDoorMins: number | null;
+        earliestDoorTs: string | null;
+        earliestDoorDate: string | null;
+        latestDoorMins: number | null;
+        latestDoorTs: string | null;
         timezone: string;
       }>();
 
       filteredEntries.forEach(entry => {
+        const userTimezone = entry.timezone || 'America/Los_Angeles';
         const current = userTotals.get(entry.user_id) || {
           doors: 0,
           pitches: 0,
@@ -108,9 +130,12 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           upgradePrmr: 0,
           upgradeFp: 0,
           hoursWorked: 0,
-          earliestDoorTime: null,
-          latestDoorTime: null,
-          timezone: entry.timezone || 'America/Denver',
+          earliestDoorMins: null,
+          earliestDoorTs: null,
+          earliestDoorDate: null,
+          latestDoorMins: null,
+          latestDoorTs: null,
+          timezone: userTimezone,
         };
 
         let entryHours = 0;
@@ -133,22 +158,28 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           entryHours = totalMinutes / 60;
         }
 
-        let entryEarliest = current.earliestDoorTime;
-        let entryLatest = current.latestDoorTime;
+        let entryEarliestMins = current.earliestDoorMins;
+        let entryEarliestTs = current.earliestDoorTs;
+        let entryEarliestDate = current.earliestDoorDate;
+        let entryLatestMins = current.latestDoorMins;
+        let entryLatestTs = current.latestDoorTs;
 
         if (entry.counter_timestamps) {
           const timestamps = entry.counter_timestamps as any;
           if (timestamps.doors_knocked && Array.isArray(timestamps.doors_knocked) && timestamps.doors_knocked.length > 0) {
-            const doorTimestamps = timestamps.doors_knocked.map((ts: string) => new Date(ts).getTime());
-            const earliest = Math.min(...doorTimestamps);
-            const latest = Math.max(...doorTimestamps);
-
-            if (entryEarliest === null || earliest < entryEarliest) {
-              entryEarliest = earliest;
-            }
-            if (entryLatest === null || latest > entryLatest) {
-              entryLatest = latest;
-            }
+            timestamps.doors_knocked.forEach((ts: string) => {
+              // Use local time-of-day comparison, not UTC timestamps
+              const mins = getLocalMinutesOfDay(ts, userTimezone);
+              if (entryEarliestMins === null || mins < entryEarliestMins) {
+                entryEarliestMins = mins;
+                entryEarliestTs = ts;
+                entryEarliestDate = entry.entry_date;
+              }
+              if (entryLatestMins === null || mins > entryLatestMins) {
+                entryLatestMins = mins;
+                entryLatestTs = ts;
+              }
+            });
           }
         }
 
@@ -165,9 +196,12 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           upgradePrmr: current.upgradePrmr + upgradePrmr,
           upgradeFp: current.upgradeFp + upgradeFp,
           hoursWorked: current.hoursWorked + entryHours,
-          earliestDoorTime: entryEarliest,
-          latestDoorTime: entryLatest,
-          timezone: entry.timezone || current.timezone,
+          earliestDoorMins: entryEarliestMins,
+          earliestDoorTs: entryEarliestTs,
+          earliestDoorDate: entryEarliestDate,
+          latestDoorMins: entryLatestMins,
+          latestDoorTs: entryLatestTs,
+          timezone: userTimezone,
         });
       });
 
@@ -230,35 +264,45 @@ export const useSeasonLeaderboard = (filterByYear?: string, isSummer: boolean = 
           leaderboard.mostHoursWorked = { userId, name: cleanName, value: totals.hoursWorked };
         }
 
-        if (totals.earliestDoorTime !== null) {
-          const earliestTime = new Date(totals.earliestDoorTime).toLocaleTimeString('en-US', {
+        // Earliest door - compare local time-of-day (minutes)
+        if (totals.earliestDoorMins !== null && totals.earliestDoorTs) {
+          const earliestTime = new Date(totals.earliestDoorTs).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             timeZone: totals.timezone
           });
+          
+          // Determine if the earliest door was on a Saturday
+          let isSaturday = false;
+          if (totals.earliestDoorDate) {
+            const dateObj = new Date(totals.earliestDoorDate + 'T12:00:00');
+            isSaturday = dateObj.getDay() === 6;
+          }
 
-          if (!leaderboard.earliestDoor || totals.earliestDoorTime < (leaderboard.earliestDoor.value || Infinity)) {
+          if (!leaderboard.earliestDoor || totals.earliestDoorMins < (leaderboard.earliestDoor.value || Infinity)) {
             leaderboard.earliestDoor = {
               userId,
               name: cleanName,
-              value: totals.earliestDoorTime,
-              timeValue: earliestTime
+              value: totals.earliestDoorMins,
+              timeValue: earliestTime,
+              isSaturday
             };
           }
         }
 
-        if (totals.latestDoorTime !== null) {
-          const latestTime = new Date(totals.latestDoorTime).toLocaleTimeString('en-US', {
+        // Latest door - compare local time-of-day (minutes)
+        if (totals.latestDoorMins !== null && totals.latestDoorTs) {
+          const latestTime = new Date(totals.latestDoorTs).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             timeZone: totals.timezone
           });
 
-          if (!leaderboard.latestDoor || totals.latestDoorTime > (leaderboard.latestDoor.value || 0)) {
+          if (!leaderboard.latestDoor || totals.latestDoorMins > (leaderboard.latestDoor.value || 0)) {
             leaderboard.latestDoor = {
               userId,
               name: cleanName,
-              value: totals.latestDoorTime,
+              value: totals.latestDoorMins,
               timeValue: latestTime
             };
           }

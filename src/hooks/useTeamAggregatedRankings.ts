@@ -9,6 +9,7 @@ export interface RepRankingData {
   mgmtGroupName?: string;
   year?: string;
   phone?: string;
+  timezone?: string;
   stats: {
     doors: number;
     dms: number;
@@ -41,11 +42,11 @@ interface UseTeamAggregatedRankingsProps {
   period: 'week' | 'month' | 'season' | 'ytd';
 }
 
-const getMondayOfWeek = (date: Date): Date => {
+const getSundayOfWeek = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
+  d.setDate(d.getDate() - day); // Go back to Sunday
+  return d;
 };
 
 const getDateRange = (period: 'week' | 'month' | 'season' | 'ytd') => {
@@ -54,10 +55,9 @@ const getDateRange = (period: 'week' | 'month' | 'season' | 'ytd') => {
   
   switch (period) {
     case 'week': {
-      const monday = getMondayOfWeek(now);
-      const saturday = new Date(monday);
-      saturday.setDate(monday.getDate() + 5);
-      return { start: getLocalDateString(monday), end: getLocalDateString(saturday) };
+      // Week-to-date: Sunday to today
+      const sunday = getSundayOfWeek(now);
+      return { start: getLocalDateString(sunday), end: getLocalDateString(now) };
     }
     case 'month': {
       const monthStart = new Date(currentYear, now.getMonth(), 1);
@@ -417,6 +417,7 @@ export const useTeamAggregatedRankings = ({
           teamName: repInfo.teamName,
           year: repInfo.year,
           phone: repInfo.phone,
+          timezone: repInfo.timezone,
           stats: {
             doors: totals.doors,
             dms: totals.dms,

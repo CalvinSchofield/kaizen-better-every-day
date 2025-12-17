@@ -289,6 +289,7 @@ export const LiveLeaderboard = ({
       daysWorked: 1,
       workStartTime: rep.workStartTime,
       workEndTime: rep.workEndTime,
+      timezone: rep.timezone,
       // Timeline data
       entryId: rep.entryId,
       counterTimestamps: rep.counterTimestamps,
