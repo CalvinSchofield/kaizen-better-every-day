@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw, Target, Trophy, UserPlus, Contact } from "lucide-react";
+import { MessageSquare, Calendar, Settings, Lock, BarChart3, BookOpen, Wrench, LogOut, Users, RefreshCw, Target, Trophy, UserPlus, Contact, Sparkles } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -513,6 +513,26 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
                 </span>
               </div>
             </a>
+
+            {/* Weekly Recap Builder - Area Directors only */}
+            {teamAccess?.accessLevel === 'area_director' && (
+              <>
+                <Separator />
+                <Link
+                  to="/reports/weekly-recap"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="font-semibold text-sm">Weekly Recap Builder</span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Generate team recognition
+                    </span>
+                  </div>
+                </Link>
+              </>
+            )}
 
             <Separator />
 

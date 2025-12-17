@@ -920,6 +920,57 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reports: {
+        Row: {
+          approved_at: string | null
+          created_at: string | null
+          data: Json
+          edits: Json | null
+          generated_at: string | null
+          generated_by: string
+          id: string
+          period_end: string
+          period_start: string
+          published_at: string | null
+          report_type: string
+          scope: string
+          scope_id: string | null
+          status: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string | null
+          data?: Json
+          edits?: Json | null
+          generated_at?: string | null
+          generated_by: string
+          id?: string
+          period_end: string
+          period_start: string
+          published_at?: string | null
+          report_type: string
+          scope?: string
+          scope_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string | null
+          data?: Json
+          edits?: Json | null
+          generated_at?: string | null
+          generated_by?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          published_at?: string | null
+          report_type?: string
+          scope?: string
+          scope_id?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
