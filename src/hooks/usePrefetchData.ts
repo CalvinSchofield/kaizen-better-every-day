@@ -5,6 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Prefetches critical data on app load for a snappy experience.
  * Runs once when the user is authenticated.
+ * 
+ * IMPORTANT: Notion API calls are staggered to avoid rate limiting (429 errors).
+ * Notion's limit is ~3 requests/second, so we batch local DB calls first,
+ * then fire Notion calls with delays between them.
  */
 export const usePrefetchData = (userId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -13,19 +17,9 @@ export const usePrefetchData = (userId: string | undefined) => {
     if (!userId) return;
 
     const prefetchAll = async () => {
-      // Prefetch all data in parallel for maximum speed
+      // PHASE 1: Prefetch local Supabase data immediately (no rate limits)
       await Promise.allSettled([
-        // Team access - needed for My Group, Reports
-        queryClient.prefetchQuery({
-          queryKey: ['team-access'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-team-access');
-            return data;
-          },
-          staleTime: 5 * 60 * 1000, // 5 minutes
-        }),
-
-        // Competitors for cheat sheet
+        // Competitors for cheat sheet (local DB)
         queryClient.prefetchQuery({
           queryKey: ['competitors'],
           queryFn: async () => {
@@ -38,7 +32,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 10 * 60 * 1000, // 10 minutes
         }),
 
-        // Current user's rep data
+        // Current user's rep data (local DB)
         queryClient.prefetchQuery({
           queryKey: ['rep-data', userId],
           queryFn: async () => {
@@ -52,7 +46,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 2 * 60 * 1000,
         }),
 
-        // Rep goals
+        // Rep goals (local DB)
         queryClient.prefetchQuery({
           queryKey: ['rep-goals', userId],
           queryFn: async () => {
@@ -66,17 +60,7 @@ export const usePrefetchData = (userId: string | undefined) => {
           staleTime: 2 * 60 * 1000,
         }),
 
-        // Blitzes for preseason
-        queryClient.prefetchQuery({
-          queryKey: ['preseason-blitzes'],
-          queryFn: async () => {
-            const { data } = await supabase.functions.invoke('fetch-preseason-blitzes');
-            return data;
-          },
-          staleTime: 5 * 60 * 1000,
-        }),
-
-        // Daily entries (last 90 days) for insights
+        // Daily entries (last 90 days) for insights (local DB)
         queryClient.prefetchQuery({
           queryKey: ['daily-entries-recent', userId],
           queryFn: async () => {
@@ -92,11 +76,37 @@ export const usePrefetchData = (userId: string | undefined) => {
           },
           staleTime: 2 * 60 * 1000,
         }),
-
-        // Note: team-members requires leaderNotionPageId, prefetch happens in useTeamLiveData
       ]);
 
-      console.log('[Prefetch] All critical data prefetched');
+      console.log('[Prefetch] Local DB data prefetched');
+
+      // PHASE 2: Stagger Notion API calls to avoid rate limiting
+      // These calls go through edge functions that hit Notion API
+      
+      // First Notion call: team-access (needed for My Group, Reports)
+      queryClient.prefetchQuery({
+        queryKey: ['team-access'],
+        queryFn: async () => {
+          const { data } = await supabase.functions.invoke('fetch-team-access');
+          return data;
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes - longer cache to reduce calls
+      });
+
+      // Delay before next Notion call to stay under rate limit
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Second Notion call: blitzes for preseason
+      queryClient.prefetchQuery({
+        queryKey: ['preseason-blitzes'],
+        queryFn: async () => {
+          const { data } = await supabase.functions.invoke('fetch-preseason-blitzes');
+          return data;
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+      });
+
+      console.log('[Prefetch] Notion data prefetch initiated (staggered)');
     };
 
     prefetchAll();
