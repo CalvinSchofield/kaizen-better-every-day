@@ -7,6 +7,7 @@ interface LeaderboardEntry {
   name: string;
   value: number;
   timeValue?: string;
+  isSaturday?: boolean;
 }
 
 interface WeeklyLeaderboard {
@@ -41,18 +42,11 @@ const getLocalMinutesOfDay = (timestamp: string, timezone: string): number => {
   }
 };
 
-const getMondayOfWeek = (date: Date): Date => {
+const getSundayOfWeek = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
-};
-
-const getSaturdayOfWeek = (date: Date): Date => {
-  const monday = getMondayOfWeek(date);
-  const saturday = new Date(monday);
-  saturday.setDate(monday.getDate() + 5);
-  return saturday;
+  d.setDate(d.getDate() - day); // Go back to Sunday
+  return d;
 };
 
 export const useWeeklyLeaderboard = (filterByYear?: string) => {
@@ -60,11 +54,11 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
     queryKey: ["weekly-leaderboard", filterByYear],
     queryFn: async () => {
       const today = new Date();
-      const monday = getMondayOfWeek(today);
-      const saturday = getSaturdayOfWeek(today);
+      const sunday = getSundayOfWeek(today);
       
-      const mondayStr = getLocalDateString(monday);
-      const saturdayStr = getLocalDateString(saturday);
+      // Week-to-date: Sunday to today
+      const sundayStr = getLocalDateString(sunday);
+      const todayStr = getLocalDateString(today);
 
       const { data: users, error: usersError } = await supabase
         .from("reps")
@@ -84,10 +78,10 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
       const { data: entries, error: entriesError } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, entry_date, doors_knocked, decision_makers, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .eq("is_finalized", true)
-        .gte("entry_date", mondayStr)
-        .lte("entry_date", saturdayStr);
+        .gte("entry_date", sundayStr)
+        .lte("entry_date", todayStr);
 
       if (entriesError) throw entriesError;
 
@@ -116,6 +110,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
         hoursWorked: number;
         earliestDoorMins: number | null;
         earliestDoorTs: string | null;
+        earliestDoorDate: string | null;
         latestDoorMins: number | null;
         latestDoorTs: string | null;
         timezone: string;
@@ -137,6 +132,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           hoursWorked: 0,
           earliestDoorMins: null,
           earliestDoorTs: null,
+          earliestDoorDate: null,
           latestDoorMins: null,
           latestDoorTs: null,
           timezone: userTimezone,
@@ -164,6 +160,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
 
         let entryEarliestMins = existing.earliestDoorMins;
         let entryEarliestTs = existing.earliestDoorTs;
+        let entryEarliestDate = existing.earliestDoorDate;
         let entryLatestMins = existing.latestDoorMins;
         let entryLatestTs = existing.latestDoorTs;
 
@@ -175,6 +172,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
               if (entryEarliestMins === null || mins < entryEarliestMins) {
                 entryEarliestMins = mins;
                 entryEarliestTs = ts;
+                entryEarliestDate = entry.entry_date;
               }
               if (entryLatestMins === null || mins > entryLatestMins) {
                 entryLatestMins = mins;
@@ -200,6 +198,7 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
           hoursWorked: existing.hoursWorked + entryHours,
           earliestDoorMins: entryEarliestMins,
           earliestDoorTs: entryEarliestTs,
+          earliestDoorDate: entryEarliestDate,
           latestDoorMins: entryLatestMins,
           latestDoorTs: entryLatestTs,
           timezone: userTimezone,
@@ -273,13 +272,21 @@ export const useWeeklyLeaderboard = (filterByYear?: string) => {
             minute: '2-digit',
             timeZone: totals.timezone
           });
+          
+          // Determine if the earliest door was on a Saturday
+          let isSaturday = false;
+          if (totals.earliestDoorDate) {
+            const dateObj = new Date(totals.earliestDoorDate + 'T12:00:00');
+            isSaturday = dateObj.getDay() === 6;
+          }
 
           if (!leaderboard.earliestDoor || totals.earliestDoorMins < (leaderboard.earliestDoor.value || Infinity)) {
             leaderboard.earliestDoor = {
               userId,
               name: userData.name,
               value: totals.earliestDoorMins,
-              timeValue: earliestTime
+              timeValue: earliestTime,
+              isSaturday
             };
           }
         }
