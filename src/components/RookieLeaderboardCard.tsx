@@ -11,9 +11,15 @@ interface RookieLeaderboardCardProps {
   isOnActiveBlitz: boolean;
 }
 
+type FilterType = "all" | "rookies";
+
 export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCardProps) => {
-  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard("Rookie");
-  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard("Rookie");
+  const [filter, setFilter] = useState<FilterType>("rookies"); // Default to rookies for rookie users
+  
+  const yearFilter = filter === "rookies" ? "Rookie" : undefined;
+  
+  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard(yearFilter);
+  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard(yearFilter);
   const { data: booksLeaderboard } = useBooksLeaderboard();
   
   const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
@@ -49,22 +55,55 @@ export const RookieLeaderboardCard = ({ isOnActiveBlitz }: RookieLeaderboardCard
     leaderboard?.mostPRMR?.userId === currentUserId
   );
 
+  const getTitle = () => {
+    if (isUserTopPerformer) return "You're a Top Performer! 🎉";
+    const scope = filter === "rookies" ? "Rookie" : "";
+    return isOnActiveBlitz 
+      ? `Yesterday's ${scope} Leaders`.trim().replace(/\s+/g, ' ')
+      : `This Week's ${scope} Leaders`.trim().replace(/\s+/g, ' ');
+  };
+
   return (
     <Card className={isUserTopPerformer ? "border-2 border-primary shadow-lg" : ""}>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          {isUserTopPerformer ? (
-            <Crown className="h-5 w-5 text-primary" />
-          ) : (
-            <Trophy className="h-5 w-5 text-primary" />
-          )}
-          <CardTitle>
-            {isUserTopPerformer ? "You're a Top Performer! 🎉" : isOnActiveBlitz ? "Yesterday's Rookie Leaders" : "This Week's Rookie Leaders"}
-          </CardTitle>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isUserTopPerformer ? (
+              <Crown className="h-5 w-5 text-primary" />
+            ) : (
+              <Trophy className="h-5 w-5 text-primary" />
+            )}
+            <CardTitle className="text-base">{getTitle()}</CardTitle>
+          </div>
         </div>
-        <CardDescription>
-          {isUserTopPerformer ? "Keep crushing it!" : isOnActiveBlitz ? "See who led the pack yesterday" : "See who's dominating this week"}
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <CardDescription>
+            {isUserTopPerformer ? "Keep crushing it!" : isOnActiveBlitz ? "See who led the pack yesterday" : "See who's dominating this week"}
+          </CardDescription>
+          {/* Toggle */}
+          <div className="flex bg-muted rounded-full p-0.5">
+            <button
+              onClick={() => setFilter("all")}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                filter === "all" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter("rookies")}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                filter === "rookies" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Rookies
+            </button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {leaderboard?.mostDoors && (
