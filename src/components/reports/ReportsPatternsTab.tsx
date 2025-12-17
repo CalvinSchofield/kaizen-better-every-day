@@ -112,15 +112,18 @@ export const ReportsPatternsTab = ({
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Top Performing Day</h3>
+            <h3 className="font-semibold">Best Day of the Week</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Which day of the week produces the highest average FP+ across all {insightsData.bestDayOfWeek.daysWorked} {insightsData.bestDayOfWeek.day}s worked
+            Your team averages the most FP+ on {insightsData.bestDayOfWeek.day}s
           </p>
           <div className="text-center p-4 bg-primary/5 rounded-lg">
             <div className="text-2xl font-bold">{insightsData.bestDayOfWeek.day}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Averages <span className="font-semibold text-primary">{insightsData.bestDayOfWeek.avgFp?.toFixed(2)} FP+</span> per {insightsData.bestDayOfWeek.day}
+              <span className="font-semibold text-primary">{insightsData.bestDayOfWeek.avgFp?.toFixed(1)} FP+</span> average
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Based on {insightsData.bestDayOfWeek.daysWorked} {insightsData.bestDayOfWeek.day}{insightsData.bestDayOfWeek.daysWorked !== 1 ? 's' : ''} worked
             </div>
           </div>
         </Card>
