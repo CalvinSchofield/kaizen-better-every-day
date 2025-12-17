@@ -11,9 +11,15 @@ interface VetLeaderboardCardProps {
   isOnActiveBlitz: boolean;
 }
 
+type FilterType = "all" | "rookies";
+
 export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps) => {
-  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard();
-  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard();
+  const [filter, setFilter] = useState<FilterType>("all"); // Default to all for vet users
+  
+  const yearFilter = filter === "rookies" ? "Rookie" : undefined;
+  
+  const { data: yesterdayLeaderboard, isLoading: isLoadingYesterday } = useYesterdayLeaderboard(yearFilter);
+  const { data: weeklyLeaderboard, isLoading: isLoadingWeekly } = useWeeklyLeaderboard(yearFilter);
   const { data: booksLeaderboard } = useBooksLeaderboard();
   
   const leaderboard = isOnActiveBlitz ? yesterdayLeaderboard : weeklyLeaderboard;
@@ -48,22 +54,55 @@ export const VetLeaderboardCard = ({ isOnActiveBlitz }: VetLeaderboardCardProps)
     leaderboard?.mostPRMR?.userId === currentUserId
   );
 
+  const getTitle = () => {
+    if (isUserTopPerformer) return "You're Leading the Pack! 🔥";
+    const scope = filter === "rookies" ? "Rookie" : "";
+    return isOnActiveBlitz 
+      ? `Yesterday's ${scope} Top Performers`.trim().replace(/\s+/g, ' ')
+      : `This Week's ${scope} Top Performers`.trim().replace(/\s+/g, ' ');
+  };
+
   return (
     <Card className={isUserTopPerformer ? "border-2 border-primary shadow-lg" : ""}>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          {isUserTopPerformer ? (
-            <Crown className="h-5 w-5 text-primary" />
-          ) : (
-            <TrendingUp className="h-5 w-5 text-primary" />
-          )}
-          <CardTitle>
-            {isUserTopPerformer ? "You're Leading the Pack! 🔥" : isOnActiveBlitz ? "Yesterday's Top Performers" : "This Week's Top Performers"}
-          </CardTitle>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isUserTopPerformer ? (
+              <Crown className="h-5 w-5 text-primary" />
+            ) : (
+              <TrendingUp className="h-5 w-5 text-primary" />
+            )}
+            <CardTitle className="text-base">{getTitle()}</CardTitle>
+          </div>
         </div>
-        <CardDescription>
-          {isUserTopPerformer ? "Keep dominating!" : "Where do you stand?"}
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <CardDescription>
+            {isUserTopPerformer ? "Keep dominating!" : "Where do you stand?"}
+          </CardDescription>
+          {/* Toggle */}
+          <div className="flex bg-muted rounded-full p-0.5">
+            <button
+              onClick={() => setFilter("all")}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                filter === "all" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter("rookies")}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                filter === "rookies" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Rookies
+            </button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {leaderboard?.mostDecisionMakers && (
