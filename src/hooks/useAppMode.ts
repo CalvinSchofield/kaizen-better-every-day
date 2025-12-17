@@ -16,6 +16,12 @@ interface SeasonConfig {
 export const useAppMode = (repData?: any) => {
   const queryClient = useQueryClient();
 
+  // Determine if user is a leader (vets/sophomores who need toggle access)
+  const isLeader = useMemo(() => {
+    const year = repData?.year || "Rookie";
+    return year === "Vet" || year === "Sophomore";
+  }, [repData?.year]);
+
   // Check if currently on an active blitz (4pm start on start date, 10am end on end date)
   const isOnActiveBlitz = useMemo(() => {
     if (!repData?.committed_blitzes || !Array.isArray(repData.committed_blitzes)) {

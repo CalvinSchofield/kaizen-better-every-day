@@ -12,10 +12,10 @@ export const MeVsMeMotivationCard = () => {
   const { isEnabled, dataSummary } = useMeVsMe();
   const { efpModeEnabled } = useEfpMode();
   
-  // Get current week's date range (Monday to Sunday)
+  // Get current week's date range (Sunday to Saturday - selling week)
   const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 }); // Sunday
+  const weekStart = startOfWeek(now, { weekStartsOn: 0 }); // Sunday
+  const weekEnd = endOfWeek(now, { weekStartsOn: 0 }); // Saturday
   
   const seasonInfo = useMemo(() => getSeasonInfo(now), []);
   const comparisonYear = seasonInfo ? seasonInfo.year - 1 : new Date().getFullYear() - 1;
