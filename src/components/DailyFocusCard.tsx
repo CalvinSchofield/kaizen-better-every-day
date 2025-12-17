@@ -93,55 +93,34 @@ export const DailyFocusCard = ({ repData }: DailyFocusCardProps) => {
     }
   }, [calculatedDailyFpGoal]);
 
-  // Calculate today's progress - use sales_log for real-time FP+ if not finalized
+  // Calculate today's progress - always use sales_log as source of truth
   const todayTransitions = entry?.transitions || 0;
   const todayPresentations = entry?.presentations || 0;
   
-  // Calculate real-time FP+ from sales_log when entry exists but isn't finalized
-  const todayFP = useMemo(() => {
-    if (!entry) return 0;
+  // Calculate FP+ and PRMR from sales_log (source of truth for the day)
+  // This prevents jumps when entry becomes finalized with different stored values
+  const { todayFP, todayPRMR } = useMemo(() => {
+    if (!entry) return { todayFP: 0, todayPRMR: 0 };
     
-    // If finalized, use the stored fp_plus
-    if (entry.is_finalized) {
-      return entry.fp_plus || 0;
-    }
-    
-    // Otherwise calculate from sales_log for real-time display
-    const salesLog = entry.sales_log as Array<{ fp: number; upgrade_prmr?: number }> | null;
+    // Always try to calculate from sales_log first for accuracy
+    const salesLog = entry.sales_log as Array<{ fp?: number; prmr?: number; upgrade_prmr?: number }> | null;
     if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
       let totalFP = 0;
+      let totalPRMR = 0;
       salesLog.forEach(sale => {
         // FP+ = FP + (upgrade_prmr / 85)
         totalFP += (sale.fp || 0) + ((sale.upgrade_prmr || 0) / 85);
-      });
-      return totalFP;
-    }
-    
-    // Fallback to stored fp_plus if no sales_log
-    return entry.fp_plus || 0;
-  }, [entry]);
-  
-  // Calculate real-time PRMR from sales_log when entry exists but isn't finalized
-  const todayPRMR = useMemo(() => {
-    if (!entry) return 0;
-    
-    // If finalized, use stored values
-    if (entry.is_finalized) {
-      return (entry.prmr || 0) + (entry.upgrade_prmr || 0);
-    }
-    
-    // Otherwise calculate from sales_log for real-time display
-    const salesLog = entry.sales_log as Array<{ prmr?: number; upgrade_prmr?: number }> | null;
-    if (salesLog && Array.isArray(salesLog) && salesLog.length > 0) {
-      let totalPRMR = 0;
-      salesLog.forEach(sale => {
         totalPRMR += (sale.prmr || 0) + (sale.upgrade_prmr || 0);
       });
-      return totalPRMR;
+      return { todayFP: totalFP, todayPRMR: totalPRMR };
     }
     
-    // Fallback to stored values
-    return (entry.prmr || 0) + ((entry as any).upgrade_prmr || 0);
+    // Fallback to stored values only if no sales_log
+    const entryAny = entry as any;
+    return { 
+      todayFP: entry.fp_plus || 0, 
+      todayPRMR: (entry.prmr || 0) + (entryAny.upgrade_prmr || 0) 
+    };
   }, [entry]);
   
   // For EFP mode, show EFP instead of FP+

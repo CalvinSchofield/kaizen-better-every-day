@@ -100,6 +100,7 @@ export const LogSaleSheet = ({
   const [customerLat, setCustomerLat] = useState<number | null>(null);
   const [customerLng, setCustomerLng] = useState<number | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // CRM state (detailed)
   const [timeToSellMinutes, setTimeToSellMinutes] = useState<number>(30);
@@ -159,10 +160,12 @@ export const LogSaleSheet = ({
   const getLocation = async () => {
     if (!navigator.geolocation) {
       console.log('Geolocation not supported');
+      setLocationError('Location not supported on this device');
       return;
     }
     
     setIsGettingLocation(true);
+    setLocationError(null);
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -214,8 +217,18 @@ export const LogSaleSheet = ({
         console.log('Reverse geocoding error:', geocodeError);
         // Still have coordinates even if geocoding failed
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log('Location detection failed:', error);
+      // Provide specific error messages for different error types
+      if (error?.code === 1) {
+        setLocationError('Location permission denied. Tap to retry.');
+      } else if (error?.code === 2) {
+        setLocationError('Location unavailable. Tap to retry.');
+      } else if (error?.code === 3) {
+        setLocationError('Location timed out. Tap to retry.');
+      } else {
+        setLocationError('Could not get location. Tap to retry.');
+      }
     } finally {
       setIsGettingLocation(false);
     }
@@ -249,6 +262,7 @@ export const LogSaleSheet = ({
         setCustomerAddress("");
         setCustomerLat(null);
         setCustomerLng(null);
+        setLocationError(null);
         setTimeToSellMinutes(30);
         setTimeToSellSource('manual');
         setDealType('fresh');
@@ -492,8 +506,28 @@ export const LogSaleSheet = ({
                   {isGettingLocation && (
                     <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
                   )}
+                  {!isGettingLocation && !customerAddress && (
+                    <button
+                      type="button"
+                      onClick={getLocation}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-primary text-xs font-medium"
+                    >
+                      Get Location
+                    </button>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">Auto-detected, tap to edit</p>
+                {locationError && !customerAddress && (
+                  <button 
+                    type="button"
+                    onClick={getLocation}
+                    className="text-[10px] text-destructive hover:underline"
+                  >
+                    {locationError}
+                  </button>
+                )}
+                {!locationError && (
+                  <p className="text-[10px] text-muted-foreground">Auto-detected, tap to edit</p>
+                )}
               </div>
             </div>
           )}
