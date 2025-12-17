@@ -1,433 +1,369 @@
 import { useState } from "react";
-import { ArrowLeft, ChevronRight, Calculator, Clock, Target, DollarSign, Camera, Monitor, Home, AlertTriangle, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Calculator, Clock, Target, DollarSign, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculator";
 
 interface PainPoint {
+  emoji: string;
   text: string;
-  emoji?: string;
 }
 
 interface Product {
   id: string;
   name: string;
   category: "doorbell" | "outdoor" | "indoor" | "panel";
-  isUpgradeOpportunity?: boolean;
-  imageUrl?: string;
+  image: string;
   painPoints: PainPoint[];
+  isOpportunity?: boolean;
 }
 
 const PRODUCTS: Product[] = [
-  // Doorbell Cameras
   {
     id: "doorbell-old",
     name: "Doorbell Camera",
     category: "doorbell",
-    imageUrl: "/images/cameras/doorbell-camera.jpeg",
+    image: "/images/cameras/doorbell-camera.jpeg",
     painPoints: [
-      { text: "Not clear. Bad quality and can't see anything at night", emoji: "👎" },
-      { text: "Miss things. Only records 30 second clips", emoji: "⏱️" },
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
-      { text: "Button falls off a lot. Mechanical doorbell button breaks often", emoji: "🔘" },
+      { emoji: "👎", text: "Not clear. Bad quality and can't see anything at night" },
+      { emoji: "⏱️", text: "Miss things. Only records 30 second clips" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
+      { emoji: "🔘", text: "Button falls off a lot. Mechanical doorbell button breaks often" },
     ],
   },
   {
     id: "doorbell-pro",
     name: "Doorbell Camera Pro",
     category: "doorbell",
-    imageUrl: "/images/cameras/doorbell-camera-pro.jpeg",
+    image: "/images/cameras/doorbell-camera-pro.jpeg",
     painPoints: [
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
-      { text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR", emoji: "💾" },
-      { text: "Not as smart. Older processor — doesn't notify all the time or maybe too much when it doesn't matter", emoji: "🧠" },
-      { text: "Not great audio. Speaker and microphone aren't as good as the new one", emoji: "🔊" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
+      { emoji: "💾", text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR" },
+      { emoji: "🧠", text: "Not as smart. Older processor — doesn't notify all the time or maybe too much when it doesn't matter" },
+      { emoji: "🔊", text: "Not great audio. Speaker and microphone aren't as good as the new one" },
     ],
   },
-  // Outdoor Cameras
   {
     id: "outdoor-old",
     name: "Outdoor Camera",
     category: "outdoor",
-    imageUrl: "/images/cameras/outdoor-camera.jpeg",
+    image: "/images/cameras/outdoor-camera.jpeg",
     painPoints: [
-      { text: "No sound. Literally just video — no sound or talking through cameras", emoji: "🔇" },
-      { text: "Not clear. Bad quality and can't see anything at night", emoji: "👎" },
-      { text: "Miss things. Only records 30 second clips", emoji: "⏱️" },
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
+      { emoji: "🔇", text: "No sound. Literally just video — no sound or talking through cameras" },
+      { emoji: "👎", text: "Not clear. Bad quality and can't see anything at night" },
+      { emoji: "⏱️", text: "Miss things. Only records 30 second clips" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
     ],
   },
   {
     id: "outdoor-pro",
     name: "Outdoor Camera Pro",
     category: "outdoor",
-    imageUrl: "/images/cameras/outdoor-camera-pro.jpeg",
+    image: "/images/cameras/outdoor-camera-pro.jpeg",
     painPoints: [
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
-      { text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR", emoji: "💾" },
-      { text: "Not as smart. Older processor — doesn't notify all the time or maybe too much when it doesn't matter", emoji: "🧠" },
-      { text: "Not great audio. Speaker and microphone aren't as good as the new one", emoji: "🔊" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
+      { emoji: "💾", text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR" },
+      { emoji: "🧠", text: "Not as smart. Older processor — doesn't notify all the time or maybe too much when it doesn't matter" },
+      { emoji: "🔊", text: "Not great audio. Speaker and microphone aren't as good as the new one" },
     ],
   },
   {
     id: "outdoor-pro-gen2",
     name: "Outdoor Camera Pro Gen II",
     category: "outdoor",
-    isUpgradeOpportunity: true,
+    image: "/images/cameras/outdoor-camera-pro-gen2.jpeg",
     painPoints: [
-      { text: "Don't have enough of them", emoji: "➕" },
-      { text: "Attach spotlight if they don't have it. Makes it seem like it's a whole new camera", emoji: "💡" },
-      { text: "24/7 recording. Easy upgrade if they don't have it already", emoji: "🎥" },
+      { emoji: "➕", text: "Don't have enough of them" },
+      { emoji: "💡", text: "Attach spotlight if they don't have it. Makes it seem like it's a whole new camera" },
+      { emoji: "🎥", text: "24/7 recording. Easy upgrade if they don't have it already" },
     ],
+    isOpportunity: true,
   },
-  // Indoor Cameras
   {
     id: "indoor-old",
     name: "Old Indoor Camera",
     category: "indoor",
+    image: "/images/cameras/indoor-camera-old.png",
     painPoints: [
-      { text: "So old. It's garbage", emoji: "🗑️" },
-      { text: "Not clear. Bad quality and can't see anything at night", emoji: "👎" },
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
-      { text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR", emoji: "💾" },
+      { emoji: "🗑️", text: "So old. It's garbage" },
+      { emoji: "👎", text: "Not clear. Bad quality and can't see anything at night" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
+      { emoji: "💾", text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR" },
     ],
   },
   {
     id: "ping-camera",
     name: "Ping Indoor Camera",
     category: "indoor",
+    image: "/images/cameras/ping-camera.jpeg",
     painPoints: [
-      { text: "Not clear. Bad quality and can't see anything at night", emoji: "👎" },
-      { text: "Has to have the WiFi. Falls offline all the time", emoji: "📶" },
-      { text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR", emoji: "💾" },
+      { emoji: "👎", text: "Not clear. Bad quality and can't see anything at night" },
+      { emoji: "📶", text: "Has to have the WiFi. Falls offline all the time" },
+      { emoji: "💾", text: "24/7 is unreliable. Can only do it with WiFi working and if they have the \"space monkey\" DVR" },
     ],
   },
-  // Panels
   {
     id: "panel-old",
     name: "Old Panel",
     category: "panel",
+    image: "/images/cameras/panel-old.jpeg",
     painPoints: [
-      { text: "Tiny touch screen", emoji: "📱" },
-      { text: "No cameras. Can't work with any new equipment. Way out of date and probably the root of any problems", emoji: "🚫" },
+      { emoji: "📱", text: "Tiny touch screen" },
+      { emoji: "🚫", text: "No cameras. Can't work with any new equipment. Way out of date and probably the root of any problems" },
     ],
   },
   {
     id: "panel-less-old",
     name: "Less Old Panel",
     category: "panel",
+    image: "/images/cameras/panel-less-old.jpeg",
     painPoints: [
-      { text: "Old processor. Less safe", emoji: "⚠️" },
-      { text: "No new cameras. Can't add any Gen II or newer cameras with this panel", emoji: "📷" },
-      { text: "Physical buttons. Clunky and less classy", emoji: "🔘" },
+      { emoji: "⚠️", text: "Old processor. Less safe" },
+      { emoji: "📷", text: "No new cameras. Can't add any Gen II or newer cameras with this panel" },
+      { emoji: "🔘", text: "Physical buttons. Clunky and less classy" },
     ],
   },
 ];
 
-const TIME_MANAGEMENT = [
-  { time: "1:00 — 5:30", description: "Look for Upgrades and FP. Don't just hunt for upgrades. The best of the best do both" },
-  { time: "5:30 — 8:00", description: "Hunt FP. Knock upgrades sparingly" },
-  { time: "8:00 — dark thirty", description: "Look for both upgrades and FP. Don't just hunt for upgrades. The best of the best do both" },
+const CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "doorbell", label: "Doorbell" },
+  { id: "outdoor", label: "Outdoor" },
+  { id: "indoor", label: "Indoor" },
+  { id: "panel", label: "Panel" },
+];
+
+const TIME_TIPS = [
+  { time: "1:00–5:30", tip: "Look for upgrades + FP" },
+  { time: "5:30–8:00", tip: "Hunt FP primarily" },
+  { time: "8:00–dark", tip: "Both upgrades + FP" },
 ];
 
 const WHY_UPGRADES = [
-  { icon: "🚀", text: "Momentum builder" },
-  { icon: "🗺️", text: "Get to know the neighborhood/area you're selling in" },
-  { icon: "📖", text: "Learn why other people bought what you want to sell" },
-  { icon: "💬", text: "Gather stories & information about neighbors" },
-  { icon: "📈", text: "Climb the payscale" },
-  { icon: "🥯🚫", text: "No bagels" },
+  { emoji: "🚀", text: "Momentum builder" },
+  { emoji: "🗺️", text: "Learn the area" },
+  { emoji: "📖", text: "Gather stories" },
+  { emoji: "💬", text: "Talk to neighbors" },
+  { emoji: "📈", text: "Climb payscale" },
+  { emoji: "🥯🚫", text: "No bagels" },
 ];
 
 const PRMR_STEPS = [
-  "Add total equipment you sell to the customer (do not include install fee or tax)",
-  "Divide total equipment / 60",
-  "Add $5 per NEW camera added (not a replacement camera)",
-  "You now have the PRMR (payable recurring monthly revenue) for the upgrade",
-  "Multiply PRMR x 4 to see upfront pay",
-  "Multiply PRMR by your rate to see total pay",
+  "Add total equipment (no install/tax)",
+  "Divide total by 60",
+  "Add $5 per NEW camera",
+  "= Your upgrade PRMR",
+  "× 4 = Upfront pay",
+  "× Rate = Total pay",
 ];
 
-const getCategoryIcon = (category: string) => {
-  switch (category) {
-    case "doorbell": return Camera;
-    case "outdoor": return Camera;
-    case "indoor": return Camera;
-    case "panel": return Monitor;
-    default: return Home;
-  }
-};
-
-const getCategoryLabel = (category: string) => {
-  switch (category) {
-    case "doorbell": return "Doorbell";
-    case "outdoor": return "Outdoor";
-    case "indoor": return "Indoor";
-    case "panel": return "Panel";
-    default: return category;
-  }
-};
-
-const UpgradeCheatSheet = () => {
+export default function UpgradeCheatSheet() {
   const navigate = useNavigate();
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
 
-  const groupedProducts = PRODUCTS.reduce((acc, product) => {
-    if (!acc[product.category]) {
-      acc[product.category] = [];
-    }
-    acc[product.category].push(product);
-    return acc;
-  }, {} as Record<string, Product[]>);
+  const filteredProducts = activeCategory === "all" 
+    ? PRODUCTS 
+    : PRODUCTS.filter(p => p.category === activeCategory);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-lg font-bold">Upgrade Cheat Sheet</h1>
-            <p className="text-xs text-muted-foreground">Know the pain points. Maximize upgrades.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* AI Calculator CTA */}
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <button
-              onClick={() => setCalculatorOpen(true)}
-              className="w-full flex items-center gap-4 text-left"
-            >
-              <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Calculator className="w-6 h-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold flex items-center gap-2">
-                  Calculate Upgrade PRMR
-                  <Sparkles className="w-4 h-4 text-primary" />
-                </h3>
-                <p className="text-sm text-muted-foreground">AI-powered calculator for your upgrade commissions</p>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </button>
-          </CardContent>
-        </Card>
-
-        {/* What to Look For */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">What to Look For</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Know these pain points so you can understand why customers would want to upgrade.
-          </p>
-
-          {Object.entries(groupedProducts).map(([category, products]) => {
-            const CategoryIcon = getCategoryIcon(category);
-            return (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center gap-2 pt-2">
-                  <CategoryIcon className="w-4 h-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    {getCategoryLabel(category)} Cameras
-                  </h3>
-                </div>
-                <div className="grid gap-2">
-                  {products.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => setSelectedProduct(product)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-accent transition-all text-left group"
-                    >
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                          <CategoryIcon className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-sm group-hover:text-primary transition-colors truncate">
-                            {product.name}
-                          </h4>
-                          {product.isUpgradeOpportunity && (
-                            <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600 border-0">
-                              Opportunity
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {product.painPoints.length} pain point{product.painPoints.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Time Management */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <CardTitle className="text-base">Time Management with Upgrades</CardTitle>
-            </div>
-            <CardDescription>Balance upgrades and new sales to maximize pay</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {TIME_MANAGEMENT.map((item, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="w-28 flex-shrink-0">
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {item.time}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Why Do Upgrades */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              <CardTitle className="text-base">Why Do Upgrades</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {WHY_UPGRADES.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                  <span className="text-lg">{item.icon}</span>
-                  <span className="text-sm">{item.text}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* How to Calculate Pay */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-primary" />
-              <CardTitle className="text-base">How to Calculate Pay on Upgrades</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-2">
-              {PRMR_STEPS.map((step, i) => (
-                <li key={i} className="flex gap-3 text-sm">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-xs font-semibold">
-                    {i + 1}
-                  </span>
-                  <span className="text-muted-foreground pt-0.5">{step}</span>
-                </li>
-              ))}
-            </ol>
+    <div className="min-h-screen bg-background pb-24">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-3">
             <Button
-              onClick={() => setCalculatorOpen(true)}
-              variant="outline"
-              className="w-full mt-4"
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/tools")}
+              className="shrink-0"
             >
-              <Calculator className="w-4 h-4 mr-2" />
-              Open PRMR Calculator
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          </CardContent>
-        </Card>
+            <div>
+              <h1 className="text-lg font-semibold">Upgrade Cheat Sheet</h1>
+              <p className="text-xs text-muted-foreground">Know the pain points. Close more upgrades.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Product Detail Drawer */}
-      <Drawer open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-        <DrawerContent className="max-h-[85dvh]">
-          {selectedProduct && (
-            <div className="flex flex-col h-full overflow-hidden">
-              <DrawerHeader className="flex-shrink-0">
-                <DrawerTitle className="flex items-center gap-3">
-                  {selectedProduct.imageUrl ? (
+      {/* Product Cards */}
+      <div className="px-4 py-4 space-y-3">
+        <AnimatePresence mode="popLayout">
+          {filteredProducts.map((product) => (
+            <motion.div
+              key={product.id}
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div
+                onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                className={`rounded-2xl border overflow-hidden transition-all cursor-pointer ${
+                  product.isOpportunity
+                    ? "border-green-500/30 bg-green-500/5"
+                    : "border-border bg-card"
+                }`}
+              >
+                {/* Card Header */}
+                <div className="flex items-center gap-4 p-4">
+                  <div className="relative shrink-0">
                     <img
-                      src={selectedProduct.imageUrl}
-                      alt={selectedProduct.name}
-                      className="w-10 h-10 rounded-lg object-cover"
+                      src={product.image}
+                      alt={product.name}
+                      className="w-20 h-20 object-contain rounded-xl bg-muted/50"
                     />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      {(() => {
-                        const Icon = getCategoryIcon(selectedProduct.category);
-                        return <Icon className="w-5 h-5 text-muted-foreground" />;
-                      })()}
-                    </div>
-                  )}
-                  <div>
-                    <span>{selectedProduct.name}</span>
-                    {selectedProduct.isUpgradeOpportunity && (
-                      <Badge variant="secondary" className="ml-2 text-xs bg-emerald-500/10 text-emerald-600 border-0">
-                        Opportunity
+                    {product.isOpportunity && (
+                      <Badge className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] px-1.5">
+                        Upsell
                       </Badge>
                     )}
                   </div>
-                </DrawerTitle>
-              </DrawerHeader>
-              <div className="flex-1 overflow-y-auto px-4 pb-6">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {selectedProduct.isUpgradeOpportunity ? "Upgrade Opportunities" : "Pain Points to Address"}
-                  </p>
-                  {selectedProduct.painPoints.map((point, i) => (
-                    <div
-                      key={i}
-                      className={`flex gap-3 p-4 rounded-xl border ${
-                        selectedProduct.isUpgradeOpportunity 
-                          ? "bg-emerald-500/5 border-emerald-500/20" 
-                          : "bg-destructive/5 border-destructive/20"
-                      }`}
-                    >
-                      {point.emoji && (
-                        <span className="text-xl flex-shrink-0">{point.emoji}</span>
-                      )}
-                      <p className="text-sm">{point.text}</p>
-                    </div>
-                  ))}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm leading-tight">{product.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {product.painPoints.length} {product.isOpportunity ? "opportunities" : "pain points"}
+                    </p>
+                  </div>
+                  <ChevronRight 
+                    className={`h-5 w-5 text-muted-foreground transition-transform ${
+                      expandedProduct === product.id ? "rotate-90" : ""
+                    }`}
+                  />
                 </div>
-              </div>
-            </div>
-          )}
-        </DrawerContent>
-      </Drawer>
 
-      {/* PRMR Calculator */}
+                {/* Expanded Pain Points */}
+                <AnimatePresence>
+                  {expandedProduct === product.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className={`px-4 pb-4 pt-1 border-t ${
+                        product.isOpportunity ? "border-green-500/20" : "border-border/50"
+                      }`}>
+                        <div className="space-y-2">
+                          {product.painPoints.map((point, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-start gap-3 p-2.5 rounded-xl ${
+                                product.isOpportunity
+                                  ? "bg-green-500/10"
+                                  : "bg-destructive/5"
+                              }`}
+                            >
+                              <span className="text-lg">{point.emoji}</span>
+                              <span className="text-sm">{point.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Info Sections */}
+      <div className="px-4 space-y-4 mt-4">
+        {/* When to Hunt */}
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">When to Hunt Upgrades</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {TIME_TIPS.map((item, idx) => (
+              <div key={idx} className="bg-muted/50 rounded-xl p-3 text-center">
+                <div className="font-semibold text-xs text-primary">{item.time}</div>
+                <div className="text-[10px] text-muted-foreground mt-1 leading-tight">{item.tip}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Why Upgrades */}
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Why Do Upgrades</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {WHY_UPGRADES.map((item, idx) => (
+              <div key={idx} className="bg-muted/50 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
+                <span>{item.emoji}</span>
+                <span className="text-xs">{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Calculate Pay */}
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Calculate Your Pay</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {PRMR_STEPS.map((step, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {idx + 1}
+                </div>
+                <span className="text-xs">{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Floating CTA */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <Button
+          onClick={() => setCalculatorOpen(true)}
+          className="w-full h-14 rounded-2xl text-base font-semibold shadow-lg"
+        >
+          <Calculator className="h-5 w-5 mr-2" />
+          Calculate Upgrade PRMR
+        </Button>
+      </div>
+
+      {/* Calculator Drawer */}
       <UpgradePrmrCalculator
         open={calculatorOpen}
         onOpenChange={setCalculatorOpen}
       />
     </div>
   );
-};
-
-export default UpgradeCheatSheet;
+}
