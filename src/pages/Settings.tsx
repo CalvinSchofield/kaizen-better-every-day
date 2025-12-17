@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save } from "lucide-react";
+import { CalendarIcon, GripVertical, Plus, Minus, Trash2, Eye, EyeOff, ChevronDown, ChevronRight, Bell, Percent, ClipboardList, RotateCcw, BarChart3, Save, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -23,6 +23,8 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
+import { useWeeklyReports } from "@/hooks/useWeeklyReports";
+import { TeamRecapStory } from "@/components/team-recap";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -114,6 +116,12 @@ export default function Settings() {
   
   // Me vs Me state
   const [isMeVsMeOpen, setIsMeVsMeOpen] = useState(false);
+
+  // Archived reports state
+  const [isArchivedReportsOpen, setIsArchivedReportsOpen] = useState(false);
+  const [showTeamRecapStory, setShowTeamRecapStory] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const { data: publishedReports } = useWeeklyReports('published');
 
 
 
@@ -1236,6 +1244,58 @@ export default function Settings() {
           </Card>
         )}
 
+        {/* Archived Team Recaps - above App Tour */}
+        <Card>
+          <Collapsible open={isArchivedReportsOpen} onOpenChange={setIsArchivedReportsOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-base">Team Recaps</CardTitle>
+                    {!isArchivedReportsOpen && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        View past weekly & monthly recaps
+                      </p>
+                    )}
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isArchivedReportsOpen && "rotate-180")} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3">
+                {publishedReports && publishedReports.length > 0 ? (
+                  publishedReports.map((report) => (
+                    <button
+                      key={report.id}
+                      onClick={() => {
+                        setSelectedReport(report);
+                        setShowTeamRecapStory(true);
+                      }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
+                    >
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">
+                          {report.report_type === 'weekly' ? 'Weekly' : report.report_type === 'monthly' ? 'Monthly' : 'Blitz'} Recap
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(report.period_start), 'MMM d')} - {format(new Date(report.period_end), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No recaps published yet
+                  </p>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
         {/* Show Intro Again - at bottom as least important */}
         <Card>
           <CardHeader className="pb-3">
@@ -1346,6 +1406,17 @@ export default function Settings() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Team Recap Story Modal */}
+      {showTeamRecapStory && selectedReport && (
+        <TeamRecapStory
+          report={selectedReport}
+          onClose={() => {
+            setShowTeamRecapStory(false);
+            setSelectedReport(null);
+          }}
+        />
+      )}
     </div>
   );
 }

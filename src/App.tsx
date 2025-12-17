@@ -29,6 +29,7 @@ import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
+import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 // Profile route removed - merged into Settings (Personalize)
 
 const queryClient = new QueryClient({
@@ -212,6 +213,14 @@ const App = () => {
             <Route
               path="/profile"
               element={<Navigate to="/settings" replace />}
+            />
+            <Route
+              path="/reports/weekly-recap"
+              element={
+                <ProtectedRoute>
+                  <WeeklyRecapBuilder />
+                </ProtectedRoute>
+              }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
