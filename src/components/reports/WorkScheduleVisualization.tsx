@@ -29,8 +29,11 @@ const minutesToTime = (minutes: number): string => {
   return `${displayHour}:${mins.toString().padStart(2, '0')} ${period}`;
 };
 
-const minutesToDecimalHours = (minutes: number): string => {
-  return (minutes / 60).toFixed(1);
+const minutesToDurationString = (minutes: number): string => {
+  if (!minutes || isNaN(minutes)) return '--';
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return `${hours}h ${mins}m`;
 };
 
 export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVisualizationProps) => {
@@ -39,10 +42,20 @@ export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVis
 
   if (!data || data.length === 0) return null;
 
-  // Calculate averages and outliers
-  const avgStart = data.reduce((sum, d) => sum + d.startMinutes, 0) / data.length;
-  const avgEnd = data.reduce((sum, d) => sum + d.endMinutes, 0) / data.length;
-  const avgDuration = data.reduce((sum, d) => sum + d.durationMinutes, 0) / data.length;
+  // Calculate averages and outliers (filter out invalid data)
+  const validStartData = data.filter(d => d.startMinutes > 0 && !isNaN(d.startMinutes));
+  const validEndData = data.filter(d => d.endMinutes > 0 && !isNaN(d.endMinutes));
+  const validDurationData = data.filter(d => d.durationMinutes > 0 && !isNaN(d.durationMinutes));
+
+  const avgStart = validStartData.length > 0 
+    ? Math.round(validStartData.reduce((sum, d) => sum + d.startMinutes, 0) / validStartData.length)
+    : 0;
+  const avgEnd = validEndData.length > 0 
+    ? Math.round(validEndData.reduce((sum, d) => sum + d.endMinutes, 0) / validEndData.length)
+    : 0;
+  const avgDuration = validDurationData.length > 0 
+    ? Math.round(validDurationData.reduce((sum, d) => sum + d.durationMinutes, 0) / validDurationData.length)
+    : 0;
 
   // Find outliers (early starters, late workers, longest shifts)
   const sortedByStart = [...data].sort((a, b) => a.startMinutes - b.startMinutes);
@@ -112,7 +125,7 @@ export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVis
             <Timer className="w-3.5 h-3.5 text-purple-500" />
             <span className="text-xs text-muted-foreground">Avg Shift</span>
           </div>
-          <div className="text-lg font-bold">{minutesToDecimalHours(avgDuration)}h</div>
+          <div className="text-lg font-bold">{avgDuration > 0 ? minutesToDurationString(avgDuration) : '--'}</div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
             <span>See all</span>
             <ChevronRight className="w-3 h-3" />
@@ -167,7 +180,7 @@ export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVis
           <div className="text-xs text-muted-foreground">
             {selectedView === 'start' && `Started: ${minutesToTime(d.startMinutes)}`}
             {selectedView === 'end' && `Ended: ${minutesToTime(d.endMinutes)}`}
-            {selectedView === 'duration' && `Worked: ${minutesToDecimalHours(d.durationMinutes)}h`}
+            {selectedView === 'duration' && `Worked: ${minutesToDurationString(d.durationMinutes)}`}
           </div>
           <div className="text-xs font-medium text-primary">{d.fp.toFixed(1)} FP+</div>
         </div>
@@ -251,8 +264,10 @@ export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVis
               </ResponsiveContainer>
             </div>
 
-            <div className="text-xs text-center text-muted-foreground">
-              Dashed line = team average • Dot color = FP+ output
+            <div className="text-xs text-center text-muted-foreground space-y-1">
+              <div>Each dot = one rep's work day</div>
+              <div>🟠 Orange = 3+ FP+ • 🟢 Green = 1-3 FP+ • ⚪ Gray = 0 FP+</div>
+              <div>Dashed line = team average</div>
             </div>
 
             {/* Outliers / Leaders */}
@@ -273,7 +288,7 @@ export const WorkScheduleVisualization = ({ data, periodLabel }: WorkScheduleVis
                 "Longest Shifts 💪",
                 <Timer className="w-4 h-4 text-purple-500" />,
                 longestShifts,
-                (d) => `${minutesToDecimalHours(d.durationMinutes)}h`
+                (d) => minutesToDurationString(d.durationMinutes)
               )}
             </div>
           </div>
