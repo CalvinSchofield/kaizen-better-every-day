@@ -12,6 +12,8 @@ import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
 import { useSkippedRecruits } from "@/hooks/useSkippedRecruits";
 import { useAssignedTasks } from "@/hooks/useAssignedTasks";
 import { useRecruitActivitiesRealtime, useRecruitSuggestionsRealtime, useRepsRealtime } from "@/hooks/useRecruitActivitiesRealtime";
+import { useSummerRecommendations, SummerRepData } from "@/hooks/useSummerRecommendations";
+import { useRecordsTracking } from "@/hooks/useRecordsTracking";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
@@ -23,6 +25,7 @@ import { WeekPlannerSection } from "@/components/mygroup/WeekPlannerSection";
 import { RecruitDetailDrawer } from "@/components/mygroup/RecruitDetailDrawer";
 import { ContactMethodDrawer } from "@/components/mygroup/ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "@/components/mygroup/ScheduleFollowUpDrawer";
+import { GoalsPaceDrawer } from "@/components/mygroup/GoalsPaceDrawer";
 import { useRecruitingRecommendations } from "@/hooks/useRecruitingRecommendations";
 import UpcomingTeamEventsCard from "@/components/mygroup/UpcomingTeamEventsCard";
 import { AddRecruitDrawer } from "@/components/mygroup/AddRecruitDrawer";
@@ -32,7 +35,7 @@ import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer"
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
@@ -95,6 +98,7 @@ const MyGroup = () => {
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
   const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
+  const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
@@ -201,7 +205,7 @@ const MyGroup = () => {
       
       const { data } = await supabase
         .from('rep_goals')
-        .select('user_id, training_hours_goal, training_hours_progress, books_goal, books_progress, role_plays_goal, role_plays_progress, monday_night_lights_goal, monday_night_lights_progress, blitzes_goal, blitzes_progress')
+        .select('user_id, training_hours_goal, training_hours_progress, books_goal, books_progress, role_plays_goal, role_plays_progress, monday_night_lights_goal, monday_night_lights_progress, blitzes_goal, blitzes_progress, must_do_fp_goal, will_do_fp_goal, could_do_fp_goal')
         .in('user_id', recruitUserIds);
       
       return data || [];
@@ -250,6 +254,124 @@ const MyGroup = () => {
     });
     return map;
   }, [recruitsSummerConfigData]);
+
+  // Fetch daily entries for summer reps (to calculate pace)
+  const { data: summerEntriesData } = useQuery({
+    queryKey: ['summer-entries', recruitUserIds.join(',')],
+    queryFn: async () => {
+      if (recruitUserIds.length === 0) return [];
+      
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('user_id, entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
+        .in('user_id', recruitUserIds)
+        .eq('is_finalized', true)
+        .order('entry_date', { ascending: false });
+      
+      return data || [];
+    },
+    enabled: recruitUserIds.length > 0 && isLeader,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Build SummerRepData for useSummerRecommendations
+  const summerReps = useMemo<SummerRepData[]>(() => {
+    if (!recruitsRepData || !recruitsGoalsData || !recruitsSummerConfigData) return [];
+    
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    return recruitsRepData
+      .filter(rep => {
+        // Only include reps who have started their summer
+        const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
+        return config?.personal_summer_start && config.personal_summer_start <= today;
+      })
+      .map(rep => {
+        const goals = recruitsGoalsData.find(g => g.user_id === rep.user_id);
+        const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
+        const entries = summerEntriesData?.filter(e => e.user_id === rep.user_id) || [];
+        const recruit = allRecruits.find(r => r.notionPageId === rep.notion_page_id);
+        
+        const totalFp = entries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
+        const knockingDays = entries.filter(e => 
+          (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
+        ).length;
+
+        return {
+          userId: rep.user_id || '',
+          notionPageId: rep.notion_page_id || '',
+          name: recruit?.name || '',
+          year: recruit?.year || 'Rookie',
+          personalSummerStart: config?.personal_summer_start || null,
+          personalSummerEnd: null, // Not tracked yet
+          mustDoGoal: Number(goals?.must_do_fp_goal) || 0,
+          willDoGoal: Number(goals?.will_do_fp_goal) || 0,
+          couldDoGoal: Number(goals?.could_do_fp_goal) || 0,
+          currentFpPlus: totalFp,
+          knockingDaysCount: knockingDays,
+        };
+      });
+  }, [recruitsRepData, recruitsGoalsData, recruitsSummerConfigData, summerEntriesData, allRecruits]);
+
+  // Get records tracking for accessible users
+  const { recordBreakers } = useRecordsTracking({
+    enabled: isLeader && recruitUserIds.length > 0,
+    accessibleUserIds: recruitUserIds,
+  });
+
+  // Get summer recommendations
+  const summerRecommendations = useSummerRecommendations({
+    reps: summerReps,
+    entries: summerEntriesData || [],
+    recordBreakers,
+  });
+
+  // Top summer recommendation (BAGEL/RECORD takes priority)
+  const topSummerRecommendation = summerRecommendations[0] || null;
+
+  // Build Goals & Pace data for the drawer
+  const goalsPaceData = useMemo(() => {
+    if (!summerReps.length) return [];
+    
+    const today = new Date();
+    
+    return summerReps
+      .filter(rep => rep.willDoGoal > 0 && rep.personalSummerStart)
+      .map(rep => {
+        const summerStart = new Date(rep.personalSummerStart + 'T12:00:00');
+        // Assume 18 weeks of summer (~126 days)
+        const totalSummerDays = 126;
+        const daysElapsed = Math.max(1, differenceInDays(today, summerStart) + 1);
+        const daysRemaining = Math.max(0, totalSummerDays - daysElapsed);
+        
+        const expectedProgress = (rep.willDoGoal / totalSummerDays) * daysElapsed;
+        const pacePercentage = expectedProgress > 0 ? (rep.currentFpPlus / expectedProgress) * 100 : 100;
+        const dailyTarget = daysRemaining > 0 ? (rep.willDoGoal - rep.currentFpPlus) / daysRemaining : 0;
+        
+        let status: 'ahead' | 'on-track' | 'behind' | 'critical';
+        if (pacePercentage >= 110) status = 'ahead';
+        else if (pacePercentage >= 90) status = 'on-track';
+        else if (pacePercentage >= 70) status = 'behind';
+        else status = 'critical';
+        
+        return {
+          userId: rep.userId,
+          notionPageId: rep.notionPageId,
+          name: rep.name,
+          year: rep.year,
+          currentFp: rep.currentFpPlus,
+          willDoGoal: rep.willDoGoal,
+          mustDoGoal: rep.mustDoGoal,
+          couldDoGoal: rep.couldDoGoal,
+          pacePercentage,
+          dailyTarget: Math.max(0, dailyTarget),
+          daysRemaining,
+          status,
+        };
+      })
+      .sort((a, b) => a.pacePercentage - b.pacePercentage); // Critical first
+  }, [summerReps]);
+
 
   // Filter recruits by selected team if applicable
   const filteredRecruits = useMemo(() => {
@@ -314,6 +436,25 @@ const MyGroup = () => {
     repGoalsMap,
     repSummerConfigMap
   );
+
+  // Add Goals & Pace category to attention chips if there are summer reps
+  const categoriesWithSummer = useMemo(() => {
+    if (goalsPaceData.length === 0) return categories;
+    
+    const behindCount = goalsPaceData.filter(r => r.status === 'behind' || r.status === 'critical').length;
+    
+    return [
+      ...categories,
+      {
+        id: 'goals-pace',
+        label: 'Goals & Pace',
+        emoji: '📊',
+        count: behindCount > 0 ? behindCount : goalsPaceData.length,
+        recruits: [],
+        priority: 85,
+      },
+    ].sort((a, b) => b.priority - a.priority);
+  }, [categories, goalsPaceData]);
 
   // Get smart recommendations with blitz awareness, filtering out dismissed and skipped ones
   const rawRecommendations = useRecruitingRecommendations(
@@ -469,8 +610,13 @@ const MyGroup = () => {
             {/* Today's Focus Hero */}
             <TodaysFocusHero
               topRecommendation={topRecommendation}
+              summerRecommendation={topSummerRecommendation}
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
+              onSummerRepClick={(notionPageId) => {
+                const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+                if (recruit) setSelectedRecruit(recruit);
+              }}
               onViewAll={() => setQuickViewOpen(true)}
               onContactClick={handleHeroContact}
               onScheduleClick={handleHeroSchedule}
@@ -491,9 +637,15 @@ const MyGroup = () => {
             </AnimatePresence>
 
             <NeedsAttentionChips
-              categories={categories}
+              categories={categoriesWithSummer}
               selectedCategory={selectedCategoryId}
-              onCategoryClick={handleCategoryClick}
+              onCategoryClick={(catId) => {
+                if (catId === 'goals-pace') {
+                  setGoalsPaceDrawerOpen(true);
+                } else {
+                  handleCategoryClick(catId);
+                }
+              }}
               assignedTasksCount={assignedTasks.length}
               onAssignedTasksClick={() => setAssignedTasksDrawerOpen(true)}
             />
@@ -725,6 +877,20 @@ const MyGroup = () => {
         onRecruitClick={(notionPageId) => {
           const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
           if (recruit) handleRecruitClick(recruit);
+        }}
+      />
+
+      {/* Goals & Pace Drawer */}
+      <GoalsPaceDrawer
+        open={goalsPaceDrawerOpen}
+        onOpenChange={setGoalsPaceDrawerOpen}
+        reps={goalsPaceData}
+        onRepClick={(notionPageId) => {
+          const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+          if (recruit) {
+            setGoalsPaceDrawerOpen(false);
+            setSelectedRecruit(recruit);
+          }
         }}
       />
     </Layout>

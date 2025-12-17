@@ -1,15 +1,23 @@
-import { UserRoundSearch, Calendar, Sparkles, AlertTriangle } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
+import { SummerRecommendation } from "@/hooks/useSummerRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { SkipMenu } from "./SkipMenu";
 
+// Combined recommendation type for both preseason and summer
+export type HeroRecommendation = 
+  | { type: 'preseason'; data: RecruitRecommendation }
+  | { type: 'summer'; data: SummerRecommendation };
+
 interface TodaysFocusHeroProps {
   topRecommendation: RecruitRecommendation | null;
+  summerRecommendation?: SummerRecommendation | null;
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
+  onSummerRepClick?: (notionPageId: string) => void;
   onViewAll: () => void;
   onContactClick?: (recruit: Recruit) => void;
   onScheduleClick?: (recruit: Recruit) => void;
@@ -24,7 +32,7 @@ const stripEmojis = (text: string | null): string | null => {
   return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
 };
 
-const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
+const BADGE_STYLES: Record<string, string> = {
   'blitz-critical': 'border-red-500/50 text-red-600 bg-red-500/10',
   'blitz-prep': 'border-purple-500/50 text-purple-600 bg-purple-500/10',
   'signed': 'border-emerald-500/50 text-emerald-600 bg-emerald-500/10',
@@ -32,9 +40,17 @@ const BADGE_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
   'pipeline': 'border-blue-500/50 text-blue-600 bg-blue-500/10',
   'stale': 'border-amber-500/50 text-amber-600 bg-amber-500/10',
   'overdue': 'border-red-500/50 text-red-600 bg-red-500/10',
+  // Summer badges
+  'bagel': 'border-red-500/50 text-red-600 bg-red-500/10',
+  'record': 'border-yellow-500/50 text-yellow-600 bg-yellow-500/10',
+  'off-pace': 'border-amber-500/50 text-amber-600 bg-amber-500/10',
+  'plateau': 'border-orange-500/50 text-orange-600 bg-orange-500/10',
+  'work-ethic': 'border-slate-500/50 text-slate-600 bg-slate-500/10',
+  'praise': 'border-emerald-500/50 text-emerald-600 bg-emerald-500/10',
+  'check-in': 'border-blue-500/50 text-blue-600 bg-blue-500/10',
 };
 
-const CONTAINER_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
+const CONTAINER_STYLES: Record<string, string> = {
   'blitz-critical': 'border-red-500/30 bg-red-500/5',
   'blitz-prep': 'border-purple-500/30 bg-purple-500/5',
   'signed': 'border-emerald-500/30 bg-emerald-500/5',
@@ -42,12 +58,22 @@ const CONTAINER_STYLES: Record<RecruitRecommendation['reasonBadge'], string> = {
   'pipeline': 'border-blue-500/30 bg-blue-500/5',
   'stale': 'border-amber-500/30 bg-amber-500/5',
   'overdue': 'border-red-500/30 bg-red-500/5',
+  // Summer containers
+  'bagel': 'border-red-500/30 bg-red-500/5',
+  'record': 'border-yellow-500/30 bg-yellow-500/5',
+  'off-pace': 'border-amber-500/30 bg-amber-500/5',
+  'plateau': 'border-orange-500/30 bg-orange-500/5',
+  'work-ethic': 'border-slate-500/30 bg-slate-500/5',
+  'praise': 'border-emerald-500/30 bg-emerald-500/5',
+  'check-in': 'border-blue-500/30 bg-blue-500/5',
 };
 
 export const TodaysFocusHero = ({ 
   topRecommendation, 
+  summerRecommendation,
   totalNeedsAttention,
   onRecruitClick,
+  onSummerRepClick,
   onViewAll,
   onContactClick,
   onScheduleClick,
@@ -55,6 +81,10 @@ export const TodaysFocusHero = ({
   onSkipToday,
   animatingOut = false
 }: TodaysFocusHeroProps) => {
+
+  // Determine which recommendation to show (summer takes priority for BAGEL/RECORD)
+  const showSummer = summerRecommendation && 
+    (summerRecommendation.reasonBadge === 'bagel' || summerRecommendation.reasonBadge === 'record');
 
   const handleSkipForNow = () => {
     if (!topRecommendation) return;
@@ -76,6 +106,82 @@ export const TodaysFocusHero = ({
     onScheduleClick?.(topRecommendation.recruit);
   };
 
+  // Render Summer Hero (BAGEL or RECORD)
+  if (showSummer && summerRecommendation) {
+    const isBagel = summerRecommendation.reasonBadge === 'bagel';
+    const isRecord = summerRecommendation.reasonBadge === 'record';
+    const firstName = summerRecommendation.rep.name?.split(' ')[0] || 'Rep';
+
+    return (
+      <div 
+        className={cn(
+          "rounded-2xl p-5 border-2 transition-all duration-300",
+          CONTAINER_STYLES[summerRecommendation.reasonBadge],
+          animatingOut && "animate-fade-out opacity-0 scale-95"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className={cn(
+            "p-2 rounded-full",
+            isBagel ? "bg-red-500/10" : "bg-yellow-500/10"
+          )}>
+            {isBagel ? (
+              <Flame className="h-5 w-5 text-red-500" />
+            ) : (
+              <Trophy className="h-5 w-5 text-yellow-500" />
+            )}
+          </div>
+          <span className={cn(
+            "text-sm font-medium",
+            isBagel ? "text-red-600" : "text-yellow-600"
+          )}>
+            {isBagel ? "🚨 Urgent: BAGEL Alert" : "🏆 Record Breaker!"}
+          </span>
+          <Badge variant="outline" className={cn("ml-auto text-xs", BADGE_STYLES[summerRecommendation.reasonBadge])}>
+            {summerRecommendation.rep.year}
+          </Badge>
+        </div>
+
+        <div 
+          className="cursor-pointer"
+          onClick={() => onSummerRepClick?.(summerRecommendation.rep.notionPageId)}
+        >
+          <h2 className="text-xl font-semibold mb-2">
+            {firstName}
+          </h2>
+          
+          <p className="text-sm text-muted-foreground mb-3">
+            {summerRecommendation.reason}
+          </p>
+
+          {isBagel && summerRecommendation.details?.knockingDays && (
+            <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/30">
+              {summerRecommendation.details.knockingDays} knocking days, 0 sales
+            </Badge>
+          )}
+
+          {isRecord && summerRecommendation.details && (
+            <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+              New {summerRecommendation.details.recordType} {summerRecommendation.details.recordPeriod} record!
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          <Button 
+            className="flex-1 gap-2"
+            size="lg"
+            variant={isBagel ? "destructive" : "default"}
+            onClick={() => onSummerRepClick?.(summerRecommendation.rep.notionPageId)}
+          >
+            {isBagel ? "Help Now" : "Celebrate"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default preseason/recruiting hero
   if (!topRecommendation) {
     return (
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-2xl p-6 border border-primary/20">
