@@ -1,6 +1,8 @@
 import { AggregatedRankingsCard } from "./AggregatedRankingsCard";
 import { LiveLeaderboard } from "./LiveLeaderboard";
+import { RookieCohortCard } from "./RookieCohortCard";
 import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
+import { RepGoals } from "@/hooks/useRepGoals";
 
 interface ReportsPeopleTabProps {
   // View type
@@ -23,6 +25,9 @@ interface ReportsPeopleTabProps {
   repCount?: number;
   aggregatedLoading?: boolean;
   rankingsTitle?: string;
+  
+  // Goals data for plateau detection (optional)
+  allGoals?: RepGoals[];
 }
 
 export const ReportsPeopleTab = ({
@@ -39,6 +44,7 @@ export const ReportsPeopleTab = ({
   repCount,
   aggregatedLoading,
   rankingsTitle,
+  allGoals,
 }: ReportsPeopleTabProps) => {
   if (viewType === 'today') {
     return (
@@ -77,6 +83,10 @@ export const ReportsPeopleTab = ({
   // Aggregated view (week/month/season/ytd)
   return (
     <div className="space-y-4">
+      {/* Rookie Cohort Comparison */}
+      <RookieCohortCard reps={aggregatedReps || []} />
+      
+      {/* Main Rankings */}
       <AggregatedRankingsCard
         reps={aggregatedReps || []}
         totalFP={totalFP || 0}

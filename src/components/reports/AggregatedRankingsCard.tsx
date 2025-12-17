@@ -9,6 +9,9 @@ import { RepRankingData } from "@/hooks/useTeamAggregatedRankings";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
+import { RepEfficiencyBadge, calculateEfficiency } from "./RepEfficiencyBadge";
+import { TrendBadge } from "./TrendBadge";
+
 type SortOption = 
   | 'default' 
   | 'fp' 
@@ -27,12 +30,14 @@ type SortOption =
   | 'hoursPerDay'
   | 'prmrPerDay'
   | 'pitchesPerDay'
-  | 'transitionsPerDay';
+  | 'transitionsPerDay'
+  | 'efficiency';
 
 // Sort options - always use FP+ for reports
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'default', label: 'Default' },
   { value: 'fp', label: 'FP+' },
+  { value: 'efficiency', label: '⚡ Efficiency' },
   { value: 'prmr', label: 'PRMR' },
   { value: 'doors', label: 'Doors' },
   { value: 'dms', label: 'Decision Makers' },
@@ -166,6 +171,11 @@ export const AggregatedRankingsCard = ({
   // Helper to get per-day value
   const getPerDay = (value: number, days: number) => days > 0 ? value / days : 0;
 
+  // Calculate all efficiency scores for quartile coloring
+  const allEfficiencyScores = filteredReps.map(r => 
+    calculateEfficiency(r.stats.fp, r.stats.doors, r.hoursWorked)
+  );
+
   // Sort function
   const sortReps = (repsToSort: RepRankingData[]): RepRankingData[] => {
     if (sortBy === 'default') return repsToSort;
@@ -195,6 +205,9 @@ export const AggregatedRankingsCard = ({
         case 'prmrPerDay': return getPerDay(b.stats.prmr, b.daysWorked) - getPerDay(a.stats.prmr, a.daysWorked);
         case 'pitchesPerDay': return getPerDay(b.stats.pitches, b.daysWorked) - getPerDay(a.stats.pitches, a.daysWorked);
         case 'transitionsPerDay': return getPerDay(b.stats.transitions, b.daysWorked) - getPerDay(a.stats.transitions, a.daysWorked);
+        case 'efficiency': 
+          return calculateEfficiency(b.stats.fp, b.stats.doors, b.hoursWorked) - 
+                 calculateEfficiency(a.stats.fp, a.stats.doors, a.hoursWorked);
         default: return 0;
       }
     });
@@ -222,6 +235,7 @@ export const AggregatedRankingsCard = ({
       case 'prmrPerDay': return `$${perDay(rep.stats.prmr).toFixed(0)}/d`;
       case 'pitchesPerDay': return `${perDay(rep.stats.pitches).toFixed(1)} pitch/d`;
       case 'transitionsPerDay': return `${perDay(rep.stats.transitions).toFixed(1)} trans/d`;
+      case 'efficiency': return `⚡ ${calculateEfficiency(rep.stats.fp, rep.stats.doors, rep.hoursWorked).toFixed(2)}`;
       default: return null;
     }
   };
