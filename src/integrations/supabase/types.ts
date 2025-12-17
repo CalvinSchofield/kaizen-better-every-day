@@ -272,6 +272,39 @@ export type Database = {
         }
         Relationships: []
       }
+      leader_interactions: {
+        Row: {
+          created_at: string
+          id: string
+          interaction_date: string
+          interaction_type: string
+          leader_user_id: string
+          notes: string | null
+          rep_notion_page_id: string | null
+          rep_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interaction_date?: string
+          interaction_type: string
+          leader_user_id: string
+          notes?: string | null
+          rep_notion_page_id?: string | null
+          rep_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interaction_date?: string
+          interaction_type?: string
+          leader_user_id?: string
+          notes?: string | null
+          rep_notion_page_id?: string | null
+          rep_user_id?: string
+        }
+        Relationships: []
+      }
       note_tags: {
         Row: {
           created_at: string

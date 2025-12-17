@@ -24,7 +24,7 @@ const parseLocalDate = (dateString: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-type ViewFilter = 'all' | 'missing' | 'ready' | 'off';
+type ViewFilter = 'all' | 'missing' | 'ready' | 'off' | 'arriving-soon' | 'leaving-soon' | 'off-today';
 type ViewMode = 'list' | 'timeline';
 
 interface PersonSummerInfo {
@@ -154,6 +154,20 @@ export const SummerAvailabilityView = () => {
       return acc + upcoming.length;
     }, 0);
 
+    // Arriving within 7 days
+    const arrivingSoon = hasDatesPeople.filter(p => {
+      const start = parseLocalDate(p.personalSummerStart!);
+      const daysUntil = differenceInDays(start, today);
+      return daysUntil > 0 && daysUntil <= 7;
+    });
+
+    // Leaving within 14 days
+    const leavingSoon = hasDatesPeople.filter(p => {
+      const end = parseLocalDate(p.personalSummerEnd!);
+      const daysUntil = differenceInDays(end, today);
+      return daysUntil >= 0 && daysUntil <= 14 && todayStr >= p.personalSummerStart!;
+    });
+
     return {
       total: people.length,
       missing: missingDates.length,
@@ -161,6 +175,8 @@ export const SummerAvailabilityView = () => {
       earlyStarters: earlyStarters.length,
       offToday: offToday.length,
       upcomingOffDays,
+      arrivingSoon: arrivingSoon.length,
+      leavingSoon: leavingSoon.length,
     };
   }, [people, todayStr, today]);
 
@@ -183,6 +199,29 @@ export const SummerAvailabilityView = () => {
           return p.excludedSummerDays.length > 0;
         });
         break;
+      case 'arriving-soon':
+        filtered = filtered.filter(p => {
+          if (!p.personalSummerStart) return false;
+          const start = parseLocalDate(p.personalSummerStart);
+          const daysUntil = differenceInDays(start, today);
+          return daysUntil > 0 && daysUntil <= 7;
+        });
+        break;
+      case 'leaving-soon':
+        filtered = filtered.filter(p => {
+          if (!p.personalSummerEnd || !p.personalSummerStart) return false;
+          const end = parseLocalDate(p.personalSummerEnd);
+          const daysUntil = differenceInDays(end, today);
+          return daysUntil >= 0 && daysUntil <= 14 && todayStr >= p.personalSummerStart;
+        });
+        break;
+      case 'off-today':
+        filtered = filtered.filter(p => {
+          if (!p.personalSummerStart || !p.personalSummerEnd) return false;
+          if (todayStr < p.personalSummerStart || todayStr > p.personalSummerEnd) return true;
+          return p.excludedSummerDays.includes(todayStr);
+        });
+        break;
     }
 
     // Sort: missing dates first, then by start date (earliest first)
@@ -193,7 +232,7 @@ export const SummerAvailabilityView = () => {
       if (!aMissing && bMissing) return 1;
       return (a.personalSummerStart || '9999').localeCompare(b.personalSummerStart || '9999');
     });
-  }, [people, filter, todayStr]);
+  }, [people, filter, todayStr, today]);
 
   const isLoading = teamAccessLoading || teamLoading;
 
@@ -286,43 +325,100 @@ export const SummerAvailabilityView = () => {
         </div>
       </div>
 
-      {/* View mode toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'timeline'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <GanttChart className="h-3.5 w-3.5" />
-            Timeline
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-              viewMode === 'list'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-            List
-          </button>
+      {/* View mode toggle and quick filters */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                viewMode === 'timeline'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <GanttChart className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                viewMode === 'list'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              List
+            </button>
+          </div>
+          
+          {filter !== 'all' && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 text-xs px-2"
+              onClick={() => setFilter('all')}
+            >
+              Clear filter
+            </Button>
+          )}
         </div>
-        
-        {filter !== 'all' && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-6 text-xs px-2"
-            onClick={() => setFilter('all')}
-          >
-            Clear filter
-          </Button>
-        )}
+
+        {/* Quick filter chips */}
+        <ScrollArea className="w-full">
+          <div className="flex items-center gap-1.5 pb-1">
+            {stats.arrivingSoon > 0 && (
+              <button
+                onClick={() => setFilter(filter === 'arriving-soon' ? 'all' : 'arriving-soon')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+                  filter === 'arriving-soon'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-primary/10 text-primary hover:bg-primary/20'
+                }`}
+              >
+                🚀 Arriving this week ({stats.arrivingSoon})
+              </button>
+            )}
+            {stats.leavingSoon > 0 && (
+              <button
+                onClick={() => setFilter(filter === 'leaving-soon' ? 'all' : 'leaving-soon')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+                  filter === 'leaving-soon'
+                    ? 'bg-warning text-warning-foreground'
+                    : 'bg-warning/10 text-warning hover:bg-warning/20'
+                }`}
+              >
+                ✈️ Leaving soon ({stats.leavingSoon})
+              </button>
+            )}
+            {stats.offToday > 0 && (
+              <button
+                onClick={() => setFilter(filter === 'off-today' ? 'all' : 'off-today')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+                  filter === 'off-today'
+                    ? 'bg-muted-foreground text-background'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                🏖️ Off today ({stats.offToday})
+              </button>
+            )}
+            {stats.missing > 0 && (
+              <button
+                onClick={() => setFilter(filter === 'missing' ? 'all' : 'missing')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all ${
+                  filter === 'missing'
+                    ? 'bg-destructive text-destructive-foreground'
+                    : 'bg-destructive/10 text-destructive hover:bg-destructive/20'
+                }`}
+              >
+                ⚠️ No dates ({stats.missing})
+              </button>
+            )}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
 
       {/* Filter indicator */}

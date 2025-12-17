@@ -123,10 +123,26 @@ export const useAppMode = (repData?: any) => {
     },
   });
 
+  // Check if rep is currently in their summer period
+  const isInSummerPeriod = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const effectiveStart = seasonConfig?.personal_summer_start
+      ? new Date(seasonConfig.personal_summer_start + 'T00:00:00')
+      : GLOBAL_SUMMER_START;
+
+    const effectiveEnd = seasonConfig?.personal_summer_end
+      ? new Date(seasonConfig.personal_summer_end + 'T00:00:00')
+      : GLOBAL_SUMMER_END;
+
+    return today >= effectiveStart && today <= effectiveEnd;
+  }, [seasonConfig]);
+
   // Calculate if knocking mode should be active
   const isKnockingMode = useMemo(() => {
-    // Priority 1: Manual override takes precedence
-    if (seasonConfig?.knocking_mode_enabled !== null && seasonConfig?.knocking_mode_enabled !== undefined) {
+    // Priority 1: Manual override takes precedence (only for leaders)
+    if (isLeader && seasonConfig?.knocking_mode_enabled !== null && seasonConfig?.knocking_mode_enabled !== undefined) {
       return seasonConfig.knocking_mode_enabled;
     }
 
@@ -136,19 +152,18 @@ export const useAppMode = (repData?: any) => {
     }
 
     // Priority 3: Auto-enable if within personal summer dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // For non-leaders (reps), this is automatic with no toggle
+    return isInSummerPeriod;
+  }, [seasonConfig, isOnActiveBlitz, isInSummerPeriod, isLeader]);
 
-    const effectiveStart = seasonConfig?.personal_summer_start
-      ? new Date(seasonConfig.personal_summer_start)
-      : GLOBAL_SUMMER_START;
-
-    const effectiveEnd = seasonConfig?.personal_summer_end
-      ? new Date(seasonConfig.personal_summer_end)
-      : GLOBAL_SUMMER_END;
-
-    return today >= effectiveStart && today <= effectiveEnd;
-  }, [seasonConfig, isOnActiveBlitz]);
+  // Determine if knocking toggle should be shown
+  // Leaders: always show toggle so they can switch between selling and recruiting
+  // Reps: only show toggle if they can access it AND not auto-enabled by summer
+  const showKnockingToggle = useMemo(() => {
+    if (isLeader) return true;
+    // For non-leaders, show toggle only if they have blitz access and NOT in auto-summer mode
+    return canAccessKnockingToggle && !isInSummerPeriod;
+  }, [isLeader, canAccessKnockingToggle, isInSummerPeriod]);
 
   // Toggle knocking mode
   const toggleModeMutation = useMutation({
@@ -180,7 +195,10 @@ export const useAppMode = (repData?: any) => {
     toggleMode: toggleModeMutation.mutate,
     isToggling: toggleModeMutation.isPending,
     canAccessKnockingToggle,
+    showKnockingToggle,
     isOnActiveBlitz,
     hasAttendedBlitz,
+    isLeader,
+    isInSummerPeriod,
   };
 };
