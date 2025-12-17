@@ -7,6 +7,7 @@ interface LeaderboardEntry {
   name: string;
   value: number;
   timeValue?: string;
+  isSaturday?: boolean;
 }
 
 interface MonthlyLeaderboard {
@@ -64,7 +65,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
       // Fetch all finalized entries for the month
       const { data: entries, error } = await supabase
         .from("daily_entries")
-        .select("user_id, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
+        .select("user_id, entry_date, doors_knocked, pitches, transitions, presentations, fp_plus, prmr, upgrade_prmr, work_start_time, work_end_time, break_periods, counter_timestamps, timezone")
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
         .eq("is_finalized", true);
@@ -89,6 +90,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
         hoursWorked: number;
         earliestDoorMins: number | null;
         earliestDoorTs: string | null;
+        earliestDoorDate: string | null;
         latestDoorMins: number | null;
         latestDoorTs: string | null;
         timezone: string;
@@ -108,6 +110,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           hoursWorked: 0,
           earliestDoorMins: null,
           earliestDoorTs: null,
+          earliestDoorDate: null,
           latestDoorMins: null,
           latestDoorTs: null,
           timezone: userTimezone,
@@ -135,6 +138,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
 
         let entryEarliestMins = current.earliestDoorMins;
         let entryEarliestTs = current.earliestDoorTs;
+        let entryEarliestDate = current.earliestDoorDate;
         let entryLatestMins = current.latestDoorMins;
         let entryLatestTs = current.latestDoorTs;
 
@@ -146,6 +150,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
               if (entryEarliestMins === null || mins < entryEarliestMins) {
                 entryEarliestMins = mins;
                 entryEarliestTs = ts;
+                entryEarliestDate = entry.entry_date;
               }
               if (entryLatestMins === null || mins > entryLatestMins) {
                 entryLatestMins = mins;
@@ -170,6 +175,7 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
           hoursWorked: current.hoursWorked + entryHours,
           earliestDoorMins: entryEarliestMins,
           earliestDoorTs: entryEarliestTs,
+          earliestDoorDate: entryEarliestDate,
           latestDoorMins: entryLatestMins,
           latestDoorTs: entryLatestTs,
           timezone: userTimezone,
@@ -242,12 +248,18 @@ export const useMonthlyLeaderboard = (filterByYear?: string) => {
             timeZone: totals.timezone
           });
 
+          // Check if this earliest door was on a Saturday
+          const isSaturday = totals.earliestDoorDate 
+            ? new Date(totals.earliestDoorDate + 'T12:00:00').getDay() === 6 
+            : false;
+
           if (!leaderboard.earliestDoor || totals.earliestDoorMins < (leaderboard.earliestDoor.value || Infinity)) {
             leaderboard.earliestDoor = {
               userId,
               name: cleanName,
               value: totals.earliestDoorMins,
-              timeValue: earliestTime
+              timeValue: earliestTime,
+              isSaturday
             };
           }
         }

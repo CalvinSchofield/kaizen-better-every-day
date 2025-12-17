@@ -7,6 +7,7 @@ interface LeaderboardEntry {
   name: string;
   value: number;
   timeValue?: string;
+  isSaturday?: boolean;
 }
 
 interface YTDLeaderboard {
@@ -73,6 +74,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
         upgradePrmr: number;
         hoursWorked: number;
         earliestDoorTime: string | null;
+        earliestDoorDate: string | null;
         latestDoorTime: string | null;
       }>();
 
@@ -88,6 +90,7 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
           upgradePrmr: 0,
           hoursWorked: 0,
           earliestDoorTime: null,
+          earliestDoorDate: null,
           latestDoorTime: null,
         };
 
@@ -137,13 +140,15 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
               const [hours, minutes] = localTime.split(':').map(Number);
               const minutesOfDay = hours * 60 + minutes;
               
-              // Track earliest door (smallest minutes of day) - store timezone too
+              // Track earliest door (smallest minutes of day) - store timezone and date too
               if (stats.earliestDoorTime === null) {
                 stats.earliestDoorTime = `${minutesOfDay}|${ts}|${userTimezone}`;
+                stats.earliestDoorDate = entry.entry_date;
               } else {
                 const [existingMins] = stats.earliestDoorTime.split('|');
                 if (minutesOfDay < parseInt(existingMins)) {
                   stats.earliestDoorTime = `${minutesOfDay}|${ts}|${userTimezone}`;
+                  stats.earliestDoorDate = entry.entry_date;
                 }
               }
               
@@ -231,11 +236,16 @@ export const useYTDLeaderboard = (filterByYear?: string) => {
               hour12: true,
               timeZone: tz || 'America/Los_Angeles',
             });
+            // Check if this earliest door was on a Saturday
+            const isSaturday = stats.earliestDoorDate 
+              ? new Date(stats.earliestDoorDate + 'T12:00:00').getDay() === 6 
+              : false;
             leaderboard.earliestDoor = { 
               userId, 
               name: cleanName, 
               value: mins,
-              timeValue: timeStr
+              timeValue: timeStr,
+              isSaturday
             };
           }
         }
