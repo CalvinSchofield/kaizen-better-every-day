@@ -28,6 +28,7 @@ import MyGroup from "./pages/MyGroup";
 import Customers from "./pages/Customers";
 import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
+import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 // Profile route removed - merged into Settings (Personalize)
 
 const queryClient = new QueryClient({
@@ -116,6 +117,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Objections />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/upgrades"
+              element={
+                <ProtectedRoute>
+                  <UpgradeCheatSheet />
                 </ProtectedRoute>
               }
             />
