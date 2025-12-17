@@ -7,7 +7,7 @@ import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 
 import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, Lock, BarChart3, TrendingUpIcon, Gauge, PieChart } from 'lucide-react';
-import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays, differenceInDays } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -619,77 +619,136 @@ export default function Insights() {
               description="Your best performances"
             />
 
-            {/* Best Periods */}
-            <InsightCollapsible
-              icon={Award}
-              title="Best Periods"
-              isOpen={expandedSection === 'bestPeriods'}
-              onToggle={() => handleSectionToggle('bestPeriods')}
-              preview={
-                insights.bestDay ? (
-                  <span>
-                    Best day: <span className="text-primary font-medium">
-                      {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                    </span> on {insights.bestDay.date}
-                  </span>
-                ) : 'Your personal records'
-              }
-            >
-              <div className="space-y-3">
-                {insights.bestDay && (
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <div className="text-sm text-muted-foreground mb-1">Best Day</div>
-                    <div className="text-xl font-bold text-primary">
-                      {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
-                  </div>
-                )}
-                
-                {insights.bestWeek && (
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <div className="text-sm text-muted-foreground mb-1">Best Week</div>
-                    <div className="text-xl font-bold text-primary">
-                      {efpModeEnabled ? insights.bestWeek.efp.toFixed(2) : insights.bestWeek.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
-                  </div>
-                )}
-                
-                {insights.bestMonth && (
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <div className="text-sm text-muted-foreground mb-1">Best Month</div>
-                    <div className="text-xl font-bold text-primary">
-                      {efpModeEnabled ? insights.bestMonth.efp.toFixed(2) : insights.bestMonth.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
-                  </div>
-                )}
-                
-                {insights.bestTransitionsDay && (
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <div className="text-sm text-muted-foreground mb-1">Most Transitions Day</div>
-                    <div className="text-xl font-bold text-primary">{insights.bestTransitionsDay.transitions} transitions</div>
-                    <div className="text-sm text-muted-foreground">{insights.bestTransitionsDay.date}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {efpModeEnabled ? `${insights.bestTransitionsDay.efp.toFixed(2)} EFP` : `${insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+`} sold
-                    </div>
-                  </div>
-                )}
+            {/* Best Periods - Contextual based on date range */}
+            {(() => {
+              const dateRange = getDateRange(datePreset);
+              const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
+              const showBestDay = daysInRange > 1;
+              const showBestWeek = daysInRange > 7;
+              const showBestMonth = daysInRange > 30;
+              
+              // For single day (yesterday), show simplified summary
+              if (daysInRange === 1) {
+                return (
+                  <InsightCollapsible
+                    icon={Award}
+                    title="Day Summary"
+                    isOpen={expandedSection === 'bestPeriods'}
+                    onToggle={() => handleSectionToggle('bestPeriods')}
+                    preview={
+                      <span>
+                        <span className="text-primary font-medium">
+                          {efpModeEnabled ? insights.totalEfp.toFixed(2) : insights.totalFp.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </span> · {insights.totalDoors} doors · {insights.totalCloses} closes
+                      </span>
+                    }
+                  >
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-xl bg-primary/10">
+                        <div className="text-sm text-muted-foreground mb-1">Results</div>
+                        <div className="text-xl font-bold text-primary">
+                          {efpModeEnabled ? insights.totalEfp.toFixed(2) : insights.totalFp.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">${insights.totalPrmr.toLocaleString()} PRMR</div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-xl bg-muted/30">
+                          <div className="text-sm text-muted-foreground">Doors</div>
+                          <div className="text-xl font-bold">{insights.totalDoors}</div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-muted/30">
+                          <div className="text-sm text-muted-foreground">Closes</div>
+                          <div className="text-xl font-bold">{insights.totalCloses}</div>
+                        </div>
+                      </div>
 
-                {/* Day of Week Analysis */}
-                {insights.bestDayOfWeek && (
-                  <DayOfWeekAnalysis 
-                    dayOfWeekData={insights.dayOfWeekData}
-                    bestDayOfWeek={insights.bestDayOfWeek}
-                    efpModeEnabled={efpModeEnabled}
-                  />
-                )}
-              </div>
-            </InsightCollapsible>
+                      {/* Day of Week Analysis still relevant */}
+                      {insights.bestDayOfWeek && (
+                        <DayOfWeekAnalysis 
+                          dayOfWeekData={insights.dayOfWeekData}
+                          bestDayOfWeek={insights.bestDayOfWeek}
+                          efpModeEnabled={efpModeEnabled}
+                        />
+                      )}
+                    </div>
+                  </InsightCollapsible>
+                );
+              }
+              
+              return (
+                <InsightCollapsible
+                  icon={Award}
+                  title="Best Periods"
+                  isOpen={expandedSection === 'bestPeriods'}
+                  onToggle={() => handleSectionToggle('bestPeriods')}
+                  preview={
+                    insights.bestDay ? (
+                      <span>
+                        Best day: <span className="text-primary font-medium">
+                          {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </span> on {insights.bestDay.date}
+                      </span>
+                    ) : 'Your personal records'
+                  }
+                >
+                  <div className="space-y-3">
+                    {showBestDay && insights.bestDay && (
+                      <div className="p-3 rounded-xl bg-muted/30">
+                        <div className="text-sm text-muted-foreground mb-1">Best Day</div>
+                        <div className="text-xl font-bold text-primary">
+                          {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
+                      </div>
+                    )}
+                    
+                    {showBestWeek && insights.bestWeek && (
+                      <div className="p-3 rounded-xl bg-muted/30">
+                        <div className="text-sm text-muted-foreground mb-1">Best Week</div>
+                        <div className="text-xl font-bold text-primary">
+                          {efpModeEnabled ? insights.bestWeek.efp.toFixed(2) : insights.bestWeek.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
+                      </div>
+                    )}
+                    
+                    {showBestMonth && insights.bestMonth && (
+                      <div className="p-3 rounded-xl bg-muted/30">
+                        <div className="text-sm text-muted-foreground mb-1">Best Month</div>
+                        <div className="text-xl font-bold text-primary">
+                          {efpModeEnabled ? insights.bestMonth.efp.toFixed(2) : insights.bestMonth.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
+                      </div>
+                    )}
+                    
+                    {showBestDay && insights.bestTransitionsDay && (
+                      <div className="p-3 rounded-xl bg-muted/30">
+                        <div className="text-sm text-muted-foreground mb-1">Most Transitions Day</div>
+                        <div className="text-xl font-bold text-primary">{insights.bestTransitionsDay.transitions} transitions</div>
+                        <div className="text-sm text-muted-foreground">{insights.bestTransitionsDay.date}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {efpModeEnabled ? `${insights.bestTransitionsDay.efp.toFixed(2)} EFP` : `${insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+`} sold
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Day of Week Analysis */}
+                    {insights.bestDayOfWeek && (
+                      <DayOfWeekAnalysis 
+                        dayOfWeekData={insights.dayOfWeekData}
+                        bestDayOfWeek={insights.bestDayOfWeek}
+                        efpModeEnabled={efpModeEnabled}
+                      />
+                    )}
+                  </div>
+                </InsightCollapsible>
+              );
+            })()}
 
             {/* Personal Metrics (Custom Counters) - Only for Vets/Sophomores */}
             {(repData?.year === "Vet" || repData?.year === "Sophomore") && insights.customCounterTotals && Object.keys(insights.customCounterTotals).length > 0 && (

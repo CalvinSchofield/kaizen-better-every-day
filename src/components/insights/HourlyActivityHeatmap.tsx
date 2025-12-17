@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Lightbulb, TrendingUp, Clock, Target } from "lucide-react";
 
 interface HourlyActivityHeatmapProps {
   hourlyActivity: {
@@ -20,6 +21,17 @@ interface HourlyActivityHeatmapProps {
     minHour: number;
     maxHour: number;
   };
+}
+
+interface TimeBlockStats {
+  name: string;
+  range: string;
+  doors: number;
+  pitches: number;
+  transitions: number;
+  presentations: number;
+  closes: number;
+  conversionRate: number;
 }
 
 export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: HourlyActivityHeatmapProps) => {
@@ -54,6 +66,108 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
     if (hour > 12) return `${hour - 12} PM`;
     return `${hour} AM`;
   };
+
+  // Calculate time block statistics
+  const calculateTimeBlockStats = (): TimeBlockStats[] => {
+    const blocks = [
+      { name: 'Morning', range: '9AM-12PM', startHour: 9, endHour: 11 },
+      { name: 'Midday', range: '12PM-3PM', startHour: 12, endHour: 14 },
+      { name: 'Afternoon', range: '3PM-6PM', startHour: 15, endHour: 17 },
+      { name: 'Evening', range: '6PM-9PM', startHour: 18, endHour: 20 },
+    ];
+
+    return blocks.map(block => {
+      let doors = 0, pitches = 0, transitions = 0, presentations = 0, closes = 0;
+      
+      for (let h = block.startHour; h <= block.endHour; h++) {
+        doors += hourlyActivity.doors[h] || 0;
+        pitches += hourlyActivity.pitches[h] || 0;
+        transitions += hourlyActivity.transitions[h] || 0;
+        presentations += hourlyActivity.presentations[h] || 0;
+        closes += hourlyActivity.closes[h] || 0;
+      }
+
+      const conversionRate = doors > 0 ? (closes / doors) * 100 : 0;
+
+      return {
+        name: block.name,
+        range: block.range,
+        doors,
+        pitches,
+        transitions,
+        presentations,
+        closes,
+        conversionRate
+      };
+    }).filter(block => block.doors > 0); // Only show blocks with activity
+  };
+
+  const timeBlocks = calculateTimeBlockStats();
+  const bestConversionBlock = timeBlocks.length > 0 
+    ? timeBlocks.reduce((best, block) => block.conversionRate > best.conversionRate ? block : best)
+    : null;
+  const highestVolumeBlock = timeBlocks.length > 0
+    ? timeBlocks.reduce((best, block) => block.doors > best.doors ? block : best)
+    : null;
+
+  // Generate actionable insights
+  const generateInsights = () => {
+    const insights: { icon: typeof Lightbulb; text: string; type: 'tip' | 'strength' | 'opportunity' }[] = [];
+
+    // Peak knocking time
+    if (peakHours.doors !== null) {
+      insights.push({
+        icon: Clock,
+        text: `Peak knocking: ${formatHour(peakHours.doors)} — you knock most doors during this hour`,
+        type: 'strength'
+      });
+    }
+
+    // Best closing window
+    if (bestConversionBlock && bestConversionBlock.closes > 0) {
+      insights.push({
+        icon: Target,
+        text: `Best closing: ${bestConversionBlock.range} — ${bestConversionBlock.conversionRate.toFixed(1)}% door-to-close conversion`,
+        type: 'strength'
+      });
+    }
+
+    // Volume vs conversion mismatch (opportunity)
+    if (highestVolumeBlock && bestConversionBlock && 
+        highestVolumeBlock.name !== bestConversionBlock.name &&
+        highestVolumeBlock.conversionRate < bestConversionBlock.conversionRate * 0.7) {
+      insights.push({
+        icon: Lightbulb,
+        text: `Consider scheduling return visits for ${bestConversionBlock.range} — your high-volume ${highestVolumeBlock.range} has lower conversions`,
+        type: 'tip'
+      });
+    }
+
+    // Low transitions in certain periods
+    const lowTransitionBlock = timeBlocks.find(block => 
+      block.pitches > 0 && block.transitions === 0 && block.pitches >= 3
+    );
+    if (lowTransitionBlock) {
+      insights.push({
+        icon: TrendingUp,
+        text: `${lowTransitionBlock.range}: ${lowTransitionBlock.pitches} pitches but 0 transitions — focus on pitch-to-transition practice`,
+        type: 'opportunity'
+      });
+    }
+
+    // Strong closer indicator
+    if (peakHours.closes !== null && peakHours.closes >= 16) {
+      insights.push({
+        icon: Target,
+        text: `Your closing strength is in late afternoon/evening — maximize prime time presence`,
+        type: 'tip'
+      });
+    }
+
+    return insights;
+  };
+
+  const actionableInsights = generateInsights();
 
   return (
     <Card className="p-4">
@@ -121,6 +235,72 @@ export const HourlyActivityHeatmap = ({ hourlyActivity, peakHours, hourRange }: 
             <span className="text-muted-foreground">Peak hour</span>
           </div>
         </div>
+
+        {/* Time Block Comparison */}
+        {timeBlocks.length > 1 && (
+          <div className="pt-3 border-t border-border/50">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Time Block Efficiency
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              {timeBlocks.map(block => (
+                <div 
+                  key={block.name} 
+                  className={cn(
+                    "p-2 rounded-lg text-xs",
+                    bestConversionBlock?.name === block.name 
+                      ? "bg-primary/10 border border-primary/30" 
+                      : "bg-muted/30"
+                  )}
+                >
+                  <div className="font-medium">{block.name}</div>
+                  <div className="text-muted-foreground">{block.range}</div>
+                  <div className="mt-1 flex justify-between">
+                    <span>{block.doors} doors</span>
+                    <span className={cn(
+                      "font-medium",
+                      bestConversionBlock?.name === block.name && "text-primary"
+                    )}>
+                      {block.conversionRate.toFixed(1)}% close
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actionable Insights */}
+        {actionableInsights.length > 0 && (
+          <div className="pt-3 border-t border-border/50">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              Insights & Takeaways
+            </h4>
+            <div className="space-y-2">
+              {actionableInsights.map((insight, idx) => (
+                <div 
+                  key={idx} 
+                  className={cn(
+                    "p-2 rounded-lg text-xs flex items-start gap-2",
+                    insight.type === 'strength' && "bg-success/10",
+                    insight.type === 'tip' && "bg-primary/10",
+                    insight.type === 'opportunity' && "bg-amber-500/10"
+                  )}
+                >
+                  <insight.icon className={cn(
+                    "w-4 h-4 mt-0.5 flex-shrink-0",
+                    insight.type === 'strength' && "text-success",
+                    insight.type === 'tip' && "text-primary",
+                    insight.type === 'opportunity' && "text-amber-500"
+                  )} />
+                  <span>{insight.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -6,6 +6,7 @@ interface LeaderboardEntry {
   name: string;
   value: number;
   timeValue?: string;
+  isSaturday?: boolean;
 }
 
 interface YesterdayLeaderboard {
@@ -240,13 +241,17 @@ export const useYesterdayLeaderboard = (filterByYear?: string) => {
                 timeZone: userTimezone 
               });
               
+              // Check if yesterday was a Saturday
+              const isSaturday = yesterday.getDay() === 6;
+              
               const currentEarliestMins = leaderboard.earliestDoor?.value || Infinity;
               if (earliestMins < currentEarliestMins) {
                 leaderboard.earliestDoor = { 
                   userId: entry.user_id, 
                   name: cleanName, 
                   value: earliestMins,
-                  timeValue: earliestTime
+                  timeValue: earliestTime,
+                  isSaturday
                 };
               }
             }
