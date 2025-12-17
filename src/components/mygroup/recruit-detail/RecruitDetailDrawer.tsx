@@ -21,6 +21,7 @@ import { ProgressTab } from "./tabs/ProgressTab";
 import { ActivityTab } from "./tabs/ActivityTab";
 import { DetailsTab } from "./tabs/DetailsTab";
 import { PhaseVerificationDrawer } from "../PhaseVerificationDrawer";
+import { ScheduledActivityActionSheet } from "../ScheduledActivityActionSheet";
 
 // Import all the dialog components from the original file
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,8 @@ export const RecruitDetailDrawer = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [stageShake, setStageShake] = useState(false);
   const [activityShake, setActivityShake] = useState(false);
+  const [scheduledActionSheetOpen, setScheduledActionSheetOpen] = useState(false);
+  const [scheduledActivityForAction, setScheduledActivityForAction] = useState<RecruitActivity | null>(null);
 
   const updateStageMutation = useUpdateRecruitStage();
   const logActivityMutation = useLogRecruitActivity();
@@ -544,11 +547,73 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleActivityClick = (activity: RecruitActivity) => {
+    // For scheduled activities (next_step), show the action sheet instead
+    if (activity.activity_type === 'next_step') {
+      setScheduledActivityForAction(activity);
+      setScheduledActionSheetOpen(true);
+      return;
+    }
+    
+    // For other activities, open the edit drawer
     setSelectedActivity(activity);
     setEditNotes(activity.notes || '');
     setEditDate(format(parseISO(activity.created_at), 'yyyy-MM-dd'));
     setEditAssignee(activity.assigned_to_user_id || null);
     setEditActivityOpen(true);
+  };
+
+  // Handler for marking a scheduled activity as complete
+  const handleMarkScheduledComplete = (activity: RecruitActivity, completedType: 'phone_call' | 'in_person') => {
+    // Log the completed activity with the scheduled notes
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: completedType,
+      notes: activity.notes || activity.next_action || 'Completed scheduled follow-up',
+      updateLastContact: true,
+    }, {
+      onSuccess: () => {
+        // Delete the scheduled activity after logging the completed one
+        deleteActivityMutation.mutate(activity.id, {
+          onSuccess: () => {
+            toast.success('Marked complete!');
+            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+          },
+          onError: () => {
+            // Still show success for the logged activity even if delete fails
+            toast.success('Activity logged');
+            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+          }
+        });
+      },
+      onError: () => {
+        toast.error("Couldn't log activity");
+      }
+    });
+  };
+
+  // Handler for rescheduling a scheduled activity
+  const handleRescheduleActivity = (activity: RecruitActivity) => {
+    // Open the schedule follow-up drawer with pre-filled data
+    setActivityType('next_step');
+    setActivityNotes(activity.notes || activity.next_action || '');
+    setNextAction(activity.next_action || '');
+    setNextActionDue(''); // Clear so they pick new date
+    setIsDirectSchedule(true);
+    setLogActivityOpen(true);
+    
+    // Delete the old scheduled activity
+    deleteActivityMutation.mutate(activity.id, {
+      onError: () => {
+        // Silent fail - the new schedule will work anyway
+        console.warn('Could not delete old scheduled activity');
+      }
+    });
+  };
+
+  // Handler for deleting a scheduled activity from the action sheet
+  const handleDeleteScheduledActivity = (activity: RecruitActivity) => {
+    setSelectedActivity(activity);
+    setDeleteConfirmOpen(true);
   };
 
   const handleSaveActivity = () => {
@@ -1011,6 +1076,19 @@ export const RecruitDetailDrawer = ({
           onConfirm={handleConfirmPhaseVerification}
         />
       )}
+
+      {/* Scheduled Activity Action Sheet */}
+      <ScheduledActivityActionSheet
+        activity={scheduledActivityForAction}
+        open={scheduledActionSheetOpen}
+        onOpenChange={(open) => {
+          setScheduledActionSheetOpen(open);
+          if (!open) setScheduledActivityForAction(null);
+        }}
+        onMarkComplete={handleMarkScheduledComplete}
+        onReschedule={handleRescheduleActivity}
+        onDelete={handleDeleteScheduledActivity}
+      />
     </>
   );
 };
