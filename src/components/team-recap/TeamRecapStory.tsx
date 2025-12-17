@@ -102,6 +102,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
         key="team-rankings" 
         title="TEAM STANDINGS"
         rankings={data.teamRankings}
+        slideKey="teamRankings"
+        onEditValue={onEditValue}
       />
     );
   }
@@ -120,6 +122,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
           efp: m.efp,
           growth: m.growth,
         }))}
+        slideKey="mgmtRankings"
+        onEditValue={onEditValue}
       />
     );
   }
