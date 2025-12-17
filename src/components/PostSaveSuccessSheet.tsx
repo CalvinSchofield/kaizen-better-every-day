@@ -179,25 +179,40 @@ export const PostSaveSuccessSheet = ({
     };
   }, [historicalEntry, summary, efpModeEnabled, calculateEfp, comparisonYear]);
   
-  // Calculate daily goal based on remaining planned days
+  // Calculate display values based on EFP mode
+  const displayFpValue = useMemo(() => {
+    if (efpModeEnabled) {
+      return calculateEfp(summary.prmr);
+    }
+    return summary.fpPlus;
+  }, [efpModeEnabled, calculateEfp, summary.prmr, summary.fpPlus]);
+  
+  const displayLabel = efpModeEnabled ? "EFP" : "FP+";
+  
+  // Calculate daily goal based on remaining planned days - matching DailyFocusCard logic
   const dailyGoal = useMemo(() => {
-    if (!goals?.setup_complete) return null;
+    if (!goals?.setup_complete || !plannedDays) return null;
     
     const today = new Date();
-    const remainingDays = plannedDays?.filter(d => new Date(d.planned_date) >= today).length || 0;
+    const todayStr = today.toISOString().split('T')[0];
     
-    if (remainingDays === 0) return null;
+    // Get remaining planned days from today onwards (including today)
+    const remainingPlannedDays = plannedDays.filter(d => d.planned_date >= todayStr);
     
-    // Use will_do as default goal tier, fallback to must_do
-    const targetGoal = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
-    const currentProgress = goals.preseason_fp_goal || 0; // This should be current FP+ total
-    const remaining = Math.max(0, targetGoal - currentProgress);
+    if (remainingPlannedDays.length === 0) return null;
     
-    return remaining / remainingDays;
+    // Use the "Will Do" goal as the target (middle tier)
+    const targetFP = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
+    
+    // Simple daily target based on planned days
+    // Note: This should match what's shown on home/calendar
+    const dailyTarget = targetFP / remainingPlannedDays.length;
+    
+    return Math.max(Math.round(dailyTarget * 10) / 10, 0.5);
   }, [goals, plannedDays]);
 
-  const goalMet = dailyGoal !== null && summary.fpPlus >= dailyGoal;
-  const progressPercent = dailyGoal ? Math.min(100, (summary.fpPlus / dailyGoal) * 100) : 0;
+  const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
+  const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;
 
   // Trigger confetti when goal is met
   useEffect(() => {
@@ -230,7 +245,7 @@ export const PostSaveSuccessSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="pb-safe">
+      <DrawerContent className="pb-safe max-h-[90dvh]">
         <DrawerHeader className="mb-2">
           <div className="flex items-center gap-2 justify-center mb-2">
             {goalMet ? (
@@ -250,7 +265,7 @@ export const PostSaveSuccessSheet = ({
         </DrawerHeader>
         
         {/* Daily Goal Progress */}
-        {dailyGoal !== null && summary.fpPlus > 0 && (
+        {dailyGoal !== null && displayFpValue > 0 && (
           <div className="px-4 mb-4">
             <div className={`rounded-xl p-4 ${goalMet ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}>
               <div className="flex items-center gap-2 mb-2">
@@ -259,9 +274,9 @@ export const PostSaveSuccessSheet = ({
               </div>
               <div className="flex items-baseline gap-2 mb-2">
                 <span className={`text-2xl font-bold ${goalMet ? 'text-primary' : 'text-foreground'}`}>
-                  {summary.fpPlus.toFixed(1)}
+                  {displayFpValue.toFixed(1)}
                 </span>
-                <span className="text-muted-foreground">/ {dailyGoal.toFixed(1)} FP+</span>
+                <span className="text-muted-foreground">/ {dailyGoal.toFixed(1)} {displayLabel}</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div 
@@ -271,8 +286,8 @@ export const PostSaveSuccessSheet = ({
               </div>
               {goalMet && (
                 <p className="text-sm text-primary mt-2 font-medium">
-                  {summary.fpPlus > dailyGoal 
-                    ? `+${(summary.fpPlus - dailyGoal).toFixed(1)} FP+ ahead of pace!` 
+                  {displayFpValue > dailyGoal 
+                    ? `+${(displayFpValue - dailyGoal).toFixed(1)} ${displayLabel} ahead of pace!` 
                     : "Right on target!"}
                 </p>
               )}
@@ -325,10 +340,10 @@ export const PostSaveSuccessSheet = ({
               <span className="text-muted-foreground">Closes</span>
               <span className="font-medium">{summary.closes}</span>
             </div>
-            {summary.fpPlus > 0 && (
+            {displayFpValue > 0 && (
               <div className="flex justify-between text-sm pt-2 border-t border-border/50">
-                <span className="text-muted-foreground">FP+</span>
-                <span className="font-semibold text-primary">{summary.fpPlus}</span>
+                <span className="text-muted-foreground">{displayLabel}</span>
+                <span className="font-semibold text-primary">{displayFpValue.toFixed(2)}</span>
               </div>
             )}
             {summary.prmr > 0 && (
@@ -367,7 +382,7 @@ export const PostSaveSuccessSheet = ({
           </Button>
         </div>
 
-        <div className="flex flex-col gap-3 px-4">
+        <div className="flex flex-col gap-3 px-4 pb-4">
           <Button
             onClick={handleDone}
             variant="default"
@@ -382,7 +397,7 @@ export const PostSaveSuccessSheet = ({
               onOpenChange(false);
             }}
             variant="ghost"
-            className="w-full py-4 text-sm"
+            className="w-full py-4 text-sm mb-2"
           >
             Actually, I need to keep working
           </Button>
