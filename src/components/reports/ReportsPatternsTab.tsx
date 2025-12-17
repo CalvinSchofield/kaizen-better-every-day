@@ -108,24 +108,56 @@ export const ReportsPatternsTab = ({
       )}
 
       {/* Day of Week Summary */}
-      {insightsData.bestDayOfWeek && (
+      {insightsData.dayOfWeekData && Object.keys(insightsData.dayOfWeekData).length > 0 && (
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Best Day of the Week</h3>
+            <h3 className="font-semibold">FP+ by Day of Week</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Your team averages the most FP+ on {insightsData.bestDayOfWeek.day}s
+            Total team FP+ averaged per weekday
           </p>
-          <div className="text-center p-4 bg-primary/5 rounded-lg">
-            <div className="text-2xl font-bold">{insightsData.bestDayOfWeek.day}</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              <span className="font-semibold text-primary">{insightsData.bestDayOfWeek.avgFp?.toFixed(1)} FP+</span> average
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Based on {insightsData.bestDayOfWeek.daysWorked} {insightsData.bestDayOfWeek.day}{insightsData.bestDayOfWeek.daysWorked !== 1 ? 's' : ''} worked
-            </div>
+          
+          {/* Day comparison bars */}
+          <div className="space-y-2">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
+              const dayData = insightsData.dayOfWeekData?.[day];
+              if (!dayData || dayData.count === 0) return null;
+              
+              const avgFp = dayData.fp / dayData.count;
+              const maxAvg = Math.max(
+                ...Object.values(insightsData.dayOfWeekData as Record<string, { fp: number; count: number }>)
+                  .filter(d => d.count > 0)
+                  .map(d => d.fp / d.count)
+              );
+              const widthPercent = maxAvg > 0 ? (avgFp / maxAvg) * 100 : 0;
+              const isBest = avgFp === maxAvg && maxAvg > 0;
+              
+              return (
+                <div key={day} className="flex items-center gap-2">
+                  <div className="w-10 text-xs font-medium text-muted-foreground">{day}</div>
+                  <div className="flex-1 h-6 bg-muted/30 rounded overflow-hidden relative">
+                    <div 
+                      className={`h-full rounded transition-all ${isBest ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                      style={{ width: `${widthPercent}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center px-2">
+                      <span className={`text-xs font-semibold ${isBest ? 'text-primary-foreground' : ''}`}>
+                        {avgFp.toFixed(1)} FP+
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-16 text-xs text-muted-foreground text-right">
+                    {dayData.count} day{dayData.count !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+          
+          <p className="text-xs text-muted-foreground mt-3 text-center">
+            Highlighted bar = best performing day
+          </p>
         </Card>
       )}
 
