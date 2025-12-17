@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Users, TrendingUp, TrendingDown, Trophy } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, Trophy, Pencil } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface TeamRanking {
@@ -15,6 +15,8 @@ interface TeamRanking {
 interface TeamRankingsSlideProps {
   title: string;
   rankings: TeamRanking[];
+  slideKey?: string;
+  onEditValue?: (field: string, label: string, currentValue: number) => void;
 }
 
 function getInitials(name: string) {
@@ -44,8 +46,20 @@ function GrowthBadge({ value }: { value: number }) {
   );
 }
 
-export function TeamRankingsSlide({ title, rankings }: TeamRankingsSlideProps) {
+export function TeamRankingsSlide({ title, rankings, slideKey = '', onEditValue }: TeamRankingsSlideProps) {
   const maxFp = Math.max(...rankings.map(t => t.efp), 1);
+
+  const handleEditFp = (team: TeamRanking, idx: number) => {
+    if (onEditValue) {
+      onEditValue(`${slideKey}.rankings.${idx}.fp`, `${team.teamName} FP+`, team.fp);
+    }
+  };
+
+  const handleEditEfp = (team: TeamRanking, idx: number) => {
+    if (onEditValue) {
+      onEditValue(`${slideKey}.rankings.${idx}.efp`, `${team.teamName} EFP`, team.efp);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col px-4 pt-2 overflow-y-auto pb-8">
@@ -118,14 +132,24 @@ export function TeamRankingsSlide({ title, rankings }: TeamRankingsSlideProps) {
                   transition={{ duration: 0.5, delay: 0.3 + 0.1 * idx }}
                   className="absolute inset-y-0 left-0 bg-primary rounded-lg"
                 />
-                {/* Values */}
+                {/* Values - tappable for editing */}
                 <div className="absolute inset-0 flex items-center justify-between px-3">
-                  <span className="text-xs font-bold text-primary-foreground drop-shadow">
+                  <button
+                    onClick={() => handleEditFp(team, idx)}
+                    className={`text-xs font-bold text-primary-foreground drop-shadow flex items-center gap-0.5 ${onEditValue ? 'hover:underline' : ''}`}
+                    disabled={!onEditValue}
+                  >
                     {team.fp.toFixed(1)} FP+
-                  </span>
-                  <span className="text-xs font-medium text-foreground">
+                    {onEditValue && <Pencil className="w-2.5 h-2.5 opacity-60" />}
+                  </button>
+                  <button
+                    onClick={() => handleEditEfp(team, idx)}
+                    className={`text-xs font-medium text-foreground flex items-center gap-0.5 ${onEditValue ? 'hover:underline' : ''}`}
+                    disabled={!onEditValue}
+                  >
                     {team.efp.toFixed(1)} EFP
-                  </span>
+                    {onEditValue && <Pencil className="w-2.5 h-2.5 opacity-60" />}
+                  </button>
                 </div>
               </div>
             </motion.div>
