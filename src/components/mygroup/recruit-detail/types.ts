@@ -30,6 +30,15 @@ export interface RecruitGoals {
   role_plays_progress?: number;
   blitzes_goal?: number;
   blitzes_progress?: number;
+  must_do_fp_goal?: number;
+  will_do_fp_goal?: number;
+  could_do_fp_goal?: number;
+}
+
+export interface RecruitSummerConfig {
+  personalSummerStart: string | null;
+  personalSummerEnd: string | null;
+  excludedSummerDays: string[];
 }
 
 export interface ContactForHelp {

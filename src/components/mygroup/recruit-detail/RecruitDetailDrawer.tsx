@@ -12,7 +12,7 @@ import { differenceInDays, parseISO, format } from "date-fns";
 import { AlertCircle, TrendingUp, Clock, Settings, UserCircle, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { TabType, RecruitRepData, RecruitGoals, ContactForHelp } from "./types";
+import { TabType, RecruitRepData, RecruitGoals, ContactForHelp, RecruitSummerConfig } from "./types";
 import { stripEmojis, getFirstName, getStageDescription, getOnboardingStepDescription } from "./utils";
 import { RecruitHeader } from "./RecruitHeader";
 import { QuickActionsBar } from "./QuickActionsBar";
@@ -232,6 +232,42 @@ export const RecruitDetailDrawer = ({
       return data?.reduce((sum, entry) => sum + (entry.fp_plus || 0), 0) || 0;
     },
     enabled: !!recruitRepData?.user_id && open,
+  });
+
+  // Summer config for recruit
+  const { data: recruitSummerConfig } = useQuery({
+    queryKey: ['recruit-summer-config', recruitRepData?.user_id],
+    queryFn: async () => {
+      if (!recruitRepData?.user_id) return null;
+      const { data } = await supabase
+        .from('season_config')
+        .select('personal_summer_start, personal_summer_end, excluded_summer_days')
+        .eq('user_id', recruitRepData.user_id)
+        .maybeSingle();
+      if (!data) return null;
+      return {
+        personalSummerStart: data.personal_summer_start,
+        personalSummerEnd: data.personal_summer_end,
+        excludedSummerDays: data.excluded_summer_days || [],
+      } as RecruitSummerConfig;
+    },
+    enabled: !!recruitRepData?.user_id && open,
+  });
+
+  // Summer entries for recruit (used when in summer mode)
+  const { data: recruitSummerEntries = [] } = useQuery({
+    queryKey: ['recruit-summer-entries', recruitRepData?.user_id, recruitSummerConfig?.personalSummerStart],
+    queryFn: async () => {
+      if (!recruitRepData?.user_id || !recruitSummerConfig?.personalSummerStart) return [];
+      const { data } = await supabase
+        .from('daily_entries')
+        .select('entry_date, fp_plus, work_start_time, work_end_time, doors_knocked, is_finalized')
+        .eq('user_id', recruitRepData.user_id)
+        .gte('entry_date', recruitSummerConfig.personalSummerStart)
+        .order('entry_date', { ascending: false });
+      return data || [];
+    },
+    enabled: !!recruitRepData?.user_id && !!recruitSummerConfig?.personalSummerStart && open,
   });
 
   // Help message
@@ -595,6 +631,8 @@ export const RecruitDetailDrawer = ({
                   recruitRepData={recruitRepData || null}
                   recruitGoals={recruitGoals || null}
                   recruitYtdFP={recruitYtdFP}
+                  summerConfig={recruitSummerConfig}
+                  summerEntries={recruitSummerEntries}
                   onOnboardingStepClick={handleOnboardingStepClick}
                 />
               </TabsContent>
