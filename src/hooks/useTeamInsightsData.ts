@@ -248,6 +248,17 @@ interface TeamInsightsData {
       dailyData: Array<{ date: string; fp: number; prmr: number; efp: number }>;
     };
   };
+  workScheduleData?: Array<{
+    userId: string;
+    name: string;
+    startMinutes: number;
+    endMinutes: number;
+    durationMinutes: number;
+    fp: number;
+    prmr: number;
+    date?: string;
+    timezone?: string;
+  }>;
 }
 
 interface UseTeamInsightsDataParams {
@@ -310,6 +321,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
 
       const entries = data.entries as DailyEntry[];
       const reps = data.reps as RepInfo[];
+      const repsMap = new Map(reps.map(r => [r.user_id, r]));
       
       // Fetch all entries for overall comparison (all-time)
       const allUserIds = reps.map(r => r.user_id);
@@ -495,6 +507,45 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         : 'No data';
 
       const avgHoursWorked = totals.daysWorked > 0 ? totalHours / totals.daysWorked : 0;
+
+      // Work schedule data for scatterplot visualization
+      const workScheduleData = entries
+        .filter(entry => entry.work_start_time && entry.work_end_time)
+        .map(entry => {
+          const repInfo = repsMap.get(entry.user_id);
+          const entryTimezone = entry.timezone || defaultTimezone;
+          const startLocal = calculateLocalTime(entry.work_start_time!, entryTimezone);
+          const endLocal = calculateLocalTime(entry.work_end_time!, entryTimezone);
+          
+          const startMinutes = startLocal.hour * 60 + startLocal.minute;
+          const endMinutes = endLocal.hour * 60 + endLocal.minute;
+          
+          // Calculate duration excluding breaks
+          let durationMinutes = differenceInMinutes(
+            new Date(entry.work_end_time!),
+            new Date(entry.work_start_time!)
+          );
+          
+          if (entry.break_periods && Array.isArray(entry.break_periods)) {
+            entry.break_periods.forEach((breakPeriod: any) => {
+              const breakStart = new Date(breakPeriod.start);
+              const breakEnd = new Date(breakPeriod.end);
+              durationMinutes -= differenceInMinutes(breakEnd, breakStart);
+            });
+          }
+          
+          return {
+            userId: entry.user_id,
+            name: repInfo?.name || 'Unknown',
+            startMinutes,
+            endMinutes,
+            durationMinutes: Math.max(0, durationMinutes),
+            fp: entry.fp_plus || 0,
+            prmr: entry.prmr || 0,
+            date: format(parseISO(entry.entry_date), 'MMM d'),
+            timezone: entryTimezone,
+          };
+        });
 
       // Hourly activity breakdown
       const hourlyActivity = {
@@ -1371,6 +1422,7 @@ export const useTeamInsightsData = ({ userIds, dateRange, excludeUserIds = [] }:
         dailyTrendByTeam,
         dailyTrendByMgmt,
         bestPeriods,
+        workScheduleData,
       } as TeamInsightsData;
     },
     enabled: userIds.length > 0,

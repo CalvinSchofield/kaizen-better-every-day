@@ -92,7 +92,7 @@ export const ReportsHeroCard = ({
           <div className="flex items-center gap-1.5 text-sm">
             <Target className="w-4 h-4 text-muted-foreground" />
             <span className="font-medium">{avgFPPerRep.toFixed(2)}</span>
-            <span className="text-muted-foreground">FP+ avg</span>
+            <span className="text-muted-foreground">FP+ per rep</span>
           </div>
         </div>
       </div>

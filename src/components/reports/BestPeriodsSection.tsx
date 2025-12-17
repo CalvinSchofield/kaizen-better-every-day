@@ -193,21 +193,24 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
 
       {/* Timing Metrics */}
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-4 mb-2">
-        Best Timing Days
+        Team Schedule Records
       </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Days when the team as a whole started earliest, ended latest, or worked the longest shifts
+      </p>
       <div className="grid grid-cols-1 gap-3">
         {data.earliestStartDay && (
           <Card className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <Clock className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-xs font-medium text-muted-foreground">Earliest Avg Start</span>
+              <span className="text-xs font-medium text-muted-foreground">Day Team Started Earliest</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-bold">{data.earliestStartDay.value}</div>
                 <div className="text-xs text-muted-foreground">{data.earliestStartDay.date}</div>
               </div>
-              <div className="text-xs text-muted-foreground/70">{data.earliestStartDay.repsWorked} reps</div>
+              <div className="text-xs text-muted-foreground/70">avg of {data.earliestStartDay.repsWorked} reps</div>
             </div>
           </Card>
         )}
@@ -216,14 +219,14 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
           <Card className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <Clock className="w-3.5 h-3.5 text-orange-500" />
-              <span className="text-xs font-medium text-muted-foreground">Latest Avg End</span>
+              <span className="text-xs font-medium text-muted-foreground">Day Team Ended Latest</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-bold">{data.latestEndDay.value}</div>
                 <div className="text-xs text-muted-foreground">{data.latestEndDay.date}</div>
               </div>
-              <div className="text-xs text-muted-foreground/70">{data.latestEndDay.repsWorked} reps</div>
+              <div className="text-xs text-muted-foreground/70">avg of {data.latestEndDay.repsWorked} reps</div>
             </div>
           </Card>
         )}
@@ -232,14 +235,14 @@ export const BestPeriodsSection = ({ data, dailyTrend }: BestPeriodsSectionProps
           <Card className="p-3">
             <div className="flex items-center gap-1.5 mb-1">
               <Target className="w-3.5 h-3.5 text-purple-500" />
-              <span className="text-xs font-medium text-muted-foreground">Longest Avg Duration</span>
+              <span className="text-xs font-medium text-muted-foreground">Longest Shift Day</span>
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-lg font-bold">{(data.longestDurationDay.avgMinutes / 60).toFixed(1)}h</div>
+                <div className="text-lg font-bold">{(data.longestDurationDay.avgMinutes / 60).toFixed(1)}h avg shift</div>
                 <div className="text-xs text-muted-foreground">{data.longestDurationDay.date}</div>
               </div>
-              <div className="text-xs text-muted-foreground/70">{data.longestDurationDay.repsWorked} reps</div>
+              <div className="text-xs text-muted-foreground/70">avg of {data.longestDurationDay.repsWorked} reps</div>
             </div>
           </Card>
         )}

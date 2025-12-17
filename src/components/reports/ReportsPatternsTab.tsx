@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { ActivityTrendChart } from "@/components/insights/ActivityTrendChart";
 import { BestPeriodsSection } from "./BestPeriodsSection";
+import { WorkScheduleVisualization } from "./WorkScheduleVisualization";
 import { TrendingUp, Clock, Calendar, Sparkles } from "lucide-react";
 
 interface ReportsPatternsTabProps {
@@ -15,6 +16,17 @@ interface ReportsPatternsTabProps {
     bestPeriods?: any;
     averageStartTime?: string;
     averageEndTime?: string;
+    workScheduleData?: Array<{
+      userId: string;
+      name: string;
+      startMinutes: number;
+      endMinutes: number;
+      durationMinutes: number;
+      fp: number;
+      prmr: number;
+      date?: string;
+      timezone?: string;
+    }>;
   };
   isLoading?: boolean;
 }
@@ -66,6 +78,11 @@ export const ReportsPatternsTab = ({
         </Card>
       )}
 
+      {/* Work Schedule Visualization */}
+      {insightsData.workScheduleData && insightsData.workScheduleData.length > 0 && (
+        <WorkScheduleVisualization data={insightsData.workScheduleData} />
+      )}
+
       {/* Timing Summary */}
       {(insightsData.averageStartTime || insightsData.averageEndTime) && (
         <Card className="p-4">
@@ -93,14 +110,17 @@ export const ReportsPatternsTab = ({
       {/* Day of Week Summary */}
       {insightsData.bestDayOfWeek && (
         <Card className="p-4">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold">Best Day of Week</h3>
+            <h3 className="font-semibold">Top Performing Day</h3>
           </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Which day of the week produces the highest average FP+ across all {insightsData.bestDayOfWeek.daysWorked} {insightsData.bestDayOfWeek.day}s worked
+          </p>
           <div className="text-center p-4 bg-primary/5 rounded-lg">
             <div className="text-2xl font-bold">{insightsData.bestDayOfWeek.day}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              {insightsData.bestDayOfWeek.avgFp?.toFixed(2)} avg FP+ · {insightsData.bestDayOfWeek.daysWorked} days
+              Averages <span className="font-semibold text-primary">{insightsData.bestDayOfWeek.avgFp?.toFixed(2)} FP+</span> per {insightsData.bestDayOfWeek.day}
             </div>
           </div>
         </Card>
