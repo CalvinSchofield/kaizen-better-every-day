@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Trophy, Crown, Medal, Award } from 'lucide-react';
+import { Trophy, Crown, Medal, Award, Pencil } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Rep {
@@ -15,6 +15,8 @@ interface Top10SlideProps {
   title: string;
   reps: Rep[];
   accentColor?: string;
+  slideKey?: string;
+  onEditValue?: (field: string, label: string, currentValue: number) => void;
 }
 
 function getInitials(name: string) {
@@ -58,9 +60,21 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-export function Top10Slide({ title, reps, accentColor = 'text-primary' }: Top10SlideProps) {
+export function Top10Slide({ title, reps, accentColor = 'text-primary', slideKey = '', onEditValue }: Top10SlideProps) {
   const maxFp = Math.max(...reps.map(r => r.fp), 1);
   const maxEfp = Math.max(...reps.map(r => r.efp), 1);
+
+  const handleEditFp = (rep: Rep, idx: number) => {
+    if (onEditValue) {
+      onEditValue(`${slideKey}.reps.${idx}.fp`, `${rep.name} FP+`, rep.fp);
+    }
+  };
+
+  const handleEditEfp = (rep: Rep, idx: number) => {
+    if (onEditValue) {
+      onEditValue(`${slideKey}.reps.${idx}.efp`, `${rep.name} EFP`, rep.efp);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col px-4 pt-2 overflow-y-auto pb-8">
@@ -123,11 +137,25 @@ export function Top10Slide({ title, reps, accentColor = 'text-primary' }: Top10S
                     className="absolute inset-y-0 left-0 bg-primary/40 rounded-full"
                   />
                 )}
-                {/* Values on bar */}
-                <div className="absolute inset-0 flex items-center justify-end pr-3">
-                  <span className="text-xs font-bold text-primary-foreground drop-shadow">
-                    {rep.fp.toFixed(1)} FP+ / {rep.efp.toFixed(1)} EFP
-                  </span>
+                {/* Values on bar - tappable for editing */}
+                <div className="absolute inset-0 flex items-center justify-end pr-3 gap-1">
+                  <button
+                    onClick={() => handleEditFp(rep, idx)}
+                    className={`text-xs font-bold text-primary-foreground drop-shadow flex items-center gap-0.5 ${onEditValue ? 'hover:underline' : ''}`}
+                    disabled={!onEditValue}
+                  >
+                    {rep.fp.toFixed(1)} FP+
+                    {onEditValue && <Pencil className="w-2.5 h-2.5 opacity-60" />}
+                  </button>
+                  <span className="text-xs font-bold text-primary-foreground drop-shadow">/</span>
+                  <button
+                    onClick={() => handleEditEfp(rep, idx)}
+                    className={`text-xs font-bold text-primary-foreground drop-shadow flex items-center gap-0.5 ${onEditValue ? 'hover:underline' : ''}`}
+                    disabled={!onEditValue}
+                  >
+                    {rep.efp.toFixed(1)} EFP
+                    {onEditValue && <Pencil className="w-2.5 h-2.5 opacity-60" />}
+                  </button>
                 </div>
               </div>
             </motion.div>
