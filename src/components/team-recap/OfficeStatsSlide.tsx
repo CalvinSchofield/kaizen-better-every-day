@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Clock, Users, DoorOpen, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Users, DoorOpen, Target, Pencil } from 'lucide-react';
 
 interface OfficeStatsSlideProps {
   totals: {
@@ -24,6 +24,7 @@ interface OfficeStatsSlideProps {
     doors: number;
     hours: number;
   };
+  onEditValue?: (field: string, label: string, currentValue: number | string, type?: 'number' | 'text') => void;
 }
 
 function GrowthBadge({ value, size = 'sm' }: { value: number; size?: 'sm' | 'lg' }) {
@@ -54,13 +55,17 @@ function AnimatedCounter({ value, suffix = '', delay = 0 }: { value: number; suf
   );
 }
 
-export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
+export function OfficeStatsSlide({ totals, growth, onEditValue }: OfficeStatsSlideProps) {
   const stats = [
-    { icon: DoorOpen, label: 'Doors', value: totals.doors, growth: growth.doors },
-    { icon: Target, label: 'Pitches', value: totals.pitches },
-    { icon: Target, label: 'Transitions', value: totals.transitions },
-    { icon: Target, label: 'Presentations', value: totals.presentations },
+    { icon: DoorOpen, label: 'Doors', value: totals.doors, growth: growth.doors, field: 'officeTotals.doors' },
+    { icon: Target, label: 'Pitches', value: totals.pitches, field: 'officeTotals.pitches' },
+    { icon: Target, label: 'Transitions', value: totals.transitions, field: 'officeTotals.transitions' },
+    { icon: Target, label: 'Presentations', value: totals.presentations, field: 'officeTotals.presentations' },
   ];
+
+  const EditHint = () => onEditValue ? (
+    <Pencil className="w-3 h-3 text-muted-foreground/50 absolute top-2 right-2" />
+  ) : null;
 
   return (
     <div className="h-full flex flex-col px-6 pt-4 overflow-y-auto">
@@ -76,12 +81,15 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
       {/* Hero stats */}
       <div className="flex flex-col items-center mb-6">
         {/* FP+ */}
-        <motion.div
+        <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', delay: 0.2 }}
-          className="text-center mb-2"
+          className="text-center mb-2 relative"
+          onClick={() => onEditValue?.('officeTotals.fp', 'FP+', totals.fp)}
+          disabled={!onEditValue}
         >
+          {onEditValue && <EditHint />}
           <p className="text-6xl font-black text-primary">
             <AnimatedCounter value={totals.fp} delay={0.3} />
           </p>
@@ -89,15 +97,17 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
             <p className="text-lg font-medium text-muted-foreground">FP+</p>
             <GrowthBadge value={growth.fp} size="lg" />
           </div>
-        </motion.div>
+        </motion.button>
 
         {/* EFP & PRMR row */}
         <div className="flex gap-8 mt-4">
-          <motion.div
+          <motion.button
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="text-center"
+            className="text-center relative"
+            onClick={() => onEditValue?.('officeTotals.efp', 'EFP', totals.efp)}
+            disabled={!onEditValue}
           >
             <p className="text-3xl font-bold text-foreground">
               <AnimatedCounter value={totals.efp} delay={0.5} />
@@ -106,13 +116,15 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
               <p className="text-sm text-muted-foreground">EFP</p>
               <GrowthBadge value={growth.efp} />
             </div>
-          </motion.div>
+          </motion.button>
 
-          <motion.div
+          <motion.button
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="text-center"
+            className="text-center relative"
+            onClick={() => onEditValue?.('officeTotals.prmr', 'PRMR', totals.prmr)}
+            disabled={!onEditValue}
           >
             <p className="text-3xl font-bold text-foreground">
               $<AnimatedCounter value={totals.prmr} delay={0.5} />
@@ -121,7 +133,7 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
               <p className="text-sm text-muted-foreground">PRMR</p>
               <GrowthBadge value={growth.prmr} />
             </div>
-          </motion.div>
+          </motion.button>
         </div>
       </div>
 
@@ -133,9 +145,11 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
         className="grid grid-cols-2 gap-3 mb-6"
       >
         {stats.map((stat, idx) => (
-          <div 
+          <button 
             key={stat.label}
-            className="bg-card/50 rounded-xl p-3 flex items-center gap-3"
+            className="bg-card/50 rounded-xl p-3 flex items-center gap-3 text-left hover:bg-card/70 transition-colors active:scale-95"
+            onClick={() => onEditValue?.(stat.field, stat.label, stat.value)}
+            disabled={!onEditValue}
           >
             <div className="p-2 rounded-lg bg-primary/10">
               <stat.icon className="w-5 h-5 text-primary" />
@@ -147,7 +161,7 @@ export function OfficeStatsSlide({ totals, growth }: OfficeStatsSlideProps) {
                 {stat.growth !== undefined && <GrowthBadge value={stat.growth} />}
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </motion.div>
 

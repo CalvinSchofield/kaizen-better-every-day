@@ -14,6 +14,7 @@ import { TeamRecapSummarySlide } from './TeamRecapSummarySlide';
 interface TeamRecapStoryProps {
   report: WeeklyReport;
   onClose: () => void;
+  onEditValue?: (field: string, label: string, currentValue: number | string, type?: 'number' | 'text') => void;
 }
 
 const slideVariants = {
@@ -32,7 +33,7 @@ const gradients = [
   'from-background via-orange-500/5 to-orange-500/15',
 ];
 
-export function TeamRecapStory({ report, onClose }: TeamRecapStoryProps) {
+export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
 
@@ -50,6 +51,7 @@ export function TeamRecapStory({ report, onClose }: TeamRecapStoryProps) {
       key="office-stats" 
       totals={data.officeTotals}
       growth={data.growth}
+      onEditValue={onEditValue}
     />,
   ];
 
