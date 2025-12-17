@@ -3,7 +3,6 @@ import { ArrowLeft, Calculator, Clock, Target, DollarSign, ChevronRight } from "
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { UpgradePrmrCalculator } from "@/components/UpgradePrmrCalculator";
 
 interface PainPoint {
@@ -224,30 +223,21 @@ export default function UpgradeCheatSheet() {
             >
               <div
                 onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
-                className={`rounded-2xl border overflow-hidden transition-all cursor-pointer ${
-                  product.isOpportunity
-                    ? "border-green-500/30 bg-green-500/5"
-                    : "border-border bg-card"
-                }`}
+                className="rounded-2xl border border-border bg-card overflow-hidden transition-all cursor-pointer"
               >
                 {/* Card Header */}
                 <div className="flex items-center gap-4 p-4">
-                  <div className="relative shrink-0">
+                  <div className="shrink-0">
                     <img
                       src={product.image}
                       alt={product.name}
                       className="w-20 h-20 object-contain rounded-xl bg-muted/50"
                     />
-                    {product.isOpportunity && (
-                      <Badge className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] px-1.5">
-                        Upsell
-                      </Badge>
-                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm leading-tight">{product.name}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {product.painPoints.length} {product.isOpportunity ? "opportunities" : "pain points"}
+                      {product.painPoints.length} pain points
                     </p>
                   </div>
                   <ChevronRight 
@@ -267,18 +257,12 @@ export default function UpgradeCheatSheet() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className={`px-4 pb-4 pt-1 border-t ${
-                        product.isOpportunity ? "border-green-500/20" : "border-border/50"
-                      }`}>
+                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
                         <div className="space-y-2">
                           {product.painPoints.map((point, idx) => (
                             <div
                               key={idx}
-                              className={`flex items-start gap-3 p-2.5 rounded-xl ${
-                                product.isOpportunity
-                                  ? "bg-green-500/10"
-                                  : "bg-destructive/5"
-                              }`}
+                              className="flex items-start gap-3 p-2.5 rounded-xl bg-destructive/5"
                             >
                               <span className="text-lg">{point.emoji}</span>
                               <span className="text-sm">{point.text}</span>
