@@ -35,7 +35,10 @@ export async function fetchNotionWithRateLimit(
         let delay: number;
         
         if (retryAfter) {
-          delay = parseInt(retryAfter, 10) * 1000 || 60000;
+          // Retry-After from Notion is in seconds, convert to ms
+          // Cap at MAX_BACKOFF_MS to prevent extremely long waits
+          const retryAfterMs = parseInt(retryAfter, 10) * 1000;
+          delay = Math.min(retryAfterMs, MAX_BACKOFF_MS) || MAX_BACKOFF_MS;
         } else {
           const baseDelay = Math.min(2000 * Math.pow(2, attempt), MAX_BACKOFF_MS);
           const jitter = Math.random() * 1000;
