@@ -59,9 +59,9 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
         <Card className="border-border/40">
           <CardContent className="pt-6 text-center">
             <DollarSign className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-muted-foreground">No deals with CRM data in this period</p>
+            <p className="text-muted-foreground">No deals in this period</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Log sales with customer details to see deal analytics
+              Log sales to see deal analytics
             </p>
           </CardContent>
         </Card>
@@ -144,7 +144,7 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
           )}
           
           <p className="text-xs text-muted-foreground">
-            Based on {insights.totalDeals} deals in this period
+            Based on {insights.totalDeals} deal{insights.totalDeals !== 1 ? 's' : ''} ({insights.totalFpDeals} FP, {insights.totalUpgradeDeals} upgrade)
           </p>
         </div>
       </InsightCollapsible>
