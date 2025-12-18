@@ -1,14 +1,20 @@
 import { useState } from 'react';
-import { DollarSign, Clock, PieChart, CalendarCheck, MapPin, TrendingUp, Zap } from 'lucide-react';
+import { DollarSign, Clock, PieChart, CalendarCheck, MapPin, TrendingUp, Zap, ChevronDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCustomerInsights } from '@/hooks/useCustomerInsights';
 import { InsightsSectionHeader } from './InsightsSectionHeader';
 import { InsightCollapsible } from './InsightCollapsible';
 import { useNavigate } from 'react-router-dom';
 import { useRepGoals } from '@/hooks/useRepGoals';
-import { getTier } from '@/utils/payscaleCalculator';
+import { getTier, getAllTiers } from '@/utils/payscaleCalculator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 type ExpandedSection = 'economics' | 'time' | 'dealType' | 'install' | null;
+
+// Key payscale tiers for quick selection
+const QUICK_TIER_OPTIONS = [20, 40, 60, 100, 200, 300];
 
 // Helper to format minutes as human readable
 const formatMinutes = (minutes: number): string => {
@@ -28,7 +34,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const { insights, isLoading } = useCustomerInsights(dateRange);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const navigate = useNavigate();
-  const { goals } = useRepGoals();
+  const { goals, updateGoals } = useRepGoals();
+  const { toast } = useToast();
+  const [isUpdatingTier, setIsUpdatingTier] = useState(false);
 
   const handleSectionToggle = (section: ExpandedSection) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -52,6 +60,27 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const totalSpent = insights?.totalMoneySpent || 0;
   const payscaleRoi = totalSpent > 0 ? payscaleEarnings / totalSpent : 0;
   const upfrontRoi = totalSpent > 0 ? upfrontEarnings / totalSpent : 0;
+
+  const handleTierChange = async (newTier: number | null) => {
+    setIsUpdatingTier(true);
+    try {
+      await updateGoals({ custom_payscale_fp: newTier });
+      toast({
+        title: "Pay level updated",
+        description: newTier 
+          ? `Now showing ROI at ${newTier} FP+ payscale`
+          : "Using your current FP+ level",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to update",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingTier(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -155,6 +184,49 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             </>
           )}
           
+        {/* Tier Selector */}
+          {insights.totalPrmr > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Pay Level</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-1"
+                    disabled={isUpdatingTier}
+                  >
+                    {customPayLevel ? `${customPayLevel} FP+` : `${Math.round(userCumulativeFpPlus)} FP+ (Current)`}
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="end">
+                  <div className="space-y-1">
+                    <Button
+                      variant={customPayLevel === null ? "secondary" : "ghost"}
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() => handleTierChange(null)}
+                    >
+                      {Math.round(userCumulativeFpPlus)} FP+ (Current)
+                    </Button>
+                    {QUICK_TIER_OPTIONS.map((tier) => (
+                      <Button
+                        key={tier}
+                        variant={customPayLevel === tier ? "secondary" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start text-xs"
+                        onClick={() => handleTierChange(tier)}
+                      >
+                        {tier} FP+ (${getTier(tier).rate.toFixed(2)}/PRMR)
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
           {/* ROI (Earnings ÷ Cost) - Payscale vs Upfront */}
           {insights.totalPrmr > 0 && insights.hasMoneySpentData && totalSpent > 0 && (
             <div className="space-y-2">
@@ -206,9 +278,6 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center">
-                Customize pay level in Settings → ROI Pay Level
-              </p>
             </div>
           )}
           
