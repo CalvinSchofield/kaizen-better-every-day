@@ -52,6 +52,8 @@ export interface RepGoals {
   // Multi-device synced weekly activity logs
   weekly_mnl_logs: Record<string, number> | null;
   weekly_roleplay_logs: Record<string, number> | null;
+  // Custom payscale FP level for ROI calculations
+  custom_payscale_fp: number | null;
 }
 
 // Get the start of the current week (Sunday) in user's local timezone

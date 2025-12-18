@@ -575,6 +575,7 @@ export type Database = {
           cancel_rate: number | null
           could_do_fp_goal: number | null
           created_at: string | null
+          custom_payscale_fp: number | null
           id: string
           last_training_date: string | null
           monday_night_lights_goal: number | null
@@ -617,6 +618,7 @@ export type Database = {
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
+          custom_payscale_fp?: number | null
           id?: string
           last_training_date?: string | null
           monday_night_lights_goal?: number | null
@@ -659,6 +661,7 @@ export type Database = {
           cancel_rate?: number | null
           could_do_fp_goal?: number | null
           created_at?: string | null
+          custom_payscale_fp?: number | null
           id?: string
           last_training_date?: string | null
           monday_night_lights_goal?: number | null
