@@ -83,7 +83,7 @@ serve(async (req) => {
     const allowedFields = [
       'doors_knocked', 'decision_makers', 'pitches', 'transitions',
       'presentations', 'closes', 'fp_plus', 'prmr', 'upgrade_prmr',
-      'work_start_time', 'work_end_time'
+      'work_start_time', 'work_end_time', 'is_finalized'
     ];
 
     const counterFields = ['doors_knocked', 'decision_makers', 'pitches', 'transitions', 'presentations', 'closes'];
