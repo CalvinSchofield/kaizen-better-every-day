@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
+import { useCumulativeFP } from '@/hooks/useCumulativeFP';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
@@ -31,11 +32,20 @@ export default function Insights() {
   const [searchParams] = useSearchParams();
   const { repData, loading: loadingRepData } = useRepData();
   const { efpModeEnabled } = useEfpMode();
+  const { data: cumulativeData } = useCumulativeFP();
   const [datePreset, setDatePreset] = useState<DatePreset>('week');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  
+  // Check if CRM is enabled
+  const crmEnabled = (repData as any)?.crm_enabled === true;
+  
+  // Get user's actual cumulative FP+ for default pay level
+  const userCumulativeFpPlus = cumulativeData && cumulativeData.length > 0 
+    ? cumulativeData[cumulativeData.length - 1].cumulativeFp 
+    : 0;
 
   // Handle incoming date params from calendar navigation
   useEffect(() => {
@@ -209,14 +219,16 @@ export default function Insights() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Hide Deals tab if CRM not enabled */}
         <div className="px-4 pb-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InsightsTab)}>
-            <TabsList className="grid w-full grid-cols-4 h-10">
+            <TabsList className={cn("grid w-full h-10", crmEnabled ? "grid-cols-4" : "grid-cols-3")}>
               <TabsTrigger value="overview" className="text-xs">📊 Overview</TabsTrigger>
               <TabsTrigger value="performance" className="text-xs">🎯 Perform</TabsTrigger>
               <TabsTrigger value="patterns" className="text-xs">📈 Patterns</TabsTrigger>
-              <TabsTrigger value="deals" className="text-xs">💰 Deals</TabsTrigger>
+              {crmEnabled && (
+                <TabsTrigger value="deals" className="text-xs">💰 Deals</TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
         </div>
@@ -268,8 +280,8 @@ export default function Insights() {
                 efpModeEnabled={efpModeEnabled}
               />
             )}
-            {activeTab === 'deals' && (
-              <InsightsDealsTab dateRange={getDateRange(datePreset)} />
+            {activeTab === 'deals' && crmEnabled && (
+              <InsightsDealsTab dateRange={getDateRange(datePreset)} userCumulativeFpPlus={userCumulativeFpPlus} />
             )}
           </>
         )}
