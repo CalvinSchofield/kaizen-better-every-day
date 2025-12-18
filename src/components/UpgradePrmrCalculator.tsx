@@ -22,37 +22,6 @@ interface UpgradePrmrCalculatorProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-upgrade-prmr`;
 
-// Extract PRMR value from AI response
-const extractPrmrValue = (text: string): number | null => {
-  const patterns = [
-    /\$?([\d,]+(?:\.\d{1,2})?)\s*(?:PRMR|prmr)/i,
-    /(?:PRMR|prmr)(?:\s*(?:is|:|=))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:total|final)\s*(?:PRMR|prmr)(?:\s*(?:is|:|=))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:your|the)\s*(?:PRMR|prmr)(?:\s*(?:is|would be|comes to|equals))?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-  ];
-  
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const value = parseFloat(match[1].replace(/,/g, ''));
-      if (!isNaN(value) && value > 0 && value < 1000) {
-        return value;
-      }
-    }
-  }
-  return null;
-};
-
-// Clean up any stray markdown from AI response
-const cleanContent = (text: string): string => {
-  return text
-    .replace(/\*\*/g, '') // Remove bold markers
-    .replace(/\*/g, '')   // Remove italic markers
-    .replace(/#{1,6}\s/g, '') // Remove headers
-    .replace(/`/g, '')    // Remove code markers
-    .trim();
-};
-
 export const UpgradePrmrCalculator = ({
   open,
   onOpenChange,
@@ -61,7 +30,7 @@ export const UpgradePrmrCalculator = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'll help you calculate your PRMR for this upgrade. What equipment did you sell? (List each item and I'll add up the total)"
+      content: "What equipment did you sell? (List each item and I'll add up the total)"
     }
   ]);
   const [input, setInput] = useState("");
@@ -81,15 +50,6 @@ export const UpgradePrmrCalculator = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Check for PRMR values in assistant messages
-  useEffect(() => {
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
-    if (lastAssistantMessage) {
-      const prmr = extractPrmrValue(lastAssistantMessage.content);
-      setDetectedPrmr(prmr);
-    }
-  }, [messages]);
-
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -98,8 +58,6 @@ export const UpgradePrmrCalculator = ({
     setInput("");
     setIsLoading(true);
     setDetectedPrmr(null);
-
-    let assistantContent = "";
 
     try {
       const response = await fetch(CHAT_URL, {
@@ -113,57 +71,37 @@ export const UpgradePrmrCalculator = ({
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to get response");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get response");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
-              const cleanedContent = cleanContent(assistantContent);
-              setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant" && prev.length > 1 && prev[prev.length - 2]?.role === "user") {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: cleanedContent } : m);
-                }
-                return [...prev, { role: "assistant", content: cleanedContent }];
-              });
-            }
-          } catch {
-            buffer = line + "\n" + buffer;
-            break;
-          }
+      const data = await response.json();
+      
+      // Handle the new response format
+      if (data.type === "calculation") {
+        // Deterministic calculation result
+        setMessages(prev => [...prev, { 
+          role: "assistant", 
+          content: data.content 
+        }]);
+        if (data.prmr) {
+          setDetectedPrmr(data.prmr);
         }
+      } else if (data.type === "message") {
+        // AI is asking a clarifying question
+        setMessages(prev => [...prev, { 
+          role: "assistant", 
+          content: data.content 
+        }]);
+      } else if (data.error) {
+        throw new Error(data.error);
       }
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: "Sorry, I had trouble processing that. Please try again." 
+        content: error instanceof Error ? error.message : "Sorry, I had trouble processing that. Please try again." 
       }]);
     } finally {
       setIsLoading(false);
@@ -187,10 +125,20 @@ export const UpgradePrmrCalculator = ({
   const resetChat = () => {
     setMessages([{
       role: "assistant",
-      content: "Hi! I'll help you calculate your PRMR for this upgrade. What equipment did you sell? (List each item and I'll add up the total)"
+      content: "What equipment did you sell? (List each item and I'll add up the total)"
     }]);
     setInput("");
     setDetectedPrmr(null);
+  };
+
+  // Format message content with line breaks for the breakdown
+  const formatContent = (content: string) => {
+    return content.split('\n').map((line, i) => (
+      <span key={i}>
+        {line.replace(/\*\*/g, '')}
+        {i < content.split('\n').length - 1 && <br />}
+      </span>
+    ));
   };
 
   return (
@@ -226,7 +174,7 @@ export const UpgradePrmrCalculator = ({
                           : "bg-muted text-foreground"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <p className="whitespace-pre-wrap">{formatContent(msg.content)}</p>
                     </div>
                   </div>
                 ))}
