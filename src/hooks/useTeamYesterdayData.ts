@@ -15,6 +15,7 @@ interface YesterdayRepData {
     closes: number;
     fp: number;
     prmr: number;
+    isFinalized: boolean;
   };
   workStartTime?: string;
   workEndTime?: string;
@@ -194,6 +195,7 @@ export const useTeamYesterdayData = ({ userIds, excludeUserIds = [] }: UseTeamYe
             closes: entry.closes || 0,
             fp: fpValue,
             prmr: prmrValue,
+            isFinalized: entry.is_finalized || false,
           },
           workStartTime: entry.work_start_time || undefined,
           workEndTime: entry.work_end_time || undefined,
