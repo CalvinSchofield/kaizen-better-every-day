@@ -52,7 +52,7 @@ export interface CustomerInsightsData {
 export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
   // Fetch ALL sales (not just CRM-enriched ones) for complete metrics
   const { data: allSales = [], isLoading } = useQuery({
-    queryKey: ['all-sales-for-insights'],
+    queryKey: ['all-sales-for-insights', dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
