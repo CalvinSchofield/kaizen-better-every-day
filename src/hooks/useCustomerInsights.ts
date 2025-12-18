@@ -2,10 +2,20 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sale } from '@/components/LogSaleSheet';
-import { isWithinInterval, parseISO, differenceInDays } from 'date-fns';
+import { isWithinInterval, parseISO, differenceInDays, format, startOfWeek, endOfWeek } from 'date-fns';
 
 interface SaleWithDate extends Sale {
   entry_date: string;
+}
+
+export interface RoiTrendDataPoint {
+  period: string;
+  fresh?: number;
+  takeover?: number;
+  diy?: number;
+  freshSpend?: number;
+  takeoverSpend?: number;
+  diySpend?: number;
 }
 
 export interface CustomerInsightsData {
@@ -24,6 +34,10 @@ export interface CustomerInsightsData {
   // Economics by Sale Type (FP vs Upgrade)
   spendBySaleType: { fp: number; upgrade: number };
   prmrTotalBySaleType: { fp: number; upgrade: number };
+  
+  // ROI Trend Data (weekly aggregated)
+  roiTrendData: RoiTrendDataPoint[];
+  hasEnoughTrendData: boolean;
   
   // Time to Sell
   avgTimeToSell: number;
@@ -233,6 +247,55 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       upgrade: upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0),
     };
 
+    // ROI Trend Data - aggregate by week for meaningful trends
+    const salesWithDealTypeAndMoney = filteredSales.filter(s => s.deal_type && s.money_spent && s.money_spent > 0);
+    const weeklyData = new Map<string, { 
+      fresh: { prmr: number; spend: number };
+      takeover: { prmr: number; spend: number };
+      diy: { prmr: number; spend: number };
+    }>();
+
+    // Group sales by week
+    for (const sale of salesWithDealTypeAndMoney) {
+      const saleDate = parseISO(sale.entry_date);
+      const weekStart = startOfWeek(saleDate, { weekStartsOn: 1 }); // Monday
+      const weekKey = format(weekStart, 'MMM d');
+      
+      if (!weeklyData.has(weekKey)) {
+        weeklyData.set(weekKey, {
+          fresh: { prmr: 0, spend: 0 },
+          takeover: { prmr: 0, spend: 0 },
+          diy: { prmr: 0, spend: 0 },
+        });
+      }
+      
+      const week = weeklyData.get(weekKey)!;
+      const dealType = sale.deal_type as 'fresh' | 'takeover' | 'diy';
+      week[dealType].prmr += sale.prmr || 0;
+      week[dealType].spend += sale.money_spent || 0;
+    }
+
+    // Convert to array sorted by date and calculate ROI
+    const roiTrendData: RoiTrendDataPoint[] = Array.from(weeklyData.entries())
+      .sort((a, b) => {
+        // Parse the week key back to compare dates
+        const dateA = new Date(a[0] + ', 2025');
+        const dateB = new Date(b[0] + ', 2025');
+        return dateA.getTime() - dateB.getTime();
+      })
+      .map(([period, data]) => ({
+        period,
+        fresh: data.fresh.spend > 0 ? data.fresh.prmr / data.fresh.spend : undefined,
+        takeover: data.takeover.spend > 0 ? data.takeover.prmr / data.takeover.spend : undefined,
+        diy: data.diy.spend > 0 ? data.diy.prmr / data.diy.spend : undefined,
+        freshSpend: data.fresh.spend,
+        takeoverSpend: data.takeover.spend,
+        diySpend: data.diy.spend,
+      }));
+
+    // Only show trend if we have 2+ weeks with data
+    const hasEnoughTrendData = roiTrendData.length >= 2;
+
     // Difficulty Distribution
     const salesWithDifficulty = filteredSales.filter(s => s.difficulty);
     const difficultyDistribution = {
@@ -281,6 +344,8 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       prmrTotalByDealType,
       spendBySaleType,
       prmrTotalBySaleType,
+      roiTrendData,
+      hasEnoughTrendData,
       avgTimeToSell,
       avgTimeByDealType,
       avgTimeByDifficulty,
