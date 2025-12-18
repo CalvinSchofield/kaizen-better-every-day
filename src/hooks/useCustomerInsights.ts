@@ -17,6 +17,14 @@ export interface CustomerInsightsData {
   totalPrmr: number;
   totalMoneySpent: number;
   
+  // Economics by Deal Type (Fresh, Takeover, DIY)
+  spendByDealType: { fresh: number; takeover: number; diy: number };
+  prmrTotalByDealType: { fresh: number; takeover: number; diy: number };
+  
+  // Economics by Sale Type (FP vs Upgrade)
+  spendBySaleType: { fp: number; upgrade: number };
+  prmrTotalBySaleType: { fp: number; upgrade: number };
+  
   // Time to Sell
   avgTimeToSell: number;
   avgTimeByDealType: { fresh: number; takeover: number; diy: number };
@@ -188,7 +196,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       diy: salesWithDealType.filter(s => s.deal_type === 'diy').length,
     };
 
-    // PRMR by deal type
+    // PRMR by deal type (average)
     const prmrByDealType = {
       fresh: dealTypeDistribution.fresh > 0 
         ? salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.fresh
@@ -199,6 +207,30 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       diy: dealTypeDistribution.diy > 0
         ? salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.diy
         : 0,
+    };
+
+    // Spend and PRMR totals by deal type (for ROI calculation)
+    const spendByDealType = {
+      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.money_spent || 0), 0),
+    };
+
+    const prmrTotalByDealType = {
+      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0),
+      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0),
+      diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0),
+    };
+
+    // Spend and PRMR totals by sale type (FP vs Upgrade)
+    const spendBySaleType = {
+      fp: fpSales.reduce((sum, s) => sum + (s.money_spent || 0), 0),
+      upgrade: upgradeSales.reduce((sum, s) => sum + (s.money_spent || 0), 0),
+    };
+
+    const prmrTotalBySaleType = {
+      fp: fpSales.reduce((sum, s) => sum + (s.prmr || 0), 0),
+      upgrade: upgradeSales.reduce((sum, s) => sum + (s.prmr || 0), 0),
     };
 
     // Difficulty Distribution
@@ -245,6 +277,10 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       prmrToCostRatio,
       totalPrmr,
       totalMoneySpent,
+      spendByDealType,
+      prmrTotalByDealType,
+      spendBySaleType,
+      prmrTotalBySaleType,
       avgTimeToSell,
       avgTimeByDealType,
       avgTimeByDifficulty,

@@ -280,6 +280,71 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
               </div>
             </div>
           )}
+
+          {/* ROI by Deal Type (Fresh, Takeover, DIY) */}
+          {insights.hasDealTypeData && insights.hasMoneySpentData && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">ROI by Deal Type</div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['fresh', 'takeover', 'diy'] as const).map((type) => {
+                  const spend = insights.spendByDealType[type];
+                  const prmr = insights.prmrTotalByDealType[type];
+                  const earnings = prmr * payscaleRate;
+                  const roi = spend > 0 ? earnings / spend : 0;
+                  const hasData = insights.dealTypeDistribution[type] > 0;
+                  
+                  if (!hasData) return null;
+                  
+                  return (
+                    <div key={type} className="p-2 rounded-lg bg-muted/30 text-center">
+                      <div className="text-xs text-muted-foreground capitalize">{type}</div>
+                      <div className={`font-bold ${roi >= 1 ? 'text-success' : 'text-destructive'}`}>
+                        {spend > 0 ? `${roi.toFixed(1)}x` : '—'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        ${spend.toFixed(0)} spent
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ROI by Sale Type (FP vs Upgrade) */}
+          {insights.hasMoneySpentData && (insights.totalFpDeals > 0 || insights.totalUpgradeDeals > 0) && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">ROI by Sale Type</div>
+              <div className="grid grid-cols-2 gap-3">
+                {insights.totalFpDeals > 0 && (
+                  <div className="p-2 rounded-lg bg-muted/30 text-center">
+                    <div className="text-xs text-muted-foreground">Fresh Pitch (FP)</div>
+                    <div className={`font-bold ${insights.spendBySaleType.fp > 0 && (insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp) >= 1 ? 'text-success' : insights.spendBySaleType.fp > 0 ? 'text-destructive' : ''}`}>
+                      {insights.spendBySaleType.fp > 0 
+                        ? `${(insights.prmrTotalBySaleType.fp * payscaleRate / insights.spendBySaleType.fp).toFixed(1)}x`
+                        : '—'}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      ${insights.spendBySaleType.fp.toFixed(0)} spent · {insights.totalFpDeals} deals
+                    </div>
+                  </div>
+                )}
+                {insights.totalUpgradeDeals > 0 && (
+                  <div className="p-2 rounded-lg bg-muted/30 text-center">
+                    <div className="text-xs text-muted-foreground">Upgrade</div>
+                    <div className={`font-bold ${insights.spendBySaleType.upgrade > 0 && (insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade) >= 1 ? 'text-success' : insights.spendBySaleType.upgrade > 0 ? 'text-destructive' : ''}`}>
+                      {insights.spendBySaleType.upgrade > 0 
+                        ? `${(insights.prmrTotalBySaleType.upgrade * payscaleRate / insights.spendBySaleType.upgrade).toFixed(1)}x`
+                        : '—'}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      ${insights.spendBySaleType.upgrade.toFixed(0)} spent · {insights.totalUpgradeDeals} deals
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           <p className="text-xs text-muted-foreground">
             Based on {insights.totalDeals} deal{insights.totalDeals !== 1 ? 's' : ''} ({insights.totalFpDeals} FP, {insights.totalUpgradeDeals} upgrade)
