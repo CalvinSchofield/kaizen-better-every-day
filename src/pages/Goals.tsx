@@ -188,11 +188,43 @@ const Goals = () => {
   const fundedProgress = efpModeEnabled ? calculateEfp(fundedPRMR) : fundedFP;
 
   // Today's progress from entry (EFP or FP+ based on mode)
-  const todayUpgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
-  const todayFpPlus = (todayEntry?.fp_plus || 0) + (todayUpgradePrmr / 85);
+  // IMPORTANT: Include RUNNING totals from unfinalized sales_log for live "behind" calculation
+  const todayUnfinalizedPrmr = useMemo(() => {
+    if (!todayEntry || todayEntry.is_finalized) {
+      // If finalized, use the saved values
+      return (todayEntry?.prmr || 0) + ((todayEntry as any)?.upgrade_prmr || 0);
+    }
+    // If not finalized, calculate from sales_log for running total
+    const salesLog = (todayEntry as any)?.sales_log || [];
+    if (salesLog.length > 0) {
+      return salesLog.reduce((sum: number, sale: any) => sum + (sale.prmr || 0), 0);
+    }
+    // Fallback to prmr field if no sales_log
+    return (todayEntry?.prmr || 0) + ((todayEntry as any)?.upgrade_prmr || 0);
+  }, [todayEntry]);
+
+  const todayUnfinalizedFpPlus = useMemo(() => {
+    if (!todayEntry || todayEntry.is_finalized) {
+      // If finalized, use the saved values
+      const upgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
+      return (todayEntry?.fp_plus || 0) + (upgradePrmr / 85);
+    }
+    // If not finalized, calculate from sales_log for running total
+    const salesLog = (todayEntry as any)?.sales_log || [];
+    if (salesLog.length > 0) {
+      const fpSales = salesLog.filter((s: any) => s.type === 'fp');
+      const upgradeSales = salesLog.filter((s: any) => s.type === 'upgrade');
+      const upgradePrmr = upgradeSales.reduce((sum: number, s: any) => sum + (s.prmr || 0), 0);
+      return fpSales.length + (upgradePrmr / 85);
+    }
+    // Fallback to fp_plus field if no sales_log
+    const upgradePrmr = (todayEntry as any)?.upgrade_prmr || 0;
+    return (todayEntry?.fp_plus || 0) + (upgradePrmr / 85);
+  }, [todayEntry]);
+
   const todayProgress = efpModeEnabled 
-    ? calculateEfp((todayEntry?.prmr || 0) + todayUpgradePrmr)
-    : todayFpPlus;
+    ? calculateEfp(todayUnfinalizedPrmr)
+    : todayUnfinalizedFpPlus;
 
   // Check if we're in preseason (before April 12, 2026)
   const isPreseason = new Date() < new Date('2026-04-12');
