@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 
-import { TrendingUp, TrendingDown, Clock, Target, Award, Calendar as CalendarIcon, Lock, BarChart3, TrendingUpIcon, Gauge, PieChart } from 'lucide-react';
-import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays, differenceInDays } from 'date-fns';
+import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -17,37 +18,24 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { SalesFunnelChart } from '@/components/insights/SalesFunnelChart';
-import { HourlyActivityHeatmap } from '@/components/insights/HourlyActivityHeatmap';
-import { ActivityTrendChart } from '@/components/insights/ActivityTrendChart';
-import { DayOfWeekAnalysis } from '@/components/insights/DayOfWeekAnalysis';
-import { FPCumulativeChart } from '@/components/FPCumulativeChart';
-import { CanceledStatsCard } from '@/components/goals/CanceledStatsCard';
 import { AICoachFab } from '@/components/insights/AICoachFab';
-import { InsightsSummaryHero } from '@/components/insights/InsightsSummaryHero';
-import { InsightsSectionHeader } from '@/components/insights/InsightsSectionHeader';
-import { InsightCollapsible } from '@/components/insights/InsightCollapsible';
-import { PastRecapsSection } from '@/components/recap/PastRecapsSection';
+import { InsightsOverviewTab } from '@/components/insights/InsightsOverviewTab';
+import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanceTab';
+import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
+import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
 
 type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
-
-type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'trends' | 'hourly' | 'bestPeriods' | 'timing' | 'custom' | null;
-
-// Helper to safely format numbers, returning "-" for NaN/Infinity/invalid values
-const safeFormat = (value: number, decimals: number = 1, suffix: string = ''): string => {
-  if (!isFinite(value) || isNaN(value) || value < 0) return '-';
-  return `${value.toFixed(decimals)}${suffix}`;
-};
+type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
 
 export default function Insights() {
   const [searchParams] = useSearchParams();
   const { repData, loading: loadingRepData } = useRepData();
-  const { efpModeEnabled, calculateEfp } = useEfpMode();
+  const { efpModeEnabled } = useEfpMode();
   const [datePreset, setDatePreset] = useState<DatePreset>('week');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
+  const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
 
   // Handle incoming date params from calendar navigation
   useEffect(() => {
@@ -59,7 +47,6 @@ export default function Insights() {
       const endDate = parseISO(endParam);
       const now = new Date();
       
-      // Check if dates match "This Week" (Monday of current week to Sunday)
       const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
       const thisWeekEnd = addDays(thisWeekStart, 6);
       if (isSameDay(startDate, thisWeekStart) && isSameDay(endDate, thisWeekEnd)) {
@@ -67,7 +54,6 @@ export default function Insights() {
         return;
       }
       
-      // Check if dates match "Last Week"
       const lastWeekStart = subDays(thisWeekStart, 7);
       const lastWeekEnd = addDays(lastWeekStart, 6);
       if (isSameDay(startDate, lastWeekStart) && isSameDay(endDate, lastWeekEnd)) {
@@ -75,7 +61,6 @@ export default function Insights() {
         return;
       }
       
-      // Check if dates match "This Month"
       const thisMonthStart = startOfMonth(now);
       const thisMonthEnd = endOfMonth(now);
       if (isSameDay(startDate, thisMonthStart) && isSameDay(endDate, thisMonthEnd)) {
@@ -83,7 +68,6 @@ export default function Insights() {
         return;
       }
       
-      // Check if dates match "Last Month"
       const lastMonthDate = subMonths(now, 1);
       const lastMonthStart = startOfMonth(lastMonthDate);
       const lastMonthEnd = endOfMonth(lastMonthDate);
@@ -92,31 +76,22 @@ export default function Insights() {
         return;
       }
       
-      // No match - use custom with these dates
       setCustomStartDate(startDate);
       setCustomEndDate(endDate);
       setDatePreset('custom');
       return;
     }
     
-    // Legacy support for old 'period' param
     const period = searchParams.get('period');
-    if (period === 'week') {
-      setDatePreset('week');
-    } else if (period === 'month') {
-      setDatePreset('month');
-    } else if (period === 'lastWeek') {
-      setDatePreset('lastWeek');
-    } else if (period === 'lastMonth') {
-      setDatePreset('lastMonth');
-    }
+    if (period === 'week') setDatePreset('week');
+    else if (period === 'month') setDatePreset('month');
+    else if (period === 'lastWeek') setDatePreset('lastWeek');
+    else if (period === 'lastMonth') setDatePreset('lastMonth');
   }, [searchParams]);
 
-  // Check if user is a pre-blitz rookie
   const year = repData?.year || "Rookie";
   const isRookie = year === "Rookie";
   
-  // Check if rookie has attended a blitz OR is currently on an active blitz
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
     : [];
@@ -124,27 +99,19 @@ export default function Insights() {
   const now = new Date();
   const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
     if (!blitz.date || !blitz.endDate) return false;
-    
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const year = now.getFullYear();
+    const yearNum = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
+    const todayStr = `${yearNum}-${month}-${day}`;
+    const isStartingToday = todayStr === blitz.date;
     const startDate = new Date(blitz.date + 'T00:00:00');
     const endDate = new Date(blitz.endDate + 'T23:59:59');
     const isCurrentlyActive = now >= startDate && now <= endDate;
     const hasEnded = endDate < now;
-    
     return isStartingToday || isCurrentlyActive || hasEnded;
   });
 
   const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
-  
-  const handleSectionToggle = (section: ExpandedSection) => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
@@ -155,17 +122,14 @@ export default function Insights() {
         const yesterday = subDays(now, 1);
         return { start: yesterday, end: yesterday };
       case 'week':
-        // Monday-based week (weekStartsOn: 1 = Monday)
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         return { start: weekStart, end: now };
       case 'lastWeek':
-        // Previous Monday-Saturday
         const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
         const lastWeekStart = subDays(thisWeekStart, 7);
-        const lastWeekEnd = subDays(thisWeekStart, 2); // Saturday (Sunday is 1 day before Monday)
+        const lastWeekEnd = subDays(thisWeekStart, 2);
         return { start: lastWeekStart, end: lastWeekEnd };
       case 'month':
-        // Only this month up to today (not future dates)
         return { start: startOfMonth(now), end: now };
       case 'lastMonth':
         const lastMonthDate = subMonths(now, 1);
@@ -173,52 +137,15 @@ export default function Insights() {
       case 'preseason':
         return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
       case 'custom':
-        return { 
-          start: customStartDate || new Date('2025-01-01'), 
-          end: customEndDate || now 
-        };
+        return { start: customStartDate || new Date('2025-01-01'), end: customEndDate || now };
       default:
         return { start: startOfMonth(now), end: endOfMonth(now) };
     }
   };
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset), efpModeEnabled);
-  
-  const handleCustomDateApply = () => {
-    if (customStartDate && customEndDate) {
-      setDatePreset('custom');
-      setShowCustomDialog(false);
-    }
-  };
 
-  const getRatioComparison = (current: number, overall: number) => {
-    if (current === 0 || overall === 0) return null;
-    const percentDiff = ((overall - current) / overall) * 100;
-    const isBetter = current < overall;
-    return { percentDiff: Math.abs(percentDiff), isBetter };
-  };
-
-  const getCloseRatioComparison = (current: number, overall: number) => {
-    if (current === 0 || overall === 0) return null;
-    const percentDiff = ((current - overall) / overall) * 100;
-    const isBetter = current < overall;
-    return { percentDiff: Math.abs(percentDiff), isBetter };
-  };
-
-  const doorsComparison = insights && efpModeEnabled 
-    ? getRatioComparison(insights.doorsToEfp, insights.overallDoorsToEfp) 
-    : insights ? getRatioComparison(insights.doorsToFp, insights.overallDoorsToFp) : null;
-  const pitchesComparison = insights && efpModeEnabled
-    ? getRatioComparison(insights.pitchesToEfp, insights.overallPitchesToEfp)
-    : insights ? getRatioComparison(insights.pitchesToFp, insights.overallPitchesToFp) : null;
-  const transitionsComparison = insights && efpModeEnabled
-    ? getRatioComparison(insights.transitionsToEfp, insights.overallTransitionsToEfp)
-    : insights ? getRatioComparison(insights.transitionsToFp, insights.overallTransitionsToFp) : null;
-  const closeComparison = insights ? getCloseRatioComparison(insights.presentationsToClose, insights.overallPresentationsToClose) : null;
-
-  if (loadingRepData) {
-    return null;
-  }
+  if (loadingRepData) return null;
 
   if (isPreBlitzRookie) {
     return (
@@ -236,8 +163,7 @@ export default function Insights() {
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-foreground">Insights Unlock on Your Blitz!</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Your performance analytics will become available once you hit the doors on your first blitz. 
-                Track your ratios, productivity, and best periods to level up your game.
+                Your performance analytics will become available once you hit the doors on your first blitz.
               </p>
             </div>
           </CardContent>
@@ -248,72 +174,56 @@ export default function Insights() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Sticky Date Selector */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50 px-4 py-3">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          <Button
-            variant={datePreset === 'yesterday' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('yesterday')}
-            className="shrink-0"
-          >
-            Yesterday
-          </Button>
-          <Button
-            variant={datePreset === 'week' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('week')}
-            className="shrink-0"
-          >
-            This Week
-          </Button>
-          <Button
-            variant={datePreset === 'lastWeek' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('lastWeek')}
-            className="shrink-0"
-          >
-            Last Week
-          </Button>
-          <Button
-            variant={datePreset === 'month' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('month')}
-            className="shrink-0"
-          >
-            This Month
-          </Button>
-          <Button
-            variant={datePreset === 'lastMonth' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('lastMonth')}
-            className="shrink-0"
-          >
-            Last Month
-          </Button>
-          <Button
-            variant={datePreset === 'preseason' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setDatePreset('preseason')}
-            className="shrink-0"
-          >
-            Preseason
-          </Button>
-          <Button
-            variant={datePreset === 'custom' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowCustomDialog(true)}
-            className="shrink-0"
-          >
-            <CalendarIcon className="w-4 h-4 mr-1" />
-            {datePreset === 'custom' && customStartDate && customEndDate
-              ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
-              : 'Custom'}
-          </Button>
+      {/* Sticky Header with Date Selector + Tabs */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        {/* Date Range Buttons */}
+        <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2">
+            {(['yesterday', 'week', 'lastWeek', 'month', 'lastMonth', 'preseason'] as DatePreset[]).map((preset) => (
+              <Button
+                key={preset}
+                variant={datePreset === preset ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset(preset)}
+                className="shrink-0"
+              >
+                {preset === 'yesterday' && 'Yesterday'}
+                {preset === 'week' && 'This Week'}
+                {preset === 'lastWeek' && 'Last Week'}
+                {preset === 'month' && 'This Month'}
+                {preset === 'lastMonth' && 'Last Month'}
+                {preset === 'preseason' && 'Preseason'}
+              </Button>
+            ))}
+            <Button
+              variant={datePreset === 'custom' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowCustomDialog(true)}
+              className="shrink-0"
+            >
+              <CalendarIcon className="w-4 h-4 mr-1" />
+              {datePreset === 'custom' && customStartDate && customEndDate
+                ? `${format(customStartDate, 'MMM d')} — ${format(customEndDate, 'MMM d')}`
+                : 'Custom'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="px-4 pb-3">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InsightsTab)}>
+            <TabsList className="grid w-full grid-cols-4 h-10">
+              <TabsTrigger value="overview" className="text-xs">📊 Overview</TabsTrigger>
+              <TabsTrigger value="performance" className="text-xs">🎯 Perform</TabsTrigger>
+              <TabsTrigger value="patterns" className="text-xs">📈 Patterns</TabsTrigger>
+              <TabsTrigger value="deals" className="text-xs">💰 Deals</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
+      {/* Tab Content */}
+      <div className="max-w-lg mx-auto px-4 pt-4">
         {isLoading ? (
           <div className="space-y-4">
             <div className="bg-card border border-border rounded-xl p-5">
@@ -336,469 +246,30 @@ export default function Insights() {
           </div>
         ) : (
           <>
-            {/* Past Recaps Section */}
-            <PastRecapsSection />
-
-            {/* Hero Summary */}
-            <InsightsSummaryHero
-              totalFp={insights.totalFp}
-              totalEfp={insights.totalEfp}
-              totalPrmr={insights.totalPrmr}
-              daysWorked={insights.daysWorked}
-              totalDoors={insights.totalDoors}
-              totalCloses={insights.totalCloses}
-              efpModeEnabled={efpModeEnabled}
-            />
-
-            {/* Cancelled Stats */}
-            <CanceledStatsCard />
-
-            {/* Progress Over Time */}
-            <FPCumulativeChart highlightDateRange={getDateRange(datePreset)} />
-
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* PERFORMANCE SECTION */}
-            {/* ═══════════════════════════════════════════════════════════ */}
-            <InsightsSectionHeader 
-              icon={Target} 
-              title="Performance" 
-              description="Your conversion rates & efficiency"
-            />
-
-            {/* Sales Funnel */}
-            <InsightCollapsible
-              icon={PieChart}
-              title="Sales Funnel"
-              isOpen={expandedSection === 'funnel'}
-              onToggle={() => handleSectionToggle('funnel')}
-              preview={
-                <span>
-                  {insights.funnelData.doors.total} doors → {insights.funnelData.closes.total} closes · <span className="text-primary font-medium">{safeFormat(insights.funnelData.doors.conversionToNext, 1, '%')}</span> DM rate
-                </span>
-              }
-            >
-              <SalesFunnelChart funnelData={insights.funnelData} />
-            </InsightCollapsible>
-
-            {/* Key Ratios */}
-            <InsightCollapsible
-              icon={Target}
-              title="Key Ratios"
-              isOpen={expandedSection === 'ratios'}
-              onToggle={() => handleSectionToggle('ratios')}
-              preview={
-                <span>
-                  <span className="text-primary font-medium">
-                    {safeFormat(efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp)}
-                  </span> doors per {efpModeEnabled ? "EFP" : "FP+"} · {safeFormat(insights.presentationsToClose)} pres/close
-                </span>
-              }
-            >
-              <div className="space-y-3">
-                {/* Doors Ratio */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Doors → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.doorsToEfp : insights.doorsToFp)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallDoorsToEfp : insights.overallDoorsToFp)}</div>
-                  </div>
-                  {doorsComparison && (
-                    <div className={cn("flex items-center gap-1", doorsComparison.isBetter ? 'text-success' : 'text-destructive')}>
-                      {doorsComparison.isBetter ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      <span className="text-sm font-semibold">{doorsComparison.percentDiff.toFixed(0)}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Pitches Ratio */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Pitches → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.pitchesToEfp : insights.pitchesToFp)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallPitchesToEfp : insights.overallPitchesToFp)}</div>
-                  </div>
-                  {pitchesComparison && (
-                    <div className={cn("flex items-center gap-1", pitchesComparison.isBetter ? 'text-success' : 'text-destructive')}>
-                      {pitchesComparison.isBetter ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      <span className="text-sm font-semibold">{pitchesComparison.percentDiff.toFixed(0)}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Transitions Ratio */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Transitions → {efpModeEnabled ? "EFP" : "FP+"}</div>
-                    <div className="text-xl font-bold">{safeFormat(efpModeEnabled ? insights.transitionsToEfp : insights.transitionsToFp)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(efpModeEnabled ? insights.overallTransitionsToEfp : insights.overallTransitionsToFp)}</div>
-                  </div>
-                  {transitionsComparison && (
-                    <div className={cn("flex items-center gap-1", transitionsComparison.isBetter ? 'text-success' : 'text-destructive')}>
-                      {transitionsComparison.isBetter ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      <span className="text-sm font-semibold">{transitionsComparison.percentDiff.toFixed(0)}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Close Ratio */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Presentations → Close</div>
-                    <div className="text-xl font-bold">{safeFormat(insights.presentationsToClose)}</div>
-                    <div className="text-xs text-muted-foreground">Overall: {safeFormat(insights.overallPresentationsToClose)}</div>
-                  </div>
-                  {closeComparison && (
-                    <div className={cn("flex items-center gap-1", closeComparison.isBetter ? 'text-success' : 'text-destructive')}>
-                      {closeComparison.isBetter ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      <span className="text-sm font-semibold">{closeComparison.percentDiff.toFixed(0)}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Doors to FP (new FP only) */}
-                {insights.totalNewFp > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Doors → FP</div>
-                      <div className="text-xl font-bold">{safeFormat(insights.doorsToNewFp)}</div>
-                      <div className="text-xs text-muted-foreground">More accurate door efficiency</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </InsightCollapsible>
-
-            {/* Productivity */}
-            <InsightCollapsible
-              icon={Gauge}
-              title="Productivity per Hour"
-              isOpen={expandedSection === 'productivity'}
-              onToggle={() => handleSectionToggle('productivity')}
-              preview={
-                <span>
-                  <span className="text-primary font-medium">
-                    {safeFormat(efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp)} hours
-                  </span> to sell 1 {efpModeEnabled ? "EFP" : "FP+"}
-                </span>
-              }
-            >
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Doors/Hour</div>
-                  <div className="text-xl font-bold">{safeFormat(insights.doorsPerHour)}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Pitches/Hour</div>
-                  <div className="text-xl font-bold">{safeFormat(insights.pitchesPerHour)}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Transitions/Hour</div>
-                  <div className="text-xl font-bold">{safeFormat(insights.transitionsPerHour)}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Presentations/Hour</div>
-                  <div className="text-xl font-bold">{safeFormat(insights.presentationsPerHour)}</div>
-                </div>
-                <div className="col-span-2 p-3 rounded-xl bg-primary/10">
-                  <div className="text-sm text-muted-foreground">Hours to sell 1 {efpModeEnabled ? "EFP" : "FP+"}</div>
-                  <div className="text-xl font-bold text-primary">
-                    {safeFormat(efpModeEnabled ? insights.hoursToEfp : insights.hoursToFp, 1, 'h')}
-                  </div>
-                </div>
-              </div>
-            </InsightCollapsible>
-
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* PATTERNS SECTION */}
-            {/* ═══════════════════════════════════════════════════════════ */}
-            <InsightsSectionHeader 
-              icon={TrendingUpIcon} 
-              title="Patterns" 
-              description="When & how you perform best"
-            />
-
-            {/* Activity Trends */}
-            <InsightCollapsible
-              icon={TrendingUpIcon}
-              title="Activity Trends"
-              isOpen={expandedSection === 'trends'}
-              onToggle={() => handleSectionToggle('trends')}
-              preview={
-                <span>
-                  {(() => {
-                    const transitionsData = insights.dailyTrend;
-                    if (transitionsData.length < 2) return `${insights.totalTransitions} transitions tracked`;
-                    
-                    const firstHalf = transitionsData.slice(0, Math.floor(transitionsData.length / 2));
-                    const secondHalf = transitionsData.slice(Math.floor(transitionsData.length / 2));
-                    const firstAvg = firstHalf.reduce((sum, d) => sum + d.transitions, 0) / firstHalf.length;
-                    const secondAvg = secondHalf.reduce((sum, d) => sum + d.transitions, 0) / secondHalf.length;
-                    const growth = ((secondAvg - firstAvg) / firstAvg) * 100;
-                    
-                    if (Math.abs(growth) < 5) {
-                      return `${insights.totalTransitions} transitions · Steady pattern`;
-                    } else if (growth > 0) {
-                      return <>{insights.totalTransitions} transitions · <span className="text-success font-medium">↑ {growth.toFixed(0)}%</span></>;
-                    } else {
-                      return <>{insights.totalTransitions} transitions · <span className="text-destructive font-medium">↓ {Math.abs(growth).toFixed(0)}%</span></>;
-                    }
-                  })()}
-                </span>
-              }
-            >
-              <ActivityTrendChart dailyTrend={insights.dailyTrend} efpModeEnabled={efpModeEnabled} highlightDateRange={getDateRange(datePreset)} />
-            </InsightCollapsible>
-
-            {/* Hourly Patterns */}
-            <InsightCollapsible
-              icon={Clock}
-              title="Hourly Patterns"
-              isOpen={expandedSection === 'hourly'}
-              onToggle={() => handleSectionToggle('hourly')}
-              preview={
-                insights.peakHours.doors !== null ? (
-                  <span>
-                    Peak hour: <span className="text-primary font-medium">
-                      {insights.peakHours.doors === 0 ? '12' : insights.peakHours.doors > 12 ? insights.peakHours.doors - 12 : insights.peakHours.doors}
-                      {insights.peakHours.doors >= 12 ? 'PM' : 'AM'}
-                    </span>
-                  </span>
-                ) : 'View your peak productivity hours'
-              }
-            >
-              <HourlyActivityHeatmap 
-                hourlyActivity={insights.hourlyActivity} 
-                peakHours={insights.peakHours}
-                hourRange={insights.hourRange}
+            {activeTab === 'overview' && (
+              <InsightsOverviewTab 
+                insights={insights} 
+                dateRange={getDateRange(datePreset)} 
+                efpModeEnabled={efpModeEnabled} 
               />
-            </InsightCollapsible>
-
-            {/* Timing Patterns */}
-            <InsightCollapsible
-              icon={Clock}
-              title="Work Schedule"
-              isOpen={expandedSection === 'timing'}
-              onToggle={() => handleSectionToggle('timing')}
-              preview={
-                <span>
-                  {insights.avgStartTime} — {insights.avgEndTime} · <span className="text-primary font-medium">{insights.avgHoursWorked.toFixed(1)} hrs</span> avg
-                </span>
-              }
-            >
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Avg Start Time</div>
-                  <div className="text-xl font-bold">{insights.avgStartTime}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Avg End Time</div>
-                  <div className="text-xl font-bold">{insights.avgEndTime}</div>
-                </div>
-                <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Avg Hours Worked</div>
-                  <div className="text-xl font-bold">{insights.avgHoursWorked.toFixed(1)}h</div>
-                </div>
-                {insights.mostProductiveHour !== null && (
-                  <div className="p-3 rounded-xl bg-primary/10">
-                    <div className="text-sm text-muted-foreground">Most Productive</div>
-                    <div className="text-xl font-bold text-primary">
-                      {insights.mostProductiveHour === 0 ? '12' : insights.mostProductiveHour > 12 ? insights.mostProductiveHour - 12 : insights.mostProductiveHour}
-                      {insights.mostProductiveHour >= 12 ? 'PM' : 'AM'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </InsightCollapsible>
-
-            {/* ═══════════════════════════════════════════════════════════ */}
-            {/* RECORDS SECTION */}
-            {/* ═══════════════════════════════════════════════════════════ */}
-            <InsightsSectionHeader 
-              icon={Award} 
-              title="Records" 
-              description="Your best performances"
-            />
-
-            {/* Best Periods - Contextual based on date range */}
-            {(() => {
-              const dateRange = getDateRange(datePreset);
-              const daysInRange = differenceInDays(dateRange.end, dateRange.start) + 1;
-              const showBestDay = daysInRange > 1;
-              const showBestWeek = daysInRange > 7;
-              const showBestMonth = daysInRange > 30;
-              
-              // For single day (yesterday), show simplified summary
-              if (daysInRange === 1) {
-                return (
-                  <InsightCollapsible
-                    icon={Award}
-                    title="Day Summary"
-                    isOpen={expandedSection === 'bestPeriods'}
-                    onToggle={() => handleSectionToggle('bestPeriods')}
-                    preview={
-                      <span>
-                        <span className="text-primary font-medium">
-                          {efpModeEnabled ? insights.totalEfp.toFixed(2) : insights.totalFp.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </span> · {insights.totalDoors} doors · {insights.totalCloses} closes
-                      </span>
-                    }
-                  >
-                    <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-primary/10">
-                        <div className="text-sm text-muted-foreground mb-1">Results</div>
-                        <div className="text-xl font-bold text-primary">
-                          {efpModeEnabled ? insights.totalEfp.toFixed(2) : insights.totalFp.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </div>
-                        <div className="text-sm text-muted-foreground">${insights.totalPrmr.toLocaleString()} PRMR</div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 rounded-xl bg-muted/30">
-                          <div className="text-sm text-muted-foreground">Doors</div>
-                          <div className="text-xl font-bold">{insights.totalDoors}</div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-muted/30">
-                          <div className="text-sm text-muted-foreground">Closes</div>
-                          <div className="text-xl font-bold">{insights.totalCloses}</div>
-                        </div>
-                      </div>
-
-                      {/* Day of Week Analysis still relevant */}
-                      {insights.bestDayOfWeek && (
-                        <DayOfWeekAnalysis 
-                          dayOfWeekData={insights.dayOfWeekData}
-                          bestDayOfWeek={insights.bestDayOfWeek}
-                          efpModeEnabled={efpModeEnabled}
-                        />
-                      )}
-                    </div>
-                  </InsightCollapsible>
-                );
-              }
-              
-              return (
-                <InsightCollapsible
-                  icon={Award}
-                  title="Best Periods"
-                  isOpen={expandedSection === 'bestPeriods'}
-                  onToggle={() => handleSectionToggle('bestPeriods')}
-                  preview={
-                    insights.bestDay ? (
-                      <span>
-                        Best day: <span className="text-primary font-medium">
-                          {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </span> on {insights.bestDay.date}
-                      </span>
-                    ) : 'Your personal records'
-                  }
-                >
-                  <div className="space-y-3">
-                    {showBestDay && insights.bestDay && (
-                      <div className="p-3 rounded-xl bg-muted/30">
-                        <div className="text-sm text-muted-foreground mb-1">Best Day</div>
-                        <div className="text-xl font-bold text-primary">
-                          {efpModeEnabled ? insights.bestDay.efp.toFixed(2) : insights.bestDay.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{insights.bestDay.date}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{insights.bestDay.stats}</div>
-                      </div>
-                    )}
-                    
-                    {showBestWeek && insights.bestWeek && (
-                      <div className="p-3 rounded-xl bg-muted/30">
-                        <div className="text-sm text-muted-foreground mb-1">Best Week</div>
-                        <div className="text-xl font-bold text-primary">
-                          {efpModeEnabled ? insights.bestWeek.efp.toFixed(2) : insights.bestWeek.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{insights.bestWeek.weekStart} — {insights.bestWeek.weekEnd}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{insights.bestWeek.stats}</div>
-                      </div>
-                    )}
-                    
-                    {showBestMonth && insights.bestMonth && (
-                      <div className="p-3 rounded-xl bg-muted/30">
-                        <div className="text-sm text-muted-foreground mb-1">Best Month</div>
-                        <div className="text-xl font-bold text-primary">
-                          {efpModeEnabled ? insights.bestMonth.efp.toFixed(2) : insights.bestMonth.fpPlus.toFixed(1)} {efpModeEnabled ? "EFP" : "FP+"}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{insights.bestMonth.month}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{insights.bestMonth.stats}</div>
-                      </div>
-                    )}
-                    
-                    {showBestDay && insights.bestTransitionsDay && (
-                      <div className="p-3 rounded-xl bg-muted/30">
-                        <div className="text-sm text-muted-foreground mb-1">Most Transitions Day</div>
-                        <div className="text-xl font-bold text-primary">{insights.bestTransitionsDay.transitions} transitions</div>
-                        <div className="text-sm text-muted-foreground">{insights.bestTransitionsDay.date}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {efpModeEnabled ? `${insights.bestTransitionsDay.efp.toFixed(2)} EFP` : `${insights.bestTransitionsDay.fpPlus.toFixed(1)} FP+`} sold
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Day of Week Analysis */}
-                    {insights.bestDayOfWeek && (
-                      <DayOfWeekAnalysis 
-                        dayOfWeekData={insights.dayOfWeekData}
-                        bestDayOfWeek={insights.bestDayOfWeek}
-                        efpModeEnabled={efpModeEnabled}
-                      />
-                    )}
-                  </div>
-                </InsightCollapsible>
-              );
-            })()}
-
-            {/* Personal Metrics (Custom Counters) - Only for Vets/Sophomores */}
-            {(repData?.year === "Vet" || repData?.year === "Sophomore") && insights.customCounterTotals && Object.keys(insights.customCounterTotals).length > 0 && (
-              <InsightCollapsible
-                icon={Target}
-                title="Personal Metrics"
-                isOpen={expandedSection === 'custom'}
-                onToggle={() => handleSectionToggle('custom' as ExpandedSection)}
-                preview={`Your custom tracking (${Object.keys(insights.customCounterTotals).length} counters)`}
-              >
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Custom counters are not included in team leaderboards
-                  </p>
-                  {Object.entries(insights.customCounterTotals).map(([counterId, total]) => {
-                    const config = (repData?.custom_counter_config as any[])?.find((c: any) => c.id === counterId);
-                    if (!config) return null;
-                    
-                    const dailyAvg = (total as number) / insights.daysWorked;
-                    const perHour = insights.totalWorkMinutes > 0 
-                      ? ((total as number) / insights.totalWorkMinutes) * 60 
-                      : 0;
-                    
-                    return (
-                      <div key={counterId} className="p-3 rounded-xl bg-muted/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xl">{config.emoji}</span>
-                          <span className="font-semibold">{config.name}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <div className="text-xs text-muted-foreground">Total</div>
-                            <div className="text-lg font-bold">{total}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground">Daily Avg</div>
-                            <div className="text-lg font-bold">{dailyAvg.toFixed(1)}</div>
-                          </div>
-                          {perHour > 0 && (
-                            <div>
-                              <div className="text-xs text-muted-foreground">Per Hour</div>
-                              <div className="text-lg font-bold">{perHour.toFixed(1)}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </InsightCollapsible>
+            )}
+            {activeTab === 'performance' && (
+              <InsightsPerformanceTab 
+                insights={insights} 
+                efpModeEnabled={efpModeEnabled}
+                repData={repData}
+              />
+            )}
+            {activeTab === 'patterns' && (
+              <InsightsPatternsTab 
+                insights={insights} 
+                dateRange={getDateRange(datePreset)}
+                datePreset={datePreset}
+                efpModeEnabled={efpModeEnabled}
+              />
+            )}
+            {activeTab === 'deals' && (
+              <InsightsDealsTab dateRange={getDateRange(datePreset)} />
             )}
           </>
         )}
@@ -814,7 +285,7 @@ export default function Insights() {
             <SheetTitle>Select Custom Date Range</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 py-4">
-            <div className={cn("transition-all duration-300", customStartDate && "animate-scale-in")}>
+            <div>
               <label className="text-sm font-medium mb-2 block">Start Date</label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -827,15 +298,7 @@ export default function Insights() {
                   <Calendar
                     mode="single"
                     selected={customStartDate}
-                    onSelect={(date) => {
-                      setCustomStartDate(date);
-                      if (date && !customEndDate) {
-                        setTimeout(() => {
-                          const endDateButton = document.querySelector('[data-end-date-trigger]') as HTMLButtonElement;
-                          endDateButton?.click();
-                        }, 200);
-                      }
-                    }}
+                    onSelect={setCustomStartDate}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
@@ -843,15 +306,11 @@ export default function Insights() {
               </Popover>
             </div>
             
-            <div className={cn("transition-all duration-300", customStartDate && !customEndDate && "animate-pulse")}>
+            <div>
               <label className="text-sm font-medium mb-2 block">End Date</label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left font-normal"
-                    data-end-date-trigger
-                  >
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {customEndDate ? format(customEndDate, 'PPP') : 'Pick end date'}
                   </Button>
@@ -860,12 +319,7 @@ export default function Insights() {
                   <Calendar
                     mode="single"
                     selected={customEndDate}
-                    onSelect={(date) => {
-                      setCustomEndDate(date);
-                      if (date) {
-                        setTimeout(() => setShowCustomDialog(false), 150);
-                      }
-                    }}
+                    onSelect={setCustomEndDate}
                     disabled={(date) => customStartDate ? date < customStartDate : false}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
@@ -875,7 +329,7 @@ export default function Insights() {
             </div>
 
             <Button 
-              onClick={handleCustomDateApply} 
+              onClick={() => { setDatePreset('custom'); setShowCustomDialog(false); }} 
               className="w-full"
               disabled={!customStartDate || !customEndDate}
             >
