@@ -5,6 +5,8 @@ import { useCustomerInsights } from '@/hooks/useCustomerInsights';
 import { InsightsSectionHeader } from './InsightsSectionHeader';
 import { InsightCollapsible } from './InsightCollapsible';
 import { useNavigate } from 'react-router-dom';
+import { useRepGoals } from '@/hooks/useRepGoals';
+import { getTier } from '@/utils/payscaleCalculator';
 
 type ExpandedSection = 'economics' | 'time' | 'dealType' | 'install' | null;
 
@@ -25,10 +27,24 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
   const { insights, isLoading } = useCustomerInsights(dateRange);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const navigate = useNavigate();
+  const { goals } = useRepGoals();
 
   const handleSectionToggle = (section: ExpandedSection) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
+
+  // Calculate ROI at different pay levels
+  const customPayLevel = goals?.custom_payscale_fp ?? null;
+  const upfrontRate = 4; // $4/PRMR upfront
+  
+  // Get current tier rate based on user's current FP+ (from custom setting or default to 100)
+  const targetFpPlus = customPayLevel ?? 100;
+  const currentTier = getTier(targetFpPlus);
+  const payscaleRate = currentTier.rate;
+  
+  // Calculate earnings based on total PRMR
+  const upfrontEarnings = insights?.totalPrmr ? insights.totalPrmr * upfrontRate : 0;
+  const payscaleEarnings = insights?.totalPrmr ? insights.totalPrmr * payscaleRate : 0;
 
   if (isLoading) {
     return (
@@ -141,6 +157,38 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
                 </div>
               </div>
             </>
+          )}
+          
+          {/* Earnings Comparison - Payscale vs Upfront */}
+          {insights.totalPrmr > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">Earnings from PRMR</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <div className="text-xs text-muted-foreground">
+                    @ {customPayLevel ? `${customPayLevel} FP+` : 'Current'} Payscale
+                  </div>
+                  <div className="text-lg font-bold text-success">
+                    ${payscaleEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    ${insights.totalPrmr.toFixed(0)} × ${payscaleRate.toFixed(2)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Upfront Only</div>
+                  <div className="text-lg font-bold">
+                    ${upfrontEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    ${insights.totalPrmr.toFixed(0)} × $4
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center">
+                Customize pay level in Settings → ROI Pay Level
+              </p>
+            </div>
           )}
           
           <p className="text-xs text-muted-foreground">
