@@ -7,7 +7,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Send, Loader2, Calculator, Check } from "lucide-react";
+import { Send, Loader2, Calculator, Check, Plus, Minus, ChevronUp, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,6 +23,37 @@ interface UpgradePrmrCalculatorProps {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-upgrade-prmr`;
 
+// Equipment categories for quick select
+const EQUIPMENT_CATEGORIES = [
+  {
+    name: "Cameras",
+    items: [
+      { id: "outdoor-pro", label: "Outdoor Pro", price: 399.99, isCamera: true },
+      { id: "doorbell-pro", label: "Doorbell Pro", price: 249.99, isCamera: true },
+      { id: "indoor-pro", label: "Indoor Pro", price: 249.99, isCamera: true },
+      { id: "spotlight", label: "Spotlight", price: 249.99, isCamera: false },
+    ]
+  },
+  {
+    name: "Equipment",
+    items: [
+      { id: "dvr", label: "DVR", price: 299.99, isCamera: false },
+      { id: "panel", label: "Panel", price: 499.99, isCamera: false },
+      { id: "chime", label: "Chime", price: 59.99, isCamera: false },
+      { id: "thermostat", label: "Thermostat", price: 199.99, isCamera: false },
+    ]
+  },
+  {
+    name: "Locks & More",
+    items: [
+      { id: "lock", label: "Smart Lock", price: 179.99, isCamera: false },
+      { id: "garage", label: "Garage", price: 50, isCamera: false },
+      { id: "sensor-50", label: "Sensor ($50)", price: 50, isCamera: false },
+      { id: "sensor-100", label: "Sensor ($100)", price: 100, isCamera: false },
+    ]
+  }
+];
+
 export const UpgradePrmrCalculator = ({
   open,
   onOpenChange,
@@ -30,12 +62,14 @@ export const UpgradePrmrCalculator = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "What equipment did you sell? (List each item and I'll add up the total)"
+      content: "What equipment did you sell? (List each item or use quick-select below)"
     }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [detectedPrmr, setDetectedPrmr] = useState<number | null>(null);
+  const [quickSelectOpen, setQuickSelectOpen] = useState(true);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,17 +79,50 @@ export const UpgradePrmrCalculator = ({
     }
   }, [open]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const totalItems = Object.values(quantities).reduce((sum, qty) => sum + qty, 0);
+
+  const updateQuantity = (id: string, delta: number) => {
+    setQuantities(prev => {
+      const newQty = Math.max(0, (prev[id] || 0) + delta);
+      if (newQty === 0) {
+        const { [id]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [id]: newQty };
+    });
+  };
+
+  const calculateFromQuickSelect = async () => {
+    if (totalItems === 0 || isLoading) return;
+
+    // Build equipment list from quantities
+    const equipmentList: string[] = [];
+    EQUIPMENT_CATEGORIES.forEach(cat => {
+      cat.items.forEach(item => {
+        const qty = quantities[item.id] || 0;
+        if (qty > 0) {
+          equipmentList.push(`${qty} ${item.label}`);
+        }
+      });
+    });
+
+    const userMessage = equipmentList.join(", ");
+    await sendMessageToAPI(userMessage);
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { role: "user", content: input.trim() };
-    setMessages(prev => [...prev, userMessage]);
+    await sendMessageToAPI(input.trim());
     setInput("");
+  };
+
+  const sendMessageToAPI = async (messageContent: string) => {
+    const userMessage: Message = { role: "user", content: messageContent };
+    setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setDetectedPrmr(null);
 
@@ -78,18 +145,16 @@ export const UpgradePrmrCalculator = ({
 
       const data = await response.json();
       
-      // Handle the new response format
       if (data.type === "calculation") {
-        // Deterministic calculation result
         setMessages(prev => [...prev, { 
           role: "assistant", 
           content: data.content 
         }]);
         if (data.prmr) {
           setDetectedPrmr(data.prmr);
+          setQuickSelectOpen(false);
         }
       } else if (data.type === "message") {
-        // AI is asking a clarifying question
         setMessages(prev => [...prev, { 
           role: "assistant", 
           content: data.content 
@@ -125,13 +190,14 @@ export const UpgradePrmrCalculator = ({
   const resetChat = () => {
     setMessages([{
       role: "assistant",
-      content: "What equipment did you sell? (List each item and I'll add up the total)"
+      content: "What equipment did you sell? (List each item or use quick-select below)"
     }]);
     setInput("");
     setDetectedPrmr(null);
+    setQuantities({});
+    setQuickSelectOpen(true);
   };
 
-  // Format message content with line breaks for the breakdown
   const formatContent = (content: string) => {
     return content.split('\n').map((line, i) => (
       <span key={i}>
@@ -146,7 +212,7 @@ export const UpgradePrmrCalculator = ({
       onOpenChange(isOpen);
       if (!isOpen) resetChat();
     }}>
-      <DrawerContent className="h-[70dvh] max-h-[70dvh]">
+      <DrawerContent className="h-[85dvh] max-h-[85dvh]">
         <div className="flex flex-col h-full overflow-hidden">
           <DrawerHeader className="pb-2 flex-shrink-0">
             <DrawerTitle className="flex items-center gap-2">
@@ -156,7 +222,89 @@ export const UpgradePrmrCalculator = ({
           </DrawerHeader>
 
           <div className="flex flex-col flex-1 px-4 pb-4 overflow-hidden">
-            {/* Messages area - scrollable */}
+            {/* Quick Select Section */}
+            <div className="flex-shrink-0 border-b border-border pb-3 mb-3">
+              <button
+                onClick={() => setQuickSelectOpen(!quickSelectOpen)}
+                className="flex items-center justify-between w-full text-sm font-medium text-muted-foreground mb-2"
+              >
+                <span className="flex items-center gap-2">
+                  Quick Select
+                  {totalItems > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                      {totalItems} items
+                    </span>
+                  )}
+                </span>
+                {quickSelectOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {quickSelectOpen && (
+                <div className="space-y-3">
+                  {EQUIPMENT_CATEGORIES.map(category => (
+                    <div key={category.name}>
+                      <p className="text-xs text-muted-foreground mb-1.5">{category.name}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {category.items.map(item => {
+                          const qty = quantities[item.id] || 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "flex items-center gap-1 rounded-full border transition-all",
+                                qty > 0
+                                  ? "bg-primary/10 border-primary"
+                                  : "bg-muted/50 border-border"
+                              )}
+                            >
+                              {qty > 0 && (
+                                <button
+                                  onClick={() => updateQuantity(item.id, -1)}
+                                  className="p-1.5 hover:bg-primary/20 rounded-full"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => updateQuantity(item.id, 1)}
+                                className="px-2 py-1 text-xs font-medium flex items-center gap-1"
+                              >
+                                {item.label}
+                                {qty > 0 && (
+                                  <span className="bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                                    {qty}
+                                  </span>
+                                )}
+                              </button>
+                              {qty === 0 && (
+                                <Plus className="w-3 h-3 mr-2 text-muted-foreground" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {totalItems > 0 && (
+                    <Button
+                      onClick={calculateFromQuickSelect}
+                      disabled={isLoading}
+                      className="w-full h-10 mt-2"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Calculator className="w-4 h-4 mr-2" />
+                      )}
+                      Calculate PRMR
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Messages area */}
             <div 
               className="flex-1 overflow-y-auto min-h-0"
               style={{ overscrollBehavior: 'contain' }}
@@ -202,7 +350,7 @@ export const UpgradePrmrCalculator = ({
               </div>
             )}
 
-            {/* Input area - always visible at bottom */}
+            {/* Chat input */}
             <div 
               className={`flex gap-2 pt-3 flex-shrink-0 ${detectedPrmr && !isLoading ? '' : 'border-t border-border'}`}
               onClick={() => inputRef.current?.focus()}
@@ -212,7 +360,7 @@ export const UpgradePrmrCalculator = ({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="List your equipment..."
+                placeholder="Or type equipment list..."
                 disabled={isLoading}
                 className="flex-1"
                 autoComplete="off"
