@@ -961,82 +961,84 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* ROI Pay Level - Collapsible (for Insights Deals tab) */}
-        <Card>
-          <Collapsible open={isRoiPayLevelOpen} onOpenChange={setIsRoiPayLevelOpen}>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-primary" />
-                      ROI Pay Level
-                    </CardTitle>
-                    {!isRoiPayLevelOpen && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {customPayLevel ? `${customPayLevel} FP+ payscale` : "Default (100 FP+)"}
-                      </p>
-                    )}
+        {/* ROI Pay Level - Collapsible (only show if CRM enabled) */}
+        {(repData as any)?.crm_enabled && (
+          <Card>
+            <Collapsible open={isRoiPayLevelOpen} onOpenChange={setIsRoiPayLevelOpen}>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-primary" />
+                        ROI Pay Level
+                      </CardTitle>
+                      {!isRoiPayLevelOpen && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {customPayLevel ? `${customPayLevel} FP+ payscale` : "Using your current FP+"}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isRoiPayLevelOpen && "rotate-180")} />
                   </div>
-                  <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isRoiPayLevelOpen && "rotate-180")} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Set a custom FP+ level to calculate your ROI in the Insights → Deals tab. This shows what you'd earn at that pay tier vs upfront ($4/PRMR).
-                </p>
-                
-                <div className="space-y-2">
-                  <Label>Target FP+ Level</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      value={customPayLevel ?? ''}
-                      onChange={(e) => setCustomPayLevel(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="e.g., 300"
-                      className="w-32"
-                      min={0}
-                      max={500}
-                    />
-                    <span className="text-sm text-muted-foreground">FP+</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use default (100 FP+ = $8.47/PRMR)
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Set a custom FP+ level to calculate your ROI in the Insights → Deals tab. This shows what you'd earn at that pay tier vs upfront ($4/PRMR).
                   </p>
-                </div>
-                
-                <Button
-                  onClick={async () => {
-                    setIsSavingPayLevel(true);
-                    try {
-                      await updateRepGoals({ custom_payscale_fp: customPayLevel });
-                      toast({
-                        title: "Pay level saved",
-                        description: customPayLevel 
-                          ? `ROI will show earnings at ${customPayLevel} FP+ payscale`
-                          : "Using default 100 FP+ payscale",
-                      });
-                    } catch (error: any) {
-                      toast({
-                        title: "Failed to save",
-                        description: error.message,
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setIsSavingPayLevel(false);
-                    }
-                  }}
-                  disabled={isSavingPayLevel}
-                  className="w-full"
-                >
-                  {isSavingPayLevel ? "Saving..." : "Save Pay Level"}
-                </Button>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
+                  
+                  <div className="space-y-2">
+                    <Label>Target FP+ Level</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={customPayLevel ?? ''}
+                        onChange={(e) => setCustomPayLevel(e.target.value ? Number(e.target.value) : null)}
+                        placeholder="e.g., 300"
+                        className="w-32"
+                        min={0}
+                        max={500}
+                      />
+                      <span className="text-sm text-muted-foreground">FP+</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty to use your current cumulative FP+
+                    </p>
+                  </div>
+                  
+                  <Button
+                    onClick={async () => {
+                      setIsSavingPayLevel(true);
+                      try {
+                        await updateRepGoals({ custom_payscale_fp: customPayLevel });
+                        toast({
+                          title: "Pay level saved",
+                          description: customPayLevel 
+                            ? `ROI will show earnings at ${customPayLevel} FP+ payscale`
+                            : "Using your current cumulative FP+",
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: "Failed to save",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setIsSavingPayLevel(false);
+                      }
+                    }}
+                    disabled={isSavingPayLevel}
+                    className="w-full"
+                  >
+                    {isSavingPayLevel ? "Saving..." : "Save Pay Level"}
+                  </Button>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+        )}
 
         {/* Sales CRM - Collapsible */}
         <Card>

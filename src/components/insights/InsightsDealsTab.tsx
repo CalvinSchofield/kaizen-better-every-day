@@ -21,9 +21,10 @@ const formatMinutes = (minutes: number): string => {
 
 interface InsightsDealsTabProps {
   dateRange: { start: Date; end: Date };
+  userCumulativeFpPlus: number;
 }
 
-export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
+export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDealsTabProps) => {
   const { insights, isLoading } = useCustomerInsights(dateRange);
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const navigate = useNavigate();
@@ -34,17 +35,23 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
   };
 
   // Calculate ROI at different pay levels
+  // Use custom pay level if set, otherwise use user's actual cumulative FP+
   const customPayLevel = goals?.custom_payscale_fp ?? null;
+  const targetFpPlus = customPayLevel ?? userCumulativeFpPlus;
   const upfrontRate = 4; // $4/PRMR upfront
   
-  // Get current tier rate based on user's current FP+ (from custom setting or default to 100)
-  const targetFpPlus = customPayLevel ?? 100;
+  // Get current tier rate based on user's FP+ level
   const currentTier = getTier(targetFpPlus);
   const payscaleRate = currentTier.rate;
   
   // Calculate earnings based on total PRMR
   const upfrontEarnings = insights?.totalPrmr ? insights.totalPrmr * upfrontRate : 0;
   const payscaleEarnings = insights?.totalPrmr ? insights.totalPrmr * payscaleRate : 0;
+  
+  // Calculate ROI as earnings ÷ cost (not PRMR ÷ cost)
+  const totalSpent = insights?.totalMoneySpent || 0;
+  const payscaleRoi = totalSpent > 0 ? payscaleEarnings / totalSpent : 0;
+  const upfrontRoi = totalSpent > 0 ? upfrontEarnings / totalSpent : 0;
 
   if (isLoading) {
     return (
@@ -108,8 +115,8 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
         preview={
           <span>
             <span className="text-primary font-medium">${insights.avgPrmrPerFp.toFixed(0)}</span> avg PRMR per FP
-            {insights.hasMoneySpentData && insights.prmrToCostRatio > 0 && (
-              <> · <span className="text-success font-medium">{insights.prmrToCostRatio.toFixed(1)}x</span> ROI</>
+            {insights.hasMoneySpentData && payscaleRoi > 0 && (
+              <> · <span className="text-success font-medium">{payscaleRoi.toFixed(1)}x</span> ROI</>
             )}
           </span>
         }
@@ -135,38 +142,52 @@ export const InsightsDealsTab = ({ dateRange }: InsightsDealsTabProps) => {
                   <div className="text-sm text-muted-foreground">Avg Spent / Deal</div>
                   <div className="text-xl font-bold">${insights.avgMoneySpent.toFixed(0)}</div>
                 </div>
-                {insights.prmrToCostRatio > 0 && (
-                  <div className="p-3 rounded-xl bg-success/10">
-                    <div className="text-sm text-muted-foreground">ROI</div>
-                    <div className="text-xl font-bold text-success">{insights.prmrToCostRatio.toFixed(1)}x</div>
-                    <div className="text-xs text-muted-foreground">PRMR ÷ Cost</div>
-                  </div>
-                )}
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <div className="text-sm text-muted-foreground">Total Spent</div>
+                  <div className="text-xl font-bold">${insights.totalMoneySpent.toLocaleString()}</div>
+                </div>
               </div>
               
               <div className="p-3 rounded-xl bg-primary/10">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Total PRMR</div>
-                    <div className="text-xl font-bold text-primary">${insights.totalPrmr.toLocaleString()}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Total Spent</div>
-                    <div className="text-xl font-bold">${insights.totalMoneySpent.toLocaleString()}</div>
-                  </div>
-                </div>
+                <div className="text-sm text-muted-foreground mb-2">Total PRMR</div>
+                <div className="text-xl font-bold text-primary">${insights.totalPrmr.toLocaleString()}</div>
               </div>
             </>
           )}
           
-          {/* Earnings Comparison - Payscale vs Upfront */}
+          {/* ROI (Earnings ÷ Cost) - Payscale vs Upfront */}
+          {insights.totalPrmr > 0 && insights.hasMoneySpentData && totalSpent > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">ROI (Earnings ÷ Cost)</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-success/10">
+                  <div className="text-xs text-muted-foreground">
+                    @ {Math.round(targetFpPlus)} FP+ Payscale
+                  </div>
+                  <div className="text-xl font-bold text-success">{payscaleRoi.toFixed(2)}x</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    ${payscaleEarnings.toFixed(0)} ÷ ${totalSpent.toFixed(0)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Upfront Only</div>
+                  <div className="text-xl font-bold">{upfrontRoi.toFixed(2)}x</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    ${upfrontEarnings.toFixed(0)} ÷ ${totalSpent.toFixed(0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Earnings from PRMR - Payscale vs Upfront */}
           {insights.totalPrmr > 0 && (
             <div className="space-y-2">
               <div className="text-sm font-medium text-muted-foreground">Earnings from PRMR</div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-success/10">
                   <div className="text-xs text-muted-foreground">
-                    @ {customPayLevel ? `${customPayLevel} FP+` : 'Current'} Payscale
+                    @ {Math.round(targetFpPlus)} FP+ Payscale
                   </div>
                   <div className="text-lg font-bold text-success">
                     ${payscaleEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
