@@ -11,8 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { FreshDoorPitchGuide } from "@/components/training/FreshDoorPitchGuide";
 import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
+import { InHomePitchGuide } from "@/components/training/InHomePitchGuide";
+import { PaperworkGuide } from "@/components/training/PaperworkGuide";
 
-type PitchGuideType = "fresh" | "takeover" | "upgrade";
+type PitchGuideType = "fresh" | "takeover" | "upgrade" | "inhome" | "paperwork";
 
 interface TrainingCategory {
   title: string;
@@ -44,7 +46,7 @@ const Training = () => {
   // Auto-open guide from URL query param
   useEffect(() => {
     const guideParam = searchParams.get('guide');
-    if (guideParam && ['fresh', 'takeover', 'upgrade'].includes(guideParam)) {
+    if (guideParam && ['fresh', 'takeover', 'upgrade', 'inhome', 'paperwork'].includes(guideParam)) {
       setActiveGuide(guideParam as PitchGuideType);
       // Clear the param from URL
       setSearchParams({}, { replace: true });
@@ -132,8 +134,8 @@ const Training = () => {
     description: "From door to paperwork",
     icon: Presentation,
     items: [
-      { title: "In-Home Presentation", href: "https://calvinschofield.notion.site/In-Home-Presentation-18c070fe3bc280648438c57ea4c5d0b7" },
-      { title: "Smooth Paperwork Process", href: "https://calvinschofield.notion.site/Smooth-paperwork-process-18c070fe3bc280a59a4fdc241ebbb2c6" },
+      { title: "In-Home Presentation", href: "#", inAppGuide: "inhome" },
+      { title: "Smooth Paperwork Process", href: "#", inAppGuide: "paperwork" },
     ],
   };
 
@@ -266,6 +268,12 @@ const Training = () => {
   }
   if (activeGuide === "upgrade") {
     return <UpgradePitchGuide onBack={() => setActiveGuide(null)} />;
+  }
+  if (activeGuide === "inhome") {
+    return <InHomePitchGuide onBack={() => setActiveGuide(null)} />;
+  }
+  if (activeGuide === "paperwork") {
+    return <PaperworkGuide onBack={() => setActiveGuide(null)} />;
   }
 
   return (

@@ -191,7 +191,7 @@ export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuide
                           {/* Stage tip */}
                           {currentSection.stageTip && (
                             <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground italic">
-                              <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Stage Direction</p>
+                              <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Notes</p>
                               {currentSection.stageTip}
                             </div>
                           )}
@@ -267,7 +267,7 @@ export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuide
                   {/* Stage tip */}
                   {section.stageTip && (
                     <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground italic">
-                      <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Stage Direction</p>
+                      <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Notes</p>
                       {section.stageTip}
                     </div>
                   )}
