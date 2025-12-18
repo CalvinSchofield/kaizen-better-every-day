@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
-import { useCustomerData, CustomerSale } from './useCustomerData';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Sale } from '@/components/LogSaleSheet';
 import { isWithinInterval, parseISO, differenceInDays } from 'date-fns';
+
+interface SaleWithDate extends Sale {
+  entry_date: string;
+}
 
 export interface CustomerInsightsData {
   // Economics
@@ -30,8 +36,11 @@ export interface CustomerInsightsData {
   
   // Counts
   totalDeals: number;
+  totalFpDeals: number;
+  totalUpgradeDeals: number;
   dealsWithTimeData: number;
   salesWithLocationCount: number;
+  dealsWithCrmData: number;
   
   // Has data flags
   hasTimeData: boolean;
@@ -41,13 +50,49 @@ export interface CustomerInsightsData {
 }
 
 export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
-  const { sales, isLoading } = useCustomerData();
+  // Fetch ALL sales (not just CRM-enriched ones) for complete metrics
+  const { data: allSales = [], isLoading } = useQuery({
+    queryKey: ['all-sales-for-insights'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('daily_entries')
+        .select('entry_date, sales_log')
+        .eq('user_id', user.id)
+        .not('sales_log', 'is', null)
+        .order('entry_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Flatten ALL sales from all entries
+      const sales: SaleWithDate[] = [];
+      for (const entry of data || []) {
+        const salesLog = entry.sales_log as unknown as Sale[] | null;
+        if (salesLog && Array.isArray(salesLog)) {
+          for (const sale of salesLog) {
+            // Include ALL sales, not just CRM-enriched ones
+            if (sale.prmr !== undefined) {
+              sales.push({
+                ...sale,
+                entry_date: entry.entry_date,
+              });
+            }
+          }
+        }
+      }
+
+      return sales;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
 
   const insights = useMemo<CustomerInsightsData | null>(() => {
-    if (!sales || sales.length === 0) return null;
+    if (!allSales || allSales.length === 0) return null;
 
     // Filter sales by date range
-    const filteredSales = sales.filter(sale => {
+    const filteredSales = allSales.filter(sale => {
       const saleDate = parseISO(sale.entry_date);
       return isWithinInterval(saleDate, { start: dateRange.start, end: dateRange.end });
     });
@@ -58,7 +103,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     const fpSales = filteredSales.filter(s => s.type === 'fp');
     const upgradeSales = filteredSales.filter(s => s.type === 'upgrade');
 
-    // Economics
+    // Economics - based on ALL sales
     const totalPrmr = filteredSales.reduce((sum, s) => sum + (s.prmr || 0), 0);
     const totalMoneySpent = filteredSales.reduce((sum, s) => sum + (s.money_spent || 0), 0);
     const salesWithMoney = filteredSales.filter(s => s.money_spent && s.money_spent > 0);
@@ -74,7 +119,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       : 0;
     const prmrToCostRatio = totalMoneySpent > 0 ? totalPrmr / totalMoneySpent : 0;
 
-    // Time to Sell
+    // Time to Sell - only for sales that have time data
     const salesWithTime = filteredSales.filter(s => s.time_to_sell_minutes && s.time_to_sell_minutes > 0);
     const avgTimeToSell = salesWithTime.length > 0 
       ? salesWithTime.reduce((sum, s) => sum + (s.time_to_sell_minutes || 0), 0) / salesWithTime.length 
@@ -124,18 +169,18 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       const slowest = sorted[sorted.length - 1];
       
       fastestSale = {
-        name: fastest.customer_name || 'Unknown',
+        name: fastest.customer_name || 'Sale',
         minutes: fastest.time_to_sell_minutes || 0,
         prmr: fastest.prmr || 0,
       };
       slowestSale = {
-        name: slowest.customer_name || 'Unknown',
+        name: slowest.customer_name || 'Sale',
         minutes: slowest.time_to_sell_minutes || 0,
         prmr: slowest.prmr || 0,
       };
     }
 
-    // Deal Type Distribution
+    // Deal Type Distribution - only for sales with deal_type set
     const salesWithDealType = filteredSales.filter(s => s.deal_type);
     const dealTypeDistribution = {
       fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').length,
@@ -145,9 +190,15 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
 
     // PRMR by deal type
     const prmrByDealType = {
-      fresh: salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0) / Math.max(dealTypeDistribution.fresh, 1),
-      takeover: salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0) / Math.max(dealTypeDistribution.takeover, 1),
-      diy: salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0) / Math.max(dealTypeDistribution.diy, 1),
+      fresh: dealTypeDistribution.fresh > 0 
+        ? salesWithDealType.filter(s => s.deal_type === 'fresh').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.fresh
+        : 0,
+      takeover: dealTypeDistribution.takeover > 0
+        ? salesWithDealType.filter(s => s.deal_type === 'takeover').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.takeover
+        : 0,
+      diy: dealTypeDistribution.diy > 0
+        ? salesWithDealType.filter(s => s.deal_type === 'diy').reduce((sum, s) => sum + (s.prmr || 0), 0) / dealTypeDistribution.diy
+        : 0,
     };
 
     // Difficulty Distribution
@@ -183,6 +234,9 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
 
     // Location
     const salesWithLocationCount = filteredSales.filter(s => s.customer_lat && s.customer_lng).length;
+    
+    // CRM data count
+    const dealsWithCrmData = filteredSales.filter(s => s.customer_name || s.account_number || s.customer_phone).length;
 
     return {
       avgPrmrPerFp,
@@ -203,14 +257,17 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       cancelRate,
       avgDaysToInstall,
       totalDeals: filteredSales.length,
+      totalFpDeals: fpSales.length,
+      totalUpgradeDeals: upgradeSales.length,
       dealsWithTimeData: salesWithTime.length,
       salesWithLocationCount,
+      dealsWithCrmData,
       hasTimeData: salesWithTime.length > 0,
       hasDealTypeData: salesWithDealType.length > 0,
       hasMoneySpentData: salesWithMoney.length > 0,
       hasInstallData: salesWithInstallInfo.length > 0,
     };
-  }, [sales, dateRange]);
+  }, [allSales, dateRange]);
 
   return { insights, isLoading };
 };
