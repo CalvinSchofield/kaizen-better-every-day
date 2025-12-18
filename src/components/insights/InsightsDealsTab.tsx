@@ -10,6 +10,7 @@ import { getTier, getAllTiers } from '@/utils/payscaleCalculator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 
 type ExpandedSection = 'economics' | 'time' | 'dealType' | 'install' | null;
 
@@ -343,6 +344,78 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ROI Trend Chart - only show if 2+ weeks of data */}
+          {insights.hasEnoughTrendData && insights.roiTrendData.length >= 2 && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-muted-foreground">ROI Trend by Deal Type</div>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart 
+                    data={insights.roiTrendData}
+                    margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
+                  >
+                    <XAxis 
+                      dataKey="period" 
+                      tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value.toFixed(1)}x`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                      formatter={(value: number, name: string) => [
+                        `${value.toFixed(2)}x`,
+                        name.charAt(0).toUpperCase() + name.slice(1)
+                      ]}
+                    />
+                    <ReferenceLine y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" strokeOpacity={0.5} />
+                    <Legend 
+                      wrapperStyle={{ fontSize: '10px' }}
+                      formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="fresh" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="takeover" 
+                      stroke="hsl(var(--success))" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="diy" 
+                      stroke="hsl(var(--warning))" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center">
+                Weekly PRMR ÷ Cost ratio (1.0x = break even)
+              </p>
             </div>
           )}
           
