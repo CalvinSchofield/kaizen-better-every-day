@@ -13,8 +13,11 @@ import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
 import { InHomePitchGuide } from "@/components/training/InHomePitchGuide";
 import { PaperworkGuide } from "@/components/training/PaperworkGuide";
+import { ProductGuide } from "@/components/training/ProductGuide";
+import { productKnowledgeData } from "@/components/training/productKnowledgeData";
 
 type PitchGuideType = "fresh" | "takeover" | "upgrade" | "inhome" | "paperwork";
+type ProductGuideId = "vivint-app" | "doorbell-camera-pro" | "outdoor-camera-pro" | "indoor-camera-pro" | "vivint-playback" | "smart-lock" | "smart-thermostat";
 
 interface TrainingCategory {
   title: string;
@@ -28,6 +31,7 @@ interface TrainingCategory {
     href: string;
     isNew?: boolean;
     inAppGuide?: PitchGuideType;
+    productGuide?: ProductGuideId;
   }>;
 }
 
@@ -43,14 +47,21 @@ const Training = () => {
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
   const [activeGuide, setActiveGuide] = useState<PitchGuideType | null>(null);
-  
+  const [activeProductGuide, setActiveProductGuide] = useState<ProductGuideId | null>(null);
   // Auto-open guide from URL query param
   useEffect(() => {
     const guideParam = searchParams.get('guide');
+    const productParam = searchParams.get('product');
+    
     if (guideParam && ['fresh', 'takeover', 'upgrade', 'inhome', 'paperwork'].includes(guideParam)) {
       setActiveGuide(guideParam as PitchGuideType);
-      // Clear the param from URL
       setSearchParams({}, { replace: true });
+    } else if (productParam) {
+      const validProductIds = productKnowledgeData.map(p => p.id);
+      if (validProductIds.includes(productParam)) {
+        setActiveProductGuide(productParam as ProductGuideId);
+        setSearchParams({}, { replace: true });
+      }
     }
   }, [searchParams, setSearchParams]);
   
@@ -146,13 +157,13 @@ const Training = () => {
     description: "Deep dive into Vivint systems",
     icon: Shield,
     items: [
-      { title: "Vivint App", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=4db5a381976b269050e0b0121153afbc&in_context=true" },
-      { title: "Doorbell Camera", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fd976b45976b269050e0b0121153afce&&in_context=true" },
-      { title: "Outdoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=d2f7c8a897b8b6104599b09ad053afff&&in_context=true" },
-      { title: "Indoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=bed76385976b269050e0b0121153afe4&in_context=true" },
-      { title: "24/7 Playback", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fde76385976b269050e0b0121153afc0&&in_context=true" },
-      { title: "Smart Lock", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=e6362bc1976b269050e0b0121153afb6&in_context=true" },
-      { title: "Smart Thermostat", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=9e466fc1976b269050e0b0121153afe2&&in_context=true" },
+      { title: "Vivint App", href: "#", productGuide: "vivint-app" },
+      { title: "Doorbell Camera Pro", href: "#", productGuide: "doorbell-camera-pro" },
+      { title: "Outdoor Camera Pro", href: "#", productGuide: "outdoor-camera-pro" },
+      { title: "Indoor Camera Pro", href: "#", productGuide: "indoor-camera-pro" },
+      { title: "24/7 Playback", href: "#", productGuide: "vivint-playback" },
+      { title: "Smart Lock", href: "#", productGuide: "smart-lock" },
+      { title: "Smart Thermostat", href: "#", productGuide: "smart-thermostat" },
     ],
   };
 
@@ -276,6 +287,20 @@ const Training = () => {
   }
   if (activeGuide === "paperwork") {
     return <PaperworkGuide onBack={() => setActiveGuide(null)} />;
+  }
+  
+  // If a product guide is active, show it with swipe navigation
+  if (activeProductGuide) {
+    const productData = productKnowledgeData.find(p => p.id === activeProductGuide);
+    if (productData) {
+      return (
+        <ProductGuide 
+          product={productData} 
+          onBack={() => setActiveProductGuide(null)}
+          onNavigateProduct={(productId) => setActiveProductGuide(productId as ProductGuideId)}
+        />
+      );
+    }
   }
 
   return (
@@ -488,6 +513,7 @@ const Training = () => {
                 {category.items.map((item) => {
                   const isDisabled = isDisabledCategory;
                   const hasInAppGuide = !!item.inAppGuide;
+                  const hasProductGuide = !!item.productGuide;
                   
                   const handleClick = (e: React.MouseEvent) => {
                     if (isDisabled) {
@@ -497,6 +523,9 @@ const Training = () => {
                     if (hasInAppGuide) {
                       e.preventDefault();
                       setActiveGuide(item.inAppGuide!);
+                    } else if (hasProductGuide) {
+                      e.preventDefault();
+                      setActiveProductGuide(item.productGuide!);
                     }
                   };
                   
@@ -504,8 +533,8 @@ const Training = () => {
                     <a
                       key={item.title}
                       href={isDisabled ? "#" : item.href}
-                      target={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "_blank" : undefined}
-                      rel={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                      target={!isDisabled && !hasInAppGuide && !hasProductGuide && item.href.startsWith("http") ? "_blank" : undefined}
+                      rel={!isDisabled && !hasInAppGuide && !hasProductGuide && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
                       onClick={handleClick}
                       className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
                         isDisabled 
@@ -525,8 +554,8 @@ const Training = () => {
                           </Badge>
                         )}
                       </div>
-                      {hasInAppGuide && !isDisabled ? (
-                        <DoorOpen className="w-4 h-4 text-primary" />
+                      {(hasInAppGuide || hasProductGuide) && !isDisabled ? (
+                        <Shield className="w-4 h-4 text-primary" />
                       ) : item.href.startsWith("http") && !isDisabled ? (
                         <ExternalLink className="w-4 h-4 text-muted-foreground" />
                       ) : (
