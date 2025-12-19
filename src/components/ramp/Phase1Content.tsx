@@ -378,13 +378,13 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         {/* Goals Call / View Goals */}
         <Card className={cn(
           "transition-all duration-200",
-          (goalsSetupComplete || hasTextedLeaderGoals) && "bg-primary/5 border-primary/20",
-          !goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && "opacity-60"
+          (isComplete || goalsSetupComplete || hasTextedLeaderGoals) && "bg-primary/5 border-primary/20",
+          !goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && !isComplete && "opacity-60"
         )}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5">
-                {goalsSetupComplete ? (
+                {isComplete || goalsSetupComplete ? (
                   <CheckCircle2 className="w-5 h-5 text-primary" />
                 ) : hasTextedLeaderGoals ? (
                   <CheckCircle2 className="w-5 h-5 text-amber-500" />
@@ -394,20 +394,20 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  {goalsSetupComplete ? (
+                  {isComplete || goalsSetupComplete ? (
                     <Target className="w-4 h-4 text-primary" />
                   ) : (
                     <MessageSquare className="w-4 h-4 text-primary" />
                   )}
                   <h4 className={cn(
                     "font-medium text-sm",
-                    goalsSetupComplete && "text-muted-foreground"
+                    (isComplete || goalsSetupComplete) && "text-muted-foreground"
                   )}>
-                    {goalsSetupComplete ? "Goals Set" : hasTextedLeaderGoals ? "Waiting on Leader" : "Schedule Goals Call"}
+                    {isComplete || goalsSetupComplete ? "Goals Set" : hasTextedLeaderGoals ? "Waiting on Leader" : "Schedule Goals Call"}
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {goalsSetupComplete 
+                  {isComplete || goalsSetupComplete 
                     ? "Your goals are set! Track your progress on the Goals page."
                     : hasTextedLeaderGoals
                       ? "You've reached out - your leader will set up your goals call"
@@ -416,18 +416,18 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                         : "Review the goals sections above first"
                   }
                 </p>
-                {!goalsSetupComplete && !hasTextedLeaderGoals && (
+                {!isComplete && !goalsSetupComplete && !hasTextedLeaderGoals && (
                   <Badge variant="outline" className="mt-2 text-xs">
                     Requires leader
                   </Badge>
                 )}
-                {hasTextedLeaderGoals && !goalsSetupComplete && (
+                {hasTextedLeaderGoals && !goalsSetupComplete && !isComplete && (
                   <Badge variant="outline" className="mt-2 text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
                     Waiting on leader
                   </Badge>
                 )}
               </div>
-              {goalsSetupComplete ? (
+              {isComplete || goalsSetupComplete ? (
                 <Button 
                   variant="default"
                   size="sm" 
@@ -450,7 +450,7 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               ) : null}
             </div>
             {/* Self-report: I've texted my leader */}
-            {goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && (
+            {goalsReviewed && !goalsSetupComplete && !hasTextedLeaderGoals && !isComplete && (
               <div className="mt-3 pt-3 border-t border-border/50">
                 <Button 
                   variant="ghost"
