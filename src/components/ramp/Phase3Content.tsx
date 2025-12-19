@@ -44,8 +44,11 @@ const STREET_GENIE_VIDEOS = [
 ] as const;
 
 const CAMERA_VIDEOS = [
-  { id: 'camera-video-1', name: 'Intruder Detection Example', url: '/videos/camera-action-1.mov' },
-  { id: 'camera-video-2', name: 'Motion Alert Example', url: '/videos/camera-action-2.mp4' },
+  { id: 'camera-video-1', name: 'Intruder Detection 1', url: '/videos/camera-action-3.mov' },
+  { id: 'camera-video-2', name: 'Intruder Detection 2', url: '/videos/camera-action-4.mov' },
+  { id: 'camera-video-3', name: 'ADT vs Vivint Comparison', url: '/videos/camera-action-5.mov' },
+  { id: 'camera-video-4', name: 'Camera Alert Example', url: '/videos/camera-action-6.mov' },
+  { id: 'camera-image-1', name: 'ADT Signs (Trunk Photo)', url: '/images/adt-signs-trunk-2.jpeg' },
 ] as const;
 
 interface Phase3ContentProps {
@@ -278,16 +281,6 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                   <p className="text-sm text-muted-foreground mt-1">
                     Your main selling app! Use it to find prospects, track which homes you've knocked and how each conversation went, and build packages to send sign-up documents. <strong>Mastering this tool is essential.</strong>
                   </p>
-                  <a 
-                    href="https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary text-sm mt-2 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    🔗 Watch the trainings
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 </label>
               </div>
             </div>
@@ -393,7 +386,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                     4. Vivint App (on your phone)
                   </h5>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Download the Vivint app and login under "Demo Mode" to play with it. Get familiar with how it works and looks — you will be teaching customers how to use it.
+                    Download the Vivint app and sign in using <strong>"Demo Mode"</strong> on your phone. Get familiar with how it works and looks — you will be teaching customers how to use it.
                   </p>
                   <a 
                     href="https://apps.apple.com/app/id734547946"
