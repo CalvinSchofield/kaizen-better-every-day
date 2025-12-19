@@ -32,6 +32,7 @@ interface SelectedRepData {
   hoursWorked: number;
   workStartTime?: string;
   workEndTime?: string;
+  timezone?: string;
   counterTimestamps?: Record<string, string[]>;
   salesLog?: Array<{ type: string; prmr: number; timestamp?: string }>;
   isFinalized?: boolean;
@@ -252,7 +253,7 @@ export const LeaderboardCard = () => {
         .maybeSingle(),
       supabase
         .from('reps')
-        .select('year, team_leader')
+        .select('year, team_leader, timezone')
         .eq('user_id', userId)
         .maybeSingle()
     ]);
@@ -309,6 +310,7 @@ export const LeaderboardCard = () => {
       hoursWorked: 0,
       workStartTime: entry?.work_start_time || undefined,
       workEndTime: entry?.work_end_time || undefined,
+      timezone: repInfo?.timezone || entry?.timezone || undefined,
       isFinalized,
       counterTimestamps: entry?.counter_timestamps as Record<string, string[]> | undefined,
       salesLog,
