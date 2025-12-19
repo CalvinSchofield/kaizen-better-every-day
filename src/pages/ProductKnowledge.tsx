@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, Shield, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductGuide } from "@/components/training/ProductGuide";
@@ -8,7 +8,18 @@ import { productKnowledgeData, ProductData } from "@/components/training/product
 
 const ProductKnowledge = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null);
+
+  // Determine where to go back to based on where user came from
+  const handleBack = () => {
+    // Check if we came from ramp-to-blitz via the pathname
+    if (location.pathname === "/product-knowledge") {
+      navigate("/ramp-to-blitz");
+    } else {
+      navigate("/training");
+    }
+  };
 
   if (selectedProduct) {
     return (
@@ -24,7 +35,7 @@ const ProductKnowledge = () => {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
         <div className="flex items-center gap-3 px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/training")} className="shrink-0">
+          <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">

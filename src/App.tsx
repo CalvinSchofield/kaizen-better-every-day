@@ -130,6 +130,14 @@ const App = () => {
               }
             />
             <Route
+              path="/product-knowledge"
+              element={
+                <ProtectedRoute>
+                  <ProductKnowledge />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/tools/upgrades"
               element={
                 <ProtectedRoute>
