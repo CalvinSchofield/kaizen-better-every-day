@@ -1,25 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerDescription,
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
-import { AlertTriangle, Ban, CheckCircle, Calendar, Trash2, User, Phone, Hash, MapPin, Clock, DollarSign, Gauge, Copy, Pencil, X, Save } from "lucide-react";
+import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -50,586 +43,497 @@ export const SaleDetailSheet = ({
   crmEnabled = false,
   crmDetailedEnabled = false,
 }: SaleDetailSheetProps) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Form state
+  const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
   const [prmr, setPrmr] = useState("");
   const [saleTime, setSaleTime] = useState("12:00");
-  const [dealType, setDealType] = useState<string>("");
-  const [difficulty, setDifficulty] = useState<string>("");
-  const [timeToSell, setTimeToSell] = useState("");
-  const [moneySpent, setMoneySpent] = useState("");
+  
+  // CRM state (simple)
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [customerAccountNumber, setCustomerAccountNumber] = useState("");
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [accountNumber, setAccountNumber] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [customerLat, setCustomerLat] = useState<number | null>(null);
+  const [customerLng, setCustomerLng] = useState<number | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // CRM state (detailed)
+  const [timeToSellMinutes, setTimeToSellMinutes] = useState<number>(30);
+  const [dealType, setDealType] = useState<'fresh' | 'takeover' | 'diy'>('fresh');
+  const [moneySpent, setMoneySpent] = useState("");
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  
+  // Install status
+  const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled'>('installed');
+  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Initialize form when sale changes
   useEffect(() => {
-    if (sale) {
+    if (sale && open) {
+      setSaleType(sale.type);
       setPrmr(sale.prmr.toString());
       const time = format(parseISO(sale.timestamp), 'HH:mm');
       setSaleTime(time);
-      setDealType(sale.deal_type || "");
-      setDifficulty(sale.difficulty || "");
-      setTimeToSell(sale.time_to_sell_minutes?.toString() || "");
-      setMoneySpent(sale.money_spent?.toString() || "");
+      setInstallStatus(sale.install_status || 'installed');
+      
+      // CRM fields
       setCustomerName(sale.customer_name || "");
       setCustomerPhone(sale.customer_phone || "");
-      setCustomerAccountNumber(sale.customer_account_number || "");
-    }
-  }, [sale]);
-
-  // Reset states when sheet closes
-  useEffect(() => {
-    if (!open) {
-      setShowCancelConfirm(false);
+      setAccountNumber(sale.customer_account_number || "");
+      setCustomerAddress(sale.customer_location || "");
+      setCustomerLat(sale.customer_lat || null);
+      setCustomerLng(sale.customer_lng || null);
+      setTimeToSellMinutes(sale.time_to_sell_minutes || 30);
+      setDealType(sale.deal_type || 'fresh');
+      setMoneySpent(sale.money_spent?.toString() || "");
+      setDifficulty(sale.difficulty || 'medium');
+      setLocationError(null);
       setShowDeleteConfirm(false);
-      setIsEditing(false);
     }
-  }, [open]);
+  }, [sale, open]);
+
+  const getLocation = async () => {
+    if (!navigator.geolocation) {
+      setLocationError('Location not supported on this device');
+      return;
+    }
+    
+    setIsGettingLocation(true);
+    setLocationError(null);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 30000
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      setCustomerLat(latitude);
+      setCustomerLng(longitude);
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'KaizenApp/1.0'
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.display_name) {
+            const addr = data.address || {};
+            const parts = [
+              addr.house_number,
+              addr.road,
+              addr.city || addr.town || addr.village,
+              addr.state,
+              addr.postcode
+            ].filter(Boolean);
+            const formattedAddress = parts.join(', ') || data.display_name;
+            setCustomerAddress(formattedAddress);
+          }
+        }
+      } catch (geocodeError) {
+        // Still have coordinates even if geocoding failed
+      }
+    } catch (error: any) {
+      if (error?.code === 1) {
+        setLocationError('Location permission denied. Tap to retry.');
+      } else if (error?.code === 2) {
+        setLocationError('Location unavailable. Tap to retry.');
+      } else if (error?.code === 3) {
+        setLocationError('Location timed out. Tap to retry.');
+      } else {
+        setLocationError('Could not get location. Tap to retry.');
+      }
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
 
   if (!sale) return null;
 
-  const isCancelled = sale.install_status === 'cancelled';
-  const isPending = sale.install_status === 'pending';
-  const isFP = sale.type === 'fp';
-  const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
-  const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
-
-  // Check if CRM data exists
-  const hasSimpleCrmData = sale.customer_name || sale.customer_phone || sale.customer_account_number || sale.customer_location;
-  const hasDetailedCrmData = sale.time_to_sell_minutes || sale.deal_type || sale.money_spent || sale.difficulty;
-
-  const handleSaveChanges = () => {
-    const newPrmr = parseFloat(prmr) || 0;
+  const handleSubmit = () => {
+    const prmrValue = parseFloat(prmr) || 0;
     
     // Parse the time and create new timestamp
     const [hours, minutes] = saleTime.split(':').map(Number);
     const originalDate = parseISO(sale.timestamp);
     const newTimestamp = setMinutes(setHours(originalDate, hours), minutes);
     
-    onUpdateSale({
+    const updatedSale: Sale = {
       ...sale,
-      prmr: newPrmr,
+      type: saleType,
+      prmr: prmrValue,
       timestamp: newTimestamp.toISOString(),
-      deal_type: (dealType || undefined) as 'fresh' | 'takeover' | 'diy' | undefined,
-      difficulty: (difficulty || undefined) as 'easy' | 'medium' | 'hard' | undefined,
-      time_to_sell_minutes: timeToSell ? parseInt(timeToSell) : undefined,
-      money_spent: moneySpent ? parseFloat(moneySpent) : undefined,
-      customer_name: customerName || undefined,
-      customer_phone: customerPhone || undefined,
-      customer_account_number: customerAccountNumber || undefined,
-    });
+      install_status: installStatus,
+    };
+
+    // Add CRM fields if enabled
+    if (crmEnabled) {
+      updatedSale.customer_name = customerName.trim() || undefined;
+      updatedSale.customer_phone = customerPhone.trim() || undefined;
+      updatedSale.customer_account_number = accountNumber.trim() || undefined;
+      updatedSale.customer_location = customerAddress.trim() || undefined;
+      if (customerLat !== null) updatedSale.customer_lat = customerLat;
+      if (customerLng !== null) updatedSale.customer_lng = customerLng;
+
+      if (crmDetailedEnabled) {
+        updatedSale.time_to_sell_minutes = timeToSellMinutes;
+        updatedSale.deal_type = dealType;
+        updatedSale.money_spent = moneySpent.trim() ? parseInt(moneySpent) : undefined;
+        updatedSale.difficulty = difficulty;
+      }
+    }
     
-    setIsEditing(false);
-    toast.success("Sale updated");
-  };
-
-  const handleCancelEdit = () => {
-    // Reset all fields to original values
-    if (sale) {
-      setPrmr(sale.prmr.toString());
-      const time = format(parseISO(sale.timestamp), 'HH:mm');
-      setSaleTime(time);
-      setDealType(sale.deal_type || "");
-      setDifficulty(sale.difficulty || "");
-      setTimeToSell(sale.time_to_sell_minutes?.toString() || "");
-      setMoneySpent(sale.money_spent?.toString() || "");
-      setCustomerName(sale.customer_name || "");
-      setCustomerPhone(sale.customer_phone || "");
-      setCustomerAccountNumber(sale.customer_account_number || "");
-    }
-    setIsEditing(false);
-  };
-
-  const handleMarkUnfunded = () => {
-    onUpdateSale({
-      ...sale,
-      install_status: 'cancelled',
-    });
-    setShowCancelConfirm(false);
+    onUpdateSale(updatedSale);
     onOpenChange(false);
   };
 
-  const handleMarkInstalled = () => {
-    onUpdateSale({
-      ...sale,
-      install_status: 'installed',
-      install_confirmed_at: new Date().toISOString(),
-    });
-    onOpenChange(false);
-  };
-
-  const handleUndoCancel = () => {
-    onUpdateSale({
-      ...sale,
-      install_status: 'installed',
-    });
-    onOpenChange(false);
-  };
-
-  const handleDeleteSale = () => {
-    if (onDeleteSale) {
+  const handleDelete = () => {
+    if (showDeleteConfirm && onDeleteSale) {
       onDeleteSale(sale.id);
+      onOpenChange(false);
+    } else {
+      setShowDeleteConfirm(true);
     }
-    setShowDeleteConfirm(false);
-    onOpenChange(false);
   };
+
+  const dateStr = format(parseISO(entryDate), 'MMM d, yyyy');
+  const timeStr = format(parseISO(sale.timestamp), 'h:mm a');
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="pb-safe">
         <DrawerHeader className="text-center pb-2">
-          <div className="flex items-center justify-between">
-            <div className="w-10" /> {/* Spacer for centering */}
-            <div className="flex-1 text-center">
-              <DrawerTitle className="text-xl flex items-center justify-center gap-2">
-                {isCancelled && <Ban className="h-5 w-5 text-destructive" />}
-                {isFP ? 'FP Sale' : 'Upgrade'} Details
-              </DrawerTitle>
-              <DrawerDescription>
-                {dateStr} at {timeStr}
-              </DrawerDescription>
-            </div>
-            {!isCancelled && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => isEditing ? handleCancelEdit() : setIsEditing(true)}
-                className="h-10 w-10"
-              >
-                {isEditing ? (
-                  <X className="h-5 w-5" />
-                ) : (
-                  <Pencil className="h-5 w-5" />
-                )}
-              </Button>
-            )}
-            {isCancelled && <div className="w-10" />}
-          </div>
+          <DrawerTitle className="text-xl">
+            Edit Sale
+          </DrawerTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {dateStr} at {timeStr}
+          </p>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-6 max-h-[70dvh] overflow-y-auto flex-1 min-h-0">
-          {/* Status Badge */}
-          <div className="flex justify-center">
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-              isCancelled 
-                ? 'bg-destructive/10 text-destructive' 
-                : isPending 
-                  ? 'bg-amber-500/10 text-amber-600'
-                  : 'bg-emerald-500/10 text-emerald-600'
-            }`}>
-              {isCancelled ? (
-                <>
-                  <Ban className="h-4 w-4" />
-                  Installed but Unfunded
-                </>
-              ) : isPending ? (
-                <>
-                  <Calendar className="h-4 w-4" />
-                  Pending Install
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4" />
-                  Installed / Funded
-                </>
-              )}
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto flex-1 min-h-0 max-h-[70dvh]">
+          {/* Funding Status Toggle */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Funding Status
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInstallStatus('installed')}
+                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  installStatus === 'installed'
+                    ? 'bg-emerald-500 text-white shadow-md'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Funded
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallStatus('pending')}
+                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  installStatus === 'pending'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Pending
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallStatus('cancelled')}
+                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  installStatus === 'cancelled'
+                    ? 'bg-destructive text-white shadow-md'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5" />
+                Unfunded
+              </button>
             </div>
           </div>
 
-          {/* PRMR Display/Input */}
+          {/* Sale Type Toggle */}
+          <div className="flex gap-2 p-1 bg-muted rounded-xl">
+            <button
+              type="button"
+              onClick={() => setSaleType('fp')}
+              className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
+                saleType === 'fp'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              FP (New Account)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaleType('upgrade')}
+              className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
+                saleType === 'upgrade'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Upgrade
+            </button>
+          </div>
+
+          {/* PRMR Input */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              PRMR Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">
+                $
+              </span>
+              <Input
+                ref={inputRef}
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={prmr}
+                onChange={(e) => setPrmr(e.target.value)}
+                className="pl-9 text-2xl font-bold h-14 text-center"
+              />
+            </div>
+          </div>
+
+          {/* Sale Time */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">
-              PRMR Amount
+              Sale Time
             </Label>
-            {isEditing ? (
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={prmr}
-                  onChange={(e) => setPrmr(e.target.value)}
-                  className="pl-9 text-2xl font-bold h-14 text-center"
-                />
-              </div>
-            ) : (
-              <div className={`relative bg-muted/30 rounded-lg h-14 flex items-center justify-center ${
-                isCancelled ? 'line-through text-muted-foreground' : ''
-              }`}>
-                <span className="absolute left-4 text-xl font-semibold text-muted-foreground">
-                  $
-                </span>
-                <span className="text-2xl font-bold">{sale.prmr.toFixed(2)}</span>
-              </div>
-            )}
+            <Input
+              type="time"
+              value={saleTime}
+              onChange={(e) => setSaleTime(e.target.value)}
+              className="h-12"
+            />
           </div>
 
-          {/* Sale Time - Edit Mode */}
-          {isEditing && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Sale Time
-              </Label>
-              <Input
-                type="time"
-                value={saleTime}
-                onChange={(e) => setSaleTime(e.target.value)}
-                className="h-12"
-              />
-            </div>
-          )}
-
-          {/* Deal Type - Edit Mode (FP only) */}
-          {isEditing && isFP && crmEnabled && crmDetailedEnabled && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Deal Type
-              </Label>
-              <Select value={dealType} onValueChange={setDealType}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fresh">Fresh</SelectItem>
-                  <SelectItem value="takeover">Takeover</SelectItem>
-                  <SelectItem value="diy">DIY</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Difficulty - Edit Mode */}
-          {isEditing && crmEnabled && crmDetailedEnabled && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Difficulty
-              </Label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Select difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="hard">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Time to Sell - Edit Mode */}
-          {isEditing && crmEnabled && crmDetailedEnabled && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Time to Sell (minutes)
-              </Label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={timeToSell}
-                onChange={(e) => setTimeToSell(e.target.value)}
-                placeholder="e.g. 45"
-                className="h-12"
-              />
-            </div>
-          )}
-
-          {/* Money Spent - Edit Mode */}
-          {isEditing && crmEnabled && crmDetailedEnabled && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Money Spent
-              </Label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={moneySpent}
-                  onChange={(e) => setMoneySpent(e.target.value)}
-                  placeholder="0"
-                  className="pl-8 h-12"
-                />
+          {/* CRM Fields (Simple) */}
+          {crmEnabled && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer Info</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Name</Label>
+                  <Input
+                    placeholder="Customer name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Phone</Label>
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Phone number"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Customer Info - Edit Mode */}
-          {isEditing && crmEnabled && (
-            <>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Customer Name
+              <div className="space-y-1">
+                <Label className="text-xs">Account Number</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                    A-
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="12345678"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="pl-8 h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Location
                 </Label>
-                <Input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Name"
-                  className="h-12"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Customer Phone
-                </Label>
-                <Input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Phone"
-                  className="h-12"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Account Number
-                </Label>
-                <Input
-                  value={customerAccountNumber}
-                  onChange={(e) => setCustomerAccountNumber(e.target.value)}
-                  placeholder="Account #"
-                  className="h-12"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Save Button - Edit Mode */}
-          {isEditing && (
-            <Button
-              onClick={handleSaveChanges}
-              className="w-full h-12"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </Button>
-          )}
-
-          {/* CRM Data - Simple (Customer Info) - View Mode */}
-          {!isEditing && crmEnabled && hasSimpleCrmData && (
-            <div className="space-y-3 pt-2 border-t border-border/50">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Customer Info
-              </Label>
-              <div className="grid gap-2">
-                {sale.customer_name && (
-                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{sale.customer_name}</span>
-                  </div>
-                )}
-                {sale.customer_phone && (
-                  <a 
-                    href={`tel:${sale.customer_phone}`}
-                    className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-2 active:bg-muted/50 transition-colors"
+                <div className="relative">
+                  <Input
+                    placeholder="Customer address"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    className="h-10 pr-10"
+                  />
+                  {isGettingLocation && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                  {!isGettingLocation && !customerAddress && (
+                    <button
+                      type="button"
+                      onClick={getLocation}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-primary text-xs font-medium"
+                    >
+                      Get Location
+                    </button>
+                  )}
+                </div>
+                {locationError && !customerAddress && (
+                  <button 
+                    type="button"
+                    onClick={getLocation}
+                    className="text-[10px] text-destructive hover:underline"
                   >
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{sale.customer_phone}</span>
-                    </div>
-                    <Phone className="h-4 w-4 text-primary" />
-                  </a>
-                )}
-                {sale.customer_account_number && (
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(sale.customer_account_number || '');
-                      toast.success('Account number copied');
-                    }}
-                    className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-2 active:bg-muted/50 transition-colors w-full text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Hash className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span>{sale.customer_account_number}</span>
-                    </div>
-                    <Copy className="h-4 w-4 text-primary" />
+                    {locationError}
                   </button>
                 )}
-                {sale.customer_location && (
-                  <div className="flex items-center gap-3 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate">{sale.customer_location}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {/* CRM Data - Detailed (Sale Analytics) - View Mode */}
-          {!isEditing && crmEnabled && crmDetailedEnabled && hasDetailedCrmData && (
-            <div className="space-y-3 pt-2 border-t border-border/50">
-              <Label className="text-sm font-medium text-muted-foreground">
-                Sale Details
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {sale.time_to_sell_minutes && (
-                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{formatMinutes(sale.time_to_sell_minutes)}</span>
-                  </div>
-                )}
-                {sale.deal_type && isFP && (
-                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">Type:</span>
-                    <span className="capitalize">{sale.deal_type}</span>
-                  </div>
-                )}
-                {sale.money_spent !== undefined && sale.money_spent !== null && (
-                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>${sale.money_spent}</span>
-                  </div>
-                )}
-                {sale.difficulty && (
-                  <div className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                    <Gauge className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="capitalize">{sale.difficulty}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* CRM Fields (Detailed) */}
+          {crmEnabled && crmDetailedEnabled && (
+            <div className="space-y-4 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sale Details</p>
 
-          {/* Actions - Only show when not editing */}
-          {!isEditing && (
-            <div className="space-y-3 pt-4 border-t border-border/50">
-              {isCancelled ? (
-                <Button
-                  variant="outline"
-                  onClick={handleUndoCancel}
-                  className="w-full h-12"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark as Funded
-                </Button>
-              ) : isPending ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleMarkInstalled}
-                    className="w-full h-12 border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Confirm Installed
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="w-full h-10 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-                  >
-                    <Ban className="h-4 w-4 mr-2" />
-                    Installed but Later Cancelled
-                  </Button>
-                  {onDeleteSale && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Never Installed - Remove Sale
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowCancelConfirm(true)}
-                    className="w-full h-10 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-                  >
-                    <Ban className="h-4 w-4 mr-2" />
-                    Mark as Unfunded (Cancelled After Install)
-                  </Button>
-                  {onDeleteSale && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Never Installed - Remove Sale
-                    </Button>
-                  )}
-                </>
+              {/* Time to Sell Slider */}
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Time to Sell
+                </Label>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatMinutes(timeToSellMinutes)}</span>
+                    <span>5 min - 4 hrs</span>
+                  </div>
+                  <Slider
+                    value={[timeToSellMinutes]}
+                    onValueChange={([val]) => setTimeToSellMinutes(val)}
+                    min={5}
+                    max={240}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Deal Type - FP only */}
+              {saleType === 'fp' && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Deal Type</Label>
+                  <div className="flex gap-2">
+                    {(['fresh', 'takeover', 'diy'] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setDealType(type)}
+                        className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                          dealType === type
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {type === 'fresh' ? '🚪 Fresh' : type === 'takeover' ? '🔄 Takeover' : '📷 DIY'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {dealType === 'fresh' ? 'Doorbell cam at most' : dealType === 'takeover' ? 'Had an alarm system' : 'Had their own cameras'}
+                  </p>
+                </div>
               )}
+
+              {/* Money Spent */}
+              <div className="space-y-1">
+                <Label className="text-xs">Money Spent to Get Deal</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={moneySpent}
+                    onChange={(e) => setMoneySpent(e.target.value)}
+                    className="pl-7 h-10"
+                  />
+                </div>
+              </div>
+
+              {/* Difficulty */}
+              <div className="space-y-2">
+                <Label className="text-xs">How Hard to Sell?</Label>
+                <div className="flex gap-2">
+                  {(['easy', 'medium', 'hard'] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDifficulty(level)}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                        difficulty === level
+                          ? level === 'easy' 
+                            ? 'bg-emerald-500 text-white shadow-md'
+                            : level === 'medium'
+                              ? 'bg-amber-500 text-white shadow-md'
+                              : 'bg-red-500 text-white shadow-md'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {level === 'easy' ? '😊 Easy' : level === 'medium' ? '😐 Medium' : '😤 Hard'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Unfunded Confirmation */}
-          {showCancelConfirm && (
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Mark as Unfunded?
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This deal was installed but later cancelled. It will still count toward your total goals but won't count as funded income.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1"
-                >
-                  Keep as Funded
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleMarkUnfunded}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700"
-                >
-                  Yes, Mark Unfunded
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Delete Confirmation */}
-          {showDeleteConfirm && (
-            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <Trash2 className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Remove Sale Completely?
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This deal never installed. Removing it will delete it from your numbers completely—as if it never happened. Your FP+ and PRMR will be recalculated.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1"
-                >
-                  Keep Sale
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDeleteSale}
-                  className="flex-1"
-                >
-                  Yes, Remove
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Action Buttons */}
+          <div className="space-y-3 pt-2">
+            <Button
+              onClick={handleSubmit}
+              className="w-full h-12 text-base font-semibold"
+              disabled={!prmr || parseFloat(prmr) <= 0}
+            >
+              Update Sale
+            </Button>
+            
+            {onDeleteSale && (
+              <Button
+                variant="ghost"
+                onClick={handleDelete}
+                className={`w-full h-10 ${
+                  showDeleteConfirm 
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' 
+                    : 'text-destructive hover:text-destructive hover:bg-destructive/10'
+                }`}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {showDeleteConfirm ? 'Tap Again to Confirm Delete' : 'Delete Sale'}
+              </Button>
+            )}
+          </div>
         </div>
       </DrawerContent>
     </Drawer>
