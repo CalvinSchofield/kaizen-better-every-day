@@ -182,19 +182,32 @@ export const RecruitDetailDrawer = ({
     },
   });
 
-  // Contact for help
+  // Contact for help - find the recruit's leader/recruiter to text (but NOT if current user IS that person)
   const { data: contactForHelp } = useQuery({
     queryKey: ['contact-for-help', recruit?.recruiterName, recruit?.teamName, currentUserRep?.name, teamAccess?.accessLevel],
     queryFn: async () => {
       if (!recruit) return null;
       const accessLevel = teamAccess?.accessLevel;
       const isLeaderOfLeaders = accessLevel === 'mgmt_group_lead' || accessLevel === 'area_director';
+      const currentUserName = stripEmojis(currentUserRep?.name || '')?.toLowerCase()?.trim();
+      
+      // For leader-of-leaders, contact the team leader; otherwise contact the recruiter
       let searchName = isLeaderOfLeaders ? recruit.teamName : recruit.recruiterName;
       const role = isLeaderOfLeaders ? 'leader' : 'recruiter';
+      
       if (!searchName) return null;
-      const cleanedSearchName = stripEmojis(searchName)?.toLowerCase();
-      const currentUserName = stripEmojis(currentUserRep?.name || '')?.toLowerCase();
-      if (cleanedSearchName === currentUserName) return null;
+      
+      const cleanedSearchName = stripEmojis(searchName)?.toLowerCase()?.trim();
+      
+      // Don't show button if current user IS the recruiter or team leader
+      const cleanedRecruiterName = stripEmojis(recruit.recruiterName || '')?.toLowerCase()?.trim();
+      const cleanedTeamLeaderName = stripEmojis(recruit.teamName || '')?.toLowerCase()?.trim();
+      
+      // If current user is either the recruiter or team leader of this recruit, don't show the button
+      if (currentUserName && (currentUserName === cleanedRecruiterName || currentUserName === cleanedTeamLeaderName)) {
+        return null;
+      }
+      
       const { data: repData } = await supabase.from('reps').select('name, phone, notion_page_id').ilike('name', `%${stripEmojis(searchName)}%`).maybeSingle();
       if (!repData) return null;
       return { name: getFirstName(repData.name), phone: repData.phone, notionPageId: repData.notion_page_id, role } as ContactForHelp;
