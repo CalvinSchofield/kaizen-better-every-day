@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, SlidersHorizontal, Calculator, ChevronDown, ArrowLeft } from "lucide-react";
+import { Lock, SlidersHorizontal, Calculator, ChevronDown, ArrowLeft, Loader2, Check } from "lucide-react";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -76,6 +76,10 @@ const Goals = () => {
   const [activeTier, setActiveTier] = useState<GoalTier>('preseason');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
+  
+  // Confirmation drawer states for blitz commit/uncommit
+  const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
+  const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch knocking days count for pace calculation
   // Knocking day = doors >= 5 AND has work_start_time AND work_end_time
@@ -424,9 +428,22 @@ const Goals = () => {
     setShowTrainingTimer(false);
   };
 
-  const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
-    if (!repData?.id || !repData?.notion_page_id) return;
+  // Handler to show commit confirmation drawer
+  const handleRequestCommitToBlitz = (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
+    setConfirmCommitBlitz(blitz);
+  };
+
+  // Handler to show uncommit confirmation drawer
+  const handleRequestUncommitFromBlitz = (blitzId: string, blitzName: string) => {
+    setConfirmUncommitBlitz({ id: blitzId, name: blitzName });
+  };
+
+  const handleConfirmCommitToBlitz = async () => {
+    const blitz = confirmCommitBlitz;
+    if (!blitz || !repData?.id || !repData?.notion_page_id) return;
+    
     setIsCommitting(blitz.id);
+    setConfirmCommitBlitz(null);
     
     try {
       const newCommitment: CommittedBlitz = {
@@ -466,12 +483,15 @@ const Goals = () => {
     }
   };
 
-  const handleUncommitFromBlitz = async (blitzId: string) => {
-    if (!repData?.id || !repData?.notion_page_id) return;
-    setIsCommitting(blitzId);
+  const handleConfirmUncommitFromBlitz = async () => {
+    const blitz = confirmUncommitBlitz;
+    if (!blitz || !repData?.id || !repData?.notion_page_id) return;
+    
+    setIsCommitting(blitz.id);
+    setConfirmUncommitBlitz(null);
     
     try {
-      const newCommitments = committedBlitzes.filter(b => b.id !== blitzId);
+      const newCommitments = committedBlitzes.filter(b => b.id !== blitz.id);
       const newBlitzIds = newCommitments.map(b => b.id);
       
       // Update local Supabase first
@@ -854,7 +874,7 @@ const Goals = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleUncommitFromBlitz(blitz.id)}
+                        onClick={() => handleRequestUncommitFromBlitz(blitz.id, blitz.name)}
                         disabled={isCommitting === blitz.id}
                       >
                         Uncommit
@@ -884,7 +904,7 @@ const Goals = () => {
                         <Button
                           variant="default"
                           size="sm"
-                          onClick={() => handleCommitToBlitz(blitz)}
+                          onClick={() => handleRequestCommitToBlitz(blitz)}
                           disabled={isCommitting === blitz.id}
                         >
                           Commit
@@ -894,6 +914,89 @@ const Goals = () => {
                 </div>
               </div>
             )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Commit Confirmation Drawer */}
+      <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Confirm Commitment</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium">{confirmCommitBlitz?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {confirmCommitBlitz?.date && new Date(confirmCommitBlitz.date).toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+                {confirmCommitBlitz?.location && ` · ${confirmCommitBlitz.location}`}
+              </p>
+            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Are you sure you want to commit to this blitz? Your leader will be notified.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setConfirmCommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={handleConfirmCommitToBlitz}
+                disabled={isCommitting === confirmCommitBlitz?.id}
+              >
+                {isCommitting === confirmCommitBlitz?.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                Yes, Commit
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Uncommit Confirmation Drawer */}
+      <Drawer open={!!confirmUncommitBlitz} onOpenChange={(open) => !open && setConfirmUncommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Confirm Uncommitment</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium">{confirmUncommitBlitz?.name}</p>
+            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Are you sure you want to uncommit from this blitz? You can always commit again later.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setConfirmUncommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1"
+                onClick={handleConfirmUncommitFromBlitz}
+                disabled={isCommitting === confirmUncommitBlitz?.id}
+              >
+                {isCommitting === confirmUncommitBlitz?.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Yes, Uncommit
+              </Button>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
