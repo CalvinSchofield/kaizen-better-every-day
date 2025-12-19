@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
+import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,11 +79,14 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="sticky top-[57px] z-10 bg-background border-b px-4">
-          <TabsList className="w-full grid grid-cols-3 h-12">
-            <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
-            <TabsTrigger value="details" className="text-sm">Details</TabsTrigger>
-            <TabsTrigger value="compare" className="text-sm" disabled={!product.competitorComparison}>
+          <TabsList className="w-full grid grid-cols-4 h-12">
+            <TabsTrigger value="overview" className="text-xs px-1">Overview</TabsTrigger>
+            <TabsTrigger value="details" className="text-xs px-1">Details</TabsTrigger>
+            <TabsTrigger value="compare" className="text-xs px-1" disabled={!product.competitorComparison}>
               Compare
+            </TabsTrigger>
+            <TabsTrigger value="quickref" className="text-xs px-1" disabled={!product.onePagerImage}>
+              Quick Ref
             </TabsTrigger>
           </TabsList>
         </div>
@@ -394,6 +397,37 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
                     <Scale className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-sm text-muted-foreground">
                       No competitor comparison available for this product.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          {/* Quick Ref Tab */}
+          <TabsContent value="quickref" className="mt-0 px-4 py-4 space-y-4">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              {product.onePagerImage ? (
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <img 
+                      src={product.onePagerImage} 
+                      alt={`${product.name} Quick Reference`}
+                      className="w-full h-auto"
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <FileImage className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No quick reference available for this product yet.
                     </p>
                   </CardContent>
                 </Card>

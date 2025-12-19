@@ -23,6 +23,7 @@ export interface ProductData {
   tagline: string;
   description: string;
   heroImage: string;
+  onePagerImage?: string;
   pricing?: Pricing;
   tier1Messaging: string[];
   tier2Messaging: string[];
@@ -42,6 +43,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Your home on your phone",
     description: "Control your Vivint HomeProtect security system from anywhere using our top-rated smart home app.",
     heroImage: "/images/products/vivint-app.jpeg",
+    onePagerImage: "/images/one-pagers/vivint-app.jpeg",
     tier1Messaging: [
       "Control your entire system from your smartphone from anywhere",
       "View live footage from your Doorbell Camera Pro",
@@ -92,6 +94,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Don't just record crime. Prevent it.",
     description: "The Doorbell Camera Pro not only notifies you when packages arrive, it is the only video doorbell camera that proactively protects them with Smart Deter technology.",
     heroImage: "/images/products/doorbell-camera-pro.jpeg",
+    // No one-pager for this product yet
     pricing: {
       upfront: "$249.99",
       months36: "$6.94/mo",
@@ -161,6 +164,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "A camera that detects, and reacts",
     description: "Our most advanced AI crime deterrent yet—detects real threats, alerts you instantly, and puts lurkers on notice with RADAR-powered detection.",
     heroImage: "/images/products/outdoor-camera-pro.jpeg",
+    onePagerImage: "/images/one-pagers/outdoor-camera-pro.jpeg",
     pricing: {
       upfront: "$399.99",
       months36: "$11.11/mo",
@@ -237,6 +241,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Stay connected and protected",
     description: "See what's happening while you're away with built-in person detection and customized detection zones for proactive home protection.",
     heroImage: "/images/products/indoor-camera-pro.jpeg",
+    onePagerImage: "/images/one-pagers/indoor-camera-pro.jpeg",
     pricing: {
       upfront: "$249.99",
       months36: "$6.94/mo",
@@ -305,6 +310,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Never miss a moment",
     description: "Stores every minute of footage from your cameras for up to 10 days with secure DVR recording you can review from the app or Smart Hub.",
     heroImage: "/images/products/vivint-playback.jpeg",
+    onePagerImage: "/images/one-pagers/vivint-playback.jpeg",
     pricing: {
       upfront: "$299.99",
       months36: "$8.33/mo",
@@ -358,6 +364,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Convenient, keyless control",
     description: "Take control of your lock from anywhere and be confident that your home is secure with the Vivint App and one-touch lockup.",
     heroImage: "/images/products/smart-lock.jpeg",
+    onePagerImage: "/images/one-pagers/smart-lock.jpeg",
     pricing: {
       upfront: "$179.99",
       months60: "$3.00/mo"
@@ -410,6 +417,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Conserve energy and save money",
     description: "Keep your home temperature exactly where you want it. Works with your in-home sensors to auto-adjust based on your preferences.",
     heroImage: "/images/products/smart-thermostat.jpeg",
+    onePagerImage: "/images/one-pagers/smart-thermostat.jpeg",
     pricing: {
       upfront: "$199.99",
       months60: "$3.33/mo"
