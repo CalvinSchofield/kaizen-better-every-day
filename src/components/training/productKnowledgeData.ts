@@ -94,7 +94,7 @@ export const productKnowledgeData: ProductData[] = [
     tagline: "Don't just record crime. Prevent it.",
     description: "The Doorbell Camera Pro not only notifies you when packages arrive, it is the only video doorbell camera that proactively protects them with Smart Deter technology.",
     heroImage: "/images/products/doorbell-camera-pro.jpeg",
-    // No one-pager for this product yet
+    onePagerImage: "/images/one-pagers/doorbell-camera-pro.jpeg",
     pricing: {
       upfront: "$249.99",
       months36: "$6.94/mo",
