@@ -567,8 +567,8 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         title="Submit Your Pitches"
         icon={<Send className="w-4 h-4" />}
         description="Record and send both pitches for feedback"
-        isComplete={pitchSubmitted}
-        isLocked={!takeoverStudied}
+        isComplete={pitchSubmitted || isComplete}
+        isLocked={!takeoverStudied && !isComplete}
         requiresLeader
         isExpanded={expandedSection === "submitpitches"}
         onToggle={() => setExpandedSection(expandedSection === "submitpitches" ? null : "submitpitches")}
