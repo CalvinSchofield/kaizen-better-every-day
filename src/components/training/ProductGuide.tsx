@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
+import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,23 +7,55 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useHeader } from "@/contexts/HeaderContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { ProductData } from "./productKnowledgeData";
+import { ProductData, productKnowledgeData } from "./productKnowledgeData";
+import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 
 interface ProductGuideProps {
   product: ProductData;
   onBack: () => void;
+  onNavigateProduct?: (productId: string) => void;
 }
 
-export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
+export const ProductGuide = ({ product, onBack, onNavigateProduct }: ProductGuideProps) => {
   const { setCustomTitle } = useHeader();
   const [activeTab, setActiveTab] = useState("overview");
   const [expandedSections, setExpandedSections] = useState<string[]>(["tier1"]);
   const [currentUseCase, setCurrentUseCase] = useState(0);
 
+  // Find current product index for swipe navigation
+  const currentIndex = productKnowledgeData.findIndex(p => p.id === product.id);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < productKnowledgeData.length - 1;
+
+  const navigateToPrev = () => {
+    if (hasPrev && onNavigateProduct) {
+      onNavigateProduct(productKnowledgeData[currentIndex - 1].id);
+    }
+  };
+
+  const navigateToNext = () => {
+    if (hasNext && onNavigateProduct) {
+      onNavigateProduct(productKnowledgeData[currentIndex + 1].id);
+    }
+  };
+
+  const { onTouchStart, onTouchMove, onTouchEnd, swipeState } = useSwipeNavigation({
+    onSwipeLeft: navigateToNext,
+    onSwipeRight: navigateToPrev,
+    threshold: 50,
+  });
+
   useEffect(() => {
     setCustomTitle(product.name);
     return () => setCustomTitle(null);
   }, [product.name, setCustomTitle]);
+
+  // Reset state when product changes
+  useEffect(() => {
+    setActiveTab("overview");
+    setExpandedSections(["tier1"]);
+    setCurrentUseCase(0);
+  }, [product.id]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
@@ -32,19 +64,68 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen bg-background"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
         <div className="flex items-center gap-3 px-4 py-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-center">
             <h1 className="font-semibold text-lg truncate">{product.name}</h1>
-            <p className="text-sm text-muted-foreground truncate">{product.tagline}</p>
+            <p className="text-xs text-muted-foreground">
+              {currentIndex + 1} of {productKnowledgeData.length} products
+            </p>
+          </div>
+          <div className="w-9" /> {/* Spacer for balance */}
+        </div>
+        
+        {/* Product Navigation Arrows */}
+        {onNavigateProduct && (
+          <div className="flex items-center justify-between px-4 pb-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={navigateToPrev}
+              disabled={!hasPrev}
+              className="flex items-center gap-1 text-xs"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {hasPrev && productKnowledgeData[currentIndex - 1].name.split(" ")[0]}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={navigateToNext}
+              disabled={!hasNext}
+              className="flex items-center gap-1 text-xs"
+            >
+              {hasNext && productKnowledgeData[currentIndex + 1].name.split(" ")[0]}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Swipe indicator */}
+      {swipeState.isSwiping && (
+        <div className={`fixed top-1/2 z-50 pointer-events-none transition-opacity ${
+          swipeState.direction === 'left' ? 'right-4' : 'left-4'
+        }`}>
+          <div className="bg-primary/80 text-primary-foreground rounded-full p-3 shadow-lg">
+            {swipeState.direction === 'left' ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Hero Image */}
       <div className="relative w-full aspect-video bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center overflow-hidden">
