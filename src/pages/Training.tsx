@@ -289,7 +289,7 @@ const Training = () => {
     return <PaperworkGuide onBack={() => setActiveGuide(null)} />;
   }
   
-  // If a product guide is active, show it with swipe navigation
+  // If a product guide is active, show it
   if (activeProductGuide) {
     const productData = productKnowledgeData.find(p => p.id === activeProductGuide);
     if (productData) {
@@ -297,7 +297,6 @@ const Training = () => {
         <ProductGuide 
           product={productData} 
           onBack={() => setActiveProductGuide(null)}
-          onNavigateProduct={(productId) => setActiveProductGuide(productId as ProductGuideId)}
         />
       );
     }
