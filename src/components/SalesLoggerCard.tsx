@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sale } from "@/components/LogSaleSheet";
 import { X, Ban } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useEfpMode } from "@/hooks/useEfpMode";
 
 interface SalesLoggerCardProps {
   salesLog: Sale[];
@@ -14,6 +15,8 @@ export const SalesLoggerCard = ({
   onEditSale,
   onDeleteSale,
 }: SalesLoggerCardProps) => {
+  const { efpModeEnabled } = useEfpMode();
+  
   // Filter funded sales for totals
   const fundedSales = salesLog.filter(s => s.install_status !== 'cancelled');
   const cancelledSales = salesLog.filter(s => s.install_status === 'cancelled');
@@ -27,6 +30,9 @@ export const SalesLoggerCard = ({
   
   const totalFPPlus = fpCount + upgradeFP;
   const totalPrmr = fundedSales.reduce((sum, s) => sum + s.prmr, 0);
+  
+  // EFP = FP count + (upgrade PRMR / 85)
+  const totalEFP = fpCount + upgradeFP;
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
@@ -42,12 +48,25 @@ export const SalesLoggerCard = ({
             Today's Sales
           </h3>
           <div className="text-right">
-            <div className="text-lg font-bold text-primary">
-              ${totalPrmr.toLocaleString()}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {totalFPPlus.toFixed(1)} FP+
-            </div>
+            {efpModeEnabled ? (
+              <>
+                <div className="text-lg font-bold text-primary">
+                  {totalEFP.toFixed(2)} EFP
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {fpCount} FP+
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-primary">
+                  ${totalPrmr.toLocaleString()}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {totalFPPlus.toFixed(1)} FP+
+                </div>
+              </>
+            )}
           </div>
         </div>
 
