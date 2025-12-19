@@ -8,6 +8,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
+import { useNavigate } from "react-router-dom";
 import type { RepData } from "@/hooks/useRepData";
 
 interface Phase2ContentProps {
@@ -120,6 +121,7 @@ const UPGRADES_CONTENT = {
 };
 
 export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToStepKey, onScrollComplete }: Phase2ContentProps) => {
+  const navigate = useNavigate();
   const [expandedSection, setExpandedSection] = useState<string | null>("product");
   const [productStudied, setProductStudied] = useState(false);
   const [quizPassed, setQuizPassed] = useState(false);
@@ -311,35 +313,50 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
             Review each product to understand features, benefits, and how to explain them to customers.
           </p>
           
-          {/* Login prompt card */}
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-xl p-4 border border-primary/20">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <Lock className="w-4 h-4 text-primary" />
+          {/* In-app Product Knowledge CTA */}
+          <Button
+            variant="outline"
+            className="w-full justify-between h-auto py-4 px-4 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20 hover:border-primary/40"
+            onClick={() => navigate("/product-knowledge")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-primary" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Sign in with your Vivint credentials</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use your Vivint username and password to access the product training materials on TheHub.
-                </p>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Product Knowledge</p>
+                <p className="text-xs text-muted-foreground">In-depth guides with one-pagers</p>
               </div>
             </div>
-          </div>
-          
-          <div className="grid gap-2">
-            {PRODUCT_KNOWLEDGE_LINKS.map((link) => (
-              <a
-                key={link.title}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted transition-all group active:scale-[0.98]"
-              >
-                <span className="font-medium text-sm group-hover:text-primary transition-colors">{link.title}</span>
-                <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </a>
-            ))}
-          </div>
+            <ArrowRight className="w-5 h-5 text-primary" />
+          </Button>
+
+          {/* External links accordion */}
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-xl bg-muted/50 hover:bg-muted transition-all text-sm">
+              <div className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground">View on TheHub (requires login)</span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="grid gap-2">
+                {PRODUCT_KNOWLEDGE_LINKS.map((link) => (
+                  <a
+                    key={link.title}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all group active:scale-[0.98]"
+                  >
+                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{link.title}</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                  </a>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {!productStudied && (
             <Button 
