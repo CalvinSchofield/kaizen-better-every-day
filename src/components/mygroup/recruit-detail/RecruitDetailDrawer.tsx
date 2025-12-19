@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { TabType, RecruitRepData, RecruitGoals, ContactForHelp, RecruitSummerConfig } from "./types";
 import { stripEmojis, getFirstName, getStageDescription, getOnboardingStepDescription } from "./utils";
+import { generateStageHelpMessage } from "@/utils/stageSpecificHelpMessage";
 import { RecruitHeader } from "./RecruitHeader";
 import { QuickActionsBar } from "./QuickActionsBar";
 import { FocusCard } from "./FocusCard";
@@ -273,11 +274,11 @@ export const RecruitDetailDrawer = ({
     enabled: !!recruitRepData?.user_id && !!recruitSummerConfig?.personalSummerStart && open,
   });
 
-  // Help message
+  // Help message - stage-specific
   const helpMessage = useMemo(() => {
     if (!recruit || !contactForHelp) return '';
     const recruitFirstName = getFirstName(recruit.name);
-    return `Hey! What can I do to help ${recruitFirstName} sell 5+ before the summer?`;
+    return generateStageHelpMessage(recruitFirstName, recruit.stage, contactForHelp.role);
   }, [recruit, contactForHelp]);
 
   // Save phone mutation
