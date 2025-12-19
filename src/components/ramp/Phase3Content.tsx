@@ -454,8 +454,8 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         title="Write Your Why"
         icon={<Heart className="w-4 h-4" />}
         description="Define your purpose for the blitz"
-        isComplete={whyWritten}
-        isLocked={!ipadReady}
+        isComplete={whyWritten || isComplete}
+        isLocked={!ipadReady && !isComplete}
         requiresLeader
         isExpanded={expandedSection === "why"}
         onToggle={() => setExpandedSection(expandedSection === "why" ? null : "why")}
@@ -501,8 +501,8 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         title="1-on-1 Pitch Practice"
         icon={<Users className="w-4 h-4" />}
         description="Practice with a vet before blitz"
-        isComplete={practiceScheduled}
-        isLocked={!whyWritten}
+        isComplete={practiceScheduled || isComplete}
+        isLocked={!whyWritten && !isComplete}
         requiresLeader
         isExpanded={expandedSection === "practice"}
         onToggle={() => setExpandedSection(expandedSection === "practice" ? null : "practice")}
@@ -602,9 +602,14 @@ const TrainingSection = ({
                 <p className="text-xs text-muted-foreground">
                   {isLocked ? "Complete previous step to unlock" : description}
                 </p>
-                {requiresLeader && !isLocked && (
+                {requiresLeader && !isLocked && !isComplete && (
                   <Badge variant="outline" className="mt-2 text-xs">
                     Requires leader
+                  </Badge>
+                )}
+                {requiresLeader && isComplete && (
+                  <Badge variant="outline" className="mt-2 text-xs bg-green-500/10 border-green-500/30 text-green-700">
+                    ✓ Leader verified
                   </Badge>
                 )}
               </div>

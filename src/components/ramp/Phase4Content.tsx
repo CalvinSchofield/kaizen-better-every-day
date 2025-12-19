@@ -545,9 +545,14 @@ const TrainingSection = ({
                 <p className="text-xs text-muted-foreground">
                   {isLocked ? "Complete previous step to unlock" : description}
                 </p>
-                {requiresLeader && !isLocked && (
+                {requiresLeader && !isLocked && !isComplete && (
                   <Badge variant="outline" className="mt-2 text-xs">
                     Requires leader
+                  </Badge>
+                )}
+                {requiresLeader && isComplete && (
+                  <Badge variant="outline" className="mt-2 text-xs bg-green-500/10 border-green-500/30 text-green-700">
+                    ✓ Leader verified
                   </Badge>
                 )}
               </div>
