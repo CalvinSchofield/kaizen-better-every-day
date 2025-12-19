@@ -67,11 +67,10 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
           alt={product.name}
           className="w-full h-full object-contain p-4"
         />
-        {product.pricing && (
+        {product.pricing?.upfront && (
           <div className="absolute bottom-3 right-3">
-            <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm shadow-lg">
-              <DollarSign className="h-3 w-3 mr-1" />
-              {product.pricing.upfront || product.pricing.months36}
+            <Badge className="bg-background/95 backdrop-blur-sm shadow-lg text-foreground border-0 px-3 py-1.5 text-sm font-semibold">
+              {product.pricing.upfront}
             </Badge>
           </div>
         )}
@@ -106,42 +105,24 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
               </Card>
 
               {/* Pricing */}
-              {product.pricing && (
+              {product.pricing && (product.pricing.upfront || product.pricing.months60) && (
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-accent" />
-                      Pricing Options
+                      Pricing
                     </h3>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       {product.pricing.upfront && (
                         <div className="bg-muted/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground">Upfront</p>
-                          <p className="font-semibold">{product.pricing.upfront}</p>
-                        </div>
-                      )}
-                      {product.pricing.months36 && (
-                        <div className="bg-muted/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground">36 months</p>
-                          <p className="font-semibold">{product.pricing.months36}</p>
+                          <p className="text-xs text-muted-foreground mb-1">Upfront</p>
+                          <p className="font-semibold text-sm">{product.pricing.upfront}</p>
                         </div>
                       )}
                       {product.pricing.months60 && (
                         <div className="bg-muted/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground">60 months</p>
-                          <p className="font-semibold">{product.pricing.months60}</p>
-                        </div>
-                      )}
-                      {product.pricing.payIn4 && (
-                        <div className="bg-muted/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground">Pay-in-4</p>
-                          <p className="font-semibold">{product.pricing.payIn4}</p>
-                        </div>
-                      )}
-                      {product.pricing.monthly && (
-                        <div className="bg-muted/50 rounded-lg p-3 text-center">
-                          <p className="text-xs text-muted-foreground">Monthly</p>
-                          <p className="font-semibold">{product.pricing.monthly}</p>
+                          <p className="text-xs text-muted-foreground mb-1">Monthly</p>
+                          <p className="font-semibold text-sm">{product.pricing.months60}</p>
                         </div>
                       )}
                     </div>
