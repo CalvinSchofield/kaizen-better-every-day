@@ -91,7 +91,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Doorbell Camera Pro (Gen 2)",
     tagline: "Don't just record crime. Prevent it.",
     description: "The Doorbell Camera Pro not only notifies you when packages arrive, it is the only video doorbell camera that proactively protects them with Smart Deter technology.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXeDbMYlz6UliJWyfQmbNWLKOBthT3VDnQGYfmeFm5MeDUzz1_Tl8hdAZJ3ALqwrtPIYVT1wdAULkE2o44Zcin8Tpd_dflrqHlHFI-HNuYoXs6iKTw_5fGGmWzRleUR_zA=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/doorbell-camera-pro.jpeg",
     pricing: {
       upfront: "$249.99",
       months36: "$6.94/mo",
@@ -160,7 +160,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Outdoor Camera Pro (Gen 3)",
     tagline: "A camera that detects, and reacts",
     description: "Our most advanced AI crime deterrent yet—detects real threats, alerts you instantly, and puts lurkers on notice with RADAR-powered detection.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXdcAE8ywN4EiEqcCkXDx_50JhLLnTMqBq2ODm8zFBMOlwGwd9neJYrx_eXdPitmf9lRzA81RRHpzDha2LGytfgjFOXDmmfFVeZLxj3aiBRBN44aCMC4M-kiTit6S_2Esyo=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/outdoor-camera-pro.jpeg",
     pricing: {
       upfront: "$399.99",
       months36: "$11.11/mo",
@@ -236,7 +236,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Indoor Camera Pro",
     tagline: "Stay connected and protected",
     description: "See what's happening while you're away with built-in person detection and customized detection zones for proactive home protection.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXciLRX5OJ1wO-zxfExdGyICfPJNTxSEhPitt-8b1JY11HzBbzNdnYAlLjxfLdcRwPaKRdP4fnyuyuTS9-EPnG9EYq9B3UEOccHZT8x65OxXKmEadEuMA64KcNTs94tQSw=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/indoor-camera-pro.jpeg",
     pricing: {
       upfront: "$249.99",
       months36: "$6.94/mo",
@@ -304,7 +304,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Vivint Playback",
     tagline: "Never miss a moment",
     description: "Stores every minute of footage from your cameras for up to 10 days with secure DVR recording you can review from the app or Smart Hub.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXeQxl9KeCUGnauk6D1GUKvVQnIPWBD500JXrEStNGsAgypNSbEJRQbw5NRG7ax9H0682hS5puKhZLaUmxY2Evc4oryXr04M87omAYY8rkHs6efTG34_lz4HlJ02aZWKDg=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/vivint-playback.jpeg",
     pricing: {
       upfront: "$299.99",
       months36: "$8.33/mo",
@@ -357,7 +357,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Kwikset Smart Lock",
     tagline: "Convenient, keyless control",
     description: "Take control of your lock from anywhere and be confident that your home is secure with the Vivint App and one-touch lockup.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXc29S_qH8dhY96c7opHNleyg58S6EaUQhPbcyA55trUx_Bo8IYGKNTlOb6Z-D52mPE1zGb3GitqWjk_Hx2j9qQFns_kgzWzpb9yQjwvQ-ylJjr9h76wewBfKtkmGrQouCo=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/smart-lock.jpeg",
     pricing: {
       upfront: "$179.99",
       months60: "$3.00/mo"
@@ -409,7 +409,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "Vivint Smart Thermostat",
     tagline: "Conserve energy and save money",
     description: "Keep your home temperature exactly where you want it. Works with your in-home sensors to auto-adjust based on your preferences.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXefcrPoPULzg274y5DpP1yU0RIwVFKg3w2LnqOOqD3G0QBnIKxuTB1Ik9suYmNYMVUkk0uRYI8u03IBz5dUbLmvuCK3wjtTH2UoL_w_mu4AgHNQiiDKpTCPAELhiQzgToU=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/smart-thermostat.jpeg",
     pricing: {
       upfront: "$199.99",
       months60: "$3.33/mo"
