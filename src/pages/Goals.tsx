@@ -914,6 +914,7 @@ const Goals = () => {
         onClose={() => setShowBooksDrawer(false)}
         currentProgress={Number(goals.books_progress) || 0}
         onUpdateProgress={(newProgress) => updateGoals({ books_progress: newProgress })}
+        onOpenCommitmentEditor={() => setShowCommitmentEditor(true)}
       />
     </Layout>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BookMarked, Check, ChevronDown, ChevronUp, Trophy, Crown, ArrowRight, Lock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,12 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import confetti from "canvas-confetti";
-import { 
-  BOOKS_COMMITTED_KEY, 
-  BOOKS_READ_KEY, 
-  OTHER_BOOKS_COMMITTED_KEY, 
-  OTHER_BOOKS_READ_KEY 
-} from "@/components/goals/BooksSelectionDrawer";
+import { useSyncedBooks } from "@/hooks/useSyncedBooks";
 
 interface Book {
   id: string;
@@ -189,62 +184,32 @@ const BOOKS: Book[] = [
 
 export const BooksSection = () => {
   const navigate = useNavigate();
-  const { goals, updateGoals, isUpdating } = useRepGoals();
+  const { goals, isUpdating } = useRepGoals();
   const { data: leaderboard } = useBooksLeaderboard();
   const { toast } = useToast();
-  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
-  const [booksRead, setBooksRead] = useState<Set<string>>(new Set());
-  const [otherBooksCommitted, setOtherBooksCommitted] = useState<string[]>([]);
-  const [otherBooksRead, setOtherBooksRead] = useState<string[]>([]);
   const [expandedBook, setExpandedBook] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const committed = localStorage.getItem(BOOKS_COMMITTED_KEY);
-      if (committed) {
-        setBooksCommitted(new Set(JSON.parse(committed)));
-      }
-      const read = localStorage.getItem(BOOKS_READ_KEY);
-      if (read) {
-        setBooksRead(new Set(JSON.parse(read)));
-      }
-      const otherCommitted = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
-      if (otherCommitted) {
-        setOtherBooksCommitted(JSON.parse(otherCommitted));
-      }
-      const otherRead = localStorage.getItem(OTHER_BOOKS_READ_KEY);
-      if (otherRead) {
-        setOtherBooksRead(JSON.parse(otherRead));
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, []);
+  // Use synced books hook for database-backed tracking
+  const {
+    booksCommitted,
+    booksRead,
+    otherBooksCommitted,
+    otherBooksRead,
+    toggleBookRead,
+    toggleOtherBookRead,
+    isLoading: isBooksLoading,
+  } = useSyncedBooks();
 
   // Toggle book read status (only for committed books)
   const handleBookToggle = async (bookId: string) => {
     // Only allow toggling committed books
     if (!booksCommitted.has(bookId)) return;
 
-    const newBooksRead = new Set(booksRead);
-    const wasRead = newBooksRead.has(bookId);
-    
-    if (wasRead) {
-      newBooksRead.delete(bookId);
-    } else {
-      newBooksRead.add(bookId);
-    }
-    
-    setBooksRead(newBooksRead);
-    localStorage.setItem(BOOKS_READ_KEY, JSON.stringify([...newBooksRead]));
-    
-    const newCount = newBooksRead.size + otherBooksRead.length;
     try {
-      await updateGoals({ books_progress: newCount });
+      const wasMarkedAsRead = await toggleBookRead(bookId);
       
-      if (!wasRead) {
+      if (wasMarkedAsRead) {
         confetti({
           particleCount: 100,
           spread: 70,
@@ -266,23 +231,10 @@ export const BooksSection = () => {
 
   // Toggle other book read status
   const handleOtherBookToggle = async (bookTitle: string) => {
-    const wasRead = otherBooksRead.includes(bookTitle);
-    
-    let newOtherBooksRead: string[];
-    if (wasRead) {
-      newOtherBooksRead = otherBooksRead.filter(b => b !== bookTitle);
-    } else {
-      newOtherBooksRead = [...otherBooksRead, bookTitle];
-    }
-    
-    setOtherBooksRead(newOtherBooksRead);
-    localStorage.setItem(OTHER_BOOKS_READ_KEY, JSON.stringify(newOtherBooksRead));
-    
-    const newCount = booksRead.size + newOtherBooksRead.length;
     try {
-      await updateGoals({ books_progress: newCount });
+      const wasMarkedAsRead = await toggleOtherBookRead(bookTitle);
       
-      if (!wasRead) {
+      if (wasMarkedAsRead) {
         confetti({
           particleCount: 100,
           spread: 70,
@@ -441,7 +393,7 @@ export const BooksSection = () => {
                     id={`other-${index}`}
                     checked={isRead}
                     onCheckedChange={() => handleOtherBookToggle(book)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isBooksLoading}
                     className="mt-0"
                   />
                   <div className="flex-1 min-w-0">
@@ -485,7 +437,7 @@ export const BooksSection = () => {
                     id={book.id}
                     checked={isRead}
                     onCheckedChange={() => handleBookToggle(book.id)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isBooksLoading}
                     className="mt-1"
                   />
                 ) : (
