@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { useEfpMode } from '@/hooks/useEfpMode';
 
 type ExpandedSection = 'economics' | 'time' | 'dealType' | 'install' | null;
 
@@ -38,6 +39,7 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const { goals, updateGoals } = useRepGoals();
   const { toast } = useToast();
   const [isUpdatingTier, setIsUpdatingTier] = useState(false);
+  const { efpModeEnabled } = useEfpMode();
 
   const handleSectionToggle = (section: ExpandedSection) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -61,6 +63,19 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const totalSpent = insights?.totalMoneySpent || 0;
   const payscaleRoi = totalSpent > 0 ? payscaleEarnings / totalSpent : 0;
   const upfrontRoi = totalSpent > 0 ? upfrontEarnings / totalSpent : 0;
+  
+  // Calculate total EFP or FP+ for avg spent calculation
+  // EFP = FP deals + (upgrade PRMR / 85)
+  // FP+ = just FP deals count
+  const totalEfp = insights 
+    ? insights.totalFpDeals + (insights.prmrTotalBySaleType.upgrade / 85)
+    : 0;
+  const totalFpPlus = insights?.totalFpDeals || 0;
+  
+  // Calculate average spent per EFP or FP+
+  const avgSpentPerUnit = efpModeEnabled
+    ? (totalEfp > 0 ? totalSpent / totalEfp : 0)
+    : (totalFpPlus > 0 ? totalSpent / totalFpPlus : 0);
 
   const handleTierChange = async (newTier: number | null) => {
     setIsUpdatingTier(true);
@@ -169,8 +184,10 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-muted/30">
-                  <div className="text-sm text-muted-foreground">Avg Spent / Deal</div>
-                  <div className="text-xl font-bold">${insights.avgMoneySpent.toFixed(0)}</div>
+                  <div className="text-sm text-muted-foreground">
+                    Avg Spent / {efpModeEnabled ? 'EFP' : 'FP+'}
+                  </div>
+                  <div className="text-xl font-bold">${avgSpentPerUnit.toFixed(0)}</div>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <div className="text-sm text-muted-foreground">Total Spent</div>
