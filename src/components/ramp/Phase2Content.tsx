@@ -19,11 +19,6 @@ interface Phase2ContentProps {
   onScrollComplete?: () => void;
 }
 
-interface ProductLink {
-  title: string;
-  href: string;
-}
-
 interface CameraInfo {
   name: string;
   note: string;
@@ -33,16 +28,6 @@ interface CameraInfo {
     description: string;
   }[];
 }
-
-const PRODUCT_KNOWLEDGE_LINKS: ProductLink[] = [
-  { title: "Vivint App", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=4db5a381976b269050e0b0121153afbc&in_context=true" },
-  { title: "Doorbell Camera", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fd976b45976b269050e0b0121153afce&&in_context=true" },
-  { title: "Outdoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=d2f7c8a897b8b6104599b09ad053afff&&in_context=true" },
-  { title: "Indoor Camera Pro", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=bed76385976b269050e0b0121153afe4&in_context=true" },
-  { title: "24/7 Playback", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=fde76385976b269050e0b0121153afc0&&in_context=true" },
-  { title: "Smart Lock", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=e6362bc1976b269050e0b0121153afb6&in_context=true" },
-  { title: "Smart Thermostat", href: "https://thehub.nrg.com/esc?id=microsite&topic_id=9e466fc1976b269050e0b0121153afe2&&in_context=true" },
-];
 
 const PRODUCT_QUIZ_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc9CiA33lB2VXYz9RAGv1IPp1bjn9ypbZ9xMVa1bJ3huHwhSg/viewform";
 
@@ -330,33 +315,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
             </div>
             <ArrowRight className="w-5 h-5 text-primary" />
           </Button>
-
-          {/* External links accordion */}
-          <Collapsible>
-            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-xl bg-muted/50 hover:bg-muted transition-all text-sm">
-              <div className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">View on TheHub (requires login)</span>
-              </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              <div className="grid gap-2">
-                {PRODUCT_KNOWLEDGE_LINKS.map((link) => (
-                  <a
-                    key={link.title}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all group active:scale-[0.98]"
-                  >
-                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{link.title}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-                  </a>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
 
           {!productStudied && (
             <Button 
