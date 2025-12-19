@@ -420,22 +420,22 @@ const Training = () => {
           const isComingSoon = category.comingSoon;
           const isDisabledCategory = isLocked || isComingSoon;
           
-          // Handle categories with in-app routes (like Objections)
+          // Handle categories with in-app routes (like Objections, Product Knowledge)
           if (category.inAppRoute) {
             return (
               <Card 
                 key={category.title}
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
+                className="cursor-pointer hover:border-primary hover:bg-accent transition-all group"
                 onClick={() => navigate(category.inAppRoute!)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold">{category.title}</h3>
+                        <h3 className="font-semibold group-hover:text-primary transition-colors">{category.title}</h3>
                         <p className="text-sm text-muted-foreground">{category.description}</p>
                       </div>
                     </div>
@@ -453,27 +453,33 @@ const Training = () => {
               className={isDisabledCategory ? "opacity-50" : ""}
             >
               <CardHeader>
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon className={`w-5 h-5 ${isDisabledCategory ? "text-muted-foreground" : "text-primary"}`} />
-                  <CardTitle className="text-lg">{category.title}</CardTitle>
-                  {isComingSoon && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      Coming Soon
-                    </Badge>
-                  )}
-                  {isLocked && !isComingSoon && (
-                    <Badge variant="outline" className="ml-auto">
-                      <Lock className="w-3 h-3 mr-1" />
-                      Locked
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isDisabledCategory ? "bg-muted" : "bg-primary/10"}`}>
+                    <Icon className={`w-5 h-5 ${isDisabledCategory ? "text-muted-foreground" : "text-primary"}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{category.title}</CardTitle>
+                      {isComingSoon && (
+                        <Badge variant="secondary" className="text-xs">
+                          Coming Soon
+                        </Badge>
+                      )}
+                      {isLocked && !isComingSoon && (
+                        <Badge variant="outline">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Locked
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="mt-1">
+                      {isLocked 
+                        ? "Complete Ramp to Blitz (Phase 4) to unlock" 
+                        : category.description
+                      }
+                    </CardDescription>
+                  </div>
                 </div>
-                <CardDescription>
-                  {isLocked 
-                    ? "Complete Ramp to Blitz (Phase 4) to unlock" 
-                    : category.description
-                  }
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {category.items.map((item) => {
