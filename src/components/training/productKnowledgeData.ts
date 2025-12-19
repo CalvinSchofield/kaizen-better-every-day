@@ -359,8 +359,8 @@ export const productKnowledgeData: ProductData[] = [
     description: "Take control of your lock from anywhere and be confident that your home is secure with the Vivint App and one-touch lockup.",
     heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXc29S_qH8dhY96c7opHNleyg58S6EaUQhPbcyA55trUx_Bo8IYGKNTlOb6Z-D52mPE1zGb3GitqWjk_Hx2j9qQFns_kgzWzpb9yQjwvQ-ylJjr9h76wewBfKtkmGrQouCo=s800?key=lcj97jyBoZtMLimLXIkipA",
     pricing: {
-      upfront: "$179.99 (bronze, brass, nickel) / $184.99 (matte black)",
-      payIn4: "$44.99/mo or $46.25/mo"
+      upfront: "$179.99",
+      months60: "$3.00/mo"
     },
     tier1Messaging: [
       "Lock and unlock your door remotely using the Vivint app",
@@ -412,7 +412,7 @@ export const productKnowledgeData: ProductData[] = [
     heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXefcrPoPULzg274y5DpP1yU0RIwVFKg3w2LnqOOqD3G0QBnIKxuTB1Ik9suYmNYMVUkk0uRYI8u03IBz5dUbLmvuCK3wjtTH2UoL_w_mu4AgHNQiiDKpTCPAELhiQzgToU=s800?key=lcj97jyBoZtMLimLXIkipA",
     pricing: {
       upfront: "$199.99",
-      payIn4: "$49.99/mo"
+      months60: "$3.33/mo"
     },
     tier1Messaging: [
       "Adjust the thermostat remotely using the Vivint app",
