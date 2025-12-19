@@ -1,8 +1,9 @@
-import { Phone, MessageSquare, CheckCircle, Clock, Ban, ChevronRight } from 'lucide-react';
+import { Phone, MessageSquare, Copy, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CustomerSale } from '@/hooks/useCustomerData';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 interface CustomerCardProps {
   sale: CustomerSale;
@@ -11,7 +12,7 @@ interface CustomerCardProps {
   onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled') => void;
 }
 
-export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggle }: CustomerCardProps) => {
+export const CustomerCard = ({ sale, efpModeEnabled, onCardClick }: CustomerCardProps) => {
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (sale.customer_phone) {
@@ -26,15 +27,16 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
     }
   };
 
-  const handleFundingClick = (e: React.MouseEvent) => {
+  const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Cycle through: installed -> pending -> cancelled -> installed
-    const nextStatus = sale.install_status === 'installed' 
-      ? 'pending' 
-      : sale.install_status === 'pending' 
-        ? 'cancelled' 
-        : 'installed';
-    onFundingToggle(nextStatus);
+    const textToCopy = sale.account_number || sale.customer_phone || '';
+    if (textToCopy) {
+      await navigator.clipboard.writeText(textToCopy);
+      toast({
+        title: "Copied",
+        description: sale.account_number ? `Account: ${textToCopy}` : `Phone: ${textToCopy}`,
+      });
+    }
   };
 
   const formattedPrmr = new Intl.NumberFormat('en-US', {
@@ -57,15 +59,12 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
   // Format date
   const saleDate = format(parseISO(sale.entry_date), 'MMM d');
 
-  // Status indicator color and icon
-  const getStatusIndicator = () => {
-    if (isInstalled) return { color: 'bg-emerald-500', icon: CheckCircle, label: 'Funded' };
-    if (isPending) return { color: 'bg-amber-500', icon: Clock, label: 'Pending' };
-    return { color: 'bg-destructive', icon: Ban, label: 'Unfunded' };
+  // Funding status dot color
+  const getFundingDotColor = () => {
+    if (isInstalled) return 'bg-emerald-500';
+    if (isPending) return 'bg-amber-500';
+    return 'bg-destructive';
   };
-
-  const status = getStatusIndicator();
-  const StatusIcon = status.icon;
 
   return (
     <div 
@@ -75,38 +74,28 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
         isCancelled && "opacity-60"
       )}
     >
-      {/* Header Row - Name, Type Badge, Funding Status */}
+      {/* Header Row - Name, Type Badge with Funding Dot */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <h3 className="font-semibold text-foreground truncate">
             {sale.customer_name || 'Unknown Customer'}
           </h3>
-          <Badge 
-            variant={sale.type === 'fp' ? 'default' : 'secondary'}
-            className={cn(
-              "text-xs shrink-0",
-              sale.type === 'fp' 
-                ? 'bg-primary/10 text-primary' 
-                : 'bg-emerald-500/10 text-emerald-600'
-            )}
-          >
-            {sale.type === 'fp' ? 'FP' : 'Upgrade'}
-          </Badge>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className={cn("w-2 h-2 rounded-full", getFundingDotColor())} />
+            <Badge 
+              variant={sale.type === 'fp' ? 'default' : 'secondary'}
+              className={cn(
+                "text-xs",
+                sale.type === 'fp' 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-emerald-500/10 text-emerald-600'
+              )}
+            >
+              {sale.type === 'fp' ? 'FP' : 'Upgrade'}
+            </Badge>
+          </div>
         </div>
-        
-        {/* Funding Status Button */}
-        <button
-          onClick={handleFundingClick}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors",
-            isInstalled && "bg-emerald-500/10 text-emerald-600",
-            isPending && "bg-amber-500/10 text-amber-600",
-            isCancelled && "bg-destructive/10 text-destructive"
-          )}
-        >
-          <StatusIcon className="w-3 h-3" />
-          <span>{status.label}</span>
-        </button>
+        <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
       </div>
 
       {/* Metrics Row - EFP/FP+ and PRMR */}
@@ -130,40 +119,43 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggl
         </div>
       </div>
 
-      {/* Secondary Info Row */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+      {/* Secondary Info Row - Account # and Date */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
         {sale.account_number && (
           <span className="font-mono">A-{sale.account_number}</span>
-        )}
-        {sale.customer_phone && (
-          <span>{sale.customer_phone}</span>
         )}
         <span className="ml-auto">{saleDate}</span>
       </div>
 
-      {/* Action Row */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          {sale.customer_phone && (
-            <>
-              <button
-                onClick={handleCall}
-                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-                aria-label="Call customer"
-              >
-                <Phone className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleText}
-                className="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 transition-colors"
-                aria-label="Text customer"
-              >
-                <MessageSquare className="w-4 h-4" />
-              </button>
-            </>
-          )}
-        </div>
-        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+      {/* Action Row - Gray buttons */}
+      <div className="flex gap-2">
+        {sale.customer_phone && (
+          <>
+            <button
+              onClick={handleCall}
+              className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+              aria-label="Call customer"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleText}
+              className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+              aria-label="Text customer"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          </>
+        )}
+        {(sale.account_number || sale.customer_phone) && (
+          <button
+            onClick={handleCopy}
+            className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+            aria-label="Copy account or phone"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

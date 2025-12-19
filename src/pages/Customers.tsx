@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CustomerCard } from '@/components/customers/CustomerCard';
 import { CustomerMap } from '@/components/customers/CustomerMap';
-import { useCustomerData, SortOption, FundingFilter, CustomerSale } from '@/hooks/useCustomerData';
+import { useCustomerData, SortOption, CustomerSale } from '@/hooks/useCustomerData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { SaleDetailSheet } from '@/components/SaleDetailSheet';
@@ -25,7 +25,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'prmr_low', label: 'Lowest PRMR' },
   { value: 'time_to_sell', label: 'Longest Time to Sell' },
   { value: 'money_spent', label: 'Most Money Spent' },
-  { value: 'pending_first', label: 'Pending First' },
+  { value: 'funded_first', label: 'Funded First' },
   { value: 'unfunded_first', label: 'Unfunded First' },
 ];
 
@@ -33,7 +33,6 @@ const Customers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'fp' | 'upgrade'>('all');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
-  const [fundingFilter, setFundingFilter] = useState<FundingFilter>('all');
   const [activeTab, setActiveTab] = useState('list');
   
   // Detail sheet state
@@ -43,8 +42,7 @@ const Customers = () => {
   const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails } = useCustomerData(
     searchQuery, 
     filterType,
-    sortBy,
-    fundingFilter
+    sortBy
   );
   const { efpModeEnabled } = useEfpMode();
   const { repData } = useRepData();
@@ -133,54 +131,6 @@ const Customers = () => {
                 )}
               >
                 Upgrades
-              </button>
-            </div>
-
-            {/* Funding Status Filter Pills */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFundingFilter('all')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  fundingFilter === 'all'
-                    ? 'bg-secondary text-secondary-foreground'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                All Status
-              </button>
-              <button
-                onClick={() => setFundingFilter('funded')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  fundingFilter === 'funded'
-                    ? 'bg-emerald-500/20 text-emerald-600'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Funded
-              </button>
-              <button
-                onClick={() => setFundingFilter('pending')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  fundingFilter === 'pending'
-                    ? 'bg-amber-500/20 text-amber-600'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Pending
-              </button>
-              <button
-                onClick={() => setFundingFilter('unfunded')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  fundingFilter === 'unfunded'
-                    ? 'bg-destructive/20 text-destructive'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Unfunded
               </button>
             </div>
 
