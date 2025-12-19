@@ -266,6 +266,11 @@ export const LiveLeaderboard = ({
     setRepDrawerOpen(true);
   };
 
+  // Get the current rep data from the live list (to avoid stale snapshot)
+  const currentSelectedRep = selectedRep 
+    ? liveReps.find(r => r.userId === selectedRep.userId) || selectedRep
+    : null;
+
   const getRepDetailData = (rep: LiveRepData & { durationMinutes?: number }) => {
     if (!rep) return null;
     return {
@@ -895,11 +900,11 @@ export const LiveLeaderboard = ({
       </Card>
 
       {/* Rep Detail Drawer */}
-      {selectedRep && (
+      {currentSelectedRep && (
         <RepDetailDrawer
           open={repDrawerOpen}
           onOpenChange={setRepDrawerOpen}
-          rep={getRepDetailData(selectedRep)}
+          rep={getRepDetailData(currentSelectedRep)}
         />
       )}
 
