@@ -123,6 +123,7 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
                         <div className="bg-muted/50 rounded-lg p-3 text-center">
                           <p className="text-xs text-muted-foreground mb-1">Monthly</p>
                           <p className="font-semibold text-sm">{product.pricing.months60}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">60-month financing</p>
                         </div>
                       )}
                     </div>
