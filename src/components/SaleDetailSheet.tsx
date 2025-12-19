@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/drawer";
 import { Sale } from "@/hooks/useDailyEntry";
 import { format, parseISO, setHours, setMinutes } from "date-fns";
-import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban } from "lucide-react";
+import { Trash2, MapPin, Loader2, CheckCircle, Clock, Ban, Search } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SaleDetailSheetProps {
   open: boolean;
@@ -44,6 +45,8 @@ export const SaleDetailSheet = ({
   crmDetailedEnabled = false,
 }: SaleDetailSheetProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Form state
   const [saleType, setSaleType] = useState<'fp' | 'upgrade'>('fp');
@@ -59,6 +62,15 @@ export const SaleDetailSheet = ({
   const [customerLng, setCustomerLng] = useState<number | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  
+  // Address autocomplete state
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{
+    place_name: string;
+    center: [number, number];
+  }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
   // CRM state (detailed)
   const [timeToSellMinutes, setTimeToSellMinutes] = useState<number>(30);
@@ -70,6 +82,29 @@ export const SaleDetailSheet = ({
   const [installStatus, setInstallStatus] = useState<'installed' | 'pending' | 'cancelled'>('installed');
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Fetch Mapbox token on mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (!error && data?.token) {
+          setMapboxToken(data.token);
+        }
+      } catch (e) {
+        console.error('Failed to fetch Mapbox token:', e);
+      }
+    };
+    fetchToken();
+  }, []);
+
+  // Auto-capture location when drawer opens with CRM enabled and no existing location
+  useEffect(() => {
+    if (open && crmEnabled && sale && !sale.customer_location && !sale.customer_lat) {
+      // Auto-capture current location
+      getLocation();
+    }
+  }, [open, crmEnabled, sale?.id]);
 
   // Initialize form when sale changes
   useEffect(() => {
@@ -93,8 +128,59 @@ export const SaleDetailSheet = ({
       setDifficulty(sale.difficulty || 'medium');
       setLocationError(null);
       setShowDeleteConfirm(false);
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
     }
   }, [sale, open]);
+
+  // Search for address suggestions using Mapbox
+  const searchAddresses = useCallback(async (query: string) => {
+    if (!mapboxToken || query.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+    
+    setIsSearchingAddress(true);
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=US&types=address&limit=5`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAddressSuggestions(data.features || []);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error('Address search error:', error);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  }, [mapboxToken]);
+
+  // Handle address input change with debounce
+  const handleAddressChange = (value: string) => {
+    setCustomerAddress(value);
+    
+    // Clear existing coordinates when user types manually
+    // They'll be set when user selects a suggestion
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      searchAddresses(value);
+    }, 300);
+  };
+
+  // Select an address from suggestions
+  const selectAddress = (suggestion: { place_name: string; center: [number, number] }) => {
+    setCustomerAddress(suggestion.place_name);
+    setCustomerLng(suggestion.center[0]);
+    setCustomerLat(suggestion.center[1]);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
 
   const getLocation = async () => {
     if (!navigator.geolocation) {
@@ -117,6 +203,26 @@ export const SaleDetailSheet = ({
       setCustomerLat(latitude);
       setCustomerLng(longitude);
       
+      // Try Mapbox reverse geocoding first (more reliable)
+      if (mapboxToken) {
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&types=address&limit=1`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.features && data.features.length > 0) {
+              setCustomerAddress(data.features[0].place_name);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Mapbox reverse geocode failed:', e);
+        }
+      }
+      
+      // Fallback to OpenStreetMap
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
@@ -145,6 +251,7 @@ export const SaleDetailSheet = ({
         }
       } catch (geocodeError) {
         // Still have coordinates even if geocoding failed
+        console.error('OSM reverse geocode failed:', geocodeError);
       }
     } catch (error: any) {
       if (error?.code === 1) {
@@ -382,22 +489,49 @@ export const SaleDetailSheet = ({
                 </Label>
                 <div className="relative">
                   <Input
-                    placeholder="Customer address"
+                    ref={addressInputRef}
+                    placeholder="Start typing address..."
                     value={customerAddress}
-                    onChange={(e) => setCustomerAddress(e.target.value)}
-                    className="h-10 pr-10"
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    onFocus={() => {
+                      if (addressSuggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    className="h-10 pr-20"
                   />
-                  {isGettingLocation && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                  {!isGettingLocation && !customerAddress && (
-                    <button
-                      type="button"
-                      onClick={getLocation}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-primary text-xs font-medium"
-                    >
-                      Get Location
-                    </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    {(isGettingLocation || isSearchingAddress) && (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                    {!isGettingLocation && (
+                      <button
+                        type="button"
+                        onClick={getLocation}
+                        className="text-primary text-[10px] font-medium bg-primary/10 px-1.5 py-0.5 rounded"
+                      >
+                        📍 Use GPS
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Address Autocomplete Suggestions */}
+                  {showSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
+                      {addressSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm border-b border-border last:border-b-0 flex items-start gap-2"
+                          onClick={() => selectAddress(suggestion)}
+                        >
+                          <Search className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                          <span className="line-clamp-2">{suggestion.place_name}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
                 {locationError && !customerAddress && (
@@ -408,6 +542,11 @@ export const SaleDetailSheet = ({
                   >
                     {locationError}
                   </button>
+                )}
+                {customerLat && customerLng && (
+                  <p className="text-[10px] text-muted-foreground">
+                    📍 Location saved ({customerLat.toFixed(4)}, {customerLng.toFixed(4)})
+                  </p>
                 )}
               </div>
             </div>
