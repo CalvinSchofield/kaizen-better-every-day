@@ -31,8 +31,8 @@ export const SalesLoggerCard = ({
   const totalFPPlus = fpCount + upgradeFP;
   const totalPrmr = fundedSales.reduce((sum, s) => sum + s.prmr, 0);
   
-  // EFP = FP count + (upgrade PRMR / 85)
-  const totalEFP = fpCount + upgradeFP;
+  // EFP = Total PRMR / 85
+  const totalEFP = totalPrmr / 85;
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
