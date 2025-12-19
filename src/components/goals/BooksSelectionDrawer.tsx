@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Check, Plus, X, Sparkles } from "lucide-react";
+import { BookOpen, Check, Plus, X, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -231,6 +231,7 @@ interface BooksCompletionDrawerProps {
   onClose: () => void;
   currentProgress: number;
   onUpdateProgress: (newProgress: number) => Promise<unknown>;
+  onOpenCommitmentEditor?: () => void;
 }
 
 export const BooksCompletionDrawer = ({
@@ -238,6 +239,7 @@ export const BooksCompletionDrawer = ({
   onClose,
   currentProgress,
   onUpdateProgress,
+  onOpenCommitmentEditor,
 }: BooksCompletionDrawerProps) => {
   const { toast } = useToast();
   const {
@@ -360,7 +362,19 @@ export const BooksCompletionDrawer = ({
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="font-medium mb-1">No books committed!</p>
-              <p className="text-sm">Commit to books in the editor first</p>
+              <p className="text-sm mb-4">Choose which books you want to read this preseason</p>
+              {onOpenCommitmentEditor && (
+                <Button
+                  onClick={() => {
+                    onClose();
+                    onOpenCommitmentEditor();
+                  }}
+                  className="gap-2"
+                >
+                  Set Your Standards
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-2">

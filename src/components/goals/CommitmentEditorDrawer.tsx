@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   BookOpen, 
@@ -30,12 +30,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useSyncedBooks } from "@/hooks/useSyncedBooks";
 
-import { 
-  BOOKS, 
-  BOOKS_COMMITTED_KEY, 
-  OTHER_BOOKS_COMMITTED_KEY 
-} from "./BooksSelectionDrawer";
+import { BOOKS } from "./BooksSelectionDrawer";
 
 // Calculate Mondays remaining until summer start (April 13, 2026)
 const getMondaysRemaining = (): number => {
@@ -146,31 +143,22 @@ export const CommitmentEditorDrawer = ({
   const [isBlitzExpanded, setIsBlitzExpanded] = useState(false);
   const [isBooksExpanded, setIsBooksExpanded] = useState(false);
   const [isCommitting, setIsCommitting] = useState<string | null>(null);
-  const [booksCommitted, setBooksCommitted] = useState<Set<string>>(new Set());
-  const [otherBooks, setOtherBooks] = useState<string[]>([]);
   const [newOtherBook, setNewOtherBook] = useState("");
+
+  // Use synced books hook for database-backed book tracking
+  const {
+    booksCommitted,
+    otherBooksCommitted: otherBooks,
+    toggleBookCommitted,
+    addOtherBookCommitted,
+    removeOtherBookCommitted,
+    totalCommitted: totalBooksCommitted,
+    isLoading: isBooksLoading,
+  } = useSyncedBooks();
 
   // MNL max value and commitment configs
   const mnlMaxValue = useMemo(() => getMondaysRemaining(), []);
   const commitmentConfigs = useMemo(() => getCommitmentConfigs(mnlMaxValue), [mnlMaxValue]);
-
-  // Load books from localStorage on mount
-  useEffect(() => {
-    try {
-      const storedBooks = localStorage.getItem(BOOKS_COMMITTED_KEY);
-      if (storedBooks) {
-        setBooksCommitted(new Set(JSON.parse(storedBooks)));
-      }
-      const storedOther = localStorage.getItem(OTHER_BOOKS_COMMITTED_KEY);
-      if (storedOther) {
-        setOtherBooks(JSON.parse(storedOther));
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, [open]);
-
-  const totalBooksCommitted = booksCommitted.size + otherBooks.length;
 
   // Get committed blitzes
   const committedBlitzes = useMemo(() => {
@@ -303,20 +291,8 @@ export const CommitmentEditorDrawer = ({
   };
 
   const handleBookToggle = async (bookId: string) => {
-    const newBooksCommitted = new Set(booksCommitted);
-    
-    if (newBooksCommitted.has(bookId)) {
-      newBooksCommitted.delete(bookId);
-    } else {
-      newBooksCommitted.add(bookId);
-    }
-    
-    setBooksCommitted(newBooksCommitted);
-    localStorage.setItem(BOOKS_COMMITTED_KEY, JSON.stringify([...newBooksCommitted]));
-    
-    const newCount = newBooksCommitted.size + otherBooks.length;
     try {
-      await onUpdateGoals({ books_goal: newCount });
+      await toggleBookCommitted(bookId);
     } catch (error) {
       toast.error("Failed to update");
     }
@@ -325,15 +301,10 @@ export const CommitmentEditorDrawer = ({
   const handleAddOtherBook = async () => {
     if (!newOtherBook.trim()) return;
     
-    const updatedOther = [...otherBooks, newOtherBook.trim()];
-    setOtherBooks(updatedOther);
-    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(updatedOther));
-    setNewOtherBook("");
-    
-    const newCount = booksCommitted.size + updatedOther.length;
     try {
-      await onUpdateGoals({ books_goal: newCount });
+      await addOtherBookCommitted(newOtherBook.trim());
       toast.success(`"${newOtherBook.trim()}" added!`);
+      setNewOtherBook("");
     } catch (error) {
       toast.error("Failed to update");
     }
@@ -341,13 +312,8 @@ export const CommitmentEditorDrawer = ({
 
   const handleRemoveOtherBook = async (index: number) => {
     const bookName = otherBooks[index];
-    const updatedOther = otherBooks.filter((_, i) => i !== index);
-    setOtherBooks(updatedOther);
-    localStorage.setItem(OTHER_BOOKS_COMMITTED_KEY, JSON.stringify(updatedOther));
-    
-    const newCount = booksCommitted.size + updatedOther.length;
     try {
-      await onUpdateGoals({ books_goal: newCount });
+      await removeOtherBookCommitted(index);
       toast.success(`"${bookName}" removed`);
     } catch (error) {
       toast.error("Failed to update");
@@ -496,7 +462,7 @@ export const CommitmentEditorDrawer = ({
                         id={`drawer-${book.id}`}
                         checked={isCommitted}
                         onCheckedChange={() => handleBookToggle(book.id)}
-                        disabled={isUpdating}
+                        disabled={isUpdating || isBooksLoading}
                       />
                       <label 
                         htmlFor={`drawer-${book.id}`}
