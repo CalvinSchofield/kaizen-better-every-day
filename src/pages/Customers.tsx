@@ -1,18 +1,75 @@
 import { useState } from 'react';
-import { Search, List, Map, Users } from 'lucide-react';
+import { Search, List, Map, Users, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CustomerCard } from '@/components/customers/CustomerCard';
 import { CustomerMap } from '@/components/customers/CustomerMap';
-import { useCustomerData } from '@/hooks/useCustomerData';
+import { useCustomerData, SortOption, FundingFilter, CustomerSale } from '@/hooks/useCustomerData';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useEfpMode } from '@/hooks/useEfpMode';
+import { SaleDetailSheet } from '@/components/SaleDetailSheet';
+import { useRepData } from '@/hooks/useRepData';
+import { Sale } from '@/hooks/useDailyEntry';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'prmr_high', label: 'Highest PRMR' },
+  { value: 'prmr_low', label: 'Lowest PRMR' },
+  { value: 'time_to_sell', label: 'Longest Time to Sell' },
+  { value: 'money_spent', label: 'Most Money Spent' },
+  { value: 'pending_first', label: 'Pending First' },
+  { value: 'unfunded_first', label: 'Unfunded First' },
+];
 
 const Customers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'fp' | 'upgrade'>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [fundingFilter, setFundingFilter] = useState<FundingFilter>('all');
   const [activeTab, setActiveTab] = useState('list');
+  
+  // Detail sheet state
+  const [selectedSale, setSelectedSale] = useState<CustomerSale | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
-  const { sales, salesWithLocation, isLoading, totalCount } = useCustomerData(searchQuery, filterType);
+  const { sales, salesWithLocation, isLoading, totalCount, updateFunding, updateSaleDetails } = useCustomerData(
+    searchQuery, 
+    filterType,
+    sortBy,
+    fundingFilter
+  );
+  const { efpModeEnabled } = useEfpMode();
+  const { repData } = useRepData();
+
+  const handleCardClick = (sale: CustomerSale) => {
+    setSelectedSale(sale);
+    setDetailSheetOpen(true);
+  };
+
+  const handleFundingToggle = (sale: CustomerSale, newStatus: 'installed' | 'pending' | 'cancelled') => {
+    updateFunding(sale.id, sale.entry_date, newStatus);
+  };
+
+  const handleUpdateSale = (updatedSale: Sale) => {
+    if (!selectedSale) return;
+    updateSaleDetails(selectedSale.id, selectedSale.entry_date, updatedSale);
+  };
+
+  const handleDeleteSale = (_saleId: string) => {
+    // Delete functionality - would need to implement in useCustomerData
+    // For now, close the sheet - the SaleDetailSheet already handles deletion display
+    setDetailSheetOpen(false);
+  };
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Sort';
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,46 +98,122 @@ const Customers = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="list" className="mt-4">
-            {/* Filter Pills */}
-            <div className="flex gap-2 mb-4">
+          <TabsContent value="list" className="mt-4 space-y-4">
+            {/* Type Filter Pills */}
+            <div className="flex gap-2">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
                   filterType === 'all'
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
+                )}
               >
                 All
               </button>
               <button
                 onClick={() => setFilterType('fp')}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
                   filterType === 'fp'
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
+                )}
               >
                 FP
               </button>
               <button
                 onClick={() => setFilterType('upgrade')}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
                   filterType === 'upgrade'
                     ? 'bg-emerald-600 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
+                )}
               >
                 Upgrades
               </button>
+            </div>
+
+            {/* Funding Status Filter Pills */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFundingFilter('all')}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  fundingFilter === 'all'
+                    ? 'bg-secondary text-secondary-foreground'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                All Status
+              </button>
+              <button
+                onClick={() => setFundingFilter('funded')}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  fundingFilter === 'funded'
+                    ? 'bg-emerald-500/20 text-emerald-600'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                Funded
+              </button>
+              <button
+                onClick={() => setFundingFilter('pending')}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  fundingFilter === 'pending'
+                    ? 'bg-amber-500/20 text-amber-600'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                Pending
+              </button>
+              <button
+                onClick={() => setFundingFilter('unfunded')}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  fundingFilter === 'unfunded'
+                    ? 'bg-destructive/20 text-destructive'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                Unfunded
+              </button>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {sales.length} of {totalCount} customers
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-sm font-medium transition-colors">
+                  <ArrowUpDown className="w-4 h-4" />
+                  {currentSortLabel}
+                  <ChevronDown className="w-3 h-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {SORT_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => setSortBy(option.value)}
+                      className={cn(sortBy === option.value && "bg-accent")}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Customer List */}
             {isLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-28 w-full rounded-xl" />
+                  <Skeleton key={i} className="h-36 w-full rounded-xl" />
                 ))}
               </div>
             ) : sales.length === 0 ? (
@@ -96,7 +229,13 @@ const Customers = () => {
             ) : (
               <div className="space-y-3">
                 {sales.map((sale) => (
-                  <CustomerCard key={sale.id} sale={sale} />
+                  <CustomerCard 
+                    key={sale.id} 
+                    sale={sale} 
+                    efpModeEnabled={efpModeEnabled}
+                    onCardClick={() => handleCardClick(sale)}
+                    onFundingToggle={(status) => handleFundingToggle(sale, status)}
+                  />
                 ))}
               </div>
             )}
@@ -111,6 +250,18 @@ const Customers = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Sale Detail Sheet */}
+      <SaleDetailSheet
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        sale={selectedSale as Sale | null}
+        entryDate={selectedSale?.entry_date || ''}
+        onUpdateSale={handleUpdateSale}
+        onDeleteSale={handleDeleteSale}
+        crmEnabled={repData?.crm_enabled}
+        crmDetailedEnabled={repData?.crm_detailed_enabled}
+      />
     </div>
   );
 };
