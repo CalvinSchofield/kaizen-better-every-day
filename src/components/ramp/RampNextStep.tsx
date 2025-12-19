@@ -86,8 +86,14 @@ const getNextStep = (
   hasCommittedBlitz: boolean,
   phase2Progress: RampNextStepProps['phase2Progress'],
   phase3Progress: RampNextStepProps['phase3Progress'],
-  phase4Progress: RampNextStepProps['phase4Progress']
+  phase4Progress: RampNextStepProps['phase4Progress'],
+  isPhaseLeaderVerified: boolean
 ): NextStepInfo | null => {
+  
+  // If the phase is already leader verified, no next step needed
+  if (isPhaseLeaderVerified) {
+    return null;
+  }
   
   // Phase 1 steps
   if (activePhase === 1) {
@@ -330,7 +336,8 @@ export const RampNextStep = ({
     hasCommittedBlitz,
     phase2Progress,
     phase3Progress,
-    phase4Progress
+    phase4Progress,
+    isLeaderVerified
   );
 
   if (!nextStep) {
