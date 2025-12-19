@@ -90,6 +90,8 @@ export const SaleDetailSheet = ({
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (!error && data?.token) {
           setMapboxToken(data.token);
+        } else {
+          console.error('Failed to fetch Mapbox token:', error);
         }
       } catch (e) {
         console.error('Failed to fetch Mapbox token:', e);
@@ -98,13 +100,13 @@ export const SaleDetailSheet = ({
     fetchToken();
   }, []);
 
-  // Auto-capture location when drawer opens with CRM enabled and no existing location
+  // Auto-capture location when drawer opens with CRM enabled, no existing location, and token is ready
   useEffect(() => {
-    if (open && crmEnabled && sale && !sale.customer_location && !sale.customer_lat) {
+    if (open && crmEnabled && mapboxToken && sale && !sale.customer_location && !sale.customer_lat) {
       // Auto-capture current location
       getLocation();
     }
-  }, [open, crmEnabled, sale?.id]);
+  }, [open, crmEnabled, sale?.id, mapboxToken]);
 
   // Initialize form when sale changes
   useEffect(() => {
