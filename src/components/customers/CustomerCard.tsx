@@ -1,4 +1,4 @@
-import { Phone, MessageSquare, Copy, ChevronRight } from 'lucide-react';
+import { Phone, MessageSquare, Copy, ChevronRight, Check, Clock, Ban } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CustomerSale } from '@/hooks/useCustomerData';
 import { format, parseISO } from 'date-fns';
@@ -12,7 +12,7 @@ interface CustomerCardProps {
   onFundingToggle: (newStatus: 'installed' | 'pending' | 'cancelled') => void;
 }
 
-export const CustomerCard = ({ sale, efpModeEnabled, onCardClick }: CustomerCardProps) => {
+export const CustomerCard = ({ sale, efpModeEnabled, onCardClick, onFundingToggle }: CustomerCardProps) => {
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (sale.customer_phone) {
@@ -39,6 +39,23 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick }: CustomerCard
     }
   };
 
+  const handleStatusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Cycle through statuses: installed -> pending -> cancelled -> installed
+    const currentStatus = sale.install_status || 'installed';
+    let newStatus: 'installed' | 'pending' | 'cancelled';
+    
+    if (currentStatus === 'installed') {
+      newStatus = 'pending';
+    } else if (currentStatus === 'pending') {
+      newStatus = 'cancelled';
+    } else {
+      newStatus = 'installed';
+    }
+    
+    onFundingToggle(newStatus);
+  };
+
   const formattedPrmr = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -54,17 +71,36 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick }: CustomerCard
 
   const isCancelled = sale.install_status === 'cancelled';
   const isPending = sale.install_status === 'pending';
-  const isInstalled = sale.install_status === 'installed';
+  const isInstalled = sale.install_status === 'installed' || !sale.install_status;
 
   // Format date
   const saleDate = format(parseISO(sale.entry_date), 'MMM d');
 
-  // Funding status dot color
-  const getFundingDotColor = () => {
-    if (isInstalled) return 'bg-emerald-500';
-    if (isPending) return 'bg-amber-500';
-    return 'bg-destructive';
+  // Get status config for the clickable pill
+  const getStatusConfig = () => {
+    if (isInstalled) {
+      return {
+        label: 'Funded',
+        icon: Check,
+        className: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30'
+      };
+    }
+    if (isPending) {
+      return {
+        label: 'Pending',
+        icon: Clock,
+        className: 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
+      };
+    }
+    return {
+      label: 'Unfunded',
+      icon: Ban,
+      className: 'bg-destructive/20 text-destructive border-destructive/30 hover:bg-destructive/30'
+    };
   };
+
+  const statusConfig = getStatusConfig();
+  const StatusIcon = statusConfig.icon;
 
   return (
     <div 
@@ -74,14 +110,24 @@ export const CustomerCard = ({ sale, efpModeEnabled, onCardClick }: CustomerCard
         isCancelled && "opacity-60"
       )}
     >
-      {/* Header Row - Name, Type Badge with Funding Dot */}
+      {/* Header Row - Name, Status Pill, Type Badge */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
           <h3 className="font-semibold text-foreground truncate">
             {sale.customer_name || 'Unknown Customer'}
           </h3>
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className={cn("w-2 h-2 rounded-full", getFundingDotColor())} />
+            {/* Clickable Funding Status Pill */}
+            <button
+              onClick={handleStatusClick}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer",
+                statusConfig.className
+              )}
+            >
+              <StatusIcon className="w-3 h-3" />
+              {statusConfig.label}
+            </button>
             <Badge 
               variant={sale.type === 'fp' ? 'default' : 'secondary'}
               className={cn(
