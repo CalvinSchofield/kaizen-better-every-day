@@ -139,6 +139,10 @@ const Home = () => {
   const [isCommittingBlitz, setIsCommittingBlitz] = useState<string | null>(null);
   const [isUncommittingBlitz, setIsUncommittingBlitz] = useState<string | null>(null);
   const [activeRampPhase, setActiveRampPhase] = useState<PhaseId>(1);
+  
+  // Confirmation drawer states for blitz commit/uncommit
+  const [confirmCommitBlitz, setConfirmCommitBlitz] = useState<{ id: string; name: string; date: string; endDate?: string | null; location?: string | null } | null>(null);
+  const [confirmUncommitBlitz, setConfirmUncommitBlitz] = useState<{ id: string; name: string } | null>(null);
   const [nextBlitz, setNextBlitz] = useState<{ 
     name: string; 
     date: string; 
@@ -426,10 +430,23 @@ const Home = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  // Handler to commit to a blitz from inline list
-  const handleCommitToBlitz = async (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
-    if (!repData?.id) return;
+  // Handler to show commit confirmation drawer
+  const handleRequestCommitToBlitz = (blitz: { id: string; name: string; date: string; endDate?: string | null; location?: string | null }) => {
+    setConfirmCommitBlitz(blitz);
+  };
+
+  // Handler to show uncommit confirmation drawer
+  const handleRequestUncommitFromBlitz = (blitzId: string, blitzName: string) => {
+    setConfirmUncommitBlitz({ id: blitzId, name: blitzName });
+  };
+
+  // Handler to actually commit to a blitz (after confirmation)
+  const handleConfirmCommitToBlitz = async () => {
+    const blitz = confirmCommitBlitz;
+    if (!blitz || !repData?.id) return;
+    
     setIsCommittingBlitz(blitz.id);
+    setConfirmCommitBlitz(null);
     
     try {
       const currentCommitments = (repData.committed_blitzes as any[]) || [];
@@ -486,14 +503,17 @@ const Home = () => {
     }
   };
 
-  // Handler to uncommit from a blitz
-  const handleUncommitFromBlitz = async (blitzId: string, blitzName: string) => {
-    if (!repData?.id) return;
-    setIsUncommittingBlitz(blitzId);
+  // Handler to actually uncommit from a blitz (after confirmation)
+  const handleConfirmUncommitFromBlitz = async () => {
+    const blitz = confirmUncommitBlitz;
+    if (!blitz || !repData?.id) return;
+    
+    setIsUncommittingBlitz(blitz.id);
+    setConfirmUncommitBlitz(null);
     
     try {
       const currentCommitments = (repData.committed_blitzes as any[]) || [];
-      const updatedCommitments = currentCommitments.filter((b: any) => b.id !== blitzId);
+      const updatedCommitments = currentCommitments.filter((b: any) => b.id !== blitz.id);
       
       const { error } = await supabase
         .from('reps')
@@ -516,7 +536,7 @@ const Home = () => {
       
       toast({
         title: "Uncommitted",
-        description: `You're no longer committed to ${blitzName}`,
+        description: `You're no longer committed to ${blitz.name}`,
       });
     } catch (error) {
       console.error('Error uncommitting from blitz:', error);
@@ -1453,7 +1473,7 @@ const Home = () => {
                             size="sm"
                             variant="ghost"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleUncommitFromBlitz(blitz.id, blitz.name)}
+                            onClick={() => handleRequestUncommitFromBlitz(blitz.id, blitz.name)}
                             disabled={isUncommittingBlitz === blitz.id}
                           >
                             {isUncommittingBlitz === blitz.id ? (
@@ -1491,7 +1511,7 @@ const Home = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleCommitToBlitz(blitz)}
+                          onClick={() => handleRequestCommitToBlitz(blitz)}
                           disabled={isCommittingBlitz === blitz.id}
                         >
                           {isCommittingBlitz === blitz.id ? (
@@ -1670,7 +1690,7 @@ const Home = () => {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => handleCommitToBlitz(blitz)}
+                      onClick={() => handleRequestCommitToBlitz(blitz)}
                       disabled={isCommittingBlitz === blitz.id}
                       className="min-w-[90px]"
                     >
@@ -1703,6 +1723,89 @@ const Home = () => {
               <MessageCircle className="h-4 w-4" />
               Text Calvin about blitzes
             </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Commit Confirmation Drawer */}
+      <Drawer open={!!confirmCommitBlitz} onOpenChange={(open) => !open && setConfirmCommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Confirm Commitment</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium">{confirmCommitBlitz?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {confirmCommitBlitz?.date && new Date(confirmCommitBlitz.date).toLocaleDateString('en-US', { 
+                  weekday: 'long',
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+                {confirmCommitBlitz?.location && ` · ${confirmCommitBlitz.location}`}
+              </p>
+            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Are you sure you want to commit to this blitz? Your leader will be notified.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setConfirmCommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1"
+                onClick={handleConfirmCommitToBlitz}
+                disabled={isCommittingBlitz === confirmCommitBlitz?.id}
+              >
+                {isCommittingBlitz === confirmCommitBlitz?.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                Yes, Commit
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Uncommit Confirmation Drawer */}
+      <Drawer open={!!confirmUncommitBlitz} onOpenChange={(open) => !open && setConfirmUncommitBlitz(null)}>
+        <DrawerContent>
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Confirm Uncommitment</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-6 space-y-4">
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium">{confirmUncommitBlitz?.name}</p>
+            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Are you sure you want to uncommit from this blitz? You can always commit again later.
+            </p>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setConfirmUncommitBlitz(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1"
+                onClick={handleConfirmUncommitFromBlitz}
+                disabled={isUncommittingBlitz === confirmUncommitBlitz?.id}
+              >
+                {isUncommittingBlitz === confirmUncommitBlitz?.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Yes, Uncommit
+              </Button>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
