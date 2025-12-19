@@ -68,6 +68,7 @@ const WorkingIndicator = ({ isWorking, hasForgottenEntry, isCurrentUser }: {
 };
 
 type TimeFilter = 'today' | 'ytd' | 'yesterday' | 'week' | 'month' | 'preseason';
+type ScopeFilter = 'all' | 'rookies';
 
 export const LeaderboardCard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -76,6 +77,7 @@ export const LeaderboardCard = () => {
   const [currentUserYear, setCurrentUserYear] = useState<string | null>(null);
   const [selectedRep, setSelectedRep] = useState<SelectedRepData | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter | null>(null); // null = not initialized yet
 
   const { data: teamAccess } = useTeamAccess();
   
@@ -96,8 +98,15 @@ export const LeaderboardCard = () => {
     return () => window.removeEventListener('expandLeaderboard', handleExpand);
   }, []);
 
-  // Rookies should only see rookie leaderboards
-  const filterByYear = currentUserYear === 'Rookie' ? 'Rookie' : undefined;
+  // Set default scope filter based on user's year (only once when year is loaded)
+  useEffect(() => {
+    if (currentUserYear && scopeFilter === null) {
+      setScopeFilter(currentUserYear === 'Rookie' ? 'rookies' : 'all');
+    }
+  }, [currentUserYear, scopeFilter]);
+
+  // Determine actual filter value - rookies only see rookie data when scope is "rookies"
+  const filterByYear = scopeFilter === 'rookies' ? 'Rookie' : undefined;
 
   const { data: todayBoard } = useTodayLeaderboard(filterByYear);
   const { data: ytdBoard } = useYTDLeaderboard(filterByYear);
@@ -371,35 +380,62 @@ export const LeaderboardCard = () => {
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t border-border pt-4">
-          {/* Filter Pills - Horizontally Scrollable */}
+          {/* Filter Pills Row - Time and Scope */}
           <div className="pb-4 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2 px-6 min-w-max">
-              {[
-                { key: 'today' as TimeFilter, label: 'Live', isLive: true },
-                { key: 'yesterday' as TimeFilter, label: 'Yesterday' },
-                { key: 'week' as TimeFilter, label: 'Week' },
-                { key: 'month' as TimeFilter, label: 'Month' },
-                { key: 'preseason' as TimeFilter, label: 'Preseason' },
-                { key: 'ytd' as TimeFilter, label: 'YTD' },
-              ].map(({ key, label, isLive }) => (
+            <div className="flex items-center justify-between px-6 gap-4">
+              {/* Time Filter Pills */}
+              <div className="flex gap-2 min-w-max">
+                {[
+                  { key: 'today' as TimeFilter, label: 'Live', isLive: true },
+                  { key: 'yesterday' as TimeFilter, label: 'Yesterday' },
+                  { key: 'week' as TimeFilter, label: 'Week' },
+                  { key: 'month' as TimeFilter, label: 'Month' },
+                  { key: 'preseason' as TimeFilter, label: 'Preseason' },
+                  { key: 'ytd' as TimeFilter, label: 'YTD' },
+                ].map(({ key, label, isLive }) => (
+                  <button
+                    key={key}
+                    onClick={() => setTimeFilter(key)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                      timeFilter === key
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    {label}
+                    {isLive && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${timeFilter === key ? 'bg-green-300' : 'bg-green-500'}`}></span>
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Scope Toggle - Rookies/All */}
+              <div className="flex items-center gap-1 bg-secondary/50 rounded-full p-0.5 shrink-0">
                 <button
-                  key={key}
-                  onClick={() => setTimeFilter(key)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    timeFilter === key
+                  onClick={() => setScopeFilter('rookies')}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    scopeFilter === 'rookies'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {label}
-                  {isLive && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className={`relative inline-flex rounded-full h-2 w-2 ${timeFilter === key ? 'bg-green-300' : 'bg-green-500'}`}></span>
-                    </span>
-                  )}
+                  Rookies
                 </button>
-              ))}
+                <button
+                  onClick={() => setScopeFilter('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    scopeFilter === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  All
+                </button>
+              </div>
             </div>
           </div>
           
