@@ -81,6 +81,22 @@ const generateSmsMessage = (
   }
 };
 
+// Check if it's after sunset (approximately 7 PM) in a given timezone
+const isAfterSunsetInTimezone = (timezone?: string): boolean => {
+  if (!timezone) return true; // Default to showing the badge if no timezone
+  try {
+    const now = new Date();
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(now));
+    return hour >= 19; // 7 PM or later
+  } catch {
+    return true; // Default to showing the badge if timezone is invalid
+  }
+};
+
 // Open SMS with prefilled message
 const openSms = (phone: string, message: string) => {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -88,7 +104,7 @@ const openSms = (phone: string, message: string) => {
   window.open(`sms:${cleanPhone}?body=${encodedMessage}`, '_blank');
 };
 
-// Open group SMS
+// Open group SMS (unused - keeping for potential future use)
 const openGroupSms = (phones: string[], message: string) => {
   const cleanPhones = phones.map(p => p.replace(/\D/g, '')).filter(Boolean);
   if (cleanPhones.length === 0) {
@@ -498,7 +514,9 @@ export const LiveLeaderboard = ({
   }) => {
     const hasSales = rep.todayStats.fp > 0;
     const flags = redFlags || detectRedFlags(rep.todayStats);
+    // Only show "not saved" badge if entry is unfinalized AND it's after sunset in the rep's timezone
     const isUnfinalized = !rep.todayStats.isFinalized && (rep.todayStats.doors > 0 || rep.todayStats.fp > 0);
+    const showNotSavedBadge = isUnfinalized && isAfterSunsetInTimezone(rep.timezone);
     
     const onTextClick = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -530,8 +548,8 @@ export const LiveLeaderboard = ({
                 <span className="truncate font-medium">
                   {stripEmojis(rep.name)}
                 </span>
-                {/* Not finalized badge */}
-                {isUnfinalized && (
+                {/* Not finalized badge - only show after sunset in rep's timezone */}
+                {showNotSavedBadge && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 whitespace-nowrap">
                     not saved
                   </span>
@@ -636,9 +654,7 @@ export const LiveLeaderboard = ({
     count, 
     color, 
     isOpen, 
-    onToggle,
-    onTextAll,
-    hasPhones
+    onToggle
   }: { 
     icon: any; 
     title: string; 
@@ -646,8 +662,6 @@ export const LiveLeaderboard = ({
     color: string; 
     isOpen: boolean; 
     onToggle: () => void;
-    onTextAll?: () => void;
-    hasPhones?: boolean;
   }) => (
     <div className={cn(
       "flex items-center justify-between w-full py-2 px-3 rounded-lg transition-colors",
@@ -665,20 +679,6 @@ export const LiveLeaderboard = ({
           isOpen && "rotate-180"
         )} />
       </CollapsibleTrigger>
-      
-      {/* Text All button */}
-      {hasPhones && onTextAll && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onTextAll();
-          }}
-          className="ml-2 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-md bg-background/50 hover:bg-background/80 transition-colors"
-        >
-          <MessageSquare className="w-3 h-3" />
-          Text All
-        </button>
-      )}
     </div>
   );
 
@@ -746,11 +746,6 @@ export const LiveLeaderboard = ({
                 color="bg-primary/10 hover:bg-primary/15 text-primary"
                 isOpen={outstandingOpen}
                 onToggle={() => setOutstandingOpen(!outstandingOpen)}
-                hasPhones={outstanding.some(r => r.phone)}
-                onTextAll={() => {
-                  const phones = outstanding.filter(r => r.phone).map(r => r.phone!);
-                  openGroupSms(phones, "Great work out there today! Keep crushing it! 🔥");
-                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
@@ -793,11 +788,6 @@ export const LiveLeaderboard = ({
                 color="bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-500"
                 isOpen={attentionOpen}
                 onToggle={() => setAttentionOpen(!attentionOpen)}
-                hasPhones={needAttention.some(r => r.phone)}
-                onTextAll={() => {
-                  const phones = needAttention.filter(r => r.phone).map(r => r.phone!);
-                  openGroupSms(phones, "Hey team! Checking in - how's it going out there? Anything I can help with? 💪");
-                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-0.5 pl-1">
@@ -825,11 +815,6 @@ export const LiveLeaderboard = ({
                 color="bg-orange-500/10 hover:bg-orange-500/15 text-orange-600 dark:text-orange-400"
                 isOpen={forgottenOpen}
                 onToggle={() => setForgottenOpen(!forgottenOpen)}
-                hasPhones={forgottenReps.some(r => r.phone)}
-                onTextAll={() => {
-                  const phones = forgottenReps.filter(r => r.phone).map(r => r.phone!);
-                  openGroupSms(phones, "Hey! Don't forget to save your daily entries! 📋");
-                }}
               />
               <CollapsibleContent className="pt-1">
                 <div className="space-y-1 pl-1">
