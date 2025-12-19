@@ -46,36 +46,65 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Updating phone for recruit ${recruitNotionId} to ${phone}`);
-
-    // Update in Notion
-    if (notionApiKey) {
-      const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          properties: {
-            'Phone': {
-              phone_number: phone
-            }
-          }
-        }),
+    // Clean the phone number - remove all non-digits
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Validate it's a proper 10-digit number
+    if (cleanPhone.length !== 10) {
+      return new Response(JSON.stringify({ error: 'Phone number must be 10 digits' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-
-      if (!notionResponse.ok) {
-        const errorText = await notionResponse.text();
-        console.error('Notion API error:', errorText);
-        // Don't throw - Supabase update already succeeded
-      } else {
-        console.log('Phone updated in Notion successfully');
-      }
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    console.log(`Updating phone for recruit ${recruitNotionId} to ${cleanPhone}`);
+
+    // Update in Notion
+    if (!notionApiKey) {
+      console.error('NOTION_API_KEY not configured');
+      return new Response(JSON.stringify({ error: 'Notion API key not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${notionApiKey}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        properties: {
+          'Phone': {
+            phone_number: cleanPhone
+          }
+        }
+      }),
+    });
+
+    if (!notionResponse.ok) {
+      const errorText = await notionResponse.text();
+      console.error('Notion API error:', errorText);
+      
+      // Check if rate limited
+      if (notionResponse.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limited, please try again in a moment' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      return new Response(JSON.stringify({ error: 'Failed to update Notion' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Phone updated in Notion successfully');
+
+    return new Response(JSON.stringify({ success: true, phone: cleanPhone }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
