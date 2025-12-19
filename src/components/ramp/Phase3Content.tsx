@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, Download, LogIn, MapPin } from "lucide-react";
+import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, Download, LogIn, MapPin, ExternalLink, Smartphone, Image, StickyNote, Lightbulb, Play, Video } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,13 @@ const useIsIPhonePWA = () => {
   }, []);
 };
 
-const IPAD_SETUP_STEPS = [
-  'phase3-ipad-step1',
-  'phase3-ipad-step2',
-  'phase3-ipad-step3',
-  'phase3-ipad-step4',
+const IPAD_APPS = [
+  { id: 'phase3-app-street-genie', key: 'street-genie' },
+  { id: 'phase3-app-tiled', key: 'tiled' },
+  { id: 'phase3-app-photos', key: 'photos' },
+  { id: 'phase3-app-vivint', key: 'vivint' },
+  { id: 'phase3-app-kaizen', key: 'kaizen' },
+  { id: 'phase3-app-notes', key: 'notes' },
 ] as const;
 
 const STREET_GENIE_VIDEOS = [
@@ -39,6 +41,11 @@ const STREET_GENIE_VIDEOS = [
   { id: 'phase3-sg-solar-leads', title: "Setting Solar Leads", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8aa6ae62a2b7cc7691cc" },
   { id: 'phase3-sg-summary-tab', title: "Summary Tab", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b51ae62a2ba241bd93e" },
   { id: 'phase3-sg-extra-options', title: "Extra Options", url: "https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89/lesson/660d8b8e3c63a2160331f6d6" },
+] as const;
+
+const CAMERA_VIDEOS = [
+  { id: 'camera-video-1', name: 'Intruder Detection Example', url: '/videos/camera-action-1.mov' },
+  { id: 'camera-video-2', name: 'Motion Alert Example', url: '/videos/camera-action-2.mp4' },
 ] as const;
 
 interface Phase3ContentProps {
@@ -96,10 +103,10 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       setWhyWritten(watched.includes('phase3-why-written'));
       setPracticeScheduled(watched.includes('phase3-practice-scheduled'));
       
-      // Load iPad setup step progress
+      // Load iPad app progress
       const stepsChecked: Record<string, boolean> = {};
-      IPAD_SETUP_STEPS.forEach(step => {
-        stepsChecked[step] = watched.includes(step);
+      IPAD_APPS.forEach(app => {
+        stepsChecked[app.id] = watched.includes(app.id);
       });
       setIpadStepsChecked(stepsChecked);
 
@@ -123,7 +130,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     }
   };
 
-  const allIpadStepsComplete = IPAD_SETUP_STEPS.every(step => ipadStepsChecked[step]);
+  const allIpadAppsComplete = IPAD_APPS.every(app => ipadStepsChecked[app.id]);
 
   const handleToggleStreetGenieVideo = async (videoId: string) => {
     const isCurrentlyWatched = streetGenieVideosWatched[videoId];
@@ -240,111 +247,206 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
       {/* Step 1: iPad Setup */}
       <div ref={ipadRef} />
       <TrainingSection
-        title="Get Your iPad Ready"
+        title="iPad Tools"
         icon={<Tablet className="w-4 h-4" />}
-        description="Learn the tools you'll use to sell"
+        description="The basic apps you'll use most"
         isComplete={ipadReady}
         isExpanded={expandedSection === "ipad"}
         onToggle={() => setExpandedSection(expandedSection === "ipad" ? null : "ipad")}
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Get your iPad set up with the apps and tools you'll use on the doors.
+            Master these tools before you knock your first door.
           </p>
           
-          {/* iPad Setup Guide - In App */}
-          <div className="space-y-4">
-            {/* Step 1: Get Your iPad */}
+          {/* App List */}
+          <div className="space-y-3">
+            {/* 1. Street Genie */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
               <div className="flex items-start gap-3">
                 <Checkbox 
-                  id="ipad-step1"
-                  checked={ipadStepsChecked['phase3-ipad-step1'] || false}
-                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step1')}
+                  id="app-street-genie"
+                  checked={ipadStepsChecked['phase3-app-street-genie'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-street-genie')}
                   className="mt-0.5"
                 />
-                <label htmlFor="ipad-step1" className="flex-1 cursor-pointer">
-                  <h5 className="font-medium text-sm flex items-center gap-2">
-                    <Tablet className="w-4 h-4 text-primary" />
-                    1. Get Your iPad
-                  </h5>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    If you don't have an iPad yet, text your leader to get one assigned. Make sure it's charged and ready.
-                  </p>
-                </label>
-              </div>
-            </div>
-
-            {/* Step 2: Install Required Apps */}
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <div className="flex items-start gap-3">
-                <Checkbox 
-                  id="ipad-step2"
-                  checked={ipadStepsChecked['phase3-ipad-step2'] || false}
-                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step2')}
-                  className="mt-0.5"
-                />
-                <label htmlFor="ipad-step2" className="flex-1 cursor-pointer">
-                  <h5 className="font-medium text-sm flex items-center gap-2">
-                    <Download className="w-4 h-4 text-primary" />
-                    2. Install Required Apps
-                  </h5>
-                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
-                    <li><strong>Vivint Sales App</strong> - Main selling tool</li>
-                    <li><strong>Street Genie</strong> - Prospecting & lead lookup</li>
-                    <li><strong>Google Maps</strong> - Navigation</li>
-                    <li><strong>Kaizen</strong> - This app (add to home screen)</li>
-                  </ul>
-                </label>
-              </div>
-            </div>
-
-            {/* Step 3: Log Into Everything */}
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <div className="flex items-start gap-3">
-                <Checkbox 
-                  id="ipad-step3"
-                  checked={ipadStepsChecked['phase3-ipad-step3'] || false}
-                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step3')}
-                  className="mt-0.5"
-                />
-                <label htmlFor="ipad-step3" className="flex-1 cursor-pointer">
-                  <h5 className="font-medium text-sm flex items-center gap-2">
-                    <LogIn className="w-4 h-4 text-primary" />
-                    3. Log Into Everything
-                  </h5>
-                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
-                    <li>Sign into Vivint Sales App with your rep credentials</li>
-                    <li>Sign into Street Genie (ask leader for login)</li>
-                    <li>Make sure Google Maps has your account</li>
-                  </ul>
-                  <p className="text-xs text-muted-foreground mt-2 italic">
-                    Test each app before the blitz to make sure everything works!
-                  </p>
-                </label>
-              </div>
-            </div>
-
-            {/* Step 4: Set Up Your Workspace */}
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <div className="flex items-start gap-3">
-                <Checkbox 
-                  id="ipad-step4"
-                  checked={ipadStepsChecked['phase3-ipad-step4'] || false}
-                  onCheckedChange={() => handleToggleIpadStep('phase3-ipad-step4')}
-                  className="mt-0.5"
-                />
-                <label htmlFor="ipad-step4" className="flex-1 cursor-pointer">
+                <label htmlFor="app-street-genie" className="flex-1 cursor-pointer">
                   <h5 className="font-medium text-sm flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-primary" />
-                    4. Set Up Your Workspace
+                    1. Street Genie
                   </h5>
-                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc mt-1">
-                    <li>Enable location services for all sales apps</li>
-                    <li>Turn on Do Not Disturb during knocking hours</li>
-                    <li>Keep brightness at 50%+ (easier to see outdoors)</li>
-                    <li>Charge to 100% before each knocking block</li>
-                  </ul>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your main selling app! Use it to find prospects, track which homes you've knocked and how each conversation went, and build packages to send sign-up documents. <strong>Mastering this tool is essential.</strong>
+                  </p>
+                  <a 
+                    href="https://dthvivinttraining.conveyour.com/ui/portal/course/660d857a0866a207c10fbd89"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary text-sm mt-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🔗 Watch the trainings
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </label>
+              </div>
+            </div>
+
+            {/* 2. Tiled */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="app-tiled"
+                  checked={ipadStepsChecked['phase3-app-tiled'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-tiled')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="app-tiled" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <Play className="w-4 h-4 text-primary" />
+                    2. Tiled
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    The go-to sales tool for demonstrating the product on the door and in the home. Created by Sr. Regional Josh Gruwell and now used company-wide.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    To sign in: Click "sign in with Okta" → type "vivint.com" for the URL → use your regular login
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            {/* Pro Tip */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Want to be a pro by the time you knock your first door?</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Spend 15–20 minutes clicking through the Tiled app. Get familiar with the videos and how they can help you sell. When you show up for the blitz, it will be obvious whether you know this app or not.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Photos */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="app-photos"
+                  checked={ipadStepsChecked['phase3-app-photos'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-photos')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="app-photos" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <Image className="w-4 h-4 text-primary" />
+                    3. Photos
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Show real footage from our cameras that has scared off intruders! This builds a lot of value.
+                  </p>
+                  
+                  {/* Bonus - Camera Videos */}
+                  <Collapsible className="mt-2">
+                    <CollapsibleTrigger className="flex items-center gap-2 text-primary text-sm hover:underline">
+                      <Video className="w-3 h-3" />
+                      <span>➕ BONUS — real examples of our cameras in action</span>
+                      <ChevronDown className="w-3 h-3 transition-transform [[data-state=open]>&]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <p className="text-xs text-muted-foreground">
+                        Download these videos to show customers:
+                      </p>
+                      <div className="space-y-2">
+                        {CAMERA_VIDEOS.map((video) => (
+                          <a
+                            key={video.id}
+                            href={video.url}
+                            download
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-sm hover:bg-primary/20 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Download className="w-4 h-4 text-primary" />
+                            <span>{video.name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </label>
+              </div>
+            </div>
+
+            {/* 4. Vivint App */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="app-vivint"
+                  checked={ipadStepsChecked['phase3-app-vivint'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-vivint')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="app-vivint" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-primary" />
+                    4. Vivint App (on your phone)
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Download the Vivint app and login under "Demo Mode" to play with it. Get familiar with how it works and looks — you will be teaching customers how to use it.
+                  </p>
+                  <a 
+                    href="https://apps.apple.com/app/id734547946"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary text-sm mt-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🔗 Download Vivint App
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </label>
+              </div>
+            </div>
+
+            {/* 5. Kaizen App */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="app-kaizen"
+                  checked={ipadStepsChecked['phase3-app-kaizen'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-kaizen')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="app-kaizen" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    5. Kaizen App (the one you're using!)
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Make sure to add it as an app on your phone for easy access! Once you start knocking you can use this app to track your daily progress. <strong>Tracking takes the emotion out of the job</strong> — when you're having a rough day, you'll know that statistically, a sale is just around the corner.
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            {/* 6. Notes */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="app-notes"
+                  checked={ipadStepsChecked['phase3-app-notes'] || false}
+                  onCheckedChange={() => handleToggleIpadStep('phase3-app-notes')}
+                  className="mt-0.5"
+                />
+                <label htmlFor="app-notes" className="flex-1 cursor-pointer">
+                  <h5 className="font-medium text-sm flex items-center gap-2">
+                    <StickyNote className="w-4 h-4 text-primary" />
+                    6. Notes
+                  </h5>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Used to write out the quote quickly and efficiently so you can sell with clarity and simplicity on the iPad.
+                  </p>
                 </label>
               </div>
             </div>
@@ -353,13 +455,13 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
           {/* Progress indicator */}
           {!ipadReady && (
             <div className="text-xs text-muted-foreground text-center">
-              {Object.values(ipadStepsChecked).filter(Boolean).length}/4 steps completed
+              {Object.values(ipadStepsChecked).filter(Boolean).length}/{IPAD_APPS.length} apps checked
             </div>
           )}
 
-          {/* Bonus Videos - Embedded */}
+          {/* Optional Videos Section */}
           <div className="border-t pt-3 mt-3">
-            <p className="text-xs text-muted-foreground mb-3 font-medium">Bonus Videos (Optional)</p>
+            <p className="text-xs text-muted-foreground mb-3 font-medium">Optional Deep Dive Videos</p>
             <div className="space-y-4">
               {/* Street Genie Video */}
               <div className="space-y-2">
@@ -442,7 +544,7 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               onClick={handleIpadReady}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              My iPad is Ready
+              I've Reviewed All the Apps
             </Button>
           )}
         </div>
