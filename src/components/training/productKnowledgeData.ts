@@ -41,7 +41,7 @@ export const productKnowledgeData: ProductData[] = [
     name: "The Vivint App",
     tagline: "Your home on your phone",
     description: "Control your Vivint HomeProtect security system from anywhere using our top-rated smart home app.",
-    heroImage: "https://lh7-rt.googleusercontent.com/docsz/AD_4nXfxXhJgyP5dOH1ocgfDat7GbvfY-DQqEc-7R_rJhkMa_WzmFcLR6A-9CJVDSHXMrh94lhG8PDXDdjh5PAGF09b8dteBUCTqn2Kj_qw-cNSgqOyUPFyaF5P36RvEXHBVTJM=s800?key=lcj97jyBoZtMLimLXIkipA",
+    heroImage: "/images/products/vivint-app.jpeg",
     tier1Messaging: [
       "Control your entire system from your smartphone from anywhere",
       "View live footage from your Doorbell Camera Pro",
