@@ -30,7 +30,7 @@ import Objections from "./pages/Objections";
 import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
-// Profile route removed - merged into Settings (Personalize)
+import ProductKnowledge from "./pages/ProductKnowledge";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +118,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Objections />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tools/product-knowledge"
+              element={
+                <ProtectedRoute>
+                  <ProductKnowledge />
                 </ProtectedRoute>
               }
             />

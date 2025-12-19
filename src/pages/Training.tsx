@@ -13,11 +13,8 @@ import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
 import { InHomePitchGuide } from "@/components/training/InHomePitchGuide";
 import { PaperworkGuide } from "@/components/training/PaperworkGuide";
-import { ProductGuide } from "@/components/training/ProductGuide";
-import { productKnowledgeData } from "@/components/training/productKnowledgeData";
 
 type PitchGuideType = "fresh" | "takeover" | "upgrade" | "inhome" | "paperwork";
-type ProductGuideId = "vivint-app" | "doorbell-camera-pro" | "outdoor-camera-pro" | "indoor-camera-pro" | "vivint-playback" | "smart-lock" | "smart-thermostat";
 
 interface TrainingCategory {
   title: string;
@@ -31,7 +28,6 @@ interface TrainingCategory {
     href: string;
     isNew?: boolean;
     inAppGuide?: PitchGuideType;
-    productGuide?: ProductGuideId;
   }>;
 }
 
@@ -47,21 +43,12 @@ const Training = () => {
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
   const [activeGuide, setActiveGuide] = useState<PitchGuideType | null>(null);
-  const [activeProductGuide, setActiveProductGuide] = useState<ProductGuideId | null>(null);
   // Auto-open guide from URL query param
   useEffect(() => {
     const guideParam = searchParams.get('guide');
-    const productParam = searchParams.get('product');
-    
     if (guideParam && ['fresh', 'takeover', 'upgrade', 'inhome', 'paperwork'].includes(guideParam)) {
       setActiveGuide(guideParam as PitchGuideType);
       setSearchParams({}, { replace: true });
-    } else if (productParam) {
-      const validProductIds = productKnowledgeData.map(p => p.id);
-      if (validProductIds.includes(productParam)) {
-        setActiveProductGuide(productParam as ProductGuideId);
-        setSearchParams({}, { replace: true });
-      }
     }
   }, [searchParams, setSearchParams]);
   
@@ -156,15 +143,8 @@ const Training = () => {
     title: "Product Knowledge",
     description: "Deep dive into Vivint systems",
     icon: Shield,
-    items: [
-      { title: "Vivint App", href: "#", productGuide: "vivint-app" },
-      { title: "Doorbell Camera Pro", href: "#", productGuide: "doorbell-camera-pro" },
-      { title: "Outdoor Camera Pro", href: "#", productGuide: "outdoor-camera-pro" },
-      { title: "Indoor Camera Pro", href: "#", productGuide: "indoor-camera-pro" },
-      { title: "24/7 Playback", href: "#", productGuide: "vivint-playback" },
-      { title: "Smart Lock", href: "#", productGuide: "smart-lock" },
-      { title: "Smart Thermostat", href: "#", productGuide: "smart-thermostat" },
-    ],
+    inAppRoute: "/tools/product-knowledge",
+    items: [],
   };
 
   const rampToBlitz: TrainingCategory = {
@@ -287,19 +267,6 @@ const Training = () => {
   }
   if (activeGuide === "paperwork") {
     return <PaperworkGuide onBack={() => setActiveGuide(null)} />;
-  }
-  
-  // If a product guide is active, show it
-  if (activeProductGuide) {
-    const productData = productKnowledgeData.find(p => p.id === activeProductGuide);
-    if (productData) {
-      return (
-        <ProductGuide 
-          product={productData} 
-          onBack={() => setActiveProductGuide(null)}
-        />
-      );
-    }
   }
 
   return (
@@ -512,7 +479,6 @@ const Training = () => {
                 {category.items.map((item) => {
                   const isDisabled = isDisabledCategory;
                   const hasInAppGuide = !!item.inAppGuide;
-                  const hasProductGuide = !!item.productGuide;
                   
                   const handleClick = (e: React.MouseEvent) => {
                     if (isDisabled) {
@@ -522,9 +488,6 @@ const Training = () => {
                     if (hasInAppGuide) {
                       e.preventDefault();
                       setActiveGuide(item.inAppGuide!);
-                    } else if (hasProductGuide) {
-                      e.preventDefault();
-                      setActiveProductGuide(item.productGuide!);
                     }
                   };
                   
@@ -532,8 +495,8 @@ const Training = () => {
                     <a
                       key={item.title}
                       href={isDisabled ? "#" : item.href}
-                      target={!isDisabled && !hasInAppGuide && !hasProductGuide && item.href.startsWith("http") ? "_blank" : undefined}
-                      rel={!isDisabled && !hasInAppGuide && !hasProductGuide && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                      target={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "_blank" : undefined}
+                      rel={!isDisabled && !hasInAppGuide && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
                       onClick={handleClick}
                       className={`flex items-center justify-between p-3 rounded-lg transition-colors group ${
                         isDisabled 
@@ -553,8 +516,8 @@ const Training = () => {
                           </Badge>
                         )}
                       </div>
-                      {(hasInAppGuide || hasProductGuide) && !isDisabled ? (
-                        <Shield className="w-4 h-4 text-primary" />
+                      {hasInAppGuide && !isDisabled ? (
+                        <DoorOpen className="w-4 h-4 text-primary" />
                       ) : item.href.startsWith("http") && !isDisabled ? (
                         <ExternalLink className="w-4 h-4 text-muted-foreground" />
                       ) : (

@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useHeader } from "@/contexts/HeaderContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProductData } from "./productKnowledgeData";
 
@@ -15,15 +14,9 @@ interface ProductGuideProps {
 }
 
 export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
-  const { setCustomTitle } = useHeader();
   const [activeTab, setActiveTab] = useState("overview");
   const [expandedSections, setExpandedSections] = useState<string[]>(["tier1"]);
   const [currentUseCase, setCurrentUseCase] = useState(0);
-
-  useEffect(() => {
-    setCustomTitle(product.name);
-    return () => setCustomTitle(null);
-  }, [product.name, setCustomTitle]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
