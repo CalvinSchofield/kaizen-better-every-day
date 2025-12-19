@@ -15,16 +15,13 @@ export type SortOption =
   | 'prmr_low' 
   | 'time_to_sell' 
   | 'money_spent'
-  | 'pending_first'
+  | 'funded_first'
   | 'unfunded_first';
-
-export type FundingFilter = 'all' | 'funded' | 'pending' | 'unfunded';
 
 export const useCustomerData = (
   searchQuery?: string, 
   filterType?: 'all' | 'fp' | 'upgrade',
-  sortBy?: SortOption,
-  fundingFilter?: FundingFilter
+  sortBy?: SortOption
 ) => {
   const queryClient = useQueryClient();
 
@@ -195,17 +192,6 @@ export const useCustomerData = (
       result = result.filter(sale => sale.type === filterType);
     }
 
-    // Apply funding filter
-    if (fundingFilter && fundingFilter !== 'all') {
-      result = result.filter(sale => {
-        const status = sale.install_status || 'pending';
-        if (fundingFilter === 'funded') return status === 'installed';
-        if (fundingFilter === 'pending') return status === 'pending';
-        if (fundingFilter === 'unfunded') return status === 'cancelled';
-        return true;
-      });
-    }
-
     // Apply search
     if (searchQuery && searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
@@ -239,9 +225,9 @@ export const useCustomerData = (
             return (b.time_to_sell_minutes || 0) - (a.time_to_sell_minutes || 0);
           case 'money_spent':
             return (b.money_spent || 0) - (a.money_spent || 0);
-          case 'pending_first':
-            const statusOrder = { pending: 0, installed: 1, cancelled: 2 };
-            return (statusOrder[a.install_status || 'pending'] || 1) - (statusOrder[b.install_status || 'pending'] || 1);
+          case 'funded_first':
+            const fundedOrder = { installed: 0, pending: 1, cancelled: 2 };
+            return (fundedOrder[a.install_status || 'pending'] || 1) - (fundedOrder[b.install_status || 'pending'] || 1);
           case 'unfunded_first':
             const unfundedOrder = { cancelled: 0, pending: 1, installed: 2 };
             return (unfundedOrder[a.install_status || 'pending'] || 1) - (unfundedOrder[b.install_status || 'pending'] || 1);
@@ -252,7 +238,7 @@ export const useCustomerData = (
     }
 
     return result;
-  }, [allSales, searchQuery, filterType, sortBy, fundingFilter]);
+  }, [allSales, searchQuery, filterType, sortBy]);
 
   // Get sales with location data for map
   const salesWithLocation = useMemo(() => {
