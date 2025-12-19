@@ -21,6 +21,7 @@ interface TrainingCategory {
   description: string;
   icon: any;
   locked?: boolean;
+  comingSoon?: boolean;
   inAppRoute?: string;
   items: Array<{
     title: string;
@@ -133,6 +134,7 @@ const Training = () => {
     title: "The Pitch & Presentation",
     description: "From door to paperwork",
     icon: Presentation,
+    comingSoon: true,
     items: [
       { title: "In-Home Presentation", href: "#", inAppGuide: "inhome" },
       { title: "Smooth Paperwork Process", href: "#", inAppGuide: "paperwork" },
@@ -424,6 +426,8 @@ const Training = () => {
         {categories.map((category) => {
           const Icon = category.icon;
           const isLocked = category.locked;
+          const isComingSoon = category.comingSoon;
+          const isDisabledCategory = isLocked || isComingSoon;
           
           // Handle categories with in-app routes (like Objections)
           if (category.inAppRoute) {
@@ -455,13 +459,18 @@ const Training = () => {
             <Card 
               key={category.title} 
               id={category.title.toLowerCase().replace(/\s+/g, '-')}
-              className={isLocked ? "opacity-50" : ""}
+              className={isDisabledCategory ? "opacity-50" : ""}
             >
               <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
-                  <Icon className="w-5 h-5 text-primary" />
+                  <Icon className={`w-5 h-5 ${isDisabledCategory ? "text-muted-foreground" : "text-primary"}`} />
                   <CardTitle className="text-lg">{category.title}</CardTitle>
-                  {isLocked && (
+                  {isComingSoon && (
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      Coming Soon
+                    </Badge>
+                  )}
+                  {isLocked && !isComingSoon && (
                     <Badge variant="outline" className="ml-auto">
                       <Lock className="w-3 h-3 mr-1" />
                       Locked
@@ -477,7 +486,7 @@ const Training = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {category.items.map((item) => {
-                  const isDisabled = isLocked;
+                  const isDisabled = isDisabledCategory;
                   const hasInAppGuide = !!item.inAppGuide;
                   
                   const handleClick = (e: React.MouseEvent) => {
