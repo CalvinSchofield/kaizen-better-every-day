@@ -42,6 +42,7 @@ export interface CustomerInsightsData {
   // Time to Sell
   avgTimeToSell: number;
   avgTimeByDealType: { fresh: number; takeover: number; diy: number };
+  avgTimeBySaleType: { fp: number; upgrade: number };
   avgTimeByDifficulty: { easy: number; medium: number; hard: number };
   fastestSale: { name: string; minutes: number; prmr: number } | null;
   slowestSale: { name: string; minutes: number; prmr: number } | null;
@@ -50,6 +51,10 @@ export interface CustomerInsightsData {
   dealTypeDistribution: { fresh: number; takeover: number; diy: number };
   prmrByDealType: { fresh: number; takeover: number; diy: number };
   difficultyDistribution: { easy: number; medium: number; hard: number };
+  difficultyBySaleType: { 
+    fp: { easy: number; medium: number; hard: number }; 
+    upgrade: { easy: number; medium: number; hard: number }; 
+  };
   
   // Install Performance
   sameDayInstallRate: number;
@@ -161,6 +166,19 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
         : 0,
       diy: diyWithTime.length > 0 
         ? diyWithTime.reduce((sum, s) => sum + (s.time_to_sell_minutes || 0), 0) / diyWithTime.length 
+        : 0,
+    };
+
+    // Time by sale type (FP vs Upgrade)
+    const fpWithTime = salesWithTime.filter(s => s.type === 'fp');
+    const upgradeWithTime = salesWithTime.filter(s => s.type === 'upgrade');
+
+    const avgTimeBySaleType = {
+      fp: fpWithTime.length > 0 
+        ? fpWithTime.reduce((sum, s) => sum + (s.time_to_sell_minutes || 0), 0) / fpWithTime.length 
+        : 0,
+      upgrade: upgradeWithTime.length > 0 
+        ? upgradeWithTime.reduce((sum, s) => sum + (s.time_to_sell_minutes || 0), 0) / upgradeWithTime.length 
         : 0,
     };
 
@@ -304,6 +322,22 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       hard: salesWithDifficulty.filter(s => s.difficulty === 'hard').length,
     };
 
+    // Difficulty by sale type (FP vs Upgrade)
+    const fpWithDifficulty = fpSales.filter(s => s.difficulty);
+    const upgradeWithDifficulty = upgradeSales.filter(s => s.difficulty);
+    const difficultyBySaleType = {
+      fp: {
+        easy: fpWithDifficulty.filter(s => s.difficulty === 'easy').length,
+        medium: fpWithDifficulty.filter(s => s.difficulty === 'medium').length,
+        hard: fpWithDifficulty.filter(s => s.difficulty === 'hard').length,
+      },
+      upgrade: {
+        easy: upgradeWithDifficulty.filter(s => s.difficulty === 'easy').length,
+        medium: upgradeWithDifficulty.filter(s => s.difficulty === 'medium').length,
+        hard: upgradeWithDifficulty.filter(s => s.difficulty === 'hard').length,
+      },
+    };
+
     // Install Performance
     const salesWithInstallInfo = filteredSales.filter(s => s.install_status !== undefined || s.installed_same_day !== undefined);
     const installedSameDayCount = filteredSales.filter(s => s.installed_same_day === true).length;
@@ -348,12 +382,14 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       hasEnoughTrendData,
       avgTimeToSell,
       avgTimeByDealType,
+      avgTimeBySaleType,
       avgTimeByDifficulty,
       fastestSale,
       slowestSale,
       dealTypeDistribution,
       prmrByDealType,
       difficultyDistribution,
+      difficultyBySaleType,
       sameDayInstallRate,
       cancelRate,
       avgDaysToInstall,

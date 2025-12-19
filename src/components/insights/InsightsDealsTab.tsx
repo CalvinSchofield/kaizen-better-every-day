@@ -520,8 +520,8 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
         </InsightCollapsible>
       )}
 
-      {/* Deal Type Distribution */}
-      {insights.hasDealTypeData && (
+      {/* Deal Type Performance */}
+      {(insights.hasDealTypeData || insights.totalUpgradeDeals > 0) && (
         <InsightCollapsible
           icon={PieChart}
           title="Deal Type Performance"
@@ -529,82 +529,247 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
           onToggle={() => handleSectionToggle('dealType')}
           preview={
             <span>
-              <span className="text-primary font-medium capitalize">{highestValueType}s</span> are your highest value deals
+              {insights.hasDealTypeData ? (
+                <><span className="text-primary font-medium capitalize">{highestValueType}s</span> are your highest value deals</>
+              ) : (
+                <><span className="text-primary font-medium">{insights.totalFpDeals}</span> FP · <span className="text-success font-medium">{insights.totalUpgradeDeals}</span> upgrades</>
+              )}
             </span>
           }
         >
-          <div className="space-y-3">
-            {/* Distribution Bar */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Deal Mix</div>
-              <div className="flex gap-1 h-8 rounded-lg overflow-hidden">
-                {insights.dealTypeDistribution.fresh > 0 && (
-                  <div 
-                    className="bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground"
-                    style={{ flex: insights.dealTypeDistribution.fresh }}
-                  >
-                    {insights.dealTypeDistribution.fresh}
+          <div className="space-y-4">
+            {/* FP vs Upgrade Comparison */}
+            {(insights.totalFpDeals > 0 || insights.totalUpgradeDeals > 0) && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium text-muted-foreground">FP vs Upgrade</div>
+                
+                {/* Deal Count & PRMR */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-primary/10 space-y-1">
+                    <div className="text-xs text-muted-foreground">Fresh Pitch (FP)</div>
+                    <div className="text-2xl font-bold text-primary">{insights.totalFpDeals}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Avg ${insights.avgPrmrPerFp.toFixed(0)} PRMR
+                    </div>
                   </div>
-                )}
-                {insights.dealTypeDistribution.takeover > 0 && (
-                  <div 
-                    className="bg-success flex items-center justify-center text-xs font-medium text-success-foreground"
-                    style={{ flex: insights.dealTypeDistribution.takeover }}
-                  >
-                    {insights.dealTypeDistribution.takeover}
+                  <div className="p-3 rounded-xl bg-success/10 space-y-1">
+                    <div className="text-xs text-muted-foreground">Upgrade</div>
+                    <div className="text-2xl font-bold text-success">{insights.totalUpgradeDeals}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Avg ${insights.avgPrmrPerUpgrade.toFixed(0)} PRMR
+                    </div>
                   </div>
-                )}
-                {insights.dealTypeDistribution.diy > 0 && (
-                  <div 
-                    className="bg-warning flex items-center justify-center text-xs font-medium text-warning-foreground"
-                    style={{ flex: insights.dealTypeDistribution.diy }}
-                  >
-                    {insights.dealTypeDistribution.diy}
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-primary" /> Fresh
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-success" /> Takeover
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-warning" /> DIY
-                </span>
-              </div>
-            </div>
+                </div>
 
-            {/* PRMR by Type */}
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-muted-foreground">Avg PRMR by Type</div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className={`p-2 rounded-lg text-center ${highestValueType === 'fresh' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                  <div className="text-xs text-muted-foreground">Fresh</div>
-                  <div className={`font-bold ${highestValueType === 'fresh' ? 'text-primary' : ''}`}>
-                    ${insights.prmrByDealType.fresh.toFixed(0)}
+                {/* Which is faster? */}
+                {(insights.avgTimeBySaleType.fp > 0 || insights.avgTimeBySaleType.upgrade > 0) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground">Which is Faster?</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className={`p-2.5 rounded-lg text-center ${
+                        insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
+                        insights.avgTimeBySaleType.fp < insights.avgTimeBySaleType.upgrade 
+                          ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-muted/30'
+                      }`}>
+                        <div className="text-xs text-muted-foreground">FP</div>
+                        <div className="font-bold">
+                          {insights.avgTimeBySaleType.fp > 0 ? formatMinutes(insights.avgTimeBySaleType.fp) : '—'}
+                        </div>
+                        {insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
+                         insights.avgTimeBySaleType.fp < insights.avgTimeBySaleType.upgrade && (
+                          <div className="text-[10px] text-primary font-medium">Faster</div>
+                        )}
+                      </div>
+                      <div className={`p-2.5 rounded-lg text-center ${
+                        insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
+                        insights.avgTimeBySaleType.upgrade < insights.avgTimeBySaleType.fp 
+                          ? 'bg-success/10 ring-1 ring-success/30' : 'bg-muted/30'
+                      }`}>
+                        <div className="text-xs text-muted-foreground">Upgrade</div>
+                        <div className="font-bold">
+                          {insights.avgTimeBySaleType.upgrade > 0 ? formatMinutes(insights.avgTimeBySaleType.upgrade) : '—'}
+                        </div>
+                        {insights.avgTimeBySaleType.fp > 0 && insights.avgTimeBySaleType.upgrade > 0 && 
+                         insights.avgTimeBySaleType.upgrade < insights.avgTimeBySaleType.fp && (
+                          <div className="text-[10px] text-success font-medium">Faster</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Which is easier? */}
+                {((insights.difficultyBySaleType.fp.easy + insights.difficultyBySaleType.fp.medium + insights.difficultyBySaleType.fp.hard) > 0 ||
+                  (insights.difficultyBySaleType.upgrade.easy + insights.difficultyBySaleType.upgrade.medium + insights.difficultyBySaleType.upgrade.hard) > 0) && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-muted-foreground">Which is Easier?</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* FP Difficulty */}
+                      <div className="p-2.5 rounded-lg bg-muted/30 space-y-1.5">
+                        <div className="text-xs text-muted-foreground text-center">FP</div>
+                        <div className="flex gap-1 h-5 rounded overflow-hidden">
+                          {insights.difficultyBySaleType.fp.easy > 0 && (
+                            <div 
+                              className="bg-success flex items-center justify-center text-[10px] font-medium text-success-foreground"
+                              style={{ flex: insights.difficultyBySaleType.fp.easy }}
+                            >
+                              {insights.difficultyBySaleType.fp.easy}
+                            </div>
+                          )}
+                          {insights.difficultyBySaleType.fp.medium > 0 && (
+                            <div 
+                              className="bg-warning flex items-center justify-center text-[10px] font-medium text-warning-foreground"
+                              style={{ flex: insights.difficultyBySaleType.fp.medium }}
+                            >
+                              {insights.difficultyBySaleType.fp.medium}
+                            </div>
+                          )}
+                          {insights.difficultyBySaleType.fp.hard > 0 && (
+                            <div 
+                              className="bg-destructive flex items-center justify-center text-[10px] font-medium text-destructive-foreground"
+                              style={{ flex: insights.difficultyBySaleType.fp.hard }}
+                            >
+                              {insights.difficultyBySaleType.fp.hard}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground text-center">
+                          {(() => {
+                            const total = insights.difficultyBySaleType.fp.easy + insights.difficultyBySaleType.fp.medium + insights.difficultyBySaleType.fp.hard;
+                            const easyPct = total > 0 ? Math.round((insights.difficultyBySaleType.fp.easy / total) * 100) : 0;
+                            return `${easyPct}% easy`;
+                          })()}
+                        </div>
+                      </div>
+                      {/* Upgrade Difficulty */}
+                      <div className="p-2.5 rounded-lg bg-muted/30 space-y-1.5">
+                        <div className="text-xs text-muted-foreground text-center">Upgrade</div>
+                        <div className="flex gap-1 h-5 rounded overflow-hidden">
+                          {insights.difficultyBySaleType.upgrade.easy > 0 && (
+                            <div 
+                              className="bg-success flex items-center justify-center text-[10px] font-medium text-success-foreground"
+                              style={{ flex: insights.difficultyBySaleType.upgrade.easy }}
+                            >
+                              {insights.difficultyBySaleType.upgrade.easy}
+                            </div>
+                          )}
+                          {insights.difficultyBySaleType.upgrade.medium > 0 && (
+                            <div 
+                              className="bg-warning flex items-center justify-center text-[10px] font-medium text-warning-foreground"
+                              style={{ flex: insights.difficultyBySaleType.upgrade.medium }}
+                            >
+                              {insights.difficultyBySaleType.upgrade.medium}
+                            </div>
+                          )}
+                          {insights.difficultyBySaleType.upgrade.hard > 0 && (
+                            <div 
+                              className="bg-destructive flex items-center justify-center text-[10px] font-medium text-destructive-foreground"
+                              style={{ flex: insights.difficultyBySaleType.upgrade.hard }}
+                            >
+                              {insights.difficultyBySaleType.upgrade.hard}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground text-center">
+                          {(() => {
+                            const total = insights.difficultyBySaleType.upgrade.easy + insights.difficultyBySaleType.upgrade.medium + insights.difficultyBySaleType.upgrade.hard;
+                            const easyPct = total > 0 ? Math.round((insights.difficultyBySaleType.upgrade.easy / total) * 100) : 0;
+                            return `${easyPct}% easy`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success" /> Easy</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Med</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive" /> Hard</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FP Deal Type Breakdown (Fresh/Takeover/DIY) */}
+            {insights.hasDealTypeData && (
+              <div className="space-y-3 pt-3 border-t border-border/40">
+                <div className="text-sm font-medium text-muted-foreground">FP Deal Types (Fresh, Takeover, DIY)</div>
+                
+                {/* Distribution Bar */}
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">Deal Mix</div>
+                  <div className="flex gap-1 h-8 rounded-lg overflow-hidden">
+                    {insights.dealTypeDistribution.fresh > 0 && (
+                      <div 
+                        className="bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground"
+                        style={{ flex: insights.dealTypeDistribution.fresh }}
+                      >
+                        {insights.dealTypeDistribution.fresh}
+                      </div>
+                    )}
+                    {insights.dealTypeDistribution.takeover > 0 && (
+                      <div 
+                        className="bg-success flex items-center justify-center text-xs font-medium text-success-foreground"
+                        style={{ flex: insights.dealTypeDistribution.takeover }}
+                      >
+                        {insights.dealTypeDistribution.takeover}
+                      </div>
+                    )}
+                    {insights.dealTypeDistribution.diy > 0 && (
+                      <div 
+                        className="bg-warning flex items-center justify-center text-xs font-medium text-warning-foreground"
+                        style={{ flex: insights.dealTypeDistribution.diy }}
+                      >
+                        {insights.dealTypeDistribution.diy}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-primary" /> Fresh
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success" /> Takeover
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-warning" /> DIY
+                    </span>
                   </div>
                 </div>
-                <div className={`p-2 rounded-lg text-center ${highestValueType === 'takeover' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                  <div className="text-xs text-muted-foreground">Takeover</div>
-                  <div className={`font-bold ${highestValueType === 'takeover' ? 'text-primary' : ''}`}>
-                    ${insights.prmrByDealType.takeover.toFixed(0)}
-                  </div>
-                </div>
-                <div className={`p-2 rounded-lg text-center ${highestValueType === 'diy' ? 'bg-primary/10' : 'bg-muted/30'}`}>
-                  <div className="text-xs text-muted-foreground">DIY</div>
-                  <div className={`font-bold ${highestValueType === 'diy' ? 'text-primary' : ''}`}>
-                    ${insights.prmrByDealType.diy.toFixed(0)}
+
+                {/* PRMR by Type */}
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">Avg PRMR by Type</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'fresh' ? 'bg-primary/10' : 'bg-muted/30'}`}>
+                      <div className="text-xs text-muted-foreground">Fresh</div>
+                      <div className={`font-bold ${highestValueType === 'fresh' ? 'text-primary' : ''}`}>
+                        ${insights.prmrByDealType.fresh.toFixed(0)}
+                      </div>
+                    </div>
+                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'takeover' ? 'bg-primary/10' : 'bg-muted/30'}`}>
+                      <div className="text-xs text-muted-foreground">Takeover</div>
+                      <div className={`font-bold ${highestValueType === 'takeover' ? 'text-primary' : ''}`}>
+                        ${insights.prmrByDealType.takeover.toFixed(0)}
+                      </div>
+                    </div>
+                    <div className={`p-2 rounded-lg text-center ${highestValueType === 'diy' ? 'bg-primary/10' : 'bg-muted/30'}`}>
+                      <div className="text-xs text-muted-foreground">DIY</div>
+                      <div className={`font-bold ${highestValueType === 'diy' ? 'text-primary' : ''}`}>
+                        ${insights.prmrByDealType.diy.toFixed(0)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Difficulty Distribution */}
+            {/* Difficulty Distribution (Overall) */}
             {(insights.difficultyDistribution.easy > 0 || insights.difficultyDistribution.medium > 0 || insights.difficultyDistribution.hard > 0) && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground">By Difficulty</div>
+              <div className="space-y-2 pt-3 border-t border-border/40">
+                <div className="text-sm font-medium text-muted-foreground">Overall Difficulty</div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="p-2 rounded-lg bg-success/10 text-center">
                     <div className="text-xs text-muted-foreground">Easy</div>
