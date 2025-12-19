@@ -224,7 +224,7 @@ export const SaleDetailSheet = ({
           </p>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto flex-1 min-h-0 max-h-[70dvh]">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
           {/* Funding Status Toggle */}
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -326,7 +326,7 @@ export const SaleDetailSheet = ({
               type="time"
               value={saleTime}
               onChange={(e) => setSaleTime(e.target.value)}
-              className="h-12"
+              className="h-12 w-full max-w-full"
             />
           </div>
 
