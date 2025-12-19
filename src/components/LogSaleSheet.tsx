@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Trash2, HelpCircle, MapPin, Clock, Loader2 } from "lucide-react";
+import { Trash2, HelpCircle, MapPin, Clock, Loader2, Search } from "lucide-react";
 import { UpgradePrmrCalculator } from "./UpgradePrmrCalculator";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Sale {
   id: string;
@@ -91,6 +92,8 @@ export const LogSaleSheet = ({
   const [showHelperContent, setShowHelperContent] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // CRM state (simple)
   const [customerName, setCustomerName] = useState("");
@@ -102,6 +105,15 @@ export const LogSaleSheet = ({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  // Address autocomplete state
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{
+    place_name: string;
+    center: [number, number];
+  }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+
   // CRM state (detailed)
   const [timeToSellMinutes, setTimeToSellMinutes] = useState<number>(30);
   const [timeToSellSource, setTimeToSellSource] = useState<'transition' | 'door' | 'manual'>('manual');
@@ -112,6 +124,23 @@ export const LogSaleSheet = ({
   // Calculated times from counter timestamps
   const [sinceTransitionMinutes, setSinceTransitionMinutes] = useState<number | null>(null);
   const [sinceDoorMinutes, setSinceDoorMinutes] = useState<number | null>(null);
+
+  // Fetch Mapbox token on mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (!error && data?.token) {
+          setMapboxToken(data.token);
+        } else {
+          console.error('Failed to fetch Mapbox token:', error);
+        }
+      } catch (e) {
+        console.error('Failed to fetch Mapbox token:', e);
+      }
+    };
+    fetchToken();
+  }, []);
 
   // Calculate time since last transition and door knock when sheet opens
   useEffect(() => {
@@ -150,16 +179,62 @@ export const LogSaleSheet = ({
     }
   }, [open, crmDetailedEnabled, counterTimestamps]);
 
-  // Auto-detect location when sheet opens with CRM enabled
+  // Auto-detect location when sheet opens with CRM enabled and token is ready
   useEffect(() => {
-    if (open && crmEnabled && !editingSale && !customerAddress) {
+    if (open && crmEnabled && mapboxToken && !editingSale && !customerAddress) {
       getLocation();
     }
-  }, [open, crmEnabled, editingSale]);
+  }, [open, crmEnabled, editingSale, mapboxToken]);
+
+  // Search for address suggestions using Mapbox
+  const searchAddresses = useCallback(async (query: string) => {
+    if (!mapboxToken || query.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+    
+    setIsSearchingAddress(true);
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&country=US&types=address&limit=5`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAddressSuggestions(data.features || []);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error('Address search error:', error);
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  }, [mapboxToken]);
+
+  // Handle address input change with debounce
+  const handleAddressChange = (value: string) => {
+    setCustomerAddress(value);
+    
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      searchAddresses(value);
+    }, 300);
+  };
+
+  // Select an address from suggestions
+  const selectAddress = (suggestion: { place_name: string; center: [number, number] }) => {
+    setCustomerAddress(suggestion.place_name);
+    setCustomerLng(suggestion.center[0]);
+    setCustomerLat(suggestion.center[1]);
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+  };
 
   const getLocation = async () => {
     if (!navigator.geolocation) {
-      console.log('Geolocation not supported');
       setLocationError('Location not supported on this device');
       return;
     }
@@ -171,18 +246,34 @@ export const LogSaleSheet = ({
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 15000,
-          maximumAge: 30000 // Use cached position up to 30 seconds old
+          maximumAge: 30000
         });
       });
 
       const { latitude, longitude } = position.coords;
-      console.log('Got location:', latitude, longitude);
-      
-      // Store coordinates for map
       setCustomerLat(latitude);
       setCustomerLng(longitude);
       
-      // Use OpenStreetMap Nominatim for reverse geocoding (free, no API key)
+      // Try Mapbox reverse geocoding first (more reliable)
+      if (mapboxToken) {
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxToken}&types=address&limit=1`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.features && data.features.length > 0) {
+              setCustomerAddress(data.features[0].place_name);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Mapbox reverse geocode failed:', e);
+        }
+      }
+      
+      // Fallback to OpenStreetMap
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
@@ -197,7 +288,6 @@ export const LogSaleSheet = ({
         if (response.ok) {
           const data = await response.json();
           if (data.display_name) {
-            // Format address nicely
             const addr = data.address || {};
             const parts = [
               addr.house_number,
@@ -207,19 +297,13 @@ export const LogSaleSheet = ({
               addr.postcode
             ].filter(Boolean);
             const formattedAddress = parts.join(', ') || data.display_name;
-            console.log('Reverse geocoded address:', formattedAddress);
             setCustomerAddress(formattedAddress);
           }
-        } else {
-          console.log('Reverse geocoding failed:', response.status);
         }
       } catch (geocodeError) {
-        console.log('Reverse geocoding error:', geocodeError);
-        // Still have coordinates even if geocoding failed
+        console.error('OSM reverse geocode failed:', geocodeError);
       }
     } catch (error: any) {
-      console.log('Location detection failed:', error);
-      // Provide specific error messages for different error types
       if (error?.code === 1) {
         setLocationError('Location permission denied. Tap to retry.');
       } else if (error?.code === 2) {
@@ -270,6 +354,8 @@ export const LogSaleSheet = ({
         setDifficulty('medium');
       }
       setShowHelperContent(false);
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open, editingSale]);
@@ -352,7 +438,7 @@ export const LogSaleSheet = ({
           )}
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+        <div className="px-4 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 max-h-[70dvh]">
           {/* Sale Type Toggle */}
           <div className="flex gap-2 p-1 bg-muted rounded-xl">
             <button
@@ -498,22 +584,49 @@ export const LogSaleSheet = ({
                 </Label>
                 <div className="relative">
                   <Input
-                    placeholder="Customer address"
+                    ref={addressInputRef}
+                    placeholder="Start typing address..."
                     value={customerAddress}
-                    onChange={(e) => setCustomerAddress(e.target.value)}
-                    className="h-10 pr-10"
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    onFocus={() => {
+                      if (addressSuggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    className="h-10 pr-20"
                   />
-                  {isGettingLocation && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                  {!isGettingLocation && !customerAddress && (
-                    <button
-                      type="button"
-                      onClick={getLocation}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-primary text-xs font-medium"
-                    >
-                      Get Location
-                    </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    {(isGettingLocation || isSearchingAddress) && (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                    {!isGettingLocation && (
+                      <button
+                        type="button"
+                        onClick={getLocation}
+                        className="text-primary text-[10px] font-medium bg-primary/10 px-1.5 py-0.5 rounded"
+                      >
+                        📍 GPS
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Address Autocomplete Suggestions */}
+                  {showSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-auto">
+                      {addressSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted text-sm border-b border-border last:border-b-0 flex items-start gap-2"
+                          onClick={() => selectAddress(suggestion)}
+                        >
+                          <Search className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                          <span className="line-clamp-2">{suggestion.place_name}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
                 {locationError && !customerAddress && (
@@ -525,8 +638,10 @@ export const LogSaleSheet = ({
                     {locationError}
                   </button>
                 )}
-                {!locationError && (
-                  <p className="text-[10px] text-muted-foreground">Auto-detected, tap to edit</p>
+                {customerLat && customerLng && (
+                  <p className="text-[10px] text-muted-foreground">
+                    📍 Location saved
+                  </p>
                 )}
               </div>
             </div>
