@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ArrowLeft, Check, X, Info, Zap, Target, Link2, Scale, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { motion, AnimatePresence } from "framer-motion";
+import useEmblaCarousel from "embla-carousel-react";
 import { ProductData } from "./productKnowledgeData";
 
 interface ProductGuideProps {
@@ -17,6 +18,26 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
   const [activeTab, setActiveTab] = useState("overview");
   const [expandedSections, setExpandedSections] = useState<string[]>(["tier1"]);
   const [currentUseCase, setCurrentUseCase] = useState(0);
+
+  // Embla carousel for use cases
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setCurrentUseCase(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on("select", onSelect);
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollTo = useCallback((index: number) => {
+    if (emblaApi) emblaApi.scrollTo(index);
+  }, [emblaApi]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev =>
@@ -253,33 +274,31 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
                     <Target className="h-4 w-4 text-primary" />
                     Use Cases
                   </h3>
-                  <div className="relative">
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={currentUseCase}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="bg-muted/50 rounded-lg p-4"
-                      >
-                        <h4 className="font-medium text-sm mb-2">{product.useCases[currentUseCase]?.title}</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {product.useCases[currentUseCase]?.description}
-                        </p>
-                      </motion.div>
-                    </AnimatePresence>
-                    {/* Dots */}
-                    <div className="flex justify-center gap-2 mt-3">
-                      {product.useCases.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentUseCase(idx)}
-                          className={`w-2 h-2 rounded-full transition-all ${
-                            idx === currentUseCase ? "bg-primary w-4" : "bg-muted-foreground/30"
-                          }`}
-                        />
+                  <div className="overflow-hidden" ref={emblaRef}>
+                    <div className="flex">
+                      {product.useCases.map((useCase, idx) => (
+                        <div key={idx} className="flex-[0_0_100%] min-w-0">
+                          <div className="bg-muted/50 rounded-lg p-4">
+                            <h4 className="font-medium text-sm mb-2">{useCase.title}</h4>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {useCase.description}
+                            </p>
+                          </div>
+                        </div>
                       ))}
                     </div>
+                  </div>
+                  {/* Dots */}
+                  <div className="flex justify-center gap-2 mt-3">
+                    {product.useCases.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => scrollTo(idx)}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          idx === currentUseCase ? "bg-primary w-4" : "bg-muted-foreground/30"
+                        }`}
+                      />
+                    ))}
                   </div>
                 </CardContent>
               </Card>
