@@ -22,15 +22,15 @@ interface AddPhoneDrawerProps {
 
 /**
  * Smart phone number parser that handles various formats:
- * - +1 (555) 555-5555
+ * - +1 (209) 704-8616
  * - 1-555-555-5555
  * - (555) 555-5555
  * - 555-555-5555
  * - 5555555555
- * Returns clean 10-digit phone number (or 11 if starts with 1)
+ * Returns clean 10-digit phone number
  */
 export const parsePhoneNumber = (input: string): string => {
-  // Remove all non-digit characters
+  // Remove all non-digit characters first
   const digitsOnly = input.replace(/\D/g, '');
   
   // If starts with country code 1 and has 11 digits, strip the 1
@@ -38,12 +38,17 @@ export const parsePhoneNumber = (input: string): string => {
     return digitsOnly.slice(1);
   }
   
-  // Return as-is if 10 digits (standard US)
-  if (digitsOnly.length === 10) {
-    return digitsOnly;
+  // If more than 10 digits and starts with 1, strip the 1
+  if (digitsOnly.length > 10 && digitsOnly.startsWith('1')) {
+    return digitsOnly.slice(1, 11);
   }
   
-  // Return whatever we have if it's reasonably close
+  // Return first 10 digits if 10 or more digits (standard US)
+  if (digitsOnly.length >= 10) {
+    return digitsOnly.slice(0, 10);
+  }
+  
+  // Return whatever we have if it's less than 10
   return digitsOnly;
 };
 
