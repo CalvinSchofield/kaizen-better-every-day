@@ -65,11 +65,9 @@ export const InsightsDealsTab = ({ dateRange, userCumulativeFpPlus }: InsightsDe
   const upfrontRoi = totalSpent > 0 ? upfrontEarnings / totalSpent : 0;
   
   // Calculate total EFP or FP+ for avg spent calculation
-  // EFP = FP deals + (upgrade PRMR / 85)
+  // EFP = Total PRMR / 85
   // FP+ = just FP deals count
-  const totalEfp = insights 
-    ? insights.totalFpDeals + (insights.prmrTotalBySaleType.upgrade / 85)
-    : 0;
+  const totalEfp = insights ? (insights.totalPrmr / 85) : 0;
   const totalFpPlus = insights?.totalFpDeals || 0;
   
   // Calculate average spent per EFP or FP+
