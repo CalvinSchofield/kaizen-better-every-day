@@ -30,14 +30,8 @@ const getHourInTimezone = (timestamp: string, timezone: string): number => {
       hour: 'numeric',
       hour12: false,
     }).format(date);
-    const hour = parseInt(localTime);
-    // Debug first timestamp only
-    if (timestamp.includes('18:51')) {
-      console.log(`[DEBUG] Converting ${timestamp} with timezone ${timezone} => hour ${hour}`);
-    }
-    return hour;
-  } catch (e) {
-    console.error('[DEBUG] Timezone conversion error:', e, 'for timezone:', timezone);
+    return parseInt(localTime);
+  } catch {
     return new Date(timestamp).getHours();
   }
 };
@@ -49,9 +43,6 @@ export const HourlyActivityChart = ({
   timezone = 'America/Los_Angeles',
 }: HourlyActivityChartProps) => {
   const [selectedActivity, setSelectedActivity] = useState<ActivityType>('all');
-  
-  // Debug: Log what timezone we're receiving
-  console.log('[HourlyActivityChart] timezone prop:', timezone, '| counterTimestamps keys:', counterTimestamps ? Object.keys(counterTimestamps) : 'none');
   
   // Get available activities (ones that have timestamps)
   const availableActivities = useMemo(() => {
