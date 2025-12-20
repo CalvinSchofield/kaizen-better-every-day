@@ -14,6 +14,7 @@ interface LiveRepData {
   hasForgottenEntry: boolean;
   forgottenDate?: string;
   forgottenEntryId?: string;
+  personalSummerStart?: string | null;
   todayStats: {
     doors: number;
     dms: number;
@@ -119,7 +120,14 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
 
       if (repsError) throw repsError;
 
+      // Fetch season_config for summer start dates
+      const { data: seasonConfigs } = await supabase
+        .from("season_config")
+        .select("user_id, personal_summer_start")
+        .in("user_id", filteredUserIds);
+
       const repsMap = new Map(repsData?.map(r => [r.user_id, r]) || []);
+      const seasonConfigMap = new Map(seasonConfigs?.map(c => [c.user_id, c]) || []);
 
       // Fetch recent entries (last 14 days for historical averages) - include BOTH finalized and unfinalized
       const fourteenDaysAgo = new Date();
@@ -165,6 +173,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
       entriesByUser.forEach((userEntries, userId) => {
         const repInfo = repsMap.get(userId);
         const teamInfo = repInfoMap.get(userId);
+        const seasonConfig = seasonConfigMap.get(userId);
         const timezone = repInfo?.timezone;
         const repToday = getTodayInTimezone(timezone);
         
@@ -274,6 +283,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               hasForgottenEntry: !!forgottenEntry,
               forgottenDate: forgottenEntry?.entry_date,
               forgottenEntryId: forgottenEntry?.id,
+              personalSummerStart: seasonConfig?.personal_summer_start || null,
               todayStats: {
                 doors: todayEntry.doors_knocked || 0,
                 dms: todayEntry.decision_makers || 0,
@@ -314,6 +324,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             hasForgottenEntry: true,
             forgottenDate: forgottenEntry.entry_date,
             forgottenEntryId: forgottenEntry.id,
+            personalSummerStart: seasonConfig?.personal_summer_start || null,
             todayStats: {
               doors: 0,
               dms: 0,
