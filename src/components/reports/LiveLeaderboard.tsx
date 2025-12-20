@@ -27,6 +27,7 @@ interface LiveRepData {
   hasForgottenEntry?: boolean;
   forgottenDate?: string;
   forgottenEntryId?: string;
+  personalSummerStart?: string | null;
   todayStats: {
     doors: number;
     dms: number;
@@ -81,8 +82,22 @@ const generateSmsMessage = (
   }
 };
 
-// Check if it's after sunset (approximately 7 PM) in a given timezone
-const isAfterSunsetInTimezone = (timezone?: string): boolean => {
+// Check if rep is in summer season (summer start date is today or in the past)
+const isRepInSummerSeason = (personalSummerStart?: string | null): boolean => {
+  if (!personalSummerStart) return false;
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const summerStart = new Date(personalSummerStart + 'T00:00:00');
+    return summerStart <= today; // Summer started today or earlier
+  } catch {
+    return false;
+  }
+};
+
+// Check if it's after "sunset" in a given timezone
+// Uses 9 PM for summer reps, 7 PM for non-summer reps
+const isAfterSunsetInTimezone = (timezone?: string, personalSummerStart?: string | null): boolean => {
   if (!timezone) return true; // Default to showing the badge if no timezone
   try {
     const now = new Date();
@@ -91,7 +106,10 @@ const isAfterSunsetInTimezone = (timezone?: string): boolean => {
       hour: 'numeric',
       hour12: false,
     }).format(now));
-    return hour >= 19; // 7 PM or later
+    
+    // Summer reps work later - use 9 PM threshold
+    const threshold = isRepInSummerSeason(personalSummerStart) ? 21 : 19;
+    return hour >= threshold;
   } catch {
     return true; // Default to showing the badge if timezone is invalid
   }
@@ -514,9 +532,10 @@ export const LiveLeaderboard = ({
   }) => {
     const hasSales = rep.todayStats.fp > 0;
     const flags = redFlags || detectRedFlags(rep.todayStats);
-    // Only show "not saved" badge if entry is unfinalized AND it's after sunset in the rep's timezone
+    // Only show "not saved" badge and finalize button if entry is unfinalized AND it's after sunset in the rep's timezone
     const isUnfinalized = !rep.todayStats.isFinalized && (rep.todayStats.doors > 0 || rep.todayStats.fp > 0);
-    const showNotSavedBadge = isUnfinalized && isAfterSunsetInTimezone(rep.timezone);
+    const isAfterSunset = isAfterSunsetInTimezone(rep.timezone, rep.personalSummerStart);
+    const showNotSavedBadge = isUnfinalized && isAfterSunset;
     
     const onTextClick = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -632,8 +651,8 @@ export const LiveLeaderboard = ({
             <MessageSquare className="w-4 h-4" />
           </button>
           
-          {/* Finalize button - admin only, unfinalized entries only */}
-          {isAdmin && isUnfinalized && rep.entryId && (
+          {/* Finalize button - admin only, unfinalized entries only, after sunset */}
+          {isAdmin && isUnfinalized && isAfterSunset && rep.entryId && (
             <button
               onClick={onFinalizeClick}
               disabled={finalizeEntryMutation.isPending}
