@@ -339,23 +339,42 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
     };
 
     // Install Performance
-    const salesWithInstallInfo = filteredSales.filter(s => s.install_status !== undefined || s.installed_same_day !== undefined);
-    const installedSameDayCount = filteredSales.filter(s => s.installed_same_day === true).length;
+    // A sale is considered same-day if:
+    // 1. installed_same_day is explicitly true, OR
+    // 2. No scheduled_install_date is set (meaning it wasn't scheduled out), OR
+    // 3. scheduled_install_date equals the entry_date
+    const installedSameDayCount = filteredSales.filter(s => {
+      // If explicitly marked as same-day install
+      if (s.installed_same_day === true) return true;
+      // If explicitly marked as NOT same-day
+      if (s.installed_same_day === false) return false;
+      // If no scheduled install date, it's a same-day install
+      if (!s.scheduled_install_date) return true;
+      // If scheduled for the same day as the sale, it's same-day
+      return s.scheduled_install_date === s.entry_date;
+    }).length;
+    
     const cancelledCount = filteredSales.filter(s => s.install_status === 'cancelled').length;
     
-    const salesWithScheduledInstall = filteredSales.filter(s => s.scheduled_install_date && s.entry_date);
+    // For average days to install, only count sales that were actually scheduled out
+    const salesScheduledOut = filteredSales.filter(s => 
+      s.scheduled_install_date && 
+      s.entry_date && 
+      s.scheduled_install_date !== s.entry_date
+    );
     let avgDaysToInstall = 0;
-    if (salesWithScheduledInstall.length > 0) {
-      const totalDays = salesWithScheduledInstall.reduce((sum, s) => {
+    if (salesScheduledOut.length > 0) {
+      const totalDays = salesScheduledOut.reduce((sum, s) => {
         const saleDate = parseISO(s.entry_date);
         const installDate = parseISO(s.scheduled_install_date!);
         return sum + Math.max(0, differenceInDays(installDate, saleDate));
       }, 0);
-      avgDaysToInstall = totalDays / salesWithScheduledInstall.length;
+      avgDaysToInstall = totalDays / salesScheduledOut.length;
     }
 
-    const sameDayInstallRate = salesWithInstallInfo.length > 0 
-      ? (installedSameDayCount / salesWithInstallInfo.length) * 100 
+    // Same-day rate is based on ALL deals (not just those with install_status set)
+    const sameDayInstallRate = filteredSales.length > 0 
+      ? (installedSameDayCount / filteredSales.length) * 100 
       : 0;
     const cancelRate = filteredSales.length > 0 
       ? (cancelledCount / filteredSales.length) * 100 
@@ -402,7 +421,7 @@ export const useCustomerInsights = (dateRange: { start: Date; end: Date }) => {
       hasTimeData: salesWithTime.length > 0,
       hasDealTypeData: salesWithDealType.length > 0,
       hasMoneySpentData: salesWithMoney.length > 0,
-      hasInstallData: salesWithInstallInfo.length > 0,
+      hasInstallData: filteredSales.length > 0,
     };
   }, [allSales, dateRange]);
 
