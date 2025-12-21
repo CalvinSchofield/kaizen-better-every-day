@@ -303,8 +303,8 @@ const Training = () => {
           </Card>
         )}
 
-        {/* Ramp to Blitz Hero Card - Only for Pre-Blitz Rookies */}
-        {isPreBlitz && (
+        {/* Ramp to Blitz Hero Card - For all rookies (not vets/sophomores) */}
+        {!isVetOrSophomore && (
           <Card 
             className="cursor-pointer border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50 transition-all"
             onClick={() => navigate("/ramp-to-blitz")}
