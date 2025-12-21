@@ -21,6 +21,7 @@ import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
 import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import {
   Sheet,
   SheetContent,
@@ -40,6 +41,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasMnlEventToday } = useMondayNightLightsEvent();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [blitzDetailsOpen, setBlitzDetailsOpen] = useState(false);
   const [uncommitSheetOpen, setUncommitSheetOpen] = useState(false);
@@ -746,8 +748,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         {/* Weekly/Monthly Recap CTA */}
         <RecapCTACard />
 
-        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST */}
-        {(() => {
+        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST if event exists on calendar */}
+        {hasMnlEventToday && (() => {
           const now = new Date();
           const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
           const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.

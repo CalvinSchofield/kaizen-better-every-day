@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 
 interface TeamMember {
   notionPageId: string;
@@ -56,6 +57,7 @@ interface RookieAlert {
 
 export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: VetAlertCardProps) => {
   const { toast } = useToast();
+  const { hasMnlEventToday } = useMondayNightLightsEvent();
   const [showCard, setShowCard] = useState(false);
   const [isMondayNightLights, setIsMondayNightLights] = useState(false);
   const [rookiesNeedingAttention, setRookiesNeedingAttention] = useState<RookieAlert[]>([]);
@@ -68,11 +70,15 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
   useEffect(() => {
     console.log('[VetAlertCard] useEffect triggered', {
       teamMembersCount: teamMembers.length,
-      allBlitzesCount: allBlitzes.length
+      allBlitzesCount: allBlitzes.length,
+      hasMnlEventToday
     });
 
-    // Check Monday Night Lights (Monday 9 AM - 8:30 PM MST)
-    const checkMondayNightLights = () => {
+    // Check if it's Monday and within the time window (9 AM - 8:30 PM MST)
+    // But only show MNL if there's actually an event on the calendar
+    const checkMondayNightLightsTime = () => {
+      if (!hasMnlEventToday) return { isMonday: false, isEvening: false };
+      
       const now = new Date();
       const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
       
@@ -179,7 +185,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       return alerts;
     };
 
-    const mnlStatus = checkMondayNightLights();
+    const mnlStatus = checkMondayNightLightsTime();
     setIsMondayNightLights(mnlStatus.isMonday);
     const alerts = checkRookieAlerts();
 
@@ -188,10 +194,11 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
     console.log('[VetAlertCard] Should show card:', shouldShow, {
       isMNL: mnlStatus.isMonday,
       isEvening: mnlStatus.isEvening,
-      alertsCount: alerts.length
+      alertsCount: alerts.length,
+      hasMnlEventToday
     });
     setShowCard(shouldShow);
-  }, [teamMembers, allBlitzes]);
+  }, [teamMembers, allBlitzes, hasMnlEventToday]);
 
   const sendIpadRequestEmail = (rookie: TeamMember) => {
     const subject = `iPad Request for ${rookie.name}`;
