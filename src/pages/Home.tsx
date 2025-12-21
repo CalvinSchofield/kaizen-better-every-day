@@ -28,6 +28,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
+import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
@@ -75,6 +76,7 @@ const Home = () => {
   const teamAccess = useTeamAccess();
   const { hasGoalsAccess, goals } = useRepGoals();
   const isLeader = teamAccess.data?.accessLevel && teamAccess.data.accessLevel !== 'none';
+  const { hasMnlEventToday } = useMondayNightLightsEvent();
   
   // Auto-refresh on component mount (when PWA reopens)
   useEffect(() => {
@@ -1168,14 +1170,14 @@ const Home = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // Check if it's Monday between 4 AM - 8:30 PM MST
+            // Check if it's Monday between 4 AM - 8:30 PM MST AND there's an MNL event on the calendar
             const now = new Date();
             const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
             const mstHour = mstTime.getHours();
             const mstMinutes = mstTime.getMinutes();
             const mstDay = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
             const totalMinutesMst = mstHour * 60 + mstMinutes;
-            const isMondayNightLights = mstDay === 1 && totalMinutesMst >= 240 && totalMinutesMst <= 1230; // 4 AM (240) to 8:30 PM (1230)
+            const isMondayNightLights = hasMnlEventToday && mstDay === 1 && totalMinutesMst >= 240 && totalMinutesMst <= 1230; // 4 AM (240) to 8:30 PM (1230)
             
             // Check if we're currently during a blitz week
             const isBlitzWeek = nextBlitz && (() => {

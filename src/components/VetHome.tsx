@@ -23,6 +23,7 @@ import { useEfpMode } from "@/hooks/useEfpMode";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
@@ -78,6 +79,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasMnlEventToday } = useMondayNightLightsEvent();
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const { allBlitzes, allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -746,8 +748,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         {/* Weekly/Monthly Recap CTA */}
         <RecapCTACard />
 
-        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST, but NOT for team leads (they see VetAlertCard) */}
-        {!isTeamLead && (() => {
+        {/* Monday Night Lights Alert - Shows only on Mondays 9am-8:30pm MST if event exists on calendar, but NOT for team leads (they see VetAlertCard) */}
+        {!isTeamLead && hasMnlEventToday && (() => {
           const now = new Date();
           const mstTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Denver' }));
           const dayOfWeek = mstTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
