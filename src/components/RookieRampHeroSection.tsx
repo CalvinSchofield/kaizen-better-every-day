@@ -152,7 +152,7 @@ const OnboardingStepCard = ({
   // Completed cards are collapsed - just show title and checkmark
   if (complete) {
     return (
-      <Card className="border-success/30 bg-success/5 transition-all">
+      <Card className="border-success/30 bg-card transition-all">
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-success text-success-foreground">
