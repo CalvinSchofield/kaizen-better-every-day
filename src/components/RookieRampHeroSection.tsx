@@ -149,86 +149,87 @@ const OnboardingStepCard = ({
     window.open(href, '_blank', 'noopener,noreferrer');
   };
 
+  // Completed cards are collapsed - just show title and checkmark
+  if (complete) {
+    return (
+      <Card className="border-success/30 bg-success/5 transition-all">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-success text-success-foreground">
+              <Check className="w-4 h-4" />
+            </div>
+            <h3 className="font-medium text-muted-foreground line-through flex-1">
+              {title}
+            </h3>
+            <span className="text-xs text-success font-medium">Complete</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className={`transition-all ${complete ? 'border-success/30 bg-success/5' : 'border-border'}`}>
+    <Card className="border-border transition-all">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           {/* Step indicator */}
-          <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-            complete 
-              ? 'bg-success text-success-foreground' 
-              : 'bg-primary/10 text-primary'
-          }`}>
-            {complete ? (
-              <Check className="w-5 h-5" />
-            ) : (
-              <span className="font-bold text-lg">{step}</span>
-            )}
+          <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 text-primary">
+            <span className="font-bold text-lg">{step}</span>
           </div>
           
           <div className="flex-1 min-w-0">
-            {/* Title and icon */}
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className={`font-semibold ${complete ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                {title}
-              </h3>
-              {complete && (
-                <span className="text-xs text-success font-medium">Complete</span>
-              )}
-            </div>
+            {/* Title */}
+            <h3 className="font-semibold text-foreground mb-1">
+              {title}
+            </h3>
             
             {/* Description */}
             <p className="text-sm text-muted-foreground mb-3">
               {description}
             </p>
             
-            {/* Actions - only show if not complete */}
-            {!complete && (
-              <div className="space-y-2">
-                <Button 
-                  onClick={() => openLink(primaryAction.href)}
+            {/* Actions */}
+            <div className="space-y-2">
+              <Button 
+                onClick={() => openLink(primaryAction.href)}
+                className="w-full gap-2"
+                size="sm"
+              >
+                <Icon className="w-4 h-4" />
+                {primaryAction.label}
+              </Button>
+              
+              {secondaryAction && (
+                <Button
+                  onClick={() => openLink(secondaryAction.href)}
+                  variant="secondary"
                   className="w-full gap-2"
                   size="sm"
                 >
-                  <Icon className="w-4 h-4" />
-                  {primaryAction.label}
-                  <ExternalLink className="w-3 h-3 ml-auto" />
+                  {secondaryAction.label}
                 </Button>
-                
-                {secondaryAction && (
-                  <div className="pt-1">
-                    <button
-                      onClick={() => openLink(secondaryAction.href)}
-                      className="text-sm text-primary hover:underline flex items-center gap-1"
-                    >
-                      {secondaryAction.label}
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                    {secondaryAction.helperText && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {secondaryAction.helperText}
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {introGuidance && (
-                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs font-medium text-foreground mb-1.5">
-                      {introGuidance.title}
-                    </p>
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {introGuidance.points.map((point, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-primary">•</span>
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+              {secondaryAction?.helperText && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {secondaryAction.helperText}
+                </p>
+              )}
+              
+              {introGuidance && (
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs font-medium text-foreground mb-1.5">
+                    {introGuidance.title}
+                  </p>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    {introGuidance.points.map((point, i) => (
+                      <li key={i}>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
