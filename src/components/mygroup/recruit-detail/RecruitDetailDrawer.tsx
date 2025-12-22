@@ -339,9 +339,19 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent', updateLastContact: true });
+    logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent (group with leader)', updateLastContact: true });
     toast.success('Text logged');
-    window.location.href = `sms:${recruit.phone}`;
+    
+    // Create group SMS with both recruit and leader if leader phone is available
+    const recruitPhone = recruit.phone.replace(/\D/g, '');
+    const leaderPhone = contactForHelp?.phone?.replace(/\D/g, '');
+    
+    if (leaderPhone) {
+      // iOS uses comma, Android uses semicolon - comma has broader support
+      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
+    } else {
+      window.location.href = `sms:${recruitPhone}`;
+    }
   };
 
   const handleAskForHelp = () => {
