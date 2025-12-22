@@ -339,31 +339,61 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    
-    // Get the recruit's team leader phone for group text
-    const recruitPhone = recruit.phone.replace(/\D/g, '');
+
+    const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, '');
+
+    const recruitPhone = normalizePhoneForSms(recruit.phone);
+
+    // Prefer the visible "Text {leader}" contact if it is the team leader.
+    // Otherwise, look up the team leader by the recruit's teamName.
     let leaderPhone: string | null = null;
-    
-    // Fetch the team leader's phone directly from their recruit.teamName
-    if (recruit.teamName) {
-      const { data: leaderData } = await supabase
+
+    if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
+      leaderPhone = normalizePhoneForSms(contactForHelp.phone);
+    } else if (recruit.teamName) {
+      const teamLeaderName = (stripEmojis(recruit.teamName) || '').toLowerCase().trim();
+
+      const { data: leaderCandidates } = await supabase
         .from('reps')
-        .select('phone')
+        .select('name, phone')
         .ilike('name', `%${stripEmojis(recruit.teamName)}%`)
-        .maybeSingle();
-      leaderPhone = leaderData?.phone?.replace(/\D/g, '') || null;
+        .limit(10);
+
+      const bestMatch = (leaderCandidates || [])
+        .filter((c) => !!c.phone)
+        .sort((a, b) => {
+          const aName = (stripEmojis(a.name) || '').toLowerCase().trim();
+          const bName = (stripEmojis(b.name) || '').toLowerCase().trim();
+          const aExact = aName === teamLeaderName ? 1 : 0;
+          const bExact = bName === teamLeaderName ? 1 : 0;
+          return bExact - aExact;
+        })[0];
+
+      leaderPhone = bestMatch?.phone ? normalizePhoneForSms(bestMatch.phone) : null;
     }
-    
+
     if (leaderPhone) {
-      logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent (group with leader)', updateLastContact: true });
+      logActivityMutation.mutate({
+        recruitNotionId: recruit.notionPageId,
+        activityType: 'phone_call',
+        notes: 'Text sent (group with leader)',
+        updateLastContact: true,
+      });
       toast.success('Group text logged');
-      // iOS uses comma, Android uses semicolon - comma has broader support
-      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
-    } else {
-      logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent', updateLastContact: true });
-      toast.success('Text logged');
-      window.location.href = `sms:${recruitPhone}`;
+
+      // Multi-recipient SMS separator is inconsistent across devices; ";" has the best real-world support.
+      window.location.href = `sms:${recruitPhone};${leaderPhone}`;
+      return;
     }
+
+    logActivityMutation.mutate({
+      recruitNotionId: recruit.notionPageId,
+      activityType: 'phone_call',
+      notes: 'Text sent',
+      updateLastContact: true,
+    });
+    toast.success('Text logged');
+    window.location.href = `sms:${recruitPhone}`;
   };
 
   const handleAskForHelp = () => {
