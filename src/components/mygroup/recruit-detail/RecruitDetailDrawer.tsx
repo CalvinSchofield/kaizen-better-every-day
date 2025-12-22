@@ -339,17 +339,29 @@ export const RecruitDetailDrawer = ({
       setPhoneEntryOpen(true);
       return;
     }
-    logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent (group with leader)', updateLastContact: true });
-    toast.success('Text logged');
     
-    // Create group SMS with both recruit and leader if leader phone is available
+    // Get the recruit's team leader phone for group text
     const recruitPhone = recruit.phone.replace(/\D/g, '');
-    const leaderPhone = contactForHelp?.phone?.replace(/\D/g, '');
+    let leaderPhone: string | null = null;
+    
+    // Fetch the team leader's phone directly from their recruit.teamName
+    if (recruit.teamName) {
+      const { data: leaderData } = await supabase
+        .from('reps')
+        .select('phone')
+        .ilike('name', `%${stripEmojis(recruit.teamName)}%`)
+        .maybeSingle();
+      leaderPhone = leaderData?.phone?.replace(/\D/g, '') || null;
+    }
     
     if (leaderPhone) {
+      logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent (group with leader)', updateLastContact: true });
+      toast.success('Group text logged');
       // iOS uses comma, Android uses semicolon - comma has broader support
       window.location.href = `sms:${recruitPhone},${leaderPhone}`;
     } else {
+      logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes: 'Text sent', updateLastContact: true });
+      toast.success('Text logged');
       window.location.href = `sms:${recruitPhone}`;
     }
   };
