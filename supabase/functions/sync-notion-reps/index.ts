@@ -294,7 +294,8 @@ Deno.serve(async (req) => {
         const rampPhase1Complete = rampPhase2Complete || rampLower.includes("phase 1");
         const slackJoined = rampPhase1Complete || rampLower.includes("slack");
         const trainingsComplete = slackJoined || rampLower.includes("training");
-        const onboardingComplete = slackJoined;
+        // onboardingComplete should be true for "Onboarding ✅" or any higher status
+        const onboardingComplete = trainingsComplete || rampLower.includes("onboarding");
 
         // Get team leader from pre-fetched data
         let teamLeaderName = '';
