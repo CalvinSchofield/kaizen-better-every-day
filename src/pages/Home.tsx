@@ -1433,8 +1433,8 @@ const Home = () => {
           <PreseasonPrepLeaderboard />
         )}
 
-        {/* 3. Blitz Management Card - Show at bottom after Phase 1 complete */}
-        {phase1Complete && (
+        {/* 3. Blitz Management Card - Show after Slack is complete so reps can manage blitz commitments */}
+        {slackComplete && (
           <Card className="border-primary/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
