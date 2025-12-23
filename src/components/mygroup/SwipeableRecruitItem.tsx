@@ -107,13 +107,19 @@ export const SwipeableRecruitItem = ({
     onDirectText?.(item.recruit);
   };
 
-  // Get blockers based on rep data - only for Rookies (vets/sophomores don't need ramp-to-blitz training)
+  // Get blockers based on rep data - only for signed Rookies (vets/sophomores don't need ramp-to-blitz training)
   const getBlockers = () => {
     const blockers: { icon: 'ipad' | 'onboarding' | 'ramp'; label: string }[] = [];
     
-    // Only show blocker icons for Rookies
+    // Only show blocker icons for Rookies who are at least signed
     const isRookie = item.recruit.year === 'Rookie' || item.recruit.year === '2025' || item.recruit.year === '2026';
     if (!isRookie) return blockers;
+    
+    // Only show blockers for signed reps or higher (signed, shadow_complete, sold, sold_5_plus)
+    const signedOrHigherStages = ['signed', 'shadow_complete', 'sold', 'sold_5_plus'];
+    const currentStage = item.recruit.stage?.toLowerCase().replace(/\s+/g, '_') || '';
+    const isSignedOrHigher = signedOrHigherStages.some(stage => currentStage.includes(stage));
+    if (!isSignedOrHigher) return blockers;
     
     if (repData) {
       if (!repData.ipad_assigned) {
