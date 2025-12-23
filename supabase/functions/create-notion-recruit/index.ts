@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fetchNotionWithRateLimit, getNotionHeaders } from "../_shared/notion-rate-limiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -104,12 +105,10 @@ serve(async (req) => {
     // Add recruiter if provided (select field - needs name, not ID)
     if (recruiterName) {
       // Triple check: Fetch existing options to verify if this name already exists
-      const dbResponse = await fetch(`https://api.notion.com/v1/databases/${notionRepsDbId}`, {
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-        },
-      });
+      const dbResponse = await fetchNotionWithRateLimit(
+        `https://api.notion.com/v1/databases/${notionRepsDbId}`,
+        { headers: getNotionHeaders(notionApiKey) }
+      );
       
       if (dbResponse.ok) {
         const dbData = await dbResponse.json();
@@ -159,18 +158,17 @@ serve(async (req) => {
 
     console.log('Creating Notion page with properties:', JSON.stringify(properties, null, 2));
 
-    const notionResponse = await fetch(`https://api.notion.com/v1/pages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${notionApiKey}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        parent: { database_id: notionRepsDbId },
-        properties,
-      }),
-    });
+    const notionResponse = await fetchNotionWithRateLimit(
+      `https://api.notion.com/v1/pages`,
+      {
+        method: 'POST',
+        headers: getNotionHeaders(notionApiKey),
+        body: JSON.stringify({
+          parent: { database_id: notionRepsDbId },
+          properties,
+        }),
+      }
+    );
 
     if (!notionResponse.ok) {
       const errorData = await notionResponse.json().catch(() => ({ message: 'Unknown error' }));

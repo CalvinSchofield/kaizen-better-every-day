@@ -71,12 +71,15 @@ export const DetailsTab = ({
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
-  const stageLocked = isRookie && !hasCompletedOnboarding;
   
   // Check if recruit is in an early stage (not yet signed)
   const stageLower = (recruit.stage || '').toLowerCase();
   const earlyStages = ['100_list', '100 list', 'evaluating', 'reached_out', 'reached out'];
   const isEarlyStage = earlyStages.some(s => stageLower.includes(s));
+  
+  // Only lock stages for signed+ rookies who haven't completed onboarding
+  // Early-stage recruits can move freely between 100 List, Reached Out, Evaluating, and Signed
+  const stageLocked = isRookie && !hasCompletedOnboarding && !isEarlyStage;
   
   const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
   
@@ -143,7 +146,9 @@ export const DetailsTab = ({
           <SelectContent>
             {/* Progression Stages */}
             {PROGRESSION_STAGES.map((stage) => {
-              const isDisabled = stageLocked && stage !== recruit.stage;
+              // For early-stage recruits, allow moving to 100 List, Reached Out, Evaluating, and Signed
+              const allowedForEarlyStage = ['100 List', 'Reached Out', 'Evaluating', 'Signed'].includes(stage);
+              const isDisabled = stageLocked && stage !== recruit.stage && !(isEarlyStage && allowedForEarlyStage);
               return (
                 <SelectItem 
                   key={stage} 
