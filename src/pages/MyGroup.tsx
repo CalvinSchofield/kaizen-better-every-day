@@ -555,6 +555,28 @@ const MyGroup = () => {
     setUndoBannerMessage(message);
   }, [dismissRecruit]);
 
+  // State for newly created recruit pending detail drawer
+  const [pendingNewRecruitId, setPendingNewRecruitId] = useState<string | null>(null);
+
+  // Handle recruit created - wait for data refresh then open detail drawer (leaders only)
+  const handleRecruitCreated = useCallback((notionPageId: string, name: string) => {
+    if (!isLeader) return;
+    // Store the pending recruit ID and wait for the query to refresh
+    setPendingNewRecruitId(notionPageId);
+  }, [isLeader]);
+
+  // Effect to open detail drawer when newly created recruit appears in data
+  useEffect(() => {
+    if (!pendingNewRecruitId || !allRecruits.length) return;
+    
+    const newRecruit = allRecruits.find(r => r.notionPageId === pendingNewRecruitId);
+    if (newRecruit) {
+      // Found the newly created recruit, open detail drawer
+      setSelectedRecruit(newRecruit);
+      setPendingNewRecruitId(null);
+    }
+  }, [pendingNewRecruitId, allRecruits]);
+
   if (isLoading) {
     return (
       <Layout>
@@ -765,7 +787,7 @@ const MyGroup = () => {
       />
 
       {/* Drawers */}
-      <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} />
+      <AddRecruitDrawer open={addSheetOpen} onOpenChange={setAddSheetOpen} onRecruitCreated={handleRecruitCreated} />
       <EditSuggestionDrawer 
         open={!!editingSuggestion} 
         onOpenChange={(open) => !open && setEditingSuggestion(null)}
