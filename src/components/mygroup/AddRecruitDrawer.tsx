@@ -283,7 +283,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     enabled: !!currentRep?.team_leader && !isLeader,
   });
 
-  // Get available recruiters (team members) for leader selection
+  // Get available recruiters (team members) for leader selection - sorted alphabetically
   const { data: availableRecruiters } = useQuery({
     queryKey: ['available-recruiters', teamAccess?.accessibleReps],
     queryFn: async () => {
@@ -291,6 +291,10 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return teamAccess.accessibleReps.filter(r => r.notionPageId);
     },
     enabled: isLeader && !!teamAccess?.accessibleReps,
+    select: (data) => {
+      if (!data) return [];
+      return [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    },
   });
 
   // Pre-fill form when opening with suggestion data
