@@ -54,6 +54,7 @@ interface AddRecruitDrawerProps {
   onOpenChange: (open: boolean) => void;
   suggestionPrefill?: SuggestionPrefill;
   onSuggestionApproved?: () => void;
+  onRecruitCreated?: (notionPageId: string, name: string) => void;
 }
 
 // Relationship options for rep suggestions
@@ -206,7 +207,7 @@ const LocationCombobox = ({
   );
 };
 
-export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSuggestionApproved }: AddRecruitDrawerProps) => {
+export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSuggestionApproved, onRecruitCreated }: AddRecruitDrawerProps) => {
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -342,6 +343,11 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       // If this was from a suggestion, notify parent to mark it approved
       if (suggestionPrefill && onSuggestionApproved) {
         onSuggestionApproved();
+      }
+      
+      // Notify parent about the newly created recruit (for auto-opening detail drawer)
+      if (onRecruitCreated && data.notionPageId) {
+        onRecruitCreated(data.notionPageId, data.name);
       }
       
       resetForm();
