@@ -104,6 +104,17 @@ serve(async (req) => {
 
     // Add recruiter if provided (select field - needs name, not ID)
     if (recruiterName) {
+      // Helper to strip emojis and normalize name for comparison
+      const normalizeNameForComparison = (name: string): string => {
+        return name
+          // Remove emojis using comprehensive unicode ranges
+          .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{1FA00}-\u{1FAFF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{1F004}]|[\u{1F0CF}]/gu, '')
+          // Normalize whitespace (multiple spaces to single)
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+      };
+
       // Triple check: Fetch existing options to verify if this name already exists
       const dbResponse = await fetchNotionWithRateLimit(
         `https://api.notion.com/v1/databases/${notionRepsDbId}`,
@@ -117,23 +128,62 @@ serve(async (req) => {
         if (recruiterProperty?.type === 'select' && recruiterProperty?.select?.options) {
           const existingOptions = recruiterProperty.select.options.map((o: { name: string }) => o.name);
           
-          // Case-insensitive check for existing option
-          const normalizedInput = recruiterName.trim().toLowerCase();
-          const existingMatch = existingOptions.find((opt: string) => 
-            opt.toLowerCase() === normalizedInput
+          // Normalize input (strip emojis, whitespace, lowercase)
+          const normalizedInput = normalizeNameForComparison(recruiterName);
+          const inputWords = normalizedInput.split(' ').filter(Boolean);
+          
+          console.log(`Looking for recruiter match. Input: "${recruiterName}" → normalized: "${normalizedInput}"`);
+          
+          // Try to find a match with priority:
+          // 1. Exact match after normalization
+          // 2. First name match (if input is single word and matches first word of existing)
+          // 3. Existing first name matches full input (e.g., existing "Christian" matches input "Christian Fabian")
+          let existingMatch = existingOptions.find((opt: string) => 
+            normalizeNameForComparison(opt) === normalizedInput
           );
           
+          // If no exact match and input is a single name, try first-name matching
+          if (!existingMatch && inputWords.length === 1) {
+            const firstNameMatches = existingOptions.filter((opt: string) => {
+              const optNormalized = normalizeNameForComparison(opt);
+              const optFirstName = optNormalized.split(' ')[0];
+              return optFirstName === inputWords[0];
+            });
+            // Only use first-name match if there's exactly one match (avoid ambiguity)
+            if (firstNameMatches.length === 1) {
+              existingMatch = firstNameMatches[0];
+              console.log(`First-name match found: "${existingMatch}"`);
+            }
+          }
+          
+          // If no match yet, check if existing is a prefix of input (e.g., "Christian" in Notion, "Christian Fabian" coming in)
+          if (!existingMatch) {
+            const prefixMatch = existingOptions.find((opt: string) => {
+              const optNormalized = normalizeNameForComparison(opt);
+              // Existing option is a prefix (first word(s)) of input
+              return normalizedInput.startsWith(optNormalized + ' ') || normalizedInput === optNormalized;
+            });
+            if (prefixMatch) {
+              existingMatch = prefixMatch;
+              console.log(`Prefix match found: "${existingMatch}"`);
+            }
+          }
+          
           if (existingMatch) {
-            // Use the existing option's exact name
-            console.log(`Found existing recruiter option: "${existingMatch}"`);
+            // Use the existing option's exact name (preserves Notion's formatting)
+            console.log(`Using existing recruiter option: "${existingMatch}"`);
             properties['Recruiter'] = {
               select: { name: existingMatch }
             };
           } else {
-            // Create new option with the provided name
-            console.log(`Creating new recruiter option: "${recruiterName}"`);
+            // Create new option with cleaned name (no emojis)
+            const cleanName = recruiterName
+              .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{1FA00}-\u{1FAFF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{1F004}]|[\u{1F0CF}]/gu, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+            console.log(`Creating new recruiter option: "${cleanName}" (original: "${recruiterName}")`);
             properties['Recruiter'] = {
-              select: { name: recruiterName.trim() }
+              select: { name: cleanName }
             };
           }
         }
