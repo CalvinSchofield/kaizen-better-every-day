@@ -13,6 +13,7 @@ import {
   Calendar,
   AlertTriangle,
   X,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,8 +42,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { RecruitRepData } from "../types";
 import { STAGES, getFirstName } from "../utils";
+import { EditRecruitDrawer } from "../EditRecruitDrawer";
 
 interface DetailsTabProps {
   recruit: Recruit;
@@ -68,9 +71,13 @@ export const DetailsTab = ({
   stageShake
 }: DetailsTabProps) => {
   const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   const hasCompletedOnboarding = recruitRepData?.onboarding_complete === true;
+  
+  // Check if user has leader access (can edit)
+  const canEdit = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   
   // Check if recruit is in an early stage (not yet signed)
   const stageLower = (recruit.stage || '').toLowerCase();
@@ -82,6 +89,7 @@ export const DetailsTab = ({
   const stageLocked = isRookie && !hasCompletedOnboarding && !isEarlyStage;
   
   const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   
   const handleStageSelect = (newStage: string) => {
     // If it's a permanent exit stage, show confirmation dialog
@@ -101,6 +109,19 @@ export const DetailsTab = ({
 
   return (
     <div className="space-y-4">
+      {/* Edit Button - only for leaders */}
+      {canEdit && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setEditDrawerOpen(true)}
+          className="w-full"
+        >
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit Recruit Details
+        </Button>
+      )}
+      
       {/* Recruiter Info - show for early stages */}
       {isEarlyStage && recruit.recruiterName && (
         <div className="bg-muted/50 border border-border rounded-xl p-4">
@@ -204,6 +225,16 @@ export const DetailsTab = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Edit Recruit Drawer */}
+      <EditRecruitDrawer
+        open={editDrawerOpen}
+        onOpenChange={setEditDrawerOpen}
+        recruit={recruit}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        }}
+      />
     </div>
   );
 };
