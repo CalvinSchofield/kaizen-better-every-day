@@ -16,9 +16,9 @@ interface TeamMember {
   year: string | null;
   stage: string | null;
   onboardingStatus: string | null;
-  userId?: string | null; // Optional - only present if rep has app access
-  teamId?: string | null; // The team this member belongs to
-  teamName?: string | null; // The team name for display
+  userId?: string | null;
+  teamId?: string | null;
+  teamName?: string | null;
 }
 
 Deno.serve(async (req) => {
@@ -29,9 +29,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const notionApiKey = Deno.env.get("NOTION_API_KEY");
 
-    if (!supabaseUrl || !supabaseServiceKey || !notionApiKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing environment variables");
     }
 
@@ -49,15 +48,15 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { scope, leaderNotionPageId } = await req.json();
+    const { scope } = await req.json();
     
-    if (!scope || !leaderNotionPageId) {
-      throw new Error("Missing required parameters: scope and leaderNotionPageId");
+    if (!scope) {
+      throw new Error("Missing required parameter: scope");
     }
 
-    console.log(`Fetching blitz attendance for scope: ${scope}, leader: ${leaderNotionPageId}`);
+    console.log(`Fetching blitz attendance for scope: ${scope}`);
 
-    // Fetch leader's access level and teams using the existing fetch-team-access logic
+    // Fetch current user's rep data
     const { data: repData, error: repError } = await supabase
       .from("reps")
       .select("*")
@@ -69,197 +68,139 @@ Deno.serve(async (req) => {
       throw new Error("Rep data not found");
     }
 
-    console.log("Rep data found:", { email: repData.email, notionPageId: repData.notion_page_id });
-
-    // Determine access level based on email
+    // Determine access level
     const areaDirectorEmails = ["calvinjschofield@gmail.com", "calvin.schofield@vivint.com"];
     const isAreaDirector = repData.email && areaDirectorEmails.includes(repData.email.toLowerCase());
 
-    let accessibleUserIds: string[] = [];
+    // Check if user is a team lead
+    const { data: ledTeams } = await supabase
+      .from("teams")
+      .select("id, name")
+      .eq("lead_user_id", user.id);
+
+    // Check if user is a mgmt group lead
+    const { data: ledMgmtGroups } = await supabase
+      .from("mgmt_groups")
+      .select("id, name")
+      .eq("lead_user_id", user.id);
+
     let accessibleReps: TeamMember[] = [];
 
     if (scope === "you") {
-      // Personal view - no team members, just their own data
+      // Personal view - no team members
       accessibleReps = [];
     } else {
-      // Fetch teams and MGMT groups from Notion
-      const teamsResponse = await fetch(
-        `https://api.notion.com/v1/databases/287070fe3bc280e1ab5fec17d5582878/query`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${notionApiKey}`,
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ page_size: 100 }),
-        }
-      );
-
-      const teamsData = await teamsResponse.json();
-      const teams = teamsData.results || [];
-      
-      console.log(`Fetched ${teams.length} teams from Notion`);
-
-      // Build a map of team IDs to team names
-      const teamNameMap: { [teamId: string]: string } = {};
-      for (const team of teams) {
-        const teamName = team.properties?.Name?.title?.[0]?.plain_text || "Unknown Team";
-        teamNameMap[team.id] = teamName;
-      }
-
-      // Determine which teams the leader has access to based on scope
+      // Get teams this user has access to
       let accessibleTeamIds: string[] = [];
 
-      if (scope === "office" && isAreaDirector) {
+      if (isAreaDirector || scope === "office") {
         // Area Director sees all teams
-        accessibleTeamIds = teams.map((team: any) => team.id);
-        console.log(`Area Director - accessible teams: ${accessibleTeamIds.length}`);
-      } else if (scope === "mgmt" || scope === "team") {
-        // Find teams where this leader is the Group Lead
-        for (const team of teams) {
-          const groupLeadRelation = team.properties?.["Group Lead"]?.relation || [];
-          console.log(`Checking team ${team.id}:`, {
-            teamName: team.properties?.Name?.title?.[0]?.plain_text,
-            groupLeadRelation: groupLeadRelation.map((r: any) => r.id)
-          });
-          if (groupLeadRelation.some((rel: any) => rel.id === leaderNotionPageId)) {
-            accessibleTeamIds.push(team.id);
-            console.log(`✓ Leader has access to team: ${team.properties?.Name?.title?.[0]?.plain_text}`);
-          }
-        }
-        console.log(`${scope} scope - accessible teams: ${accessibleTeamIds.length}`);
+        const { data: allTeams } = await supabase.from("teams").select("id, name");
+        accessibleTeamIds = (allTeams || []).map(t => t.id);
+      } else if (ledMgmtGroups && ledMgmtGroups.length > 0) {
+        // MGMT lead - get teams in their mgmt groups
+        const mgmtGroupIds = ledMgmtGroups.map(m => m.id);
+        const { data: teamMgmtGroups } = await supabase
+          .from("team_mgmt_groups")
+          .select("team_id")
+          .in("mgmt_group_id", mgmtGroupIds);
+        accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
+      } else if (ledTeams && ledTeams.length > 0) {
+        // Team lead
+        accessibleTeamIds = ledTeams.map(t => t.id);
       }
 
-      // Fetch all reps from Notion
-      const repsResponse = await fetch(
-        `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${notionApiKey}`,
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ page_size: 100 }),
-        }
-      );
-
-      const repsData = await repsResponse.json();
-      const notionReps = repsData.results || [];
+      // Fetch team names
+      const { data: teamsData } = await supabase
+        .from("teams")
+        .select("id, name")
+        .in("id", accessibleTeamIds);
       
-      console.log(`Fetched ${notionReps.length} reps from Notion`);
-      console.log(`Accessible team IDs: ${accessibleTeamIds.join(', ')}`);
+      const teamNameMap: Record<string, string> = {};
+      (teamsData || []).forEach(t => { teamNameMap[t.id] = t.name; });
 
-      // Filter reps based on accessible teams
-      for (const rep of notionReps) {
-        const teamsRelation = rep.properties?.Teams?.relation || [];
-        
-        // Find which accessible team this rep belongs to (use first match)
-        const matchingTeamId = teamsRelation.find((teamRel: any) =>
-          accessibleTeamIds.includes(teamRel.id)
-        )?.id || null;
+      // Fetch recruits for these teams
+      const { data: recruitsData } = await supabase
+        .from("recruits")
+        .select("*")
+        .in("team_id", accessibleTeamIds);
 
-        if (!matchingTeamId) continue;
+      // Fetch recruit-blitz commitments
+      const recruitIds = (recruitsData || []).map(r => r.id);
+      const { data: recruitBlitzes } = await supabase
+        .from("recruit_blitzes")
+        .select("recruit_id, blitz_id")
+        .in("recruit_id", recruitIds);
 
-        // Extract Notion data
-        const notionName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
-        const notionEmail = rep.properties?.Email?.email || null;
-        const notionPhone = rep.properties?.Phone?.phone_number || null;
-        const notionYear = rep.properties?.Year?.select?.name || null;
-        const notionStage = rep.properties?.Stage?.select?.name || null;
-        const notionIpadAssigned = rep.properties?.["iPad Assigned"]?.checkbox || false;
-        const onboardingStatus = rep.properties?.["Onboarding Step Completed"]?.status?.name ||
-          rep.properties?.["Onboarding Step Completed"]?.select?.name || null;
-        
-        // Get committed blitzes from Notion
-        const preseasonTrips = rep.properties?.["Preseason trips"]?.relation || [];
-        const committedBlitzes = preseasonTrips.map((trip: any) => trip.id).filter((id: string) => id);
-
-        // Try to find Supabase user if they have email
-        let userId = null;
-        if (notionEmail) {
-          const { data: repUser } = await supabase
-            .from("reps")
-            .select("user_id")
-            .ilike("email", notionEmail)
-            .single();
-          
-          if (repUser) {
-            userId = repUser.user_id;
-            accessibleUserIds.push(userId);
-          }
+      // Build commitment map
+      const commitmentMap: Record<string, string[]> = {};
+      (recruitBlitzes || []).forEach(rb => {
+        if (!commitmentMap[rb.recruit_id]) {
+          commitmentMap[rb.recruit_id] = [];
         }
+        commitmentMap[rb.recruit_id].push(rb.blitz_id);
+      });
 
-        // Add all team members regardless of app access - now with team info
+      // Map recruits to team members format
+      for (const recruit of recruitsData || []) {
+        const onboardingComplete = recruit.ramp_phase_4_complete;
+        const onboardingStatus = recruit.ramp_phase_4_complete ? "Phase 4 Complete" :
+          recruit.ramp_phase_3_complete ? "Phase 3 Complete" :
+          recruit.ramp_phase_2_complete ? "Phase 2 Complete" :
+          recruit.ramp_phase_1_complete ? "Phase 1 Complete" : null;
+
         accessibleReps.push({
-          notionPageId: rep.id,
-          name: notionName,
-          email: notionEmail,
-          phone: notionPhone,
-          blitzReady: onboardingStatus?.includes("Phase 4") || false,
-          committedBlitzes,
-          ipadAssigned: notionIpadAssigned,
-          year: notionYear,
-          stage: notionStage,
+          notionPageId: recruit.notion_page_id || recruit.id,
+          name: recruit.name,
+          email: recruit.email,
+          phone: recruit.phone,
+          blitzReady: recruit.blitz_ready || false,
+          committedBlitzes: commitmentMap[recruit.id] || [],
+          ipadAssigned: recruit.ipad_assigned || false,
+          year: recruit.year,
+          stage: recruit.stage,
           onboardingStatus,
-          userId, // Include userId if they have app access, null otherwise
-          teamId: matchingTeamId,
-          teamName: teamNameMap[matchingTeamId] || null,
+          userId: recruit.recruiter_user_id,
+          teamId: recruit.team_id,
+          teamName: recruit.team_id ? teamNameMap[recruit.team_id] : null,
         });
-        
-        console.log(`✓ Added rep: ${notionName} (Team: ${teamNameMap[matchingTeamId] || 'Unknown'})`);
       }
-      
-      console.log(`Total accessible reps found: ${accessibleReps.length}`);
+
+      console.log(`Found ${accessibleReps.length} accessible reps`);
     }
 
-    // Fetch contacted/invite status from blitz_invites table
-    const { data: inviteData, error: inviteError } = await supabase
+    // Fetch invite status from blitz_invites table
+    const { data: inviteData } = await supabase
       .from("blitz_invites")
       .select("*");
 
-    if (inviteError) {
-      console.error("Error fetching blitz invites:", inviteError);
-    }
-
-    // Transform invite data into format expected by frontend
     const contactedForBlitz: { [blitzId: string]: string[] } = {};
-    if (inviteData) {
-      for (const invite of inviteData) {
-        if (!contactedForBlitz[invite.blitz_id]) {
-          contactedForBlitz[invite.blitz_id] = [];
-        }
-        contactedForBlitz[invite.blitz_id].push(invite.rep_notion_page_id);
+    (inviteData || []).forEach(invite => {
+      if (!contactedForBlitz[invite.blitz_id]) {
+        contactedForBlitz[invite.blitz_id] = [];
       }
-    }
+      contactedForBlitz[invite.blitz_id].push(invite.rep_notion_page_id);
+    });
 
     // Fetch declined status from blitz_declines table
-    const { data: declineData, error: declineError } = await supabase
+    const { data: declineData } = await supabase
       .from("blitz_declines")
       .select("*");
 
-    if (declineError) {
-      console.error("Error fetching blitz declines:", declineError);
-    }
-
-    // Transform decline data into format expected by frontend
     const declinedForBlitz: { [blitzId: string]: string[] } = {};
-    if (declineData) {
-      for (const decline of declineData) {
-        if (!declinedForBlitz[decline.blitz_id]) {
-          declinedForBlitz[decline.blitz_id] = [];
-        }
-        declinedForBlitz[decline.blitz_id].push(decline.rep_notion_page_id);
+    (declineData || []).forEach(decline => {
+      if (!declinedForBlitz[decline.blitz_id]) {
+        declinedForBlitz[decline.blitz_id] = [];
       }
-    }
+      declinedForBlitz[decline.blitz_id].push(decline.rep_notion_page_id);
+    });
 
     return new Response(
       JSON.stringify({
         teamMembers: accessibleReps,
         contactedForBlitz,
         declinedForBlitz,
-        accessibleUserIds,
+        accessibleUserIds: accessibleReps.filter(r => r.userId).map(r => r.userId),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
