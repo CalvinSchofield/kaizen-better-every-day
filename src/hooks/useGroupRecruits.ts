@@ -603,6 +603,7 @@ export const useLogRecruitActivity = () => {
       return { previousData, tempId, recruitId, recruitNotionId };
     },
     onError: (err, variables, context) => {
+      console.error('useLogRecruitActivity error:', err, 'variables:', variables);
       if (context?.previousData) {
         context.previousData.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
