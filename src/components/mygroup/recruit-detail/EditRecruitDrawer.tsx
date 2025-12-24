@@ -337,12 +337,12 @@ export const EditRecruitDrawer = ({
           {/* Teams */}
           <div>
             <Label>Team</Label>
-            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+            <Select value={selectedTeamId || "__none__"} onValueChange={(v) => setSelectedTeamId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select team" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {notionOptions?.teamsOptions?.map((team) => (
                   <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                 ))}
@@ -353,12 +353,12 @@ export const EditRecruitDrawer = ({
           {/* MGMT */}
           <div>
             <Label>MGMT Group</Label>
-            <Select value={selectedMgmtId} onValueChange={setSelectedMgmtId}>
+            <Select value={selectedMgmtId || "__none__"} onValueChange={(v) => setSelectedMgmtId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Select MGMT group" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {notionOptions?.mgmtOptions?.map((mgmt) => (
                   <SelectItem key={mgmt.id} value={mgmt.id}>{mgmt.name}</SelectItem>
                 ))}
