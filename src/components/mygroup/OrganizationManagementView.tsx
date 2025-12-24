@@ -39,6 +39,7 @@ interface OrgRep {
   recruiterUserId: string | null;
   recruiterName?: string;
   stage?: string | null;
+  notionPageId?: string | null;
 }
 
 interface OrgTeam {
@@ -79,7 +80,7 @@ export const OrganizationManagementView = () => {
         supabase.from("teams").select("*"),
         supabase.from("mgmt_groups").select("*"),
         supabase.from("team_mgmt_groups").select("*"),
-        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, notion_page_id"),
         supabase.from("reps").select("user_id, name"),
       ]);
 
@@ -112,6 +113,7 @@ export const OrganizationManagementView = () => {
       recruiterUserId: r.recruiter_user_id,
       recruiterName: r.recruiter_user_id ? repMap.get(r.recruiter_user_id) || "Unknown" : undefined,
       stage: r.stage,
+      notionPageId: r.notion_page_id,
     }));
 
     // Group recruits by team
