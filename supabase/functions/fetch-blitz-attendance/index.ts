@@ -85,31 +85,81 @@ Deno.serve(async (req) => {
       .select("id, name")
       .eq("lead_user_id", user.id);
 
+    // Determine the user's actual access level
+    const isMgmtGroupLead = ledMgmtGroups && ledMgmtGroups.length > 0;
+    const isTeamLead = ledTeams && ledTeams.length > 0;
+
+    // Validate requested scope against user's actual permissions
+    // Users can only access scopes they're authorized for
+    let effectiveScope = scope;
+    if (scope === "office" && !isAreaDirector) {
+      console.log(`User requested 'office' scope but is not AD. Downgrading to allowed scope.`);
+      effectiveScope = isMgmtGroupLead ? "mgmt" : (isTeamLead ? "team" : "you");
+    }
+    if (scope === "mgmt" && !isMgmtGroupLead && !isAreaDirector) {
+      console.log(`User requested 'mgmt' scope but is not MGMT lead. Downgrading to 'team'.`);
+      effectiveScope = isTeamLead ? "team" : "you";
+    }
+    if (scope === "team" && !isTeamLead && !isMgmtGroupLead && !isAreaDirector) {
+      console.log(`User requested 'team' scope but is not a leader. Downgrading to 'you'.`);
+      effectiveScope = "you";
+    }
+
+    console.log(`Scope requested: ${scope}, effective scope: ${effectiveScope}, isAD: ${isAreaDirector}, isMgmt: ${isMgmtGroupLead}, isTeam: ${isTeamLead}`);
+
     let accessibleReps: TeamMember[] = [];
 
-    if (scope === "you") {
+    if (effectiveScope === "you") {
       // Personal view - no team members
       accessibleReps = [];
     } else {
-      // Get teams this user has access to
+      // Get teams this user has access to based on THEIR actual permissions
       let accessibleTeamIds: string[] = [];
 
-      if (isAreaDirector || scope === "office") {
+      if (effectiveScope === "office" && isAreaDirector) {
         // Area Director sees all teams
         const { data: allTeams } = await supabase.from("teams").select("id, name");
         accessibleTeamIds = (allTeams || []).map(t => t.id);
-      } else if (ledMgmtGroups && ledMgmtGroups.length > 0) {
+      } else if (effectiveScope === "mgmt" && (isMgmtGroupLead || isAreaDirector)) {
         // MGMT lead - get teams in their mgmt groups
-        const mgmtGroupIds = ledMgmtGroups.map(m => m.id);
-        const { data: teamMgmtGroups } = await supabase
-          .from("team_mgmt_groups")
-          .select("team_id")
-          .in("mgmt_group_id", mgmtGroupIds);
-        accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
-      } else if (ledTeams && ledTeams.length > 0) {
-        // Team lead
-        accessibleTeamIds = ledTeams.map(t => t.id);
+        if (isAreaDirector) {
+          // AD viewing mgmt scope - show all teams
+          const { data: allTeams } = await supabase.from("teams").select("id, name");
+          accessibleTeamIds = (allTeams || []).map(t => t.id);
+        } else {
+          const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
+          const { data: teamMgmtGroups } = await supabase
+            .from("team_mgmt_groups")
+            .select("team_id")
+            .in("mgmt_group_id", mgmtGroupIds);
+          accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
+        }
+      } else if (effectiveScope === "team") {
+        // Team lead scope - only their teams
+        if (isAreaDirector) {
+          // AD can pick any team scope but we'll show all if they select 'team'
+          const { data: allTeams } = await supabase.from("teams").select("id, name");
+          accessibleTeamIds = (allTeams || []).map(t => t.id);
+        } else if (isMgmtGroupLead) {
+          // MGMT lead selecting team scope - show only their directly led teams (if any) or first mgmt group's teams
+          if (ledTeams && ledTeams.length > 0) {
+            accessibleTeamIds = ledTeams.map(t => t.id);
+          } else {
+            // Fallback to their mgmt group teams
+            const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
+            const { data: teamMgmtGroups } = await supabase
+              .from("team_mgmt_groups")
+              .select("team_id")
+              .in("mgmt_group_id", mgmtGroupIds);
+            accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
+          }
+        } else if (isTeamLead) {
+          // Pure team lead - only their team(s)
+          accessibleTeamIds = (ledTeams || []).map(t => t.id);
+        }
       }
+
+      console.log(`Accessible team IDs for ${effectiveScope} scope: ${accessibleTeamIds.length} teams`);
 
       // Fetch team names
       const { data: teamsData } = await supabase
