@@ -37,7 +37,11 @@ export const useBlitzAttendance = (
       try {
         const { data: cachedData, timestamp, scope: cachedScope } = JSON.parse(cached);
         const isRecent = Date.now() - timestamp < 5 * 60 * 1000; // 5 minutes
-        if (isRecent && cachedScope === scope) {
+
+        const hasTeamMembers = Array.isArray(cachedData?.teamMembers) && cachedData.teamMembers.length > 0;
+        const looksUnhealthy = hasTeamMembers && cachedData.teamMembers.every((m: any) => !m?.onboardingStatus);
+
+        if (isRecent && cachedScope === scope && !looksUnhealthy) {
           setData(cachedData);
           setLoading(false);
         }
