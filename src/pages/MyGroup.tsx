@@ -34,6 +34,7 @@ import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import Layout from "@/components/Layout";
 import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
@@ -72,10 +73,10 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 const MyGroup = () => {
   const location = useLocation();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
-  const { data: groupData, isLoading: recruitsLoading, isLeader } = useGroupRecruits();
+  const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
-  const { allBlitzes, allBlitzesIncludingPast } = useBlitzes();
+  const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
   
   // UI State
   const [addSheetOpen, setAddSheetOpen] = useState(false);
@@ -682,14 +683,36 @@ const MyGroup = () => {
     </div>
   );
 
+  // Error state with no cached data
+  const hasUnrecoverableError = recruitsError && !groupData && isLeader;
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await Promise.all([refetchRecruits(), refetchBlitzes()]);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   return (
     <Layout headerRightContent={headerControls}>
       <div className="p-4 space-y-5">
         {/* Leader View */}
         {isLeader ? (
-          <>
-            {/* Today's Focus Hero */}
-            <TodaysFocusHero
+          hasUnrecoverableError ? (
+            <DataLoadError
+              title="Couldn't load your group"
+              message="There was a problem connecting. This might be temporary."
+              onRetry={handleRetry}
+              isRetrying={isRetrying}
+              lastUpdated={lastUpdated}
+            />
+          ) : (
+            <>
+              {/* Today's Focus Hero */}
+              <TodaysFocusHero
               topRecommendation={topRecommendation}
               summerRecommendation={topSummerRecommendation}
               overdueScheduledFallback={overdueScheduledFallback}
@@ -755,7 +778,8 @@ const MyGroup = () => {
 
             {/* Upcoming Team Events */}
             <UpcomingTeamEventsCard />
-          </>
+            </>
+          )
         ) : (
           // Non-leader view: Show their suggestions list
           <div className="space-y-4">
