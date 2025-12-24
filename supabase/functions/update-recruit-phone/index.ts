@@ -22,7 +22,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -37,9 +36,9 @@ serve(async (req) => {
       });
     }
 
-    const { recruitNotionId, phone } = await req.json();
+    const { recruitNotionId, recruitId, phone } = await req.json();
 
-    if (!recruitNotionId || !phone) {
+    if ((!recruitNotionId && !recruitId) || !phone) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,52 +56,35 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Updating phone for recruit ${recruitNotionId} to ${cleanPhone}`);
+    console.log(`Updating phone for recruit to ${cleanPhone}`);
 
-    // Update in Notion
-    if (!notionApiKey) {
-      console.error('NOTION_API_KEY not configured');
-      return new Response(JSON.stringify({ error: 'Notion API key not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Update in recruits table
+    let updateQuery = supabase
+      .from('recruits')
+      .update({ phone: cleanPhone, updated_at: new Date().toISOString() });
+
+    if (recruitId) {
+      updateQuery = updateQuery.eq('id', recruitId);
+    } else {
+      updateQuery = updateQuery.eq('notion_page_id', recruitNotionId);
     }
 
-    const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${notionApiKey}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          'Phone': {
-            phone_number: cleanPhone
-          }
-        }
-      }),
-    });
+    const { error: updateError } = await updateQuery;
 
-    if (!notionResponse.ok) {
-      const errorText = await notionResponse.text();
-      console.error('Notion API error:', errorText);
-      
-      // Check if rate limited
-      if (notionResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limited, please try again in a moment' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      return new Response(JSON.stringify({ error: 'Failed to update Notion' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (updateError) {
+      console.error('Error updating phone:', updateError);
+      throw new Error(`Failed to update phone: ${updateError.message}`);
     }
 
-    console.log('Phone updated in Notion successfully');
+    // Also update reps table if this recruit has a linked rep
+    if (recruitNotionId) {
+      await supabase
+        .from('reps')
+        .update({ phone: cleanPhone, updated_at: new Date().toISOString() })
+        .eq('notion_page_id', recruitNotionId);
+    }
+
+    console.log('Phone updated successfully');
 
     return new Response(JSON.stringify({ success: true, phone: cleanPhone }), {
       status: 200,

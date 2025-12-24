@@ -6,50 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Notion API helper with retry logic and jitter
-// Reduced retries and max delay for faster failure
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      
-      // If rate limited (429), retry with exponential backoff + jitter
-      if (response.status === 429) {
-        // Check for Retry-After header
-        const retryAfter = response.headers.get('Retry-After');
-        let delay: number;
-        
-        if (retryAfter) {
-          delay = Math.min(parseInt(retryAfter, 10) * 1000, 10000); // Cap at 10s
-        } else {
-          // Exponential backoff capped at 10s for faster failure
-          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 10000);
-          const jitter = Math.random() * 1000;
-          delay = baseDelay + jitter;
-        }
-        
-        console.log(`Rate limited (429). Retrying in ${Math.round(delay)}ms... (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      
-      return response;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
-      
-      if (attempt < maxRetries - 1) {
-        const delay = Math.min(2000 * Math.pow(2, attempt), 10000) + Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError || new Error(`Failed after ${maxRetries} attempts`);
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -66,8 +22,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
-    const notionRepsDbId = Deno.env.get('NOTION_REPS_DATABASE_ID');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -83,200 +37,152 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { accessibleNotionIds, includeActivities = true } = body;
+    const { includeActivities = true } = body;
 
-    if (!accessibleNotionIds || accessibleNotionIds.length === 0) {
-      return new Response(JSON.stringify({ recruits: [], activities: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Get current user's rep record to determine access level
+    const { data: currentRep } = await supabase
+      .from('reps')
+      .select('notion_page_id, user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    // Get accessible team IDs for this user
+    const { data: accessibleTeamIds } = await supabase
+      .rpc('get_accessible_team_ids', { _user_id: user.id });
+
+    // Check if user is area director
+    const { data: isAreaDir } = await supabase
+      .rpc('is_area_director', { _user_id: user.id });
+
+    // Build query for recruits - recruiting-related stages only
+    const recruitingStages = ['100 List', 'Reached Out', 'Evaluating', 'Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+    
+    let recruitsQuery = supabase
+      .from('recruits')
+      .select(`
+        id,
+        notion_page_id,
+        name,
+        phone,
+        email,
+        stage,
+        year,
+        location,
+        recruitment_source,
+        last_contact,
+        next_action,
+        next_action_due,
+        created_at,
+        onboarding_complete,
+        trainings_complete,
+        slack_joined,
+        ramp_phase_1_complete,
+        ramp_phase_2_complete,
+        ramp_phase_3_complete,
+        ramp_phase_4_complete,
+        ipad_assigned,
+        blitz_ready,
+        recruiter_user_id,
+        team_id,
+        mgmt_group_id
+      `)
+      .in('stage', recruitingStages);
+
+    // Apply access control
+    if (isAreaDir) {
+      // Area directors see all recruits
+    } else if (accessibleTeamIds && accessibleTeamIds.length > 0) {
+      // Team leads see recruits in their teams OR recruits they personally recruited
+      recruitsQuery = recruitsQuery.or(`recruiter_user_id.eq.${user.id},team_id.in.(${accessibleTeamIds.join(',')})`);
+    } else {
+      // Regular users see only their own recruits
+      recruitsQuery = recruitsQuery.eq('recruiter_user_id', user.id);
     }
 
-    // Fetch recruits from Notion
-    const recruits: any[] = [];
-    const allBlitzTripIds = new Set<string>();
-    
-    // Temporary storage for recruit data before we have blitz details
-    const rawRecruits: any[] = [];
-    
-    if (notionApiKey && notionRepsDbId) {
-      // Filter for recruits in accessible list with recruiting-related stages
-      const recruitingStages = ['100 List', 'Reached Out', 'Evaluating', 'Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
-      
-      const response = await fetchNotionWithRetry(
-        `https://api.notion.com/v1/databases/${notionRepsDbId}/query`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${notionApiKey}`,
-            'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filter: {
-              or: recruitingStages.map(stage => ({
-                property: 'Stage',
-                select: { equals: stage }
-              }))
-            },
-            page_size: 100
-          }),
-        }
-      );
+    const { data: recruitsData, error: recruitsError } = await recruitsQuery.order('created_at', { ascending: false });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        for (const page of data.results) {
-          const props = page.properties;
-          
-          // Get recruiter relation to check if in accessible list
-          const recruiterRelation = props['Recruiter']?.relation?.[0]?.id;
-          
-          if (recruiterRelation && accessibleNotionIds.includes(recruiterRelation)) {
-            const getName = (prop: any) => prop?.title?.[0]?.plain_text || prop?.rich_text?.[0]?.plain_text || '';
-            const getSelectLocal = (prop: any) => prop?.select?.name || '';
-            const getPhone = (prop: any) => prop?.phone_number || '';
-            const getEmail = (prop: any) => prop?.email || '';
-            const getDate = (prop: any) => prop?.date?.start || null;
-            const getCheckbox = (prop: any) => prop?.checkbox ?? false;
-            const getSelectValue = (prop: any) => prop?.select?.name || '';
-            
-            // Collect blitz trip relation IDs
-            const blitzTripRelationIds: string[] = [];
-            if (props['Preseason trips']?.relation) {
-              for (const rel of props['Preseason trips'].relation) {
-                blitzTripRelationIds.push(rel.id);
-                allBlitzTripIds.add(rel.id);
-              }
-            }
-            
-            // Parse "Onboarding Step Completed" status property
-            // Progression: Not Started → Onboarding ✅ → Required Trainings ✅ → Slack ✅ → Phase 1 ✅ → Phase 2 ✅ → Phase 3 ✅ → Phase 4 ✅
-            const onboardingStepValue = getSelectValue(props['Onboarding Step Completed']);
-            const stepLower = onboardingStepValue.toLowerCase();
-            
-            // Determine what step they're at (each step implies all previous are complete)
-            const hasPhase4 = stepLower.includes('phase 4');
-            const hasPhase3 = hasPhase4 || stepLower.includes('phase 3');
-            const hasPhase2 = hasPhase3 || stepLower.includes('phase 2');
-            const hasPhase1 = hasPhase2 || stepLower.includes('phase 1');
-            const hasSlack = hasPhase1 || stepLower.includes('slack');
-            const hasTrainings = hasSlack || stepLower.includes('training');
-            const hasBasicOnboarding = hasTrainings || stepLower.includes('onboarding');
-            
-            // slackJoined = they've reached "Slack ✅" or any phase (unlocks Goals page)
-            const slackJoined = hasSlack;
-            // trainingsComplete = they've reached "Required Trainings ✅" or beyond
-            const trainingsComplete = hasTrainings;
-            // onboardingComplete = they've completed basic onboarding through Slack (full onboarding done)
-            // This is when they can start Ramp to Blitz
-            const onboardingComplete = hasSlack;
-            
-            rawRecruits.push({
-              notionPageId: page.id,
-              name: getName(props['Name']),
-              phone: getPhone(props['Phone']),
-              email: getEmail(props['Email']),
-              stage: getSelectLocal(props['Stage']),
-              recruiterNotionId: recruiterRelation,
-              year: getSelectLocal(props['Year']),
-              lastContact: getDate(props['Last Contact']),
-              nextAction: getName(props['Next Action']),
-              nextActionDue: getDate(props['Next Action Due']),
-              createdAt: page.created_time,
-              blitzTripRelationIds, // Temporary field, will be replaced with full data
-              // Ramp-to-blitz phase data parsed from "Onboarding Step Completed" select
-              rampToBlitzPhase: onboardingStepValue || null,
-              phase1Complete: hasPhase1,
-              phase2Complete: hasPhase2,
-              phase3Complete: hasPhase3,
-              phase4Complete: hasPhase4,
-              onboardingComplete: onboardingComplete,
-              trainingsComplete: trainingsComplete,
-              slackJoined: slackJoined,
-              ipadAssigned: getCheckbox(props['iPad Assigned']),
-              blitzReady: getCheckbox(props['Blitz Ready']),
-            });
-          }
-        }
+    if (recruitsError) {
+      console.error('Error fetching recruits:', recruitsError);
+      throw recruitsError;
+    }
+
+    // Get recruiter names for all recruits
+    const recruiterUserIds = [...new Set((recruitsData || []).map(r => r.recruiter_user_id).filter(Boolean))];
+    const { data: recruiters } = await supabase
+      .from('reps')
+      .select('user_id, notion_page_id, name')
+      .in('user_id', recruiterUserIds.length > 0 ? recruiterUserIds : ['00000000-0000-0000-0000-000000000000']);
+
+    const recruiterMap = new Map(recruiters?.map(r => [r.user_id, r]) || []);
+
+    // Get blitz commitments for all recruits
+    const recruitIds = (recruitsData || []).map(r => r.id);
+    const { data: recruitBlitzes } = await supabase
+      .from('recruit_blitzes')
+      .select('recruit_id, blitz_id, blitzes(id, name, date, end_date, location)')
+      .in('recruit_id', recruitIds.length > 0 ? recruitIds : ['00000000-0000-0000-0000-000000000000']);
+
+    // Group blitzes by recruit
+    const blitzesByRecruit = new Map<string, any[]>();
+    for (const rb of recruitBlitzes || []) {
+      if (!blitzesByRecruit.has(rb.recruit_id)) {
+        blitzesByRecruit.set(rb.recruit_id, []);
       }
-
-      // Fetch blitz trip details for all collected IDs
-      const blitzTripsData = new Map<string, any>();
-      
-      if (allBlitzTripIds.size > 0) {
-        console.log(`Fetching ${allBlitzTripIds.size} blitz trips for recruit blitz data`);
-        
-        // Fetch each blitz trip page
-        for (const tripId of allBlitzTripIds) {
-          try {
-            const tripResponse = await fetchNotionWithRetry(
-              `https://api.notion.com/v1/pages/${tripId}`,
-              {
-                method: 'GET',
-                headers: {
-                  'Authorization': `Bearer ${notionApiKey}`,
-                  'Notion-Version': '2022-06-28',
-                },
-              }
-            );
-
-            if (tripResponse.ok) {
-              const tripPage = await tripResponse.json();
-              blitzTripsData.set(tripId, tripPage);
-            }
-          } catch (error) {
-            console.error(`Failed to fetch blitz trip ${tripId}:`, error);
-          }
-        }
-      }
-
-      // Helper functions for extracting blitz trip properties
-      const getTitle = (prop: any) => prop?.title?.[0]?.plain_text || '';
-      const getRichText = (prop: any) => prop?.rich_text?.[0]?.plain_text || '';
-      const getSelect = (prop: any) => prop?.select?.name || '';
-
-      // Now build final recruits with blitz data
-      for (const rawRecruit of rawRecruits) {
-        const committedBlitzes: any[] = [];
-        
-        for (const tripId of rawRecruit.blitzTripRelationIds) {
-          const tripPage = blitzTripsData.get(tripId);
-          if (tripPage) {
-            const tripProps = tripPage.properties;
-            const tripName = getTitle(tripProps.Name);
-            
-            if (tripName) {
-              const dateProp = tripProps.Date;
-              const tripDate = dateProp?.date?.start || null;
-              const tripEndDate = dateProp?.date?.end || null;
-              const tripLocation = getRichText(tripProps.Location) || getSelect(tripProps.Location);
-              
-              committedBlitzes.push({
-                id: tripId,
-                name: tripName,
-                date: tripDate || '',
-                endDate: tripEndDate,
-                location: tripLocation,
-              });
-            }
-          }
-        }
-        
-        // Remove temporary field and add committed blitzes
-        const { blitzTripRelationIds, ...recruitData } = rawRecruit;
-        recruits.push({
-          ...recruitData,
-          committedBlitzes,
+      // blitzes is a single joined object, not an array
+      const blitz = rb.blitzes as any;
+      if (blitz) {
+        blitzesByRecruit.get(rb.recruit_id)!.push({
+          id: blitz.id,
+          name: blitz.name,
+          date: blitz.date,
+          endDate: blitz.end_date,
+          location: blitz.location,
         });
       }
     }
 
+    // Transform recruits to expected format
+    const recruits = (recruitsData || []).map(r => {
+      const recruiter = recruiterMap.get(r.recruiter_user_id);
+      return {
+        notionPageId: r.notion_page_id || r.id, // Use Supabase ID if no Notion ID
+        id: r.id,
+        name: r.name,
+        phone: r.phone,
+        email: r.email,
+        stage: r.stage,
+        year: r.year,
+        location: r.location,
+        recruitmentSource: r.recruitment_source,
+        lastContact: r.last_contact,
+        nextAction: r.next_action,
+        nextActionDue: r.next_action_due,
+        createdAt: r.created_at,
+        recruiterNotionId: recruiter?.notion_page_id,
+        recruiterUserId: r.recruiter_user_id,
+        recruiterName: recruiter?.name,
+        teamId: r.team_id,
+        mgmtGroupId: r.mgmt_group_id,
+        // Ramp phase data
+        onboardingComplete: r.onboarding_complete ?? false,
+        trainingsComplete: r.trainings_complete ?? false,
+        slackJoined: r.slack_joined ?? false,
+        phase1Complete: r.ramp_phase_1_complete ?? false,
+        phase2Complete: r.ramp_phase_2_complete ?? false,
+        phase3Complete: r.ramp_phase_3_complete ?? false,
+        phase4Complete: r.ramp_phase_4_complete ?? false,
+        ipadAssigned: r.ipad_assigned ?? false,
+        blitzReady: r.blitz_ready ?? false,
+        // Committed blitzes
+        committedBlitzes: blitzesByRecruit.get(r.id) || [],
+      };
+    });
+
     // Fetch activities from Supabase if requested
     let activities: any[] = [];
     if (includeActivities && recruits.length > 0) {
-      const recruitNotionIds = recruits.map(r => r.notionPageId);
+      // Use both notion_page_id and Supabase id for activity lookup
+      const recruitNotionIds = recruits.map(r => r.notionPageId).filter(Boolean);
       
       const { data: activityData } = await supabase
         .from('recruit_activities')
@@ -289,12 +195,6 @@ serve(async (req) => {
     }
 
     // Fetch pending suggestions for this user's team
-    const { data: currentRep } = await supabase
-      .from('reps')
-      .select('notion_page_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
     let pendingSuggestions: any[] = [];
     if (currentRep?.notion_page_id) {
       const { data: suggestions } = await supabase
@@ -307,7 +207,7 @@ serve(async (req) => {
       pendingSuggestions = suggestions || [];
     }
 
-    console.log(`Fetched ${recruits.length} recruits, ${activities.length} activities, ${pendingSuggestions.length} pending suggestions`);
+    console.log(`Fetched ${recruits.length} recruits, ${activities.length} activities, ${pendingSuggestions.length} pending suggestions from Supabase`);
 
     return new Response(JSON.stringify({ 
       recruits, 
