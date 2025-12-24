@@ -5,66 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MGMT_DATABASE_ID = '287070fe3bc2804f874bd9dae57bd1b9';
-const TEAMS_DATABASE_ID = '287070fe3bc280e1ab5fec17d5582878';
 const AREA_DIRECTOR_EMAIL = 'calvinjschofield@gmail.com';
-
-const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutes
-
-type NotionQueryResponse = {
-  results?: any[];
-  [key: string]: any;
-};
-
-let mgmtGroupsCache: { fetchedAt: number; data: NotionQueryResponse } | null = null;
-let teamsCache: { fetchedAt: number; data: NotionQueryResponse } | null = null;
-
-const isFresh = (cache: { fetchedAt: number } | null) =>
-  !!cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
-
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 6): Promise<Response> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-
-      if (response.status === 429) {
-        const retryAfterHeader = response.headers.get('retry-after');
-        const retryAfterMs = retryAfterHeader
-          ? Math.max(0, Number(retryAfterHeader)) * 1000
-          : 0;
-
-        // Exponential backoff, but also respect Retry-After when provided
-        const backoffMs = Math.min(2000 * Math.pow(2, attempt), 32000);
-        const delayMs = Math.max(backoffMs, retryAfterMs);
-
-        console.info(
-          `Rate limited (429). Retrying in ${delayMs}ms... (attempt ${attempt + 1}/${maxRetries})`,
-        );
-
-        // On final attempt, return the 429 response so the caller can fall back gracefully.
-        if (attempt === maxRetries - 1) {
-          return response;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        continue;
-      }
-
-      if (!response.ok) {
-        console.error(`Notion API error: ${response.status} ${response.statusText}`);
-      }
-
-      return response;
-    } catch (error) {
-      console.error(`Fetch error (attempt ${attempt + 1}):`, error);
-      if (attempt === maxRetries - 1) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 2000 * Math.pow(2, attempt)));
-    }
-  }
-
-  // Should be unreachable, but keeps TypeScript happy.
-  throw new Error('Failed after retries');
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -72,14 +13,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    if (!notionApiKey) {
-      throw new Error('NOTION_API_KEY not configured');
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const authHeader = req.headers.get('Authorization')!;
@@ -93,13 +28,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Get current user's rep data
     const { data: repData } = await supabase
       .from('reps')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
-    if (!repData || !repData.notion_page_id) {
+    if (!repData) {
       return new Response(JSON.stringify({ 
         accessLevel: 'none',
         mgmtGroups: [],
@@ -111,202 +47,166 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userNotionPageId = repData.notion_page_id;
     const userEmail = user.email?.toLowerCase();
     const isAreaDirector = userEmail === AREA_DIRECTOR_EMAIL;
 
-    const notionHeaders = {
-      'Authorization': `Bearer ${notionApiKey}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    };
+    // Fetch all mgmt_groups with their teams via team_mgmt_groups junction
+    const { data: mgmtGroupsRaw } = await supabase
+      .from('mgmt_groups')
+      .select('id, name, lead_user_id, notion_page_id');
 
-    const getNotionDb = async (
-      cacheKey: 'mgmt' | 'teams',
-      databaseId: string,
-    ): Promise<NotionQueryResponse> => {
-      const cache = cacheKey === 'mgmt' ? mgmtGroupsCache : teamsCache;
-      if (isFresh(cache)) {
-        return cache!.data;
-      }
+    // Fetch all teams
+    const { data: teamsRaw } = await supabase
+      .from('teams')
+      .select('id, name, lead_user_id, notion_page_id');
 
-      try {
-        const response = await fetchWithRetry(
-          `https://api.notion.com/v1/databases/${databaseId}/query`,
-          {
-            method: 'POST',
-            headers: notionHeaders,
-            body: JSON.stringify({}),
-          },
-        );
+    // Fetch team-mgmt_group relationships
+    const { data: teamMgmtGroupsRaw } = await supabase
+      .from('team_mgmt_groups')
+      .select('team_id, mgmt_group_id');
 
-        const json = (await response.json()) as NotionQueryResponse;
+    const mgmtGroupsData = mgmtGroupsRaw || [];
+    const teamsData = teamsRaw || [];
+    const teamMgmtGroups = teamMgmtGroupsRaw || [];
 
-        // If we were rate-limited or got an error, prefer stale cache if available.
-        if (!response.ok) {
-          if (cache?.data) {
-            console.warn(
-              `Using stale cache for ${cacheKey} database due to Notion response ${response.status}.`,
-            );
-            return cache.data;
-          }
-          return { results: [] };
-        }
+    // Build mgmt groups with their team IDs
+    const mgmtGroups = mgmtGroupsData.map(g => {
+      const teamIds = teamMgmtGroups
+        .filter(tmg => tmg.mgmt_group_id === g.id)
+        .map(tmg => tmg.team_id);
+      return {
+        id: g.id,
+        name: g.name,
+        teamIds,
+        groupLeadId: g.lead_user_id,
+      };
+    });
 
-        const nextCache = { fetchedAt: Date.now(), data: json };
-        if (cacheKey === 'mgmt') mgmtGroupsCache = nextCache;
-        else teamsCache = nextCache;
+    // Build teams list
+    const teams = teamsData.map(t => ({
+      id: t.id,
+      name: t.name,
+      groupLeadId: t.lead_user_id,
+    }));
 
-        return json;
-      } catch (e) {
-        console.error(`Failed to fetch Notion ${cacheKey} DB. Falling back to cache.`, e);
-        if (cache?.data) return cache.data;
-        return { results: [] };
-      }
-    };
-
-    // Fetch sequentially + cache to reduce rate limit pressure
-    const mgmtGroupsData = await getNotionDb('mgmt', MGMT_DATABASE_ID);
-
-    // Small delay between requests to help with rate limiting
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const teamsData = await getNotionDb('teams', TEAMS_DATABASE_ID);
-
-    const mgmtGroups: any[] = [];
-    const teams: any[] = [];
+    // Determine access level
     let accessLevel = 'none';
 
-    for (const group of mgmtGroupsData.results || []) {
-      const groupProps = group.properties;
-      const groupName = groupProps['Name']?.title?.[0]?.plain_text || 'Unnamed Group';
-      const groupLeadId = groupProps['Group Lead']?.relation?.[0]?.id;
-      const teamIds = (groupProps['Teams']?.relation || []).map((t: any) => t.id);
-
-      mgmtGroups.push({ id: group.id, name: groupName, teamIds, groupLeadId });
-
-      if (groupLeadId === userNotionPageId) {
-        accessLevel = 'mgmt_group_lead';
-      }
+    // Check if user is a mgmt group lead
+    const isMgmtGroupLead = mgmtGroupsData.some(g => g.lead_user_id === user.id);
+    if (isMgmtGroupLead) {
+      accessLevel = 'mgmt_group_lead';
     }
 
-    const teamLeadToTeamMap = new Map<string, string>();
-    
-    for (const team of teamsData.results || []) {
-      const teamProps = team.properties;
-      const teamName = teamProps['Name']?.title?.[0]?.plain_text || 'Unnamed Team';
-      const teamLeadId = teamProps['Group Lead']?.relation?.[0]?.id;
-
-      teams.push({ id: team.id, name: teamName, groupLeadId: teamLeadId });
-
-      if (teamLeadId) teamLeadToTeamMap.set(teamLeadId, teamName);
-
-      if (teamLeadId === userNotionPageId && accessLevel === 'none') {
-        accessLevel = 'team_lead';
-      }
+    // Check if user is a team lead
+    const isTeamLead = teamsData.some(t => t.lead_user_id === user.id);
+    if (isTeamLead && accessLevel === 'none') {
+      accessLevel = 'team_lead';
     }
 
-    if (isAreaDirector) accessLevel = 'area_director';
+    // Area director overrides everything
+    if (isAreaDirector) {
+      accessLevel = 'area_director';
+    }
 
-    const getRepTeamInfo = (repNotionId: string | null, repTeamLeaderName?: string | null) => {
-      if (repNotionId) {
-        const repAsLeadTeam = teams.find(t => t.groupLeadId === repNotionId);
-        if (repAsLeadTeam) {
-          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(repAsLeadTeam.id));
-          return { isTeamLead: true, teamId: repAsLeadTeam.id, teamName: repAsLeadTeam.name, mgmtGroupId: mgmtGroup?.id || null, mgmtGroupName: mgmtGroup?.name || null };
-        }
-      }
+    // Helper to get team and mgmt group info for a rep
+    const getRepTeamInfo = (teamId: string | null, mgmtGroupId: string | null) => {
+      const team = teamId ? teams.find(t => t.id === teamId) : null;
+      const mgmtGroup = mgmtGroupId 
+        ? mgmtGroups.find(g => g.id === mgmtGroupId)
+        : team 
+          ? mgmtGroups.find(g => g.teamIds.includes(team.id))
+          : null;
+
+      return {
+        teamId: team?.id || null,
+        teamName: team?.name || null,
+        mgmtGroupId: mgmtGroup?.id || null,
+        mgmtGroupName: mgmtGroup?.name || null,
+      };
+    };
+
+    // Build rep data for response
+    const buildRepData = (rep: any) => {
+      const teamInfo = getRepTeamInfo(rep.team_id, rep.mgmt_group_id);
+      const isRepTeamLead = teams.some(t => t.groupLeadId === rep.user_id);
       
-      if (repTeamLeaderName) {
-        for (const team of teams) {
-          if (team.name && repTeamLeaderName && 
-              (team.name.toLowerCase().includes(repTeamLeaderName.toLowerCase()) ||
-               repTeamLeaderName.toLowerCase().includes(team.name.toLowerCase().replace('team ', '')))) {
-            const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
-            return { isTeamLead: false, teamId: team.id, teamName: team.name, mgmtGroupId: mgmtGroup?.id || null, mgmtGroupName: mgmtGroup?.name || null };
-          }
-        }
-      }
-      return { isTeamLead: false, teamId: null, teamName: null, mgmtGroupId: null, mgmtGroupName: null };
+      return {
+        id: rep.id,
+        userId: rep.user_id || null,
+        name: rep.name,
+        notionPageId: rep.notion_page_id,
+        phone: rep.phone || null,
+        year: rep.year || null,
+        stage: rep.stage || null,
+        isTeamLead: isRepTeamLead,
+        teamId: teamInfo.teamId,
+        teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null),
+        mgmtGroupId: teamInfo.mgmtGroupId,
+        mgmtGroupName: teamInfo.mgmtGroupName,
+        isGhostRep: !rep.user_id,
+        rampPhase1Complete: rep.ramp_phase_1_complete || false,
+      };
     };
 
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
-    // Get ALL reps including ghost reps (user_id may be null)
-    const buildRepData = (rep: any, teamInfo: any) => ({
-      id: rep.id, // Supabase UUID for the rep record
-      userId: rep.user_id || null, // null for ghost reps
-      name: rep.name,
-      notionPageId: rep.notion_page_id,
-      phone: rep.phone || null,
-      year: rep.year || null,
-      stage: rep.stage || null,
-      isTeamLead: teamInfo.isTeamLead,
-      teamId: teamInfo.teamId,
-      teamName: teamInfo.teamName || (rep.team_leader ? `Team ${rep.team_leader}` : null),
-      mgmtGroupId: teamInfo.mgmtGroupId,
-      mgmtGroupName: teamInfo.mgmtGroupName,
-      isGhostRep: !rep.user_id, // Flag to identify ghost reps
-      rampPhase1Complete: rep.ramp_phase_1_complete || false,
-    });
-
     if (accessLevel === 'area_director') {
-      // Area directors see ALL reps including ghost reps
+      // Area directors see ALL reps
       const { data: allReps } = await supabase
         .from('reps')
-        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
+        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete, team_id, mgmt_group_id');
+      
       if (allReps) {
         accessibleUserIds = allReps.filter(r => r.user_id).map(r => r.user_id!);
-        accessibleReps = allReps.map(r => {
-          const teamInfo = getRepTeamInfo(r.notion_page_id, r.team_leader);
-          return buildRepData(r, teamInfo);
-        });
+        accessibleReps = allReps.map(buildRepData);
       }
+      console.log(`Area director has access to ${accessibleReps.length} reps`);
+
     } else if (accessLevel === 'mgmt_group_lead') {
-      const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === userNotionPageId);
+      // Get all mgmt groups this user leads
+      const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === user.id);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       
-      const { data: allReps } = await supabase
+      // Fetch reps that belong to accessible teams
+      const { data: teamReps } = await supabase
         .from('reps')
-        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete')
-        .not('notion_page_id', 'is', null);
-      if (allReps) {
-        for (const rep of allReps) {
-          const teamInfo = getRepTeamInfo(rep.notion_page_id, rep.team_leader);
-          const isTeamLeadOfAccessibleTeam = accessibleTeamIds.some(teamId => {
-            const team = teams.find(t => t.id === teamId);
-            return team?.groupLeadId === rep.notion_page_id;
-          });
-          const belongsToAccessibleTeam = teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId);
-          
-          if (isTeamLeadOfAccessibleTeam || belongsToAccessibleTeam) {
-            if (rep.user_id) accessibleUserIds.push(rep.user_id);
-            accessibleReps.push(buildRepData(rep, teamInfo));
-          }
-        }
+        .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete, team_id, mgmt_group_id')
+        .in('team_id', accessibleTeamIds.length > 0 ? accessibleTeamIds : ['00000000-0000-0000-0000-000000000000']);
+
+      if (teamReps) {
+        accessibleUserIds = teamReps.filter(r => r.user_id).map(r => r.user_id!);
+        accessibleReps = teamReps.map(buildRepData);
       }
       console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
+
     } else if (accessLevel === 'team_lead') {
-      const userTeam = teams.find(t => t.groupLeadId === userNotionPageId);
-      if (userTeam) {
-        const { data: allReps } = await supabase
+      // Get the team(s) this user leads
+      const userTeams = teams.filter(t => t.groupLeadId === user.id);
+      const userTeamIds = userTeams.map(t => t.id);
+
+      if (userTeamIds.length > 0) {
+        const { data: teamReps } = await supabase
           .from('reps')
-          .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
-        if (allReps) {
-          for (const rep of allReps) {
-            const teamInfo = getRepTeamInfo(rep.notion_page_id, rep.team_leader);
-            if (teamInfo.teamId === userTeam.id) {
-              if (rep.user_id) accessibleUserIds.push(rep.user_id);
-              accessibleReps.push(buildRepData(rep, teamInfo));
-            }
-          }
+          .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete, team_id, mgmt_group_id')
+          .in('team_id', userTeamIds);
+
+        if (teamReps) {
+          accessibleUserIds = teamReps.filter(r => r.user_id).map(r => r.user_id!);
+          accessibleReps = teamReps.map(buildRepData);
         }
-        console.log(`Team lead (${userTeam.name}) has access to ${accessibleReps.length} reps on their team`);
+        console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps`);
       }
     }
 
-    return new Response(JSON.stringify({ accessLevel, mgmtGroups, teams, accessibleUserIds, accessibleReps }), {
+    return new Response(JSON.stringify({ 
+      accessLevel, 
+      mgmtGroups, 
+      teams, 
+      accessibleUserIds, 
+      accessibleReps 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
