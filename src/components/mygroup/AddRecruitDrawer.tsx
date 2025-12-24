@@ -789,7 +789,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                   <SelectContent modal={false}>
                     {filteredRecruiters?.map((recruiter) => (
                       <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
-                        {recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}
+                        <div className="flex flex-col items-start">
+                          <span>{recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}</span>
+                          {recruiter.teamName && (
+                            <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

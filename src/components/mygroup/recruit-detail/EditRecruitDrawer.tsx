@@ -52,6 +52,20 @@ const formatPhoneNumber = (value: string) => {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 };
 
+// All 50 US States
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+  'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
+];
+
 export const EditRecruitDrawer = ({ 
   open, 
   onOpenChange, 
@@ -75,6 +89,23 @@ export const EditRecruitDrawer = ({
   // Combobox states
   const [locationOpen, setLocationOpen] = useState(false);
   const [recruiterOpen, setRecruiterOpen] = useState(false);
+
+  // Fetch the actual recruit data from the recruits table to get all fields
+  const { data: recruitDetails, isLoading: recruitLoading } = useQuery({
+    queryKey: ['recruit-details-for-edit', recruit.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recruits')
+        .select('*')
+        .eq('id', recruit.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!recruit.id,
+    staleTime: 0, // Always fetch fresh data when opening
+  });
 
   // Fetch property options from Supabase
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
@@ -119,26 +150,24 @@ export const EditRecruitDrawer = ({
     return teamAccess.mgmtGroups || [];
   }, [teamAccess]);
 
+  // Get all recruiters with team info
+  const allRecruiters = useMemo(() => {
+    if (!teamAccess?.accessibleReps) return [];
+    return teamAccess.accessibleReps.filter(rep => rep.name);
+  }, [teamAccess?.accessibleReps]);
+
   // Filter recruiters based on selected team - only show reps that belong to the selected team
   const filteredRecruiters = useMemo(() => {
-    if (!teamAccess?.accessibleReps) return [];
-    
-    // If no team is selected, show all accessible reps
-    if (!selectedTeamId) {
-      return teamAccess.accessibleReps.filter(rep => rep.name);
-    }
+    if (!selectedTeamId) return allRecruiters;
+    return allRecruiters.filter(rep => rep.teamId === selectedTeamId);
+  }, [allRecruiters, selectedTeamId]);
 
-    // Find the team to get team name for filtering
-    const selectedTeam = accessibleTeams.find(t => t.id === selectedTeamId);
-    if (!selectedTeam) {
-      return teamAccess.accessibleReps.filter(rep => rep.name);
-    }
-
-    // Filter reps that belong to the selected team
-    return teamAccess.accessibleReps.filter(rep => 
-      rep.name && rep.teamName === selectedTeam.name
-    );
-  }, [teamAccess?.accessibleReps, selectedTeamId, accessibleTeams]);
+  // Combined location options: all 50 states + any custom ones from existing data
+  const locationOptions = useMemo(() => {
+    const existingLocations = notionOptions?.locationOptions || [];
+    const combined = new Set([...US_STATES, ...existingLocations]);
+    return Array.from(combined).sort();
+  }, [notionOptions?.locationOptions]);
 
   // Auto-select MGMT group when team changes
   useEffect(() => {
@@ -150,9 +179,20 @@ export const EditRecruitDrawer = ({
     }
   }, [selectedTeamId, teamMgmtMapping]);
 
-  // Initialize form when drawer opens
+  // Initialize form when drawer opens - use data from recruits table
   useEffect(() => {
-    if (open && recruit) {
+    if (open && recruitDetails) {
+      setName(recruitDetails.name || '');
+      setPhone(recruitDetails.phone ? formatPhoneNumber(recruitDetails.phone.replace(/^\+1/, '')) : '');
+      setEmail(recruitDetails.email || '');
+      setStage(recruitDetails.stage || '');
+      setLocation(recruitDetails.location || '');
+      setRecruitmentSource(recruitDetails.recruitment_source || '');
+      setRecruiterUserId(recruitDetails.recruiter_user_id || '');
+      setSelectedTeamId(recruitDetails.team_id || '');
+      setSelectedMgmtId(recruitDetails.mgmt_group_id || '');
+    } else if (open && recruit && !recruitDetails) {
+      // Fallback to the Recruit object if recruits table data isn't loaded yet
       setName(recruit.name || '');
       setPhone(recruit.phone ? formatPhoneNumber(recruit.phone.replace(/^\+1/, '')) : '');
       setEmail(recruit.email || '');
@@ -163,7 +203,7 @@ export const EditRecruitDrawer = ({
       setSelectedTeamId(recruit.teamId || '');
       setSelectedMgmtId(recruit.mgmtGroupId || '');
     }
-  }, [open, recruit]);
+  }, [open, recruit, recruitDetails]);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -200,7 +240,7 @@ export const EditRecruitDrawer = ({
     const cleanPhone = phone.replace(/\D/g, '');
     
     // Find the recruiter name from the user ID
-    const selectedRecruiter = filteredRecruiters.find(r => r.userId === recruiterUserId);
+    const selectedRecruiter = allRecruiters.find(r => r.userId === recruiterUserId);
     
     updateMutation.mutate({
       name: name.trim(),
@@ -220,19 +260,14 @@ export const EditRecruitDrawer = ({
     setPhone(formatPhoneNumber(e.target.value));
   };
 
-  // Sort options alphabetically
-  const sortedLocationOptions = useMemo(() => 
-    [...(notionOptions?.locationOptions || [])].sort(),
-    [notionOptions?.locationOptions]
-  );
+  // Get the selected recruiter's display (name + team)
+  const selectedRecruiterDisplay = useMemo(() => {
+    const recruiter = allRecruiters.find(r => r.userId === recruiterUserId);
+    if (!recruiter) return '';
+    return recruiter.teamName ? `${recruiter.name} (${recruiter.teamName})` : recruiter.name;
+  }, [allRecruiters, recruiterUserId]);
 
-  // Get the selected recruiter's name for display
-  const selectedRecruiterName = useMemo(() => {
-    const recruiter = filteredRecruiters.find(r => r.userId === recruiterUserId);
-    return recruiter?.name || '';
-  }, [filteredRecruiters, recruiterUserId]);
-
-  if (optionsLoading) {
+  if (optionsLoading || recruitLoading) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent>
@@ -320,7 +355,7 @@ export const EditRecruitDrawer = ({
                   <CommandList>
                     <CommandEmpty>No location found.</CommandEmpty>
                     <CommandGroup>
-                      {sortedLocationOptions.map((loc) => (
+                      {locationOptions.map((loc) => (
                         <CommandItem
                           key={loc}
                           value={loc}
@@ -414,7 +449,7 @@ export const EditRecruitDrawer = ({
                   aria-expanded={recruiterOpen}
                   className="w-full justify-between mt-1 font-normal"
                 >
-                  {selectedRecruiterName || "Select recruiter..."}
+                  {selectedRecruiterDisplay || "Select recruiter..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -422,23 +457,24 @@ export const EditRecruitDrawer = ({
                 <Command>
                   <CommandInput placeholder="Search recruiters..." />
                   <CommandList>
-                    <CommandEmpty>
-                      {selectedTeamId 
-                        ? "No recruiters found in this team." 
-                        : "Select a team first to see recruiters."}
-                    </CommandEmpty>
+                    <CommandEmpty>No recruiters found.</CommandEmpty>
                     <CommandGroup>
                       {filteredRecruiters.map((rep) => (
                         <CommandItem
                           key={rep.userId || rep.notionPageId}
-                          value={rep.name}
+                          value={`${rep.name} ${rep.teamName || ''}`}
                           onSelect={() => {
                             setRecruiterUserId(rep.userId || '');
                             setRecruiterOpen(false);
                           }}
                         >
                           <Check className={cn("mr-2 h-4 w-4", recruiterUserId === rep.userId ? "opacity-100" : "opacity-0")} />
-                          {rep.name}
+                          <div className="flex flex-col">
+                            <span>{rep.name}</span>
+                            {rep.teamName && (
+                              <span className="text-xs text-muted-foreground">{rep.teamName}</span>
+                            )}
+                          </div>
                         </CommandItem>
                       ))}
                     </CommandGroup>
