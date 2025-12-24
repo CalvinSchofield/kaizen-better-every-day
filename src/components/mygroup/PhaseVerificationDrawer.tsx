@@ -65,7 +65,6 @@ interface PhaseVerificationDrawerProps {
   onOpenChange: (open: boolean) => void;
   recruitName: string;
   phase: number;
-  watchedVideos: string[];
   isSubmitting: boolean;
   hasError?: boolean;
   onConfirm: () => void;
@@ -76,7 +75,6 @@ export const PhaseVerificationDrawer = ({
   onOpenChange,
   recruitName,
   phase,
-  watchedVideos,
   isSubmitting,
   hasError = false,
   onConfirm,
@@ -84,11 +82,6 @@ export const PhaseVerificationDrawer = ({
   const phaseInfo = PHASE_ITEMS[phase];
 
   if (!phaseInfo) return null;
-
-  // Check which self-service items are completed
-  const completedSelfService = phaseInfo.selfServiceItems.filter(item => 
-    watchedVideos.includes(item.id)
-  );
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -110,34 +103,25 @@ export const PhaseVerificationDrawer = ({
 
           {/* Phase Overview */}
           <div className="space-y-4">
-            {/* Self-Service Items (Completed by Rep) */}
-            <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
+            {/* Self-Service Items (Reference for Leader) */}
+            <div className="bg-muted/50 rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-3">
-                <Check className="w-4 h-4 text-emerald-600" />
-                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                  Rep completed on their own
+                <Check className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm font-semibold text-muted-foreground">
+                  Rep should have completed
                 </p>
               </div>
               <div className="space-y-2">
-                {phaseInfo.selfServiceItems.map((item, idx) => {
-                  const isCompleted = watchedVideos.includes(item.id);
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                        isCompleted ? 'bg-emerald-500' : 'bg-muted'
-                      }`}>
-                        {isCompleted ? (
-                          <Check className="h-3 w-3 text-white" />
-                        ) : (
-                          <Circle className="h-3 w-3 text-muted-foreground" />
-                        )}
-                      </div>
-                      <span className={`text-sm ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {item.label}
-                      </span>
+                {phaseInfo.selfServiceItems.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                      <Circle className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  );
-                })}
+                    <span className="text-sm text-muted-foreground">
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 

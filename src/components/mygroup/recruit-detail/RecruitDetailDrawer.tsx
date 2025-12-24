@@ -514,9 +514,7 @@ export const RecruitDetailDrawer = ({
 
       if (error) throw error;
 
-      toast.success(`Phase ${pendingPhaseVerification.phase} verified!`, {
-        description: "Notion and database updated"
-      });
+      toast.success(`Phase ${pendingPhaseVerification.phase} verified!`);
 
       setPhaseVerificationOpen(false);
       setPendingPhaseVerification(null);
@@ -1141,7 +1139,6 @@ export const RecruitDetailDrawer = ({
           }}
           recruitName={recruit.name}
           phase={pendingPhaseVerification.phase}
-          watchedVideos={Array.isArray(recruitRepData.watched_videos) ? recruitRepData.watched_videos as string[] : []}
           isSubmitting={isPhaseVerifying}
           hasError={hasPhaseError}
           onConfirm={handleConfirmPhaseVerification}
