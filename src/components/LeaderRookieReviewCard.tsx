@@ -236,9 +236,7 @@ export const LeaderRookieReviewCard = () => {
 
       if (error) throw error;
 
-      toast.success(`Phase ${selectedRookie.currentPhase} verified for ${selectedRookie.name}!`, {
-        description: "Notion and database updated"
-      });
+      toast.success(`Phase ${selectedRookie.currentPhase} verified for ${selectedRookie.name}!`);
 
       setRookiesReady(prev => prev.filter(r => r.notionPageId !== selectedRookie.notionPageId));
       setSelectedRookie(null);
