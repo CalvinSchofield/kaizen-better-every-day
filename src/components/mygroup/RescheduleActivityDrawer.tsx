@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Drawer, 
   DrawerContent, 
@@ -38,9 +39,17 @@ export const RescheduleActivityDrawer = ({
   onComplete,
 }: RescheduleActivityDrawerProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
+  const [taskText, setTaskText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
   const updateActivityMutation = useUpdateRecruitActivity();
+
+  // Reset task text when activity changes
+  useEffect(() => {
+    if (activity) {
+      setTaskText(activity.next_action || activity.notes || "Follow-up");
+    }
+  }, [activity]);
 
   const quickDates = [
     { label: 'Tomorrow', date: addDays(new Date(), 1) },
@@ -60,12 +69,14 @@ export const RescheduleActivityDrawer = ({
       await updateActivityMutation.mutateAsync({
         activityId: activity.id,
         nextActionDue: dateOnlyString,
+        nextAction: taskText.trim() || undefined,
       });
       
       toast.success(`Rescheduled for ${format(selectedDate, 'MMM d')}`);
       onOpenChange(false);
       onComplete?.();
       setSelectedDate(addDays(new Date(), 1));
+      setTaskText("");
     } catch (error) {
       console.error('Failed to reschedule:', error);
       toast.error('Failed to reschedule');
@@ -86,11 +97,17 @@ export const RescheduleActivityDrawer = ({
         </DrawerHeader>
         
         <div className="p-4 space-y-4">
-          {/* Show the task being rescheduled */}
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-sm font-medium">
-              {activity.next_action || activity.notes || "Follow-up"}
-            </p>
+          {/* Editable task text */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">
+              Task
+            </label>
+            <Textarea
+              value={taskText}
+              onChange={(e) => setTaskText(e.target.value)}
+              placeholder="What needs to be done?"
+              className="min-h-[60px] resize-none"
+            />
           </div>
 
           {/* Quick date buttons */}
