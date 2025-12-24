@@ -267,11 +267,11 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
       const { data } = await supabase
         .from('reps')
-        .select('name, team_leader, notion_page_id')
+        .select('name, team_leader, notion_page_id, user_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      return data;
+      return { ...data, authUserId: user.id };
     },
   });
 
@@ -298,12 +298,22 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   });
 
   // Get all recruiters from accessible reps - filtered to active Signed+ stages only
+  // Always include current user if they're a leader (even if their stage doesn't match)
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
-    return teamAccess.accessibleReps
+    
+    const currentUserId = currentRep?.authUserId;
+    
+    const filtered = teamAccess.accessibleReps
       .filter(r => {
         if (!r.name) return false;
         if (!r.notionPageId) return false; // Need notionPageId to save
+        
+        // Always include current user regardless of stage
+        if (currentUserId && r.userId === currentUserId) {
+          return true;
+        }
+        
         const stageLower = (r.stage || '').toLowerCase();
         
         // Exclude exit/inactive stages first
@@ -320,7 +330,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         );
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [teamAccess?.accessibleReps]);
+    
+    return filtered;
+  }, [teamAccess?.accessibleReps, currentRep?.authUserId]);
 
   // Filter recruiters based on selected team
   const filteredRecruiters = useMemo(() => {
@@ -363,17 +375,21 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
           setSelectedTeam(suggesterData.teamId);
         }
       }
-    } else if (open && isLeader && currentRep?.notion_page_id && !selectedRecruiter) {
-      // Default to current user when no prefill
-      setSelectedRecruiter(currentRep.notion_page_id);
-      // Find the current user in allRecruiters by matching their notion_page_id
-      // Use a slight delay to ensure allRecruiters is populated
-      const currentUserData = allRecruiters.find(r => r.notionPageId === currentRep.notion_page_id);
-      if (currentUserData?.teamId) {
-        setSelectedTeam(currentUserData.teamId);
+    } else if (open && isLeader && !suggestionPrefill && !selectedRecruiter) {
+      // Default to current user when no prefill - find by userId first, then notionPageId
+      const currentUserId = currentRep?.authUserId;
+      const currentUserData = currentUserId 
+        ? allRecruiters.find(r => r.userId === currentUserId)
+        : (currentRep?.notion_page_id ? allRecruiters.find(r => r.notionPageId === currentRep.notion_page_id) : null);
+      
+      if (currentUserData?.notionPageId) {
+        setSelectedRecruiter(currentUserData.notionPageId);
+        if (currentUserData.teamId) {
+          setSelectedTeam(currentUserData.teamId);
+        }
       }
     }
-  }, [open, suggestionPrefill, isLeader, currentRep?.notion_page_id, allRecruiters]);
+  }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters, selectedRecruiter]);
 
   // When team changes, clear recruiter if they're not on that team
   useEffect(() => {
@@ -381,15 +397,18 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       const recruiterData = allRecruiters.find(r => r.notionPageId === selectedRecruiter);
       if (recruiterData && recruiterData.teamId !== selectedTeam) {
         // Reset to current user if they're on the new team, otherwise clear
-        const currentUserData = allRecruiters.find(r => r.notionPageId === currentRep?.notion_page_id);
-        if (currentUserData?.teamId === selectedTeam) {
-          setSelectedRecruiter(currentRep?.notion_page_id || '');
+        const currentUserId = currentRep?.authUserId;
+        const currentUserData = currentUserId 
+          ? allRecruiters.find(r => r.userId === currentUserId)
+          : null;
+        if (currentUserData?.teamId === selectedTeam && currentUserData?.notionPageId) {
+          setSelectedRecruiter(currentUserData.notionPageId);
         } else {
           setSelectedRecruiter('');
         }
       }
     }
-  }, [selectedTeam, allRecruiters, currentRep?.notion_page_id]);
+  }, [selectedTeam, allRecruiters, currentRep?.authUserId]);
 
   // When recruiter changes, auto-set their team
   const handleRecruiterChange = (recruiterId: string) => {
