@@ -302,11 +302,19 @@ Deno.serve(async (req) => {
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
+    // Get current user's notion_page_id to exclude self from accessible reps
+    const currentUserNotionId = repData.notion_page_id;
+
     if (accessLevel === 'area_director') {
-      // Area directors see ALL reps
-      accessibleUserIds = repsData.filter(r => r.user_id).map(r => r.user_id!);
-      accessibleReps = repsData.map(buildRepData);
-      console.log(`Area director has access to ${accessibleReps.length} reps`);
+      // Area directors see ALL reps except themselves
+      for (const rep of repsData) {
+        // Skip the current user
+        if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+        
+        if (rep.user_id) accessibleUserIds.push(rep.user_id);
+        accessibleReps.push(buildRepData(rep));
+      }
+      console.log(`Area director has access to ${accessibleReps.length} reps (excluding self)`);
 
     } else if (accessLevel === 'mgmt_group_lead') {
       // Get all mgmt groups this user leads
@@ -314,13 +322,16 @@ Deno.serve(async (req) => {
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       
       for (const rep of repsData) {
+        // Skip the current user
+        if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+        
         const teamInfo = getRepTeamInfo(rep);
         if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
           if (rep.user_id) accessibleUserIds.push(rep.user_id);
           accessibleReps.push(buildRepData(rep));
         }
       }
-      console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
+      console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps (excluding self)`);
 
     } else if (accessLevel === 'team_lead') {
       // Get the team(s) this user leads
@@ -329,13 +340,16 @@ Deno.serve(async (req) => {
 
       if (userTeamIds.length > 0) {
         for (const rep of repsData) {
+          // Skip the current user
+          if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+          
           const teamInfo = getRepTeamInfo(rep);
           if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
             if (rep.user_id) accessibleUserIds.push(rep.user_id);
             accessibleReps.push(buildRepData(rep));
           }
         }
-        console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps`);
+        console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps (excluding self)`);
       }
     }
 
