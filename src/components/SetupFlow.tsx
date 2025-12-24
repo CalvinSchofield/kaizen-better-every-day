@@ -102,7 +102,7 @@ const SetupFlow = () => {
 
         // Blitzes
         (async () => {
-          const { data: blitzData } = await supabase.functions.invoke('fetch-preseason-blitzes');
+          const { data: blitzData } = await supabase.functions.invoke('fetch-blitzes');
           if (blitzData?.blitzes) {
             localStorage.setItem('blitzes-cache', JSON.stringify({
               data: blitzData.blitzes,

@@ -80,7 +80,7 @@ export const useBlitzes = () => {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke('fetch-preseason-blitzes');
+      const { data, error: fetchError } = await supabase.functions.invoke('fetch-blitzes');
       
       if (fetchError) throw fetchError;
       

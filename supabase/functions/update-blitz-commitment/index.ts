@@ -5,46 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function fetchNotionWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries = 5
-): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    
-    if (response.status === 429) {
-      if (attempt === maxRetries) {
-        throw new Error(`Rate limited after ${maxRetries + 1} attempts`);
-      }
-      
-      // Get retry-after header or use exponential backoff
-      const retryAfter = response.headers.get('retry-after');
-      const waitTime = retryAfter 
-        ? parseInt(retryAfter) * 1000 
-        : Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 32000);
-      
-      console.log(`Rate limited (429). Retrying in ${waitTime}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      continue;
-    }
-    
-    return response;
-  }
-  
-  throw new Error(`Failed after ${maxRetries + 1} attempts`);
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const notionApiKey = Deno.env.get("NOTION_API_KEY");
-    if (!notionApiKey) {
-      throw new Error("NOTION_API_KEY not configured");
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { repNotionPageId, blitzPageIds } = await req.json();
 
@@ -57,7 +26,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Updating blitz commitments for rep ${repNotionPageId}`);
-    console.log(`Raw blitz commitments received:`, blitzPageIds);
+    console.log(`Blitz IDs received:`, blitzPageIds);
 
     // Normalize blitzPageIds - extract IDs if objects were passed
     const normalizedIds: string[] = blitzPageIds.map((item: string | { id: string }) => {
@@ -68,39 +37,26 @@ Deno.serve(async (req) => {
 
     console.log(`Normalized blitz IDs:`, normalizedIds);
 
-    // Update the rep's Notion page with the new blitz commitments
-    const notionResponse = await fetchNotionWithRetry(
-      `https://api.notion.com/v1/pages/${repNotionPageId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${notionApiKey}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          properties: {
-            "Preseason trips": {
-              relation: normalizedIds.map(id => ({ id }))
-            }
-          }
-        }),
-      }
-    );
+    // Update the reps table with the committed blitzes
+    const { error: updateError } = await supabase
+      .from('reps')
+      .update({ 
+        committed_blitzes: normalizedIds,
+        updated_at: new Date().toISOString()
+      })
+      .eq('notion_page_id', repNotionPageId);
 
-    if (!notionResponse.ok) {
-      const errorText = await notionResponse.text();
-      console.error("Notion API error:", errorText);
-      throw new Error(`Notion API error: ${notionResponse.status} - ${errorText}`);
+    if (updateError) {
+      console.error("Error updating reps table:", updateError);
+      throw updateError;
     }
 
-    const result = await notionResponse.json();
-    console.log("Successfully updated blitz commitments in Notion");
+    console.log("Successfully updated blitz commitments in Supabase");
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Blitz commitments updated in Notion"
+        message: "Blitz commitments updated"
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

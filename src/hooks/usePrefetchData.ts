@@ -93,20 +93,17 @@ export const usePrefetchData = (userId: string | undefined) => {
         staleTime: 5 * 60 * 1000, // 5 minutes - longer cache to reduce calls
       });
 
-      // Delay before next Notion call to stay under rate limit
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Second Notion call: blitzes for preseason
+      // Blitzes data
       queryClient.prefetchQuery({
-        queryKey: ['preseason-blitzes'],
+        queryKey: ['blitzes'],
         queryFn: async () => {
-          const { data } = await supabase.functions.invoke('fetch-preseason-blitzes');
+          const { data } = await supabase.functions.invoke('fetch-blitzes');
           return data;
         },
         staleTime: 5 * 60 * 1000, // 5 minutes
       });
 
-      console.log('[Prefetch] Notion data prefetch initiated (staggered)');
+      console.log('[Prefetch] Data prefetch initiated');
     };
 
     prefetchAll();
