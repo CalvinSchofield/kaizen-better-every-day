@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ChevronLeft, FileText, X } from "lucide-react";
+import { ChevronLeft, FileText, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PitchGuide } from "./PitchGuide";
 import { paperworkSections } from "./paperworkData";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 interface PaperworkGuideProps {
   onBack?: () => void;
@@ -50,26 +51,73 @@ export const PaperworkGuide = ({ onBack }: PaperworkGuideProps) => {
       {/* PSA Preview Modal/Fullscreen */}
       {showPSAPreview && (
         <div className="fixed inset-0 z-50 bg-background">
-          {/* Header */}
-          <div className="sticky top-0 bg-background border-b px-4 py-3 flex items-center justify-between">
-            <h2 className="font-semibold">PSA Document</h2>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setShowPSAPreview(false)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          
-          {/* PDF Viewer */}
-          <div className="h-[calc(100vh-57px)]">
-            <iframe
-              src="/documents/PSA.pdf"
-              className="w-full h-full"
-              title="PSA Document Preview"
-            />
-          </div>
+          <TransformWrapper
+            initialScale={1}
+            minScale={0.5}
+            maxScale={4}
+            centerOnInit
+          >
+            {({ zoomIn, zoomOut, resetTransform }) => (
+              <>
+                {/* Header with zoom controls */}
+                <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center justify-between">
+                  <h2 className="font-semibold">PSA Document</h2>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => zoomOut()}
+                      className="h-9 w-9"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => resetTransform()}
+                      className="h-9 w-9"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => zoomIn()}
+                      className="h-9 w-9"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setShowPSAPreview(false)}
+                      className="h-9 w-9 ml-2"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* PDF Viewer with pinch-to-zoom */}
+                <TransformComponent
+                  wrapperStyle={{
+                    width: "100%",
+                    height: "calc(100vh - 57px)",
+                  }}
+                  contentStyle={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  <iframe
+                    src="/documents/PSA.pdf"
+                    className="w-full h-full"
+                    title="PSA Document Preview"
+                  />
+                </TransformComponent>
+              </>
+            )}
+          </TransformWrapper>
         </div>
       )}
     </div>
