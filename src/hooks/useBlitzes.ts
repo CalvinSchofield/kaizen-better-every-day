@@ -65,20 +65,22 @@ export const useBlitzes = () => {
   const [error, setError] = useState<Error | null>(null);
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [hasLoadedCache, setHasLoadedCache] = useState(false);
 
-  // Load from cache immediately for instant offline access
+  // Load from cache immediately for instant display - stale-while-revalidate
   useEffect(() => {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
         const parsed: CachedBlitzes = JSON.parse(cached);
-        const isRecent = Date.now() - parsed.timestamp < CACHE_DURATION;
-        if (isRecent && parsed.data?.length > 0) {
+        // Use cache even if older - we'll refresh in background
+        if (parsed.data?.length > 0) {
           const { future, past } = parseBlitzesFromCache(parsed);
           setAllBlitzes(future);
           setPastBlitzes(past);
           setLastUpdated(new Date(parsed.timestamp));
-          setLoading(false);
+          setLoading(false); // Show cached data immediately
+          setHasLoadedCache(true);
         }
       } catch (e) {
         console.error('Failed to parse cached blitzes:', e);
@@ -86,8 +88,11 @@ export const useBlitzes = () => {
     }
   }, []);
 
-  const fetchBlitzes = useCallback(async () => {
-    setLoading(true);
+  const fetchBlitzes = useCallback(async (isBackgroundRefresh = false) => {
+    // Only show loading spinner if we don't have any cached data
+    if (!isBackgroundRefresh && !hasLoadedCache) {
+      setLoading(true);
+    }
     setError(null);
     
     try {
@@ -109,35 +114,41 @@ export const useBlitzes = () => {
       }
     } catch (err) {
       console.error('Error fetching blitzes:', err);
-      setError(err as Error);
+      // Only set error if we don't have cached data to show
+      if (!hasLoadedCache) {
+        setError(err as Error);
+      }
       
-      // Try to use cached data as fallback
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        try {
-          const parsed: CachedBlitzes = JSON.parse(cached);
-          if (parsed.data?.length > 0) {
-            const { future, past } = parseBlitzesFromCache(parsed);
-            setAllBlitzes(future);
-            setPastBlitzes(past);
-            setIsUsingCache(true);
-            setLastUpdated(new Date(parsed.timestamp));
-            toast.warning("Using cached data", {
-              description: "Couldn't refresh blitzes. Showing last known data.",
-            });
+      // Try to use cached data as fallback (only show toast if we didn't already have cache)
+      if (!hasLoadedCache) {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed: CachedBlitzes = JSON.parse(cached);
+            if (parsed.data?.length > 0) {
+              const { future, past } = parseBlitzesFromCache(parsed);
+              setAllBlitzes(future);
+              setPastBlitzes(past);
+              setIsUsingCache(true);
+              setLastUpdated(new Date(parsed.timestamp));
+              toast.warning("Using cached data", {
+                description: "Couldn't refresh blitzes. Showing last known data.",
+              });
+            }
+          } catch (e) {
+            console.error('Failed to use cached blitzes:', e);
           }
-        } catch (e) {
-          console.error('Failed to use cached blitzes:', e);
         }
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasLoadedCache]);
 
+  // Initial fetch - background refresh if we already have cached data
   useEffect(() => {
-    fetchBlitzes();
-  }, [fetchBlitzes]);
+    fetchBlitzes(hasLoadedCache);
+  }, [hasLoadedCache]); // Only run once when cache status is known
 
   const allBlitzesIncludingPast = [...allBlitzes, ...pastBlitzes];
   

@@ -29,21 +29,23 @@ export const useBlitzAttendance = (
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, any>>(new Map());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Load from cache immediately
+  // Load from cache immediately - stale-while-revalidate pattern
   useEffect(() => {
     const cached = localStorage.getItem('blitz-attendance-cache');
     if (cached) {
       try {
         const { data: cachedData, timestamp, scope: cachedScope } = JSON.parse(cached);
-        const isRecent = Date.now() - timestamp < 5 * 60 * 1000; // 5 minutes
+        // Use cache even if slightly stale - we'll refresh in background
+        const isUsable = Date.now() - timestamp < 30 * 60 * 1000; // 30 minutes max
 
         const hasTeamMembers = Array.isArray(cachedData?.teamMembers) && cachedData.teamMembers.length > 0;
         const looksUnhealthy = hasTeamMembers && cachedData.teamMembers.every((m: any) => !m?.onboardingStatus);
 
-        if (isRecent && cachedScope === scope && !looksUnhealthy) {
+        if (isUsable && cachedScope === scope && !looksUnhealthy) {
           setData(cachedData);
-          setLoading(false);
+          setLoading(false); // Show cached data immediately
         }
       } catch (e) {
         console.error('Failed to parse cached attendance:', e);
@@ -51,13 +53,19 @@ export const useBlitzAttendance = (
     }
   }, [scope]);
 
-  const fetchAttendance = useCallback(async () => {
+  const fetchAttendance = useCallback(async (isBackgroundRefresh = false) => {
     if (!leaderNotionPageId) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Only show loading spinner if we don't have any data yet
+    if (!isBackgroundRefresh && !data) {
+      setLoading(true);
+    }
+    if (isBackgroundRefresh) {
+      setIsRefreshing(true);
+    }
     setError(null);
 
     try {
@@ -91,15 +99,21 @@ export const useBlitzAttendance = (
       }
     } catch (err: any) {
       console.error('Error fetching attendance:', err);
-      setError(err.message || 'Failed to load attendance data');
+      // Only show error if we don't have cached data to fall back on
+      if (!data) {
+        setError(err.message || 'Failed to load attendance data');
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [scope, leaderNotionPageId]);
+  }, [scope, leaderNotionPageId, data]);
 
+  // Initial fetch - background refresh if we have cached data
   useEffect(() => {
-    fetchAttendance();
-  }, [fetchAttendance]);
+    const hasCachedData = data !== null;
+    fetchAttendance(hasCachedData);
+  }, [scope, leaderNotionPageId]); // Don't include fetchAttendance to avoid loops
 
   // Apply optimistic updates on top of data
   const getOptimisticData = () => {
