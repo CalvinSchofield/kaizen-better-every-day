@@ -5,10 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Exit stages that should be completely skipped - leader manually set these
+// Exit stages that should be completely skipped
 const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
 
-// Check if stage is an exit stage (case-insensitive)
 const isExitStage = (stage: string | null): boolean => {
   if (!stage) return false;
   return EXIT_STAGES.some(es => es.toLowerCase() === stage.toLowerCase());
@@ -22,15 +21,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const notionApiKey = Deno.env.get("NOTION_API_KEY");
 
-    if (!supabaseUrl || !supabaseServiceKey || !notionApiKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing environment variables");
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authenticate the caller
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("No authorization header");
@@ -58,7 +55,6 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Check if this blitz was already processed (database check, not localStorage)
     const processedBlitzIds = (currentUserRep?.processed_blitz_ids as string[]) || [];
     if (processedBlitzIds.includes(blitzId)) {
       console.log(`Blitz ${blitzName} already processed for this user, skipping`);
@@ -78,48 +74,63 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch all reps from Notion who have this blitz in their Preseason Trips
-    const repsResponse = await fetch(
-      `https://api.notion.com/v1/databases/99130d187a8c4bbda60c77a230ddc364/query`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${notionApiKey}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          filter: {
-            property: "Preseason trips",
-            relation: {
-              contains: blitzId,
-            },
-          },
-        }),
-      }
-    );
+    // Find the blitz in Supabase
+    const { data: blitzData } = await supabase
+      .from("blitzes")
+      .select("id")
+      .or(`id.eq.${blitzId},notion_page_id.eq.${blitzId}`)
+      .maybeSingle();
 
-    if (!repsResponse.ok) {
-      const errorText = await repsResponse.text();
-      console.error("Notion API error:", errorText);
-      throw new Error(`Notion API error: ${repsResponse.status}`);
+    const supabaseBlitzId = blitzData?.id || blitzId;
+
+    // Fetch all recruits who have this blitz in their commitments via recruit_blitzes junction
+    const { data: recruitBlitzes } = await supabase
+      .from("recruit_blitzes")
+      .select("recruit_id")
+      .eq("blitz_id", supabaseBlitzId);
+
+    const recruitIds = (recruitBlitzes || []).map(rb => rb.recruit_id);
+
+    // If no recruits via junction table, check the committed_blitzes JSON in reps table
+    let attendees: any[] = [];
+    
+    if (recruitIds.length > 0) {
+      const { data: recruitsData } = await supabase
+        .from("recruits")
+        .select("*")
+        .in("id", recruitIds);
+      attendees = recruitsData || [];
     }
 
-    const repsData = await repsResponse.json();
-    const attendees = repsData.results || [];
+    // Also check reps table for committed_blitzes containing this blitz ID
+    const { data: repsWithBlitz } = await supabase
+      .from("reps")
+      .select("*")
+      .contains("committed_blitzes", [blitzId]);
 
-    console.log(`Found ${attendees.length} attendees for blitz ${blitzName}`);
+    // Combine and deduplicate
+    const allAttendees = [...attendees];
+    for (const rep of repsWithBlitz || []) {
+      if (!allAttendees.find(a => a.notion_page_id === rep.notion_page_id)) {
+        allAttendees.push({
+          notion_page_id: rep.notion_page_id,
+          name: rep.name,
+          stage: rep.stage,
+        });
+      }
+    }
+
+    console.log(`Found ${allAttendees.length} attendees for blitz ${blitzName}`);
 
     const activityDate = blitzEndDate || new Date().toISOString().split('T')[0];
     const results: { name: string; success: boolean; error?: string; skipped?: boolean }[] = [];
 
-    for (const rep of attendees) {
-      const repNotionId = rep.id;
-      const repName = rep.properties?.Name?.title?.[0]?.plain_text || "Unknown";
-      const repStage = rep.properties?.Stage?.select?.name || null;
+    for (const attendee of allAttendees) {
+      const repNotionId = attendee.notion_page_id || attendee.id;
+      const repName = attendee.name || "Unknown";
+      const repStage = attendee.stage;
 
       try {
-        // SKIP ENTIRELY if recruit is in an exit stage
         if (isExitStage(repStage)) {
           console.log(`Skipping ${repName} - in exit stage "${repStage}"`);
           results.push({ name: repName, success: true, skipped: true, error: `In exit stage: ${repStage}` });
@@ -149,7 +160,7 @@ Deno.serve(async (req) => {
             activity_type: "in_person",
             notes: `Met at ${blitzName} blitz`,
             logged_by_user_id: user.id,
-            created_at: `${activityDate}T18:00:00Z`, // Set to 6 PM on blitz end date
+            created_at: `${activityDate}T18:00:00Z`,
           });
 
         if (insertError) {
@@ -158,31 +169,11 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Update Last Contact in Notion
-        const notionUpdateResponse = await fetch(
-          `https://api.notion.com/v1/pages/${repNotionId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Authorization": `Bearer ${notionApiKey}`,
-              "Notion-Version": "2022-06-28",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              properties: {
-                "Last Contact": {
-                  date: {
-                    start: activityDate,
-                  },
-                },
-              },
-            }),
-          }
-        );
-
-        if (!notionUpdateResponse.ok) {
-          console.error(`Failed to update Notion for ${repName}`);
-        }
+        // Update last_contact in recruits table
+        await supabase
+          .from("recruits")
+          .update({ last_contact: activityDate })
+          .eq("notion_page_id", repNotionId);
 
         console.log(`Successfully logged attendance for ${repName}`);
         results.push({ name: repName, success: true });
@@ -192,30 +183,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Mark this blitz as processed in the database (persists across devices)
+    // Mark this blitz as processed in the database
     if (currentUserRep?.notion_page_id) {
       const updatedProcessedIds = [...processedBlitzIds, blitzId];
-      const { error: updateError } = await supabase
+      await supabase
         .from("reps")
         .update({ processed_blitz_ids: updatedProcessedIds })
         .eq("user_id", user.id);
-
-      if (updateError) {
-        console.error("Failed to update processed_blitz_ids:", updateError);
-      } else {
-        console.log(`Marked blitz ${blitzId} as processed in database`);
-      }
     }
 
     const successCount = results.filter(r => r.success && !r.skipped).length;
     const skippedCount = results.filter(r => r.skipped).length;
-    console.log(`Completed: ${successCount} logged, ${skippedCount} skipped (exit stages)`);
 
     return new Response(
       JSON.stringify({
         success: true,
         blitzName,
-        attendeesCount: attendees.length,
+        attendeesCount: allAttendees.length,
         loggedCount: successCount,
         skippedCount,
         results,
