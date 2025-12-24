@@ -872,8 +872,10 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     setAttendanceScope(value as 'you' | 'team' | 'mgmt' | 'office');
   };
 
-  // Simplified personal view for non-team leads OR when scope is 'you'
-  if (!propIsTeamLead || attendanceScope === 'you') {
+  // Simplified personal view for non-leaders OR when scope is 'you'
+  // Use accessLevel instead of propIsTeamLead to properly check leader status
+  const isLeaderRole = accessLevel !== 'none';
+  if (!isLeaderRole || attendanceScope === 'you') {
     return (
       <Card className="mb-6">
         <CardHeader>
@@ -881,15 +883,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {propIsTeamLead ? 'Blitz Management' : 'Your Blitz Commitments'}
+                {isLeaderRole ? 'Blitz Management' : 'Your Blitz Commitments'}
               </CardTitle>
               <CardDescription>
-                {propIsTeamLead ? 'Manage your commitments and team attendance' : 'Manage which blitzes you\'re attending'}
+                {isLeaderRole ? 'Manage your commitments and team attendance' : 'Manage which blitzes you\'re attending'}
               </CardDescription>
             </div>
             
             {/* Scope selector dropdown - only for leaders */}
-            {propIsTeamLead && (
+            {isLeaderRole && (
               <Select
                 value={attendanceScope}
                 onValueChange={handleScopeChange}
@@ -1023,8 +1025,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                 <div className="absolute inset-0 h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
               </div>
               <div className="flex flex-col items-center gap-1">
-                <span className="text-sm font-medium text-foreground">Syncing from Notion</span>
-                <span className="text-xs text-muted-foreground">Fetching latest data...</span>
+                <span className="text-sm font-medium text-foreground">Loading attendance</span>
+                <span className="text-xs text-muted-foreground">Fetching team data...</span>
               </div>
             </div>
           </div>
