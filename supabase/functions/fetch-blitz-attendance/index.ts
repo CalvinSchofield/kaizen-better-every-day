@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface TeamMember {
   notionPageId: string;
+  recruitId?: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -151,6 +152,7 @@ Deno.serve(async (req) => {
 
         accessibleReps.push({
           notionPageId: recruit.notion_page_id || recruit.id,
+          recruitId: recruit.id,
           name: recruit.name,
           email: recruit.email,
           phone: recruit.phone,

@@ -156,14 +156,14 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         // Check if we have Notion recruit data
         const notionRecruit = recruitsByNotionId.get(accessRep.notionPageId);
 
-        // Determine stage - prefer Notion data (more current), fallback to Supabase
-        const stage = notionRecruit?.stage || supabaseRep?.stage || '';
+        // Determine stage - prefer Supabase rep stage (source of truth), fallback to Notion recruit
+        const stage = supabaseRep?.stage || notionRecruit?.stage || '';
         
         // Check if in valid stage
         if (!VALID_STAGES.includes(stage)) continue;
 
-        // Check if phase 1 complete - from Notion first, then Supabase
-        const phase1Complete = notionRecruit?.phase1Complete ?? supabaseRep?.ramp_phase_1_complete ?? false;
+        // Check if phase 1 complete - prefer Supabase boolean, fallback to Notion recruit
+        const phase1Complete = supabaseRep?.ramp_phase_1_complete ?? notionRecruit?.phase1Complete ?? false;
         
         // Must have phase 1 complete to appear in leaderboard
         if (!phase1Complete) continue;
