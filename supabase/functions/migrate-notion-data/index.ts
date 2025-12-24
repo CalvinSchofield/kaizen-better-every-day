@@ -77,10 +77,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const notionApiKey = Deno.env.get('NOTION_API_KEY');
-    const notionRepsDbId = Deno.env.get('NOTION_REPS_DATABASE_ID');
+    const notionRepsDbId = Deno.env.get('NOTION_REPS_DATABASE_ID') ?? null;
 
-    if (!notionApiKey || !notionRepsDbId) {
-      throw new Error('Missing Notion configuration');
+    if (!notionApiKey) {
+      throw new Error('Missing Notion configuration: NOTION_API_KEY');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -103,6 +103,63 @@ Deno.serve(async (req) => {
       'Authorization': `Bearer ${notionApiKey}`,
       'Notion-Version': '2022-06-28',
       'Content-Type': 'application/json',
+    };
+
+    const resolveRepsDbId = async (): Promise<string> => {
+      // 1) If configured, verify access first
+      if (notionRepsDbId) {
+        const check = await fetchNotionWithRetry(
+          `https://api.notion.com/v1/databases/${notionRepsDbId}`,
+          { method: 'GET', headers: notionHeaders },
+          2
+        );
+
+        if (check.ok) {
+          return notionRepsDbId;
+        }
+
+        const checkText = await check.text().catch(() => '');
+        console.warn(
+          `NOTION_REPS_DATABASE_ID is not accessible (status ${check.status}). Will try auto-detect.`,
+          checkText
+        );
+      }
+
+      // 2) Auto-detect from databases visible to the integration
+      const searchRes = await fetchNotionWithRetry(
+        'https://api.notion.com/v1/search',
+        {
+          method: 'POST',
+          headers: notionHeaders,
+          body: JSON.stringify({
+            filter: { property: 'object', value: 'database' },
+            page_size: 100,
+          }),
+        }
+      );
+
+      if (!searchRes.ok) {
+        const txt = await searchRes.text().catch(() => '');
+        throw new Error(`Failed to search Notion databases: ${searchRes.status} ${txt}`);
+      }
+
+      const searchData = await searchRes.json();
+      const databases = (searchData?.results || []).filter((r: any) => r?.object === 'database');
+
+      const hasPropType = (db: any, name: string, type: string) => db?.properties?.[name]?.type === type;
+      const candidate = databases.find((db: any) =>
+        hasPropType(db, 'Stage', 'select') &&
+        hasPropType(db, 'Recruiter', 'relation')
+      );
+
+      if (!candidate?.id) {
+        throw new Error(
+          'Could not find an accessible Reps database in Notion. Share the Reps database with the integration and set NOTION_REPS_DATABASE_ID.'
+        );
+      }
+
+      console.log('Auto-detected Notion reps database:', candidate.id);
+      return candidate.id;
     };
 
     const stats = {
@@ -309,6 +366,8 @@ Deno.serve(async (req) => {
 
     // ========== STEP 4: Fetch and insert Recruits ==========
     console.log('Step 4: Fetching Recruits from Notion...');
+    const repsDbId = await resolveRepsDbId();
+    console.log(`Using Notion reps database: ${repsDbId}`);
 
     // Fetch ALL reps from the Notion reps database
     // We'll filter for recruiting stages in code instead of via Notion filter
@@ -326,7 +385,7 @@ Deno.serve(async (req) => {
       }
 
       const recruitsResponse = await fetchNotionWithRetry(
-        `https://api.notion.com/v1/databases/${notionRepsDbId}/query`,
+        `https://api.notion.com/v1/databases/${repsDbId}/query`,
         {
           method: 'POST',
           headers: notionHeaders,
