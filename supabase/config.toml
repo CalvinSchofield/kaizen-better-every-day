@@ -80,3 +80,12 @@ verify_jwt = false
 
 [functions.migrate-notion-data]
 verify_jwt = false
+
+[functions.manage-team]
+verify_jwt = false
+
+[functions.manage-mgmt-group]
+verify_jwt = false
+
+[functions.update-rep-assignment]
+verify_jwt = false

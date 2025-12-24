@@ -1,0 +1,462 @@
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  Pencil, 
+  Plus, 
+  Users, 
+  Building2,
+  AlertTriangle,
+  User
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
+import { EditMgmtGroupDrawer } from "./org/EditMgmtGroupDrawer";
+import { EditTeamDrawer } from "./org/EditTeamDrawer";
+import { EditRepOrgDrawer } from "./org/EditRepOrgDrawer";
+import { CreateEntityDrawer } from "./org/CreateEntityDrawer";
+
+interface OrgRep {
+  id: string;
+  userId: string | null;
+  name: string;
+  teamId: string | null;
+  teamName: string | null;
+  recruiterUserId: string | null;
+  recruiterName?: string;
+  stage?: string | null;
+}
+
+interface OrgTeam {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  leadName?: string;
+  mgmtGroupId: string | null;
+  repCount: number;
+}
+
+interface OrgMgmtGroup {
+  id: string;
+  name: string;
+  leadUserId: string | null;
+  leadName?: string;
+  teamIds: string[];
+}
+
+export const OrganizationManagementView = () => {
+  const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
+  
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  
+  // Edit drawers state
+  const [editingGroup, setEditingGroup] = useState<OrgMgmtGroup | null>(null);
+  const [editingTeam, setEditingTeam] = useState<OrgTeam | null>(null);
+  const [editingRep, setEditingRep] = useState<OrgRep | null>(null);
+  const [createMode, setCreateMode] = useState<"team" | "mgmt_group" | null>(null);
+
+  // Fetch full org structure
+  const { data: orgData, isLoading: orgLoading } = useQuery({
+    queryKey: ["org-structure"],
+    queryFn: async () => {
+      const [teamsRes, groupsRes, junctionRes, recruitsRes, repsRes] = await Promise.all([
+        supabase.from("teams").select("*"),
+        supabase.from("mgmt_groups").select("*"),
+        supabase.from("team_mgmt_groups").select("*"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage"),
+        supabase.from("reps").select("user_id, name"),
+      ]);
+
+      return {
+        teams: teamsRes.data || [],
+        groups: groupsRes.data || [],
+        junction: junctionRes.data || [],
+        recruits: recruitsRes.data || [],
+        reps: repsRes.data || [],
+      };
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Build data structures
+  const { groups, teams, reps, unassignedTeams, repsByTeam } = useMemo(() => {
+    if (!orgData) {
+      return { groups: [], teams: [], reps: [], unassignedTeams: [], repsByTeam: new Map() };
+    }
+
+    const repMap = new Map(orgData.reps.map((r) => [r.user_id, r.name]));
+    
+    // Map recruiter names
+    const recruitsWithRecruiter: OrgRep[] = orgData.recruits.map((r) => ({
+      id: r.id,
+      userId: null,
+      name: r.name,
+      teamId: r.team_id,
+      teamName: null,
+      recruiterUserId: r.recruiter_user_id,
+      recruiterName: r.recruiter_user_id ? repMap.get(r.recruiter_user_id) || "Unknown" : undefined,
+      stage: r.stage,
+    }));
+
+    // Group recruits by team
+    const repsByTeam = new Map<string, OrgRep[]>();
+    recruitsWithRecruiter.forEach((r) => {
+      if (r.teamId) {
+        const existing = repsByTeam.get(r.teamId) || [];
+        existing.push(r);
+        repsByTeam.set(r.teamId, existing);
+      }
+    });
+
+    // Build team-to-group map
+    const teamToGroup = new Map(orgData.junction.map((j) => [j.team_id, j.mgmt_group_id]));
+
+    // Build teams
+    const teamsData: OrgTeam[] = orgData.teams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      leadUserId: t.lead_user_id,
+      leadName: t.lead_user_id ? repMap.get(t.lead_user_id) : undefined,
+      mgmtGroupId: teamToGroup.get(t.id) || null,
+      repCount: repsByTeam.get(t.id)?.length || 0,
+    }));
+
+    // Build groups
+    const groupsData: OrgMgmtGroup[] = orgData.groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      leadUserId: g.lead_user_id,
+      leadName: g.lead_user_id ? repMap.get(g.lead_user_id) : undefined,
+      teamIds: orgData.junction.filter((j) => j.mgmt_group_id === g.id).map((j) => j.team_id),
+    }));
+
+    // Find unassigned teams
+    const unassignedTeams = teamsData.filter((t) => !t.mgmtGroupId);
+
+    // All reps for dropdowns
+    const allReps = orgData.reps.map((r) => ({
+      userId: r.user_id,
+      name: r.name,
+    }));
+
+    return {
+      groups: groupsData,
+      teams: teamsData,
+      reps: allReps,
+      unassignedTeams,
+      repsByTeam,
+    };
+  }, [orgData]);
+
+  const toggleGroup = (id: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleTeam = (id: string) => {
+    setExpandedTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  if (accessLoading || orgLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-32" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  const allGroups = groups.map((g) => ({ id: g.id, name: g.name }));
+  const allTeams = teams.map((t) => ({ id: t.id, name: t.name }));
+
+  return (
+    <div className="space-y-4">
+      {/* Header with create actions */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Organization Structure</h3>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="gap-1">
+              <Plus className="h-4 w-4" />
+              New
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-popover">
+            <DropdownMenuItem onClick={() => setCreateMode("mgmt_group")}>
+              <Building2 className="h-4 w-4 mr-2" />
+              New Management Group
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setCreateMode("team")}>
+              <Users className="h-4 w-4 mr-2" />
+              New Team
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Management Groups */}
+      <div className="space-y-2">
+        {groups.map((group) => {
+          const isExpanded = expandedGroups.has(group.id);
+          const groupTeams = teams.filter((t) => t.mgmtGroupId === group.id);
+          
+          return (
+            <Collapsible key={group.id} open={isExpanded} onOpenChange={() => toggleGroup(group.id)}>
+              <div className="border rounded-lg bg-card">
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{group.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {groupTeams.length} teams
+                      </Badge>
+                      {!group.leadUserId && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          No leader
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {group.leadName && (
+                        <span className="text-sm text-muted-foreground">{group.leadName}</span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingGroup(group);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="border-t px-3 pb-3 space-y-2">
+                    {groupTeams.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2 pl-6">No teams in this group</p>
+                    ) : (
+                      groupTeams.map((team) => (
+                        <TeamCard
+                          key={team.id}
+                          team={team}
+                          reps={repsByTeam.get(team.id) || []}
+                          isExpanded={expandedTeams.has(team.id)}
+                          onToggle={() => toggleTeam(team.id)}
+                          onEditTeam={() => setEditingTeam(team)}
+                          onEditRep={(rep) => setEditingRep(rep)}
+                        />
+                      ))
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          );
+        })}
+      </div>
+
+      {/* Unassigned Teams */}
+      {unassignedTeams.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Unassigned Teams
+          </h4>
+          {unassignedTeams.map((team) => (
+            <TeamCard
+              key={team.id}
+              team={team}
+              reps={repsByTeam.get(team.id) || []}
+              isExpanded={expandedTeams.has(team.id)}
+              onToggle={() => toggleTeam(team.id)}
+              onEditTeam={() => setEditingTeam(team)}
+              onEditRep={(rep) => setEditingRep(rep)}
+            />
+          ))}
+        </div>
+      )}
+
+      {groups.length === 0 && unassignedTeams.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>No organization structure yet</p>
+          <p className="text-sm">Create your first management group or team to get started</p>
+        </div>
+      )}
+
+      {/* Drawers */}
+      {editingGroup && (
+        <EditMgmtGroupDrawer
+          open={!!editingGroup}
+          onOpenChange={(open) => !open && setEditingGroup(null)}
+          group={editingGroup}
+          allReps={reps}
+          teamCount={teams.filter((t) => t.mgmtGroupId === editingGroup.id).length}
+        />
+      )}
+
+      {editingTeam && (
+        <EditTeamDrawer
+          open={!!editingTeam}
+          onOpenChange={(open) => !open && setEditingTeam(null)}
+          team={editingTeam}
+          allReps={reps}
+          allGroups={allGroups}
+          repCount={repsByTeam.get(editingTeam.id)?.length || 0}
+        />
+      )}
+
+      {editingRep && (
+        <EditRepOrgDrawer
+          open={!!editingRep}
+          onOpenChange={(open) => !open && setEditingRep(null)}
+          rep={editingRep}
+          allTeams={allTeams}
+          allReps={reps}
+        />
+      )}
+
+      {createMode && (
+        <CreateEntityDrawer
+          open={!!createMode}
+          onOpenChange={(open) => !open && setCreateMode(null)}
+          mode={createMode}
+          allReps={reps}
+          allGroups={allGroups}
+        />
+      )}
+    </div>
+  );
+};
+
+// TeamCard component
+interface TeamCardProps {
+  team: OrgTeam;
+  reps: OrgRep[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onEditTeam: () => void;
+  onEditRep: (rep: OrgRep) => void;
+}
+
+const TeamCard = ({ team, reps, isExpanded, onToggle, onEditTeam, onEditRep }: TeamCardProps) => {
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <div className="border rounded-lg ml-4 bg-background">
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-muted/50">
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <Users className="h-3.5 w-3.5 text-blue-500" />
+              <span className="font-medium text-sm">{team.name}</span>
+              <Badge variant="outline" className="text-xs">
+                {reps.length} reps
+              </Badge>
+              {!team.leadUserId && (
+                <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  No leader
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {team.leadName && (
+                <span className="text-xs text-muted-foreground">{team.leadName}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditTeam();
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        
+        <CollapsibleContent>
+          <div className="border-t px-2.5 pb-2 space-y-1">
+            {reps.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 pl-5">No reps in this team</p>
+            ) : (
+              reps.map((rep) => (
+                <div
+                  key={rep.id}
+                  className="flex items-center justify-between py-1.5 px-2 ml-4 hover:bg-muted/50 rounded cursor-pointer"
+                  onClick={() => onEditRep(rep)}
+                >
+                  <div className="flex items-center gap-2">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm">{rep.name}</span>
+                    {rep.stage && (
+                      <Badge variant="secondary" className="text-xs">
+                        {rep.stage}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {rep.recruiterName && (
+                      <span className="text-xs text-muted-foreground">
+                        📩 {rep.recruiterName}
+                      </span>
+                    )}
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+};
