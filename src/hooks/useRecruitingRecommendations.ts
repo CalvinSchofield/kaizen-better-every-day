@@ -54,9 +54,6 @@ export const useRecruitingRecommendations = (
     const now = new Date();
     const recommendations: RecruitRecommendation[] = [];
 
-    // Debug logging for development
-    console.log('[Recommendations] Processing', recruits.length, 'recruits with', blitzes?.length || 0, 'blitzes');
-
     // Build a map of latest activity per recruit
     const lastContactMap = new Map<string, Date>();
     // Build a map of scheduled follow-ups (track the latest next_action_due per recruit)
@@ -89,8 +86,6 @@ export const useRecruitingRecommendations = (
       const daysUntil = getDaysUntilBlitz(b.date);
       return daysUntil !== null && daysUntil >= 0 && daysUntil <= 21;
     });
-    
-    console.log('[Recommendations] Upcoming blitzes (within 21 days):', upcomingBlitzes.map(b => ({ id: b.id, name: b.name, date: b.date })));
 
     recruits.forEach(recruit => {
       // EARLY EXIT: Skip anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up with no due date)
@@ -98,7 +93,6 @@ export const useRecruitingRecommendations = (
       if (isStageIn(recruit.stage, EXIT_STAGES)) {
         // Allow Potential Follow Up through ONLY if they have a scheduled follow-up due today
         if (recruit.stage !== 'Potential Follow Up') {
-          console.log(`[Recommendations] Skipping ${recruit.name} - exit stage: ${recruit.stage}`);
           return; // Skip Not Interested and Signed but Not Interested entirely
         }
       }
@@ -111,8 +105,7 @@ export const useRecruitingRecommendations = (
       // If so, skip them - there's nothing to do until that date
       const scheduledFollowUpData = scheduledFollowUpMap.get(recruit.notionPageId);
       if (scheduledFollowUpData && isAfter(scheduledFollowUpData.dueDate, today)) {
-        console.log(`[Recommendations] Skipping ${recruit.name} - follow-up scheduled for ${scheduledFollowUpData.dueDate.toISOString().split('T')[0]}`);
-        return; // Skip this recruit
+        return; // Skip this recruit - there's nothing to do until that date
       }
       
       // Track if follow-up is due today for display
@@ -153,11 +146,6 @@ export const useRecruitingRecommendations = (
           );
         }
 
-        // Debug logging for blitz matching
-        if (committedBlitzIds.length > 0) {
-          console.log(`[Recommendations] ${recruit.name} (${recruit.stage}) has committedBlitzIds:`, committedBlitzIds);
-        }
-
         // Find nearest committed blitz
         // Check both Supabase ID and notion_page_id for backwards compatibility
         for (const blitz of upcomingBlitzes) {
@@ -167,7 +155,6 @@ export const useRecruitingRecommendations = (
           
           if (matchesId || matchesNotionId) {
             const days = getDaysUntilBlitz(blitz.date);
-            console.log(`[Recommendations] ${recruit.name} matches blitz ${blitz.name} in ${days} days`);
             if (days !== null && days >= 0 && (nearestBlitzDays === undefined || days < nearestBlitzDays)) {
               nearestBlitzDays = days;
               nearestBlitzName = blitz.name;
@@ -214,7 +201,6 @@ export const useRecruitingRecommendations = (
           : missingItems.slice(0, 2).join(' & ') + (missingItems.length > 2 ? ` +${missingItems.length - 2}` : '');
         reason = `URGENT: ${firstName} has blitz in ${nearestBlitzDays}d but needs ${missingText}`;
         reasonBadge = 'blitz-critical';
-        console.log(`[Recommendations] BLITZ-CRITICAL: ${recruit.name} priority=${priority}, missing=${missingItems.join(', ')}`);
       }
       // TIER 1: Signed/Shadow with blitz < 21 days (ready but check in)
       else if (isSignedOrShadow && hasUpcomingBlitz) {

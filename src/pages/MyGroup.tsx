@@ -477,7 +477,7 @@ const MyGroup = () => {
   }, [allRecruits, teamAccess]);
 
   // Dismissed recruits for Today's Focus
-  const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed } = useDismissedRecruits();
+  const { dismissedIds, dismissRecruit, undismissRecruit, isRecuitDismissed, isLoaded: dismissedLoaded } = useDismissedRecruits();
   
   // Temporary skip system for "skip for now" and "skip today"
   const { skipForNow, skipToday, isSkipped } = useSkippedRecruits();
@@ -519,10 +519,12 @@ const MyGroup = () => {
     repDataMap
   );
   const recommendations = useMemo(() => {
+    // Wait for dismissed state to load to prevent flash
+    if (!dismissedLoaded) return [];
     return rawRecommendations.filter(r => 
       !isRecuitDismissed(r.recruit.notionPageId) && !isSkipped(r.recruit.notionPageId)
     );
-  }, [rawRecommendations, isRecuitDismissed, isSkipped]);
+  }, [rawRecommendations, isRecuitDismissed, isSkipped, dismissedLoaded]);
 
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
