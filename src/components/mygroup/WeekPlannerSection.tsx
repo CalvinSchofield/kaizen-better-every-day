@@ -94,6 +94,7 @@ export const WeekPlannerSection = ({
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 0 })
   );
+  const [selectedDateFilter, setSelectedDateFilter] = useState<Date | null>(null);
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contactMethodOpen, setContactMethodOpen] = useState(false);
@@ -193,9 +194,26 @@ export const WeekPlannerSection = ({
     [recommendations]
   );
 
-  const handlePrevWeek = () => setSelectedWeekStart(prev => subWeeks(prev, 1));
-  const handleNextWeek = () => setSelectedWeekStart(prev => addWeeks(prev, 1));
-  const handleToday = () => setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const handlePrevWeek = () => {
+    setSelectedWeekStart(prev => subWeeks(prev, 1));
+    setSelectedDateFilter(null);
+  };
+  const handleNextWeek = () => {
+    setSelectedWeekStart(prev => addWeeks(prev, 1));
+    setSelectedDateFilter(null);
+  };
+  const handleToday = () => {
+    setSelectedWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    setSelectedDateFilter(null);
+  };
+  
+  const handleDayClick = (day: Date) => {
+    if (selectedDateFilter && isSameDay(selectedDateFilter, day)) {
+      setSelectedDateFilter(null);
+    } else {
+      setSelectedDateFilter(day);
+    }
+  };
 
   // Get week label based on selected week
   const weekLabel = useMemo(() => {
@@ -302,154 +320,220 @@ export const WeekPlannerSection = ({
               const isToday = isDateToday(day);
               const isPastDay = isPast(day) && !isToday;
 
+              const isSelected = selectedDateFilter && isSameDay(selectedDateFilter, day);
+
               return (
-                <div 
-                  key={dateKey} 
+                <button 
+                  key={dateKey}
+                  onClick={() => handleDayClick(day)}
                   className={cn(
-                    "text-center p-1.5 rounded-lg",
-                    isToday && "bg-primary/10 ring-2 ring-primary/20"
+                    "text-center p-1.5 rounded-lg transition-all",
+                    isToday && !isSelected && "bg-primary/10 ring-2 ring-primary/20",
+                    isSelected && "bg-primary text-primary-foreground ring-2 ring-primary"
                   )}
                 >
-                  <div className="text-xs text-muted-foreground">
+                  <div className={cn(
+                    "text-xs",
+                    isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
+                  )}>
                     {format(day, 'EEE')}
                   </div>
                   <div className={cn(
                     "text-sm font-medium",
-                    isToday && "text-primary",
-                    isPastDay && "text-muted-foreground"
+                    isSelected && "text-primary-foreground",
+                    !isSelected && isToday && "text-primary",
+                    !isSelected && isPastDay && "text-muted-foreground"
                   )}>
                     {format(day, 'd')}
                   </div>
                   {dayTasks.length > 0 && (
                     <div className={cn(
                       "w-1.5 h-1.5 rounded-full mx-auto mt-1",
-                      isPastDay ? "bg-destructive" : "bg-primary"
+                      isSelected ? "bg-primary-foreground" : isPastDay ? "bg-destructive" : "bg-primary"
                     )} />
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Overdue Section - show before today */}
-      {overdueCount > 0 && (
+      {/* When a date is selected, show only that day's tasks */}
+      {selectedDateFilter ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-destructive flex items-center gap-2">
-              Overdue
-              <Badge variant="destructive" className="text-xs">
-                {overdueCount}
-              </Badge>
+            <h3 className="text-sm font-medium text-primary flex items-center gap-2">
+              {format(selectedDateFilter, 'EEEE, MMM d')}
+              {(() => {
+                const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
+                const dayTasks = scheduledTasks.get(dateKey) || [];
+                return dayTasks.length > 0 ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {dayTasks.length} scheduled
+                  </Badge>
+                ) : null;
+              })()}
             </h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSelectedDateFilter(null)}
+              className="text-xs text-muted-foreground"
+            >
+              Clear filter
+            </Button>
           </div>
           <div className="space-y-2">
-            {Array.from(scheduledTasks.entries())
-              .filter(([dateStr]) => {
-                const date = parseISO(dateStr);
-                return isPast(date) && !isDateToday(date);
-              })
-              .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
-              .flatMap(([dateStr, tasks]) => 
-                tasks.map(({ recruit, activity }) => (
+            {(() => {
+              const dateKey = format(selectedDateFilter, 'yyyy-MM-dd');
+              const dayTasks = scheduledTasks.get(dateKey) || [];
+              const isOverdueDay = isPast(selectedDateFilter) && !isDateToday(selectedDateFilter);
+              
+              if (dayTasks.length === 0) {
+                return (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nothing scheduled for {format(selectedDateFilter, 'MMM d')}
+                  </p>
+                );
+              }
+              
+              return dayTasks.map(({ recruit, activity }) => (
+                <SwipeableTaskItem
+                  key={`filtered-${recruit.notionPageId}-${activity.id}`}
+                  recruit={recruit}
+                  activity={activity}
+                  onRecruitClick={handleLocalRecruitClick}
+                  onContact={handleSwipeContact}
+                  onSchedule={handleSwipeSchedule}
+                  onReschedule={isOverdueDay ? handleSwipeReschedule : undefined}
+                  isOverdue={isOverdueDay}
+                />
+              ));
+            })()}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Overdue Section - show before today */}
+          {overdueCount > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-destructive flex items-center gap-2">
+                  Overdue
+                  <Badge variant="destructive" className="text-xs">
+                    {overdueCount}
+                  </Badge>
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {Array.from(scheduledTasks.entries())
+                  .filter(([dateStr]) => {
+                    const date = parseISO(dateStr);
+                    return isPast(date) && !isDateToday(date);
+                  })
+                  .sort(([a], [b]) => parseISO(a).getTime() - parseISO(b).getTime())
+                  .flatMap(([dateStr, tasks]) => 
+                    tasks.map(({ recruit, activity }) => (
+                      <SwipeableTaskItem
+                        key={`overdue-${recruit.notionPageId}-${activity.id}`}
+                        recruit={recruit}
+                        activity={activity}
+                        onRecruitClick={handleLocalRecruitClick}
+                        onContact={handleSwipeContact}
+                        onSchedule={handleSwipeSchedule}
+                        onReschedule={handleSwipeReschedule}
+                        isOverdue
+                      />
+                    ))
+                  )}
+              </div>
+            </div>
+          )}
+
+          {/* Today Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-primary flex items-center gap-2">
+                Today
+                {todayTasks.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {todayTasks.length} scheduled
+                  </Badge>
+                )}
+              </h3>
+              <span className={cn(
+                "text-xs text-muted-foreground transition-opacity duration-500",
+                showSwipeHint ? "opacity-100" : "opacity-0"
+              )}>← schedule · contact →</span>
+            </div>
+
+            {/* Today's Scheduled Tasks */}
+            {todayTasks.length > 0 && (
+              <div className="space-y-2">
+                {todayTasks.map(({ recruit, activity }, index) => (
                   <SwipeableTaskItem
-                    key={`overdue-${recruit.notionPageId}-${activity.id}`}
+                    key={`${recruit.notionPageId}-${activity.id}`}
                     recruit={recruit}
                     activity={activity}
                     onRecruitClick={handleLocalRecruitClick}
                     onContact={handleSwipeContact}
                     onSchedule={handleSwipeSchedule}
-                    onReschedule={handleSwipeReschedule}
-                    isOverdue
+                    showSwipeDemo={index === 0 && recommendations.length === 0}
+                    onDemoComplete={handleDemoComplete}
                   />
-                ))
-              )}
+                ))}
+              </div>
+            )}
+
+            {/* Recommended Today (limit to 4) */}
+            {recommendations.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Recommended Today</span>
+                </div>
+                <div className="space-y-2">
+                  <AnimatePresence mode="popLayout">
+                    {recommendations.slice(0, 4).map((rec, index) => (
+                      <motion.div
+                        key={rec.recruit.notionPageId}
+                        layout
+                        initial={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <SwipeableTaskItem
+                          recruit={rec.recruit}
+                          reason={rec.reason}
+                          reasonBadge={rec.reasonBadge}
+                          daysSinceContact={rec.daysSinceContact}
+                          onRecruitClick={handleLocalRecruitClick}
+                          onContact={handleSwipeContact}
+                          onSchedule={handleSwipeSchedule}
+                          onSkipForNow={onSkipForNow}
+                          onSkipToday={onSkipToday}
+                          showSwipeDemo={index === 0 && todayTasks.length === 0}
+                          onDemoComplete={handleDemoComplete}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+
+            {todayTasks.length === 0 && recommendations.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Nothing scheduled for today
+              </p>
+            )}
           </div>
-        </div>
+        </>
       )}
 
-      {/* Today Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-primary flex items-center gap-2">
-            Today
-            {todayTasks.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {todayTasks.length} scheduled
-              </Badge>
-            )}
-          </h3>
-          <span className={cn(
-            "text-xs text-muted-foreground transition-opacity duration-500",
-            showSwipeHint ? "opacity-100" : "opacity-0"
-          )}>← schedule · contact →</span>
-        </div>
-
-        {/* Today's Scheduled Tasks */}
-        {todayTasks.length > 0 && (
-          <div className="space-y-2">
-            {todayTasks.map(({ recruit, activity }, index) => (
-              <SwipeableTaskItem
-                key={`${recruit.notionPageId}-${activity.id}`}
-                recruit={recruit}
-                activity={activity}
-                onRecruitClick={handleLocalRecruitClick}
-                onContact={handleSwipeContact}
-                onSchedule={handleSwipeSchedule}
-                showSwipeDemo={index === 0 && recommendations.length === 0}
-                onDemoComplete={handleDemoComplete}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Recommended Today (limit to 4) */}
-        {recommendations.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Sparkles className="h-4 w-4" />
-              <span>Recommended Today</span>
-            </div>
-            <div className="space-y-2">
-              <AnimatePresence mode="popLayout">
-                {recommendations.slice(0, 4).map((rec, index) => (
-                  <motion.div
-                    key={rec.recruit.notionPageId}
-                    layout
-                    initial={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <SwipeableTaskItem
-                      recruit={rec.recruit}
-                      reason={rec.reason}
-                      reasonBadge={rec.reasonBadge}
-                      daysSinceContact={rec.daysSinceContact}
-                      onRecruitClick={handleLocalRecruitClick}
-                      onContact={handleSwipeContact}
-                      onSchedule={handleSwipeSchedule}
-                      onSkipForNow={onSkipForNow}
-                      onSkipToday={onSkipToday}
-                      showSwipeDemo={index === 0 && todayTasks.length === 0}
-                      onDemoComplete={handleDemoComplete}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-
-        {todayTasks.length === 0 && recommendations.length === 0 && (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Nothing scheduled for today
-          </p>
-        )}
-      </div>
-
-      {/* Rest of the Week */}
-      {restOfWeekTasks.length > 0 && (
+      {/* Rest of the Week - hide when date filter is active */}
+      {!selectedDateFilter && restOfWeekTasks.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">
             Rest of the Week
