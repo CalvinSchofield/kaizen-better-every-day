@@ -134,16 +134,38 @@ Deno.serve(async (req) => {
           .filter((e): e is string => !!e)
       )];
 
+      const recruitNotionIds = [...new Set(
+        (recruitsData || [])
+          .map((r) => (r.notion_page_id ? String(r.notion_page_id).trim() : null))
+          .filter((id): id is string => !!id)
+      )];
+
+      const repByNotionId: Record<string, any> = {};
       const repByEmail: Record<string, any> = {};
+
+      const repSelect =
+        "notion_page_id, email, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready";
+
+      if (recruitNotionIds.length > 0) {
+        const { data: repsByNotionId } = await supabase
+          .from("reps")
+          .select(repSelect)
+          .in("notion_page_id", recruitNotionIds);
+
+        (repsByNotionId || []).forEach((r) => {
+          if (r.notion_page_id) repByNotionId[String(r.notion_page_id).trim()] = r;
+          if (r.email) repByEmail[String(r.email).toLowerCase().trim()] = r;
+        });
+      }
+
       if (recruitEmails.length > 0) {
         const { data: repsByEmail } = await supabase
           .from("reps")
-          .select(
-            "email, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready"
-          )
+          .select(repSelect)
           .in("email", recruitEmails);
 
         (repsByEmail || []).forEach((r) => {
+          if (r.notion_page_id) repByNotionId[String(r.notion_page_id).trim()] = r;
           if (r.email) repByEmail[String(r.email).toLowerCase().trim()] = r;
         });
       }
@@ -182,7 +204,12 @@ Deno.serve(async (req) => {
       // Map recruits to team members format
       for (const recruit of recruitsData || []) {
         const emailKey = recruit.email ? String(recruit.email).toLowerCase().trim() : null;
-        const repProgress = emailKey ? repByEmail[emailKey] : null;
+        const notionKey = recruit.notion_page_id ? String(recruit.notion_page_id).trim() : null;
+
+        const repProgress =
+          (notionKey ? repByNotionId[notionKey] : null) ||
+          (emailKey ? repByEmail[emailKey] : null);
+
         const progress = repProgress || recruit;
 
         // Compute onboardingStatus with proper progression check
@@ -223,6 +250,9 @@ Deno.serve(async (req) => {
           teamName: recruit.team_id ? teamNameMap[recruit.team_id] : null,
         });
       }
+
+      console.log(`Found ${accessibleReps.length} accessible reps`);
+    }
 
     // Fetch invite status from blitz_invites table
     const { data: inviteData } = await supabase
