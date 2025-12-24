@@ -125,6 +125,10 @@ export const useRecruitSuggestionsRealtime = (leaderNotionId: string | null) => 
 /**
  * Hook that subscribes to realtime updates for reps table.
  * This catches changes from Notion sync or direct updates for immediate UI refresh.
+ * 
+ * IMPORTANT: We update the cache directly instead of invalidating to prevent
+ * race conditions where a refetch might return stale data before the DB has
+ * fully propagated the update (which was causing stage changes to revert).
  */
 export const useRepsRealtime = (recruitNotionIds: string[]) => {
   const queryClient = useQueryClient();
@@ -151,13 +155,65 @@ export const useRepsRealtime = (recruitNotionIds: string[]) => {
             return;
           }
 
-          console.log('[Realtime] reps change for:', updatedRep.name, updatedRep);
+          console.log('[Realtime] reps change for:', updatedRep.name, 'stage:', updatedRep.stage);
 
-          // Invalidate all related queries to force refetch with fresh data
-          // This ensures repDataMap is rebuilt with new values (uses partial key matching)
+          // Update the cache directly with the new values instead of invalidating
+          // This prevents race conditions where a refetch returns stale data
+          queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
+            if (!old) return old;
+            
+            return {
+              ...old,
+              recruits: old.recruits.map((r: any) => {
+                if (r.notionPageId !== updatedRep.notion_page_id) return r;
+                
+                // Merge updated fields from the realtime payload
+                return {
+                  ...r,
+                  stage: updatedRep.stage ?? r.stage,
+                  phone: updatedRep.phone ?? r.phone,
+                  email: updatedRep.email ?? r.email,
+                  year: updatedRep.year ?? r.year,
+                  rampToBlitzPhase: updatedRep.ramp_to_blitz_phase ?? r.rampToBlitzPhase,
+                  phase1Complete: updatedRep.ramp_phase_1_complete ?? r.phase1Complete,
+                  phase2Complete: updatedRep.ramp_phase_2_complete ?? r.phase2Complete,
+                  phase3Complete: updatedRep.ramp_phase_3_complete ?? r.phase3Complete,
+                  phase4Complete: updatedRep.ramp_phase_4_complete ?? r.phase4Complete,
+                  onboardingComplete: updatedRep.onboarding_complete ?? r.onboardingComplete,
+                  trainingsComplete: updatedRep.trainings_complete ?? r.trainingsComplete,
+                  slackJoined: updatedRep.slack_joined ?? r.slackJoined,
+                  ipadAssigned: updatedRep.ipad_assigned ?? r.ipadAssigned,
+                  blitzReady: updatedRep.blitz_ready ?? r.blitzReady,
+                };
+              }),
+            };
+          });
+
+          // Also update the live recruit detail if open
+          queryClient.setQueriesData({ queryKey: ['recruit-detail-live', updatedRep.notion_page_id] }, (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              stage: updatedRep.stage ?? old.stage,
+              phone: updatedRep.phone ?? old.phone,
+              email: updatedRep.email ?? old.email,
+              year: updatedRep.year ?? old.year,
+              rampToBlitzPhase: updatedRep.ramp_to_blitz_phase ?? old.rampToBlitzPhase,
+              phase1Complete: updatedRep.ramp_phase_1_complete ?? old.phase1Complete,
+              phase2Complete: updatedRep.ramp_phase_2_complete ?? old.phase2Complete,
+              phase3Complete: updatedRep.ramp_phase_3_complete ?? old.phase3Complete,
+              phase4Complete: updatedRep.ramp_phase_4_complete ?? old.phase4Complete,
+              onboardingComplete: updatedRep.onboarding_complete ?? old.onboardingComplete,
+              trainingsComplete: updatedRep.trainings_complete ?? old.trainingsComplete,
+              slackJoined: updatedRep.slack_joined ?? old.slackJoined,
+              ipadAssigned: updatedRep.ipad_assigned ?? old.ipadAssigned,
+              blitzReady: updatedRep.blitz_ready ?? old.blitzReady,
+            };
+          });
+
+          // Only invalidate non-critical queries that don't cause race conditions
           queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
           queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
-          queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
           queryClient.invalidateQueries({ queryKey: ['leader-preseason-prep-leaderboard-weekly'], exact: false });
         }
       )
