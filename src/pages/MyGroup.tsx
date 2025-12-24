@@ -17,7 +17,7 @@ import { useRecordsTracking } from "@/hooks/useRecordsTracking";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
-import { TodaysFocusHero } from "@/components/mygroup/TodaysFocusHero";
+import { TodaysFocusHero, OverdueScheduledItem } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
 import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
@@ -35,7 +35,7 @@ import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer"
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
@@ -472,11 +472,52 @@ const MyGroup = () => {
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
 
-  // Fallback: if no top recommendation, find the top priority from Needs Attention
+  // Calculate overdue scheduled items as highest-priority fallback
+  const overdueScheduledFallback = useMemo<OverdueScheduledItem | null>(() => {
+    // Only show if no top recommendation
+    if (topRecommendation) return null;
+
+    const today = startOfToday();
+    
+    // Get latest next action for each recruit
+    const latestNextActions = new Map<string, typeof filteredActivities[0]>();
+    filteredActivities.forEach(activity => {
+      if (activity.next_action_due && activity.next_action) {
+        const existing = latestNextActions.get(activity.rep_notion_page_id);
+        if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
+          latestNextActions.set(activity.rep_notion_page_id, activity);
+        }
+      }
+    });
+
+    // Find the first overdue item (respecting skip/dismiss)
+    const overdueItems: OverdueScheduledItem[] = [];
+    latestNextActions.forEach((activity, recruitId) => {
+      const dueDate = parseISO(activity.next_action_due!);
+      if (isPast(dueDate) && !isDateToday(dueDate)) {
+        const recruit = filteredRecruits.find(r => r.notionPageId === recruitId);
+        if (recruit && 
+            !isSkipped(recruit.notionPageId) && 
+            !isRecuitDismissed(recruit.notionPageId)) {
+          overdueItems.push({
+            recruit,
+            activity,
+            daysOverdue: differenceInDays(today, dueDate),
+          });
+        }
+      }
+    });
+
+    // Sort by most overdue first
+    overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    return overdueItems[0] || null;
+  }, [topRecommendation, filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed]);
+
+  // Fallback: if no top recommendation AND no overdue, find the top priority from Needs Attention
   // (respecting skip functionality)
   const needsAttentionFallback = useMemo(() => {
-    // Only show fallback if there's no top recommendation
-    if (topRecommendation) return null;
+    // Only show fallback if there's no top recommendation AND no overdue items
+    if (topRecommendation || overdueScheduledFallback) return null;
     
     // Flatten all recruits from all categories and filter out skipped ones
     for (const category of categories) {
@@ -488,7 +529,7 @@ const MyGroup = () => {
       }
     }
     return null;
-  }, [topRecommendation, categories, isSkipped, isRecuitDismissed]);
+  }, [topRecommendation, overdueScheduledFallback, categories, isSkipped, isRecuitDismissed]);
 
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
@@ -651,6 +692,7 @@ const MyGroup = () => {
             <TodaysFocusHero
               topRecommendation={topRecommendation}
               summerRecommendation={topSummerRecommendation}
+              overdueScheduledFallback={overdueScheduledFallback}
               needsAttentionFallback={needsAttentionFallback}
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}

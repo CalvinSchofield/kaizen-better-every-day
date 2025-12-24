@@ -1,21 +1,30 @@
-import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { SummerRecommendation } from "@/hooks/useSummerRecommendations";
-import { Recruit } from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { cn } from "@/lib/utils";
 import { SkipMenu } from "./SkipMenu";
+import { format, parseISO, differenceInDays } from "date-fns";
 
 // Combined recommendation type for both preseason and summer
 export type HeroRecommendation = 
   | { type: 'preseason'; data: RecruitRecommendation }
   | { type: 'summer'; data: SummerRecommendation };
 
+// Overdue scheduled item type
+export interface OverdueScheduledItem {
+  recruit: Recruit;
+  activity: RecruitActivity;
+  daysOverdue: number;
+}
+
 interface TodaysFocusHeroProps {
   topRecommendation: RecruitRecommendation | null;
   summerRecommendation?: SummerRecommendation | null;
+  overdueScheduledFallback?: OverdueScheduledItem | null;
   needsAttentionFallback?: AttentionRecruit | null;
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
@@ -73,6 +82,7 @@ const CONTAINER_STYLES: Record<string, string> = {
 export const TodaysFocusHero = ({ 
   topRecommendation, 
   summerRecommendation,
+  overdueScheduledFallback,
   needsAttentionFallback,
   totalNeedsAttention,
   onRecruitClick,
@@ -186,7 +196,100 @@ export const TodaysFocusHero = ({
 
   // Default preseason/recruiting hero
   if (!topRecommendation) {
-    // If there's a needs attention fallback, show that instead of "All Caught Up"
+    // Priority 1: Overdue scheduled items (highest urgency)
+    if (overdueScheduledFallback) {
+      const { recruit, activity, daysOverdue } = overdueScheduledFallback;
+      const dueDate = activity.next_action_due ? parseISO(activity.next_action_due) : null;
+
+      const handleOverdueSkipForNow = () => {
+        onSkipForNow?.(recruit);
+      };
+
+      const handleOverdueSkipToday = () => {
+        onSkipToday?.(recruit);
+      };
+
+      const handleOverdueContact = () => {
+        onContactClick?.(recruit);
+      };
+
+      const handleOverdueReschedule = () => {
+        onScheduleClick?.(recruit);
+      };
+
+      return (
+        <div 
+          className={cn(
+            "rounded-2xl p-5 border-2 transition-all duration-300",
+            "border-red-500/30 bg-red-500/5",
+            animatingOut && "animate-fade-out opacity-0 scale-95"
+          )}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-2 rounded-full bg-red-500/10">
+              <Clock className="h-5 w-5 text-red-500" />
+            </div>
+            <span className="text-sm font-medium text-red-600">Overdue Follow-up</span>
+            <div className="ml-auto flex items-center gap-1">
+              <Badge variant="outline" className="text-xs border-red-500/50 text-red-600 bg-red-500/10">
+                {daysOverdue === 1 ? '1 day late' : `${daysOverdue} days late`}
+              </Badge>
+              <SkipMenu 
+                onSkipForNow={handleOverdueSkipForNow}
+                onSkipToday={handleOverdueSkipToday}
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7"
+              />
+            </div>
+          </div>
+
+          <div 
+            className="cursor-pointer"
+            onClick={() => onRecruitClick(recruit)}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-xl font-semibold">
+                {stripEmojis(recruit.name)}
+              </h2>
+              <Badge 
+                variant="outline" 
+                className="text-xs border-muted-foreground/30 text-muted-foreground"
+              >
+                {recruit.stage}
+              </Badge>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-3">
+              {activity.next_action || 'Follow-up'} was due {dueDate ? format(dueDate, 'MMM d') : 'previously'}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              className="flex-1 gap-2"
+              size="lg"
+              variant="destructive"
+              onClick={handleOverdueContact}
+            >
+              <UserRoundSearch className="h-4 w-4" />
+              Contact Now
+            </Button>
+            <Button 
+              variant="outline"
+              size="lg"
+              onClick={handleOverdueReschedule}
+              className="gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Reschedule
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Priority 2: Needs attention fallback
     if (needsAttentionFallback) {
       const fallbackRecruit = needsAttentionFallback.recruit;
       const urgencyStyles = {
