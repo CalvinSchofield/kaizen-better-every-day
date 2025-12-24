@@ -160,17 +160,18 @@ export const EditRecruitDrawer = ({
     return teamAccess.mgmtGroups || [];
   }, [teamAccess]);
 
-  // Get all recruiters with team info - filtered to Signed+ stages
+  // Get all recruiters with team info - filtered to Signed+ stages (includes Shadow)
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
     return teamAccess.accessibleReps.filter(rep => {
       if (!rep.name) return false;
+      if (!rep.notionPageId) return false; // Need notionPageId to save
       const stageLower = (rep.stage || '').toLowerCase();
-      // Match stages: signed, shadow complete, sold, sold 5+, sold (5+)
+      // Match stages: signed, shadow (any variant), sold (any variant)
+      // Exclude: 100 list, reached out, evaluating, exit stages
       return (
         stageLower.includes('signed') ||
-        stageLower.includes('shadow complete') ||
-        stageLower.includes('shadow_complete') ||
+        stageLower.includes('shadow') ||
         (stageLower.includes('sold') && !stageLower.includes('100'))
       );
     });
@@ -324,10 +325,22 @@ export const EditRecruitDrawer = ({
   if (optionsLoading || recruitLoading) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle>Edit Recruit</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-4 space-y-4">
+            {/* Skeleton loading state */}
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                <div className="h-10 bg-muted rounded animate-pulse" />
+              </div>
+            ))}
           </div>
+          <DrawerFooter>
+            <div className="h-10 bg-muted rounded animate-pulse" />
+          </DrawerFooter>
         </DrawerContent>
       </Drawer>
     );

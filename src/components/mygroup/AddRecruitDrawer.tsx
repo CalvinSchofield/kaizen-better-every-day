@@ -297,18 +297,19 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     enabled: !!currentRep?.team_leader && !isLeader,
   });
 
-  // Get all recruiters from accessible reps - filtered to Signed+ stages and sorted alphabetically
+  // Get all recruiters from accessible reps - filtered to Signed+ stages (includes Shadow) and sorted alphabetically
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
     return teamAccess.accessibleReps
       .filter(r => {
-        if (!r.notionPageId) return false;
+        if (!r.name) return false;
+        if (!r.notionPageId) return false; // Need notionPageId to save
         const stageLower = (r.stage || '').toLowerCase();
-        // Match stages: signed, shadow complete, sold, sold 5+, sold (5+)
+        // Match stages: signed, shadow (any variant), sold (any variant)
+        // Exclude: 100 list, reached out, evaluating, exit stages
         return (
           stageLower.includes('signed') ||
-          stageLower.includes('shadow complete') ||
-          stageLower.includes('shadow_complete') ||
+          stageLower.includes('shadow') ||
           (stageLower.includes('sold') && !stageLower.includes('100'))
         );
       })
