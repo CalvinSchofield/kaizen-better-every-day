@@ -51,6 +51,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('[update-recruit-stage] Missing authorization header');
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -59,8 +60,8 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
 
+    // Use service role to bypass RLS (leaders updating recruits they manage)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Authenticate user
@@ -68,6 +69,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.error('[update-recruit-stage] Invalid token:', authError);
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -75,35 +77,37 @@ serve(async (req) => {
     }
 
     const { recruitNotionId, newStage, notes, forceUpdate = false, isAutomatic = false } = await req.json();
+    console.log(`[update-recruit-stage] Request: recruitNotionId=${recruitNotionId}, newStage=${newStage}, isAutomatic=${isAutomatic}, user=${user.id}`);
 
     if (!recruitNotionId || !newStage) {
+      console.error('[update-recruit-stage] Missing required fields');
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // First, get the current stage from Notion to check progression
-    let currentStage: string | null = null;
-    
-    if (notionApiKey) {
-      const getPageResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-        },
-      });
+    // Get current stage from Supabase (source of truth)
+    const { data: currentRep, error: fetchError } = await supabase
+      .from('reps')
+      .select('stage, name')
+      .eq('notion_page_id', recruitNotionId)
+      .single();
 
-      if (getPageResponse.ok) {
-        const pageData = await getPageResponse.json();
-        currentStage = pageData.properties?.Stage?.select?.name || null;
-      }
+    if (fetchError) {
+      console.error('[update-recruit-stage] Error fetching current rep:', fetchError);
+      return new Response(JSON.stringify({ error: 'Recruit not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    const currentStage = currentRep?.stage || null;
+    console.log(`[update-recruit-stage] Current stage for ${currentRep?.name}: ${currentStage}`);
 
     // Check if this is a valid forward progression (only for automatic changes, not manual)
     if (isAutomatic && !forceUpdate && !isForwardProgression(currentStage, newStage)) {
-      console.log(`Blocked backward automatic stage change: ${currentStage} -> ${newStage}`);
+      console.log(`[update-recruit-stage] Blocked backward automatic stage change: ${currentStage} -> ${newStage}`);
       return new Response(JSON.stringify({ 
         error: 'Cannot move stage backward automatically',
         currentStage,
@@ -114,64 +118,50 @@ serve(async (req) => {
       });
     }
 
-    // Update in Notion
-    if (notionApiKey) {
-      const notionResponse = await fetch(`https://api.notion.com/v1/pages/${recruitNotionId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          properties: {
-            'Stage': {
-              select: { name: newStage }
-            }
-          }
-        }),
-      });
-
-      if (!notionResponse.ok) {
-        const errorText = await notionResponse.text();
-        console.error('Notion API error:', errorText);
-        throw new Error('Failed to update Notion');
-      }
-    }
-
-    // Update in DB (for immediate UI consistency + to prevent reverting on refetch)
-    const { error: repUpdateError } = await supabase
+    // Update stage in Supabase (source of truth - NO Notion update)
+    const { error: updateError } = await supabase
       .from('reps')
-      .update({ stage: newStage, updated_at: new Date().toISOString() })
+      .update({ 
+        stage: newStage, 
+        updated_at: new Date().toISOString() 
+      })
       .eq('notion_page_id', recruitNotionId);
 
-    if (repUpdateError) {
-      console.error('Error updating rep stage in DB:', repUpdateError);
+    if (updateError) {
+      console.error('[update-recruit-stage] Error updating rep stage:', updateError);
+      return new Response(JSON.stringify({ error: 'Failed to update stage' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Log the stage change as an activity
+    console.log(`[update-recruit-stage] Successfully updated ${currentRep?.name} from ${currentStage} to ${newStage}`);
 
+    // Log the stage change as an activity
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
         rep_notion_page_id: recruitNotionId,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
-        notes: notes || `Stage changed to ${newStage}`,
+        notes: notes || `Stage changed from "${currentStage || 'unknown'}" to "${newStage}"`,
       });
 
     if (activityError) {
-      console.error('Error logging activity:', activityError);
+      console.error('[update-recruit-stage] Error logging activity:', activityError);
+      // Don't fail the request for activity logging errors
     }
 
-    console.log(`Updated recruit ${recruitNotionId} to stage ${newStage} (from ${currentStage})`);
-
-    return new Response(JSON.stringify({ success: true, previousStage: currentStage }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      previousStage: currentStage,
+      newStage: newStage 
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error updating recruit stage:', error);
+    console.error('[update-recruit-stage] Unexpected error:', error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
