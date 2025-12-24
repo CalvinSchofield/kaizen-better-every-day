@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface RepData {
@@ -91,7 +90,6 @@ const storeUserId = (userId: string | null) => {
 };
 
 export const useRepData = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   // Initialize with stored userId for instant access (prevents flicker)
   const [currentUserId, setCurrentUserId] = useState<string | null>(getStoredUserId);
@@ -185,57 +183,10 @@ export const useRepData = () => {
         return null;
       }
 
-      // If no rep data exists, automatically sync from Notion
+      // If no rep data exists, user needs to be added by admin
       if (!data) {
-        console.log("No rep data found, attempting auto-sync from Notion...");
-        toast({
-          title: "Syncing from Notion",
-          description: "Loading your data from Notion...",
-        });
-
-        const { error: syncError } = await supabase.functions.invoke(
-          "sync-notion-reps"
-        );
-
-        if (syncError) {
-          console.error("Auto-sync error:", syncError);
-          toast({
-            title: "Sync failed",
-            description: "Could not sync your data from Notion. Please contact your team leader.",
-            variant: "destructive",
-          });
-          return null;
-        }
-
-        // Fetch the newly synced data
-        const { data: syncedData, error: refetchError } = await supabase
-          .from("reps")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .maybeSingle();
-
-        if (refetchError) throw refetchError;
-
-        // Validate synced data
-        if (syncedData && syncedData.user_id !== currentUserId) {
-          console.error('SECURITY: Synced rep data does not match current user!');
-          return null;
-        }
-
-        if (syncedData) {
-          toast({
-            title: "Sync successful",
-            description: "Your data has been loaded from Notion.",
-          });
-          // Cache the synced data with user ID
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: syncedData,
-            timestamp: Date.now(),
-            userId: currentUserId
-          }));
-        }
-
-        return syncedData;
+        console.log("No rep data found - user needs to be added by admin");
+        return null;
       }
 
       // Cache the data for offline access with user ID
@@ -251,67 +202,12 @@ export const useRepData = () => {
 
   const refetch = async () => {
     if (!currentUserId) return;
-    // Trigger Notion sync
-    await supabase.functions.invoke("sync-notion-reps");
-    // Wait a moment for sync to complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // Refetch the data
+    // Refetch the data from database
     await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
   };
 
   useEffect(() => {
     if (!currentUserId) return;
-
-    // Throttle Notion syncs to avoid rate limiting
-    // Only sync if 5+ minutes have passed since last sync
-    const SYNC_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
-    const lastSyncKey = `notion-sync-last-${currentUserId}`;
-    
-    const shouldSync = () => {
-      const lastSync = localStorage.getItem(lastSyncKey);
-      if (!lastSync) return true;
-      return Date.now() - parseInt(lastSync, 10) > SYNC_THROTTLE_MS;
-    };
-    
-    const markSynced = () => {
-      localStorage.setItem(lastSyncKey, Date.now().toString());
-    };
-
-    // Set up automatic periodic sync from Notion every 5 minutes (reduced from 2)
-    const syncInterval = setInterval(async () => {
-      if (!shouldSync()) {
-        console.log("[Notion Sync] Throttled - too soon since last sync");
-        return;
-      }
-      console.log("[Notion Sync] Auto-syncing from Notion...");
-      try {
-        await supabase.functions.invoke("sync-notion-reps");
-        markSynced();
-        await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
-      } catch (error) {
-        console.error("Auto-sync error:", error);
-      }
-    }, 5 * 60 * 1000); // 5 minutes - reduced frequency to avoid rate limiting
-
-    // PWA visibility change handler - sync when app comes back to foreground
-    // But only if enough time has passed since last sync
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        if (!shouldSync()) {
-          console.log("[Notion Sync] Visibility change throttled - too soon since last sync");
-          return;
-        }
-        console.log("[Notion Sync] App became visible, syncing from Notion...");
-        try {
-          await supabase.functions.invoke("sync-notion-reps");
-          markSynced();
-          await queryClient.invalidateQueries({ queryKey: ['rep-data', currentUserId] });
-        } catch (error) {
-          console.error("Visibility sync error:", error);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Set up realtime subscription to instantly reflect database changes
     // CRITICAL: Filter to only process changes for the CURRENT USER
@@ -349,11 +245,9 @@ export const useRepData = () => {
       .subscribe();
 
     return () => {
-      clearInterval(syncInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast, currentUserId]);
+  }, [queryClient, currentUserId]);
 
   // isInitializing: true when we don't have a stored userId AND auth hasn't been checked yet
   // If we have a stored userId, we can render immediately with cached data

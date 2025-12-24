@@ -211,31 +211,18 @@ const Home = () => {
     }
   };
 
-  // Calculate progress values - sequential logic (later steps imply earlier ones are done)
+  // Calculate progress values from Supabase reps table boolean fields
   const phase = repData?.ramp_to_blitz_phase || "Not started";
   const phaseLower = phase.toLowerCase();
   
-  // Log for debugging progress
-  console.log("Current phase from Notion:", phase);
-  console.log("Phase lowercase:", phaseLower);
-  
-  // Check which phase is marked complete in Notion
-  const notionOnboardingComplete = phaseLower.includes("onboarding") && phaseLower.includes("✅");
-  const notionTrainingsComplete = phaseLower.includes("training") && phaseLower.includes("✅");
-  const notionSlackComplete = phaseLower.includes("slack") && phaseLower.includes("✅");
-  const notionPhase1Complete = phaseLower.includes("phase 1") && phaseLower.includes("✅");
-  const notionPhase2Complete = phaseLower.includes("phase 2") && phaseLower.includes("✅");
-  const notionPhase3Complete = phaseLower.includes("phase 3") && phaseLower.includes("✅");
-  const notionPhase4Complete = phaseLower.includes("phase 4") && phaseLower.includes("✅");
-  
-  // Sequential logic: if a later step is complete, all previous steps must be complete
-  const phase4Complete = notionPhase4Complete;
-  const phase3Complete = notionPhase3Complete || phase4Complete;
-  const phase2Complete = notionPhase2Complete || phase3Complete;
-  const phase1Complete = notionPhase1Complete || phase2Complete;
-  const slackComplete = notionSlackComplete || phase1Complete;
-  const trainingsComplete = notionTrainingsComplete || slackComplete;
-  const onboardingComplete = notionOnboardingComplete || trainingsComplete;
+  // Use boolean fields directly from Supabase reps table
+  const onboardingComplete = repData?.onboarding_complete ?? false;
+  const trainingsComplete = repData?.trainings_complete ?? false;
+  const slackComplete = repData?.slack_joined ?? false;
+  const phase1Complete = repData?.ramp_phase_1_complete ?? false;
+  const phase2Complete = repData?.ramp_phase_2_complete ?? false;
+  const phase3Complete = repData?.ramp_phase_3_complete ?? false;
+  const phase4Complete = repData?.ramp_phase_4_complete ?? false;
   
   const totalSteps = 7;
   const completedSteps = [
@@ -248,20 +235,6 @@ const Home = () => {
     phase4Complete
   ].filter(Boolean).length;
   const progressPercentage = (completedSteps / totalSteps) * 100;
-
-  // Log progress calculation
-  console.log("Progress:", {
-    onboardingComplete,
-    trainingsComplete,
-    slackComplete,
-    phase1Complete,
-    phase2Complete,
-    phase3Complete,
-    phase4Complete,
-    completedSteps,
-    totalSteps,
-    progressPercentage
-  });
 
   // Define the 4 Ramp to Blitz phases (must be before useEffect that uses it)
   const rampPhases: RampPhase[] = [{

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Competitor {
@@ -27,8 +27,6 @@ export interface Competitor {
 const STALE_TIME = 30 * 24 * 60 * 60 * 1000;
 
 export const useCompetitors = () => {
-  const queryClient = useQueryClient();
-
   const { data: competitors = [], isLoading: loading, error: queryError, refetch } = useQuery({
     queryKey: ['competitors'],
     queryFn: async () => {
@@ -44,20 +42,10 @@ export const useCompetitors = () => {
     gcTime: STALE_TIME, // Keep in cache for 30 days
   });
 
-  const syncFromNotion = async () => {
-    const { error: syncError } = await supabase.functions.invoke('sync-notion-competitors');
-
-    if (syncError) throw syncError;
-
-    // Invalidate cache to force refetch
-    await queryClient.invalidateQueries({ queryKey: ['competitors'] });
-  };
-
   return {
     competitors,
     loading,
     error: queryError ? (queryError as Error).message : null,
     refetch,
-    syncFromNotion,
   };
 };
