@@ -31,16 +31,6 @@ import {
   SelectValue,
   SelectSeparator,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Recruit } from "@/hooks/useGroupRecruits";
@@ -48,7 +38,7 @@ import { useBlitzes } from "@/hooks/useBlitzes";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { RecruitRepData } from "../types";
 import { ALL_STAGES, getFirstName } from "../utils";
-import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST, PERMANENT_EXIT_STAGES as PERM_EXIT_STAGES } from "@/utils/stageConstants";
+import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
 import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
 
@@ -63,12 +53,11 @@ interface DetailsTabProps {
 }
 
 // Exit stages that are always allowed and permanent exit stages that need confirmation
+// Note: confirmation is now handled in RecruitDetailDrawer, not here
 const EXIT_STAGES: string[] = [...EXIT_STAGE_LIST];
-const PERMANENT_EXIT_STAGES: string[] = [...PERM_EXIT_STAGES];
 
 // Separate stages into progression and exit for display purposes
 const PROGRESSION_STAGES = ALL_STAGES.filter(s => !EXIT_STAGES.includes(s));
-const EXIT_STAGE_OPTIONS = ALL_STAGES.filter(s => EXIT_STAGES.includes(s));
 
 export const DetailsTab = ({
   recruit,
@@ -98,7 +87,16 @@ export const DetailsTab = ({
   // Early-stage recruits can move freely between 100 List, Reached Out, Evaluating, and Signed
   const stageLocked = isRookie && !hasCompletedOnboarding && !isEarlyStage;
   
-  const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
+  // Check if recruit is Signed or beyond (for exit stage filtering)
+  const signedPlusStages = ['signed', 'shadow', 'sold'];
+  const isSignedOrBeyond = signedPlusStages.some(s => stageLower.includes(s)) && !stageLower.includes('not interested');
+  
+  // For Signed+ recruits, only these exit stages make sense
+  // Not Interested is only for early stage (100 List, Reached Out, Evaluating)
+  const availableExitStages = isSignedOrBeyond
+    ? EXIT_STAGES.filter(s => s === STAGES.POTENTIAL_FOLLOW_UP || s === STAGES.SIGNED_BUT_NOT_INTERESTED)
+    : EXIT_STAGES;
+  
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
   const [creatingAppAccount, setCreatingAppAccount] = useState(false);
@@ -171,19 +169,8 @@ export const DetailsTab = ({
   };
   
   const handleStageSelect = (newStage: string) => {
-    // If it's a permanent exit stage, show confirmation dialog
-    if (PERMANENT_EXIT_STAGES.includes(newStage) && newStage !== recruit.stage) {
-      setPendingExitStage(newStage);
-    } else {
-      onStageChange(newStage);
-    }
-  };
-  
-  const confirmExitStage = () => {
-    if (pendingExitStage) {
-      onStageChange(pendingExitStage);
-      setPendingExitStage(null);
-    }
+    // Pass stage change directly to parent - confirmation is handled there
+    onStageChange(newStage);
   };
 
   return (
@@ -307,11 +294,11 @@ export const DetailsTab = ({
             {/* Separator before exit stages */}
             <SelectSeparator className="my-1" />
             
-            {/* Exit Stages - always available */}
+            {/* Exit Stages - filtered based on current stage */}
             <div className="px-2 py-1">
               <span className="text-xs text-muted-foreground">Exit Options</span>
             </div>
-            {EXIT_STAGE_OPTIONS.map((stage) => (
+            {availableExitStages.map((stage) => (
               <SelectItem 
                 key={stage} 
                 value={stage}
@@ -328,25 +315,6 @@ export const DetailsTab = ({
           </p>
         )}
       </div>
-      
-      {/* Exit Stage Confirmation Dialog */}
-      <AlertDialog open={!!pendingExitStage} onOpenChange={(open) => !open && setPendingExitStage(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Mark as {pendingExitStage}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to mark {recruitFirstName} as "{pendingExitStage}"? 
-              This will remove them from your active recruiting pipeline.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmExitStage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, mark as {pendingExitStage}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       
       {/* Edit Recruit Drawer */}
       <EditRecruitDrawer
