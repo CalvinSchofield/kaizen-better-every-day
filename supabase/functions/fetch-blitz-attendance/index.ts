@@ -133,13 +133,28 @@ Deno.serve(async (req) => {
         .select("recruit_id, blitz_id")
         .in("recruit_id", recruitIds);
 
-      // Build commitment map
+      // Get all blitz IDs from commitments to fetch their notion_page_ids
+      const blitzSupabaseIds = [...new Set((recruitBlitzes || []).map(rb => rb.blitz_id))];
+      const { data: blitzesData } = await supabase
+        .from("blitzes")
+        .select("id, notion_page_id")
+        .in("id", blitzSupabaseIds);
+
+      // Map Supabase blitz ID -> Notion page ID (or fallback to Supabase ID)
+      const blitzIdToNotionId: Record<string, string> = {};
+      (blitzesData || []).forEach(b => {
+        blitzIdToNotionId[b.id] = b.notion_page_id || b.id;
+      });
+
+      // Build commitment map using Notion IDs (to match UI)
       const commitmentMap: Record<string, string[]> = {};
       (recruitBlitzes || []).forEach(rb => {
         if (!commitmentMap[rb.recruit_id]) {
           commitmentMap[rb.recruit_id] = [];
         }
-        commitmentMap[rb.recruit_id].push(rb.blitz_id);
+        // Convert to notion page ID
+        const notionId = blitzIdToNotionId[rb.blitz_id] || rb.blitz_id;
+        commitmentMap[rb.recruit_id].push(notionId);
       });
 
       // Map recruits to team members format

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 interface BlitzEvent {
   id: string;
+  supabaseId?: string; // Actual DB ID for recruit_blitzes FK
   name: string;
   date: string;
   endDate: string | null;

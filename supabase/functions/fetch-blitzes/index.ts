@@ -30,9 +30,10 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${blitzesData?.length || 0} blitzes`);
 
-    // Map to expected format
+    // Map to expected format - include both IDs for commit operations
     const blitzes = (blitzesData || []).map(blitz => ({
-      id: blitz.notion_page_id || blitz.id,
+      id: blitz.notion_page_id || blitz.id, // UI uses this as primary ID
+      supabaseId: blitz.id, // Actual DB ID for recruit_blitzes FK
       name: blitz.name,
       date: blitz.date,
       endDate: blitz.end_date,
