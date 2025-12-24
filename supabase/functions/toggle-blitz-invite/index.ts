@@ -32,22 +32,34 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { blitzId, repNotionPageId, isContacted } = await req.json();
+    const { blitzId, repNotionPageId, repUserId, isContacted } = await req.json();
 
-    if (!blitzId || !repNotionPageId || typeof isContacted !== "boolean") {
-      throw new Error("Missing required parameters: blitzId, repNotionPageId, isContacted");
+    if (!blitzId || (!repNotionPageId && !repUserId) || typeof isContacted !== "boolean") {
+      throw new Error("Missing required parameters: blitzId, repNotionPageId or repUserId, isContacted");
     }
 
-    console.log(`Toggling invite status - blitz: ${blitzId}, rep: ${repNotionPageId}, contacted: ${isContacted}`);
+    // Resolve rep_user_id if only notion page ID provided
+    let resolvedRepUserId = repUserId;
+    if (!resolvedRepUserId && repNotionPageId) {
+      const { data: rep } = await supabase
+        .from("reps")
+        .select("user_id")
+        .eq("notion_page_id", repNotionPageId)
+        .maybeSingle();
+      resolvedRepUserId = rep?.user_id || null;
+    }
+
+    console.log(`Toggling invite status - blitz: ${blitzId}, rep: ${repNotionPageId || repUserId}, contacted: ${isContacted}`);
 
     if (isContacted) {
-      // Add or update the invite record
+      // Add or update the invite record with both legacy and new columns
       const { error: upsertError } = await supabase
         .from("blitz_invites")
         .upsert(
           {
             blitz_id: blitzId,
-            rep_notion_page_id: repNotionPageId,
+            rep_notion_page_id: repNotionPageId || repUserId, // Legacy
+            rep_user_id: resolvedRepUserId,                    // New column
             contacted_by: user.id,
             contacted_at: new Date().toISOString(),
           },
@@ -63,7 +75,7 @@ Deno.serve(async (req) => {
         .from("blitz_invites")
         .delete()
         .eq("blitz_id", blitzId)
-        .eq("rep_notion_page_id", repNotionPageId);
+        .eq("rep_notion_page_id", repNotionPageId || repUserId);
 
       if (deleteError) throw deleteError;
 

@@ -181,29 +181,38 @@ serve(async (req) => {
     // Fetch activities from Supabase if requested
     let activities: any[] = [];
     if (includeActivities && recruits.length > 0) {
-      // Use both notion_page_id and Supabase id for activity lookup
+      // Use both recruit_id (new) and rep_notion_page_id (legacy) for activity lookup
+      const recruitIds = recruits.map(r => r.id).filter(Boolean);
       const recruitNotionIds = recruits.map(r => r.notionPageId).filter(Boolean);
       
+      // Query by new recruit_id column first, fallback to legacy column
       const { data: activityData } = await supabase
         .from('recruit_activities')
         .select('*')
-        .in('rep_notion_page_id', recruitNotionIds)
+        .or(`recruit_id.in.(${recruitIds.join(',')}),rep_notion_page_id.in.(${recruitNotionIds.join(',')})`)
         .order('created_at', { ascending: false })
         .limit(500);
       
       activities = activityData || [];
     }
 
-    // Fetch pending suggestions for this user's team
+    // Fetch pending suggestions for this user's team (use new column or fallback to legacy)
     let pendingSuggestions: any[] = [];
-    if (currentRep?.notion_page_id) {
-      const { data: suggestions } = await supabase
+    if (currentRep?.user_id || currentRep?.notion_page_id) {
+      let suggestionsQuery = supabase
         .from('recruit_suggestions')
         .select('*')
-        .eq('team_leader_notion_id', currentRep.notion_page_id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
       
+      // Prefer new team_leader_user_id column, fallback to legacy notion ID
+      if (currentRep?.user_id) {
+        suggestionsQuery = suggestionsQuery.or(`team_leader_user_id.eq.${currentRep.user_id},team_leader_notion_id.eq.${currentRep.notion_page_id || ''}`);
+      } else {
+        suggestionsQuery = suggestionsQuery.eq('team_leader_notion_id', currentRep.notion_page_id);
+      }
+      
+      const { data: suggestions } = await suggestionsQuery;
       pendingSuggestions = suggestions || [];
     }
 

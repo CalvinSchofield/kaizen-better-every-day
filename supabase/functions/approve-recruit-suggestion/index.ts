@@ -79,18 +79,11 @@ serve(async (req) => {
     }
 
     if (action === 'approve') {
-      // Get suggester's team info
-      const { data: suggesterRep } = await supabase
-        .from('reps')
-        .select('user_id, notion_page_id')
-        .eq('user_id', suggestion.suggested_by_user_id)
-        .maybeSingle();
-
       // Get accessible teams for the suggester to assign the recruit
       const { data: accessibleTeams } = await supabase
         .rpc('get_accessible_team_ids', { _user_id: suggestion.suggested_by_user_id });
 
-      // Create recruit in Supabase
+      // Create recruit in Supabase (no Notion ID needed for new recruits)
       const { data: newRecruit, error: insertError } = await supabase
         .from('recruits')
         .insert({
@@ -111,11 +104,12 @@ serve(async (req) => {
 
       console.log(`Created recruit for ${suggestion.name}: ${newRecruit.id}`);
 
-      // Log activity
+      // Log activity using new recruit_id column
       await supabase
         .from('recruit_activities')
         .insert({
-          rep_notion_page_id: newRecruit.id,
+          recruit_id: newRecruit.id,              // New FK column
+          rep_notion_page_id: newRecruit.id,      // Legacy column (use Supabase ID)
           activity_type: 'note',
           logged_by_user_id: user.id,
           notes: `Approved suggestion from ${suggestion.suggested_by_name}`,

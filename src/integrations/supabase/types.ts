@@ -92,6 +92,7 @@ export type Database = {
           declined_by: string | null
           id: string
           rep_notion_page_id: string
+          rep_user_id: string | null
         }
         Insert: {
           blitz_id: string
@@ -99,6 +100,7 @@ export type Database = {
           declined_by?: string | null
           id?: string
           rep_notion_page_id: string
+          rep_user_id?: string | null
         }
         Update: {
           blitz_id?: string
@@ -106,6 +108,7 @@ export type Database = {
           declined_by?: string | null
           id?: string
           rep_notion_page_id?: string
+          rep_user_id?: string | null
         }
         Relationships: []
       }
@@ -116,6 +119,7 @@ export type Database = {
           contacted_by: string | null
           id: string
           rep_notion_page_id: string
+          rep_user_id: string | null
         }
         Insert: {
           blitz_id: string
@@ -123,6 +127,7 @@ export type Database = {
           contacted_by?: string | null
           id?: string
           rep_notion_page_id: string
+          rep_user_id?: string | null
         }
         Update: {
           blitz_id?: string
@@ -130,6 +135,7 @@ export type Database = {
           contacted_by?: string | null
           id?: string
           rep_notion_page_id?: string
+          rep_user_id?: string | null
         }
         Relationships: []
       }
@@ -609,6 +615,7 @@ export type Database = {
           next_action: string | null
           next_action_due: string | null
           notes: string | null
+          recruit_id: string | null
           rep_notion_page_id: string
         }
         Insert: {
@@ -622,6 +629,7 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           notes?: string | null
+          recruit_id?: string | null
           rep_notion_page_id: string
         }
         Update: {
@@ -635,9 +643,18 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           notes?: string | null
+          recruit_id?: string | null
           rep_notion_page_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recruit_activities_recruit_id_fkey"
+            columns: ["recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recruit_blitzes: {
         Row: {
@@ -690,6 +707,7 @@ export type Database = {
           suggested_by_name: string
           suggested_by_user_id: string
           team_leader_notion_id: string
+          team_leader_user_id: string | null
           updated_at: string
         }
         Insert: {
@@ -706,6 +724,7 @@ export type Database = {
           suggested_by_name: string
           suggested_by_user_id: string
           team_leader_notion_id: string
+          team_leader_user_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -722,6 +741,7 @@ export type Database = {
           suggested_by_name?: string
           suggested_by_user_id?: string
           team_leader_notion_id?: string
+          team_leader_user_id?: string | null
           updated_at?: string
         }
         Relationships: []
