@@ -69,25 +69,26 @@ Deno.serve(async (req) => {
       throw new Error("Rep data not found");
     }
 
-    // Determine access level
-    const areaDirectorEmails = ["calvinjschofield@gmail.com", "calvin.schofield@vivint.com"];
-    const isAreaDirector = repData.email && areaDirectorEmails.includes(repData.email.toLowerCase());
+    // Determine access level using database functions for consistency
+    const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
+    const { data: isMgmtGroupLeadDb } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
+    const { data: isTeamLeadDb } = await supabase.rpc('is_team_lead', { _user_id: user.id });
 
-    // Check if user is a team lead
+    // Check if user is a team lead - get their specific teams
     const { data: ledTeams } = await supabase
       .from("teams")
       .select("id, name")
       .eq("lead_user_id", user.id);
 
-    // Check if user is a mgmt group lead
+    // Check if user is a mgmt group lead - get their specific groups
     const { data: ledMgmtGroups } = await supabase
       .from("mgmt_groups")
       .select("id, name")
       .eq("lead_user_id", user.id);
 
-    // Determine the user's actual access level
-    const isMgmtGroupLead = ledMgmtGroups && ledMgmtGroups.length > 0;
-    const isTeamLead = ledTeams && ledTeams.length > 0;
+    // Use database function results for access level determination
+    const isMgmtGroupLead = Boolean(isMgmtGroupLeadDb);
+    const isTeamLead = Boolean(isTeamLeadDb);
 
     // Validate requested scope against user's actual permissions
     // Users can only access scopes they're authorized for
