@@ -40,6 +40,10 @@ interface OrgRep {
   recruiterName?: string;
   stage?: string | null;
   notionPageId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 interface OrgTeam {
@@ -80,7 +84,7 @@ export const OrganizationManagementView = () => {
         supabase.from("teams").select("*"),
         supabase.from("mgmt_groups").select("*"),
         supabase.from("team_mgmt_groups").select("*"),
-        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, notion_page_id"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, notion_page_id, phone, email, created_at, updated_at"),
         supabase.from("reps").select("user_id, name"),
       ]);
 
@@ -103,8 +107,15 @@ export const OrganizationManagementView = () => {
 
     const repMap = new Map(orgData.reps.map((r) => [r.user_id, r.name]));
     
+    // Filter out "Signed but Not Interested" recruits and map data
+    const filteredRecruits = orgData.recruits.filter(r => {
+      const stage = (r.stage || "").toLowerCase();
+      return !stage.includes("signed but not interested") && 
+             !stage.includes("not interested");
+    });
+    
     // Map recruiter names
-    const recruitsWithRecruiter: OrgRep[] = orgData.recruits.map((r) => ({
+    const recruitsWithRecruiter: OrgRep[] = filteredRecruits.map((r) => ({
       id: r.id,
       userId: null,
       name: r.name,
@@ -114,6 +125,10 @@ export const OrganizationManagementView = () => {
       recruiterName: r.recruiter_user_id ? repMap.get(r.recruiter_user_id) || "Unknown" : undefined,
       stage: r.stage,
       notionPageId: r.notion_page_id,
+      phone: r.phone,
+      email: r.email,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
     }));
 
     // Group recruits by team

@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Calendar, MapPin, Check } from "lucide-react";
-import { format, parseISO, isBefore, startOfYear } from "date-fns";
+import { X, Calendar, MapPin, Check, Building2, User, Phone, Mail, Activity } from "lucide-react";
+import { format, parseISO, isBefore, startOfYear, formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
   Drawer,
   DrawerContent,
@@ -34,6 +36,10 @@ interface Rep {
   recruiterName?: string;
   stage?: string | null;
   notionPageId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 interface Team {
@@ -59,8 +65,8 @@ export const EditRepOrgDrawer = ({
   const [teamId, setTeamId] = useState(rep.teamId || "__none__");
   const [recruiterUserId, setRecruiterUserId] = useState(rep.recruiterUserId || "__none__");
   const [saving, setSaving] = useState(false);
-  // Track using supabaseId (the actual DB UUID) for recruit_blitzes table
   const [committedBlitzIds, setCommittedBlitzIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState("organization");
   const queryClient = useQueryClient();
   
   const { allBlitzesIncludingPast, loading: blitzesLoading } = useBlitzes();
@@ -80,11 +86,44 @@ export const EditRepOrgDrawer = ({
     enabled: open && !!rep.id,
   });
 
+  // Fetch additional rep data if they have app access
+  const { data: repGoals } = useQuery({
+    queryKey: ["rep-goals-org", rep.userId],
+    queryFn: async () => {
+      if (!rep.userId) return null;
+      const { data } = await supabase
+        .from("rep_goals")
+        .select("will_do_fp_goal, setup_complete")
+        .eq("user_id", rep.userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!rep.userId,
+  });
+
+  // Fetch last activity (most recent daily entry)
+  const { data: lastActivity } = useQuery({
+    queryKey: ["last-activity-org", rep.userId],
+    queryFn: async () => {
+      if (!rep.userId) return null;
+      const { data } = await supabase
+        .from("daily_entries")
+        .select("entry_date, updated_at")
+        .eq("user_id", rep.userId)
+        .order("entry_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!rep.userId,
+  });
+
   // Reset state when drawer opens
   useEffect(() => {
     if (open) {
       setTeamId(rep.teamId || "__none__");
       setRecruiterUserId(rep.recruiterUserId || "__none__");
+      setActiveTab("organization");
       if (currentCommitments) {
         setCommittedBlitzIds(new Set(currentCommitments));
       }
@@ -125,7 +164,6 @@ export const EditRepOrgDrawer = ({
     return { pastBlitzes: past, futureBlitzes: future };
   }, [thisYearBlitzes]);
 
-  // Get the supabaseId for a blitz (the actual DB UUID needed for recruit_blitzes)
   const getSupabaseId = (blitz: typeof thisYearBlitzes[0]) => {
     return blitz.supabaseId || blitz.id;
   };
@@ -166,35 +204,24 @@ export const EditRepOrgDrawer = ({
       const currentSet = new Set(currentCommitments || []);
       const newSet = committedBlitzIds;
       
-      // Find additions and removals
       const toAdd = [...newSet].filter(id => !currentSet.has(id));
       const toRemove = [...currentSet].filter(id => !newSet.has(id));
 
-      // Remove old commitments
       if (toRemove.length > 0) {
-        const { error: removeError } = await supabase
+        await supabase
           .from("recruit_blitzes")
           .delete()
           .eq("recruit_id", rep.id)
           .in("blitz_id", toRemove);
-        
-        if (removeError) {
-          console.error("Error removing blitz commitments:", removeError);
-        }
       }
 
-      // Add new commitments
       if (toAdd.length > 0) {
-        const { error: addError } = await supabase
+        await supabase
           .from("recruit_blitzes")
           .insert(toAdd.map(blitzId => ({
             recruit_id: rep.id,
             blitz_id: blitzId,
           })));
-        
-        if (addError) {
-          console.error("Error adding blitz commitments:", addError);
-        }
       }
 
       toast({ title: "Rep updated successfully" });
@@ -266,71 +293,169 @@ export const EditRepOrgDrawer = ({
   };
 
   const isLoading = blitzesLoading || commitmentsLoading;
+  const attendedCount = committedBlitzIds.size;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="border-b">
+        <DrawerHeader className="border-b pb-3">
           <div className="flex items-center justify-between">
-            <DrawerTitle>Edit Rep Assignment</DrawerTitle>
+            <DrawerTitle>Rep Details</DrawerTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
+          <div className="p-3 bg-muted rounded-lg mt-2">
+            <p className="font-medium">{rep.name}</p>
+            {rep.stage && (
+              <p className="text-sm text-muted-foreground">{rep.stage}</p>
+            )}
+          </div>
         </DrawerHeader>
 
-        <ScrollArea className="flex-1 max-h-[calc(90vh-140px)]">
-          <div className="p-4 space-y-6">
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="font-medium">{rep.name}</p>
-              {rep.stage && (
-                <p className="text-sm text-muted-foreground">{rep.stage}</p>
-              )}
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <div className="px-4 pt-2 border-b">
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="organization" className="text-xs">
+                <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                Org
+              </TabsTrigger>
+              <TabsTrigger value="details" className="text-xs">
+                <User className="h-3.5 w-3.5 mr-1.5" />
+                Details
+              </TabsTrigger>
+              <TabsTrigger value="blitzes" className="text-xs">
+                <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                Blitzes
+                {attendedCount > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-xs">
+                    {attendedCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <div className="space-y-2">
-              <Label>Team</Label>
-              <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No team assigned</SelectItem>
-                  {[...allTeams]
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <ScrollArea className="flex-1 max-h-[calc(90vh-220px)]">
+            {/* Organization Tab */}
+            <TabsContent value="organization" className="p-4 space-y-4 mt-0">
+              <div className="space-y-2">
+                <Label>Team</Label>
+                <Select value={teamId} onValueChange={setTeamId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No team assigned</SelectItem>
+                    {[...allTeams]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Recruiter</Label>
-              <Select value={recruiterUserId} onValueChange={setRecruiterUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select recruiter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No recruiter assigned</SelectItem>
-                  {[...allReps]
-                    .filter((r) => r.userId)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((r) => (
-                      <SelectItem key={r.userId!} value={r.userId!}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label>Recruiter</Label>
+                <Select value={recruiterUserId} onValueChange={setRecruiterUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select recruiter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No recruiter assigned</SelectItem>
+                    {[...allReps]
+                      .filter((r) => r.userId)
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((r) => (
+                        <SelectItem key={r.userId!} value={r.userId!}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
 
-            {/* Blitz Commitments Section */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Blitz Attendance</Label>
-              
+            {/* Details Tab */}
+            <TabsContent value="details" className="p-4 space-y-4 mt-0">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm text-muted-foreground">Stage</span>
+                  <span className="text-sm font-medium">{rep.stage || "—"}</span>
+                </div>
+                
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5" />
+                    Phone
+                  </span>
+                  <span className="text-sm font-medium">
+                    {rep.phone ? (
+                      <a href={`tel:${rep.phone}`} className="text-primary hover:underline">
+                        {rep.phone}
+                      </a>
+                    ) : "—"}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5" />
+                    Email
+                  </span>
+                  <span className="text-sm font-medium truncate max-w-[180px]">
+                    {rep.email ? (
+                      <a href={`mailto:${rep.email}`} className="text-primary hover:underline">
+                        {rep.email}
+                      </a>
+                    ) : "—"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-sm text-muted-foreground">App Access</span>
+                  <Badge variant={rep.userId ? "default" : "secondary"}>
+                    {rep.userId ? "Yes" : "No"}
+                  </Badge>
+                </div>
+
+                {rep.userId && (
+                  <>
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Goals Set</span>
+                      <Badge variant={repGoals?.setup_complete ? "default" : "secondary"}>
+                        {repGoals?.setup_complete ? "Yes" : "No"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">FP Goal</span>
+                      <span className="text-sm font-medium">
+                        {repGoals?.will_do_fp_goal || "—"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Activity className="h-3.5 w-3.5" />
+                        Last Activity
+                      </span>
+                      <span className="text-sm font-medium">
+                        {lastActivity?.updated_at ? (
+                          formatDistanceToNow(parseISO(lastActivity.updated_at), { addSuffix: true })
+                        ) : "—"}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Blitzes Tab */}
+            <TabsContent value="blitzes" className="p-4 space-y-4 mt-0">
               {isLoading ? (
                 <div className="text-sm text-muted-foreground">Loading blitzes...</div>
               ) : (
@@ -338,7 +463,9 @@ export const EditRepOrgDrawer = ({
                   {/* Upcoming Blitzes */}
                   {futureBlitzes.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Upcoming</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Upcoming ({futureBlitzes.length})
+                      </p>
                       <div className="space-y-2">
                         {futureBlitzes.map(blitz => renderBlitzItem(blitz, false))}
                       </div>
@@ -349,7 +476,7 @@ export const EditRepOrgDrawer = ({
                   {pastBlitzes.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">
-                        Past Blitzes ({pastBlitzes.length})
+                        Past ({pastBlitzes.length})
                       </p>
                       <div className="space-y-2">
                         {pastBlitzes.map(blitz => renderBlitzItem(blitz, true))}
@@ -362,9 +489,9 @@ export const EditRepOrgDrawer = ({
                   )}
                 </div>
               )}
-            </div>
-          </div>
-        </ScrollArea>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
 
         <DrawerFooter className="border-t">
           <Button onClick={handleSave} disabled={saving} className="w-full">
