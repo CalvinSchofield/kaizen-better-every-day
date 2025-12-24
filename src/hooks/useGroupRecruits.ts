@@ -202,6 +202,7 @@ export const useGroupRecruits = () => {
           recruits = allTeamMembers
             .filter((member: any) => RECRUITING_STAGES.includes(member.stage))
             .map((member: any) => {
+              const teamInfo = repTeamInfoMap.get(member.notionPageId);
               return {
                 notionPageId: member.notionPageId,
                 name: member.name,
@@ -210,9 +211,9 @@ export const useGroupRecruits = () => {
                 stage: member.stage,
                 recruiterNotionId: leaderNotionId,
                 recruiterName: member.recruiter || null,
-                teamName: member.teamName || null,
-                teamId: member.teamId || null,
-                mgmtGroupId: member.mgmtGroupId || null,
+                teamName: teamInfo?.teamName ?? member.teamName ?? null,
+                teamId: teamInfo?.teamId ?? member.teamId ?? null,
+                mgmtGroupId: teamInfo?.mgmtGroupId ?? member.mgmtGroupId ?? null,
                 year: member.year || '',
                 lastContact: null,
                 nextAction: null,
