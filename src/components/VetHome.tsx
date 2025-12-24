@@ -43,17 +43,6 @@ interface VetHomeProps {
   syncSuccess: boolean;
 }
 
-// Dashboard mappings based on leader email
-const DASHBOARD_MAP: Record<string, string> = {
-  "adam.schofield@vivint.com": "https://www.notion.so/calvinschofield/Adam-s-Dashboard-288070fe3bc2806d9119f85c9f12a8a0?source=copy_link",
-  "ammon.allan@vivint.com": "https://www.notion.so/calvinschofield/Ammon-s-Dashboard-288070fe3bc2803eb8abdf177e7b442c?source=copy_link",
-  "christian.fabian@vivint.com": "https://www.notion.so/calvinschofield/Christian-s-Dashboard-287070fe3bc28033b770c6c28f763401?source=copy_link",
-  "javier.estrada@vivint.com": "https://www.notion.so/calvinschofield/Javier-s-Dashboard-287070fe3bc28027a58bc4ae500c0d2e?source=copy_link",
-  "quinn.gleed@vivint.com": "https://www.notion.so/calvinschofield/Quinn-s-Dashboard-287070fe3bc28097932bf35055dfaf1b?source=copy_link",
-  "misael.sanchez@vivint.com": "https://www.notion.so/calvinschofield/Misael-s-Dashboard-287070fe3bc28028a14de6a224b4346c?source=copy_link",
-  "ansel.severson@vivint.com": "https://www.notion.so/calvinschofield/Ansel-s-Dashboard-28b070fe3bc280ed9700f80a1d3410a2?source=copy_link",
-};
-
 // Pay scale documents
 const PAY_SCALES = [
   { label: "Leader Pay Scale", file: "/documents/2025_Leader_Payscale.pdf" },
@@ -252,8 +241,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   }, [fetchTeamMembers, refreshTrigger]);
   
   const firstName = repData.name.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim().split(' ')[0];
-  const userEmail = repData.email?.toLowerCase();
-  const dashboardUrl = userEmail ? DASHBOARD_MAP[userEmail] : null;
 
   const handleLogout = () => {
     setLogoutSheetOpen(true);
@@ -804,26 +791,6 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
         {/* Leader Preseason Prep Leaderboard - shows rookies' progress with team leader attribution */}
         {isLeader && <LeaderPreseasonPrepLeaderboard />}
-        {/* Personal Dashboard Card (conditional) */}
-        {dashboardUrl && (
-          <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                My Dashboard
-              </CardTitle>
-              <CardDescription>
-                Access your personalized leadership dashboard
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => openLink(dashboardUrl)} className="w-full">
-                Open Dashboard
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Unified Blitz Management - For leaders, show above recruiting flow */}
         {isLeader && (
