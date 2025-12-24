@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Sun, AlertCircle, Calendar, MessageSquare, CalendarOff, 
-  Users, Clock, LayoutList, GanttChart, ChevronDown, ChevronRight, Rocket, CheckCircle2
+  Users, Clock, LayoutList, GanttChart, ChevronDown, ChevronRight, Rocket, CheckCircle2, Pencil, Filter
 } from "lucide-react";
 import { format, differenceInDays, isAfter, isBefore, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { stripEmojis } from "./recruit-detail/utils";
 import { toast } from "sonner";
-import { EXIT_STAGES, isStageIn } from "@/utils/stageConstants";
+import { SIGNED_PLUS_STAGES, isStageIn } from "@/utils/stageConstants";
+import { EditSummerDatesDrawer } from "./EditSummerDatesDrawer";
 
 // Default summer dates
 const DEFAULT_SUMMER_START = '2026-04-12';
@@ -40,6 +42,7 @@ const getWeekRange = (date: Date): { start: Date; end: Date; startStr: string; e
 
 type ViewFilter = 'all' | 'missing' | 'ready' | 'off' | 'arriving-soon' | 'leaving-soon' | 'off-today';
 type ViewMode = 'list' | 'timeline';
+type TeamFilter = 'all' | string; // 'all' or team/group ID
 
 interface PersonSummerInfo {
   userId: string;
@@ -51,6 +54,10 @@ interface PersonSummerInfo {
   isSelf?: boolean;
   year?: string;
   stage?: string;
+  teamId?: string | null;
+  teamName?: string | null;
+  mgmtGroupId?: string | null;
+  mgmtGroupName?: string | null;
 }
 
 interface WeekOffDayInfo {
@@ -63,9 +70,14 @@ export const SummerAvailabilityView = () => {
   const [filter, setFilter] = useState<ViewFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('timeline');
   const [weekPreviewOpen, setWeekPreviewOpen] = useState(true);
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>('all');
+  const [editingPerson, setEditingPerson] = useState<PersonSummerInfo | null>(null);
   const { data: teamAccess, isLoading: teamAccessLoading } = useTeamAccess();
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
+  
+  // Check if user is a leader (can edit others)
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   
   // Check if we're in summer season
   const summerStartDate = parseLocalDate(DEFAULT_SUMMER_START);
@@ -110,16 +122,35 @@ export const SummerAvailabilityView = () => {
     enabled: !!teamAccess?.accessibleUserIds?.length,
   });
 
-  // Build combined list (filtering out exited reps)
+  // Build filter options for teams/groups
+  const filterOptions = useMemo(() => {
+    const options: { value: string; label: string; type: 'team' | 'group' }[] = [];
+    
+    // Add management groups (for area directors and mgmt group leads)
+    if (teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') {
+      teamAccess?.mgmtGroups?.forEach(group => {
+        options.push({ value: `group-${group.id}`, label: group.name, type: 'group' });
+      });
+    }
+    
+    // Add teams
+    teamAccess?.teams?.forEach(team => {
+      options.push({ value: `team-${team.id}`, label: team.name, type: 'team' });
+    });
+    
+    return options;
+  }, [teamAccess]);
+
+  // Build combined list (only show SIGNED_PLUS_STAGES)
   const people = useMemo(() => {
     const list: PersonSummerInfo[] = [];
     const configMap = new Map(teamData?.configs?.map(c => [c.user_id, c]) || []);
     const repsMap = new Map(teamData?.reps?.map(r => [r.user_id, r]) || []);
 
-    // Add current user first (skip if exited)
+    // Add current user first (only if in SIGNED_PLUS_STAGES)
     if (currentUserData?.rep) {
       const stage = currentUserData.rep.stage;
-      if (!isStageIn(stage, EXIT_STAGES)) {
+      if (isStageIn(stage, SIGNED_PLUS_STAGES)) {
         list.push({
           userId: currentUserData.rep.user_id,
           name: currentUserData.rep.name,
@@ -134,38 +165,56 @@ export const SummerAvailabilityView = () => {
       }
     }
 
-    // Add team members (skip exited reps)
+    // Add team members (only SIGNED_PLUS_STAGES)
     teamAccess?.accessibleReps?.forEach(accessibleRep => {
       if (accessibleRep.userId === currentUserData?.rep?.user_id) return; // Skip self
       
       const rep = repsMap.get(accessibleRep.userId);
       const config = configMap.get(accessibleRep.userId);
-      const stage = rep?.stage;
+      const stage = rep?.stage || accessibleRep.stage;
       
-      // Filter out exited reps
-      if (isStageIn(stage, EXIT_STAGES)) return;
+      // Only include SIGNED_PLUS_STAGES (Signed, Shadow ✅, Sold 💲, Sold (5+) 💰)
+      if (!isStageIn(stage, SIGNED_PLUS_STAGES)) return;
       
       list.push({
         userId: accessibleRep.userId,
         name: rep?.name || accessibleRep.name,
-        phone: rep?.phone || undefined,
+        phone: rep?.phone || accessibleRep.phone || undefined,
         personalSummerStart: config?.personal_summer_start || null,
         personalSummerEnd: config?.personal_summer_end || null,
         excludedSummerDays: config?.excluded_summer_days || [],
         isSelf: false,
-        year: rep?.year || undefined,
+        year: rep?.year || accessibleRep.year || undefined,
         stage: stage || undefined,
+        teamId: accessibleRep.teamId || undefined,
+        teamName: accessibleRep.teamName || undefined,
+        mgmtGroupId: accessibleRep.mgmtGroupId || undefined,
+        mgmtGroupName: accessibleRep.mgmtGroupName || undefined,
       });
     });
 
     return list;
   }, [currentUserData, teamData, teamAccess]);
 
+  // Apply team/group filter
+  const filteredByTeam = useMemo(() => {
+    if (teamFilter === 'all') return people;
+    
+    const [filterType, filterId] = teamFilter.split('-');
+    
+    return people.filter(p => {
+      if (p.isSelf) return true; // Always show self
+      if (filterType === 'team') return p.teamId === filterId;
+      if (filterType === 'group') return p.mgmtGroupId === filterId;
+      return true;
+    });
+  }, [people, teamFilter]);
+
   // Calculate week-by-week off days preview (Sunday-Saturday)
   const weeklyOffDays = useMemo((): WeekOffDayInfo[] => {
     if (!isSummerActive) return [];
     
-    const hasDatesPeople = people.filter(p => p.personalSummerStart && p.personalSummerEnd);
+    const hasDatesPeople = filteredByTeam.filter(p => p.personalSummerStart && p.personalSummerEnd);
     const weeks: WeekOffDayInfo[] = [];
     
     // Current week
@@ -228,12 +277,12 @@ export const SummerAvailabilityView = () => {
     }
     
     return weeks;
-  }, [people, isSummerActive, today]);
+  }, [filteredByTeam, isSummerActive, today]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const missingDates = people.filter(p => !p.personalSummerStart || !p.personalSummerEnd);
-    const hasDatesPeople = people.filter(p => p.personalSummerStart && p.personalSummerEnd);
+    const missingDates = filteredByTeam.filter(p => !p.personalSummerStart || !p.personalSummerEnd);
+    const hasDatesPeople = filteredByTeam.filter(p => p.personalSummerStart && p.personalSummerEnd);
     const earlyStarters = hasDatesPeople.filter(p => p.personalSummerStart! < DEFAULT_SUMMER_START);
     
     // People off today (during summer)
@@ -273,7 +322,7 @@ export const SummerAvailabilityView = () => {
     });
 
     return {
-      total: people.length,
+      total: filteredByTeam.length,
       missing: missingDates.length,
       ready: hasDatesPeople.length,
       earlyStarters: earlyStarters.length,
@@ -282,11 +331,11 @@ export const SummerAvailabilityView = () => {
       arrivingSoon: arrivingSoon.length,
       leavingSoon: leavingSoon.length,
     };
-  }, [people, todayStr, today, isSummerActive]);
+  }, [filteredByTeam, todayStr, today, isSummerActive]);
 
   // Filter people
   const filteredPeople = useMemo(() => {
-    let filtered = [...people];
+    let filtered = [...filteredByTeam];
     const currentWeek = getWeekRange(today);
     
     switch (filter) {
@@ -337,7 +386,7 @@ export const SummerAvailabilityView = () => {
       if (!aMissing && bMissing) return 1;
       return (a.personalSummerStart || '9999').localeCompare(b.personalSummerStart || '9999');
     });
-  }, [people, filter, todayStr, today]);
+  }, [filteredByTeam, filter, todayStr, today]);
 
   const isLoading = teamAccessLoading || teamLoading;
 
@@ -480,6 +529,26 @@ export const SummerAvailabilityView = () => {
         </Collapsible>
       )}
 
+      {/* Team/Group Filter for leaders */}
+      {isLeader && filterOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={teamFilter} onValueChange={setTeamFilter}>
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="All teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All teams</SelectItem>
+              {filterOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.type === 'group' ? '📁 ' : ''}{opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* View mode toggle and quick filters */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -508,14 +577,17 @@ export const SummerAvailabilityView = () => {
             </button>
           </div>
           
-          {filter !== 'all' && (
+          {(filter !== 'all' || teamFilter !== 'all') && (
             <Button 
               variant="ghost" 
               size="sm" 
               className="h-6 text-xs px-2"
-              onClick={() => setFilter('all')}
+              onClick={() => {
+                setFilter('all');
+                setTeamFilter('all');
+              }}
             >
-              Clear filter
+              Clear filters
             </Button>
           )}
         </div>
@@ -603,6 +675,8 @@ export const SummerAvailabilityView = () => {
               person={person} 
               todayStr={todayStr} 
               isSummerActive={isSummerActive}
+              canEdit={!!isLeader && !person.isSelf}
+              onEdit={() => setEditingPerson(person)}
             />
           ))}
         </div>
@@ -612,6 +686,15 @@ export const SummerAvailabilityView = () => {
         <div className="text-center py-6 text-muted-foreground text-sm">
           No one matches this filter
         </div>
+      )}
+
+      {/* Edit Summer Dates Drawer */}
+      {editingPerson && (
+        <EditSummerDatesDrawer
+          open={!!editingPerson}
+          onOpenChange={(open) => !open && setEditingPerson(null)}
+          person={editingPerson}
+        />
       )}
     </div>
   );
@@ -889,9 +972,11 @@ interface PersonSummerCardProps {
   person: PersonSummerInfo;
   todayStr: string;
   isSummerActive: boolean;
+  canEdit?: boolean;
+  onEdit?: () => void;
 }
 
-const PersonSummerCard = ({ person, todayStr, isSummerActive }: PersonSummerCardProps) => {
+const PersonSummerCard = ({ person, todayStr, isSummerActive, canEdit, onEdit }: PersonSummerCardProps) => {
   const hasDates = person.personalSummerStart && person.personalSummerEnd;
   const offDaysCount = person.excludedSummerDays.length;
 
@@ -1079,17 +1164,29 @@ const PersonSummerCard = ({ person, todayStr, isSummerActive }: PersonSummerCard
           )}
         </div>
 
-        {/* Text button */}
-        {!person.isSelf && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 shrink-0"
-            onClick={handleText}
-          >
-            <MessageSquare className="h-4 w-4" />
-          </Button>
-        )}
+        {/* Action buttons */}
+        <div className="flex items-center gap-1 shrink-0">
+          {canEdit && onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={onEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {!person.isSelf && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={handleText}
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
