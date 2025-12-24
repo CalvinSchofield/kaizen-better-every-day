@@ -325,10 +325,12 @@ export const useNeedsAttention = (
       
       // BLITZ PREP CRITERIA:
       // Anyone who has started ramp to blitz (slackJoined or any phase started) but hasn't finished
+      // OR anyone who has completed onboarding basics and just needs iPad (they should appear in both tabs)
       const isInRampToBlitz = slackJoined || phase1Complete || phase2Complete || phase3Complete;
+      const completedOnboardingNeedsIpad = onboardingComplete && trainingsComplete && slackJoined && !ipadAssigned;
       
-      // Must be in ramp to blitz to show in this tab
-      if (!isInRampToBlitz) return;
+      // Must be in ramp to blitz or be waiting on iPad after completing other onboarding items
+      if (!isInRampToBlitz && !completedOnboardingNeedsIpad) return;
 
       // Check if committed to any upcoming blitz (for context)
       const rawCommitments = repData?.committed_blitzes || recruit.committedBlitzes || [];
