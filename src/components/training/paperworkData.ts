@@ -3,68 +3,100 @@ import { PitchSection } from "./PitchGuide";
 export const paperworkSections: PitchSection[] = [
   {
     id: 1,
-    title: "Set the Scene",
-    emoji: "🪑",
-    script: `"Just have a seat right here, this won't take long at all..."
+    title: "Emergency Contacts & Password",
+    emoji: "🚨",
+    script: `I almost always use this as my close. Once I've presented, explained the trial close, and potentially even looped if needed, I'll look down and ask:
 
-"Perfect spot - good lighting, and we can spread everything out."
+"Awesome. In case of emergency, would you want us to contact you first or your wife?"
 
-*Sit down across from them or next to them*`,
-    stageTip: "Kitchen table is ideal. Good lighting, flat surface, feels official but not intimidating. YOU set where they sit.",
+When they give me the name, they are giving me the go ahead to move forward throughout the process without me asking, "So do you want to do it? Do you want to get the system?". Never ask that or any version of it.`,
+    stageTip: "This IS your close. Getting emergency contact info = they've said yes. Don't ask 'do you want it?' - just move forward.",
   },
   {
     id: 2,
-    title: "Collect Info",
-    emoji: "🪪",
-    script: `"I'll need your ID real quick and a good email for you..."
+    title: "What's About to Happen",
+    emoji: "📱",
+    script: `After getting emergency contacts and password, prep customers for next steps and guide them through each one. Ask them to have their debit card and drivers license ready.
 
-"And let's double-check this address is exactly right..."
+"Awesome. There are 4 quick steps, this is super easy. I just sent you a text if you'd grab your phone…" (finger guns to the phone)
 
-*Type as they give you info - keep pace moving*`,
-    stageTip: "Keep it quick and conversational. Don't make them feel like they're at the DMV. Chat while you type.",
+"1. First step is scan your drivers license to make sure it's you.
+2. Second you'll put in your info and debit card/bank account for the monthly.
+3. Third will be the docs.
+4. And last will be a preinstall survey to make sure everything looks good!"`,
+    stageTip: "Tell them what's coming, then what to do. This builds credibility and keeps them calm.",
   },
   {
     id: 3,
-    title: "Walk Through PSA",
-    emoji: "📋",
-    script: `"This just goes over the basics of what you're getting - the equipment, the monitoring, all that good stuff."
+    title: "ID Verification",
+    emoji: "🪪",
+    script: `"Okay, that text should be sent. Grab your phone and pull that up for me. It should be a text that says 'We're excited about your Vivint Smarthome system…' It's got a link, go ahead and click that and I'll help you fly through this real quick."
 
-"I'll hit the highlights so you know what you're signing..."
+Once they have the link pulled up, it will say "let's make sure it's you" and have them put in their first name, last name, and zip code.
 
-*Point to key sections as you go*`,
-    stageTip: "Don't read every word. Hit the main points: equipment, monthly cost, contract length, cancellation policy. Be transparent but efficient.",
+"So first step is put in your first name, last name, and zip code. After that it'll have you click number one, ID verification, to make sure it's you. You'll just scan the front, the back and then your face kind of like you're at the airport. If you need any help let me know…"`,
+    stageTip: "If scanning gets stuck: check lighting, use a dark background, or try phone flashlight. If it still fails, call Account Creations for a vsign bypass.",
   },
   {
     id: 4,
-    title: "Payment Setup",
+    title: "Financing Application",
     emoji: "💳",
-    script: `"For the monthly monitoring, how would you like to handle that - card or bank account?"
+    script: `"Great, got that done. Click 'go back to dashboard'. Now go ahead and click number two. Here you'll put in some of your personal info like the guesstimate of the household gross and the social — don't guess on your social though."
 
-"Most people do card since it's easier to track..."
+Keep your tone casual while giving instructions. Since sharing personal info can be uncomfortable, this is a great time to chat about their neighborhood, family, or pets.
 
-*Have card reader or form ready*`,
-    stageTip: "Ask matter-of-factly, not apologetically. This is a normal part of the process. First payment usually processes after install.",
+"Awesome. On that next page when it loads, you'll see the breakdown of the monthly. There will be 2 bills there that come out at the same time, one from Vivint and the other from our financing provider. We do that so it's easy to make payments. Scroll down and you'll go ahead and put in your bank account or debit card information there. Let me know if you have any issues with that."`,
+    stageTip: "Having a friendly conversation helps take their mind off the paperwork. Nobody loves signing up for monthly bills - keep it light!",
   },
   {
     id: 5,
-    title: "Schedule Install",
-    emoji: "📅",
-    script: `"Alright, when works best for you guys to have the tech come out?"
+    title: "Credit Card Question",
+    emoji: "💬",
+    script: `Many customers want to pay with a credit card but we can't do that in this step. It has to be a debit card or bank account. Don't make it a big deal.
 
-"They need about 2-3 hours, so we want to make sure someone's home..."
+Customer: "I can't put a credit card here?"
 
-"How about [specific day/time]?"`,
-    stageTip: "Offer specific options rather than leaving it open-ended. 'Tuesday at 2pm or Wednesday morning?' gets faster answers than 'When works for you?'",
+"No I wish, everyone asks that. It has to be a debit card on sign up but you can change it to a credit card later. You just do that from your app once you have your Vivint account set up, it's super easy."
+
+While they finish putting their card/banking info in, prep them for the next step. There are 4 boxes to check to apply for the loan with Fortiva.
+
+"Wow, you're quick! Okay click 'continue' to save the banking/card info. Now you'll scroll down and see 4 boxes to click. You'll click all 4 and then press submit. The first box will have a pop up and you press 'Accept'. It will take a second to load and then show you 'congrats, you've been approved!' Awesome, looks good! Scroll down and click, 'confirm and continue to documents' — we're almost done!"`,
+    stageTip: "Stay casual and nonchalant. It's uncomfortable for anyone to give out personal info - chat about their pets or kids to keep them relaxed.",
   },
   {
     id: 6,
-    title: "Wrap Up",
+    title: "Documents",
+    emoji: "📝",
+    script: `"The first one is the esign consent, it just lets us use your signature electronically. Scroll all the way down to the bottom and click the blue 'click here to sign'. Nice, go ahead and click next."
+
+"This one is the PSA, it just goes over everything we already talked about. There are 2 clicks for this one, the first is going to be by your right thumb, just scroll down a little bit. It's not the yellow button, click the blue 'click here to sign'. Awesome, now it'll jump you to the last one here at the top. Sweet! Now just scroll down all the way and click next/submit."
+
+(For the promotional credit addendum page…)
+"This is me covering your first month(s)/this is me getting the price low to make it a no brainer. Scroll down and just press 'next'."
+
+"This one is the RIC, it just makes sure you know we don't charge you an equipment or install up front and everything is part of the monthly. Scroll down and click the blue 'click here to sign'."`,
+    stageTip: "Give instructions in a nonchalant and carefree way. Get them talking about something pleasant rather than focused on signing in silence.",
+  },
+  {
+    id: 7,
+    title: "Preinstall Survey",
+    emoji: "✅",
+    script: `"Awesome. Just click 'go back to dashboard' and we'll do this last one, the preinstall survey. Quick and easy."
+
+"This is like 6-7 yes or no questions to make sure everything is cool and there are no 'gotchas'. I'll do what I wish my teachers in college would have done for me and give you all the answers to the test, every answer is 'yes'."
+
+"Go ahead and click number 4, and then scroll down and press 'start'. And you'll see it asks the questions making sure it's you, making sure you know I work for Vivint and no other alarm company, it'll talk about the protection plan already included in your price not in addition to it, all that good stuff."`,
+    stageTip: "Make them laugh with the 'answers to the test' line. Keeps the mood light as you finish up.",
+  },
+  {
+    id: 8,
+    title: "Wrap Up & Referrals",
     emoji: "🎉",
-    script: `"You're all set! Here's what happens next..."
+    script: `Once they're done with all the paperwork, send them a text so they have your number which builds credibility and boosts trust even more.
 
-"The tech will call about an hour before they arrive. They'll walk you through everything and make sure you're comfortable."
+Let them know to reach out to you or Vivint if they have any issues or concerns. Let them know the tech will be by shortly and ask for referrals.
 
-"Congrats - you're gonna love it. Seriously."`,
-    stageTip: "End on a high note. They should feel excited, not anxious. A firm handshake and genuine enthusiasm goes a long way.",
+Congrats!`,
+    stageTip: "End strong. They should feel good about their decision. A quick text with your contact info goes a long way for referrals later.",
   },
 ];

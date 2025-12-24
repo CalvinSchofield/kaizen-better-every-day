@@ -26,7 +26,7 @@ export const PaperworkGuide = ({ onBack }: PaperworkGuideProps) => {
       <PitchGuide
         sections={paperworkSections}
         pageTitle="Smooth Paperwork Process"
-        audioSrc="/audio/smooth-paperwork.m4a"
+        audioSrc="/audio/smooth-paperwork-process.m4a"
       />
 
       {/* PSA Preview Card */}
