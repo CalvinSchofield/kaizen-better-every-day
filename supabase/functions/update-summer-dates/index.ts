@@ -11,70 +11,84 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const notionApiKey = Deno.env.get("NOTION_API_KEY");
-    if (!notionApiKey) {
-      throw new Error("NOTION_API_KEY not configured");
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const { notionPageId, startDate, endDate } = await req.json();
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!notionPageId) {
-      throw new Error("notionPageId is required");
+    const { notionPageId, repId, startDate, endDate } = await req.json();
+
+    if (!notionPageId && !repId) {
+      throw new Error("notionPageId or repId is required");
     }
 
     if (!startDate && !endDate) {
       throw new Error("At least one of startDate or endDate must be provided");
     }
 
-    console.log(`Updating summer dates for ${notionPageId}`, { startDate, endDate });
+    console.log(`Updating summer dates in Supabase`, { notionPageId, repId, startDate, endDate });
 
-    // Build the properties object dynamically
-    // Notion date properties use ISO 8601 format
-    const properties: any = {};
+    // Build update object
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
     
     if (startDate) {
-      properties["Start Date"] = {
-        date: {
-          start: startDate, // Format: YYYY-MM-DD
-        }
-      };
+      updateData.blitz_trip_date = startDate;
     }
 
     if (endDate) {
-      properties["End Date"] = {
-        date: {
-          start: endDate, // Format: YYYY-MM-DD
-        }
-      };
+      updateData.blitz_trip_end_date = endDate;
     }
 
-    // Update the rep's Notion page
-    const notionResponse = await fetch(
-      `https://api.notion.com/v1/pages/${notionPageId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${notionApiKey}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ properties }),
+    // Update reps table
+    let updateQuery = supabase.from('reps').update(updateData);
+    
+    if (repId) {
+      updateQuery = updateQuery.eq('id', repId);
+    } else {
+      updateQuery = updateQuery.eq('notion_page_id', notionPageId);
+    }
+
+    const { error: updateError } = await updateQuery;
+
+    if (updateError) {
+      console.error("Supabase update error:", updateError);
+      throw new Error(`Failed to update summer dates: ${updateError.message}`);
+    }
+
+    // Also update season_config if user has one
+    if (notionPageId || repId) {
+      // Get user_id from reps
+      let userQuery = supabase.from('reps').select('user_id');
+      if (repId) {
+        userQuery = userQuery.eq('id', repId);
+      } else {
+        userQuery = userQuery.eq('notion_page_id', notionPageId);
       }
-    );
+      
+      const { data: repData } = await userQuery.single();
+      
+      if (repData?.user_id) {
+        const seasonConfigUpdate: Record<string, any> = { updated_at: new Date().toISOString() };
+        if (startDate) seasonConfigUpdate.personal_summer_start = startDate;
+        if (endDate) seasonConfigUpdate.personal_summer_end = endDate;
 
-    if (!notionResponse.ok) {
-      const errorText = await notionResponse.text();
-      console.error("Notion API error:", errorText);
-      throw new Error(`Notion API error: ${notionResponse.status} - ${errorText}`);
+        await supabase
+          .from('season_config')
+          .upsert({
+            user_id: repData.user_id,
+            ...seasonConfigUpdate,
+          }, { onConflict: 'user_id' });
+      }
     }
 
-    const result = await notionResponse.json();
-    console.log("Successfully updated summer dates in Notion");
+    console.log("Successfully updated summer dates in Supabase");
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Summer dates updated in Notion"
+        message: "Summer dates updated"
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -63,7 +63,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const notionApiKey = Deno.env.get('NOTION_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -81,11 +80,11 @@ serve(async (req) => {
     // Get the user's rep record
     const { data: repData } = await supabase
       .from('reps')
-      .select('notion_page_id, stage, onboarding_complete, blitz_trip_date')
+      .select('id, notion_page_id, stage, onboarding_complete, blitz_trip_date')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (!repData?.notion_page_id) {
+    if (!repData) {
       return new Response(JSON.stringify({ updated: false, reason: 'No rep record found' }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -139,48 +138,37 @@ serve(async (req) => {
       });
     }
 
-    // Update stage in Notion
-    if (notionApiKey) {
-      const notionResponse = await fetch(`https://api.notion.com/v1/pages/${repData.notion_page_id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${notionApiKey}`,
-          'Notion-Version': '2022-06-28',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          properties: {
-            'Stage': {
-              select: { name: newStage }
-            }
-          }
-        }),
-      });
-
-      if (!notionResponse.ok) {
-        const errorText = await notionResponse.text();
-        console.error('Notion API error:', errorText);
-        throw new Error('Failed to update Notion stage');
-      }
-    }
-
-    // Also update local stage in reps table
-    await supabase
+    // Update stage in reps table (Supabase only - no Notion)
+    const { error: updateError } = await supabase
       .from('reps')
-      .update({ stage: newStage })
+      .update({ stage: newStage, updated_at: new Date().toISOString() })
       .eq('user_id', user.id);
 
+    if (updateError) {
+      console.error('Error updating stage:', updateError);
+      throw new Error('Failed to update stage');
+    }
+
+    // Also update recruits table if there's a matching record
+    if (repData.notion_page_id) {
+      await supabase
+        .from('recruits')
+        .update({ stage: newStage, updated_at: new Date().toISOString() })
+        .eq('notion_page_id', repData.notion_page_id);
+    }
+
     // Log the automatic stage change
+    const activityId = repData.notion_page_id || repData.id;
     await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: repData.notion_page_id,
+        rep_notion_page_id: activityId,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: `Auto-progressed to ${newStage}: ${reason}`,
       });
 
-    console.log(`Auto-progressed ${repData.notion_page_id} from ${currentStage} to ${newStage}: ${reason}`);
+    console.log(`Auto-progressed ${activityId} from ${currentStage} to ${newStage}: ${reason}`);
 
     return new Response(JSON.stringify({ 
       updated: true, 
