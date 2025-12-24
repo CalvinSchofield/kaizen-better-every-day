@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { ArrowLeft, Loader2, RefreshCw, Search, X, ChevronDown, Star, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Search, X, ChevronDown, Star, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { motion, AnimatePresence } from "framer-motion";
 
-const ADMIN_EMAIL = 'calvinjschofield@gmail.com';
-
 // Category display names mapped to database values
 const CATEGORIES = [
   { label: "All", value: "all" },
@@ -24,15 +22,13 @@ const CATEGORIES = [
 
 export default function Competitors() {
   const navigate = useNavigate();
-  const { competitors, loading, syncFromNotion } = useCompetitors();
+  const { competitors, loading } = useCompetitors();
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorites, setFavorites] = useLocalStorage<string[]>("competitor-favorites", []);
   const [isAiMode, setIsAiMode] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
   
   // AI recommendation state
@@ -40,34 +36,6 @@ export default function Competitors() {
   const [aiRecommendation, setAiRecommendation] = useState("");
   const [aiCompetitors, setAiCompetitors] = useState<Array<{ name: string; notion_page_id: string }>>([]);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
-
-  // Check if current user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(user?.email?.toLowerCase() === ADMIN_EMAIL);
-    };
-    checkAdmin();
-  }, []);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await syncFromNotion();
-      toast({
-        title: "Sync Complete!",
-        description: "Competitor data has been updated from Notion",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Failed to sync competitors from Notion",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleAiRecommendation = async () => {
     if (!aiInput.trim()) return;
@@ -183,17 +151,6 @@ export default function Competitors() {
               </Button>
               <h1 className="text-2xl font-bold">Competitor Cheat Sheet</h1>
             </div>
-            {isAdmin && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSync}
-                disabled={syncing}
-                className="rounded-full"
-              >
-                <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
-              </Button>
-            )}
           </div>
 
           {/* Unified Search/AI Input */}

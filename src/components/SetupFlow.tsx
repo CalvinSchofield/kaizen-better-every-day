@@ -10,7 +10,7 @@ const SetupFlow = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [statusText, setStatusText] = useState("Loading your profile...");
-  const [notInNotion, setNotInNotion] = useState(false);
+  const [notInSystem, setNotInSystem] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isRequestingAccess, setIsRequestingAccess] = useState(false);
 
@@ -25,8 +25,8 @@ const SetupFlow = () => {
       
       setUserEmail(user.email || null);
 
-      // Step 1: Check/sync rep profile
-      setStatusText("Syncing your profile...");
+      // Step 1: Check rep profile in Supabase
+      setStatusText("Loading your profile...");
       
       const { data: existingRep } = await supabase
         .from('reps')
@@ -35,34 +35,18 @@ const SetupFlow = () => {
         .maybeSingle();
 
       if (!existingRep) {
-        await supabase.functions.invoke('sync-notion-reps');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        const { data: repAfterSync } = await supabase
-          .from('reps')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        if (!repAfterSync) {
-          setNotInNotion(true);
-          return;
-        }
+        // No rep found - user needs to be added by admin
+        setNotInSystem(true);
+        return;
       }
 
       // Cache rep data
-      const { data: repData } = await supabase
-        .from('reps')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (repData) {
-        localStorage.setItem(`rep-data-cache-${user.id}`, JSON.stringify({
-          data: repData,
-          timestamp: Date.now()
-        }));
-      }
+      const repData = existingRep;
+      localStorage.setItem(`rep-data-cache-${user.id}`, JSON.stringify({
+        data: repData,
+        timestamp: Date.now(),
+        userId: user.id
+      }));
 
       // Run ALL data fetches in parallel for maximum speed
       setStatusText("Loading app data...");
@@ -70,29 +54,14 @@ const SetupFlow = () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       await Promise.all([
-        // Competitors - sync from Notion if needed
+        // Competitors - load from Supabase
         (async () => {
           const { data: competitors } = await supabase
             .from('competitors')
             .select('*')
             .order('name', { ascending: true });
 
-          if (!competitors || competitors.length === 0) {
-            await supabase.functions.invoke('sync-notion-competitors');
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            const { data: syncedCompetitors } = await supabase
-              .from('competitors')
-              .select('*')
-              .order('name', { ascending: true });
-            
-            if (syncedCompetitors && syncedCompetitors.length > 0) {
-              localStorage.setItem('competitors-cache', JSON.stringify({
-                data: syncedCompetitors,
-                timestamp: Date.now()
-              }));
-            }
-          } else {
+          if (competitors && competitors.length > 0) {
             localStorage.setItem('competitors-cache', JSON.stringify({
               data: competitors,
               timestamp: Date.now()
@@ -317,7 +286,7 @@ const SetupFlow = () => {
       
       toast({
         title: "Request Sent!",
-        description: "Calvin has been notified. You'll be added soon.",
+        description: "Your team has been notified. You'll be added soon.",
       });
     } catch (error) {
       console.error('Error sending request:', error);
@@ -331,8 +300,8 @@ const SetupFlow = () => {
     }
   };
 
-  // Show "Not in Notion" request access screen
-  if (notInNotion) {
+  // Show "Not in System" request access screen
+  if (notInSystem) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -358,7 +327,7 @@ const SetupFlow = () => {
                 <h3 className="font-medium text-sm mb-2">What to do:</h3>
                 <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                   <li>Contact your team leader or recruiter</li>
-                  <li>Ask them to add your email to Notion</li>
+                  <li>Ask them to add your email to the system</li>
                   <li>Once added, come back and try again</li>
                 </ol>
               </div>
