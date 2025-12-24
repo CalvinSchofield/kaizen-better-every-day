@@ -126,6 +126,28 @@ Deno.serve(async (req) => {
         .select("*")
         .in("team_id", accessibleTeamIds);
 
+      // Enrich recruit records with progress from reps table (when a matching rep exists)
+      // This keeps Blitz Machine consistent with My Group for signed-up users.
+      const recruitEmails = [...new Set(
+        (recruitsData || [])
+          .map((r) => (r.email ? String(r.email).toLowerCase().trim() : null))
+          .filter((e): e is string => !!e)
+      )];
+
+      const repByEmail: Record<string, any> = {};
+      if (recruitEmails.length > 0) {
+        const { data: repsByEmail } = await supabase
+          .from("reps")
+          .select(
+            "email, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready"
+          )
+          .in("email", recruitEmails);
+
+        (repsByEmail || []).forEach((r) => {
+          if (r.email) repByEmail[String(r.email).toLowerCase().trim()] = r;
+        });
+      }
+
       // Fetch recruit-blitz commitments
       const recruitIds = (recruitsData || []).map(r => r.id);
       const { data: recruitBlitzes } = await supabase
@@ -159,23 +181,27 @@ Deno.serve(async (req) => {
 
       // Map recruits to team members format
       for (const recruit of recruitsData || []) {
+        const emailKey = recruit.email ? String(recruit.email).toLowerCase().trim() : null;
+        const repProgress = emailKey ? repByEmail[emailKey] : null;
+        const progress = repProgress || recruit;
+
         // Compute onboardingStatus with proper progression check
         // Order of completion: Onboarding -> Trainings -> Slack -> Phase 1 -> Phase 2 -> Phase 3 -> Phase 4
         let onboardingStatus: string | null = null;
-        
-        if (recruit.ramp_phase_4_complete) {
+
+        if (progress.ramp_phase_4_complete) {
           onboardingStatus = "Phase 4 Complete";
-        } else if (recruit.ramp_phase_3_complete) {
+        } else if (progress.ramp_phase_3_complete) {
           onboardingStatus = "Phase 3 Complete";
-        } else if (recruit.ramp_phase_2_complete) {
+        } else if (progress.ramp_phase_2_complete) {
           onboardingStatus = "Phase 2 Complete";
-        } else if (recruit.ramp_phase_1_complete) {
+        } else if (progress.ramp_phase_1_complete) {
           onboardingStatus = "Phase 1 Complete";
-        } else if (recruit.slack_joined) {
+        } else if (progress.slack_joined) {
           onboardingStatus = "Slack Joined";
-        } else if (recruit.trainings_complete) {
+        } else if (progress.trainings_complete) {
           onboardingStatus = "Required Trainings Complete";
-        } else if (recruit.onboarding_complete) {
+        } else if (progress.onboarding_complete) {
           onboardingStatus = "Onboarding Complete";
         }
         // null means Not Started
@@ -186,9 +212,9 @@ Deno.serve(async (req) => {
           name: recruit.name,
           email: recruit.email,
           phone: recruit.phone,
-          blitzReady: recruit.blitz_ready || false,
+          blitzReady: Boolean((progress as any).blitz_ready),
           committedBlitzes: commitmentMap[recruit.id] || [],
-          ipadAssigned: recruit.ipad_assigned || false,
+          ipadAssigned: Boolean((progress as any).ipad_assigned),
           year: recruit.year,
           stage: recruit.stage,
           onboardingStatus,
@@ -197,9 +223,6 @@ Deno.serve(async (req) => {
           teamName: recruit.team_id ? teamNameMap[recruit.team_id] : null,
         });
       }
-
-      console.log(`Found ${accessibleReps.length} accessible reps`);
-    }
 
     // Fetch invite status from blitz_invites table
     const { data: inviteData } = await supabase
