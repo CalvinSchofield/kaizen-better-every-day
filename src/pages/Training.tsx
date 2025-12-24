@@ -132,7 +132,6 @@ const Training = () => {
     title: "The Pitch & Presentation",
     description: "From door to paperwork",
     icon: Presentation,
-    comingSoon: true,
     items: [
       { title: "In-Home Presentation", href: "#", inAppGuide: "inhome" },
       { title: "Smooth Paperwork Process", href: "#", inAppGuide: "paperwork" },
