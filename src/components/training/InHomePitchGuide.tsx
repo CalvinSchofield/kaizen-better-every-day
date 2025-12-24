@@ -67,7 +67,7 @@ export const InHomePitchGuide = ({ onBack }: InHomePitchGuideProps) => {
       <PitchGuide
         sections={inHomeSections}
         pageTitle="In-Home Presentation"
-        audioSrc="/audio/presentation.m4a"
+        audioSrc="/audio/in-home-presentation.m4a"
       />
 
       {/* BONUS: Closes Cheat Sheet */}
