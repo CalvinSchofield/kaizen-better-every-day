@@ -5,6 +5,7 @@ import { SwipeableTaskItem } from "./SwipeableTaskItem";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
+import { RescheduleActivityDrawer } from "./RescheduleActivityDrawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +98,9 @@ export const WeekPlannerSection = ({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contactMethodOpen, setContactMethodOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
+  const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
 
   // Filter recruits for recommendations - exclude hidden stages except due follow-ups
   const filteredRecruits = useMemo(() => 
@@ -223,6 +226,12 @@ export const WeekPlannerSection = ({
   const handleSwipeSchedule = (recruit: Recruit) => {
     setContactingRecruit(recruit);
     setScheduleOpen(true);
+  };
+
+  const handleSwipeReschedule = (recruit: Recruit, activity: RecruitActivity) => {
+    setContactingRecruit(recruit);
+    setRescheduleActivity(activity);
+    setRescheduleOpen(true);
   };
 
   const getActivitiesForRecruit = (recruit: Recruit) => 
@@ -351,6 +360,7 @@ export const WeekPlannerSection = ({
                     onRecruitClick={handleLocalRecruitClick}
                     onContact={handleSwipeContact}
                     onSchedule={handleSwipeSchedule}
+                    onReschedule={handleSwipeReschedule}
                     isOverdue
                   />
                 ))
@@ -515,6 +525,25 @@ export const WeekPlannerSection = ({
           setScheduleOpen(false);
           if (contactingRecruit && onDismiss) {
             onDismiss(contactingRecruit, `Follow-up scheduled for ${contactingRecruit.name || 'recruit'}`);
+          }
+        }}
+      />
+
+      <RescheduleActivityDrawer
+        open={rescheduleOpen}
+        onOpenChange={(open) => {
+          setRescheduleOpen(open);
+          if (!open) {
+            setRescheduleActivity(null);
+          }
+        }}
+        recruit={contactingRecruit}
+        activity={rescheduleActivity}
+        onComplete={() => {
+          setRescheduleOpen(false);
+          setRescheduleActivity(null);
+          if (contactingRecruit && onDismiss) {
+            onDismiss(contactingRecruit, `Rescheduled follow-up for ${contactingRecruit.name || 'recruit'}`);
           }
         }}
       />

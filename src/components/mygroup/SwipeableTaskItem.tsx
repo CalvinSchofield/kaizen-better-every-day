@@ -28,6 +28,7 @@ interface SwipeableTaskItemProps {
   daysSinceContact?: number | null;
   onRecruitClick: (recruit: Recruit) => void;
   onSchedule?: (recruit: Recruit) => void;
+  onReschedule?: (recruit: Recruit, activity: RecruitActivity) => void;
   onContact?: (recruit: Recruit) => void;
   onDirectCall?: (recruit: Recruit) => void;
   onDirectText?: (recruit: Recruit) => void;
@@ -46,6 +47,7 @@ export const SwipeableTaskItem = ({
   daysSinceContact,
   onRecruitClick,
   onSchedule,
+  onReschedule,
   onContact,
   onDirectCall,
   onDirectText,
@@ -137,9 +139,13 @@ export const SwipeableTaskItem = ({
       await controls.start({ x: 0 });
       onContact?.(recruit);
     } else if (offset < -SWIPE_COMMIT_THRESHOLD) {
-      // Swipe left = Open schedule drawer
+      // Swipe left = Open schedule drawer (or reschedule if overdue with existing activity)
       await controls.start({ x: 0 });
-      onSchedule?.(recruit);
+      if (isOverdue && activity && onReschedule) {
+        onReschedule(recruit, activity);
+      } else {
+        onSchedule?.(recruit);
+      }
     } else {
       // Snap back if not committed
       controls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 } });
@@ -180,17 +186,21 @@ export const SwipeableTaskItem = ({
         </motion.div>
       </motion.div>
 
-      {/* Right action background (Schedule) - swipe left */}
+      {/* Right action background (Schedule/Reschedule) - swipe left */}
       <motion.div 
         className={cn(
           "absolute inset-y-0 right-0 w-28 flex items-center justify-center rounded-r-lg transition-colors",
-          isCommitted === 'left' ? "bg-blue-600" : "bg-blue-500"
+          isOverdue && activity 
+            ? (isCommitted === 'left' ? "bg-amber-600" : "bg-amber-500")
+            : (isCommitted === 'left' ? "bg-blue-600" : "bg-blue-500")
         )}
         style={{ opacity: useTransform(x, [-SWIPE_COMMIT_THRESHOLD, -SWIPE_VISUAL_THRESHOLD, 0], [1, 0.7, 0]) }}
       >
         <motion.div style={{ scale: rightScale }} className="flex flex-col items-center gap-1">
           <Calendar className="h-6 w-6 text-white" />
-          <span className="text-xs text-white font-medium">Schedule</span>
+          <span className="text-xs text-white font-medium">
+            {isOverdue && activity ? "Reschedule" : "Schedule"}
+          </span>
         </motion.div>
       </motion.div>
 
