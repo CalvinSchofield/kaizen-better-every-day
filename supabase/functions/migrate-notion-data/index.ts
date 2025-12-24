@@ -443,6 +443,24 @@ Deno.serve(async (req) => {
     // Track recruit → committed blitz Notion IDs for later
     const recruitBlitzCommitments = new Map<string, string[]>();
 
+    // Build a map of recruiter Notion ID → team Notion IDs for fallback team assignment
+    const recruiterToTeamNotionId = new Map<string, string>();
+    
+    // First pass: analyze all recruits to understand recruiter-team relationships
+    for (const recruit of recruitPages) {
+      const props = recruit.properties;
+      const recruiterNotionId = getRelationIds(props['Recruiter'])[0] || null;
+      // Try both 'Teams' (plural) and 'Team' (singular) property names
+      const teamRelationIds = getRelationIds(props['Teams']) || getRelationIds(props['Team']) || [];
+      const teamNotionId = teamRelationIds[0] || null;
+      
+      if (recruiterNotionId && teamNotionId && !recruiterToTeamNotionId.has(recruiterNotionId)) {
+        recruiterToTeamNotionId.set(recruiterNotionId, teamNotionId);
+      }
+    }
+
+    console.log(`Built recruiter→team mapping with ${recruiterToTeamNotionId.size} entries`);
+
     for (const recruit of recruitPages) {
       const props = recruit.properties;
       const name = getTitle(props['Name']);
@@ -451,13 +469,37 @@ Deno.serve(async (req) => {
       const recruiterNotionId = getRelationIds(props['Recruiter'])[0] || null;
       const recruiterUserId = recruiterNotionId ? repNotionToUserId.get(recruiterNotionId) : null;
 
-      // Get team info - try to match based on recruiter's team or team relation
-      const teamRelationIds = getRelationIds(props['Team']);
-      const teamNotionId = teamRelationIds[0] || null;
+      // Get team info - try both 'Teams' (plural) and 'Team' (singular)
+      let teamRelationIds = getRelationIds(props['Teams']);
+      if (!teamRelationIds || teamRelationIds.length === 0) {
+        teamRelationIds = getRelationIds(props['Team']);
+      }
+      let teamNotionId = teamRelationIds?.[0] || null;
+      
+      // Fallback: if no team but we have a recruiter, use the recruiter's team
+      if (!teamNotionId && recruiterNotionId) {
+        teamNotionId = recruiterToTeamNotionId.get(recruiterNotionId) || null;
+      }
+      
       const teamUuid = teamNotionId ? teamNotionToUuid.get(teamNotionId) : null;
+      
+      // Get mgmt_group based on team
+      let mgmtGroupUuid: string | null = null;
+      if (teamUuid) {
+        // Look up the mgmt group for this team
+        for (const [mgmtNotionId, teamIds] of mgmtTeamsMap.entries()) {
+          if (teamNotionId && teamIds.includes(teamNotionId)) {
+            mgmtGroupUuid = mgmtNotionToUuid.get(mgmtNotionId) || null;
+            break;
+          }
+        }
+      }
 
-      // Get committed blitzes
-      const blitzTripNotionIds = getRelationIds(props['Preseason trips']);
+      // Get committed blitzes - try multiple property names
+      let blitzTripNotionIds = getRelationIds(props['Preseason trips']);
+      if (!blitzTripNotionIds || blitzTripNotionIds.length === 0) {
+        blitzTripNotionIds = getRelationIds(props['Blitz Trips']) || [];
+      }
       if (blitzTripNotionIds.length > 0) {
         recruitBlitzCommitments.set(recruit.id, blitzTripNotionIds);
       }
@@ -490,6 +532,7 @@ Deno.serve(async (req) => {
           next_action_due: getDate(props['Next Action Due']),
           recruiter_user_id: recruiterUserId,
           team_id: teamUuid,
+          mgmt_group_id: mgmtGroupUuid,
           onboarding_complete: hasSlack,
           trainings_complete: hasTrainings,
           slack_joined: hasSlack,
@@ -509,8 +552,18 @@ Deno.serve(async (req) => {
       } else if (inserted) {
         recruitNotionToUuid.set(recruit.id, inserted.id);
         stats.recruits.inserted++;
+        
+        // Log team assignment for debugging
+        if (teamUuid) {
+          console.log(`  → ${name}: team_id=${teamUuid}, recruiter_user_id=${recruiterUserId || 'none'}`);
+        }
       }
     }
+    
+    // Summary of assignments
+    const assignedCount = Array.from(recruitNotionToUuid.keys()).length;
+    console.log(`Inserted ${assignedCount} recruits`);
+    
 
     // ========== STEP 5: Create recruit_blitzes junction records ==========
     console.log('Step 5: Creating recruit-blitz commitments...');
