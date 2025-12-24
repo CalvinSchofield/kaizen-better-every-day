@@ -59,7 +59,7 @@ export const EditMgmtGroupDrawer = ({
   teamCount,
 }: EditMgmtGroupDrawerProps) => {
   const [name, setName] = useState(group.name);
-  const [leadUserId, setLeadUserId] = useState(group.leadUserId || "");
+  const [leadUserId, setLeadUserId] = useState(group.leadUserId || "__none__");
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
@@ -80,7 +80,7 @@ export const EditMgmtGroupDrawer = ({
           action: "update",
           mgmtGroupId: group.id,
           name: name.trim(),
-          leadUserId: leadUserId || null,
+          leadUserId: leadUserId === "__none__" ? null : leadUserId,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -172,7 +172,7 @@ export const EditMgmtGroupDrawer = ({
                   <SelectValue placeholder="Select leader (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No leader assigned</SelectItem>
+                  <SelectItem value="__none__">No leader assigned</SelectItem>
                   {allReps
                     .filter((r) => r.userId)
                     .map((rep) => (

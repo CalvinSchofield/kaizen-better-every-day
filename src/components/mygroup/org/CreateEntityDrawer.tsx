@@ -47,8 +47,8 @@ export const CreateEntityDrawer = ({
   allGroups = [],
 }: CreateEntityDrawerProps) => {
   const [name, setName] = useState("");
-  const [leadUserId, setLeadUserId] = useState("");
-  const [mgmtGroupId, setMgmtGroupId] = useState("");
+  const [leadUserId, setLeadUserId] = useState("__none__");
+  const [mgmtGroupId, setMgmtGroupId] = useState("__none__");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -69,13 +69,13 @@ export const CreateEntityDrawer = ({
           ? {
               action: "create",
               name: name.trim(),
-              leadUserId: leadUserId || null,
-              mgmtGroupId: mgmtGroupId || null,
+              leadUserId: leadUserId === "__none__" ? null : leadUserId,
+              mgmtGroupId: mgmtGroupId === "__none__" ? null : mgmtGroupId,
             }
           : {
               action: "create",
               name: name.trim(),
-              leadUserId: leadUserId || null,
+              leadUserId: leadUserId === "__none__" ? null : leadUserId,
             };
 
       const { error } = await supabase.functions.invoke(endpoint, {
@@ -93,8 +93,8 @@ export const CreateEntityDrawer = ({
       
       // Reset form
       setName("");
-      setLeadUserId("");
-      setMgmtGroupId("");
+      setLeadUserId("__none__");
+      setMgmtGroupId("__none__");
       onOpenChange(false);
     } catch (err) {
       console.error("Error creating entity:", err);
@@ -140,7 +140,7 @@ export const CreateEntityDrawer = ({
                 <SelectValue placeholder="Select leader" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No leader assigned</SelectItem>
+                <SelectItem value="__none__">No leader assigned</SelectItem>
                 {allReps
                   .filter((r) => r.userId)
                   .map((rep) => (
@@ -160,7 +160,7 @@ export const CreateEntityDrawer = ({
                   <SelectValue placeholder="Select group" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No group assigned</SelectItem>
+                  <SelectItem value="__none__">No group assigned</SelectItem>
                   {allGroups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}

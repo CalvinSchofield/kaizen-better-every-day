@@ -67,8 +67,8 @@ export const EditTeamDrawer = ({
   repCount,
 }: EditTeamDrawerProps) => {
   const [name, setName] = useState(team.name);
-  const [leadUserId, setLeadUserId] = useState(team.leadUserId || "");
-  const [mgmtGroupId, setMgmtGroupId] = useState(team.mgmtGroupId || "");
+  const [leadUserId, setLeadUserId] = useState(team.leadUserId || "__none__");
+  const [mgmtGroupId, setMgmtGroupId] = useState(team.mgmtGroupId || "__none__");
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const queryClient = useQueryClient();
@@ -89,8 +89,8 @@ export const EditTeamDrawer = ({
           action: "update",
           teamId: team.id,
           name: name.trim(),
-          leadUserId: leadUserId || null,
-          mgmtGroupId: mgmtGroupId || null,
+          leadUserId: leadUserId === "__none__" ? null : leadUserId,
+          mgmtGroupId: mgmtGroupId === "__none__" ? null : mgmtGroupId,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -182,7 +182,7 @@ export const EditTeamDrawer = ({
                   <SelectValue placeholder="Select leader (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No leader assigned</SelectItem>
+                  <SelectItem value="__none__">No leader assigned</SelectItem>
                   {allReps
                     .filter((r) => r.userId)
                     .map((rep) => (
@@ -201,7 +201,7 @@ export const EditTeamDrawer = ({
                   <SelectValue placeholder="Select group (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No group assigned</SelectItem>
+                  <SelectItem value="__none__">No group assigned</SelectItem>
                   {allGroups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}
