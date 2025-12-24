@@ -519,12 +519,13 @@ const MyGroup = () => {
     repDataMap
   );
   const recommendations = useMemo(() => {
-    // Wait for dismissed state to load to prevent flash
-    if (!dismissedLoaded) return [];
+    // Wait for both dismissed state AND initial data to load to prevent flash
+    // recruitsLoading being false means activities are loaded from the initial query
+    if (!dismissedLoaded || recruitsLoading) return [];
     return rawRecommendations.filter(r => 
       !isRecuitDismissed(r.recruit.notionPageId) && !isSkipped(r.recruit.notionPageId)
     );
-  }, [rawRecommendations, isRecuitDismissed, isSkipped, dismissedLoaded]);
+  }, [rawRecommendations, isRecuitDismissed, isSkipped, dismissedLoaded, recruitsLoading]);
 
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;

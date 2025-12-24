@@ -1,21 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { format } from 'date-fns';
 
 const STORAGE_KEY = 'kaizen-dismissed-recruits';
+const DATE_KEY = 'kaizen-dismissed-date';
 
 /**
- * Persisted dismissed recruits tracking.
- * Dismissed recruits sync to database for cross-device persistence.
- * Session storage used as cache for fast access.
+ * Dismissed recruits tracking - resets daily.
+ * When you contact/schedule a recruit, they're dismissed for the REST OF TODAY only.
+ * The list automatically clears at midnight (when the date changes).
  */
 export const useDismissedRecruits = () => {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
-  const queryClient = useQueryClient();
   const isSyncing = useRef(false);
 
-  // Load from database on mount
+  // Get today's date string for comparison
+  const getTodayString = () => format(new Date(), 'yyyy-MM-dd');
+
+  // Load from database on mount, with daily reset logic
   useEffect(() => {
     const loadFromDatabase = async () => {
       try {
@@ -25,6 +28,30 @@ export const useDismissedRecruits = () => {
           return;
         }
 
+        const today = getTodayString();
+        
+        // Check if we need to reset (new day)
+        const lastDismissedDate = localStorage.getItem(DATE_KEY);
+        const needsReset = lastDismissedDate !== today;
+
+        if (needsReset) {
+          // New day - clear everything
+          console.log('[DismissedRecruits] New day detected, clearing dismissed list');
+          setDismissedIds(new Set());
+          sessionStorage.removeItem(STORAGE_KEY);
+          localStorage.setItem(DATE_KEY, today);
+          
+          // Clear in database
+          await supabase
+            .from('reps')
+            .update({ dismissed_recruit_ids: [] })
+            .eq('user_id', user.id);
+          
+          setIsLoaded(true);
+          return;
+        }
+
+        // Same day - load from cache/database
         // First check sessionStorage for fast initial load
         const cached = sessionStorage.getItem(STORAGE_KEY);
         if (cached) {
@@ -38,7 +65,7 @@ export const useDismissedRecruits = () => {
           }
         }
 
-        // Then load from database
+        // Then load from database (in case of cross-device sync same day)
         const { data: repData, error } = await supabase
           .from('reps')
           .select('dismissed_recruit_ids')
@@ -84,6 +111,8 @@ export const useDismissedRecruits = () => {
         
         // Update session cache immediately
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(idsArray));
+        // Also update the date
+        localStorage.setItem(DATE_KEY, getTodayString());
 
         // Sync to database
         const { error } = await supabase
