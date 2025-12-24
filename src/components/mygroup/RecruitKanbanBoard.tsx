@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 // Primary stages always shown
 const PRIMARY_STAGES = [
   { key: '100 List', label: '100 List', color: 'bg-muted' },
-  { key: 'Reached Out', label: 'Reached Out', color: 'bg-blue-500/20' },
+  { key: 'Reached out', label: 'Reached Out', color: 'bg-blue-500/20' },
   { key: 'Evaluating', label: 'Evaluating', color: 'bg-yellow-500/20' },
   { key: 'Signed', label: 'Signed', color: 'bg-green-500/20' },
   { key: 'Shadow ✅', label: 'Shadow ✅', color: 'bg-emerald-500/20' },
@@ -24,7 +24,7 @@ const PRIMARY_STAGES = [
 const SECONDARY_STAGES = [
   { key: 'Potential Follow Up', label: 'Follow Up', color: 'bg-purple-500/20' },
   { key: 'Not Interested', label: 'Not Interested', color: 'bg-destructive/20' },
-  { key: 'Signed but Not Interested', label: 'Signed (Left)', color: 'bg-destructive/20' },
+  { key: 'Signed but not interested', label: 'Signed (Left)', color: 'bg-destructive/20' },
 ];
 
 interface RecruitKanbanBoardProps {
