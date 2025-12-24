@@ -120,11 +120,13 @@ export const EditRepOrgDrawer = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">No team assigned</SelectItem>
-                {allTeams.map((team) => (
-                  <SelectItem key={team.id} value={team.id}>
-                    {team.name}
-                  </SelectItem>
-                ))}
+                {[...allTeams]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -137,8 +139,9 @@ export const EditRepOrgDrawer = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">No recruiter assigned</SelectItem>
-                {allReps
+                {[...allReps]
                   .filter((r) => r.userId)
+                  .sort((a, b) => a.name.localeCompare(b.name))
                   .map((r) => (
                     <SelectItem key={r.userId!} value={r.userId!}>
                       {r.name}
