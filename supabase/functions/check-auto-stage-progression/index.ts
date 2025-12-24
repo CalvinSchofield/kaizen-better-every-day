@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 // Stage progression order - higher index = more advanced
+// Must match stageConstants.ts exactly
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
   'Reached Out',
-  'Reached out',
   'Evaluating',
   'Signed',
   'Shadow ✅',
@@ -19,6 +19,7 @@ const STAGE_PROGRESSION_ORDER = [
 ];
 
 // Exit stages that should NEVER be auto-overridden - leader manually set these
+// Must match stageConstants.ts exactly
 const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
 
 // Check if stage is an exit stage (case-insensitive)

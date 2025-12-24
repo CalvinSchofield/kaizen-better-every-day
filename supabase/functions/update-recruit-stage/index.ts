@@ -8,15 +8,19 @@ const corsHeaders = {
 
 // Stage progression order - higher index = more advanced
 // Used for AUTOMATIC progression checks only - manual changes always allowed
+// Must match stageConstants.ts exactly
 const STAGE_PROGRESSION_ORDER = [
   '100 List',
   'Reached Out',
-  'Reached out',
   'Evaluating',
   'Signed',
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
+];
+
+// Exit stages - not part of linear progression
+const EXIT_STAGES = [
   'Potential Follow Up',
   'Not Interested',
   'Signed but Not Interested',

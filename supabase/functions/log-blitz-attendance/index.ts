@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 // Exit stages that should be completely skipped
+// Must match stageConstants.ts exactly
 const EXIT_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
 
 const isExitStage = (stage: string | null): boolean => {

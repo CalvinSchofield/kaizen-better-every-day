@@ -103,7 +103,7 @@ export const WeekPlannerSection = ({
   const filteredRecruits = useMemo(() => 
     recruits.filter(r => {
       if (HIDDEN_STAGES.includes(r.stage)) return false;
-      if (r.stage === 'Potential Follow Up') {
+      if (r.stage === STAGES.POTENTIAL_FOLLOW_UP) {
         if (!r.nextActionDue) return false;
         const dueDate = parseISO(r.nextActionDue);
         const today = startOfToday();

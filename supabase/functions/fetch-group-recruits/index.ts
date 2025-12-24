@@ -55,7 +55,17 @@ serve(async (req) => {
       .rpc('is_area_director', { _user_id: user.id });
 
     // Build query for recruits - recruiting-related stages only
-    const recruitingStages = ['100 List', 'Reached Out', 'Evaluating', 'Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
+    // These must match the stage names in the database exactly
+    const recruitingStages = [
+      '100 List', 
+      'Reached Out', 
+      'Evaluating', 
+      'Signed', 
+      'Shadow ✅', 
+      'Sold 💲', 
+      'Sold (5+) 💰',
+      'Potential Follow Up', // Include for recruits with follow-up dates set
+    ];
     
     let recruitsQuery = supabase
       .from('recruits')
