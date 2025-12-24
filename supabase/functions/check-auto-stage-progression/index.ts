@@ -77,7 +77,7 @@ serve(async (req) => {
       });
     }
 
-    // Get the user's rep record
+    // Get the user's rep record - use user_id as primary lookup
     const { data: repData } = await supabase
       .from('reps')
       .select('id, notion_page_id, stage, onboarding_complete, blitz_trip_date')
@@ -138,11 +138,11 @@ serve(async (req) => {
       });
     }
 
-    // Update stage in reps table (Supabase only - no Notion)
+    // Update stage in reps table using Supabase ID
     const { error: updateError } = await supabase
       .from('reps')
       .update({ stage: newStage, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
+      .eq('id', repData.id);
 
     if (updateError) {
       console.error('Error updating stage:', updateError);
@@ -157,18 +157,19 @@ serve(async (req) => {
         .eq('notion_page_id', repData.notion_page_id);
     }
 
-    // Log the automatic stage change
-    const activityId = repData.notion_page_id || repData.id;
+    // Log the automatic stage change - use rep_notion_page_id for compatibility
+    const activityRepId = repData.notion_page_id || repData.id;
     await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: activityId,
+        rep_notion_page_id: activityRepId,
+        recruit_id: repData.id, // New column for future lookups
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: `Auto-progressed to ${newStage}: ${reason}`,
       });
 
-    console.log(`Auto-progressed ${activityId} from ${currentStage} to ${newStage}: ${reason}`);
+    console.log(`Auto-progressed ${repData.id} from ${currentStage} to ${newStage}: ${reason}`);
 
     return new Response(JSON.stringify({ 
       updated: true, 

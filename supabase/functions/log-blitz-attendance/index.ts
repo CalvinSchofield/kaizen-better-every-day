@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     // Get the current user's rep record to check processed_blitz_ids
     const { data: currentUserRep } = await supabase
       .from("reps")
-      .select("notion_page_id, processed_blitz_ids")
+      .select("id, notion_page_id, processed_blitz_ids")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -74,14 +74,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find the blitz in Supabase
+    // Find the blitz in Supabase - try UUID first, then notion_page_id
+    let supabaseBlitzId = blitzId;
     const { data: blitzData } = await supabase
       .from("blitzes")
       .select("id")
       .or(`id.eq.${blitzId},notion_page_id.eq.${blitzId}`)
       .maybeSingle();
 
-    const supabaseBlitzId = blitzData?.id || blitzId;
+    if (blitzData?.id) {
+      supabaseBlitzId = blitzData.id;
+    }
 
     // Fetch all recruits who have this blitz in their commitments via recruit_blitzes junction
     const { data: recruitBlitzes } = await supabase
@@ -97,7 +100,7 @@ Deno.serve(async (req) => {
     if (recruitIds.length > 0) {
       const { data: recruitsData } = await supabase
         .from("recruits")
-        .select("*")
+        .select("id, notion_page_id, name, stage")
         .in("id", recruitIds);
       attendees = recruitsData || [];
     }
@@ -105,17 +108,22 @@ Deno.serve(async (req) => {
     // Also check reps table for committed_blitzes containing this blitz ID
     const { data: repsWithBlitz } = await supabase
       .from("reps")
-      .select("*")
+      .select("id, notion_page_id, name, stage, user_id")
       .contains("committed_blitzes", [blitzId]);
 
-    // Combine and deduplicate
+    // Combine and deduplicate by Supabase ID first, then notion_page_id
     const allAttendees = [...attendees];
     for (const rep of repsWithBlitz || []) {
-      if (!allAttendees.find(a => a.notion_page_id === rep.notion_page_id)) {
+      const existingById = allAttendees.find(a => a.id === rep.id);
+      const existingByNotionId = rep.notion_page_id && allAttendees.find(a => a.notion_page_id === rep.notion_page_id);
+      
+      if (!existingById && !existingByNotionId) {
         allAttendees.push({
+          id: rep.id,
           notion_page_id: rep.notion_page_id,
           name: rep.name,
           stage: rep.stage,
+          user_id: rep.user_id,
         });
       }
     }
@@ -126,9 +134,13 @@ Deno.serve(async (req) => {
     const results: { name: string; success: boolean; error?: string; skipped?: boolean }[] = [];
 
     for (const attendee of allAttendees) {
-      const repNotionId = attendee.notion_page_id || attendee.id;
+      const repId = attendee.id;
+      const repNotionId = attendee.notion_page_id;
       const repName = attendee.name || "Unknown";
       const repStage = attendee.stage;
+
+      // Use the best available identifier for the activity log
+      const activityRepId = repNotionId || repId;
 
       try {
         if (isExitStage(repStage)) {
@@ -138,13 +150,30 @@ Deno.serve(async (req) => {
         }
 
         // Check if we already logged attendance for this rep + blitz
-        const { data: existingActivity } = await supabase
-          .from("recruit_activities")
-          .select("id")
-          .eq("rep_notion_page_id", repNotionId)
-          .eq("activity_type", "in_person")
-          .ilike("notes", `%${blitzName}%`)
-          .maybeSingle();
+        // Check by both Supabase ID and Notion ID
+        let existingActivity = null;
+        
+        if (repId) {
+          const { data } = await supabase
+            .from("recruit_activities")
+            .select("id")
+            .eq("recruit_id", repId)
+            .eq("activity_type", "in_person")
+            .ilike("notes", `%${blitzName}%`)
+            .maybeSingle();
+          existingActivity = data;
+        }
+        
+        if (!existingActivity && repNotionId) {
+          const { data } = await supabase
+            .from("recruit_activities")
+            .select("id")
+            .eq("rep_notion_page_id", repNotionId)
+            .eq("activity_type", "in_person")
+            .ilike("notes", `%${blitzName}%`)
+            .maybeSingle();
+          existingActivity = data;
+        }
 
         if (existingActivity) {
           console.log(`Already logged attendance for ${repName} at ${blitzName}`);
@@ -156,7 +185,8 @@ Deno.serve(async (req) => {
         const { error: insertError } = await supabase
           .from("recruit_activities")
           .insert({
-            rep_notion_page_id: repNotionId,
+            rep_notion_page_id: activityRepId,
+            recruit_id: repId, // New column for future lookups
             activity_type: "in_person",
             notes: `Met at ${blitzName} blitz`,
             logged_by_user_id: user.id,
@@ -169,11 +199,18 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Update last_contact in recruits table
-        await supabase
-          .from("recruits")
-          .update({ last_contact: activityDate })
-          .eq("notion_page_id", repNotionId);
+        // Update last_contact in recruits table - try by ID first, then notion_page_id
+        if (repId) {
+          await supabase
+            .from("recruits")
+            .update({ last_contact: activityDate })
+            .eq("id", repId);
+        } else if (repNotionId) {
+          await supabase
+            .from("recruits")
+            .update({ last_contact: activityDate })
+            .eq("notion_page_id", repNotionId);
+        }
 
         console.log(`Successfully logged attendance for ${repName}`);
         results.push({ name: repName, success: true });
@@ -184,7 +221,7 @@ Deno.serve(async (req) => {
     }
 
     // Mark this blitz as processed in the database
-    if (currentUserRep?.notion_page_id) {
+    if (currentUserRep?.id) {
       const updatedProcessedIds = [...processedBlitzIds, blitzId];
       await supabase
         .from("reps")
