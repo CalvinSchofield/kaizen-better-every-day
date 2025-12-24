@@ -32,22 +32,34 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { blitzId, repNotionPageId, isDeclined } = await req.json();
+    const { blitzId, repNotionPageId, repUserId, isDeclined } = await req.json();
 
-    if (!blitzId || !repNotionPageId || typeof isDeclined !== "boolean") {
-      throw new Error("Missing required parameters: blitzId, repNotionPageId, isDeclined");
+    if (!blitzId || (!repNotionPageId && !repUserId) || typeof isDeclined !== "boolean") {
+      throw new Error("Missing required parameters: blitzId, repNotionPageId or repUserId, isDeclined");
     }
 
-    console.log(`Toggling decline status - blitz: ${blitzId}, rep: ${repNotionPageId}, declined: ${isDeclined}`);
+    // Resolve rep_user_id if only notion page ID provided
+    let resolvedRepUserId = repUserId;
+    if (!resolvedRepUserId && repNotionPageId) {
+      const { data: rep } = await supabase
+        .from("reps")
+        .select("user_id")
+        .eq("notion_page_id", repNotionPageId)
+        .maybeSingle();
+      resolvedRepUserId = rep?.user_id || null;
+    }
+
+    console.log(`Toggling decline status - blitz: ${blitzId}, rep: ${repNotionPageId || repUserId}, declined: ${isDeclined}`);
 
     if (isDeclined) {
-      // Add decline record
+      // Add decline record with both legacy and new columns
       const { error: upsertError } = await supabase
         .from("blitz_declines")
         .upsert(
           {
             blitz_id: blitzId,
-            rep_notion_page_id: repNotionPageId,
+            rep_notion_page_id: repNotionPageId || repUserId, // Legacy
+            rep_user_id: resolvedRepUserId,                    // New column
             declined_by: user.id,
             declined_at: new Date().toISOString(),
           },
@@ -63,7 +75,7 @@ Deno.serve(async (req) => {
         .from("blitz_declines")
         .delete()
         .eq("blitz_id", blitzId)
-        .eq("rep_notion_page_id", repNotionPageId);
+        .eq("rep_notion_page_id", repNotionPageId || repUserId);
 
       if (deleteError) throw deleteError;
 
