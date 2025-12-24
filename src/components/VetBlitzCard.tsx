@@ -46,6 +46,7 @@ interface VetBlitzCardProps {
 
 interface BlitzEvent {
   id: string;
+  supabaseId?: string; // Actual DB ID for recruit_blitzes FK
   name: string;
   date: string;
   endDate: string | null;
@@ -573,18 +574,22 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     try {
       // Recruits are committed via recruit_blitzes (drives the “attending” list)
       if (member.recruitId) {
+        // Find the Supabase blitz ID (recruit_blitzes FK) from allBlitzes
+        const blitzData = allBlitzes.find((b: BlitzEvent) => b.id === blitzId);
+        const supabaseBlitzId = blitzData?.supabaseId || blitzId;
+
         if (isCommitted) {
           const { error } = await supabase
             .from('recruit_blitzes')
             .delete()
             .eq('recruit_id', member.recruitId)
-            .eq('blitz_id', blitzId);
+            .eq('blitz_id', supabaseBlitzId);
 
           if (error) throw error;
         } else {
           const { error } = await supabase
             .from('recruit_blitzes')
-            .insert({ recruit_id: member.recruitId, blitz_id: blitzId });
+            .insert({ recruit_id: member.recruitId, blitz_id: supabaseBlitzId });
 
           if (error) throw error;
         }
