@@ -168,11 +168,23 @@ serve(async (req) => {
 
     // Log the stage change as an activity - use rep_notion_page_id for compatibility
     const activityRepId = currentRep.notion_page_id || currentRep.id;
+    
+    // Get the recruit_id from the recruits table (different from reps table ID)
+    let recruitDbId = null;
+    if (currentRep.notion_page_id) {
+      const { data: recruitRecord } = await supabase
+        .from('recruits')
+        .select('id')
+        .eq('notion_page_id', currentRep.notion_page_id)
+        .maybeSingle();
+      recruitDbId = recruitRecord?.id || null;
+    }
+    
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
         rep_notion_page_id: activityRepId,
-        recruit_id: currentRep.id, // New column for future lookups
+        recruit_id: recruitDbId, // Use ID from recruits table, not reps table
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: notes || `Stage changed from "${currentStage || 'unknown'}" to "${newStage}"`,
