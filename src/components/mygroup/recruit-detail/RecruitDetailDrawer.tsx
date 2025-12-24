@@ -374,6 +374,7 @@ export const RecruitDetailDrawer = ({
 
     if (leaderPhone) {
       logActivityMutation.mutate({
+        recruitId: recruit.id,
         recruitNotionId: recruit.notionPageId,
         activityType: 'phone_call',
         notes: 'Text sent (group with leader)',
@@ -387,6 +388,7 @@ export const RecruitDetailDrawer = ({
     }
 
     logActivityMutation.mutate({
+      recruitId: recruit.id,
       recruitNotionId: recruit.notionPageId,
       activityType: 'phone_call',
       notes: 'Text sent',
@@ -420,7 +422,7 @@ export const RecruitDetailDrawer = ({
   const handleConfirmStageChange = () => {
     if (!pendingStage) return;
     const isExitStage = EXIT_STAGES.includes(pendingStage);
-    updateStageMutation.mutate({ recruitNotionId: recruit.notionPageId, newStage: pendingStage }, {
+    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, newStage: pendingStage }, {
       onSuccess: () => { 
         toast.success(`Moved to ${pendingStage}`); 
         setStageConfirmOpen(false); 
@@ -441,10 +443,11 @@ export const RecruitDetailDrawer = ({
       return;
     }
     
-    updateStageMutation.mutate({ recruitNotionId: recruit.notionPageId, newStage: 'Potential Follow Up' }, {
+    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, newStage: 'Potential Follow Up' }, {
       onSuccess: () => {
         // Log the scheduled follow-up activity
         logActivityMutation.mutate({
+          recruitId: recruit.id,
           recruitNotionId: recruit.notionPageId,
           activityType: 'next_step',
           notes: followUpNextStep || 'Scheduled follow-up',
@@ -632,6 +635,7 @@ export const RecruitDetailDrawer = ({
   const handleMarkScheduledComplete = (activity: RecruitActivity, completedType: 'phone_call' | 'in_person') => {
     // Log the completed activity with the scheduled notes
     logActivityMutation.mutate({
+      recruitId: recruit.id,
       recruitNotionId: recruit.notionPageId,
       activityType: completedType,
       notes: activity.notes || activity.next_action || 'Completed scheduled follow-up',
@@ -958,7 +962,7 @@ export const RecruitDetailDrawer = ({
               <Button variant={postCallStatus === 'attempted' ? 'secondary' : 'outline'} className="flex-1" onClick={() => setPostCallStatus('attempted')}><PhoneMissed className="h-4 w-4 mr-2" />No Answer</Button>
             </div>
             <Textarea value={postCallNotes} onChange={(e) => setPostCallNotes(e.target.value)} placeholder="Notes (optional)" rows={2} />
-            <Button className="w-full" disabled={!postCallStatus || logActivityMutation.isPending} onClick={() => { const notes = postCallStatus === 'connected' ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected') : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer'); logActivityMutation.mutate({ recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes, updateLastContact: postCallStatus === 'connected' }, { onSuccess: () => { toast.success('Call logged'); setPostCallOpen(false); setPostCallStatus(null); setPostCallNotes(''); queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] }); } }); }}>{logActivityMutation.isPending ? 'Saving...' : 'Save'}</Button>
+            <Button className="w-full" disabled={!postCallStatus || logActivityMutation.isPending} onClick={() => { const notes = postCallStatus === 'connected' ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected') : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer'); logActivityMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes, updateLastContact: postCallStatus === 'connected' }, { onSuccess: () => { toast.success('Call logged'); setPostCallOpen(false); setPostCallStatus(null); setPostCallNotes(''); queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] }); } }); }}>{logActivityMutation.isPending ? 'Saving...' : 'Save'}</Button>
           </div>
         </DrawerContent>
       </Drawer>
