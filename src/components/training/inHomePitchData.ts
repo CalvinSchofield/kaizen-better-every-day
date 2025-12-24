@@ -7,6 +7,7 @@ export const inHomeSections: PitchSection[] = [
     emoji: "🏠",
     script: `Transition into the home and be human. Talk about them and their families briefly. Ask questions. Get to the table or couch to set up shop. Involve all decision makers for the love.`,
     stageTip: "Build rapport naturally. This isn't just small talk - it's discovering hot buttons you'll use later.",
+    isNoteOnly: true,
   },
   {
     id: 2,
@@ -117,105 +118,5 @@ Fourth, if someone asked you 'why did you get Vivint', what would you say? How w
 
 Great. I just sent you a text, grab your phone and we'll knock this out real quick. Just a few steps here…"`,
     stageTip: "Keep moving. Don't pause. Confidence is contagious. Start the paperwork process immediately.",
-  },
-];
-
-// Curated closes for BONUS section
-export interface CloseItem {
-  name: string;
-  description: string;
-  script: string;
-}
-
-export interface CloseCategory {
-  title: string;
-  emoji: string;
-  closes: CloseItem[];
-}
-
-export const closesData: CloseCategory[] = [
-  {
-    title: "Setup Closes",
-    emoji: "🎯",
-    closes: [
-      {
-        name: "Set the Stage",
-        description: "Pre-frame from the very beginning so closing is natural",
-        script: `"What's going to happen is, I'll go through everything and show you how it might benefit you. If it's a good fit, we can start paperwork today. If not, maybe you could point me to some people that would be interested. Sound fair?"`,
-      },
-      {
-        name: "Preempt Objections",
-        description: "Beat them to the punch by addressing concerns before they raise them",
-        script: `"The reason most people get this from me is because they're on a fixed income and tight with their money - they figured it's better to get it now while it's cheap rather than paying more later."`,
-      },
-      {
-        name: "Assumption Close",
-        description: "Talk as if they've already bought - confidence is contagious",
-        script: `Use "your cameras", "your panel", "when the installer sets up your system" - speak as if it's already theirs.`,
-      },
-    ],
-  },
-  {
-    title: "Power Closes",
-    emoji: "💪",
-    closes: [
-      {
-        name: "Feel, Felt, Found",
-        description: "Validate their concern, show others felt the same, share what they discovered",
-        script: `"I totally get where you're coming from. Your neighbor actually felt the same way - worried about [concern]. But what they found was [benefit], and now they recommend it more than anyone."`,
-      },
-      {
-        name: "Bandwagon Close",
-        description: "Create the sense that everyone is doing it",
-        script: `"The Johnson's down the street, the family on the corner, your neighbor Jerry - they all got set up this week. You'd actually be one of the last ones on this street to get protected."`,
-      },
-      {
-        name: "Just Do It",
-        description: "Direct, confident ask - works when rapport is strong",
-        script: `"Look, the price is right, the product is right, and you know we're a good company. Let's just do it! And if you don't like it, call me and we'll refund you."`,
-      },
-      {
-        name: "Hot Button Close",
-        description: "Tie back to their main motivation",
-        script: `"Like you said, being able to check on the kids when they get home from school - that's priceless, right? Let's get you set up."`,
-      },
-    ],
-  },
-  {
-    title: "Handle Stalls",
-    emoji: "⏸️",
-    closes: [
-      {
-        name: "Spouse Close",
-        description: "Navigate the 'I need to talk to my spouse' stall",
-        script: `"Hypothetically, if your spouse were here right now and said 'honey, it's up to you!' - what would you say?"`,
-      },
-      {
-        name: "Time Frame Close",
-        description: "Create urgency around your schedule",
-        script: `"Because your time and my time is valuable, I want to make sure we get all your questions answered so you can make an educated decision today - whether that's a yes or a no is up to you."`,
-      },
-      {
-        name: "Price Drop Close",
-        description: "Give and take - use manager call or competition angle",
-        script: `"Let me call my manager real quick... Hey, I'm with the nicest people and they promised to give us referrals. Is there anything we can do?" Then come back with an offer.`,
-      },
-    ],
-  },
-  {
-    title: "Last Resort",
-    emoji: "🚪",
-    closes: [
-      {
-        name: "Door Knob Close",
-        description: "When all else fails, pack up and ask one last question at the door",
-        script: `*Pack up everything, grab the door knob, then look back* "Mr. Customer, can I ask you one last question? What was the main reason you didn't move forward today? Just for my learning."`,
-      },
-      {
-        name: "Trial Close",
-        description: "Remove risk with a back door",
-        script: `"Look, just try it out. You have 3 days to cancel with a full refund. Let me do my portion today, and you can think it over with a safety net."`,
-      },
-    ],
   },
 ];

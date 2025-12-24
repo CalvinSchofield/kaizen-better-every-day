@@ -13,8 +13,9 @@ import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
 import { InHomePitchGuide } from "@/components/training/InHomePitchGuide";
 import { PaperworkGuide } from "@/components/training/PaperworkGuide";
+import { ClosesGuide } from "@/components/training/ClosesGuide";
 
-type PitchGuideType = "fresh" | "takeover" | "upgrade" | "inhome" | "paperwork";
+type PitchGuideType = "fresh" | "takeover" | "upgrade" | "inhome" | "paperwork" | "closes";
 
 interface TrainingCategory {
   title: string;
@@ -46,7 +47,7 @@ const Training = () => {
   // Auto-open guide from URL query param
   useEffect(() => {
     const guideParam = searchParams.get('guide');
-    if (guideParam && ['fresh', 'takeover', 'upgrade', 'inhome', 'paperwork'].includes(guideParam)) {
+    if (guideParam && ['fresh', 'takeover', 'upgrade', 'inhome', 'paperwork', 'closes'].includes(guideParam)) {
       setActiveGuide(guideParam as PitchGuideType);
       setSearchParams({}, { replace: true });
     }
@@ -135,6 +136,7 @@ const Training = () => {
     items: [
       { title: "In-Home Presentation", href: "#", inAppGuide: "inhome" },
       { title: "Smooth Paperwork Process", href: "#", inAppGuide: "paperwork" },
+      { title: "Closes Cheat Sheet", href: "#", inAppGuide: "closes" },
     ],
   };
 
@@ -266,6 +268,9 @@ const Training = () => {
   }
   if (activeGuide === "paperwork") {
     return <PaperworkGuide onBack={() => setActiveGuide(null)} />;
+  }
+  if (activeGuide === "closes") {
+    return <ClosesGuide onBack={() => setActiveGuide(null)} />;
   }
 
   return (
