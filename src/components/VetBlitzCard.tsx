@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, MessageCircle, Phone } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, MessageCircle, Phone, Settings, Home, Wifi, Key } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,15 @@ interface VetBlitzCardProps {
   teams?: Array<{ id: string; name: string }>;
 }
 
+interface Accommodation {
+  id: string;
+  name: string;
+  address: string | null;
+  wifiPassword: string | null;
+  doorCode: string | null;
+  notes: string | null;
+}
+
 interface BlitzEvent {
   id: string;
   supabaseId?: string; // Actual DB ID for recruit_blitzes FK
@@ -54,6 +64,7 @@ interface BlitzEvent {
   address1?: string | null;
   wifi1?: string | null;
   code1?: string | null;
+  accommodations?: Accommodation[];
 }
 
 interface TeamMember {
@@ -1034,8 +1045,17 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               <Calendar className="h-5 w-5" />
               Blitz Management
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="flex items-center gap-2">
               Manage your commitments and team attendance
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => window.location.href = '/admin/blitzes'}
+              >
+                <Settings className="h-3 w-3 mr-1" />
+                Edit Blitzes
+              </Button>
             </CardDescription>
           </div>
           

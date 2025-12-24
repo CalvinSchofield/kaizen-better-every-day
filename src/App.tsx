@@ -31,6 +31,7 @@ import RampToBlitz from "./pages/RampToBlitz";
 import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 import ProductKnowledge from "./pages/ProductKnowledge";
+import AdminBlitzes from "./pages/AdminBlitzes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -229,6 +230,14 @@ const App = () => {
             <Route
               path="/profile"
               element={<Navigate to="/settings" replace />}
+            />
+            <Route
+              path="/admin/blitzes"
+              element={
+                <ProtectedRoute>
+                  <AdminBlitzes />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/reports/weekly-recap"

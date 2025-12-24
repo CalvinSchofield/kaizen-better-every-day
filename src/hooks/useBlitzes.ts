@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+interface Accommodation {
+  id: string;
+  name: string;
+  address: string | null;
+  wifiPassword: string | null;
+  doorCode: string | null;
+  notes: string | null;
+}
+
 interface BlitzEvent {
   id: string;
   supabaseId?: string; // Actual DB ID for recruit_blitzes FK
@@ -12,6 +21,7 @@ interface BlitzEvent {
   address1?: string | null;
   wifi1?: string | null;
   code1?: string | null;
+  accommodations?: Accommodation[];
 }
 
 interface CachedBlitzes {
