@@ -269,15 +269,27 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [pendingAction, setPendingAction] = useState<'text' | 'call' | null>(null);
   
   // Default to highest access level available
-  const getDefaultScope = (): 'you' | 'team' | 'mgmt' | 'office' => {
+  const getDefaultScope = useCallback((): 'you' | 'team' | 'mgmt' | 'office' => {
     if (accessLevel === 'area_director') return 'office';
     if (accessLevel === 'mgmt_group_lead') return 'mgmt';
     if (accessLevel === 'team_lead') return 'team';
     return 'you';
-  };
-  const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>(getDefaultScope());
+  }, [accessLevel]);
+  
+  const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
+  const [hasScopeBeenSet, setHasScopeBeenSet] = useState(false);
+  
+  // Update scope when accessLevel becomes available (only once)
+  useEffect(() => {
+    if (!hasScopeBeenSet && accessLevel !== 'none') {
+      const newScope = getDefaultScope();
+      console.log(`Setting initial scope to ${newScope} based on accessLevel: ${accessLevel}`);
+      setAttendanceScope(newScope);
+      setHasScopeBeenSet(true);
+    }
+  }, [accessLevel, hasScopeBeenSet, getDefaultScope]);
   
   // Track pending updates to prevent stale data overwrites
   const pendingCommitmentsRef = useRef<Set<string>>(new Set());
@@ -351,12 +363,16 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   // Fetch attendance when scope changes - use ref to prevent redundant fetches
   const lastScopeRef = useRef<string>("");
   useEffect(() => {
+    // Only start fetching after scope has been properly set
+    if (!hasScopeBeenSet && accessLevel !== 'none') return;
+    
     const scopeKey = `${attendanceScope}`;
     if (scopeKey === lastScopeRef.current) return; // Skip if scope didn't change
     lastScopeRef.current = scopeKey;
     
+    console.log(`Fetching attendance data for scope: ${attendanceScope}`);
     fetchAttendanceData();
-  }, [attendanceScope]); // Removed fetchAttendanceData from deps to prevent constant refetching
+  }, [attendanceScope, hasScopeBeenSet, accessLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load committed blitzes from repData - only update when actually different and no pending updates
   const lastCommittedBlitzesRef = useRef<string>("");
