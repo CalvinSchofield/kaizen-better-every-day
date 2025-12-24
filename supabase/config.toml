@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.fetch-assignable-users]
 verify_jwt = false
+
+[functions.migrate-notion-data]
+verify_jwt = false
