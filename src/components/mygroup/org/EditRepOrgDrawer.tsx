@@ -113,6 +113,23 @@ export const EditRepOrgDrawer = ({
   const linkedUserId = linkedRepData?.user_id || null;
   const hasAppAccess = !!linkedUserId;
 
+  // Fetch rep record for year info
+  const { data: repRecord } = useQuery({
+    queryKey: ["rep-record-org", linkedUserId],
+    queryFn: async () => {
+      if (!linkedUserId) return null;
+      const { data } = await supabase
+        .from("reps")
+        .select("year")
+        .eq("user_id", linkedUserId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open && !!linkedUserId,
+  });
+
+  const isRookie = repRecord?.year === "Rookie";
+
   // Fetch additional rep data if they have app access
   const { data: repGoals } = useQuery({
     queryKey: ["rep-goals-org", linkedUserId],
@@ -120,7 +137,7 @@ export const EditRepOrgDrawer = ({
       if (!linkedUserId) return null;
       const { data } = await supabase
         .from("rep_goals")
-        .select("will_do_fp_goal, setup_complete")
+        .select("will_do_fp_goal, must_do_fp_goal, could_do_fp_goal, preseason_fp_goal, setup_complete, training_hours_goal, books_goal, monday_night_lights_goal, role_plays_goal, blitzes_goal, recruits_with_sale_goal")
         .eq("user_id", linkedUserId)
         .maybeSingle();
       return data;
@@ -442,29 +459,17 @@ export const EditRepOrgDrawer = ({
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between py-2 border-b">
-                  <span className="text-sm text-muted-foreground">App Access</span>
-                  <Badge variant={hasAppAccess ? "default" : "secondary"}>
-                    {hasAppAccess ? "Yes" : "No"}
-                  </Badge>
-                </div>
+                {/* Show App Access only if they DON'T have access */}
+                {!hasAppAccess && (
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <span className="text-sm text-muted-foreground">App Access</span>
+                    <Badge variant="secondary">No</Badge>
+                  </div>
+                )}
 
                 {hasAppAccess && (
                   <>
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-muted-foreground">Goals Set</span>
-                      <Badge variant={repGoals?.setup_complete ? "default" : "secondary"}>
-                        {repGoals?.setup_complete ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-muted-foreground">FP Goal</span>
-                      <span className="text-sm font-medium">
-                        {repGoals?.will_do_fp_goal || "—"}
-                      </span>
-                    </div>
-
+                    {/* Last Activity - moved higher */}
                     <div className="flex items-center justify-between py-2 border-b">
                       <span className="text-sm text-muted-foreground flex items-center gap-2">
                         <Activity className="h-3.5 w-3.5" />
@@ -476,6 +481,105 @@ export const EditRepOrgDrawer = ({
                         ) : "No activity yet"}
                       </span>
                     </div>
+
+                    <div className="flex items-center justify-between py-2 border-b">
+                      <span className="text-sm text-muted-foreground">Goals Set</span>
+                      <Badge variant={repGoals?.setup_complete ? "default" : "secondary"}>
+                        {repGoals?.setup_complete ? "Yes" : "No"}
+                      </Badge>
+                    </div>
+
+                    {/* FP Goals Section */}
+                    {repGoals?.setup_complete && (
+                      <>
+                        <div className="pt-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                            FP Goals
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between py-2 border-b">
+                          <span className="text-sm text-muted-foreground">Must Do</span>
+                          <span className="text-sm font-medium">
+                            {repGoals?.must_do_fp_goal || "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between py-2 border-b">
+                          <span className="text-sm text-muted-foreground">Will Do</span>
+                          <span className="text-sm font-medium">
+                            {repGoals?.will_do_fp_goal || "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between py-2 border-b">
+                          <span className="text-sm text-muted-foreground">Could Do</span>
+                          <span className="text-sm font-medium">
+                            {repGoals?.could_do_fp_goal || "—"}
+                          </span>
+                        </div>
+
+                        {/* Preseason Commitments - Rookies Only */}
+                        {isRookie && (
+                          <>
+                            <div className="pt-2">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                                Preseason Commitments
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Preseason FP</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.preseason_fp_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Training Hours</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.training_hours_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Books</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.books_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">MNL Attendance</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.monday_night_lights_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Role Plays</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.role_plays_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Blitzes</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.blitzes_goal || "—"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-b">
+                              <span className="text-sm text-muted-foreground">Recruits w/ Sale</span>
+                              <span className="text-sm font-medium">
+                                {repGoals?.recruits_with_sale_goal || "—"}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
               </div>
