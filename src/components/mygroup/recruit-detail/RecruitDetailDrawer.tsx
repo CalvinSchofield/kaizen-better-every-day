@@ -344,35 +344,34 @@ export const RecruitDetailDrawer = ({
 
     const recruitPhone = normalizePhoneForSms(recruit.phone);
 
-    // Prefer the visible "Text {leader}" contact if it is the team leader.
-    // Otherwise, look up the team leader by the recruit's teamName.
+    // Look up the team leader's phone using the recruit's team_id for reliable lookup
     let leaderPhone: string | null = null;
 
+    // First try using contactForHelp if it's the leader
     if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
       leaderPhone = normalizePhoneForSms(contactForHelp.phone);
-    } else if (recruit.teamName) {
-      const teamLeaderName = (stripEmojis(recruit.teamName) || '').toLowerCase().trim();
+    } else if (recruit.teamId) {
+      // Use team_id to find the team's lead_user_id, then get their phone
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('lead_user_id')
+        .eq('id', recruit.teamId)
+        .maybeSingle();
 
-      const { data: leaderCandidates } = await supabase
-        .from('reps')
-        .select('name, phone')
-        .ilike('name', `%${stripEmojis(recruit.teamName)}%`)
-        .limit(10);
+      if (teamData?.lead_user_id) {
+        const { data: leaderRep } = await supabase
+          .from('reps')
+          .select('phone')
+          .eq('user_id', teamData.lead_user_id)
+          .maybeSingle();
 
-      const bestMatch = (leaderCandidates || [])
-        .filter((c) => !!c.phone)
-        .sort((a, b) => {
-          const aName = (stripEmojis(a.name) || '').toLowerCase().trim();
-          const bName = (stripEmojis(b.name) || '').toLowerCase().trim();
-          const aExact = aName === teamLeaderName ? 1 : 0;
-          const bExact = bName === teamLeaderName ? 1 : 0;
-          return bExact - aExact;
-        })[0];
-
-      leaderPhone = bestMatch?.phone ? normalizePhoneForSms(bestMatch.phone) : null;
+        if (leaderRep?.phone) {
+          leaderPhone = normalizePhoneForSms(leaderRep.phone);
+        }
+      }
     }
 
-    if (leaderPhone) {
+    if (leaderPhone && leaderPhone !== recruitPhone) {
       logActivityMutation.mutate({
         recruitId: recruit.id,
         recruitNotionId: recruit.notionPageId,
@@ -382,8 +381,8 @@ export const RecruitDetailDrawer = ({
       });
       toast.success('Group text logged');
 
-      // Multi-recipient SMS separator is inconsistent across devices; ";" has the best real-world support.
-      window.location.href = `sms:${recruitPhone};${leaderPhone}`;
+      // Multi-recipient SMS separator is inconsistent across devices; "," works on iOS
+      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
       return;
     }
 
