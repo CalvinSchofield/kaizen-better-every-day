@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const AREA_DIRECTOR_EMAIL = 'calvinjschofield@gmail.com';
+// Note: Area Director detection now uses database function is_area_director()
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const userEmail = user.email?.toLowerCase();
-    const isAreaDirector = userEmail === AREA_DIRECTOR_EMAIL;
+    // Use database function to determine if user is Area Director
+    const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
 
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
