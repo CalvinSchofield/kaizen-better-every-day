@@ -65,9 +65,15 @@ Deno.serve(async (req) => {
       .from('team_mgmt_groups')
       .select('team_id, mgmt_group_id');
 
+    // Fetch all reps to build mappings
+    const { data: allReps } = await supabase
+      .from('reps')
+      .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
+
     const mgmtGroupsData = mgmtGroupsRaw || [];
     const teamsData = teamsRaw || [];
     const teamMgmtGroups = teamMgmtGroupsRaw || [];
+    const repsData = allReps || [];
 
     // Build mgmt groups with their team IDs
     const mgmtGroups = mgmtGroupsData.map(g => {
@@ -82,7 +88,26 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Build teams list with lead names for matching
+    // Build a map of team_leader name (lowercase) -> team
+    // Team leader names in reps.team_leader are like "Adam", "Quinn"
+    // Team lead names are like "🚗 Adam Schofield" 
+    const teamLeaderNameToTeam = new Map<string, typeof teamsData[0]>();
+    
+    for (const team of teamsData) {
+      if (team.lead_user_id) {
+        // Find the rep who leads this team
+        const leadRep = repsData.find(r => r.user_id === team.lead_user_id);
+        if (leadRep) {
+          // Extract first name - remove emoji prefix and get first word
+          const cleanName = leadRep.name.replace(/^[^\p{L}]*/u, '').trim();
+          const firstName = cleanName.split(' ')[0].toLowerCase();
+          teamLeaderNameToTeam.set(firstName, team);
+          console.log(`Mapped team leader "${firstName}" -> team "${team.name}"`);
+        }
+      }
+    }
+
+    // Build teams list
     const teams = teamsData.map(t => ({
       id: t.id,
       name: t.name,
@@ -94,25 +119,6 @@ Deno.serve(async (req) => {
     for (const team of teams) {
       if (team.groupLeadId) {
         userIdToTeam.set(team.groupLeadId, team);
-      }
-    }
-
-    // Get all reps to build a name -> team mapping based on team_leader field
-    const { data: allRepsForMapping } = await supabase
-      .from('reps')
-      .select('name, user_id, team_leader');
-
-    // Build team leader name -> team mapping
-    const teamLeaderNameToTeam = new Map<string, typeof teams[0]>();
-    for (const team of teams) {
-      if (team.groupLeadId) {
-        // Find the rep who is the team lead
-        const leadRep = allRepsForMapping?.find(r => r.user_id === team.groupLeadId);
-        if (leadRep) {
-          // Extract first name from the rep's name (removing emoji prefix if present)
-          const leadName = leadRep.name.replace(/^[^\w]*/, '').split(' ')[0].toLowerCase();
-          teamLeaderNameToTeam.set(leadName, team);
-        }
       }
     }
 
@@ -136,24 +142,28 @@ Deno.serve(async (req) => {
       accessLevel = 'area_director';
     }
 
+    console.log(`User ${user.email} has accessLevel: ${accessLevel}`);
+
     // Helper to get team info for a rep based on their team_leader field
     const getRepTeamInfo = (rep: any) => {
       // First check if this rep IS a team lead
-      const teamAsLead = userIdToTeam.get(rep.user_id);
-      if (teamAsLead) {
-        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(teamAsLead.id));
-        return {
-          isTeamLead: true,
-          teamId: teamAsLead.id,
-          teamName: teamAsLead.name,
-          mgmtGroupId: mgmtGroup?.id || null,
-          mgmtGroupName: mgmtGroup?.name || null,
-        };
+      if (rep.user_id) {
+        const teamAsLead = userIdToTeam.get(rep.user_id);
+        if (teamAsLead) {
+          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(teamAsLead.id));
+          return {
+            isTeamLead: true,
+            teamId: teamAsLead.id,
+            teamName: teamAsLead.name,
+            mgmtGroupId: mgmtGroup?.id || null,
+            mgmtGroupName: mgmtGroup?.name || null,
+          };
+        }
       }
 
       // Otherwise look up by team_leader field
       if (rep.team_leader) {
-        const leaderName = rep.team_leader.toLowerCase();
+        const leaderName = rep.team_leader.toLowerCase().trim();
         const team = teamLeaderNameToTeam.get(leaderName);
         if (team) {
           const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
@@ -201,17 +211,10 @@ Deno.serve(async (req) => {
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
-    // Fetch all reps for processing
-    const { data: allReps } = await supabase
-      .from('reps')
-      .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
-
     if (accessLevel === 'area_director') {
       // Area directors see ALL reps
-      if (allReps) {
-        accessibleUserIds = allReps.filter(r => r.user_id).map(r => r.user_id!);
-        accessibleReps = allReps.map(buildRepData);
-      }
+      accessibleUserIds = repsData.filter(r => r.user_id).map(r => r.user_id!);
+      accessibleReps = repsData.map(buildRepData);
       console.log(`Area director has access to ${accessibleReps.length} reps`);
 
     } else if (accessLevel === 'mgmt_group_lead') {
@@ -219,13 +222,11 @@ Deno.serve(async (req) => {
       const userMgmtGroups = mgmtGroups.filter(g => g.groupLeadId === user.id);
       const accessibleTeamIds = userMgmtGroups.flatMap(g => g.teamIds);
       
-      if (allReps) {
-        for (const rep of allReps) {
-          const teamInfo = getRepTeamInfo(rep);
-          if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
-            if (rep.user_id) accessibleUserIds.push(rep.user_id);
-            accessibleReps.push(buildRepData(rep));
-          }
+      for (const rep of repsData) {
+        const teamInfo = getRepTeamInfo(rep);
+        if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
+          if (rep.user_id) accessibleUserIds.push(rep.user_id);
+          accessibleReps.push(buildRepData(rep));
         }
       }
       console.log(`MGMT group lead has access to ${accessibleTeamIds.length} teams, ${accessibleReps.length} reps`);
@@ -235,8 +236,8 @@ Deno.serve(async (req) => {
       const userTeams = teams.filter(t => t.groupLeadId === user.id);
       const userTeamIds = userTeams.map(t => t.id);
 
-      if (allReps && userTeamIds.length > 0) {
-        for (const rep of allReps) {
+      if (userTeamIds.length > 0) {
+        for (const rep of repsData) {
           const teamInfo = getRepTeamInfo(rep);
           if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
             if (rep.user_id) accessibleUserIds.push(rep.user_id);
@@ -246,6 +247,14 @@ Deno.serve(async (req) => {
         console.log(`Team lead (${userTeams.map(t => t.name).join(', ')}) has access to ${accessibleReps.length} reps`);
       }
     }
+
+    // Log team counts for debugging
+    const teamCounts = new Map<string, number>();
+    for (const rep of accessibleReps) {
+      const teamId = rep.teamId || 'unassigned';
+      teamCounts.set(teamId, (teamCounts.get(teamId) || 0) + 1);
+    }
+    console.log('Team counts:', Object.fromEntries(teamCounts));
 
     return new Response(JSON.stringify({ 
       accessLevel, 
