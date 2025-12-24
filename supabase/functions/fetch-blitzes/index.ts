@@ -30,6 +30,34 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${blitzesData?.length || 0} blitzes`);
 
+    // Fetch accommodations for all blitzes
+    const blitzIds = (blitzesData || []).map(b => b.id);
+    const { data: accommodationsData, error: accError } = await supabase
+      .from('blitz_accommodations')
+      .select('*')
+      .in('blitz_id', blitzIds)
+      .order('sort_order', { ascending: true });
+
+    if (accError) {
+      console.error("Error fetching accommodations:", accError);
+    }
+
+    // Group accommodations by blitz
+    const accByBlitz: Record<string, any[]> = {};
+    (accommodationsData || []).forEach(acc => {
+      if (!accByBlitz[acc.blitz_id]) {
+        accByBlitz[acc.blitz_id] = [];
+      }
+      accByBlitz[acc.blitz_id].push({
+        id: acc.id,
+        name: acc.name,
+        address: acc.address,
+        wifiPassword: acc.wifi_password,
+        doorCode: acc.door_code,
+        notes: acc.notes,
+      });
+    });
+
     // Map to expected format - include both IDs for commit operations
     const blitzes = (blitzesData || []).map(blitz => ({
       id: blitz.notion_page_id || blitz.id, // UI uses this as primary ID
@@ -38,9 +66,12 @@ Deno.serve(async (req) => {
       date: blitz.date,
       endDate: blitz.end_date,
       location: blitz.location,
+      // Legacy single-accommodation fields (for backward compatibility)
       address1: blitz.address,
       wifi1: blitz.wifi,
       code1: blitz.code,
+      // New multi-accommodation support
+      accommodations: accByBlitz[blitz.id] || [],
     }));
 
     return new Response(

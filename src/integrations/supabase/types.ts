@@ -38,6 +38,53 @@ export type Database = {
         }
         Relationships: []
       }
+      blitz_accommodations: {
+        Row: {
+          address: string | null
+          blitz_id: string
+          created_at: string
+          door_code: string | null
+          id: string
+          name: string
+          notes: string | null
+          sort_order: number | null
+          updated_at: string
+          wifi_password: string | null
+        }
+        Insert: {
+          address?: string | null
+          blitz_id: string
+          created_at?: string
+          door_code?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          sort_order?: number | null
+          updated_at?: string
+          wifi_password?: string | null
+        }
+        Update: {
+          address?: string | null
+          blitz_id?: string
+          created_at?: string
+          door_code?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          sort_order?: number | null
+          updated_at?: string
+          wifi_password?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_accommodations_blitz_id_fkey"
+            columns: ["blitz_id"]
+            isOneToOne: false
+            referencedRelation: "blitzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blitz_declines: {
         Row: {
           blitz_id: string
@@ -91,6 +138,7 @@ export type Database = {
           address: string | null
           code: string | null
           created_at: string | null
+          created_by: string | null
           date: string
           end_date: string | null
           id: string
@@ -104,6 +152,7 @@ export type Database = {
           address?: string | null
           code?: string | null
           created_at?: string | null
+          created_by?: string | null
           date: string
           end_date?: string | null
           id?: string
@@ -117,6 +166,7 @@ export type Database = {
           address?: string | null
           code?: string | null
           created_at?: string | null
+          created_by?: string | null
           date?: string
           end_date?: string | null
           id?: string
