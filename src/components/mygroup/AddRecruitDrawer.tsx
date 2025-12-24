@@ -230,11 +230,11 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   const isMgmtOrAbove = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
 
-  // Fetch Notion property options
+  // Fetch property options from Supabase
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
-    queryKey: ['notion-property-options'],
+    queryKey: ['property-options'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('fetch-notion-property-options');
+      const { data, error } = await supabase.functions.invoke('fetch-property-options');
       if (error) throw error;
       return data as {
         locationOptions: string[];
