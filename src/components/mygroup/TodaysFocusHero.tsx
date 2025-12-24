@@ -1,9 +1,10 @@
-import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { SummerRecommendation } from "@/hooks/useSummerRecommendations";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { cn } from "@/lib/utils";
 import { SkipMenu } from "./SkipMenu";
 
@@ -15,6 +16,7 @@ export type HeroRecommendation =
 interface TodaysFocusHeroProps {
   topRecommendation: RecruitRecommendation | null;
   summerRecommendation?: SummerRecommendation | null;
+  needsAttentionFallback?: AttentionRecruit | null;
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
   onSummerRepClick?: (notionPageId: string) => void;
@@ -71,6 +73,7 @@ const CONTAINER_STYLES: Record<string, string> = {
 export const TodaysFocusHero = ({ 
   topRecommendation, 
   summerRecommendation,
+  needsAttentionFallback,
   totalNeedsAttention,
   onRecruitClick,
   onSummerRepClick,
@@ -183,6 +186,108 @@ export const TodaysFocusHero = ({
 
   // Default preseason/recruiting hero
   if (!topRecommendation) {
+    // If there's a needs attention fallback, show that instead of "All Caught Up"
+    if (needsAttentionFallback) {
+      const fallbackRecruit = needsAttentionFallback.recruit;
+      const urgencyStyles = {
+        high: 'border-red-500/30 bg-red-500/5',
+        medium: 'border-amber-500/30 bg-amber-500/5',
+        low: 'border-blue-500/30 bg-blue-500/5',
+      };
+      const urgencyBadgeStyles = {
+        high: 'border-red-500/50 text-red-600 bg-red-500/10',
+        medium: 'border-amber-500/50 text-amber-600 bg-amber-500/10',
+        low: 'border-blue-500/50 text-blue-600 bg-blue-500/10',
+      };
+
+      const handleFallbackSkipForNow = () => {
+        onSkipForNow?.(fallbackRecruit);
+      };
+
+      const handleFallbackSkipToday = () => {
+        onSkipToday?.(fallbackRecruit);
+      };
+
+      const handleFallbackContact = () => {
+        onContactClick?.(fallbackRecruit);
+      };
+
+      const handleFallbackSchedule = () => {
+        onScheduleClick?.(fallbackRecruit);
+      };
+
+      return (
+        <div 
+          className={cn(
+            "rounded-2xl p-5 border-2 transition-all duration-300",
+            urgencyStyles[needsAttentionFallback.urgency],
+            animatingOut && "animate-fade-out opacity-0 scale-95"
+          )}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-2 rounded-full bg-amber-500/10">
+              <Bell className="h-5 w-5 text-amber-500" />
+            </div>
+            <span className="text-sm font-medium text-amber-600">Needs Attention</span>
+            <div className="ml-auto flex items-center gap-1">
+              <Badge variant="outline" className={cn("text-xs", urgencyBadgeStyles[needsAttentionFallback.urgency])}>
+                {needsAttentionFallback.urgency === 'high' ? 'Urgent' : needsAttentionFallback.urgency === 'medium' ? 'Soon' : 'Check In'}
+              </Badge>
+              <SkipMenu 
+                onSkipForNow={handleFallbackSkipForNow}
+                onSkipToday={handleFallbackSkipToday}
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7"
+              />
+            </div>
+          </div>
+
+          <div 
+            className="cursor-pointer"
+            onClick={() => onRecruitClick(fallbackRecruit)}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="text-xl font-semibold">
+                {stripEmojis(fallbackRecruit.name)}
+              </h2>
+              <Badge 
+                variant="outline" 
+                className="text-xs border-muted-foreground/30 text-muted-foreground"
+              >
+                {fallbackRecruit.stage}
+              </Badge>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-3">
+              {needsAttentionFallback.reason}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              className="flex-1 gap-2"
+              size="lg"
+              onClick={handleFallbackContact}
+            >
+              <UserRoundSearch className="h-4 w-4" />
+              Contact
+            </Button>
+            <Button 
+              variant="outline"
+              size="lg"
+              onClick={handleFallbackSchedule}
+              className="gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Schedule
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Truly all caught up - no recommendations AND no needs attention
     return (
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-2xl p-6 border border-primary/20">
         <div className="flex items-center gap-2 mb-3">
