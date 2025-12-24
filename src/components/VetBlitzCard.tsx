@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScopeChips } from "@/components/blitz/ScopeChips";
 
 interface VetBlitzCardProps {
   repData: any;
@@ -978,68 +979,27 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               </CardDescription>
             </div>
             
-            {/* Scope selector dropdown - only for leaders */}
-            {isLeaderRole && (
-              <div className="flex items-center gap-2">
-                <Select
-                  value={attendanceScope}
-                  onValueChange={handleScopeChange}
-                  disabled={loadingAttendance}
-                >
-                  <SelectTrigger className="w-24 h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getScopeOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value} className="text-xs">
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {/* Secondary selector for MGMT groups (AD only) */}
-                {needsMgmtGroupSelector && mgmtGroups && mgmtGroups.length > 0 && (
-                  <Select
-                    value={selectedMgmtGroupId || ''}
-                    onValueChange={(value) => setSelectedMgmtGroupId(value)}
-                    disabled={loadingAttendance}
-                  >
-                    <SelectTrigger className="w-28 h-8 text-xs">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mgmtGroups.map((group) => (
-                        <SelectItem key={group.id} value={group.id} className="text-xs">
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                
-                {/* Secondary selector for Teams (AD or MGMT lead) */}
-                {needsTeamSelector && teams && teams.length > 0 && (
-                  <Select
-                    value={selectedTeamId || ''}
-                    onValueChange={(value) => setSelectedTeamId(value)}
-                    disabled={loadingAttendance}
-                  >
-                    <SelectTrigger className="w-28 h-8 text-xs">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id} className="text-xs">
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            )}
           </div>
+          {/* Scope chips - only for leaders */}
+          {isLeaderRole && (
+            <ScopeChips
+              options={getScopeOptions()}
+              value={attendanceScope}
+              onChange={handleScopeChange}
+              disabled={loadingAttendance}
+              needsSecondaryPicker={needsMgmtGroupSelector || needsTeamSelector}
+              secondaryLabel={needsMgmtGroupSelector ? "Group" : "Team"}
+              secondaryOptions={needsMgmtGroupSelector ? mgmtGroups : (needsTeamSelector ? teams : [])}
+              secondaryValue={needsMgmtGroupSelector ? selectedMgmtGroupId : selectedTeamId}
+              onSecondaryChange={(value) => {
+                if (needsMgmtGroupSelector) {
+                  setSelectedMgmtGroupId(value);
+                } else {
+                  setSelectedTeamId(value);
+                }
+              }}
+            />
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           {allBlitzes.map((blitz) => {
@@ -1134,67 +1094,25 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
               </Button>
             </CardDescription>
           </div>
-          
-          {/* Scope selector dropdown */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={attendanceScope}
-              onValueChange={handleScopeChange}
-              disabled={loadingAttendance}
-            >
-              <SelectTrigger className="w-24 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {getScopeOptions().map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {/* Secondary selector for MGMT groups (AD only) */}
-            {needsMgmtGroupSelector && mgmtGroups && mgmtGroups.length > 0 && (
-              <Select
-                value={selectedMgmtGroupId || ''}
-                onValueChange={(value) => setSelectedMgmtGroupId(value)}
-                disabled={loadingAttendance}
-              >
-                <SelectTrigger className="w-28 h-8 text-xs">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mgmtGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id} className="text-xs">
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            
-            {/* Secondary selector for Teams (AD or MGMT lead) */}
-            {needsTeamSelector && teams && teams.length > 0 && (
-              <Select
-                value={selectedTeamId || ''}
-                onValueChange={(value) => setSelectedTeamId(value)}
-                disabled={loadingAttendance}
-              >
-                <SelectTrigger className="w-28 h-8 text-xs">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id} className="text-xs">
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
         </div>
+        {/* Scope chips below header */}
+        <ScopeChips
+          options={getScopeOptions()}
+          value={attendanceScope}
+          onChange={handleScopeChange}
+          disabled={loadingAttendance}
+          needsSecondaryPicker={needsMgmtGroupSelector || needsTeamSelector}
+          secondaryLabel={needsMgmtGroupSelector ? "Group" : "Team"}
+          secondaryOptions={needsMgmtGroupSelector ? mgmtGroups : (needsTeamSelector ? teams : [])}
+          secondaryValue={needsMgmtGroupSelector ? selectedMgmtGroupId : selectedTeamId}
+          onSecondaryChange={(value) => {
+            if (needsMgmtGroupSelector) {
+              setSelectedMgmtGroupId(value);
+            } else {
+              setSelectedTeamId(value);
+            }
+          }}
+        />
       </CardHeader>
       <CardContent className="space-y-3 relative">
         {/* Professional loading overlay during sync */}
