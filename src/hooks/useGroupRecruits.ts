@@ -436,47 +436,46 @@ export const useUpdateRecruitStage = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      recruitNotionId, 
-      newStage, 
-      notes 
-    }: { 
-      recruitNotionId: string; 
+    mutationFn: async ({
+      recruitNotionId,
+      newStage,
+      notes,
+    }: {
+      recruitNotionId: string;
       newStage: string;
       notes?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      // Update directly in Supabase reps table (source of truth)
-      const { error: updateError } = await supabase
-        .from('reps')
-        .update({ stage: newStage })
-        .eq('notion_page_id', recruitNotionId);
+      // IMPORTANT: Stage is ultimately synced from Notion; updating only the DB can get overwritten.
+      // We therefore route manual stage changes through the backend function that updates Notion
+      // and the DB together.
+      const { data, error } = await supabase.functions.invoke("update-recruit-stage", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          recruitNotionId,
+          newStage,
+          notes,
+          isAutomatic: false,
+        },
+      });
 
-      if (updateError) {
-        console.error('Error updating rep stage in Supabase:', updateError);
-        throw updateError;
+      if (error) {
+        console.error("Error updating recruit stage:", error);
+        throw error;
       }
 
-      // Log stage change as activity if notes provided
-      if (notes) {
-        await supabase.from('recruit_activities').insert({
-          rep_notion_page_id: recruitNotionId,
-          activity_type: 'stage_change',
-          logged_by_user_id: session.user.id,
-          notes: `Stage changed to ${newStage}. ${notes}`,
-        });
-      }
-
-      return { recruitNotionId, newStage };
+      return { recruitNotionId, newStage, previousStage: data?.previousStage ?? null };
     },
     onMutate: async ({ recruitNotionId, newStage }) => {
-      await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
-      
-      const previousData = queryClient.getQueryData(['group-recruits']);
-      
-      queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
+      await queryClient.cancelQueries({ queryKey: ["group-recruits"] });
+
+      const previousData = queryClient.getQueryData(["group-recruits"]);
+
+      queryClient.setQueriesData({ queryKey: ["group-recruits"] }, (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -485,22 +484,25 @@ export const useUpdateRecruitStage = () => {
           ),
         };
       });
-      
+
       return { previousData, recruitNotionId, newStage };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueriesData({ queryKey: ['group-recruits'] }, context.previousData);
+        queryClient.setQueriesData({ queryKey: ["group-recruits"] }, context.previousData);
       }
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't update stage. Please try again."
+      );
     },
     onSettled: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-detail-live'] });
+      queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["recruits-rep-data"] });
+      queryClient.invalidateQueries({ queryKey: ["recruit-detail-live"] });
       if (data?.recruitNotionId) {
-        queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', data.recruitNotionId] });
-        queryClient.invalidateQueries({ queryKey: ['recruit-activities', data.recruitNotionId] });
-        queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', data.recruitNotionId] });
+        queryClient.invalidateQueries({ queryKey: ["recruit-rep-data", data.recruitNotionId] });
+        queryClient.invalidateQueries({ queryKey: ["recruit-activities", data.recruitNotionId] });
+        queryClient.invalidateQueries({ queryKey: ["recruit-detail-live", data.recruitNotionId] });
       }
     },
   });

@@ -139,7 +139,18 @@ serve(async (req) => {
       }
     }
 
+    // Update in DB (for immediate UI consistency + to prevent reverting on refetch)
+    const { error: repUpdateError } = await supabase
+      .from('reps')
+      .update({ stage: newStage, updated_at: new Date().toISOString() })
+      .eq('notion_page_id', recruitNotionId);
+
+    if (repUpdateError) {
+      console.error('Error updating rep stage in DB:', repUpdateError);
+    }
+
     // Log the stage change as an activity
+
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
