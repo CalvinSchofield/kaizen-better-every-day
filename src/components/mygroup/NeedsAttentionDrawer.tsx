@@ -19,7 +19,9 @@ import { ScheduleFollowUpDrawer } from "./ScheduleFollowUpDrawer";
 import { ContactMethodDrawer } from "./ContactMethodDrawer";
 import { PostContactDrawer } from "./PostContactDrawer";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
+import { PhaseVerificationDrawer } from "./PhaseVerificationDrawer";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -756,10 +758,11 @@ const BlitzPrepProgressItem = ({
   blitzes: BlitzEvent[];
   repDataMap?: Map<string, any>;
 }) => {
-  const updateStatusMutation = useUpdateRookieStatus();
-  const [updatingPhase, setUpdatingPhase] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
-  const [selectedPhase, setSelectedPhase] = useState<typeof ONBOARDING_PHASES[0] | null>(null);
+  const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
 
   const rampProgress = item.rampPhaseProgress;
@@ -777,45 +780,60 @@ const BlitzPrepProgressItem = ({
   const futureCommitmentCount = currentCommitments.filter(id => futureBlitzIds.has(id)).length;
   const hasBlitzCommitted = futureCommitmentCount > 0;
 
-  const handlePhaseClick = (phase: typeof ONBOARDING_PHASES[0], isComplete: boolean) => {
+  const handlePhaseClick = (phaseNum: number, isComplete: boolean) => {
     if (isComplete) return; // Already complete
-    setSelectedPhase(phase);
+    setSelectedPhase(phaseNum);
+    setHasError(false);
     setConfirmDrawerOpen(true);
   };
 
   const handlePhaseConfirm = async () => {
     if (!selectedPhase) return;
     
-    setUpdatingPhase(selectedPhase.label);
+    setIsSubmitting(true);
+    setHasError(false);
+    
     try {
-      // Map phase label to the correct update field
-      const updateData: Record<string, boolean | string> = {
-        rookieNotionPageId: item.recruit.notionPageId,
-      };
-      
-      if (selectedPhase.label === 'Phase 1') {
-        updateData.rampPhase1Complete = true;
-      } else if (selectedPhase.label === 'Phase 2') {
-        updateData.rampPhase2Complete = true;
-      } else if (selectedPhase.label === 'Phase 3') {
-        updateData.rampPhase3Complete = true;
-      } else if (selectedPhase.label === 'Phase 4') {
-        updateData.rampPhase4Complete = true;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      await updateStatusMutation.mutateAsync(updateData as any);
-      toast.success(`${selectedPhase.label} marked complete`);
+      const phaseParams: Record<string, boolean | string> = {};
+      phaseParams[`rampPhase${selectedPhase}Complete`] = true;
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          rookieNotionPageId: item.recruit.notionPageId,
+          ...phaseParams
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Phase ${selectedPhase} verified!`);
       setConfirmDrawerOpen(false);
+      setSelectedPhase(null);
+      setHasError(false);
+      
+      // Invalidate all relevant queries to ensure data consistency
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+    } catch (error: any) {
+      console.error('Error confirming phase:', error);
+      setHasError(true);
+      toast.error('Failed to save. Please try again.');
+      // Don't close the drawer so user can retry
     } finally {
-      setUpdatingPhase(null);
+      setIsSubmitting(false);
     }
   };
 
   const phases = [
-    { ...ONBOARDING_PHASES[0], complete: rampProgress.phase1Complete },
-    { ...ONBOARDING_PHASES[1], complete: rampProgress.phase2Complete },
-    { ...ONBOARDING_PHASES[2], complete: rampProgress.phase3Complete },
-    { ...ONBOARDING_PHASES[3], complete: rampProgress.phase4Complete },
+    { num: 1, label: 'Phase 1', description: 'Onboard & Get Ready', complete: rampProgress.phase1Complete },
+    { num: 2, label: 'Phase 2', description: 'Start Training', complete: rampProgress.phase2Complete },
+    { num: 3, label: 'Phase 3', description: 'Practice', complete: rampProgress.phase3Complete },
+    { num: 4, label: 'Phase 4', description: 'Saddle Up', complete: rampProgress.phase4Complete },
   ];
 
   return (
@@ -900,7 +918,7 @@ const BlitzPrepProgressItem = ({
           <div className="grid grid-cols-2 gap-2">
             {phases.map((phase) => (
               <Button
-                key={phase.value}
+                key={phase.num}
                 variant={phase.complete ? "secondary" : "outline"}
                 size="sm"
                 className={cn(
@@ -908,12 +926,10 @@ const BlitzPrepProgressItem = ({
                   phase.complete && "bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20",
                   !phase.complete && "hover:bg-primary/10"
                 )}
-                onClick={() => handlePhaseClick(phase, phase.complete)}
-                disabled={updatingPhase === phase.label}
+                onClick={() => handlePhaseClick(phase.num, phase.complete)}
+                disabled={isSubmitting}
               >
-                {updatingPhase === phase.label ? (
-                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                ) : phase.complete ? (
+                {phase.complete ? (
                   <CheckCircle2 className="h-3 w-3 mr-2" />
                 ) : (
                   <Circle className="h-3 w-3 mr-2" />
@@ -937,14 +953,21 @@ const BlitzPrepProgressItem = ({
         </div>
       </div>
 
-      <PhaseConfirmationDrawer
+      {/* Use the thorough PhaseVerificationDrawer instead of the simple PhaseConfirmationDrawer */}
+      <PhaseVerificationDrawer
         open={confirmDrawerOpen}
-        onOpenChange={setConfirmDrawerOpen}
+        onOpenChange={(open) => {
+          setConfirmDrawerOpen(open);
+          if (!open) {
+            setSelectedPhase(null);
+            setHasError(false);
+          }
+        }}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        currentPhase={null}
-        targetPhase={selectedPhase}
+        phase={selectedPhase || 1}
+        isSubmitting={isSubmitting}
+        hasError={hasError}
         onConfirm={handlePhaseConfirm}
-        isLoading={!!updatingPhase}
       />
 
       <BlitzCommitmentDrawer
