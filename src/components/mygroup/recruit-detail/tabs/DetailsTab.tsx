@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   X,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { RecruitRepData } from "../types";
 import { STAGES, getFirstName } from "../utils";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
+import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
 
 interface DetailsTabProps {
   recruit: Recruit;
@@ -53,6 +55,8 @@ interface DetailsTabProps {
   recruitYtdFP: number;
   onStageChange: (newStage: string) => void;
   stageShake: boolean;
+  /** Called when recruit is deleted - used to close the detail drawer */
+  onDeleted?: () => void;
 }
 
 // Exit stages that are always allowed and permanent exit stages that need confirmation
@@ -68,7 +72,8 @@ export const DetailsTab = ({
   recruitRepData,
   recruitYtdFP,
   onStageChange,
-  stageShake
+  stageShake,
+  onDeleted,
 }: DetailsTabProps) => {
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
@@ -78,6 +83,8 @@ export const DetailsTab = ({
   
   // Check if user has leader access (can edit)
   const canEdit = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  // Check if user is area director (can delete)
+  const isAreaDirector = teamAccess?.accessLevel === 'area_director';
   
   // Check if recruit is in an early stage (not yet signed)
   const stageLower = (recruit.stage || '').toLowerCase();
@@ -90,6 +97,7 @@ export const DetailsTab = ({
   
   const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
   
   const handleStageSelect = (newStage: string) => {
     // If it's a permanent exit stage, show confirmation dialog
@@ -111,15 +119,29 @@ export const DetailsTab = ({
     <div className="space-y-4">
       {/* Edit Button - only for leaders */}
       {canEdit && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setEditDrawerOpen(true)}
-          className="w-full"
-        >
-          <Pencil className="h-4 w-4 mr-2" />
-          Edit Recruit Details
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditDrawerOpen(true)}
+            className="flex-1"
+          >
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit Recruit Details
+          </Button>
+          
+          {/* Delete Button - only for area directors */}
+          {isAreaDirector && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteDrawerOpen(true)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       )}
       
       {/* Recruiter Info - show for early stages */}
@@ -235,6 +257,18 @@ export const DetailsTab = ({
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
         }}
       />
+      
+      {/* Delete Recruit Confirmation Drawer - Area Directors only */}
+      {isAreaDirector && (
+        <DeleteRecruitConfirmDrawer
+          open={deleteDrawerOpen}
+          onOpenChange={setDeleteDrawerOpen}
+          recruitId={recruit.id}
+          recruitName={recruit.name}
+          recruitNotionPageId={recruit.notionPageId}
+          onDeleted={onDeleted}
+        />
+      )}
     </div>
   );
 };

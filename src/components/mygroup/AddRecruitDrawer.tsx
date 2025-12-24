@@ -349,7 +349,8 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     } else if (open && isLeader && currentRep?.notion_page_id && !selectedRecruiter) {
       // Default to current user when no prefill
       setSelectedRecruiter(currentRep.notion_page_id);
-      // Also set the team based on current user's team
+      // Find the current user in allRecruiters by matching their notion_page_id
+      // Use a slight delay to ensure allRecruiters is populated
       const currentUserData = allRecruiters.find(r => r.notionPageId === currentRep.notion_page_id);
       if (currentUserData?.teamId) {
         setSelectedTeam(currentUserData.teamId);
@@ -782,23 +783,37 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                 <Label className={getFieldError('recruiter') ? 'text-destructive' : ''}>
                   Recruiter *
                 </Label>
-                <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
-                  <SelectTrigger className={`mt-1 ${getFieldError('recruiter') ? 'border-destructive ring-destructive' : ''}`}>
-                    <SelectValue placeholder="Select recruiter" />
-                  </SelectTrigger>
-                  <SelectContent modal={false}>
-                    {filteredRecruiters?.map((recruiter) => (
-                      <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
-                        <div className="flex flex-col items-start">
-                          <span>{recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}</span>
-                          {recruiter.teamName && (
-                            <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 mt-1">
+                  <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
+                    <SelectTrigger className={`flex-1 ${getFieldError('recruiter') ? 'border-destructive ring-destructive' : ''}`}>
+                      <SelectValue placeholder="Select recruiter" />
+                    </SelectTrigger>
+                    <SelectContent modal={false}>
+                      {filteredRecruiters?.map((recruiter) => (
+                        <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
+                          <div className="flex flex-col items-start">
+                            <span>{recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}</span>
+                            {recruiter.teamName && (
+                              <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedRecruiter && (
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => setSelectedRecruiter('')}
+                    >
+                      <span className="sr-only">Clear</span>
+                      ×
+                    </Button>
+                  )}
+                </div>
                 {getFieldError('recruiter') && (
                   <p className="text-xs text-destructive mt-1">Recruiter is required</p>
                 )}
@@ -808,18 +823,32 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
               {isMgmtOrAbove && filteredTeams.length > 0 && (
                 <div>
                   <Label>Team</Label>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent modal={false}>
-                      {filteredTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2 mt-1">
+                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select team" />
+                      </SelectTrigger>
+                      <SelectContent modal={false}>
+                        {filteredTeams.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedTeam && (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => setSelectedTeam('')}
+                      >
+                        <span className="sr-only">Clear</span>
+                        ×
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
 

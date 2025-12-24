@@ -393,26 +393,43 @@ export const EditRecruitDrawer = ({
           {/* Teams - Only show accessible teams */}
           <div>
             <Label>Team</Label>
-            <Select 
-              value={selectedTeamId || "__none__"} 
-              onValueChange={(v) => {
-                setSelectedTeamId(v === "__none__" ? "" : v);
-                // Clear recruiter if team changes (they may not be in the new team)
-                if (v !== selectedTeamId) {
-                  setRecruiterUserId('');
-                }
-              }}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {accessibleTeams.map((team) => (
-                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2 mt-1">
+              <Select 
+                value={selectedTeamId || "__none__"} 
+                onValueChange={(v) => {
+                  setSelectedTeamId(v === "__none__" ? "" : v);
+                  // Clear recruiter if team changes (they may not be in the new team)
+                  if (v !== selectedTeamId) {
+                    setRecruiterUserId('');
+                  }
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {accessibleTeams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedTeamId && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => {
+                    setSelectedTeamId('');
+                    setRecruiterUserId('');
+                  }}
+                >
+                  <span className="sr-only">Clear</span>
+                  ×
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* MGMT Group - Auto-selected based on team, but allow override for higher access levels */}
@@ -441,47 +458,65 @@ export const EditRecruitDrawer = ({
           {/* Recruiter - Only show reps from the selected team */}
           <div>
             <Label>Recruiter</Label>
-            <Popover open={recruiterOpen} onOpenChange={setRecruiterOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={recruiterOpen}
-                  className="w-full justify-between mt-1 font-normal"
+            <div className="flex gap-2 mt-1">
+              <Popover open={recruiterOpen} onOpenChange={setRecruiterOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={recruiterOpen}
+                    className="flex-1 justify-between font-normal"
+                  >
+                    {selectedRecruiterDisplay || "Select recruiter..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search recruiters..." />
+                    <CommandList>
+                      <CommandEmpty>No recruiters found.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredRecruiters.map((rep) => (
+                          <CommandItem
+                            key={rep.userId || rep.notionPageId}
+                            value={`${rep.name} ${rep.teamName || ''}`}
+                            onSelect={() => {
+                              setRecruiterUserId(rep.userId || '');
+                              // Auto-set team when recruiter is selected
+                              if (rep.teamId) {
+                                setSelectedTeamId(rep.teamId);
+                              }
+                              setRecruiterOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", recruiterUserId === rep.userId ? "opacity-100" : "opacity-0")} />
+                            <div className="flex flex-col">
+                              <span>{rep.name}</span>
+                              {rep.teamName && (
+                                <span className="text-xs text-muted-foreground">{rep.teamName}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {recruiterUserId && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setRecruiterUserId('')}
                 >
-                  {selectedRecruiterDisplay || "Select recruiter..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  <span className="sr-only">Clear</span>
+                  ×
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search recruiters..." />
-                  <CommandList>
-                    <CommandEmpty>No recruiters found.</CommandEmpty>
-                    <CommandGroup>
-                      {filteredRecruiters.map((rep) => (
-                        <CommandItem
-                          key={rep.userId || rep.notionPageId}
-                          value={`${rep.name} ${rep.teamName || ''}`}
-                          onSelect={() => {
-                            setRecruiterUserId(rep.userId || '');
-                            setRecruiterOpen(false);
-                          }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", recruiterUserId === rep.userId ? "opacity-100" : "opacity-0")} />
-                          <div className="flex flex-col">
-                            <span>{rep.name}</span>
-                            {rep.teamName && (
-                              <span className="text-xs text-muted-foreground">{rep.teamName}</span>
-                            )}
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+              )}
+            </div>
             {selectedTeamId && filteredRecruiters.length === 0 && (
               <p className="text-xs text-muted-foreground mt-1">No accessible recruiters in this team</p>
             )}
