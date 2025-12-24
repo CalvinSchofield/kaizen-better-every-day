@@ -68,6 +68,20 @@ const RELATIONSHIPS = [
   'Other',
 ];
 
+// All 50 US States
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+  'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
+];
+
 // Format phone number as user types
 const formatPhoneNumber = (value: string) => {
   const digits = value.replace(/\D/g, '');
@@ -283,19 +297,38 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     enabled: !!currentRep?.team_leader && !isLeader,
   });
 
-  // Get available recruiters (team members) for leader selection - sorted alphabetically
-  const { data: availableRecruiters } = useQuery({
-    queryKey: ['available-recruiters', teamAccess?.accessibleReps],
-    queryFn: async () => {
-      if (!teamAccess?.accessibleReps) return [];
-      return teamAccess.accessibleReps.filter(r => r.notionPageId);
-    },
-    enabled: isLeader && !!teamAccess?.accessibleReps,
-    select: (data) => {
-      if (!data) return [];
-      return [...data].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    },
-  });
+  // Get all recruiters from accessible reps - sorted alphabetically
+  const allRecruiters = useMemo(() => {
+    if (!teamAccess?.accessibleReps) return [];
+    return teamAccess.accessibleReps
+      .filter(r => r.notionPageId)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [teamAccess?.accessibleReps]);
+
+  // Filter recruiters based on selected team
+  const filteredRecruiters = useMemo(() => {
+    if (!selectedTeam) return allRecruiters;
+    return allRecruiters.filter(r => r.teamId === selectedTeam);
+  }, [allRecruiters, selectedTeam]);
+
+  // Filter teams based on selected recruiter's team
+  const filteredTeams = useMemo(() => {
+    if (!teamAccess?.teams) return [];
+    if (!selectedRecruiter) return teamAccess.teams;
+    
+    const recruiterData = allRecruiters.find(r => r.notionPageId === selectedRecruiter);
+    if (recruiterData?.teamId) {
+      return teamAccess.teams.filter(t => t.id === recruiterData.teamId);
+    }
+    return teamAccess.teams;
+  }, [teamAccess?.teams, selectedRecruiter, allRecruiters]);
+
+  // Combined location options: all 50 states + any custom ones from existing data
+  const locationOptions = useMemo(() => {
+    const existingLocations = notionOptions?.locationOptions || [];
+    const combined = new Set([...US_STATES, ...existingLocations]);
+    return Array.from(combined).sort();
+  }, [notionOptions?.locationOptions]);
 
   // Pre-fill form when opening with suggestion data
   useEffect(() => {
@@ -307,12 +340,47 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       // Set recruiter to the suggester's notion page ID if available
       if (suggestionPrefill.suggestedByNotionId) {
         setSelectedRecruiter(suggestionPrefill.suggestedByNotionId);
+        // Also set the team based on the suggester's team
+        const suggesterData = allRecruiters.find(r => r.notionPageId === suggestionPrefill.suggestedByNotionId);
+        if (suggesterData?.teamId) {
+          setSelectedTeam(suggesterData.teamId);
+        }
       }
     } else if (open && isLeader && currentRep?.notion_page_id && !selectedRecruiter) {
       // Default to current user when no prefill
       setSelectedRecruiter(currentRep.notion_page_id);
+      // Also set the team based on current user's team
+      const currentUserData = allRecruiters.find(r => r.notionPageId === currentRep.notion_page_id);
+      if (currentUserData?.teamId) {
+        setSelectedTeam(currentUserData.teamId);
+      }
     }
-  }, [open, suggestionPrefill, isLeader, currentRep?.notion_page_id]);
+  }, [open, suggestionPrefill, isLeader, currentRep?.notion_page_id, allRecruiters]);
+
+  // When team changes, clear recruiter if they're not on that team
+  useEffect(() => {
+    if (selectedTeam && selectedRecruiter) {
+      const recruiterData = allRecruiters.find(r => r.notionPageId === selectedRecruiter);
+      if (recruiterData && recruiterData.teamId !== selectedTeam) {
+        // Reset to current user if they're on the new team, otherwise clear
+        const currentUserData = allRecruiters.find(r => r.notionPageId === currentRep?.notion_page_id);
+        if (currentUserData?.teamId === selectedTeam) {
+          setSelectedRecruiter(currentRep?.notion_page_id || '');
+        } else {
+          setSelectedRecruiter('');
+        }
+      }
+    }
+  }, [selectedTeam, allRecruiters, currentRep?.notion_page_id]);
+
+  // When recruiter changes, auto-set their team
+  const handleRecruiterChange = (recruiterId: string) => {
+    setSelectedRecruiter(recruiterId);
+    const recruiterData = allRecruiters.find(r => r.notionPageId === recruiterId);
+    if (recruiterData?.teamId) {
+      setSelectedTeam(recruiterData.teamId);
+    }
+  };
 
   // Create recruit mutation for leaders
   const createRecruitMutation = useMutation({
@@ -401,7 +469,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     const normalizedNew = normalizeString(trimmed);
     
     // Check if it matches an existing location (case-insensitive)
-    const existingMatch = notionOptions?.locationOptions.find(
+    const existingMatch = locationOptions.find(
       loc => normalizeString(loc) === normalizedNew
     );
     
@@ -413,7 +481,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     }
 
     // Check for similar/typo (Levenshtein distance or simple check)
-    const possibleTypo = notionOptions?.locationOptions.find(loc => {
+    const possibleTypo = locationOptions.find(loc => {
       const normalizedExisting = normalizeString(loc);
       // Check if starts with same letters or is very similar
       return normalizedExisting.startsWith(normalizedNew.slice(0, 3)) ||
@@ -496,8 +564,8 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     // Clean phone number for storage
     const cleanPhone = phone.replace(/\D/g, '');
 
-    // Find recruiter name from availableRecruiters
-    const selectedRecruiterData = availableRecruiters?.find(r => r.notionPageId === recruiterNotionId);
+    // Find recruiter name from allRecruiters
+    const selectedRecruiterData = allRecruiters?.find(r => r.notionPageId === recruiterNotionId);
     const recruiterNameToSend = selectedRecruiterData?.name || suggestionPrefill?.suggestedByName;
 
     await createRecruitMutation.mutateAsync({
@@ -678,7 +746,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                     setLocation(val);
                   }
                 }}
-                options={notionOptions?.locationOptions || []}
+                options={locationOptions}
                 showCustomLocation={showCustomLocation}
                 customLocation={customLocation}
                 onCustomLocationChange={setCustomLocation}
@@ -714,12 +782,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                 <Label className={getFieldError('recruiter') ? 'text-destructive' : ''}>
                   Recruiter *
                 </Label>
-                <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
+                <Select value={selectedRecruiter} onValueChange={handleRecruiterChange}>
                   <SelectTrigger className={`mt-1 ${getFieldError('recruiter') ? 'border-destructive ring-destructive' : ''}`}>
                     <SelectValue placeholder="Select recruiter" />
                   </SelectTrigger>
                   <SelectContent modal={false}>
-                    {availableRecruiters?.map((recruiter) => (
+                    {filteredRecruiters?.map((recruiter) => (
                       <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
                         {recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}
                       </SelectItem>
@@ -732,7 +800,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
               </div>
 
               {/* Team selection for MGMT leads */}
-              {isMgmtOrAbove && teamAccess?.teams && teamAccess.teams.length > 1 && (
+              {isMgmtOrAbove && filteredTeams.length > 0 && (
                 <div>
                   <Label>Team</Label>
                   <Select value={selectedTeam} onValueChange={setSelectedTeam}>
@@ -740,7 +808,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                       <SelectValue placeholder="Select team" />
                     </SelectTrigger>
                     <SelectContent modal={false}>
-                      {teamAccess.teams.map((team) => (
+                      {filteredTeams.map((team) => (
                         <SelectItem key={team.id} value={team.id}>
                           {team.name}
                         </SelectItem>
