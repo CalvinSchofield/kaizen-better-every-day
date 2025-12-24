@@ -148,6 +148,9 @@ export const useNeedsAttention = (
     const rookieRecruits = recruits.filter(r => r.year === 'Rookie');
 
     rookieRecruits.forEach(recruit => {
+      // EARLY EXIT: Don't show anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up)
+      if (EXIT_STAGES.includes(recruit.stage as any)) return;
+      
       const repData = repDataMap?.get(recruit.notionPageId);
 
       // Use Supabase data if available, otherwise fall back to Notion data
@@ -299,6 +302,9 @@ export const useNeedsAttention = (
     const blitzPrepRookieRecruits = recruits.filter(r => r.year === 'Rookie');
 
     blitzPrepRookieRecruits.forEach(recruit => {
+      // EARLY EXIT: Don't show anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up)
+      if (EXIT_STAGES.includes(recruit.stage as any)) return;
+      
       const repData = repDataMap?.get(recruit.notionPageId);
 
       // Use Supabase data if available, otherwise fall back to Notion data
