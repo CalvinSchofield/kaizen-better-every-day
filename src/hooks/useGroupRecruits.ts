@@ -618,16 +618,28 @@ export const useLogRecruitActivity = () => {
       // Use rep_notion_page_id for backwards compatibility
       const repIdentifier = recruitNotionId || recruitId;
 
-      // Look up the correct recruit_id from recruits table using notion_page_id
-      // This is needed because the FK on recruit_activities.recruit_id references recruits.id,
-      // but the id passed from Recruit objects often comes from the reps table which has a different id
+      // Look up the correct recruit_id from recruits table
+      // The FK on recruit_activities.recruit_id references recruits.id
+      // We need to check both notion_page_id AND id since some recruits may use Supabase ID as identifier
       let actualRecruitId: string | null = null;
       if (repIdentifier) {
-        const { data: recruitData } = await supabase
+        // First try to find by notion_page_id
+        let { data: recruitData } = await supabase
           .from('recruits')
           .select('id')
           .eq('notion_page_id', repIdentifier)
           .maybeSingle();
+        
+        // If not found by notion_page_id, try by direct id (for recruits created in Supabase)
+        if (!recruitData && recruitId) {
+          const { data: directMatch } = await supabase
+            .from('recruits')
+            .select('id')
+            .eq('id', recruitId)
+            .maybeSingle();
+          recruitData = directMatch;
+        }
+        
         actualRecruitId = recruitData?.id || null;
       }
 
