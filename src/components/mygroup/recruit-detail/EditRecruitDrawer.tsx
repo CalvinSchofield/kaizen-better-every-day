@@ -150,10 +150,17 @@ export const EditRecruitDrawer = ({
     return teamAccess.mgmtGroups || [];
   }, [teamAccess]);
 
-  // Get all recruiters with team info
+  // Stages that qualify as valid recruiters (Signed+)
+  const VALID_RECRUITER_STAGES = ['signed', 'shadow complete', 'sold', 'sold 5+'];
+  
+  // Get all recruiters with team info - filtered to Signed+ stages
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
-    return teamAccess.accessibleReps.filter(rep => rep.name);
+    return teamAccess.accessibleReps.filter(rep => {
+      if (!rep.name) return false;
+      const stageLower = (rep.stage || '').toLowerCase();
+      return VALID_RECRUITER_STAGES.some(s => stageLower.includes(s));
+    });
   }, [teamAccess?.accessibleReps]);
 
   // Filter recruiters based on selected team - only show reps that belong to the selected team
@@ -161,6 +168,25 @@ export const EditRecruitDrawer = ({
     if (!selectedTeamId) return allRecruiters;
     return allRecruiters.filter(rep => rep.teamId === selectedTeamId);
   }, [allRecruiters, selectedTeamId]);
+  
+  // Get team leader for fallback when current recruiter is invalid
+  const { data: teamLeaderData } = useQuery({
+    queryKey: ['team-leader-for-fallback', selectedTeamId],
+    queryFn: async () => {
+      if (!selectedTeamId) return null;
+      const { data, error } = await supabase
+        .from('teams')
+        .select('lead_user_id')
+        .eq('id', selectedTeamId)
+        .maybeSingle();
+      if (error || !data?.lead_user_id) return null;
+      
+      // Find the team lead in accessible reps
+      return teamAccess?.accessibleReps?.find(r => r.userId === data.lead_user_id) || null;
+    },
+    enabled: !!selectedTeamId && !!teamAccess?.accessibleReps,
+    staleTime: 1000 * 60 * 60,
+  });
 
   // Combined location options: all 50 states + any custom ones from existing data
   const locationOptions = useMemo(() => {
@@ -188,9 +214,19 @@ export const EditRecruitDrawer = ({
       setStage(recruitDetails.stage || '');
       setLocation(recruitDetails.location || '');
       setRecruitmentSource(recruitDetails.recruitment_source || '');
-      setRecruiterUserId(recruitDetails.recruiter_user_id || '');
       setSelectedTeamId(recruitDetails.team_id || '');
       setSelectedMgmtId(recruitDetails.mgmt_group_id || '');
+      
+      // Check if current recruiter is valid (still in Signed+ stage)
+      const currentRecruiter = allRecruiters.find(r => r.userId === recruitDetails.recruiter_user_id);
+      if (currentRecruiter) {
+        setRecruiterUserId(recruitDetails.recruiter_user_id || '');
+      } else if (teamLeaderData?.userId) {
+        // Fallback to team leader if current recruiter is no longer valid
+        setRecruiterUserId(teamLeaderData.userId);
+      } else {
+        setRecruiterUserId('');
+      }
     } else if (open && recruit && !recruitDetails) {
       // Fallback to the Recruit object if recruits table data isn't loaded yet
       setName(recruit.name || '');
@@ -199,11 +235,21 @@ export const EditRecruitDrawer = ({
       setStage(recruit.stage || '');
       setLocation(recruit.location || '');
       setRecruitmentSource(recruit.recruitmentSource || '');
-      setRecruiterUserId(recruit.recruiterUserId || '');
       setSelectedTeamId(recruit.teamId || '');
       setSelectedMgmtId(recruit.mgmtGroupId || '');
+      
+      // Check if current recruiter is valid (still in Signed+ stage)
+      const currentRecruiter = allRecruiters.find(r => r.userId === recruit.recruiterUserId);
+      if (currentRecruiter) {
+        setRecruiterUserId(recruit.recruiterUserId || '');
+      } else if (teamLeaderData?.userId) {
+        // Fallback to team leader if current recruiter is no longer valid
+        setRecruiterUserId(teamLeaderData.userId);
+      } else {
+        setRecruiterUserId('');
+      }
     }
-  }, [open, recruit, recruitDetails]);
+  }, [open, recruit, recruitDetails, allRecruiters, teamLeaderData]);
 
   // Update mutation
   const updateMutation = useMutation({

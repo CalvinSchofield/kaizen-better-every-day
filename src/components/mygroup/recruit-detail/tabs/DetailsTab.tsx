@@ -485,23 +485,34 @@ const BlitzManagementSection = ({
                 <History className="h-3 w-3" />
                 <span>Previous Blitzes</span>
               </div>
-              {pastBlitzes.map((blitz) => (
-                <div key={blitz.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-green-600" />
+              {pastBlitzes.map((blitz) => {
+                const isLoading = isUpdating === blitz.id;
+                return (
+                  <div key={blitz.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <Check className="h-3 w-3 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">{blitz.name}</p>
+                        <p className="text-xs text-muted-foreground/70">
+                          {format(new Date(blitz.date), 'MMM d')}
+                          {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{blitz.name}</p>
-                      <p className="text-xs text-muted-foreground/70">
-                        {format(new Date(blitz.date), 'MMM d')}
-                        {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
-                      </p>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={isLoading}
+                      onClick={() => handleToggleBlitz(blitz.id, blitz.name, true)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      {isLoading ? '...' : <X className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <Badge variant="outline" className="text-xs text-green-600 border-green-600/30">Attended</Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           
