@@ -20,10 +20,14 @@ export interface Recruit {
   stage: string;
   recruiterNotionId: string;
   recruiterName: string | null;
+  recruiterUserId: string | null;
   teamName: string | null;
   teamId: string | null;
   mgmtGroupId: string | null;
+  mgmtGroupName: string | null;
   year: string;
+  location: string | null;
+  recruitmentSource: string | null;
   lastContact: string | null;
   nextAction: string | null;
   nextActionDue: string | null;
@@ -160,6 +164,8 @@ export const useGroupRecruits = () => {
           email,
           stage,
           year,
+          location,
+          recruitment_source,
           last_contact,
           next_action,
           next_action_due,
@@ -265,10 +271,14 @@ export const useGroupRecruits = () => {
         stage: r.stage || '',
         recruiterNotionId: leaderNotionId,
         recruiterName: r.recruiter_user_id ? (recruiterMap.get(r.recruiter_user_id) || null) : null,
+        recruiterUserId: r.recruiter_user_id || null,
         teamName: r.teams?.name || null,
         teamId: r.team_id,
         mgmtGroupId: r.mgmt_group_id,
+        mgmtGroupName: r.mgmt_groups?.name || null,
         year: r.year || '',
+        location: r.location || null,
+        recruitmentSource: r.recruitment_source || null,
         lastContact: r.last_contact,
         nextAction: r.next_action,
         nextActionDue: r.next_action_due,

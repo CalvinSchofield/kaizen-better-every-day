@@ -108,6 +108,7 @@ serve(async (req) => {
       location,
       recruitmentSource,
       recruiter,
+      recruiterUserId,
       teamsIds,
       mgmtIds,
       recruiterOptions = [], // Pass existing options for matching
@@ -223,21 +224,45 @@ serve(async (req) => {
       });
     }
 
-    // Also update Supabase reps table if we have matching fields
-    const supabaseUpdates: Record<string, any> = {};
-    if (name !== undefined) supabaseUpdates.name = name;
-    if (phone !== undefined) supabaseUpdates.phone = phone;
-    if (email !== undefined) supabaseUpdates.email = email;
-    if (stage !== undefined) supabaseUpdates.stage = stage;
+    // Also update Supabase recruits table
+    const recruitsUpdates: Record<string, any> = {};
+    if (name !== undefined) recruitsUpdates.name = name;
+    if (phone !== undefined) recruitsUpdates.phone = phone;
+    if (email !== undefined) recruitsUpdates.email = email;
+    if (stage !== undefined) recruitsUpdates.stage = stage;
+    if (location !== undefined) recruitsUpdates.location = location;
+    if (recruitmentSource !== undefined) recruitsUpdates.recruitment_source = recruitmentSource;
+    if (recruiterUserId !== undefined) recruitsUpdates.recruiter_user_id = recruiterUserId || null;
+    if (teamsIds !== undefined && teamsIds.length > 0) recruitsUpdates.team_id = teamsIds[0];
+    if (mgmtIds !== undefined && mgmtIds.length > 0) recruitsUpdates.mgmt_group_id = mgmtIds[0];
 
-    if (Object.keys(supabaseUpdates).length > 0) {
+    if (Object.keys(recruitsUpdates).length > 0) {
       const { error: updateError } = await supabase
-        .from('reps')
-        .update(supabaseUpdates)
+        .from('recruits')
+        .update(recruitsUpdates)
         .eq('notion_page_id', recruitNotionPageId);
 
       if (updateError) {
-        console.error('Supabase update error:', updateError);
+        console.error('Supabase recruits update error:', updateError);
+        // Don't fail the request, Notion was updated successfully
+      }
+    }
+
+    // Also update Supabase reps table if we have matching fields (for linked reps)
+    const repsUpdates: Record<string, any> = {};
+    if (name !== undefined) repsUpdates.name = name;
+    if (phone !== undefined) repsUpdates.phone = phone;
+    if (email !== undefined) repsUpdates.email = email;
+    if (stage !== undefined) repsUpdates.stage = stage;
+
+    if (Object.keys(repsUpdates).length > 0) {
+      const { error: updateError } = await supabase
+        .from('reps')
+        .update(repsUpdates)
+        .eq('notion_page_id', recruitNotionPageId);
+
+      if (updateError) {
+        console.error('Supabase reps update error:', updateError);
         // Don't fail the request, Notion was updated successfully
       }
     }
