@@ -143,9 +143,7 @@ export const useRecruitingRecommendations = (
       
       // Only check blitz urgency for rookies - vets already have trainings/onboarding done
       if (isSignedOrShadow && isRookie && blitzes) {
-        const repData = repDataMap?.get(recruit.notionPageId);
-        
-        // Use committedBlitzes from recruit_blitzes table (recruit object) OR from reps table (repData)
+        // Use committedBlitzes directly from recruit object (populated in useGroupRecruits from reps table)
         let committedBlitzIds: string[] = [];
         
         // First try recruit's committedBlitzes from Supabase recruit_blitzes join
@@ -153,18 +151,11 @@ export const useRecruitingRecommendations = (
           committedBlitzIds = recruit.committedBlitzes.map((b: string | { id: string }) => 
             typeof b === 'string' ? b : b.id
           );
-        } 
-        // Fall back to repData.committed_blitzes from reps table
-        else if (repData) {
-          const rawCommitments = repData.committed_blitzes || [];
-          committedBlitzIds = Array.isArray(rawCommitments)
-            ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
-            : [];
         }
 
         // Debug logging for blitz matching
         if (committedBlitzIds.length > 0) {
-          console.log(`[Recommendations] ${recruit.name} (${recruit.stage}) has committedBlitzIds:`, committedBlitzIds, 'hasRepData:', !!repData);
+          console.log(`[Recommendations] ${recruit.name} (${recruit.stage}) has committedBlitzIds:`, committedBlitzIds);
         }
 
         // Find nearest committed blitz
@@ -180,65 +171,26 @@ export const useRecruitingRecommendations = (
           }
         }
 
-        // Check for missing items - use repData if available, fall back to Notion data
-        if (hasUpcomingBlitz) {
+        // Check for missing items - use recruit object fields directly (from Supabase via useGroupRecruits)
+        // This ensures stable recommendations without waiting for repDataMap to load
+        if (hasUpcomingBlitz || isRookie) {
           const missing: string[] = [];
           
-          if (repData) {
-            // Use detailed repData from Supabase reps table
-            if (!repData.onboarding_complete) missing.push('Onboarding');
-            if (!repData.trainings_complete) missing.push('Trainings');
-            if (!repData.slack_joined) missing.push('Slack');
-            if (!repData.ipad_assigned) missing.push('iPad');
-            
-            // Check ramp to blitz phases
-            const phase1 = repData.ramp_phase_1_complete ?? false;
-            const phase2 = repData.ramp_phase_2_complete ?? false;
-            const phase3 = repData.ramp_phase_3_complete ?? false;
-            const phase4 = repData.ramp_phase_4_complete ?? false;
-            
-            const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
-            if (incompletePhaseCount > 0) {
-              missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
-            }
-          } else {
-            // Fall back to recruit object data (also from Supabase, but less detailed)
-            // Use boolean fields directly from recruit object
-            if (!recruit.onboardingComplete) missing.push('Onboarding');
-            if (!recruit.trainingsComplete) missing.push('Trainings');
-            if (!recruit.slackJoined) missing.push('Slack');
-            if (!recruit.ipadAssigned) missing.push('iPad');
-          }
+          // Use recruit object's boolean fields (already populated from reps table in useGroupRecruits)
+          if (!recruit.onboardingComplete) missing.push('Onboarding');
+          if (!recruit.trainingsComplete) missing.push('Trainings');
+          if (!recruit.slackJoined) missing.push('Slack');
+          if (!recruit.ipadAssigned) missing.push('iPad');
           
-          if (missing.length > 0) {
-            missingItems = missing;
-          }
-        }
-        // Also check for missing items even if no blitz committed (for general awareness)
-        else if (isRookie) {
-          const missing: string[] = [];
+          // Check ramp to blitz phases from recruit object
+          const phase1 = recruit.phase1Complete ?? false;
+          const phase2 = recruit.phase2Complete ?? false;
+          const phase3 = recruit.phase3Complete ?? false;
+          const phase4 = recruit.phase4Complete ?? false;
           
-          if (repData) {
-            if (!repData.onboarding_complete) missing.push('Onboarding');
-            if (!repData.trainings_complete) missing.push('Trainings');
-            if (!repData.slack_joined) missing.push('Slack');
-            if (!repData.ipad_assigned) missing.push('iPad');
-            
-            const phase1 = repData.ramp_phase_1_complete ?? false;
-            const phase2 = repData.ramp_phase_2_complete ?? false;
-            const phase3 = repData.ramp_phase_3_complete ?? false;
-            const phase4 = repData.ramp_phase_4_complete ?? false;
-            
-            const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
-            if (incompletePhaseCount > 0) {
-              missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
-            }
-          } else {
-            // Fall back to recruit object data (also from Supabase, but less detailed)
-            if (!recruit.onboardingComplete) missing.push('Onboarding');
-            if (!recruit.trainingsComplete) missing.push('Trainings');
-            if (!recruit.slackJoined) missing.push('Slack');
-            if (!recruit.ipadAssigned) missing.push('iPad');
+          const incompletePhaseCount = [phase1, phase2, phase3, phase4].filter(p => !p).length;
+          if (incompletePhaseCount > 0) {
+            missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
           }
           
           if (missing.length > 0) {
