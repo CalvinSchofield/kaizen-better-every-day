@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
 import {
   Drawer,
   DrawerContent,
@@ -58,6 +59,7 @@ export const EditRecruitDrawer = ({
   onSuccess 
 }: EditRecruitDrawerProps) => {
   const queryClient = useQueryClient();
+  const { data: teamAccess } = useTeamAccess();
   
   // Form state
   const [name, setName] = useState('');
@@ -66,7 +68,7 @@ export const EditRecruitDrawer = ({
   const [stage, setStage] = useState('');
   const [location, setLocation] = useState('');
   const [recruitmentSource, setRecruitmentSource] = useState('');
-  const [recruiter, setRecruiter] = useState('');
+  const [recruiterUserId, setRecruiterUserId] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedMgmtId, setSelectedMgmtId] = useState('');
   
@@ -74,7 +76,7 @@ export const EditRecruitDrawer = ({
   const [locationOpen, setLocationOpen] = useState(false);
   const [recruiterOpen, setRecruiterOpen] = useState(false);
 
-  // Fetch Notion property options
+  // Fetch Notion property options (for location, stage, recruitment source)
   const { data: notionOptions, isLoading: optionsLoading } = useQuery({
     queryKey: ['notion-property-options-extended'],
     queryFn: async () => {
@@ -92,6 +94,62 @@ export const EditRecruitDrawer = ({
     staleTime: 1000 * 60 * 60, // Cache for 1 hour
   });
 
+  // Fetch team_mgmt_groups mapping to auto-select MGMT group based on team
+  const { data: teamMgmtMapping } = useQuery({
+    queryKey: ['team-mgmt-mapping'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_mgmt_groups')
+        .select('team_id, mgmt_group_id');
+      if (error) throw error;
+      return data as { team_id: string; mgmt_group_id: string }[];
+    },
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
+
+  // Get accessible teams from teamAccess
+  const accessibleTeams = useMemo(() => {
+    if (!teamAccess) return [];
+    return teamAccess.teams || [];
+  }, [teamAccess]);
+
+  // Get accessible MGMT groups from teamAccess
+  const accessibleMgmtGroups = useMemo(() => {
+    if (!teamAccess) return [];
+    return teamAccess.mgmtGroups || [];
+  }, [teamAccess]);
+
+  // Filter recruiters based on selected team - only show reps that belong to the selected team
+  const filteredRecruiters = useMemo(() => {
+    if (!teamAccess?.accessibleReps) return [];
+    
+    // If no team is selected, show all accessible reps
+    if (!selectedTeamId) {
+      return teamAccess.accessibleReps.filter(rep => rep.name);
+    }
+
+    // Find the team to get team name for filtering
+    const selectedTeam = accessibleTeams.find(t => t.id === selectedTeamId);
+    if (!selectedTeam) {
+      return teamAccess.accessibleReps.filter(rep => rep.name);
+    }
+
+    // Filter reps that belong to the selected team
+    return teamAccess.accessibleReps.filter(rep => 
+      rep.name && rep.teamName === selectedTeam.name
+    );
+  }, [teamAccess?.accessibleReps, selectedTeamId, accessibleTeams]);
+
+  // Auto-select MGMT group when team changes
+  useEffect(() => {
+    if (selectedTeamId && teamMgmtMapping) {
+      const mapping = teamMgmtMapping.find(m => m.team_id === selectedTeamId);
+      if (mapping) {
+        setSelectedMgmtId(mapping.mgmt_group_id);
+      }
+    }
+  }, [selectedTeamId, teamMgmtMapping]);
+
   // Initialize form when drawer opens
   useEffect(() => {
     if (open && recruit) {
@@ -99,10 +157,9 @@ export const EditRecruitDrawer = ({
       setPhone(recruit.phone ? formatPhoneNumber(recruit.phone.replace(/^\+1/, '')) : '');
       setEmail(recruit.email || '');
       setStage(recruit.stage || '');
-      // These fields aren't in the Recruit type, so leave empty for user to fill
-      setLocation('');
-      setRecruitmentSource('');
-      setRecruiter(recruit.recruiterName || '');
+      setLocation(recruit.location || '');
+      setRecruitmentSource(recruit.recruitmentSource || '');
+      setRecruiterUserId(recruit.recruiterUserId || '');
       setSelectedTeamId(recruit.teamId || '');
       setSelectedMgmtId(recruit.mgmtGroupId || '');
     }
@@ -142,6 +199,9 @@ export const EditRecruitDrawer = ({
   const handleSave = () => {
     const cleanPhone = phone.replace(/\D/g, '');
     
+    // Find the recruiter name from the user ID
+    const selectedRecruiter = filteredRecruiters.find(r => r.userId === recruiterUserId);
+    
     updateMutation.mutate({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
@@ -149,7 +209,8 @@ export const EditRecruitDrawer = ({
       stage,
       location,
       recruitmentSource,
-      recruiter,
+      recruiter: selectedRecruiter?.name || '',
+      recruiterUserId,
       teamsIds: selectedTeamId ? [selectedTeamId] : [],
       mgmtIds: selectedMgmtId ? [selectedMgmtId] : [],
     });
@@ -164,11 +225,12 @@ export const EditRecruitDrawer = ({
     [...(notionOptions?.locationOptions || [])].sort(),
     [notionOptions?.locationOptions]
   );
-  
-  const sortedRecruiterOptions = useMemo(() => 
-    [...(notionOptions?.recruiterOptions || [])].sort(),
-    [notionOptions?.recruiterOptions]
-  );
+
+  // Get the selected recruiter's name for display
+  const selectedRecruiterName = useMemo(() => {
+    const recruiter = filteredRecruiters.find(r => r.userId === recruiterUserId);
+    return recruiter?.name || '';
+  }, [filteredRecruiters, recruiterUserId]);
 
   if (optionsLoading) {
     return (
@@ -293,7 +355,55 @@ export const EditRecruitDrawer = ({
             </Select>
           </div>
 
-          {/* Recruiter - Searchable Combobox */}
+          {/* Teams - Only show accessible teams */}
+          <div>
+            <Label>Team</Label>
+            <Select 
+              value={selectedTeamId || "__none__"} 
+              onValueChange={(v) => {
+                setSelectedTeamId(v === "__none__" ? "" : v);
+                // Clear recruiter if team changes (they may not be in the new team)
+                if (v !== selectedTeamId) {
+                  setRecruiterUserId('');
+                }
+              }}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                {accessibleTeams.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* MGMT Group - Auto-selected based on team, but allow override for higher access levels */}
+          <div>
+            <Label>MGMT Group</Label>
+            <Select 
+              value={selectedMgmtId || "__none__"} 
+              onValueChange={(v) => setSelectedMgmtId(v === "__none__" ? "" : v)}
+              disabled={teamAccess?.accessLevel === 'team_lead'}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select MGMT group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                {accessibleMgmtGroups.map((mgmt) => (
+                  <SelectItem key={mgmt.id} value={mgmt.id}>{mgmt.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {teamAccess?.accessLevel === 'team_lead' && (
+              <p className="text-xs text-muted-foreground mt-1">Auto-selected based on team</p>
+            )}
+          </div>
+
+          {/* Recruiter - Only show reps from the selected team */}
           <div>
             <Label>Recruiter</Label>
             <Popover open={recruiterOpen} onOpenChange={setRecruiterOpen}>
@@ -304,7 +414,7 @@ export const EditRecruitDrawer = ({
                   aria-expanded={recruiterOpen}
                   className="w-full justify-between mt-1 font-normal"
                 >
-                  {recruiter || "Select recruiter..."}
+                  {selectedRecruiterName || "Select recruiter..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -312,19 +422,23 @@ export const EditRecruitDrawer = ({
                 <Command>
                   <CommandInput placeholder="Search recruiters..." />
                   <CommandList>
-                    <CommandEmpty>No recruiter found.</CommandEmpty>
+                    <CommandEmpty>
+                      {selectedTeamId 
+                        ? "No recruiters found in this team." 
+                        : "Select a team first to see recruiters."}
+                    </CommandEmpty>
                     <CommandGroup>
-                      {sortedRecruiterOptions.map((r) => (
+                      {filteredRecruiters.map((rep) => (
                         <CommandItem
-                          key={r}
-                          value={r}
+                          key={rep.userId || rep.notionPageId}
+                          value={rep.name}
                           onSelect={() => {
-                            setRecruiter(r);
+                            setRecruiterUserId(rep.userId || '');
                             setRecruiterOpen(false);
                           }}
                         >
-                          <Check className={cn("mr-2 h-4 w-4", recruiter === r ? "opacity-100" : "opacity-0")} />
-                          {r}
+                          <Check className={cn("mr-2 h-4 w-4", recruiterUserId === rep.userId ? "opacity-100" : "opacity-0")} />
+                          {rep.name}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -332,38 +446,9 @@ export const EditRecruitDrawer = ({
                 </Command>
               </PopoverContent>
             </Popover>
-          </div>
-
-          {/* Teams */}
-          <div>
-            <Label>Team</Label>
-            <Select value={selectedTeamId || "__none__"} onValueChange={(v) => setSelectedTeamId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {notionOptions?.teamsOptions?.map((team) => (
-                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* MGMT */}
-          <div>
-            <Label>MGMT Group</Label>
-            <Select value={selectedMgmtId || "__none__"} onValueChange={(v) => setSelectedMgmtId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select MGMT group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {notionOptions?.mgmtOptions?.map((mgmt) => (
-                  <SelectItem key={mgmt.id} value={mgmt.id}>{mgmt.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {selectedTeamId && filteredRecruiters.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">No accessible recruiters in this team</p>
+            )}
           </div>
         </div>
 
