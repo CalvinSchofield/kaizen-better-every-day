@@ -56,24 +56,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     repsData?.map(r => [r.notion_page_id, r]) || []
   );
 
-  // Filter recruits for display
-  // - For "Potential Follow Up", only show if follow-up date is today or past
-  // - Always exclude "Not Interested" and "Signed but Not Interested" from primary view
-  const getRecruitsByStage = (stage: string) => {
-    return recruits.filter(r => {
-      if (r.stage !== stage) return false;
-      
-      // For Potential Follow Up, only show if due today or overdue
-      if (stage === STAGES.POTENTIAL_FOLLOW_UP) {
-        if (!r.nextActionDue) return false;
-        const dueDate = parseISO(r.nextActionDue);
-        const today = startOfToday();
-        return isBefore(dueDate, today) || dueDate.getTime() === today.getTime();
-      }
-      
-      return true;
-    });
-  };
+  const getRecruitsByStage = (stage: string) => recruits.filter(r => r.stage === stage);
 
   const getActivitiesForRecruit = (recruitNotionId: string) => {
     return activities.filter(a => a.rep_notion_page_id === recruitNotionId);
