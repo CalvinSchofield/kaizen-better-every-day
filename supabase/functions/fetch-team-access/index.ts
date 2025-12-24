@@ -88,22 +88,37 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Build a map of team_leader name (lowercase) -> team
-    // Team leader names in reps.team_leader are like "Adam", "Quinn"
-    // Team lead names are like "🚗 Adam Schofield" 
-    const teamLeaderNameToTeam = new Map<string, typeof teamsData[0]>();
-    
+    // Build a map of a rep's team_leader (first-name) -> team
+    // Prefer mapping by team name (more reliable than lead_user_id, which can be null or duplicated)
+    const normalizeFirstToken = (name: string | null | undefined) => {
+      if (!name) return null;
+      // Remove emoji/prefix chars then take the first "word"
+      const cleanName = name.replace(/^[^\p{L}]*/u, '').trim();
+      const firstToken = cleanName.split(/\s+/)[0]?.toLowerCase();
+      return firstToken || null;
+    };
+
+    const teamKeyToTeam = new Map<string, typeof teamsData[0]>();
+
+    // 1) Map by team name
     for (const team of teamsData) {
-      if (team.lead_user_id) {
-        // Find the rep who leads this team
-        const leadRep = repsData.find(r => r.user_id === team.lead_user_id);
-        if (leadRep) {
-          // Extract first name - remove emoji prefix and get first word
-          const cleanName = leadRep.name.replace(/^[^\p{L}]*/u, '').trim();
-          const firstName = cleanName.split(' ')[0].toLowerCase();
-          teamLeaderNameToTeam.set(firstName, team);
-          console.log(`Mapped team leader "${firstName}" -> team "${team.name}"`);
-        }
+      const key = normalizeFirstToken(team.name);
+      if (!key) continue;
+      if (!teamKeyToTeam.has(key)) {
+        teamKeyToTeam.set(key, team);
+      } else {
+        console.warn(`Duplicate team key "${key}" from team name "${team.name}". Keeping the first mapping.`);
+      }
+    }
+
+    // 2) Map by lead rep first name (fill in missing keys only)
+    for (const team of teamsData) {
+      if (!team.lead_user_id) continue;
+      const leadRep = repsData.find(r => r.user_id === team.lead_user_id);
+      const key = normalizeFirstToken(leadRep?.name);
+      if (!key) continue;
+      if (!teamKeyToTeam.has(key)) {
+        teamKeyToTeam.set(key, team);
       }
     }
 
@@ -161,21 +176,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Otherwise look up by team_leader field
-      if (rep.team_leader) {
-        const leaderName = rep.team_leader.toLowerCase().trim();
-        const team = teamLeaderNameToTeam.get(leaderName);
-        if (team) {
-          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
-          return {
-            isTeamLead: false,
-            teamId: team.id,
-            teamName: team.name,
-            mgmtGroupId: mgmtGroup?.id || null,
-            mgmtGroupName: mgmtGroup?.name || null,
-          };
-        }
-      }
+       // Otherwise look up by team_leader field
+       if (rep.team_leader) {
+         const leaderName = rep.team_leader.toLowerCase().trim();
+         const team = teamKeyToTeam.get(leaderName);
+         if (team) {
+           const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
+           return {
+             isTeamLead: false,
+             teamId: team.id,
+             teamName: team.name,
+             mgmtGroupId: mgmtGroup?.id || null,
+             mgmtGroupName: mgmtGroup?.name || null,
+           };
+         }
+       }
 
       return {
         isTeamLead: false,

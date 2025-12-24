@@ -36,8 +36,16 @@ export const useTeamAccess = () => {
   return useQuery({
     queryKey: ['team-access'],
     queryFn: async () => {
-      // Try to load from cache first
-      const cachedData = localStorage.getItem('team-access-cache');
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const CACHE_KEY = `team-access-cache:v2:${session.user.id}`;
+
+      // Try to load from cache first (scoped per user)
+      const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
         try {
           const { data, timestamp } = JSON.parse(cachedData);
@@ -50,12 +58,6 @@ export const useTeamAccess = () => {
         }
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
-
       const { data, error } = await supabase.functions.invoke('fetch-team-access', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -65,7 +67,7 @@ export const useTeamAccess = () => {
       if (error) throw error;
 
       // Update cache
-      localStorage.setItem('team-access-cache', JSON.stringify({
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
         data,
         timestamp: Date.now()
       }));
