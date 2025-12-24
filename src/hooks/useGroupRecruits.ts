@@ -80,18 +80,20 @@ export interface RecruitSuggestion {
   created_at: string;
 }
 
-// Recruiting pipeline stages (exact values from database)
+// Recruiting pipeline stages - import from central constants
+import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
+
 const RECRUITING_STAGES = [
-  '100 List',
-  'Potential Follow Up',
-  'Reached out',
-  'Evaluating',
-  'Signed',
-  'Signed but not interested',
-  'Shadow ✅',
-  'Sold 💲',
-  'Sold (5+) 💰',
-  'Not Interested',
+  STAGES.LIST_100,
+  STAGES.POTENTIAL_FOLLOW_UP,
+  STAGES.REACHED_OUT,
+  STAGES.EVALUATING,
+  STAGES.SIGNED,
+  STAGES.SIGNED_BUT_NOT_INTERESTED,
+  STAGES.SHADOW,
+  STAGES.SOLD,
+  STAGES.SOLD_5_PLUS,
+  STAGES.NOT_INTERESTED,
 ];
 
 export const useGroupRecruits = () => {

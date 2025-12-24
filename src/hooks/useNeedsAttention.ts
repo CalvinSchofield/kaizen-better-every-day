@@ -3,6 +3,7 @@ import { Recruit, RecruitActivity } from "./useGroupRecruits";
 import { parseISO } from "date-fns";
 import { getCommitmentPaceStatus, PaceStatus } from "@/utils/paceCalculator";
 import { getDaysUntilBlitz, getDaysSinceDate, getTodayDateString } from "@/utils/blitzDateUtils";
+import { STAGES, STAGE_CADENCE, EXIT_STAGES } from "@/utils/stageConstants";
 
 export interface AttentionCategory {
   id: string;
@@ -425,9 +426,7 @@ export const useNeedsAttention = (
     
     recruits.forEach(recruit => {
       // Exclude stages that don't need active contact tracking
-      if (recruit.stage === 'Not Interested' || 
-          recruit.stage === 'Signed but Not Interested' ||
-          recruit.stage === 'Potential Follow Up') {
+      if (EXIT_STAGES.includes(recruit.stage as any)) {
         return;
       }
 
@@ -435,18 +434,7 @@ export const useNeedsAttention = (
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
 
-      const thresholds: Record<string, number> = {
-        'Signed': 7,
-        'Shadow ✅': 7,
-        'Evaluating': 5,
-        '100 List': 14,
-        'Reached Out': 7,
-        'Reached out': 7,
-        'Sold 💲': 14,
-        'Sold (5+) 💰': 14,
-      };
-
-      const threshold = thresholds[recruit.stage] || 7;
+      const threshold = STAGE_CADENCE[recruit.stage] || 7;
 
       if (daysSince === null || daysSince >= threshold) {
         const firstName = recruit.name?.split(' ')[0] || 'Recruit';

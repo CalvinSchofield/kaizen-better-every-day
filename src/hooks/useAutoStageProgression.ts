@@ -1,26 +1,26 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST } from "@/utils/stageConstants";
 
 // Stage progression order - higher index = more advanced
 // We NEVER move backward, only forward
 const STAGE_PROGRESSION_ORDER = [
-  '100 List',
-  'Potential Follow Up',
-  'Reached Out',
-  'Reached out',
-  'Evaluating',
-  'Signed',
-  'Shadow ✅',
-  'Sold 💲',
-  'Sold (5+) 💰',
+  STAGES.LIST_100,
+  STAGES.POTENTIAL_FOLLOW_UP,
+  STAGES.REACHED_OUT,
+  STAGES.EVALUATING,
+  STAGES.SIGNED,
+  STAGES.SHADOW,
+  STAGES.SOLD,
+  STAGES.SOLD_5_PLUS,
   // These are terminal states (not in progression)
-  // 'Signed but Not Interested',
-  // 'Not Interested',
+  // STAGES.SIGNED_BUT_NOT_INTERESTED,
+  // STAGES.NOT_INTERESTED,
 ];
 
 // Exit/terminal stages that auto-progression should NEVER override
-const EXIT_STAGES = ['Potential Follow Up', 'Not Interested', 'Signed but Not Interested'];
+const EXIT_STAGES = [...EXIT_STAGE_LIST];
 
 // Get stage index (returns -1 for terminal/unknown stages)
 const getStageIndex = (stage: string | null): number => {
