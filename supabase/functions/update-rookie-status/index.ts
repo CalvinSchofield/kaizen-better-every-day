@@ -52,10 +52,48 @@ Deno.serve(async (req) => {
     }
 
     if (hasRampPhaseUpdate) {
-      if (rampPhase1Complete !== undefined) updateData.ramp_phase_1_complete = rampPhase1Complete;
-      if (rampPhase2Complete !== undefined) updateData.ramp_phase_2_complete = rampPhase2Complete;
-      if (rampPhase3Complete !== undefined) updateData.ramp_phase_3_complete = rampPhase3Complete;
-      if (rampPhase4Complete !== undefined) updateData.ramp_phase_4_complete = rampPhase4Complete;
+      // When completing a ramp phase, also mark all prerequisite steps as complete
+      if (rampPhase1Complete === true) {
+        updateData.onboarding_complete = true;
+        updateData.trainings_complete = true;
+        updateData.slack_joined = true;
+        updateData.ramp_phase_1_complete = true;
+      } else if (rampPhase1Complete === false) {
+        updateData.ramp_phase_1_complete = false;
+      }
+      
+      if (rampPhase2Complete === true) {
+        updateData.onboarding_complete = true;
+        updateData.trainings_complete = true;
+        updateData.slack_joined = true;
+        updateData.ramp_phase_1_complete = true;
+        updateData.ramp_phase_2_complete = true;
+      } else if (rampPhase2Complete === false) {
+        updateData.ramp_phase_2_complete = false;
+      }
+      
+      if (rampPhase3Complete === true) {
+        updateData.onboarding_complete = true;
+        updateData.trainings_complete = true;
+        updateData.slack_joined = true;
+        updateData.ramp_phase_1_complete = true;
+        updateData.ramp_phase_2_complete = true;
+        updateData.ramp_phase_3_complete = true;
+      } else if (rampPhase3Complete === false) {
+        updateData.ramp_phase_3_complete = false;
+      }
+      
+      if (rampPhase4Complete === true) {
+        updateData.onboarding_complete = true;
+        updateData.trainings_complete = true;
+        updateData.slack_joined = true;
+        updateData.ramp_phase_1_complete = true;
+        updateData.ramp_phase_2_complete = true;
+        updateData.ramp_phase_3_complete = true;
+        updateData.ramp_phase_4_complete = true;
+      } else if (rampPhase4Complete === false) {
+        updateData.ramp_phase_4_complete = false;
+      }
     }
 
     if (hasOnboardingUpdate) {
