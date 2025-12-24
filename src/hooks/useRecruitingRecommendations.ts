@@ -159,8 +159,13 @@ export const useRecruitingRecommendations = (
         }
 
         // Find nearest committed blitz
+        // Check both Supabase ID and notion_page_id for backwards compatibility
         for (const blitz of upcomingBlitzes) {
-          if (committedBlitzIds.includes(blitz.id)) {
+          const blitzWithNotion = blitz as BlitzEvent & { notion_page_id?: string };
+          const matchesId = committedBlitzIds.includes(blitz.id);
+          const matchesNotionId = blitzWithNotion.notion_page_id && committedBlitzIds.includes(blitzWithNotion.notion_page_id);
+          
+          if (matchesId || matchesNotionId) {
             const days = getDaysUntilBlitz(blitz.date);
             console.log(`[Recommendations] ${recruit.name} matches blitz ${blitz.name} in ${days} days`);
             if (days !== null && days >= 0 && (nearestBlitzDays === undefined || days < nearestBlitzDays)) {
@@ -209,6 +214,7 @@ export const useRecruitingRecommendations = (
           : missingItems.slice(0, 2).join(' & ') + (missingItems.length > 2 ? ` +${missingItems.length - 2}` : '');
         reason = `URGENT: ${firstName} has blitz in ${nearestBlitzDays}d but needs ${missingText}`;
         reasonBadge = 'blitz-critical';
+        console.log(`[Recommendations] BLITZ-CRITICAL: ${recruit.name} priority=${priority}, missing=${missingItems.join(', ')}`);
       }
       // TIER 1: Signed/Shadow with blitz < 21 days (ready but check in)
       else if (isSignedOrShadow && hasUpcomingBlitz) {
