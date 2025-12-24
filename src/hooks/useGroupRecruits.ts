@@ -87,14 +87,46 @@ const RECRUITING_STAGES = [
   STAGES.LIST_100,
   STAGES.POTENTIAL_FOLLOW_UP,
   STAGES.REACHED_OUT,
+  "Reached out", // legacy casing from earlier data
   STAGES.EVALUATING,
   STAGES.SIGNED,
   STAGES.SIGNED_BUT_NOT_INTERESTED,
+  "Signed but not interested", // legacy casing from earlier data
   STAGES.SHADOW,
   STAGES.SOLD,
   STAGES.SOLD_5_PLUS,
   STAGES.NOT_INTERESTED,
 ];
+
+const canonicalizeStage = (stage: string | null | undefined): string => {
+  const raw = (stage ?? "").trim();
+  if (!raw) return "";
+
+  const s = raw.toLowerCase();
+
+  if (s === "100 list" || s === "100_list") return STAGES.LIST_100;
+  if (s === "reached out" || s === "reached_out") return STAGES.REACHED_OUT;
+  if (s === "evaluating") return STAGES.EVALUATING;
+  if (s === "signed") return STAGES.SIGNED;
+
+  // Shadow variants (e.g., "Shadow ✅", "Shadowed ✅")
+  if (s.startsWith("shadow")) return STAGES.SHADOW;
+
+  // Sold variants
+  if (s.includes("sold") && (s.includes("5+") || s.includes("5"))) return STAGES.SOLD_5_PLUS;
+  if (s === "sold" || (s.includes("sold") && !s.includes("100"))) return STAGES.SOLD;
+
+  // Follow-up variants
+  if (s === "potential follow up" || s === "potential_follow_up" || s === "follow up") {
+    return STAGES.POTENTIAL_FOLLOW_UP;
+  }
+
+  // Exit variants
+  if (s === "not interested" || s === "not_interested") return STAGES.NOT_INTERESTED;
+  if (s === "signed but not interested" || s === "signed (left)") return STAGES.SIGNED_BUT_NOT_INTERESTED;
+
+  return raw;
+};
 
 export const useGroupRecruits = () => {
   const { data: teamAccess, isLoading: teamLoading } = useTeamAccess();
@@ -217,7 +249,7 @@ export const useGroupRecruits = () => {
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
-          stage: r.stage || '',
+          stage: canonicalizeStage(r.stage),
           recruiterNotionId: leaderNotionId,
           recruiterName: r.recruiter || null,
           recruiterUserId: null,
@@ -264,6 +296,36 @@ export const useGroupRecruits = () => {
           .limit(500);
         
         activities = (activityData || []) as RecruitActivity[];
+      }
+
+      // Hydrate nextAction / nextActionDue from the latest next_step activity
+      // (Fixes "Follow Up" column counts showing 0 when we source recruits from reps table.)
+      if (activities.length > 0) {
+        const nextStepByRecruit = new Map<string, { nextAction: string | null; nextActionDue: string | null }>();
+
+        // activities are already sorted newest-first
+        for (const a of activities) {
+          if (a.activity_type !== 'next_step') continue;
+          if (!a.next_action && !a.next_action_due) continue;
+          if (!nextStepByRecruit.has(a.rep_notion_page_id)) {
+            nextStepByRecruit.set(a.rep_notion_page_id, {
+              nextAction: a.next_action ?? null,
+              nextActionDue: a.next_action_due ?? null,
+            });
+          }
+        }
+
+        if (nextStepByRecruit.size > 0) {
+          recruits = recruits.map(r => {
+            const ns = nextStepByRecruit.get(r.notionPageId);
+            if (!ns) return r;
+            return {
+              ...r,
+              nextAction: ns.nextAction ?? r.nextAction,
+              nextActionDue: ns.nextActionDue ?? r.nextActionDue,
+            };
+          });
+        }
       }
 
       // Fetch pending suggestions for this leader
