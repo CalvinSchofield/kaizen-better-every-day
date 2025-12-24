@@ -86,6 +86,48 @@ export type Database = {
         }
         Relationships: []
       }
+      blitzes: {
+        Row: {
+          address: string | null
+          code: string | null
+          created_at: string | null
+          date: string
+          end_date: string | null
+          id: string
+          location: string | null
+          name: string
+          notion_page_id: string | null
+          updated_at: string | null
+          wifi: string | null
+        }
+        Insert: {
+          address?: string | null
+          code?: string | null
+          created_at?: string | null
+          date: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+          wifi?: string | null
+        }
+        Update: {
+          address?: string | null
+          code?: string | null
+          created_at?: string | null
+          date?: string
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+          wifi?: string | null
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           alternate_versions: Json | null
@@ -305,6 +347,41 @@ export type Database = {
         }
         Relationships: []
       }
+      mgmt_groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          notion_page_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mgmt_groups_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       note_tags: {
         Row: {
           created_at: string
@@ -512,6 +589,42 @@ export type Database = {
         }
         Relationships: []
       }
+      recruit_blitzes: {
+        Row: {
+          blitz_id: string
+          created_at: string | null
+          id: string
+          recruit_id: string
+        }
+        Insert: {
+          blitz_id: string
+          created_at?: string | null
+          id?: string
+          recruit_id: string
+        }
+        Update: {
+          blitz_id?: string
+          created_at?: string | null
+          id?: string
+          recruit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruit_blitzes_blitz_id_fkey"
+            columns: ["blitz_id"]
+            isOneToOne: false
+            referencedRelation: "blitzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruit_blitzes_recruit_id_fkey"
+            columns: ["recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recruit_suggestions: {
         Row: {
           created_at: string
@@ -562,6 +675,118 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recruits: {
+        Row: {
+          badge_id: string | null
+          blitz_ready: boolean | null
+          created_at: string | null
+          email: string | null
+          id: string
+          ipad_assigned: boolean | null
+          last_contact: string | null
+          location: string | null
+          mgmt_group_id: string | null
+          name: string
+          next_action: string | null
+          next_action_due: string | null
+          notion_page_id: string | null
+          onboarding_complete: boolean | null
+          phone: string | null
+          ramp_phase_1_complete: boolean | null
+          ramp_phase_2_complete: boolean | null
+          ramp_phase_3_complete: boolean | null
+          ramp_phase_4_complete: boolean | null
+          recruiter_user_id: string | null
+          recruitment_source: string | null
+          slack_joined: boolean | null
+          stage: string | null
+          team_id: string | null
+          trainings_complete: boolean | null
+          updated_at: string | null
+          year: string | null
+        }
+        Insert: {
+          badge_id?: string | null
+          blitz_ready?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          ipad_assigned?: boolean | null
+          last_contact?: string | null
+          location?: string | null
+          mgmt_group_id?: string | null
+          name: string
+          next_action?: string | null
+          next_action_due?: string | null
+          notion_page_id?: string | null
+          onboarding_complete?: boolean | null
+          phone?: string | null
+          ramp_phase_1_complete?: boolean | null
+          ramp_phase_2_complete?: boolean | null
+          ramp_phase_3_complete?: boolean | null
+          ramp_phase_4_complete?: boolean | null
+          recruiter_user_id?: string | null
+          recruitment_source?: string | null
+          slack_joined?: boolean | null
+          stage?: string | null
+          team_id?: string | null
+          trainings_complete?: boolean | null
+          updated_at?: string | null
+          year?: string | null
+        }
+        Update: {
+          badge_id?: string | null
+          blitz_ready?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          ipad_assigned?: boolean | null
+          last_contact?: string | null
+          location?: string | null
+          mgmt_group_id?: string | null
+          name?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          notion_page_id?: string | null
+          onboarding_complete?: boolean | null
+          phone?: string | null
+          ramp_phase_1_complete?: boolean | null
+          ramp_phase_2_complete?: boolean | null
+          ramp_phase_3_complete?: boolean | null
+          ramp_phase_4_complete?: boolean | null
+          recruiter_user_id?: string | null
+          recruitment_source?: string | null
+          slack_joined?: boolean | null
+          stage?: string | null
+          team_id?: string | null
+          trainings_complete?: boolean | null
+          updated_at?: string | null
+          year?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruits_mgmt_group_id_fkey"
+            columns: ["mgmt_group_id"]
+            isOneToOne: false
+            referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruits_recruiter_user_id_fkey"
+            columns: ["recruiter_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "recruits_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rep_goals: {
         Row: {
@@ -923,6 +1148,71 @@ export type Database = {
         }
         Relationships: []
       }
+      team_mgmt_groups: {
+        Row: {
+          mgmt_group_id: string
+          team_id: string
+        }
+        Insert: {
+          mgmt_group_id: string
+          team_id: string
+        }
+        Update: {
+          mgmt_group_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_mgmt_groups_mgmt_group_id_fkey"
+            columns: ["mgmt_group_id"]
+            isOneToOne: false
+            referencedRelation: "mgmt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_mgmt_groups_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_user_id: string | null
+          name: string
+          notion_page_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_user_id?: string | null
+          name?: string
+          notion_page_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_lead_user_id_fkey"
+            columns: ["lead_user_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       weekly_reports: {
         Row: {
           approved_at: string | null
@@ -979,7 +1269,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_access_recruit: {
+        Args: { _recruit_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_accessible_team_ids: { Args: { _user_id: string }; Returns: string[] }
+      is_area_director: { Args: { _user_id: string }; Returns: boolean }
+      is_mgmt_group_lead: { Args: { _user_id: string }; Returns: boolean }
+      is_team_lead: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       recruit_activity_type:
