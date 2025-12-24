@@ -160,19 +160,25 @@ export const EditRecruitDrawer = ({
     return teamAccess.mgmtGroups || [];
   }, [teamAccess]);
 
-  // Get all recruiters with team info - filtered to Signed+ stages (includes Shadow)
+  // Get all recruiters with team info - filtered to active Signed+ stages only
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
     return teamAccess.accessibleReps.filter(rep => {
       if (!rep.name) return false;
       if (!rep.notionPageId) return false; // Need notionPageId to save
       const stageLower = (rep.stage || '').toLowerCase();
-      // Match stages: signed, shadow (any variant), sold (any variant)
-      // Exclude: 100 list, reached out, evaluating, exit stages
+      
+      // Exclude exit/inactive stages first
+      const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out', 'evaluating'];
+      if (excludePatterns.some(p => stageLower.includes(p))) {
+        return false;
+      }
+      
+      // Include only: Signed, Shadow/Shadowed, Sold variants
       return (
         stageLower.includes('signed') ||
         stageLower.includes('shadow') ||
-        (stageLower.includes('sold') && !stageLower.includes('100'))
+        stageLower.includes('sold')
       );
     });
   }, [teamAccess?.accessibleReps]);
