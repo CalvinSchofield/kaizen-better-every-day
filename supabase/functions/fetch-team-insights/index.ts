@@ -33,8 +33,59 @@ Deno.serve(async (req) => {
       });
     }
 
+    // --- SERVER-SIDE ACCESS VALIDATION ---
+    // Determine caller's access level and filter userIds to only those they can access
+    const { data: isAreaDir } = await supabase.rpc('is_area_director', { _user_id: user.id });
+    const { data: isMgmtLead } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
+    const { data: isTeamLead } = await supabase.rpc('is_team_lead', { _user_id: user.id });
+    
+    let allowedUserIds: string[] = [];
+
+    if (isAreaDir) {
+      // Area directors can see all reps
+      const { data: allReps } = await supabase
+        .from('reps')
+        .select('user_id')
+        .not('user_id', 'is', null);
+      allowedUserIds = (allReps || []).map(r => r.user_id!);
+    } else if (isMgmtLead || isTeamLead) {
+      // Leaders can only see reps in their accessible teams
+      const { data: accessibleTeamIds } = await supabase.rpc('get_accessible_team_ids', { _user_id: user.id });
+      
+      if (accessibleTeamIds && accessibleTeamIds.length > 0) {
+        // Get recruits in these teams to find their notion_page_ids
+        const { data: teamRecruits } = await supabase
+          .from('recruits')
+          .select('notion_page_id, recruiter_user_id')
+          .in('team_id', accessibleTeamIds);
+        
+        const notionIds = (teamRecruits || []).map(r => r.notion_page_id).filter(Boolean);
+        const recruiterUserIds = (teamRecruits || []).map(r => r.recruiter_user_id).filter(Boolean);
+        
+        // Get reps matching these notion_page_ids OR who are recruiters
+        const { data: accessibleReps } = await supabase
+          .from('reps')
+          .select('user_id')
+          .or(`notion_page_id.in.(${notionIds.join(',')}),user_id.in.(${recruiterUserIds.join(',')})`);
+        
+        allowedUserIds = [...new Set((accessibleReps || []).map(r => r.user_id).filter(Boolean) as string[])];
+      }
+    }
+    
+    // Filter requested userIds to only those the caller is allowed to access
+    const validatedUserIds = userIds.filter((id: string) => allowedUserIds.includes(id));
+    
+    console.log(`User ${user.email} requested ${userIds.length} userIds, validated ${validatedUserIds.length} (isAD: ${isAreaDir}, isMgmt: ${isMgmtLead}, isTeam: ${isTeamLead})`);
+    
+    // If no valid user IDs after filtering, return empty
+    if (validatedUserIds.length === 0) {
+      return new Response(JSON.stringify({ entries: [], reps: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Filter out excluded users
-    const filteredUserIds = userIds.filter(id => !excludeUserIds.includes(id));
+    const filteredUserIds = validatedUserIds.filter((id: string) => !excludeUserIds.includes(id));
 
     if (filteredUserIds.length === 0) {
       return new Response(JSON.stringify({ entries: [], reps: [] }), {
