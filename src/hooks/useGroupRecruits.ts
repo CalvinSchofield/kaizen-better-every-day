@@ -75,19 +75,18 @@ export interface RecruitSuggestion {
   created_at: string;
 }
 
-// Recruiting pipeline stages (stages that indicate someone is in the recruiting funnel)
+// Recruiting pipeline stages (exact values from database)
 const RECRUITING_STAGES = [
   '100 List',
   'Potential Follow Up',
   'Reached out',
-  'Reached Out',
   'Evaluating',
   'Signed',
+  'Signed but not interested',
   'Shadow ✅',
   'Sold 💲',
   'Sold (5+) 💰',
   'Not Interested',
-  'Signed but Not Interested',
 ];
 
 export const useGroupRecruits = () => {
@@ -196,39 +195,49 @@ export const useGroupRecruits = () => {
         }));
       };
 
-      // Transform reps to match expected Recruit interface
-      let recruits: Recruit[] = (repsData || []).map((r: any) => ({
-        notionPageId: r.notion_page_id || r.id,
-        name: r.name,
-        phone: r.phone || '',
-        email: r.email || '',
-        stage: r.stage || '',
-        recruiterNotionId: leaderNotionId,
-        recruiterName: r.recruiter || null, // recruiter is already a name in reps table
-        recruiterUserId: null, // Not directly available in reps table
-        teamName: null, // Will get from accessibleReps if needed
-        teamId: null,
-        mgmtGroupId: null,
-        mgmtGroupName: null,
-        year: r.year || '',
-        location: null, // Not in reps table
-        recruitmentSource: null, // Not in reps table
-        lastContact: null, // Not in reps table (could be derived from activities)
-        nextAction: null, // Not in reps table (could be derived from activities)
-        nextActionDue: null, // Not in reps table
-        createdAt: r.created_at || new Date().toISOString(),
-        committedBlitzes: parseCommittedBlitzes(r.committed_blitzes),
-        rampToBlitzPhase: r.ramp_to_blitz_phase,
-        phase1Complete: r.ramp_phase_1_complete ?? false,
-        phase2Complete: r.ramp_phase_2_complete ?? false,
-        phase3Complete: r.ramp_phase_3_complete ?? false,
-        phase4Complete: r.ramp_phase_4_complete ?? false,
-        onboardingComplete: r.onboarding_complete ?? false,
-        trainingsComplete: r.trainings_complete ?? false,
-        slackJoined: r.slack_joined ?? false,
-        ipadAssigned: r.ipad_assigned ?? false,
-        blitzReady: r.blitz_ready ?? false,
-      }));
+      // Build lookup from accessibleReps to get team info
+      const accessibleRepsMap = new Map(
+        accessibleReps.map(ar => [ar.notionPageId, ar])
+      );
+
+      // Transform reps to match expected Recruit interface, enriching with team info
+      let recruits: Recruit[] = (repsData || []).map((r: any) => {
+        const accessibleRepInfo = accessibleRepsMap.get(r.notion_page_id);
+        
+        return {
+          notionPageId: r.notion_page_id || r.id,
+          name: r.name,
+          phone: r.phone || '',
+          email: r.email || '',
+          stage: r.stage || '',
+          recruiterNotionId: leaderNotionId,
+          recruiterName: r.recruiter || null,
+          recruiterUserId: null,
+          // Enrich with team info from accessibleReps
+          teamName: accessibleRepInfo?.teamName || null,
+          teamId: accessibleRepInfo?.teamId || null,
+          mgmtGroupId: accessibleRepInfo?.mgmtGroupId || null,
+          mgmtGroupName: accessibleRepInfo?.mgmtGroupName || null,
+          year: r.year || '',
+          location: null,
+          recruitmentSource: null,
+          lastContact: null,
+          nextAction: null,
+          nextActionDue: null,
+          createdAt: r.created_at || new Date().toISOString(),
+          committedBlitzes: parseCommittedBlitzes(r.committed_blitzes),
+          rampToBlitzPhase: r.ramp_to_blitz_phase,
+          phase1Complete: r.ramp_phase_1_complete ?? false,
+          phase2Complete: r.ramp_phase_2_complete ?? false,
+          phase3Complete: r.ramp_phase_3_complete ?? false,
+          phase4Complete: r.ramp_phase_4_complete ?? false,
+          onboardingComplete: r.onboarding_complete ?? false,
+          trainingsComplete: r.trainings_complete ?? false,
+          slackJoined: r.slack_joined ?? false,
+          ipadAssigned: r.ipad_assigned ?? false,
+          blitzReady: r.blitz_ready ?? false,
+        };
+      });
 
       // Exclude the current user from the recruits list
       recruits = recruits.filter(r => r.notionPageId !== leaderNotionId);
