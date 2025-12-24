@@ -76,10 +76,13 @@ serve(async (req) => {
       });
     }
 
-    const { recruitNotionId, newStage, notes, forceUpdate = false, isAutomatic = false } = await req.json();
-    console.log(`[update-recruit-stage] Request: recruitNotionId=${recruitNotionId}, newStage=${newStage}, isAutomatic=${isAutomatic}, user=${user.id}`);
+    // Support both recruitId (new) and recruitNotionId (legacy)
+    const body = await req.json();
+    const { recruitId, recruitNotionId, newStage, notes, forceUpdate = false, isAutomatic = false } = body;
+    
+    console.log(`[update-recruit-stage] Request: recruitId=${recruitId}, recruitNotionId=${recruitNotionId}, newStage=${newStage}, isAutomatic=${isAutomatic}, user=${user.id}`);
 
-    if (!recruitNotionId || !newStage) {
+    if ((!recruitId && !recruitNotionId) || !newStage) {
       console.error('[update-recruit-stage] Missing required fields');
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
@@ -88,13 +91,31 @@ serve(async (req) => {
     }
 
     // Get current stage from Supabase (source of truth)
-    const { data: currentRep, error: fetchError } = await supabase
-      .from('reps')
-      .select('stage, name')
-      .eq('notion_page_id', recruitNotionId)
-      .single();
+    // Try by Supabase ID first, then fall back to Notion ID
+    let currentRep = null;
+    let fetchError = null;
 
-    if (fetchError) {
+    if (recruitId) {
+      const result = await supabase
+        .from('reps')
+        .select('id, notion_page_id, stage, name')
+        .eq('id', recruitId)
+        .maybeSingle();
+      currentRep = result.data;
+      fetchError = result.error;
+    }
+
+    if (!currentRep && recruitNotionId) {
+      const result = await supabase
+        .from('reps')
+        .select('id, notion_page_id, stage, name')
+        .eq('notion_page_id', recruitNotionId)
+        .maybeSingle();
+      currentRep = result.data;
+      fetchError = result.error;
+    }
+
+    if (fetchError || !currentRep) {
       console.error('[update-recruit-stage] Error fetching current rep:', fetchError);
       return new Response(JSON.stringify({ error: 'Recruit not found' }), {
         status: 404,
@@ -118,14 +139,14 @@ serve(async (req) => {
       });
     }
 
-    // Update stage in Supabase (source of truth - NO Notion update)
+    // Update stage in Supabase using the rep's ID
     const { error: updateError } = await supabase
       .from('reps')
       .update({ 
         stage: newStage, 
         updated_at: new Date().toISOString() 
       })
-      .eq('notion_page_id', recruitNotionId);
+      .eq('id', currentRep.id);
 
     if (updateError) {
       console.error('[update-recruit-stage] Error updating rep stage:', updateError);
@@ -135,13 +156,23 @@ serve(async (req) => {
       });
     }
 
+    // Also update recruits table if there's a matching record
+    if (currentRep.notion_page_id) {
+      await supabase
+        .from('recruits')
+        .update({ stage: newStage, updated_at: new Date().toISOString() })
+        .eq('notion_page_id', currentRep.notion_page_id);
+    }
+
     console.log(`[update-recruit-stage] Successfully updated ${currentRep?.name} from ${currentStage} to ${newStage}`);
 
-    // Log the stage change as an activity
+    // Log the stage change as an activity - use rep_notion_page_id for compatibility
+    const activityRepId = currentRep.notion_page_id || currentRep.id;
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: recruitNotionId,
+        rep_notion_page_id: activityRepId,
+        recruit_id: currentRep.id, // New column for future lookups
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: notes || `Stage changed from "${currentStage || 'unknown'}" to "${newStage}"`,
