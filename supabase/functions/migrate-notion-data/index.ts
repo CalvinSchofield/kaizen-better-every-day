@@ -310,34 +310,59 @@ Deno.serve(async (req) => {
     // ========== STEP 4: Fetch and insert Recruits ==========
     console.log('Step 4: Fetching Recruits from Notion...');
 
-    // Fetch ALL reps from the Notion reps database (including non-recruiting stages)
-    // We'll filter for recruiting stages for the recruits table
+    // Fetch ALL reps from the Notion reps database
+    // We'll filter for recruiting stages in code instead of via Notion filter
     const recruitingStages = ['100 List', 'Reached Out', 'Evaluating', 'Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
 
-    const recruitsResponse = await fetchNotionWithRetry(
-      `https://api.notion.com/v1/databases/${notionRepsDbId}/query`,
-      {
-        method: 'POST',
-        headers: notionHeaders,
-        body: JSON.stringify({
-          filter: {
-            or: recruitingStages.map(stage => ({
-              property: 'Stage',
-              select: { equals: stage }
-            }))
-          },
-          page_size: 100
-        })
-      }
-    );
+    let allRecruitPages: any[] = [];
+    let hasMore = true;
+    let startCursor: string | undefined = undefined;
 
-    if (!recruitsResponse.ok) {
-      throw new Error(`Failed to fetch recruits: ${recruitsResponse.status}`);
+    // Paginate through all results
+    while (hasMore) {
+      const queryBody: any = { page_size: 100 };
+      if (startCursor) {
+        queryBody.start_cursor = startCursor;
+      }
+
+      const recruitsResponse = await fetchNotionWithRetry(
+        `https://api.notion.com/v1/databases/${notionRepsDbId}/query`,
+        {
+          method: 'POST',
+          headers: notionHeaders,
+          body: JSON.stringify(queryBody)
+        }
+      );
+
+      if (!recruitsResponse.ok) {
+        const errorText = await recruitsResponse.text();
+        console.error('Notion recruits API error:', errorText);
+        throw new Error(`Failed to fetch recruits: ${recruitsResponse.status}`);
+      }
+
+      const recruitsData = await recruitsResponse.json();
+      allRecruitPages = allRecruitPages.concat(recruitsData.results);
+      
+      hasMore = recruitsData.has_more;
+      startCursor = recruitsData.next_cursor;
+      
+      console.log(`Fetched ${recruitsData.results.length} recruits (total so far: ${allRecruitPages.length})`);
+      
+      // Small delay between pagination requests
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
     }
 
-    const recruitsData = await recruitsResponse.json();
-    stats.recruits.fetched = recruitsData.results.length;
-    console.log(`Fetched ${stats.recruits.fetched} recruits`);
+    // Filter for recruiting stages in code
+    const recruitPages = allRecruitPages.filter(page => {
+      const stage = getSelect(page.properties?.['Stage']);
+      return recruitingStages.includes(stage || '');
+    });
+
+    stats.recruits.fetched = recruitPages.length;
+    console.log(`Found ${recruitPages.length} recruits in recruiting stages (out of ${allRecruitPages.length} total)`);
+
 
     // Get existing reps from Supabase to map notion_page_id → user_id
     const { data: existingReps } = await supabase
@@ -356,7 +381,7 @@ Deno.serve(async (req) => {
     // Track recruit → committed blitz Notion IDs for later
     const recruitBlitzCommitments = new Map<string, string[]>();
 
-    for (const recruit of recruitsData.results) {
+    for (const recruit of recruitPages) {
       const props = recruit.properties;
       const name = getTitle(props['Name']);
       if (!name) continue;
