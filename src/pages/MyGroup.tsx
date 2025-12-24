@@ -376,17 +376,71 @@ const MyGroup = () => {
 
   // Filter recruits by selected team if applicable
   const filteredRecruits = useMemo(() => {
-    if (!selectedTeamFilter) return allRecruits;
-    
-    if (selectedTeamFilter.startsWith('team:')) {
-      const teamId = selectedTeamFilter.replace('team:', '');
-      return allRecruits.filter(r => r.teamId === teamId);
-    } else if (selectedTeamFilter.startsWith('mgmt:')) {
-      const mgmtId = selectedTeamFilter.replace('mgmt:', '');
-      return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
+    const applyTeamFilter = () => {
+      if (!selectedTeamFilter) return allRecruits;
+
+      if (selectedTeamFilter.startsWith('team:')) {
+        const teamId = selectedTeamFilter.replace('team:', '');
+        return allRecruits.filter(r => r.teamId === teamId);
+      } else if (selectedTeamFilter.startsWith('mgmt:')) {
+        const mgmtId = selectedTeamFilter.replace('mgmt:', '');
+        return allRecruits.filter(r => r.mgmtGroupId === mgmtId);
+      }
+      return allRecruits;
+    };
+
+    const base = applyTeamFilter();
+
+    // Levi-only: compute direct vs downline based on recruiter chain
+    const leviTeamId = teamAccess?.teams?.find(t => t.name?.toLowerCase().startsWith('levi'))?.id;
+    if (!leviTeamId || selectedTeamFilter !== `team:${leviTeamId}`) return base;
+
+    const normalize = (s: string | null | undefined) => {
+      if (!s) return null;
+      return s.replace(/^[^\p{L}]*/u, '').trim().toLowerCase();
+    };
+
+    const rootKey = 'levi tingey';
+
+    // Build quick index of recruits by their (normalized) name
+    const byName = new Map<string, string>();
+    base.forEach(r => {
+      const k = normalize(r.name);
+      if (k && !byName.has(k)) byName.set(k, r.notionPageId);
+    });
+
+    const depthById = new Map<string, number>();
+    const rootId = byName.get(rootKey);
+    if (!rootId) return base;
+
+    depthById.set(rootId, 0);
+
+    let frontier = new Set<string>([rootKey]);
+    let depth = 0;
+
+    while (frontier.size > 0 && depth < 6) {
+      const next = new Set<string>();
+      for (const r of base) {
+        const recruiterKey = normalize(r.recruiterName);
+        if (!recruiterKey || !frontier.has(recruiterKey)) continue;
+
+        if (!depthById.has(r.notionPageId)) {
+          depthById.set(r.notionPageId, depth + 1);
+          const childKey = normalize(r.name);
+          if (childKey) next.add(childKey);
+        }
+      }
+      depth += 1;
+      frontier = next;
     }
-    return allRecruits;
-  }, [selectedTeamFilter, allRecruits]);
+
+    return base.map((r): Recruit => {
+      const d = depthById.get(r.notionPageId);
+      const lineage: Recruit['recruiterLineage'] =
+        d === 1 ? 'direct' : d != null && d >= 2 ? 'downline' : null;
+      return { ...r, recruiterDepth: d ?? null, recruiterLineage: lineage };
+    });
+  }, [selectedTeamFilter, allRecruits, teamAccess]);
 
   // Filter activities to match filtered recruits
   const filteredActivities = useMemo(() => {

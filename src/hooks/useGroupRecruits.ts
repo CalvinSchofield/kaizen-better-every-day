@@ -46,6 +46,10 @@ export interface Recruit {
   blitzReady?: boolean;
   // Legacy field for backwards compatibility
   onboardingStatus?: string | null;
+
+  // Levi-specific lineage helpers (optional; only set when filtering Levi's team)
+  recruiterDepth?: number | null;
+  recruiterLineage?: 'direct' | 'downline' | null;
 }
 
 export interface RecruitActivity {
@@ -93,7 +97,7 @@ export const useGroupRecruits = () => {
   const { data: teamAccess, isLoading: teamLoading } = useTeamAccess();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
 
-  const CACHE_KEY = 'group-recruits-cache';
+  const CACHE_KEY = 'group-recruits-cache:v2';
   
   // Load cached data on mount
   useEffect(() => {
