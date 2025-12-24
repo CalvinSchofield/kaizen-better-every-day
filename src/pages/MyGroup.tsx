@@ -7,7 +7,7 @@ import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
-import { useNeedsAttention, RepData, RepSummerConfigData } from "@/hooks/useNeedsAttention";
+import { useNeedsAttention, RepData, RepSummerConfigData, AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { useDismissedRecruits } from "@/hooks/useDismissedRecruits";
 import { useSkippedRecruits } from "@/hooks/useSkippedRecruits";
 import { useAssignedTasks } from "@/hooks/useAssignedTasks";
@@ -472,6 +472,24 @@ const MyGroup = () => {
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
 
+  // Fallback: if no top recommendation, find the top priority from Needs Attention
+  // (respecting skip functionality)
+  const needsAttentionFallback = useMemo(() => {
+    // Only show fallback if there's no top recommendation
+    if (topRecommendation) return null;
+    
+    // Flatten all recruits from all categories and filter out skipped ones
+    for (const category of categories) {
+      for (const attentionRecruit of category.recruits) {
+        if (!isSkipped(attentionRecruit.recruit.notionPageId) && 
+            !isRecuitDismissed(attentionRecruit.recruit.notionPageId)) {
+          return attentionRecruit;
+        }
+      }
+    }
+    return null;
+  }, [topRecommendation, categories, isSkipped, isRecuitDismissed]);
+
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
     if (!selectedCategoryId) return null;
@@ -633,6 +651,7 @@ const MyGroup = () => {
             <TodaysFocusHero
               topRecommendation={topRecommendation}
               summerRecommendation={topSummerRecommendation}
+              needsAttentionFallback={needsAttentionFallback}
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onSummerRepClick={(notionPageId) => {
