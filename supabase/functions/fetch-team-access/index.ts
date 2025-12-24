@@ -183,11 +183,13 @@ Deno.serve(async (req) => {
       groupLeadId: t.lead_user_id,
     }));
 
-    // Create a map of lead_user_id -> team for quick lookup
-    const userIdToTeam = new Map<string, typeof teams[0]>();
+    // Create a map of lead_user_id -> teams (plural, since one person can lead multiple)
+    const userIdToTeams = new Map<string, typeof teams[0][]>();
     for (const team of teams) {
       if (team.groupLeadId) {
-        userIdToTeam.set(team.groupLeadId, team);
+        const existing = userIdToTeams.get(team.groupLeadId) || [];
+        existing.push(team);
+        userIdToTeams.set(team.groupLeadId, existing);
       }
     }
 
@@ -215,18 +217,23 @@ Deno.serve(async (req) => {
 
     // Helper to get team info for a rep
     // 1) If rep is in Levi downline, force the Levi team
-    // 2) If rep is a team lead (by user_id), use that
+    // 2) If rep is a team lead, use their "primary" team (the one matching their name, or first one)
     // 3) Otherwise, map by rep.team_leader (first name)
     const getRepTeamInfo = (rep: any) => {
-      // First check if this rep IS a team lead - they should always show their own team
+      // First check if this rep IS a team lead - they should show their PRIMARY team
+      // (the one that matches their name, not all teams they manage)
       if (rep.user_id) {
-        const teamAsLead = userIdToTeam.get(rep.user_id);
-        if (teamAsLead) {
-          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(teamAsLead.id));
+        const teamsAsLead = userIdToTeams.get(rep.user_id);
+        if (teamsAsLead && teamsAsLead.length > 0) {
+          // Find the team that matches the rep's name (their "home" team)
+          const repNameKey = normalizeFirstToken(rep.name);
+          const primaryTeam = teamsAsLead.find(t => normalizeFirstToken(t.name) === repNameKey) || teamsAsLead[0];
+          
+          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(primaryTeam.id));
           return {
             isTeamLead: true,
-            teamId: teamAsLead.id,
-            teamName: teamAsLead.name,
+            teamId: primaryTeam.id,
+            teamName: primaryTeam.name,
             mgmtGroupId: mgmtGroup?.id || null,
             mgmtGroupName: mgmtGroup?.name || null,
           };
