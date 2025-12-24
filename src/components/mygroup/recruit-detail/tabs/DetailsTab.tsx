@@ -47,7 +47,8 @@ import { Recruit } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { RecruitRepData } from "../types";
-import { STAGES, getFirstName } from "../utils";
+import { ALL_STAGES, getFirstName } from "../utils";
+import { STAGES, EXIT_STAGES as EXIT_STAGE_LIST, PERMANENT_EXIT_STAGES as PERM_EXIT_STAGES } from "@/utils/stageConstants";
 import { EditRecruitDrawer } from "../EditRecruitDrawer";
 import { DeleteRecruitConfirmDrawer } from "../DeleteRecruitConfirmDrawer";
 
@@ -62,12 +63,12 @@ interface DetailsTabProps {
 }
 
 // Exit stages that are always allowed and permanent exit stages that need confirmation
-const EXIT_STAGES = ['Not Interested', 'Potential Follow Up', 'Signed but Not Interested'];
-const PERMANENT_EXIT_STAGES = ['Not Interested', 'Signed but Not Interested'];
+const EXIT_STAGES: string[] = [...EXIT_STAGE_LIST];
+const PERMANENT_EXIT_STAGES: string[] = [...PERM_EXIT_STAGES];
 
 // Separate stages into progression and exit for display purposes
-const PROGRESSION_STAGES = STAGES.filter(s => !EXIT_STAGES.includes(s));
-const EXIT_STAGE_OPTIONS = STAGES.filter(s => EXIT_STAGES.includes(s));
+const PROGRESSION_STAGES = ALL_STAGES.filter(s => !EXIT_STAGES.includes(s));
+const EXIT_STAGE_OPTIONS = ALL_STAGES.filter(s => EXIT_STAGES.includes(s));
 
 export const DetailsTab = ({
   recruit,

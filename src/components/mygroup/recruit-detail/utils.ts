@@ -1,3 +1,5 @@
+import { STAGES, STAGE_DESCRIPTIONS } from "@/utils/stageConstants";
+
 // Helper to strip emojis from names for cleaner display
 export const stripEmojis = (text: string | null): string | null => {
   if (!text) return null;
@@ -10,33 +12,25 @@ export const getFirstName = (name: string | null): string => {
   return cleaned.split(' ')[0];
 };
 
-export const STAGES = [
-  '100 List',
-  'Potential Follow Up',
-  'Reached Out',
-  'Evaluating',
-  'Signed',
-  'Shadow ✅',
-  'Sold 💲',
-  'Sold (5+) 💰',
-  'Signed but Not Interested',
-  'Not Interested',
+// Re-export STAGES for backward compatibility
+export { STAGES };
+
+// All stages in display order
+export const ALL_STAGES = [
+  STAGES.LIST_100,
+  STAGES.POTENTIAL_FOLLOW_UP,
+  STAGES.REACHED_OUT,
+  STAGES.EVALUATING,
+  STAGES.SIGNED,
+  STAGES.SHADOW,
+  STAGES.SOLD,
+  STAGES.SOLD_5_PLUS,
+  STAGES.SIGNED_BUT_NOT_INTERESTED,
+  STAGES.NOT_INTERESTED,
 ];
 
 export const getStageDescription = (stage: string): string => {
-  switch (stage) {
-    case '100 List': return 'A potential recruit on the initial list who hasn\'t been contacted yet.';
-    case 'Reached Out': return 'You\'ve made initial contact but haven\'t had a meaningful conversation yet.';
-    case 'Evaluating': return 'They\'re interested and actively considering the opportunity.';
-    case 'Signed': return 'They\'ve committed to join and are starting onboarding!';
-    case 'Shadow ✅': return 'They\'ve attended a blitz and shadowed in the field.';
-    case 'Sold 💲': return 'They\'ve made their first sale!';
-    case 'Sold (5+) 💰': return 'They\'ve sold 5 or more FP+ and are on track!';
-    case 'Not Interested': return 'They declined the opportunity.';
-    case 'Signed but Not Interested': return 'They signed but later decided not to continue.';
-    case 'Potential Follow Up': return 'Not ready now but worth following up later.';
-    default: return '';
-  }
+  return STAGE_DESCRIPTIONS[stage] || '';
 };
 
 export const getOnboardingStepDescription = (field: string, markingComplete: boolean, recruitFirstName: string): string => {

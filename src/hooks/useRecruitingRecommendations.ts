@@ -39,17 +39,8 @@ export interface RepData {
   committed_blitzes: any;
 }
 
-// Stage-based cadence rules (days between contacts)
-const STAGE_CADENCE: Record<string, number> = {
-  'Signed': 7,           // Weekly check-ins
-  'Shadow ✅': 7,        // Weekly check-ins
-  'Sold 💲': 14,         // Bi-weekly
-  'Sold (5+) 💰': 14,    // Bi-weekly
-  'Evaluating': 3,       // Hot leads need frequent contact
-  'Reached Out': 5,      // Follow up within a week
-  'Reached out': 5,
-  '100 List': 14,        // Pipeline building, lower priority
-};
+// Stage-based cadence rules (days between contacts) - import from constants
+import { STAGE_CADENCE } from "@/utils/stageConstants";
 
 export const useRecruitingRecommendations = (
   recruits: Recruit[],

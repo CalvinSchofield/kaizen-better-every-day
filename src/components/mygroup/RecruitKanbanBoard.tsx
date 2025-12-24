@@ -9,22 +9,24 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { STAGES, STAGE_LABELS, STAGE_COLORS, SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
+
 // Primary stages always shown
 const PRIMARY_STAGES = [
-  { key: '100 List', label: '100 List', color: 'bg-muted' },
-  { key: 'Reached out', label: 'Reached Out', color: 'bg-blue-500/20' },
-  { key: 'Evaluating', label: 'Evaluating', color: 'bg-yellow-500/20' },
-  { key: 'Signed', label: 'Signed', color: 'bg-green-500/20' },
-  { key: 'Shadow ✅', label: 'Shadow ✅', color: 'bg-emerald-500/20' },
-  { key: 'Sold 💲', label: 'Sold 💲', color: 'bg-primary/20' },
-  { key: 'Sold (5+) 💰', label: 'Sold (5+) 💰', color: 'bg-amber-500/20' },
+  { key: STAGES.LIST_100, label: STAGE_LABELS[STAGES.LIST_100], color: STAGE_COLORS[STAGES.LIST_100] },
+  { key: STAGES.REACHED_OUT, label: STAGE_LABELS[STAGES.REACHED_OUT], color: STAGE_COLORS[STAGES.REACHED_OUT] },
+  { key: STAGES.EVALUATING, label: STAGE_LABELS[STAGES.EVALUATING], color: STAGE_COLORS[STAGES.EVALUATING] },
+  { key: STAGES.SIGNED, label: STAGE_LABELS[STAGES.SIGNED], color: STAGE_COLORS[STAGES.SIGNED] },
+  { key: STAGES.SHADOW, label: STAGE_LABELS[STAGES.SHADOW], color: STAGE_COLORS[STAGES.SHADOW] },
+  { key: STAGES.SOLD, label: STAGE_LABELS[STAGES.SOLD], color: STAGE_COLORS[STAGES.SOLD] },
+  { key: STAGES.SOLD_5_PLUS, label: STAGE_LABELS[STAGES.SOLD_5_PLUS], color: STAGE_COLORS[STAGES.SOLD_5_PLUS] },
 ];
 
 // Secondary stages - hidden by default
 const SECONDARY_STAGES = [
-  { key: 'Potential Follow Up', label: 'Follow Up', color: 'bg-purple-500/20' },
-  { key: 'Not Interested', label: 'Not Interested', color: 'bg-destructive/20' },
-  { key: 'Signed but not interested', label: 'Signed (Left)', color: 'bg-destructive/20' },
+  { key: STAGES.POTENTIAL_FOLLOW_UP, label: STAGE_LABELS[STAGES.POTENTIAL_FOLLOW_UP], color: STAGE_COLORS[STAGES.POTENTIAL_FOLLOW_UP] },
+  { key: STAGES.NOT_INTERESTED, label: STAGE_LABELS[STAGES.NOT_INTERESTED], color: STAGE_COLORS[STAGES.NOT_INTERESTED] },
+  { key: STAGES.SIGNED_BUT_NOT_INTERESTED, label: STAGE_LABELS[STAGES.SIGNED_BUT_NOT_INTERESTED], color: STAGE_COLORS[STAGES.SIGNED_BUT_NOT_INTERESTED] },
 ];
 
 interface RecruitKanbanBoardProps {
@@ -62,7 +64,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
       if (r.stage !== stage) return false;
       
       // For Potential Follow Up, only show if due today or overdue
-      if (stage === 'Potential Follow Up') {
+      if (stage === STAGES.POTENTIAL_FOLLOW_UP) {
         if (!r.nextActionDue) return false;
         const dueDate = parseISO(r.nextActionDue);
         const today = startOfToday();
@@ -142,8 +144,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     const effectiveOnboardingComplete = onboardingComplete || hasAnyRampProgress;
     
     // Only show blockers for Signed or later stages
-    const signedStages = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
-    const isSignedOrLater = signedStages.some(s => recruit.stage === s);
+    const isSignedOrLater = SIGNED_PLUS_STAGES.some(s => recruit.stage === s);
     
     if (isSignedOrLater) {
       if (!ipadAssigned) {

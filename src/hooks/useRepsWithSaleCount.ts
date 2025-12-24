@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { useGroupRecruits } from "./useGroupRecruits";
+import { STAGES, EXIT_STAGES } from "@/utils/stageConstants";
 
 // Stages that count as "sold"
-const SOLD_STAGES = ['Sold 💲', 'Sold (5+) 💰'];
+const SOLD_STAGES: string[] = [STAGES.SOLD, STAGES.SOLD_5_PLUS];
 
 // Stages that should NOT count (even if previously sold)
-const EXCLUDED_STAGES = ['Not Interested', 'Signed but Not Interested', 'Potential Follow Up'];
+const EXCLUDED_STAGES: string[] = [...EXIT_STAGES];
 
 /**
  * Hook to calculate the number of direct recruits who have made a sale.

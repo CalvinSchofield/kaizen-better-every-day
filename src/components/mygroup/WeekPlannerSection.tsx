@@ -37,7 +37,8 @@ const getFirstName = (name: string | null): string => {
 };
 
 // Stages that should be hidden unless follow-up is due
-const HIDDEN_STAGES = ['Not Interested', 'Signed but Not Interested'];
+import { STAGES } from "@/utils/stageConstants";
+const HIDDEN_STAGES: string[] = [STAGES.NOT_INTERESTED, STAGES.SIGNED_BUT_NOT_INTERESTED];
 
 interface BlitzEvent {
   id: string;
