@@ -171,7 +171,10 @@ export default function UpgradeCheatSheet() {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50">
+      <div 
+        className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/50"
+        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
+      >
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
             <Button

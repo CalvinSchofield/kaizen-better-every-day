@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./components/Layout";
+import { useSafeAreaFallback } from "./hooks/useSafeAreaFallback";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import OfflineIndicator from "./components/OfflineIndicator";
@@ -47,6 +48,9 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  // Apply safe area fallback for iOS PWA mode when env() fails
+  useSafeAreaFallback();
+  
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {

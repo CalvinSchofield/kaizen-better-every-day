@@ -191,11 +191,19 @@ All colors MUST be HSL.
     --safe-area-left: env(safe-area-inset-left, 0px);
     --safe-area-right: env(safe-area-inset-right, 0px);
     
+    /* Fallback values for when env() fails (e.g., iOS beta PWA bugs) */
+    --safe-area-fallback-top: 0px;
+    --safe-area-fallback-bottom: 0px;
+    
+    /* Effective safe area values that use fallback when needed */
+    --effective-safe-area-top: max(var(--safe-area-top), var(--safe-area-fallback-top));
+    --effective-safe-area-bottom: max(var(--safe-area-bottom), var(--safe-area-fallback-bottom));
+    
     /* App layout constants - generous spacing like LinkedIn */
     --header-height: 3.5rem;
-    --header-padding-top: max(0.75rem, var(--safe-area-top));
+    --header-padding-top: max(0.75rem, var(--effective-safe-area-top));
     --nav-height: 4.5rem;
-    --nav-padding-bottom: max(0.5rem, var(--safe-area-bottom));
+    --nav-padding-bottom: max(0.5rem, var(--effective-safe-area-bottom));
   }
   
   #root {
