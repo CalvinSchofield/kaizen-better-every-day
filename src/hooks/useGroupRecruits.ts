@@ -210,9 +210,12 @@ export const useGroupRecruits = () => {
         .in('stage', RECRUITING_STAGES);
 
       // Filter by accessible notion page IDs (from team access)
-      // Area directors see all, others see only their accessible reps
-      if (accessLevel !== 'area_director' && accessibleNotionIds.length > 0) {
+      // All leaders use the same filter - team access already handles permissions and excludes self
+      if (accessibleNotionIds.length > 0) {
         repsQuery = repsQuery.in('notion_page_id', accessibleNotionIds);
+      } else {
+        // No accessible reps means no results
+        return { recruits: [], activities: [], pendingSuggestions: [] };
       }
 
       const { data: repsData, error: repsError } = await repsQuery;
