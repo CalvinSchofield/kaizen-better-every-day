@@ -43,6 +43,7 @@ interface RampNextStepProps {
 }
 
 // Check if self-service items are complete for a phase
+// This determines if the user has done THEIR part (not leader verification)
 const isSelfServiceComplete = (
   phaseId: PhaseId,
   watchedVideos: string[],
@@ -56,7 +57,22 @@ const isSelfServiceComplete = (
   const requiredWatched = requiredVideos.every(v => watchedVideos.includes(v));
 
   if (phaseId === 1) {
-    return requiredWatched && goalsSetupComplete && hasCommittedBlitz;
+    // Phase 1 self-service: videos, goals reviewed/texted leader, blitz committed/opted out
+    const goalsReviewed = watchedVideos.includes('phase1-goals-reviewed') ||
+      (watchedVideos.includes('phase1-goals-why') && 
+       watchedVideos.includes('phase1-goals-what') && 
+       watchedVideos.includes('phase1-goals-how'));
+    const hasTextedLeaderGoals = watchedVideos.includes('phase1-goals-texted-leader');
+    const hasOptedOutOfBlitz = watchedVideos.includes('phase1-blitz-opted-out');
+    
+    // Rep's self-service is complete if:
+    // - Watched required videos
+    // - Goals setup complete OR has reviewed goals and texted leader
+    // - Has committed to blitz OR opted out
+    const goalsPartDone = goalsSetupComplete || goalsReviewed || hasTextedLeaderGoals;
+    const blitzPartDone = hasCommittedBlitz || hasOptedOutOfBlitz;
+    
+    return requiredWatched && goalsPartDone && blitzPartDone;
   }
   if (phaseId === 2) {
     return phase2Progress.productStudied && 
@@ -111,7 +127,15 @@ const getNextStep = (
       };
     }
     
-    if (!goalsSetupComplete) {
+    // Check if user has done their part for goals
+    const goalsReviewed = watchedVideos.includes('phase1-goals-reviewed') ||
+      (watchedVideos.includes('phase1-goals-why') && 
+       watchedVideos.includes('phase1-goals-what') && 
+       watchedVideos.includes('phase1-goals-how'));
+    const hasTextedLeaderGoals = watchedVideos.includes('phase1-goals-texted-leader');
+    const goalsSelfServiceDone = goalsSetupComplete || goalsReviewed || hasTextedLeaderGoals;
+    
+    if (!goalsSelfServiceDone) {
       return {
         phaseId: 1,
         stepKey: "goals",
@@ -122,7 +146,8 @@ const getNextStep = (
       };
     }
     
-    if (!hasCommittedBlitz) {
+    const hasOptedOutOfBlitz = watchedVideos.includes('phase1-blitz-opted-out');
+    if (!hasCommittedBlitz && !hasOptedOutOfBlitz) {
       return {
         phaseId: 1,
         stepKey: "blitz",
