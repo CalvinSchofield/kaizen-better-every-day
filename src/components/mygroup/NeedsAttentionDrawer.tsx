@@ -1071,6 +1071,14 @@ const ReadinessItem = ({
   const rolePlaysStatus = getProgressStatus(readiness?.rolePlaysGoal || 0, readiness?.rolePlaysProgress || 0);
   const mnlStatus = getProgressStatus(readiness?.mnlGoal || 0, readiness?.mnlProgress || 0);
 
+  // Helper to format training minutes as hours
+  const formatTrainingHours = (minutes: number) => {
+    const hours = minutes / 60;
+    if (hours === 0) return '0 hrs';
+    if (hours < 1) return `${Math.round(minutes)} min`;
+    return `${hours % 1 === 0 ? hours : hours.toFixed(1)} hrs`;
+  };
+
   // Determine relationship to recruit
   const isRecruiter = currentUserNotionId && item.recruit.recruiterNotionId === currentUserNotionId;
   const isTeamLeader = currentUserNotionId && repData?.team_leader === currentUserNotionId;
@@ -1149,7 +1157,7 @@ const ReadinessItem = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Training</span>
                   <span className={cn("font-medium", getStatusColor(trainingStatus))}>
-                    {trainingStatus === 'no-goal' ? 'No goal' : `${readiness.trainingHoursProgress}/${readiness.trainingHoursGoal}`}
+                    {trainingStatus === 'no-goal' ? 'No goal' : `${formatTrainingHours(readiness.trainingHoursProgress)}/${formatTrainingHours(readiness.trainingHoursGoal)}`}
                   </span>
                 </div>
               </div>
