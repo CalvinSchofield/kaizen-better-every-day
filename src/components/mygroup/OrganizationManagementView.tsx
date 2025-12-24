@@ -8,8 +8,11 @@ import {
   Users, 
   Building2,
   AlertTriangle,
-  User
+  User,
+  Search,
+  X
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -60,6 +63,7 @@ export const OrganizationManagementView = () => {
   
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Edit drawers state
   const [editingGroup, setEditingGroup] = useState<OrgMgmtGroup | null>(null);
@@ -198,6 +202,74 @@ export const OrganizationManagementView = () => {
   const allGroups = groups.map((g) => ({ id: g.id, name: g.name }));
   const allTeams = teams.map((t) => ({ id: t.id, name: t.name }));
 
+  // Filter logic
+  const lowerQuery = searchQuery.toLowerCase().trim();
+  
+  const filteredData = useMemo(() => {
+    if (!lowerQuery) {
+      return { groups, teams, unassignedTeams, repsByTeam };
+    }
+
+    // Find matching reps
+    const matchingRepTeamIds = new Set<string>();
+    const filteredRepsByTeam = new Map<string, OrgRep[]>();
+    
+    repsByTeam.forEach((teamReps, teamId) => {
+      const matchingReps = teamReps.filter(
+        (r) => r.name.toLowerCase().includes(lowerQuery) ||
+               r.recruiterName?.toLowerCase().includes(lowerQuery)
+      );
+      if (matchingReps.length > 0) {
+        matchingRepTeamIds.add(teamId);
+        filteredRepsByTeam.set(teamId, matchingReps);
+      }
+    });
+
+    // Find matching teams (by name or containing matching reps)
+    const matchingTeams = teams.filter(
+      (t) => t.name.toLowerCase().includes(lowerQuery) ||
+             t.leadName?.toLowerCase().includes(lowerQuery) ||
+             matchingRepTeamIds.has(t.id)
+    );
+    const matchingTeamIds = new Set(matchingTeams.map((t) => t.id));
+
+    // Find matching groups (by name or containing matching teams)
+    const matchingGroups = groups.filter(
+      (g) => g.name.toLowerCase().includes(lowerQuery) ||
+             g.leadName?.toLowerCase().includes(lowerQuery) ||
+             g.teamIds.some((tid) => matchingTeamIds.has(tid))
+    );
+
+    const filteredUnassigned = unassignedTeams.filter(
+      (t) => t.name.toLowerCase().includes(lowerQuery) ||
+             t.leadName?.toLowerCase().includes(lowerQuery) ||
+             matchingRepTeamIds.has(t.id)
+    );
+
+    // When filtering, show reps from repsByTeam if team matched, or filteredRepsByTeam if only rep matched
+    const finalRepsByTeam = new Map<string, OrgRep[]>();
+    matchingTeams.forEach((t) => {
+      if (t.name.toLowerCase().includes(lowerQuery) || t.leadName?.toLowerCase().includes(lowerQuery)) {
+        // Team matched - show all reps
+        finalRepsByTeam.set(t.id, repsByTeam.get(t.id) || []);
+      } else {
+        // Only rep matched - show filtered reps
+        finalRepsByTeam.set(t.id, filteredRepsByTeam.get(t.id) || []);
+      }
+    });
+
+    return {
+      groups: matchingGroups,
+      teams: matchingTeams,
+      unassignedTeams: filteredUnassigned,
+      repsByTeam: finalRepsByTeam,
+    };
+  }, [lowerQuery, groups, teams, unassignedTeams, repsByTeam]);
+
+  // Auto-expand when searching
+  const displayExpandedGroups = lowerQuery ? new Set(filteredData.groups.map((g) => g.id)) : expandedGroups;
+  const displayExpandedTeams = lowerQuery ? new Set(filteredData.teams.map((t) => t.id)) : expandedTeams;
+
   return (
     <div className="space-y-4">
       {/* Header with create actions */}
@@ -223,11 +295,32 @@ export const OrganizationManagementView = () => {
         </DropdownMenu>
       </div>
 
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search teams or reps..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9"
+        />
+        {searchQuery && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+            onClick={() => setSearchQuery("")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
       {/* Management Groups */}
       <div className="space-y-2">
-        {groups.map((group) => {
-          const isExpanded = expandedGroups.has(group.id);
-          const groupTeams = teams.filter((t) => t.mgmtGroupId === group.id);
+        {filteredData.groups.map((group) => {
+          const isExpanded = displayExpandedGroups.has(group.id);
+          const groupTeams = filteredData.teams.filter((t) => t.mgmtGroupId === group.id);
           
           return (
             <Collapsible key={group.id} open={isExpanded} onOpenChange={() => toggleGroup(group.id)}>
@@ -280,8 +373,8 @@ export const OrganizationManagementView = () => {
                         <TeamCard
                           key={team.id}
                           team={team}
-                          reps={repsByTeam.get(team.id) || []}
-                          isExpanded={expandedTeams.has(team.id)}
+                          reps={filteredData.repsByTeam.get(team.id) || []}
+                          isExpanded={displayExpandedTeams.has(team.id)}
                           onToggle={() => toggleTeam(team.id)}
                           onEditTeam={() => setEditingTeam(team)}
                           onEditRep={(rep) => setEditingRep(rep)}
@@ -297,18 +390,18 @@ export const OrganizationManagementView = () => {
       </div>
 
       {/* Unassigned Teams */}
-      {unassignedTeams.length > 0 && (
+      {filteredData.unassignedTeams.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             Unassigned Teams
           </h4>
-          {unassignedTeams.map((team) => (
+          {filteredData.unassignedTeams.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
-              reps={repsByTeam.get(team.id) || []}
-              isExpanded={expandedTeams.has(team.id)}
+              reps={filteredData.repsByTeam.get(team.id) || []}
+              isExpanded={displayExpandedTeams.has(team.id)}
               onToggle={() => toggleTeam(team.id)}
               onEditTeam={() => setEditingTeam(team)}
               onEditRep={(rep) => setEditingRep(rep)}
@@ -317,7 +410,16 @@ export const OrganizationManagementView = () => {
         </div>
       )}
 
-      {groups.length === 0 && unassignedTeams.length === 0 && (
+      {/* No results message */}
+      {lowerQuery && filteredData.groups.length === 0 && filteredData.unassignedTeams.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Search className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>No results found for "{searchQuery}"</p>
+          <p className="text-sm">Try a different search term</p>
+        </div>
+      )}
+
+      {!lowerQuery && groups.length === 0 && unassignedTeams.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
           <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>No organization structure yet</p>
