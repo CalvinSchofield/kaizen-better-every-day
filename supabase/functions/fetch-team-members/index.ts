@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 // Retry helper for Notion API with exponential backoff and jitter
-async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 8): Promise<Response> {
+// Reduced retries and max delay for faster failure
+async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -20,11 +21,11 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
         let delay: number;
         
         if (retryAfter) {
-          delay = parseInt(retryAfter, 10) * 1000 || 60000;
+          delay = Math.min(parseInt(retryAfter, 10) * 1000, 10000); // Cap at 10s
         } else {
-          // Exponential backoff with jitter: base delay * 2^attempt + random jitter
-          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 90000); // Max 90 seconds
-          const jitter = Math.random() * 1000; // 0-1 second jitter
+          // Exponential backoff capped at 10s for faster failure
+          const baseDelay = Math.min(2000 * Math.pow(2, attempt), 10000);
+          const jitter = Math.random() * 1000;
           delay = baseDelay + jitter;
         }
         
@@ -40,7 +41,7 @@ async function fetchNotionWithRetry(url: string, options: RequestInit, maxRetrie
       console.error(`Fetch attempt ${attempt + 1} failed:`, error.message);
       
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(2000 * Math.pow(2, attempt), 90000) + Math.random() * 1000;
+        const delay = Math.min(2000 * Math.pow(2, attempt), 10000) + Math.random() * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

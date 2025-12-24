@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "./useTeamAccess";
+import { useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
 export interface BlitzCommitment {
   id: string;
@@ -87,6 +89,24 @@ const RECRUITING_STAGES = [
 export const useGroupRecruits = () => {
   const { data: teamAccess, isLoading: teamLoading } = useTeamAccess();
   const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+
+  const CACHE_KEY = 'group-recruits-cache';
+  
+  // Load cached data on mount
+  useEffect(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const { timestamp } = JSON.parse(cached);
+        const isRecent = Date.now() - timestamp < 10 * 60 * 1000; // 10 minutes
+        if (!isRecent) {
+          localStorage.removeItem(CACHE_KEY);
+        }
+      } catch (e) {
+        localStorage.removeItem(CACHE_KEY);
+      }
+    }
+  }, []);
 
   const query = useQuery({
     queryKey: ['group-recruits', teamAccess?.accessLevel, teamAccess?.accessibleReps?.length],
@@ -289,17 +309,64 @@ export const useGroupRecruits = () => {
         pendingSuggestions = (suggestions || []) as RecruitSuggestion[];
       }
 
+      // Cache successful result
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data: { recruits, activities, pendingSuggestions },
+        timestamp: Date.now(),
+      }));
+
       return { recruits, activities, pendingSuggestions };
     },
     enabled: !!teamAccess?.accessibleReps?.length && isLeader,
     staleTime: 1000 * 60 * 3, // 3 minutes - longer cache to reduce Notion API calls
     refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes as backup to realtime
+    // Use cached data as placeholder while fetching
+    placeholderData: () => {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          const isRecent = Date.now() - timestamp < 30 * 60 * 1000; // 30 minutes for placeholder
+          if (isRecent && data) {
+            return data;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached recruits:', e);
+        }
+      }
+      return undefined;
+    },
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
+
+  // Show toast when using stale data due to error
+  useEffect(() => {
+    if (query.isError && query.data) {
+      toast.warning("Using cached data", {
+        description: "Couldn't refresh your group. Showing last known data.",
+      });
+    }
+  }, [query.isError, query.data]);
+
+  const getCachedTimestamp = useCallback(() => {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        const { timestamp } = JSON.parse(cached);
+        return new Date(timestamp);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }, []);
 
   return {
     ...query,
     isLeader,
     isLoading: teamLoading || query.isLoading,
+    lastUpdated: getCachedTimestamp(),
   };
 };
 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface BlitzEvent {
   id: string;
@@ -12,42 +13,60 @@ interface BlitzEvent {
   code1?: string | null;
 }
 
+interface CachedBlitzes {
+  data: BlitzEvent[];
+  timestamp: number;
+}
+
+const CACHE_KEY = 'blitzes-cache';
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+
+const parseBlitzesFromCache = (cached: CachedBlitzes | null): { future: BlitzEvent[]; past: BlitzEvent[] } => {
+  if (!cached?.data?.length) return { future: [], past: [] };
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const future: BlitzEvent[] = [];
+  const past: BlitzEvent[] = [];
+  
+  cached.data.forEach((blitz) => {
+    if (!blitz?.date) return;
+    const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+    blitzEndDate.setHours(0, 0, 0, 0);
+    if (blitzEndDate >= today) {
+      future.push(blitz);
+    } else {
+      past.push(blitz);
+    }
+  });
+  
+  future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  return { future, past };
+};
+
 export const useBlitzes = () => {
   const [allBlitzes, setAllBlitzes] = useState<BlitzEvent[]>([]);
   const [pastBlitzes, setPastBlitzes] = useState<BlitzEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [isUsingCache, setIsUsingCache] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Load from cache immediately for instant offline access
   useEffect(() => {
-    const cached = localStorage.getItem('blitzes-cache');
+    const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       try {
-        const { data, timestamp } = JSON.parse(cached);
-        const isRecent = Date.now() - timestamp < 60 * 60 * 1000; // 1 hour
-        if (isRecent && data.length > 0) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const future: BlitzEvent[] = [];
-          const past: BlitzEvent[] = [];
-          
-          data.forEach((blitz: any) => {
-            if (!blitz || !blitz.date) return;
-            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-            blitzEndDate.setHours(0, 0, 0, 0);
-            if (blitzEndDate >= today) {
-              future.push(blitz);
-            } else {
-              past.push(blitz);
-            }
-          });
-          
-          // Sort future by date ascending, past by date descending
-          future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          
+        const parsed: CachedBlitzes = JSON.parse(cached);
+        const isRecent = Date.now() - parsed.timestamp < CACHE_DURATION;
+        if (isRecent && parsed.data?.length > 0) {
+          const { future, past } = parseBlitzesFromCache(parsed);
           setAllBlitzes(future);
           setPastBlitzes(past);
+          setLastUpdated(new Date(parsed.timestamp));
           setLoading(false);
         }
       } catch (e) {
@@ -56,58 +75,69 @@ export const useBlitzes = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchAllBlitzes = async () => {
-      setLoading(true);
+  const fetchBlitzes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error: fetchError } = await supabase.functions.invoke('fetch-preseason-blitzes');
       
-      try {
-        const { data, error } = await supabase.functions.invoke('fetch-preseason-blitzes');
+      if (fetchError) throw fetchError;
+      
+      if (data?.blitzes) {
+        const cached: CachedBlitzes = { data: data.blitzes, timestamp: Date.now() };
+        const { future, past } = parseBlitzesFromCache(cached);
         
-        if (error) throw error;
+        setAllBlitzes(future);
+        setPastBlitzes(past);
+        setIsUsingCache(false);
+        setLastUpdated(new Date());
         
-        if (data?.blitzes) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          const future: BlitzEvent[] = [];
-          const past: BlitzEvent[] = [];
-          
-          data.blitzes.forEach((blitz: any) => {
-            if (!blitz || !blitz.date) return;
-            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-            blitzEndDate.setHours(0, 0, 0, 0);
-            if (blitzEndDate >= today) {
-              future.push(blitz);
-            } else {
-              past.push(blitz);
-            }
-          });
-          
-          // Sort future by date ascending, past by date descending
-          future.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          
-          setAllBlitzes(future);
-          setPastBlitzes(past);
-          
-          // Cache for offline access (store ALL blitzes)
-          localStorage.setItem('blitzes-cache', JSON.stringify({
-            data: data.blitzes,
-            timestamp: Date.now()
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching blitzes:', error);
-      } finally {
-        setLoading(false);
+        // Cache for offline access
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
       }
-    };
-
-    fetchAllBlitzes();
+    } catch (err) {
+      console.error('Error fetching blitzes:', err);
+      setError(err as Error);
+      
+      // Try to use cached data as fallback
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed: CachedBlitzes = JSON.parse(cached);
+          if (parsed.data?.length > 0) {
+            const { future, past } = parseBlitzesFromCache(parsed);
+            setAllBlitzes(future);
+            setPastBlitzes(past);
+            setIsUsingCache(true);
+            setLastUpdated(new Date(parsed.timestamp));
+            toast.warning("Using cached data", {
+              description: "Couldn't refresh blitzes. Showing last known data.",
+            });
+          }
+        } catch (e) {
+          console.error('Failed to use cached blitzes:', e);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Combine all blitzes (future + past) for contexts that need complete history
+  useEffect(() => {
+    fetchBlitzes();
+  }, [fetchBlitzes]);
+
   const allBlitzesIncludingPast = [...allBlitzes, ...pastBlitzes];
   
-  return { allBlitzes, pastBlitzes, allBlitzesIncludingPast, loading };
+  return { 
+    allBlitzes, 
+    pastBlitzes, 
+    allBlitzesIncludingPast, 
+    loading, 
+    error,
+    isUsingCache,
+    lastUpdated,
+    refetch: fetchBlitzes,
+  };
 };
