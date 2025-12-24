@@ -40,7 +40,7 @@ export interface RepData {
 }
 
 // Stage-based cadence rules (days between contacts) - import from constants
-import { STAGE_CADENCE } from "@/utils/stageConstants";
+import { STAGE_CADENCE, EXIT_STAGES, isStageIn } from "@/utils/stageConstants";
 
 export const useRecruitingRecommendations = (
   recruits: Recruit[],
@@ -93,6 +93,16 @@ export const useRecruitingRecommendations = (
     console.log('[Recommendations] Upcoming blitzes (within 21 days):', upcomingBlitzes.map(b => ({ id: b.id, name: b.name, date: b.date })));
 
     recruits.forEach(recruit => {
+      // EARLY EXIT: Skip anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up with no due date)
+      // Potential Follow Up with a scheduled date will be handled separately via scheduledFollowUpMap
+      if (isStageIn(recruit.stage, EXIT_STAGES)) {
+        // Allow Potential Follow Up through ONLY if they have a scheduled follow-up due today
+        if (recruit.stage !== 'Potential Follow Up') {
+          console.log(`[Recommendations] Skipping ${recruit.name} - exit stage: ${recruit.stage}`);
+          return; // Skip Not Interested and Signed but Not Interested entirely
+        }
+      }
+      
       const lastContact = lastContactMap.get(recruit.notionPageId);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
@@ -135,11 +145,10 @@ export const useRecruitingRecommendations = (
       if (isSignedOrShadow && isRookie && blitzes) {
         const repData = repDataMap?.get(recruit.notionPageId);
         
-        // Use committedBlitzes from Notion (recruit object) OR from reps table (repData)
+        // Use committedBlitzes from recruit_blitzes table (recruit object) OR from reps table (repData)
         let committedBlitzIds: string[] = [];
         
-        // First try recruit's committedBlitzes from Notion (most reliable)
-        // Note: From Notion, this could be string[] (IDs) or BlitzCommitment[] (objects)
+        // First try recruit's committedBlitzes from Supabase recruit_blitzes join
         if (recruit.committedBlitzes && recruit.committedBlitzes.length > 0) {
           committedBlitzIds = recruit.committedBlitzes.map((b: string | { id: string }) => 
             typeof b === 'string' ? b : b.id
@@ -193,15 +202,12 @@ export const useRecruitingRecommendations = (
               missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
             }
           } else {
-            // Fall back to Notion-sourced data from recruit object
-            // Check onboarding status - Phase 4 or Blitz Ready means complete (handle variations)
-            const statusLower = (recruit.onboardingStatus || '').toLowerCase();
-            const onboardingComplete = statusLower.includes('phase 4') || 
-                                       statusLower.includes('blitz ready') ||
-                                       recruit.blitzReady === true;
-            if (!onboardingComplete) missing.push('Onboarding');
+            // Fall back to recruit object data (also from Supabase, but less detailed)
+            // Use boolean fields directly from recruit object
+            if (!recruit.onboardingComplete) missing.push('Onboarding');
+            if (!recruit.trainingsComplete) missing.push('Trainings');
+            if (!recruit.slackJoined) missing.push('Slack');
             if (!recruit.ipadAssigned) missing.push('iPad');
-            // Can't check individual ramp phases from Notion, but blitzReady covers that
           }
           
           if (missing.length > 0) {
@@ -228,13 +234,10 @@ export const useRecruitingRecommendations = (
               missing.push(`${incompletePhaseCount} ramp phase${incompletePhaseCount > 1 ? 's' : ''}`);
             }
           } else {
-            // Fall back to Notion-sourced data
-            // Check for variations of "Blitz ready" status (with/without emoji, capitalization)
-            const statusLower = (recruit.onboardingStatus || '').toLowerCase();
-            const onboardingComplete = statusLower.includes('phase 4') || 
-                                       statusLower.includes('blitz ready') ||
-                                       recruit.blitzReady === true;
-            if (!onboardingComplete) missing.push('Onboarding');
+            // Fall back to recruit object data (also from Supabase, but less detailed)
+            if (!recruit.onboardingComplete) missing.push('Onboarding');
+            if (!recruit.trainingsComplete) missing.push('Trainings');
+            if (!recruit.slackJoined) missing.push('Slack');
             if (!recruit.ipadAssigned) missing.push('iPad');
           }
           
