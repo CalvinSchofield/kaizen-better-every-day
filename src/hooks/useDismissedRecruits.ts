@@ -1,22 +1,23 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 const STORAGE_KEY = 'kaizen-dismissed-recruits';
 const DATE_KEY = 'kaizen-dismissed-date';
+const CENTRAL_TIMEZONE = 'America/Chicago';
 
 /**
- * Dismissed recruits tracking - resets daily.
+ * Dismissed recruits tracking - resets daily at midnight Central Time.
  * When you contact/schedule a recruit, they're dismissed for the REST OF TODAY only.
- * The list automatically clears at midnight (when the date changes).
+ * The list automatically clears at midnight Central Time (when the date changes).
  */
 export const useDismissedRecruits = () => {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
   const isSyncing = useRef(false);
 
-  // Get today's date string for comparison
-  const getTodayString = () => format(new Date(), 'yyyy-MM-dd');
+  // Get today's date string in Central Time for comparison
+  const getTodayString = () => formatInTimeZone(new Date(), CENTRAL_TIMEZONE, 'yyyy-MM-dd');
 
   // Load from database on mount, with daily reset logic
   useEffect(() => {
