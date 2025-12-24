@@ -788,6 +788,7 @@ export const RecruitDetailDrawer = ({
                   recruitYtdFP={recruitYtdFP}
                   onStageChange={handleStageChange}
                   stageShake={stageShake}
+                  onDeleted={() => onOpenChange(false)}
                 />
               </TabsContent>
             </Tabs>
