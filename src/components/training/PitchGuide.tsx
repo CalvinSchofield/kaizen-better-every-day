@@ -15,6 +15,7 @@ export interface PitchSection {
   emoji: string;
   script: string;
   stageTip?: string;
+  isNoteOnly?: boolean;
 }
 
 interface PitchGuideProps {
@@ -161,7 +162,22 @@ export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuide
 
                     {/* Script content */}
                     <div className="p-4 space-y-4">
-                      {!revealed ? (
+                      {currentSection.isNoteOnly ? (
+                        // Note-only sections show content directly without highlight styling
+                        <div className="space-y-4">
+                          <div className="bg-muted/50 rounded-lg p-4">
+                            <p className="text-base leading-relaxed whitespace-pre-line text-muted-foreground">
+                              {currentSection.script}
+                            </p>
+                          </div>
+                          {currentSection.stageTip && (
+                            <div className="bg-muted/30 rounded-lg p-3 text-sm text-muted-foreground italic">
+                              <p className="font-medium text-foreground mb-1 not-italic text-xs uppercase tracking-wide">💡 Notes</p>
+                              {currentSection.stageTip}
+                            </div>
+                          )}
+                        </div>
+                      ) : !revealed ? (
                         <button
                           onClick={() => setRevealed(true)}
                           className="w-full min-h-[120px] border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
@@ -258,11 +274,19 @@ export const PitchGuide = ({ sections, pageTitle, audioSrc, onBack }: PitchGuide
               <CollapsibleContent>
                 <div className="px-4 py-3 space-y-3">
                   {/* Script */}
-                  <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary">
-                    <p className="text-base leading-relaxed whitespace-pre-line">
-                      {section.script}
-                    </p>
-                  </div>
+                  {section.isNoteOnly ? (
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <p className="text-base leading-relaxed whitespace-pre-line text-muted-foreground">
+                        {section.script}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-primary/5 rounded-lg p-4 border-l-4 border-primary">
+                      <p className="text-base leading-relaxed whitespace-pre-line">
+                        {section.script}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Stage tip */}
                   {section.stageTip && (
