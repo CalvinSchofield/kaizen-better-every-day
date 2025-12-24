@@ -150,16 +150,19 @@ export const EditRecruitDrawer = ({
     return teamAccess.mgmtGroups || [];
   }, [teamAccess]);
 
-  // Stages that qualify as valid recruiters (Signed+)
-  const VALID_RECRUITER_STAGES = ['signed', 'shadow complete', 'sold', 'sold 5+'];
-  
   // Get all recruiters with team info - filtered to Signed+ stages
   const allRecruiters = useMemo(() => {
     if (!teamAccess?.accessibleReps) return [];
     return teamAccess.accessibleReps.filter(rep => {
       if (!rep.name) return false;
       const stageLower = (rep.stage || '').toLowerCase();
-      return VALID_RECRUITER_STAGES.some(s => stageLower.includes(s));
+      // Match stages: signed, shadow complete, sold, sold 5+, sold (5+)
+      return (
+        stageLower.includes('signed') ||
+        stageLower.includes('shadow complete') ||
+        stageLower.includes('shadow_complete') ||
+        (stageLower.includes('sold') && !stageLower.includes('100'))
+      );
     });
   }, [teamAccess?.accessibleReps]);
 
