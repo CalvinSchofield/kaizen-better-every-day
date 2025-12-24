@@ -394,9 +394,12 @@ Deno.serve(async (req) => {
       );
 
       if (!recruitsResponse.ok) {
-        const errorText = await recruitsResponse.text();
+        const errorText = await recruitsResponse.text().catch(() => '');
         console.error('Notion recruits API error:', errorText);
-        throw new Error(`Failed to fetch recruits: ${recruitsResponse.status}`);
+        throw new Error(
+          `Failed to fetch recruits from Notion database ${repsDbId}: ${recruitsResponse.status}. ` +
+            `This usually means the Reps database is not shared with the Notion integration, or NOTION_REPS_DATABASE_ID is set incorrectly.`
+        );
       }
 
       const recruitsData = await recruitsResponse.json();
