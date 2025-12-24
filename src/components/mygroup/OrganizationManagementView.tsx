@@ -188,25 +188,11 @@ export const OrganizationManagementView = () => {
     });
   };
 
-  if (accessLoading || orgLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-    );
-  }
-
-  const allGroups = groups.map((g) => ({ id: g.id, name: g.name }));
-  const allTeams = teams.map((t) => ({ id: t.id, name: t.name }));
-
-  // Filter logic
+  // Filter logic - must be before loading check to maintain hook order
   const lowerQuery = searchQuery.toLowerCase().trim();
   
   const filteredData = useMemo(() => {
-    if (!lowerQuery) {
+    if (!lowerQuery || !groups.length) {
       return { groups, teams, unassignedTeams, repsByTeam };
     }
 
@@ -269,6 +255,20 @@ export const OrganizationManagementView = () => {
   // Auto-expand when searching
   const displayExpandedGroups = lowerQuery ? new Set(filteredData.groups.map((g) => g.id)) : expandedGroups;
   const displayExpandedTeams = lowerQuery ? new Set(filteredData.teams.map((t) => t.id)) : expandedTeams;
+
+  if (accessLoading || orgLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-32" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  const allGroups = groups.map((g) => ({ id: g.id, name: g.name }));
+  const allTeams = teams.map((t) => ({ id: t.id, name: t.name }));
 
   return (
     <div className="space-y-4">
