@@ -25,6 +25,7 @@ import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
 import { useWeeklyReports } from "@/hooks/useWeeklyReports";
 import { TeamRecapStory } from "@/components/team-recap";
+import { MigrationTrigger } from "@/components/MigrationTrigger";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -1418,6 +1419,14 @@ export default function Settings() {
             setSelectedReport(null);
           }}
         />
+      )}
+
+      {/* Notion Migration (Area Director only) */}
+      {teamAccess.data?.accessLevel === 'area_director' && (
+        <div className="mt-8">
+          <Separator className="mb-6" />
+          <MigrationTrigger />
+        </div>
       )}
     </div>
   );
