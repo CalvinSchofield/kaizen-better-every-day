@@ -51,8 +51,8 @@ export const EditRepOrgDrawer = ({
   allTeams,
   allReps,
 }: EditRepOrgDrawerProps) => {
-  const [teamId, setTeamId] = useState(rep.teamId || "");
-  const [recruiterUserId, setRecruiterUserId] = useState(rep.recruiterUserId || "");
+  const [teamId, setTeamId] = useState(rep.teamId || "__none__");
+  const [recruiterUserId, setRecruiterUserId] = useState(rep.recruiterUserId || "__none__");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -65,8 +65,8 @@ export const EditRepOrgDrawer = ({
       const { error } = await supabase.functions.invoke("update-rep-assignment", {
         body: {
           repId: rep.id,
-          teamId: teamId || null,
-          recruiterUserId: recruiterUserId || null,
+          teamId: teamId === "__none__" ? null : teamId,
+          recruiterUserId: recruiterUserId === "__none__" ? null : recruiterUserId,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -119,7 +119,7 @@ export const EditRepOrgDrawer = ({
                 <SelectValue placeholder="Select team" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No team assigned</SelectItem>
+                <SelectItem value="__none__">No team assigned</SelectItem>
                 {allTeams.map((team) => (
                   <SelectItem key={team.id} value={team.id}>
                     {team.name}
@@ -136,7 +136,7 @@ export const EditRepOrgDrawer = ({
                 <SelectValue placeholder="Select recruiter" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No recruiter assigned</SelectItem>
+                <SelectItem value="__none__">No recruiter assigned</SelectItem>
                 {allReps
                   .filter((r) => r.userId)
                   .map((r) => (
