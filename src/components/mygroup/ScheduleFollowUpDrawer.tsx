@@ -67,6 +67,7 @@ export const ScheduleFollowUpDrawer = ({
       const dateOnlyString = formatInTimeZone(selectedDate, userTimezone, 'yyyy-MM-dd');
       
       await logActivityMutation.mutateAsync({
+        recruitId: recruit.id,
         recruitNotionId: recruit.notionPageId,
         activityType: 'next_step',
         notes: notes || `Follow up scheduled for ${format(selectedDate, 'MMM d')}`,

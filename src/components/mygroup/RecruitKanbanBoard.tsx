@@ -193,7 +193,8 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   };
 
   const handleDragStart = (e: React.DragEvent, recruit: Recruit) => {
-    e.dataTransfer.setData('recruitId', recruit.notionPageId);
+    e.dataTransfer.setData('recruitId', recruit.id);
+    e.dataTransfer.setData('recruitNotionId', recruit.notionPageId);
     e.dataTransfer.setData('currentStage', recruit.stage);
   };
 
@@ -204,12 +205,14 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const handleDrop = async (e: React.DragEvent, newStage: string) => {
     e.preventDefault();
     const recruitId = e.dataTransfer.getData('recruitId');
+    const recruitNotionId = e.dataTransfer.getData('recruitNotionId');
     const currentStage = e.dataTransfer.getData('currentStage');
 
     if (currentStage !== newStage) {
       try {
         await updateStageMutation.mutateAsync({
-          recruitNotionId: recruitId,
+          recruitId,
+          recruitNotionId,
           newStage,
         });
         toast.success(`Moved to ${newStage}`);

@@ -85,17 +85,34 @@ export const useAutoStageProgression = () => {
   const queryClient = useQueryClient();
 
   // Check and auto-update stage for a recruit based on their metrics
+  // Supports both recruitId (Supabase UUID) and recruitNotionId (legacy)
   const checkAndUpdateStage = useCallback(async (
-    recruitNotionId: string,
-    currentStage: string | null
+    identifier: string,
+    currentStage: string | null,
+    isSupabaseId: boolean = false // Set to true if identifier is a Supabase UUID
   ) => {
     try {
       // Fetch recruit's rep data to check metrics
-      const { data: repData } = await supabase
-        .from('reps')
-        .select('user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
-        .eq('notion_page_id', recruitNotionId)
-        .maybeSingle();
+      // Try by Supabase ID first if specified, otherwise by Notion ID
+      let repData = null;
+      
+      if (isSupabaseId) {
+        const { data } = await supabase
+          .from('reps')
+          .select('id, notion_page_id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
+          .eq('id', identifier)
+          .maybeSingle();
+        repData = data;
+      }
+      
+      if (!repData) {
+        const { data } = await supabase
+          .from('reps')
+          .select('id, notion_page_id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
+          .eq('notion_page_id', identifier)
+          .maybeSingle();
+        repData = data;
+      }
 
       if (!repData?.user_id) return null;
 
@@ -129,14 +146,16 @@ export const useAutoStageProgression = () => {
         const { error } = await supabase.functions.invoke('update-recruit-stage', {
           headers: { Authorization: `Bearer ${session.access_token}` },
           body: { 
-            recruitNotionId, 
+            recruitId: repData.id, // Always use Supabase ID
+            recruitNotionId: repData.notion_page_id, // Include for backwards compatibility
             newStage, 
             notes: `Auto-progressed based on: ${
               newStage.includes('5+') ? '5+ FP+ achieved' :
               newStage.includes('Sold') ? 'First sale recorded' :
               newStage.includes('Shadow') ? 'Attended blitz' :
               newStage.includes('Signed') ? 'Onboarding completed' : 'Progress'
-            }`
+            }`,
+            isAutomatic: true,
           },
         });
 
@@ -144,7 +163,8 @@ export const useAutoStageProgression = () => {
           // Invalidate all related queries for proper UI updates
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
           queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
-          queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruitNotionId] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', repData.id] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', identifier] });
           return newStage;
         }
       }
@@ -158,7 +178,7 @@ export const useAutoStageProgression = () => {
 
   // Check stage based on reaching out and connecting (for 100 List progression)
   const checkReachedOutProgression = useCallback(async (
-    recruitNotionId: string,
+    identifier: string,
     currentStage: string | null,
     wasConnected: boolean
   ): Promise<'show_popup' | 'auto_update' | null> => {

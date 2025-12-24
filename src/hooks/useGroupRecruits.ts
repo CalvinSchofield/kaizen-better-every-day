@@ -13,7 +13,8 @@ export interface BlitzCommitment {
 }
 
 export interface Recruit {
-  notionPageId: string;
+  id: string; // Supabase UUID - primary identifier
+  notionPageId: string; // Legacy Notion ID - for backwards compatibility
   name: string;
   phone: string;
   email: string;
@@ -209,7 +210,8 @@ export const useGroupRecruits = () => {
         const accessibleRepInfo = accessibleRepsMap.get(r.notion_page_id);
         
         return {
-          notionPageId: r.notion_page_id || r.id,
+          id: r.id, // Supabase UUID
+          notionPageId: r.notion_page_id || r.id, // Fallback to id if no notion_page_id
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
@@ -437,25 +439,30 @@ export const useUpdateRecruitStage = () => {
 
   return useMutation({
     mutationFn: async ({
+      recruitId,
       recruitNotionId,
       newStage,
       notes,
     }: {
-      recruitNotionId: string;
+      recruitId?: string; // Supabase UUID - preferred
+      recruitNotionId?: string; // Legacy Notion ID - fallback
       newStage: string;
       notes?: string;
     }) => {
+      if (!recruitId && !recruitNotionId) {
+        throw new Error("Either recruitId or recruitNotionId is required");
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // IMPORTANT: Stage is ultimately synced from Notion; updating only the DB can get overwritten.
-      // We therefore route manual stage changes through the backend function that updates Notion
-      // and the DB together.
+      // Route stage changes through edge function that handles both ID types
       const { data, error } = await supabase.functions.invoke("update-recruit-stage", {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
+          recruitId,
           recruitNotionId,
           newStage,
           notes,
@@ -468,9 +475,9 @@ export const useUpdateRecruitStage = () => {
         throw error;
       }
 
-      return { recruitNotionId, newStage, previousStage: data?.previousStage ?? null };
+      return { recruitId, recruitNotionId, newStage, previousStage: data?.previousStage ?? null };
     },
-    onMutate: async ({ recruitNotionId, newStage }) => {
+    onMutate: async ({ recruitId, recruitNotionId, newStage }) => {
       await queryClient.cancelQueries({ queryKey: ["group-recruits"] });
 
       const previousData = queryClient.getQueryData(["group-recruits"]);
@@ -480,12 +487,14 @@ export const useUpdateRecruitStage = () => {
         return {
           ...old,
           recruits: old.recruits.map((r: any) =>
-            r.notionPageId === recruitNotionId ? { ...r, stage: newStage } : r
+            (recruitId && r.id === recruitId) || (recruitNotionId && r.notionPageId === recruitNotionId)
+              ? { ...r, stage: newStage }
+              : r
           ),
         };
       });
 
-      return { previousData, recruitNotionId, newStage };
+      return { previousData, recruitId, recruitNotionId, newStage };
     },
     onError: (err, _variables, context) => {
       if (context?.previousData) {
@@ -499,10 +508,11 @@ export const useUpdateRecruitStage = () => {
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
       queryClient.invalidateQueries({ queryKey: ["recruits-rep-data"] });
       queryClient.invalidateQueries({ queryKey: ["recruit-detail-live"] });
-      if (data?.recruitNotionId) {
-        queryClient.invalidateQueries({ queryKey: ["recruit-rep-data", data.recruitNotionId] });
-        queryClient.invalidateQueries({ queryKey: ["recruit-activities", data.recruitNotionId] });
-        queryClient.invalidateQueries({ queryKey: ["recruit-detail-live", data.recruitNotionId] });
+      const identifier = data?.recruitId || data?.recruitNotionId;
+      if (identifier) {
+        queryClient.invalidateQueries({ queryKey: ["recruit-rep-data", identifier] });
+        queryClient.invalidateQueries({ queryKey: ["recruit-activities", identifier] });
+        queryClient.invalidateQueries({ queryKey: ["recruit-detail-live", identifier] });
       }
     },
   });
@@ -513,6 +523,7 @@ export const useLogRecruitActivity = () => {
 
   return useMutation({
     mutationFn: async ({ 
+      recruitId,
       recruitNotionId, 
       activityType, 
       notes,
@@ -521,7 +532,8 @@ export const useLogRecruitActivity = () => {
       updateLastContact = false,
       assignedToUserId,
     }: { 
-      recruitNotionId: string; 
+      recruitId?: string; // Supabase UUID - preferred
+      recruitNotionId?: string; // Legacy Notion ID - fallback
       activityType: 'phone_call' | 'in_person' | 'note' | 'next_step';
       notes?: string;
       nextAction?: string;
@@ -529,14 +541,22 @@ export const useLogRecruitActivity = () => {
       updateLastContact?: boolean;
       assignedToUserId?: string;
     }) => {
+      if (!recruitId && !recruitNotionId) {
+        throw new Error("Either recruitId or recruitNotionId is required");
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
+
+      // Use rep_notion_page_id for backwards compatibility, but also set recruit_id
+      const repIdentifier = recruitNotionId || recruitId;
 
       // Insert activity directly to Supabase
       const { data, error } = await supabase
         .from('recruit_activities')
         .insert({
-          rep_notion_page_id: recruitNotionId,
+          rep_notion_page_id: repIdentifier,
+          recruit_id: recruitId || null, // New column for future lookups
           activity_type: activityType,
           logged_by_user_id: session.user.id,
           notes: notes || null,
@@ -549,19 +569,21 @@ export const useLogRecruitActivity = () => {
         .single();
 
       if (error) throw error;
-      return { ...data, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
+      return { ...data, recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
     },
-    onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
+    onMutate: async ({ recruitId, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
       const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
       const tempId = `temp-${Date.now()}`;
+      const repIdentifier = recruitNotionId || recruitId;
       
       queryClient.setQueriesData({ queryKey: ['group-recruits'] }, (old: any) => {
         if (!old) return old;
         const newActivity = {
           id: tempId,
-          rep_notion_page_id: recruitNotionId,
+          rep_notion_page_id: repIdentifier,
+          recruit_id: recruitId,
           activity_type: activityType,
           logged_by_user_id: 'optimistic',
           notes: notes || null,
@@ -578,7 +600,7 @@ export const useLogRecruitActivity = () => {
         };
       });
       
-      return { previousData, tempId, recruitNotionId };
+      return { previousData, tempId, recruitId, recruitNotionId };
     },
     onError: (err, variables, context) => {
       if (context?.previousData) {
@@ -590,8 +612,9 @@ export const useLogRecruitActivity = () => {
     onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      if (data?.recruitNotionId) {
-        queryClient.invalidateQueries({ queryKey: ['recruit-activities', data.recruitNotionId] });
+      const identifier = data?.recruitId || data?.recruitNotionId;
+      if (identifier) {
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', identifier] });
       }
     },
   });
