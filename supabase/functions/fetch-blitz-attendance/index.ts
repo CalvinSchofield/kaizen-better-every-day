@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { scope } = await req.json();
+    const { scope, mgmtGroupId, teamId } = await req.json();
     
     if (!scope) {
       throw new Error("Missing required parameter: scope");
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       effectiveScope = "you";
     }
 
-    console.log(`Scope requested: ${scope}, effective scope: ${effectiveScope}, isAD: ${isAreaDirector}, isMgmt: ${isMgmtGroupLead}, isTeam: ${isTeamLead}`);
+    console.log(`Scope requested: ${scope}, effective scope: ${effectiveScope}, isAD: ${isAreaDirector}, isMgmt: ${isMgmtGroupLead}, isTeam: ${isTeamLead}, mgmtGroupId: ${mgmtGroupId}, teamId: ${teamId}`);
 
     let accessibleReps: TeamMember[] = [];
 
@@ -121,13 +121,25 @@ Deno.serve(async (req) => {
         // Area Director sees all teams
         const { data: allTeams } = await supabase.from("teams").select("id, name");
         accessibleTeamIds = (allTeams || []).map(t => t.id);
-      } else if (effectiveScope === "mgmt" && (isMgmtGroupLead || isAreaDirector)) {
-        // MGMT lead - get teams in their mgmt groups
-        if (isAreaDirector) {
-          // AD viewing mgmt scope - show all teams
-          const { data: allTeams } = await supabase.from("teams").select("id, name");
-          accessibleTeamIds = (allTeams || []).map(t => t.id);
-        } else {
+      } else if (effectiveScope === "mgmt") {
+        // MGMT scope - get teams for a specific MGMT group
+        if (mgmtGroupId) {
+          // Specific MGMT group requested - verify access
+          const { data: teamMgmtGroups } = await supabase
+            .from("team_mgmt_groups")
+            .select("team_id")
+            .eq("mgmt_group_id", mgmtGroupId);
+          accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
+        } else if (isMgmtGroupLead) {
+          // MGMT lead with no specific group - use their led groups
+          const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
+          const { data: teamMgmtGroups } = await supabase
+            .from("team_mgmt_groups")
+            .select("team_id")
+            .in("mgmt_group_id", mgmtGroupIds);
+          accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
+        } else if (isAreaDirector && ledMgmtGroups && ledMgmtGroups.length > 0) {
+          // AD who also leads a MGMT group - use their led groups
           const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
           const { data: teamMgmtGroups } = await supabase
             .from("team_mgmt_groups")
@@ -136,27 +148,21 @@ Deno.serve(async (req) => {
           accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
         }
       } else if (effectiveScope === "team") {
-        // Team lead scope - only their teams
-        if (isAreaDirector) {
-          // AD can pick any team scope but we'll show all if they select 'team'
-          const { data: allTeams } = await supabase.from("teams").select("id, name");
-          accessibleTeamIds = (allTeams || []).map(t => t.id);
-        } else if (isMgmtGroupLead) {
-          // MGMT lead selecting team scope - show only their directly led teams (if any) or first mgmt group's teams
-          if (ledTeams && ledTeams.length > 0) {
-            accessibleTeamIds = ledTeams.map(t => t.id);
-          } else {
-            // Fallback to their mgmt group teams
-            const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
-            const { data: teamMgmtGroups } = await supabase
-              .from("team_mgmt_groups")
-              .select("team_id")
-              .in("mgmt_group_id", mgmtGroupIds);
-            accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
-          }
-        } else if (isTeamLead) {
-          // Pure team lead - only their team(s)
+        // Team lead scope - specific team or user's led teams
+        if (teamId) {
+          // Specific team requested
+          accessibleTeamIds = [teamId];
+        } else if (isTeamLead || ledTeams?.length) {
+          // Use their led team(s)
           accessibleTeamIds = (ledTeams || []).map(t => t.id);
+        } else if (isMgmtGroupLead) {
+          // MGMT lead selecting team scope - use first led team from their mgmt groups
+          const mgmtGroupIds = (ledMgmtGroups || []).map(m => m.id);
+          const { data: teamMgmtGroups } = await supabase
+            .from("team_mgmt_groups")
+            .select("team_id")
+            .in("mgmt_group_id", mgmtGroupIds);
+          accessibleTeamIds = (teamMgmtGroups || []).map(t => t.team_id);
         }
       }
 

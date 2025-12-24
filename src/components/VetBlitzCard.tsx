@@ -291,6 +291,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   }, [accessLevel]);
   
   const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
+  const [selectedMgmtGroupId, setSelectedMgmtGroupId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
   const [hasScopeBeenSet, setHasScopeBeenSet] = useState(false);
@@ -302,8 +304,17 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       console.log(`Setting initial scope to ${newScope} based on accessLevel: ${accessLevel}`);
       setAttendanceScope(newScope);
       setHasScopeBeenSet(true);
+      
+      // Set default MGMT group for mgmt_group_leads
+      if (accessLevel === 'mgmt_group_lead' && mgmtGroups && mgmtGroups.length > 0) {
+        setSelectedMgmtGroupId(mgmtGroups[0].id);
+      }
+      // Set default Team for team_leads
+      if (accessLevel === 'team_lead' && teams && teams.length > 0) {
+        setSelectedTeamId(teams[0].id);
+      }
     }
-  }, [accessLevel, hasScopeBeenSet, getDefaultScope]);
+  }, [accessLevel, hasScopeBeenSet, getDefaultScope, mgmtGroups, teams]);
   
   // Track pending updates to prevent stale data overwrites
   const pendingCommitmentsRef = useRef<Set<string>>(new Set());
@@ -326,6 +337,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         body: {
           scope: attendanceScope,
           leaderNotionPageId: repData.notion_page_id,
+          mgmtGroupId: attendanceScope === 'mgmt' ? selectedMgmtGroupId : undefined,
+          teamId: attendanceScope === 'team' ? selectedTeamId : undefined,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -371,7 +384,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } finally {
       setLoadingAttendance(false);
     }
-  }, [repData?.notion_page_id, attendanceScope, toast]);
+  }, [repData?.notion_page_id, attendanceScope, selectedMgmtGroupId, selectedTeamId, toast]);
 
   // Only refetch when scope changes or on mount, not on every repData change
   // Fetch attendance when scope changes - use ref to prevent redundant fetches
@@ -380,13 +393,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     // Only start fetching after scope has been properly set
     if (!hasScopeBeenSet && accessLevel !== 'none') return;
     
-    const scopeKey = `${attendanceScope}`;
-    if (scopeKey === lastScopeRef.current) return; // Skip if scope didn't change
+    // Include mgmtGroupId/teamId in the key to refetch when they change
+    const scopeKey = `${attendanceScope}-${selectedMgmtGroupId || ''}-${selectedTeamId || ''}`;
+    if (scopeKey === lastScopeRef.current) return; // Skip if nothing changed
     lastScopeRef.current = scopeKey;
     
-    console.log(`Fetching attendance data for scope: ${attendanceScope}`);
+    console.log(`Fetching attendance data for scope: ${attendanceScope}, mgmtGroupId: ${selectedMgmtGroupId}, teamId: ${selectedTeamId}`);
     fetchAttendanceData();
-  }, [attendanceScope, hasScopeBeenSet, accessLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attendanceScope, selectedMgmtGroupId, selectedTeamId, hasScopeBeenSet, accessLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load committed blitzes from repData - only update when actually different and no pending updates
   const lastCommittedBlitzesRef = useRef<string>("");
@@ -924,8 +938,27 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
   const handleScopeChange = (value: string) => {
     if (loadingAttendance) return;
-    setAttendanceScope(value as 'you' | 'team' | 'mgmt' | 'office');
+    const newScope = value as 'you' | 'team' | 'mgmt' | 'office';
+    setAttendanceScope(newScope);
+    
+    // Reset secondary selectors when scope changes
+    if (newScope === 'mgmt' && accessLevel === 'area_director') {
+      // For ADs, require selecting a MGMT group
+      setSelectedMgmtGroupId(mgmtGroups && mgmtGroups.length > 0 ? mgmtGroups[0].id : null);
+      setSelectedTeamId(null);
+    } else if (newScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead')) {
+      // For ADs and MGMT leads, require selecting a team
+      setSelectedTeamId(teams && teams.length > 0 ? teams[0].id : null);
+      setSelectedMgmtGroupId(null);
+    } else {
+      setSelectedMgmtGroupId(null);
+      setSelectedTeamId(null);
+    }
   };
+  
+  // Check if we need secondary selectors
+  const needsMgmtGroupSelector = attendanceScope === 'mgmt' && accessLevel === 'area_director';
+  const needsTeamSelector = attendanceScope === 'team' && (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead');
 
   // Simplified personal view for non-leaders OR when scope is 'you'
   // Use accessLevel instead of propIsTeamLead to properly check leader status
@@ -947,22 +980,64 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             
             {/* Scope selector dropdown - only for leaders */}
             {isLeaderRole && (
-              <Select
-                value={attendanceScope}
-                onValueChange={handleScopeChange}
-                disabled={loadingAttendance}
-              >
-                <SelectTrigger className="w-24 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {getScopeOptions().map((option) => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={attendanceScope}
+                  onValueChange={handleScopeChange}
+                  disabled={loadingAttendance}
+                >
+                  <SelectTrigger className="w-24 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getScopeOptions().map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="text-xs">
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {/* Secondary selector for MGMT groups (AD only) */}
+                {needsMgmtGroupSelector && mgmtGroups && mgmtGroups.length > 0 && (
+                  <Select
+                    value={selectedMgmtGroupId || ''}
+                    onValueChange={(value) => setSelectedMgmtGroupId(value)}
+                    disabled={loadingAttendance}
+                  >
+                    <SelectTrigger className="w-28 h-8 text-xs">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mgmtGroups.map((group) => (
+                        <SelectItem key={group.id} value={group.id} className="text-xs">
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                
+                {/* Secondary selector for Teams (AD or MGMT lead) */}
+                {needsTeamSelector && teams && teams.length > 0 && (
+                  <Select
+                    value={selectedTeamId || ''}
+                    onValueChange={(value) => setSelectedTeamId(value)}
+                    disabled={loadingAttendance}
+                  >
+                    <SelectTrigger className="w-28 h-8 text-xs">
+                      <SelectValue placeholder="Select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id} className="text-xs">
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             )}
           </div>
         </CardHeader>
@@ -1061,22 +1136,64 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           </div>
           
           {/* Scope selector dropdown */}
-          <Select
-            value={attendanceScope}
-            onValueChange={handleScopeChange}
-            disabled={loadingAttendance}
-          >
-            <SelectTrigger className="w-24 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {getScopeOptions().map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-xs">
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select
+              value={attendanceScope}
+              onValueChange={handleScopeChange}
+              disabled={loadingAttendance}
+            >
+              <SelectTrigger className="w-24 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getScopeOptions().map((option) => (
+                  <SelectItem key={option.value} value={option.value} className="text-xs">
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Secondary selector for MGMT groups (AD only) */}
+            {needsMgmtGroupSelector && mgmtGroups && mgmtGroups.length > 0 && (
+              <Select
+                value={selectedMgmtGroupId || ''}
+                onValueChange={(value) => setSelectedMgmtGroupId(value)}
+                disabled={loadingAttendance}
+              >
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {mgmtGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id} className="text-xs">
+                      {group.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {/* Secondary selector for Teams (AD or MGMT lead) */}
+            {needsTeamSelector && teams && teams.length > 0 && (
+              <Select
+                value={selectedTeamId || ''}
+                onValueChange={(value) => setSelectedTeamId(value)}
+                disabled={loadingAttendance}
+              >
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id} className="text-xs">
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 relative">
