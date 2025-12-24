@@ -57,6 +57,8 @@ interface BlitzEvent {
 
 interface TeamMember {
   notionPageId: string;
+  /** Present when the member is a recruit (DB id). Used for recruit_blitzes commits. */
+  recruitId?: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -564,19 +566,39 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
     const { member, blitzId, isCommitted } = memberToCommit;
 
+    const newCommittedBlitzes = isCommitted
+      ? member.committedBlitzes.filter((id) => id !== blitzId)
+      : [...member.committedBlitzes, blitzId];
+
     try {
-      const newCommittedBlitzes = isCommitted
-        ? member.committedBlitzes.filter(id => id !== blitzId)
-        : [...member.committedBlitzes, blitzId];
+      // Recruits are committed via recruit_blitzes (drives the “attending” list)
+      if (member.recruitId) {
+        if (isCommitted) {
+          const { error } = await supabase
+            .from('recruit_blitzes')
+            .delete()
+            .eq('recruit_id', member.recruitId)
+            .eq('blitz_id', blitzId);
 
-      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
-        body: {
-          repNotionPageId: member.notionPageId,
-          blitzPageIds: newCommittedBlitzes,
-        },
-      });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('recruit_blitzes')
+            .insert({ recruit_id: member.recruitId, blitz_id: blitzId });
 
-      if (error) throw error;
+          if (error) throw error;
+        }
+      } else {
+        // Fallback for legacy rep rows (Notion-backed commitments)
+        const { error } = await supabase.functions.invoke('update-blitz-commitment', {
+          body: {
+            repNotionPageId: member.notionPageId,
+            blitzPageIds: newCommittedBlitzes,
+          },
+        });
+
+        if (error) throw error;
+      }
 
       // If committing (not uncommitting), clear any decline record
       if (!isCommitted) {
@@ -587,17 +609,17 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
             isDeclined: false,
           },
         });
-        
+
         // Update local declinedMembers state
-        setDeclinedMembers(prev => ({
+        setDeclinedMembers((prev) => ({
           ...prev,
-          [blitzId]: (prev[blitzId] || []).filter(id => id !== member.notionPageId),
+          [blitzId]: (prev[blitzId] || []).filter((id) => id !== member.notionPageId),
         }));
       }
 
       // Update local state
-      setTeamMembers(prev =>
-        prev.map(m =>
+      setTeamMembers((prev) =>
+        prev.map((m) =>
           m.notionPageId === member.notionPageId
             ? { ...m, committedBlitzes: newCommittedBlitzes }
             : m
@@ -605,15 +627,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       );
 
       toast({
-        title: isCommitted ? "Uncommitted" : "Committed",
+        title: isCommitted ? 'Uncommitted' : 'Committed',
         description: `${member.name} has been ${isCommitted ? 'removed from' : 'added to'} this blitz`,
       });
     } catch (error) {
       console.error('Error toggling member commitment:', error);
       toast({
-        title: "Update failed",
-        description: "Could not update team member commitment",
-        variant: "destructive",
+        title: 'Update failed',
+        description: 'Could not update team member commitment',
+        variant: 'destructive',
       });
     } finally {
       setCommitDialogOpen(false);
