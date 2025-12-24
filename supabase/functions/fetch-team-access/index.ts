@@ -218,19 +218,7 @@ Deno.serve(async (req) => {
     // 2) If rep is a team lead (by user_id), use that
     // 3) Otherwise, map by rep.team_leader (first name)
     const getRepTeamInfo = (rep: any) => {
-      // Force Levi team based on recruiter lineage
-      if (leviTeam && rep.notion_page_id && leviDownlineNotionIds.has(rep.notion_page_id)) {
-        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(leviTeam.id));
-        return {
-          isTeamLead: false,
-          teamId: leviTeam.id,
-          teamName: leviTeam.name,
-          mgmtGroupId: mgmtGroup?.id || null,
-          mgmtGroupName: mgmtGroup?.name || null,
-        };
-      }
-
-      // First check if this rep IS a team lead
+      // First check if this rep IS a team lead - they should always show their own team
       if (rep.user_id) {
         const teamAsLead = userIdToTeam.get(rep.user_id);
         if (teamAsLead) {
@@ -243,6 +231,18 @@ Deno.serve(async (req) => {
             mgmtGroupName: mgmtGroup?.name || null,
           };
         }
+      }
+
+      // Force Levi team based on recruiter lineage (only for non-team-leads)
+      if (leviTeam && rep.notion_page_id && leviDownlineNotionIds.has(rep.notion_page_id)) {
+        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(leviTeam.id));
+        return {
+          isTeamLead: false,
+          teamId: leviTeam.id,
+          teamName: leviTeam.name,
+          mgmtGroupId: mgmtGroup?.id || null,
+          mgmtGroupName: mgmtGroup?.name || null,
+        };
       }
 
       // Otherwise look up by team_leader field
