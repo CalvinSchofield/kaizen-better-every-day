@@ -136,43 +136,26 @@ export const useGroupRecruits = () => {
         return { recruits: [], activities: [], pendingSuggestions: [] };
       }
 
-      // Build team IDs based on access level
-      let teamIds: string[] = [];
-      let mgmtGroupIds: string[] = [];
-      
-      if (accessLevel === 'area_director') {
-        // Area directors see all teams
-        teamIds = teamAccess?.teams?.map(t => t.id) || [];
-        mgmtGroupIds = teamAccess?.mgmtGroups?.map(g => g.id) || [];
-      } else if (accessLevel === 'mgmt_group_lead') {
-        // Mgmt group leads see teams in their mgmt groups
-        teamIds = teamAccess?.teams?.map(t => t.id) || [];
-        mgmtGroupIds = teamAccess?.mgmtGroups?.map(g => g.id) || [];
-      } else if (accessLevel === 'team_lead') {
-        // Team leads see their teams only
-        teamIds = teamAccess?.teams?.map(t => t.id) || [];
-      }
+      // Get accessible notion page IDs from team access
+      const accessibleNotionIds = accessibleReps
+        .map(r => r.notionPageId)
+        .filter(Boolean);
 
-      // Query recruits directly from Supabase
-      let recruitsQuery = supabase
-        .from('recruits')
+      // Query recruits directly from reps table (source of truth)
+      let repsQuery = supabase
+        .from('reps')
         .select(`
           id,
+          user_id,
           notion_page_id,
           name,
           phone,
           email,
           stage,
           year,
-          location,
-          recruitment_source,
-          last_contact,
-          next_action,
-          next_action_due,
-          created_at,
-          team_id,
-          mgmt_group_id,
-          recruiter_user_id,
+          recruiter,
+          team_leader,
+          ramp_to_blitz_phase,
           ramp_phase_1_complete,
           ramp_phase_2_complete,
           ramp_phase_3_complete,
@@ -182,108 +165,60 @@ export const useGroupRecruits = () => {
           slack_joined,
           ipad_assigned,
           blitz_ready,
-          teams:team_id (
-            id,
-            name
-          ),
-          mgmt_groups:mgmt_group_id (
-            id,
-            name
-          )
+          committed_blitzes,
+          created_at,
+          updated_at
         `)
         .in('stage', RECRUITING_STAGES);
 
-      // Apply team/mgmt group filters based on access level
-      if (accessLevel === 'area_director') {
-        // Area directors see all recruits (no filter needed, RLS handles it)
-      } else if (accessLevel === 'mgmt_group_lead' && mgmtGroupIds.length > 0) {
-        recruitsQuery = recruitsQuery.in('mgmt_group_id', mgmtGroupIds);
-      } else if (accessLevel === 'team_lead' && teamIds.length > 0) {
-        recruitsQuery = recruitsQuery.in('team_id', teamIds);
+      // Filter by accessible notion page IDs (from team access)
+      // Area directors see all, others see only their accessible reps
+      if (accessLevel !== 'area_director' && accessibleNotionIds.length > 0) {
+        repsQuery = repsQuery.in('notion_page_id', accessibleNotionIds);
       }
 
-      const { data: recruitsData, error: recruitsError } = await recruitsQuery;
+      const { data: repsData, error: repsError } = await repsQuery;
 
-      if (recruitsError) {
-        console.error('Error fetching recruits:', recruitsError);
-        throw recruitsError;
+      if (repsError) {
+        console.error('Error fetching reps:', repsError);
+        throw repsError;
       }
 
-      // Get recruiter names from reps table
-      const recruiterUserIds = [...new Set((recruitsData || [])
-        .map(r => r.recruiter_user_id)
-        .filter(Boolean))];
-      
-      let recruiterMap = new Map<string, string>();
-      if (recruiterUserIds.length > 0) {
-        const { data: recruiters } = await supabase
-          .from('reps')
-          .select('user_id, name')
-          .in('user_id', recruiterUserIds);
-        
-        (recruiters || []).forEach(r => {
-          if (r.user_id) {
-            recruiterMap.set(r.user_id, r.name);
-          }
-        });
-      }
+      // Parse committed blitzes from JSON field in reps table
+      const parseCommittedBlitzes = (blitzesJson: any): BlitzCommitment[] => {
+        if (!blitzesJson || !Array.isArray(blitzesJson)) return [];
+        return blitzesJson.map((b: any) => ({
+          id: b.id || b.blitzId || '',
+          name: b.name || b.blitzName || '',
+          date: b.date || b.startDate || '',
+          endDate: b.endDate || b.end_date || null,
+          location: b.location || null,
+        }));
+      };
 
-      // Get committed blitzes for these recruits
-      const recruitIds = (recruitsData || []).map(r => r.id);
-      let blitzCommitments = new Map<string, BlitzCommitment[]>();
-      
-      if (recruitIds.length > 0) {
-        const { data: blitzData } = await supabase
-          .from('recruit_blitzes')
-          .select(`
-            recruit_id,
-            blitzes (
-              id,
-              name,
-              date,
-              end_date,
-              location
-            )
-          `)
-          .in('recruit_id', recruitIds);
-
-        (blitzData || []).forEach((rb: any) => {
-          if (rb.blitzes) {
-            const existing = blitzCommitments.get(rb.recruit_id) || [];
-            existing.push({
-              id: rb.blitzes.id,
-              name: rb.blitzes.name,
-              date: rb.blitzes.date,
-              endDate: rb.blitzes.end_date,
-              location: rb.blitzes.location,
-            });
-            blitzCommitments.set(rb.recruit_id, existing);
-          }
-        });
-      }
-
-      // Transform recruits to match expected interface
-      let recruits: Recruit[] = (recruitsData || []).map((r: any) => ({
-        notionPageId: r.notion_page_id || r.id, // fallback to id if no notion page id
+      // Transform reps to match expected Recruit interface
+      let recruits: Recruit[] = (repsData || []).map((r: any) => ({
+        notionPageId: r.notion_page_id || r.id,
         name: r.name,
         phone: r.phone || '',
         email: r.email || '',
         stage: r.stage || '',
         recruiterNotionId: leaderNotionId,
-        recruiterName: r.recruiter_user_id ? (recruiterMap.get(r.recruiter_user_id) || null) : null,
-        recruiterUserId: r.recruiter_user_id || null,
-        teamName: r.teams?.name || null,
-        teamId: r.team_id,
-        mgmtGroupId: r.mgmt_group_id,
-        mgmtGroupName: r.mgmt_groups?.name || null,
+        recruiterName: r.recruiter || null, // recruiter is already a name in reps table
+        recruiterUserId: null, // Not directly available in reps table
+        teamName: null, // Will get from accessibleReps if needed
+        teamId: null,
+        mgmtGroupId: null,
+        mgmtGroupName: null,
         year: r.year || '',
-        location: r.location || null,
-        recruitmentSource: r.recruitment_source || null,
-        lastContact: r.last_contact,
-        nextAction: r.next_action,
-        nextActionDue: r.next_action_due,
+        location: null, // Not in reps table
+        recruitmentSource: null, // Not in reps table
+        lastContact: null, // Not in reps table (could be derived from activities)
+        nextAction: null, // Not in reps table (could be derived from activities)
+        nextActionDue: null, // Not in reps table
         createdAt: r.created_at || new Date().toISOString(),
-        committedBlitzes: blitzCommitments.get(r.id) || [],
+        committedBlitzes: parseCommittedBlitzes(r.committed_blitzes),
+        rampToBlitzPhase: r.ramp_to_blitz_phase,
         phase1Complete: r.ramp_phase_1_complete ?? false,
         phase2Complete: r.ramp_phase_2_complete ?? false,
         phase3Complete: r.ramp_phase_3_complete ?? false,
@@ -500,24 +435,28 @@ export const useUpdateRecruitStage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Update directly in Supabase recruits table
+      // Update directly in Supabase reps table (source of truth)
       const { error: updateError } = await supabase
-        .from('recruits')
+        .from('reps')
         .update({ stage: newStage })
         .eq('notion_page_id', recruitNotionId);
 
       if (updateError) {
-        console.error('Error updating recruit stage in Supabase:', updateError);
+        console.error('Error updating rep stage in Supabase:', updateError);
+        throw updateError;
       }
 
-      // Also call edge function to update Notion (for backwards compatibility)
-      const { data, error } = await supabase.functions.invoke('update-recruit-stage', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { recruitNotionId, newStage, notes },
-      });
+      // Log stage change as activity if notes provided
+      if (notes) {
+        await supabase.from('recruit_activities').insert({
+          rep_notion_page_id: recruitNotionId,
+          activity_type: 'stage_change',
+          logged_by_user_id: session.user.id,
+          notes: `Stage changed to ${newStage}. ${notes}`,
+        });
+      }
 
-      if (error) throw error;
-      return { ...data, recruitNotionId, newStage };
+      return { recruitNotionId, newStage };
     },
     onMutate: async ({ recruitNotionId, newStage }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
@@ -578,13 +517,24 @@ export const useLogRecruitActivity = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('log-recruit-activity', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { recruitNotionId, activityType, notes, nextAction, nextActionDue, updateLastContact, assignedToUserId },
-      });
+      // Insert activity directly to Supabase
+      const { data, error } = await supabase
+        .from('recruit_activities')
+        .insert({
+          rep_notion_page_id: recruitNotionId,
+          activity_type: activityType,
+          logged_by_user_id: session.user.id,
+          notes: notes || null,
+          next_action: nextAction || null,
+          next_action_due: nextActionDue || null,
+          assigned_to_user_id: assignedToUserId || null,
+          assignment_status: assignedToUserId ? 'pending' : null,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      return { ...data, tempId: `temp-${Date.now()}`, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
+      return { ...data, recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId };
     },
     onMutate: async ({ recruitNotionId, activityType, notes, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
