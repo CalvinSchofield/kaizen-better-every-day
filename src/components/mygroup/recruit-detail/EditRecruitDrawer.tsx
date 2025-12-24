@@ -75,6 +75,9 @@ export const EditRecruitDrawer = ({
   const queryClient = useQueryClient();
   const { data: teamAccess } = useTeamAccess();
   
+  // Track if form has been initialized for this drawer open session
+  const [formInitialized, setFormInitialized] = useState(false);
+  
   // Form state
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -89,6 +92,13 @@ export const EditRecruitDrawer = ({
   // Combobox states
   const [locationOpen, setLocationOpen] = useState(false);
   const [recruiterOpen, setRecruiterOpen] = useState(false);
+  
+  // Reset formInitialized when drawer closes
+  useEffect(() => {
+    if (!open) {
+      setFormInitialized(false);
+    }
+  }, [open]);
 
   // Fetch the actual recruit data from the recruits table to get all fields
   const { data: recruitDetails, isLoading: recruitLoading } = useQuery({
@@ -209,8 +219,11 @@ export const EditRecruitDrawer = ({
   }, [selectedTeamId, teamMgmtMapping]);
 
   // Initialize form when drawer opens - use data from recruits table
+  // Only initialize once per drawer open to prevent re-renders from resetting form
   useEffect(() => {
-    if (open && recruitDetails) {
+    if (!open || formInitialized) return;
+    
+    if (recruitDetails) {
       setName(recruitDetails.name || '');
       setPhone(recruitDetails.phone ? formatPhoneNumber(recruitDetails.phone.replace(/^\+1/, '')) : '');
       setEmail(recruitDetails.email || '');
@@ -220,17 +233,13 @@ export const EditRecruitDrawer = ({
       setSelectedTeamId(recruitDetails.team_id || '');
       setSelectedMgmtId(recruitDetails.mgmt_group_id || '');
       
-      // Check if current recruiter is valid (still in Signed+ stage)
-      const currentRecruiter = allRecruiters.find(r => r.userId === recruitDetails.recruiter_user_id);
-      if (currentRecruiter) {
-        setRecruiterUserId(recruitDetails.recruiter_user_id || '');
-      } else if (teamLeaderData?.userId) {
-        // Fallback to team leader if current recruiter is no longer valid
-        setRecruiterUserId(teamLeaderData.userId);
-      } else {
-        setRecruiterUserId('');
+      // Set recruiter - don't filter by stage for initial load, just show what's in DB
+      if (recruitDetails.recruiter_user_id) {
+        setRecruiterUserId(recruitDetails.recruiter_user_id);
       }
-    } else if (open && recruit && !recruitDetails) {
+      
+      setFormInitialized(true);
+    } else if (recruit) {
       // Fallback to the Recruit object if recruits table data isn't loaded yet
       setName(recruit.name || '');
       setPhone(recruit.phone ? formatPhoneNumber(recruit.phone.replace(/^\+1/, '')) : '');
@@ -241,18 +250,14 @@ export const EditRecruitDrawer = ({
       setSelectedTeamId(recruit.teamId || '');
       setSelectedMgmtId(recruit.mgmtGroupId || '');
       
-      // Check if current recruiter is valid (still in Signed+ stage)
-      const currentRecruiter = allRecruiters.find(r => r.userId === recruit.recruiterUserId);
-      if (currentRecruiter) {
-        setRecruiterUserId(recruit.recruiterUserId || '');
-      } else if (teamLeaderData?.userId) {
-        // Fallback to team leader if current recruiter is no longer valid
-        setRecruiterUserId(teamLeaderData.userId);
-      } else {
-        setRecruiterUserId('');
+      // Set recruiter from recruit object
+      if (recruit.recruiterUserId) {
+        setRecruiterUserId(recruit.recruiterUserId);
       }
+      
+      setFormInitialized(true);
     }
-  }, [open, recruit, recruitDetails, allRecruiters, teamLeaderData]);
+  }, [open, recruit, recruitDetails, formInitialized]);
 
   // Update mutation
   const updateMutation = useMutation({
