@@ -97,7 +97,9 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           training_hours_progress,
           training_hours_goal,
           role_plays_progress,
+          role_plays_goal,
           monday_night_lights_progress,
+          monday_night_lights_goal,
           prep_score_history
         `);
 
@@ -256,7 +258,16 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         const goal = rookie.userId ? goalsMap.get(rookie.userId) : null;
         const hasStandards = goal?.setup_complete === true;
 
-        if (hasStandards) {
+        // Count rookies with preseason commitments (MNL, role-plays, training, or books goals)
+        // NOT based on blitz commitments - only preseason prep goals
+        const hasPreseasonCommitments = (
+          (goal?.monday_night_lights_goal || 0) > 0 ||
+          (goal?.role_plays_goal || 0) > 0 ||
+          (goal?.training_hours_goal || 0) > 0 ||
+          (goal?.books_goal || 0) > 0
+        );
+
+        if (hasPreseasonCommitments) {
           rookiesWithStandardsCount++;
         }
 
