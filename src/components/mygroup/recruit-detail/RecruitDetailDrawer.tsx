@@ -465,7 +465,8 @@ export const RecruitDetailDrawer = ({
               onExitStage(recruit.notionPageId);
             }
           },
-          onError: () => {
+          onError: (err) => {
+            console.error('Failed to log follow-up activity:', err);
             toast.error("Couldn't schedule follow-up");
           }
         });

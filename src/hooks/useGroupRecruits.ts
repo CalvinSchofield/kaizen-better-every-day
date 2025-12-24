@@ -615,15 +615,28 @@ export const useLogRecruitActivity = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Use rep_notion_page_id for backwards compatibility, but also set recruit_id
+      // Use rep_notion_page_id for backwards compatibility
       const repIdentifier = recruitNotionId || recruitId;
+
+      // Look up the correct recruit_id from recruits table using notion_page_id
+      // This is needed because the FK on recruit_activities.recruit_id references recruits.id,
+      // but the id passed from Recruit objects often comes from the reps table which has a different id
+      let actualRecruitId: string | null = null;
+      if (repIdentifier) {
+        const { data: recruitData } = await supabase
+          .from('recruits')
+          .select('id')
+          .eq('notion_page_id', repIdentifier)
+          .maybeSingle();
+        actualRecruitId = recruitData?.id || null;
+      }
 
       // Insert activity directly to Supabase
       const { data, error } = await supabase
         .from('recruit_activities')
         .insert({
           rep_notion_page_id: repIdentifier,
-          recruit_id: recruitId || null, // New column for future lookups
+          recruit_id: actualRecruitId, // Use the correct recruit table id
           activity_type: activityType,
           logged_by_user_id: session.user.id,
           notes: notes || null,
