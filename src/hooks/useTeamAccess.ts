@@ -23,7 +23,9 @@ interface TeamAccessResponse {
     phone?: string | null;
     year?: string | null;
     stage?: string | null;
+    teamId?: string | null;
     teamName?: string | null;
+    mgmtGroupId?: string | null;
     mgmtGroupName?: string | null;
     isGhostRep?: boolean; // true if rep has no app account
     rampPhase1Complete?: boolean;
