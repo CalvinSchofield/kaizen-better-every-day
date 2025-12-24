@@ -55,10 +55,13 @@ export interface LeaderboardEntry {
 const VALID_STAGES = ['Signed', 'Shadow ✅', 'Sold 💲', 'Sold (5+) 💰'];
 
 export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall', showMyTeamOnly: boolean = false) => {
-  const { data: teamAccess } = useTeamAccess();
+  const { data: teamAccess, isLoading: isLoadingTeamAccess } = useTeamAccess();
+  
+  // Only run when teamAccess is fully loaded and has accessibleReps
+  const hasAccessibleReps = teamAccess?.accessibleReps && teamAccess.accessibleReps.length > 0;
   
   return useQuery({
-    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly, teamAccess?.accessibleReps?.length],
+    queryKey: ['leader-preseason-prep-leaderboard-weekly', metric, showMyTeamOnly, hasAccessibleReps ? teamAccess.accessibleReps.length : 0],
     queryFn: async () => {
       // Get current user's rep data first
       const { data: { user } } = await supabase.auth.getUser();
@@ -363,6 +366,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       };
     },
     staleTime: 2 * 60 * 1000,
-    enabled: !!teamAccess, // Wait for team access data
+    // Only enable when teamAccess is loaded AND has accessibleReps
+    enabled: !!teamAccess && hasAccessibleReps,
   });
 };
