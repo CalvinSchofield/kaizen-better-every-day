@@ -857,6 +857,18 @@ const BlitzPrepProgressItem = ({
           <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
         </div>
 
+        {/* iPad needed indicator */}
+        {item.trainingProgress && !item.trainingProgress.ipadAssigned && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-md">
+              <Tablet className="h-4 w-4 text-amber-600" />
+              <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                Needs iPad to start ramp
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Blitz commitment section */}
         <div className="mt-3 pt-3 border-t border-border/50">
           <div className="flex items-center justify-between">
