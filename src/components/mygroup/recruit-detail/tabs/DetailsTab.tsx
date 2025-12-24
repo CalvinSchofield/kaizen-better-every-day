@@ -15,6 +15,8 @@ import {
   X,
   Pencil,
   Trash2,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +100,74 @@ export const DetailsTab = ({
   const [pendingExitStage, setPendingExitStage] = useState<string | null>(null);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
+  const [creatingAppAccount, setCreatingAppAccount] = useState(false);
+  
+  // Check if recruit already has an app account (reps record)
+  const hasAppAccount = !!recruitRepData;
+  const canCreateAppAccount = canEdit && recruit.email && !hasAppAccount;
+  
+  const handleCreateAppAccount = async () => {
+    if (!recruit.email) {
+      toast.error('Recruit must have an email to create app account');
+      return;
+    }
+    
+    setCreatingAppAccount(true);
+    try {
+      // Get recruiter info for team_leader fields
+      let teamLeaderName: string | null = null;
+      let teamLeaderPhone: string | null = null;
+      
+      if (recruit.recruiterUserId) {
+        const { data: recruiterData } = await supabase
+          .from('reps')
+          .select('name, phone')
+          .eq('user_id', recruit.recruiterUserId)
+          .single();
+        
+        if (recruiterData) {
+          teamLeaderName = recruiterData.name;
+          teamLeaderPhone = recruiterData.phone;
+        }
+      }
+      
+      // Create the ghost rep record
+      const { error } = await supabase.from('reps').insert({
+        name: recruit.name,
+        email: recruit.email,
+        phone: recruit.phone || null,
+        notion_page_id: recruit.notionPageId || null,
+        stage: recruit.stage || 'Signed',
+        year: 'Rookie',
+        team_leader: teamLeaderName,
+        team_leader_phone: teamLeaderPhone,
+        onboarding_complete: false,
+        trainings_complete: false,
+        slack_joined: false,
+        ramp_phase_1_complete: false,
+        ramp_phase_2_complete: false,
+        ramp_phase_3_complete: false,
+        ramp_phase_4_complete: false,
+        blitz_ready: false,
+        ipad_assigned: false,
+      });
+      
+      if (error) throw error;
+      
+      toast.success(`App account created for ${recruitFirstName}! They can now sign up.`);
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+    } catch (error: any) {
+      console.error('Failed to create app account:', error);
+      if (error.code === '23505') {
+        toast.error('An account with this email already exists');
+      } else {
+        toast.error('Failed to create app account');
+      }
+    } finally {
+      setCreatingAppAccount(false);
+    }
+  };
   
   const handleStageSelect = (newStage: string) => {
     // If it's a permanent exit stage, show confirmation dialog
@@ -144,7 +214,36 @@ export const DetailsTab = ({
         </div>
       )}
       
-      {/* Recruiter Info - show for early stages */}
+      {/* Create App Account Button - for recruits without reps record */}
+      {canCreateAppAccount && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <UserPlus className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">No App Account Yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Create account so {recruitFirstName} can sign up
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleCreateAppAccount}
+              disabled={creatingAppAccount}
+            >
+              {creatingAppAccount ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Create'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+      
       {isEarlyStage && recruit.recruiterName && (
         <div className="bg-muted/50 border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
