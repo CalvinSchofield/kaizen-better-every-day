@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { TrendingUp as UpgradeIcon } from "lucide-react";
-import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare } from "lucide-react";
+import { Wrench, DollarSign, BarChart3, Users, FileText, Phone, HelpCircle, Calendar, ExternalLink, Shield, TrendingUp, Wallet, ClipboardCheck, Instagram, Info, ChevronDown, MessageSquare, GraduationCap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,12 +98,6 @@ const Tools = () => {
           href: "/tools/contacts",
           icon: Phone,
         },
-        {
-          title: "Simple Commission Calculator",
-          description: "Calculate earnings based on the payscale",
-          href: "https://docs.google.com/spreadsheets/d/1R-OlPLLCQNjVB-c-G88EQlUfyeYqjmHA_nG8UCYo4gU/edit?usp=sharing",
-          icon: DollarSign,
-        },
       ],
     },
     {
@@ -138,6 +132,12 @@ const Tools = () => {
     description: "Essential tools for tracking & managing your business",
     icon: TrendingUp,
     links: [
+      {
+        title: "Training Portal",
+        description: "Official Vivint videos & podcasts",
+        href: "https://dthvivinttraining.conveyour.com/ui/portal/",
+        icon: GraduationCap,
+      },
       {
         title: "Insider",
         description: "Simple way to track sales & upgrades",
