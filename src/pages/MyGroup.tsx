@@ -617,6 +617,7 @@ const MyGroup = () => {
 
   // State for newly created recruit pending detail drawer
   const [pendingNewRecruitId, setPendingNewRecruitId] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Handle recruit created - wait for data refresh then open detail drawer (leaders only)
   const handleRecruitCreated = useCallback((notionPageId: string, name: string) => {
@@ -685,7 +686,6 @@ const MyGroup = () => {
 
   // Error state with no cached data
   const hasUnrecoverableError = recruitsError && !groupData && isLeader;
-  const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {
     setIsRetrying(true);
