@@ -159,11 +159,26 @@ Deno.serve(async (req) => {
 
       // Map recruits to team members format
       for (const recruit of recruitsData || []) {
-        const onboardingComplete = recruit.ramp_phase_4_complete;
-        const onboardingStatus = recruit.ramp_phase_4_complete ? "Phase 4 Complete" :
-          recruit.ramp_phase_3_complete ? "Phase 3 Complete" :
-          recruit.ramp_phase_2_complete ? "Phase 2 Complete" :
-          recruit.ramp_phase_1_complete ? "Phase 1 Complete" : null;
+        // Compute onboardingStatus with proper progression check
+        // Order of completion: Onboarding -> Trainings -> Slack -> Phase 1 -> Phase 2 -> Phase 3 -> Phase 4
+        let onboardingStatus: string | null = null;
+        
+        if (recruit.ramp_phase_4_complete) {
+          onboardingStatus = "Phase 4 Complete";
+        } else if (recruit.ramp_phase_3_complete) {
+          onboardingStatus = "Phase 3 Complete";
+        } else if (recruit.ramp_phase_2_complete) {
+          onboardingStatus = "Phase 2 Complete";
+        } else if (recruit.ramp_phase_1_complete) {
+          onboardingStatus = "Phase 1 Complete";
+        } else if (recruit.slack_joined) {
+          onboardingStatus = "Slack Joined";
+        } else if (recruit.trainings_complete) {
+          onboardingStatus = "Required Trainings Complete";
+        } else if (recruit.onboarding_complete) {
+          onboardingStatus = "Onboarding Complete";
+        }
+        // null means Not Started
 
         accessibleReps.push({
           notionPageId: recruit.notion_page_id || recruit.id,

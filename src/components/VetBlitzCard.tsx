@@ -855,8 +855,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     if (step.includes("phase 3")) return "Phase 3";
     if (step.includes("phase 2")) return "Phase 2";
     if (step.includes("phase 1")) return "Phase 1";
+    if (step.includes("slack")) return "Slack ✓";
     if (step.includes("training") || step.includes("required")) return "Training";
-    if (step.includes("onboarding")) return "Onboarding";
+    if (step.includes("onboarding")) return "Onboarding ✓";
     return "Started";
   };
 
