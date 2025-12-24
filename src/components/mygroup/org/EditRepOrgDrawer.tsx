@@ -86,36 +86,63 @@ export const EditRepOrgDrawer = ({
     enabled: open && !!rep.id,
   });
 
+  // Look up the linked rep record to get user_id for app access
+  const { data: linkedRepData } = useQuery({
+    queryKey: ["linked-rep", rep.email, rep.notionPageId],
+    queryFn: async () => {
+      // Try to find matching rep by notion_page_id or email
+      let query = supabase
+        .from("reps")
+        .select("user_id, name")
+        .not("user_id", "is", null);
+      
+      if (rep.notionPageId) {
+        query = query.eq("notion_page_id", rep.notionPageId);
+      } else if (rep.email) {
+        query = query.ilike("email", rep.email);
+      } else {
+        return null;
+      }
+      
+      const { data } = await query.maybeSingle();
+      return data;
+    },
+    enabled: open && !!(rep.email || rep.notionPageId),
+  });
+
+  const linkedUserId = linkedRepData?.user_id || null;
+  const hasAppAccess = !!linkedUserId;
+
   // Fetch additional rep data if they have app access
   const { data: repGoals } = useQuery({
-    queryKey: ["rep-goals-org", rep.userId],
+    queryKey: ["rep-goals-org", linkedUserId],
     queryFn: async () => {
-      if (!rep.userId) return null;
+      if (!linkedUserId) return null;
       const { data } = await supabase
         .from("rep_goals")
         .select("will_do_fp_goal, setup_complete")
-        .eq("user_id", rep.userId)
+        .eq("user_id", linkedUserId)
         .maybeSingle();
       return data;
     },
-    enabled: open && !!rep.userId,
+    enabled: open && !!linkedUserId,
   });
 
   // Fetch last activity (most recent daily entry)
   const { data: lastActivity } = useQuery({
-    queryKey: ["last-activity-org", rep.userId],
+    queryKey: ["last-activity-org", linkedUserId],
     queryFn: async () => {
-      if (!rep.userId) return null;
+      if (!linkedUserId) return null;
       const { data } = await supabase
         .from("daily_entries")
         .select("entry_date, updated_at")
-        .eq("user_id", rep.userId)
+        .eq("user_id", linkedUserId)
         .order("entry_date", { ascending: false })
         .limit(1)
         .maybeSingle();
       return data;
     },
-    enabled: open && !!rep.userId,
+    enabled: open && !!linkedUserId,
   });
 
   // Reset state when drawer opens
@@ -336,7 +363,7 @@ export const EditRepOrgDrawer = ({
             </TabsList>
           </div>
 
-          <ScrollArea className="flex-1 max-h-[calc(90vh-220px)]">
+          <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 230px)' }}>
             {/* Organization Tab */}
             <TabsContent value="organization" className="p-4 space-y-4 mt-0">
               <div className="space-y-2">
@@ -417,12 +444,12 @@ export const EditRepOrgDrawer = ({
 
                 <div className="flex items-center justify-between py-2 border-b">
                   <span className="text-sm text-muted-foreground">App Access</span>
-                  <Badge variant={rep.userId ? "default" : "secondary"}>
-                    {rep.userId ? "Yes" : "No"}
+                  <Badge variant={hasAppAccess ? "default" : "secondary"}>
+                    {hasAppAccess ? "Yes" : "No"}
                   </Badge>
                 </div>
 
-                {rep.userId && (
+                {hasAppAccess && (
                   <>
                     <div className="flex items-center justify-between py-2 border-b">
                       <span className="text-sm text-muted-foreground">Goals Set</span>
@@ -446,7 +473,7 @@ export const EditRepOrgDrawer = ({
                       <span className="text-sm font-medium">
                         {lastActivity?.updated_at ? (
                           formatDistanceToNow(parseISO(lastActivity.updated_at), { addSuffix: true })
-                        ) : "—"}
+                        ) : "No activity yet"}
                       </span>
                     </div>
                   </>
@@ -490,7 +517,7 @@ export const EditRepOrgDrawer = ({
                 </div>
               )}
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
 
         <DrawerFooter className="border-t">
