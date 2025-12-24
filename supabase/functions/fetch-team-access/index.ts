@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     // Fetch all reps to build mappings
     const { data: allReps } = await supabase
       .from('reps')
-      .select('id, user_id, name, notion_page_id, team_leader, phone, year, stage, ramp_phase_1_complete');
+      .select('id, user_id, name, notion_page_id, team_leader, recruiter, phone, year, stage, ramp_phase_1_complete');
 
     const mgmtGroupsData = mgmtGroupsRaw || [];
     const teamsData = teamsRaw || [];
@@ -98,6 +98,12 @@ Deno.serve(async (req) => {
       return firstToken || null;
     };
 
+    const normalizeFullName = (name: string | null | undefined) => {
+      if (!name) return null;
+      const clean = name.replace(/^[^\p{L}]*/u, '').trim();
+      return clean.toLowerCase();
+    };
+
     const teamKeyToTeam = new Map<string, typeof teamsData[0]>();
 
     // 1) Map by team name
@@ -119,6 +125,54 @@ Deno.serve(async (req) => {
       if (!key) continue;
       if (!teamKeyToTeam.has(key)) {
         teamKeyToTeam.set(key, team);
+      }
+    }
+
+    // Special handling: Levi's group needs to include Levi's "downline" (recruits of recruits)
+    // even when team_leader data is inconsistent.
+    const leviTeam = teamKeyToTeam.get('levi');
+    const leviDownlineNotionIds = new Set<string>();
+
+    if (leviTeam) {
+      const rootKey = 'levi tingey';
+      const nameToNotionId = new Map<string, string>();
+
+      for (const rep of repsData) {
+        const key = normalizeFullName(rep.name);
+        if (key && rep.notion_page_id) {
+          // Keep first match; names should be unique enough for our usage.
+          if (!nameToNotionId.has(key)) nameToNotionId.set(key, rep.notion_page_id);
+        }
+      }
+
+      const rootNotionId = nameToNotionId.get(rootKey);
+      if (rootNotionId) {
+        leviDownlineNotionIds.add(rootNotionId);
+
+        // Build downline set: any rep whose recruiter matches someone already in the set.
+        const knownNames = new Set<string>([rootKey]);
+        let frontier = new Set<string>([rootKey]);
+
+        for (let depth = 0; depth < 6; depth++) {
+          const nextFrontier = new Set<string>();
+          for (const rep of repsData) {
+            const recruiterKey = normalizeFullName(rep.recruiter);
+            if (!recruiterKey || !frontier.has(recruiterKey)) continue;
+
+            const repKey = normalizeFullName(rep.name);
+            if (!repKey || knownNames.has(repKey)) continue;
+
+            knownNames.add(repKey);
+            nextFrontier.add(repKey);
+            if (rep.notion_page_id) leviDownlineNotionIds.add(rep.notion_page_id);
+          }
+          if (nextFrontier.size === 0) break;
+          frontier = nextFrontier;
+        }
+
+        console.log(`Levi downline computed: ${leviDownlineNotionIds.size} reps`);
+      } else {
+        console.warn('Levi team detected but could not find root rep "Levi Tingey" in reps table');
       }
     }
 
@@ -159,8 +213,23 @@ Deno.serve(async (req) => {
 
     console.log(`User ${user.email} has accessLevel: ${accessLevel}`);
 
-    // Helper to get team info for a rep based on their team_leader field
+    // Helper to get team info for a rep
+    // 1) If rep is in Levi downline, force the Levi team
+    // 2) If rep is a team lead (by user_id), use that
+    // 3) Otherwise, map by rep.team_leader (first name)
     const getRepTeamInfo = (rep: any) => {
+      // Force Levi team based on recruiter lineage
+      if (leviTeam && rep.notion_page_id && leviDownlineNotionIds.has(rep.notion_page_id)) {
+        const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(leviTeam.id));
+        return {
+          isTeamLead: false,
+          teamId: leviTeam.id,
+          teamName: leviTeam.name,
+          mgmtGroupId: mgmtGroup?.id || null,
+          mgmtGroupName: mgmtGroup?.name || null,
+        };
+      }
+
       // First check if this rep IS a team lead
       if (rep.user_id) {
         const teamAsLead = userIdToTeam.get(rep.user_id);
@@ -176,21 +245,21 @@ Deno.serve(async (req) => {
         }
       }
 
-       // Otherwise look up by team_leader field
-       if (rep.team_leader) {
-         const leaderName = rep.team_leader.toLowerCase().trim();
-         const team = teamKeyToTeam.get(leaderName);
-         if (team) {
-           const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
-           return {
-             isTeamLead: false,
-             teamId: team.id,
-             teamName: team.name,
-             mgmtGroupId: mgmtGroup?.id || null,
-             mgmtGroupName: mgmtGroup?.name || null,
-           };
-         }
-       }
+      // Otherwise look up by team_leader field
+      if (rep.team_leader) {
+        const leaderName = rep.team_leader.toLowerCase().trim();
+        const team = teamKeyToTeam.get(leaderName);
+        if (team) {
+          const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(team.id));
+          return {
+            isTeamLead: false,
+            teamId: team.id,
+            teamName: team.name,
+            mgmtGroupId: mgmtGroup?.id || null,
+            mgmtGroupName: mgmtGroup?.name || null,
+          };
+        }
+      }
 
       return {
         isTeamLead: false,

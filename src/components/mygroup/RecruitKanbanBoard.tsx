@@ -284,13 +284,23 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
                   </div>
                 </div>
 
-                {/* Row 2: Team name */}
-                {recruit.teamName && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                    <Users className="h-3 w-3" />
-                    <span className="truncate">{recruit.teamName}</span>
-                  </div>
-                )}
+                {/* Row 2: Team name + Levi lineage */}
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  {recruit.teamName ? (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                      <Users className="h-3 w-3" />
+                      <span className="truncate">{recruit.teamName}</span>
+                    </div>
+                  ) : (
+                    <span />
+                  )}
+
+                  {recruit.recruiterLineage && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {recruit.recruiterLineage === 'direct' ? 'Direct' : 'Downline'}
+                    </Badge>
+                  )}
+                </div>
 
                 {/* Row 3: Badges - follow-up, days since contact, blitz countdown */}
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
