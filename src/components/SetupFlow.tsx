@@ -12,6 +12,7 @@ const SetupFlow = () => {
   const [statusText, setStatusText] = useState("Loading your profile...");
   const [notInSystem, setNotInSystem] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [isRequestingAccess, setIsRequestingAccess] = useState(false);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ const SetupFlow = () => {
       if (!user) throw new Error('Not authenticated');
       
       setUserEmail(user.email || null);
+      setUserName(user.user_metadata?.name || null);
 
       // Step 1: Check rep profile in Supabase
       setStatusText("Loading your profile...");
@@ -278,7 +280,7 @@ const SetupFlow = () => {
         body: {
           userEmail: userEmail,
           notionEmail: null,
-          repName: null
+          repName: userName
         }
       });
       
