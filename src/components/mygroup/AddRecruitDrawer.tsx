@@ -436,32 +436,56 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
   // Pre-fill form when opening with suggestion data
   useEffect(() => {
-    if (open && suggestionPrefill) {
+    if (!open) return;
+
+    // Async helper to resolve and apply team from recruiter
+    const applyTeamFromRecruiter = async (recruiterNotionId: string) => {
+      if (!recruiterNotionId) return;
+
+      const recruiterData = allRecruiters.find((r) => r.notionPageId === recruiterNotionId);
+      if (recruiterData?.teamId) {
+        setSelectedTeam(recruiterData.teamId);
+        return;
+      }
+
+      const leadUserId =
+        recruiterData?.userId ||
+        (recruiterNotionId === currentRep?.notion_page_id ? currentRep?.authUserId : null);
+
+      if (!leadUserId) return;
+
+      const { data } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('lead_user_id', leadUserId)
+        .maybeSingle();
+
+      if (data?.id) {
+        setSelectedTeam(data.id);
+      }
+    };
+
+    if (suggestionPrefill) {
       setName(suggestionPrefill.name);
       setPhone(formatPhoneNumber(suggestionPrefill.phone.replace(/^\+1/, '')));
       setRelationship(suggestionPrefill.relationship || '');
       setNotes(suggestionPrefill.notes || '');
+
       // Set recruiter to the suggester's notion page ID if available
       if (suggestionPrefill.suggestedByNotionId) {
         setSelectedRecruiter(suggestionPrefill.suggestedByNotionId);
-        // Also set the team based on the suggester's team
-        const suggesterData = allRecruiters.find(r => r.notionPageId === suggestionPrefill.suggestedByNotionId);
-        if (suggesterData?.teamId) {
-          setSelectedTeam(suggesterData.teamId);
-        }
+        void applyTeamFromRecruiter(suggestionPrefill.suggestedByNotionId);
       }
-    } else if (open && isLeader && !suggestionPrefill && !selectedRecruiter) {
+    } else if (isLeader && !selectedRecruiter) {
       // Default to current user when no prefill
       const currentUserId = currentRep?.authUserId;
-      const currentUserData = currentUserId ? allRecruiters.find(r => r.userId === currentUserId) : null;
+      const currentUserData = currentUserId ? allRecruiters.find((r) => r.userId === currentUserId) : null;
 
       const defaultRecruiterNotionId = currentUserData?.notionPageId || currentRep?.notion_page_id || '';
 
       if (defaultRecruiterNotionId) {
         setSelectedRecruiter(defaultRecruiterNotionId);
-      }
-      if (currentUserData?.teamId) {
-        setSelectedTeam(currentUserData.teamId);
+        void applyTeamFromRecruiter(defaultRecruiterNotionId);
       }
     }
   }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters, selectedRecruiter]);
@@ -488,10 +512,31 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   // When recruiter changes, auto-set their team
   const handleRecruiterChange = (recruiterId: string) => {
     setSelectedRecruiter(recruiterId);
-    const recruiterData = allRecruiters.find(r => r.notionPageId === recruiterId);
-    if (recruiterData?.teamId) {
-      setSelectedTeam(recruiterData.teamId);
-    }
+
+    void (async () => {
+      const recruiterData = allRecruiters.find((r) => r.notionPageId === recruiterId);
+      if (recruiterData?.teamId) {
+        setSelectedTeam(recruiterData.teamId);
+        return;
+      }
+
+      // Fallback: derive team from the team lead relationship in the teams table
+      const leadUserId =
+        recruiterData?.userId ||
+        (recruiterId === currentRep?.notion_page_id ? currentRep?.authUserId : null);
+
+      if (!leadUserId) return;
+
+      const { data } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('lead_user_id', leadUserId)
+        .maybeSingle();
+
+      if (data?.id) {
+        setSelectedTeam(data.id);
+      }
+    })();
   };
 
   // Create recruit mutation for leaders
