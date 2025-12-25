@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSubmitSuggestion, useMySuggestions } from "@/hooks/useGroupRecruits";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -434,9 +434,22 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     return Array.from(combined).sort();
   }, [notionOptions?.locationOptions]);
 
-  // Pre-fill form when opening with suggestion data
+  // Track if we've already initialized defaults for this open session
+  const hasInitializedRef = useRef(false);
+
+  // Reset the ref when drawer closes
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      hasInitializedRef.current = false;
+    }
+  }, [open]);
+
+  // Pre-fill form when opening with suggestion data - only runs once per open
+  useEffect(() => {
+    if (!open || hasInitializedRef.current) return;
+    
+    // Mark as initialized immediately to prevent re-runs
+    hasInitializedRef.current = true;
 
     // Async helper to resolve and apply team from recruiter
     const applyTeamFromRecruiter = async (recruiterNotionId: string) => {
@@ -476,7 +489,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         setSelectedRecruiter(suggestionPrefill.suggestedByNotionId);
         void applyTeamFromRecruiter(suggestionPrefill.suggestedByNotionId);
       }
-    } else if (isLeader && !selectedRecruiter) {
+    } else if (isLeader) {
       // Default to current user when no prefill
       const currentUserId = currentRep?.authUserId;
       const currentUserData = currentUserId ? allRecruiters.find((r) => r.userId === currentUserId) : null;
@@ -488,26 +501,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         void applyTeamFromRecruiter(defaultRecruiterNotionId);
       }
     }
-  }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters, selectedRecruiter]);
-
-  // When team changes, clear recruiter if they're not on that team
-  useEffect(() => {
-    if (selectedTeam && selectedRecruiter) {
-      const recruiterData = allRecruiters.find(r => r.notionPageId === selectedRecruiter);
-      if (recruiterData && recruiterData.teamId !== selectedTeam) {
-        // Reset to current user if they're on the new team, otherwise clear
-        const currentUserId = currentRep?.authUserId;
-        const currentUserData = currentUserId 
-          ? allRecruiters.find(r => r.userId === currentUserId)
-          : null;
-        if (currentUserData?.teamId === selectedTeam && currentUserData?.notionPageId) {
-          setSelectedRecruiter(currentUserData.notionPageId);
-        } else {
-          setSelectedRecruiter('');
-        }
-      }
-    }
-  }, [selectedTeam, allRecruiters, currentRep?.authUserId]);
+  }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters]);
 
   // When recruiter changes, auto-set their team
   const handleRecruiterChange = (recruiterId: string) => {
