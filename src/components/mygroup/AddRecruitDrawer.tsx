@@ -258,20 +258,47 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     staleTime: 1000 * 60 * 60, // Cache for 1 hour
   });
 
-  // Get current user's rep data
-  const { data: currentRep } = useQuery({
+  type CurrentRepIdentity = {
+    authUserId: string;
+    authEmail: string | null;
+    name?: string | null;
+    team_leader?: string | null;
+    notion_page_id?: string | null;
+    user_id?: string | null;
+    email?: string | null;
+  };
+
+  // Get current user's rep data (robust: user_id first, then email fallback)
+  const { data: currentRep } = useQuery<CurrentRepIdentity | null>({
     queryKey: ['current-rep-for-suggestion'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data } = await supabase
+      const base: CurrentRepIdentity = {
+        authUserId: user.id,
+        authEmail: user.email ?? null,
+      };
+
+      const { data: byUserId } = await supabase
         .from('reps')
-        .select('name, team_leader, notion_page_id, user_id')
+        .select('name, team_leader, notion_page_id, user_id, email')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      return { ...data, authUserId: user.id };
+      if (byUserId) return { ...byUserId, ...base };
+
+      if (user.email) {
+        const { data: byEmail } = await supabase
+          .from('reps')
+          .select('name, team_leader, notion_page_id, user_id, email')
+          .ilike('email', user.email)
+          .maybeSingle();
+
+        if (byEmail) return { ...byEmail, ...base };
+      }
+
+      return base;
     },
   });
 
@@ -298,47 +325,95 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   });
 
   // Get all recruiters from accessible reps - filtered to active Signed+ stages only
-  // Always include current user if they're a leader (even if their stage doesn't match)
+  // Always include the current user + any prefilled/selected recruiter so the Select never shows a blank value.
   const allRecruiters = useMemo(() => {
-    if (!teamAccess?.accessibleReps) return [];
-    
-    const currentUserId = currentRep?.authUserId;
-    
-    const filtered = teamAccess.accessibleReps
-      .filter(r => {
-        if (!r.name) return false;
-        if (!r.notionPageId) return false; // Need notionPageId to save
-        
-        // Always include current user regardless of stage
-        if (currentUserId && r.userId === currentUserId) {
-          return true;
-        }
-        
-        const stageLower = (r.stage || '').toLowerCase();
-        
-        // Exclude exit/inactive stages first
-        const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out', 'evaluating'];
-        if (excludePatterns.some(p => stageLower.includes(p))) {
-          return false;
-        }
-        
-        // Include only: Signed, Shadow/Shadowed, Sold variants
-        return (
-          stageLower.includes('signed') ||
-          stageLower.includes('shadow') ||
-          stageLower.includes('sold')
-        );
-      })
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    
-    return filtered;
-  }, [teamAccess?.accessibleReps, currentRep?.authUserId]);
+    const accessible = teamAccess?.accessibleReps || [];
+    if (accessible.length === 0) return [];
 
-  // Filter recruiters based on selected team
+    const currentUserId = currentRep?.authUserId;
+
+    const base = accessible.filter((r) => {
+      if (!r.name) return false;
+      if (!r.notionPageId) return false; // Need notionPageId to save
+
+      // Always include current user regardless of stage
+      if (currentUserId && r.userId === currentUserId) {
+        return true;
+      }
+
+      const stageLower = (r.stage || '').toLowerCase();
+
+      // Exclude exit/inactive stages first
+      const excludePatterns = [
+        'not interested',
+        'left',
+        'potential',
+        'follow up',
+        '100 list',
+        '100_list',
+        'reached out',
+        'reached_out',
+        'evaluating',
+      ];
+      if (excludePatterns.some((p) => stageLower.includes(p))) {
+        return false;
+      }
+
+      // Include only: Signed, Shadow/Shadowed, Sold variants
+      return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
+    });
+
+    const byNotion = new Map<string, any>();
+    base.forEach((r) => byNotion.set(r.notionPageId, r));
+
+    const requiredNotionIds = [
+      currentRep?.notion_page_id,
+      suggestionPrefill?.suggestedByNotionId,
+      selectedRecruiter,
+    ].filter(Boolean) as string[];
+
+    for (const notionId of requiredNotionIds) {
+      if (byNotion.has(notionId)) continue;
+
+      const match = accessible.find((r) => r.notionPageId === notionId);
+      if (match?.name && match?.notionPageId) {
+        byNotion.set(match.notionPageId, match);
+        continue;
+      }
+
+      // Last resort: if we only know the current user's notion id + name, still make the Select show something.
+      if (currentRep?.notion_page_id === notionId && currentRep?.name) {
+        byNotion.set(notionId, {
+          userId: currentRep.authUserId,
+          name: currentRep.name,
+          notionPageId: notionId,
+        });
+      }
+    }
+
+    return Array.from(byNotion.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [
+    teamAccess?.accessibleReps,
+    currentRep?.authUserId,
+    currentRep?.notion_page_id,
+    currentRep?.name,
+    suggestionPrefill?.suggestedByNotionId,
+    selectedRecruiter,
+  ]);
+
+  // Filter recruiters based on selected team (but always keep the currently selected recruiter visible)
   const filteredRecruiters = useMemo(() => {
-    if (!selectedTeam) return allRecruiters;
-    return allRecruiters.filter(r => r.teamId === selectedTeam);
-  }, [allRecruiters, selectedTeam]);
+    const base = !selectedTeam ? allRecruiters : allRecruiters.filter((r) => r.teamId === selectedTeam);
+
+    if (!selectedRecruiter) return base;
+
+    const selected = allRecruiters.find((r) => r.notionPageId === selectedRecruiter);
+    if (!selected) return base;
+
+    if (base.some((r) => r.notionPageId === selectedRecruiter)) return base;
+
+    return [...base, selected];
+  }, [allRecruiters, selectedTeam, selectedRecruiter]);
 
   // Filter teams based on selected recruiter's team
   const filteredTeams = useMemo(() => {
@@ -376,17 +451,17 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         }
       }
     } else if (open && isLeader && !suggestionPrefill && !selectedRecruiter) {
-      // Default to current user when no prefill - find by userId first, then notionPageId
+      // Default to current user when no prefill
       const currentUserId = currentRep?.authUserId;
-      const currentUserData = currentUserId 
-        ? allRecruiters.find(r => r.userId === currentUserId)
-        : (currentRep?.notion_page_id ? allRecruiters.find(r => r.notionPageId === currentRep.notion_page_id) : null);
-      
-      if (currentUserData?.notionPageId) {
-        setSelectedRecruiter(currentUserData.notionPageId);
-        if (currentUserData.teamId) {
-          setSelectedTeam(currentUserData.teamId);
-        }
+      const currentUserData = currentUserId ? allRecruiters.find(r => r.userId === currentUserId) : null;
+
+      const defaultRecruiterNotionId = currentUserData?.notionPageId || currentRep?.notion_page_id || '';
+
+      if (defaultRecruiterNotionId) {
+        setSelectedRecruiter(defaultRecruiterNotionId);
+      }
+      if (currentUserData?.teamId) {
+        setSelectedTeam(currentUserData.teamId);
       }
     }
   }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters, selectedRecruiter]);
