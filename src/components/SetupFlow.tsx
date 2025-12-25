@@ -5,6 +5,16 @@ import { UserX, Mail, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const SetupFlow = () => {
   const navigate = useNavigate();
@@ -14,6 +24,7 @@ const SetupFlow = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [isRequestingAccess, setIsRequestingAccess] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     runSetup();
@@ -335,13 +346,47 @@ const SetupFlow = () => {
               </div>
 
               <Button
-                onClick={handleRequestAccess}
+                onClick={() => setShowConfirmDialog(true)}
                 disabled={isRequestingAccess}
                 className="w-full"
               >
                 <Mail className="w-4 h-4 mr-2" />
                 {isRequestingAccess ? "Sending..." : "Request Access"}
               </Button>
+
+              <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Access Request</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="space-y-3">
+                        <p>The following information will be sent to your area director:</p>
+                        <div className="bg-muted rounded-lg p-3 space-y-2">
+                          <div>
+                            <span className="text-xs text-muted-foreground">Name:</span>
+                            <p className="font-medium text-foreground">{userName || "Not provided"}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Email:</span>
+                            <p className="font-medium text-foreground">{userEmail || "Not provided"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        handleRequestAccess();
+                      }}
+                    >
+                      Send Request
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               <Button
                 variant="outline"
