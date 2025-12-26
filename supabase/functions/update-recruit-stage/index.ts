@@ -94,41 +94,53 @@ serve(async (req) => {
       });
     }
 
-    // Get current stage from Supabase (source of truth)
-    // Try by Supabase ID first, then fall back to Notion ID
-    let currentRep = null;
-    let fetchError = null;
+    // Get current recruit info first - recruitId is the ID from the recruits table
+    let currentRecruit: { id: string; notion_page_id: string | null; stage: string | null; name: string } | null = null;
+    let currentRep: { id: string; notion_page_id: string | null; stage: string | null; name: string } | null = null;
+    let notionPageId = recruitNotionId;
 
     if (recruitId) {
-      const result = await supabase
-        .from('reps')
+      const { data: recruit, error: recruitError } = await supabase
+        .from('recruits')
         .select('id, notion_page_id, stage, name')
         .eq('id', recruitId)
         .maybeSingle();
-      currentRep = result.data;
-      fetchError = result.error;
+      
+      if (recruitError) {
+        console.error('[update-recruit-stage] Error fetching recruit:', recruitError);
+      }
+      currentRecruit = recruit;
+      notionPageId = recruit?.notion_page_id || recruitNotionId;
     }
 
-    if (!currentRep && recruitNotionId) {
-      const result = await supabase
+    // Now find the corresponding rep by notion_page_id
+    if (notionPageId) {
+      const { data: rep, error: repError } = await supabase
         .from('reps')
         .select('id, notion_page_id, stage, name')
-        .eq('notion_page_id', recruitNotionId)
+        .eq('notion_page_id', notionPageId)
         .maybeSingle();
-      currentRep = result.data;
-      fetchError = result.error;
+      
+      if (repError) {
+        console.error('[update-recruit-stage] Error fetching rep:', repError);
+      }
+      currentRep = rep;
     }
 
-    if (fetchError || !currentRep) {
-      console.error('[update-recruit-stage] Error fetching current rep:', fetchError);
+    // We need at least the recruit or rep to proceed
+    if (!currentRecruit && !currentRep) {
+      console.error('[update-recruit-stage] Neither recruit nor rep found');
       return new Response(JSON.stringify({ error: 'Recruit not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const currentStage = currentRep?.stage || null;
-    console.log(`[update-recruit-stage] Current stage for ${currentRep?.name}: ${currentStage}`);
+    // Use recruit stage as current if available, otherwise use rep
+    const currentStage = currentRecruit?.stage || currentRep?.stage || null;
+    const entityName = currentRecruit?.name || currentRep?.name || 'Unknown';
+    
+    console.log(`[update-recruit-stage] Current stage for ${entityName}: ${currentStage}`);
 
     // Check if this is a valid forward progression (only for automatic changes, not manual)
     if (isAutomatic && !forceUpdate && !isForwardProgression(currentStage, newStage)) {
@@ -143,52 +155,55 @@ serve(async (req) => {
       });
     }
 
-    // Update stage in Supabase using the rep's ID
-    const { error: updateError } = await supabase
-      .from('reps')
-      .update({ 
-        stage: newStage, 
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', currentRep.id);
-
-    if (updateError) {
-      console.error('[update-recruit-stage] Error updating rep stage:', updateError);
-      return new Response(JSON.stringify({ error: 'Failed to update stage' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Also update recruits table if there's a matching record
-    if (currentRep.notion_page_id) {
-      await supabase
+    // Update stage in recruits table first (source of truth for recruits)
+    if (currentRecruit) {
+      const { error: recruitUpdateError } = await supabase
         .from('recruits')
-        .update({ stage: newStage, updated_at: new Date().toISOString() })
-        .eq('notion_page_id', currentRep.notion_page_id);
+        .update({ 
+          stage: newStage, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', currentRecruit.id);
+
+      if (recruitUpdateError) {
+        console.error('[update-recruit-stage] Error updating recruit stage:', recruitUpdateError);
+        return new Response(JSON.stringify({ error: 'Failed to update stage' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log(`[update-recruit-stage] Updated recruits table for ${entityName}`);
     }
 
-    console.log(`[update-recruit-stage] Successfully updated ${currentRep?.name} from ${currentStage} to ${newStage}`);
+    // Update stage in reps table if there's a matching rep
+    if (currentRep) {
+      const { error: repUpdateError } = await supabase
+        .from('reps')
+        .update({ 
+          stage: newStage, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', currentRep.id);
 
-    // Log the stage change as an activity - use rep_notion_page_id for compatibility
-    const activityRepId = currentRep.notion_page_id || currentRep.id;
-    
-    // Get the recruit_id from the recruits table (different from reps table ID)
-    let recruitDbId = null;
-    if (currentRep.notion_page_id) {
-      const { data: recruitRecord } = await supabase
-        .from('recruits')
-        .select('id')
-        .eq('notion_page_id', currentRep.notion_page_id)
-        .maybeSingle();
-      recruitDbId = recruitRecord?.id || null;
+      if (repUpdateError) {
+        console.error('[update-recruit-stage] Error updating rep stage:', repUpdateError);
+        // Don't fail if rep update fails - recruit update is primary
+      } else {
+        console.log(`[update-recruit-stage] Updated reps table for ${entityName}`);
+      }
     }
+
+    console.log(`[update-recruit-stage] Successfully updated ${entityName} from ${currentStage} to ${newStage}`);
+
+    // Log the stage change as an activity
+    const activityRepId = notionPageId || currentRecruit?.id || currentRep?.id || '';
+    const recruitDbId = currentRecruit?.id || null;
     
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
         rep_notion_page_id: activityRepId,
-        recruit_id: recruitDbId, // Use ID from recruits table, not reps table
+        recruit_id: recruitDbId,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: notes || `Stage changed from "${currentStage || 'unknown'}" to "${newStage}"`,
