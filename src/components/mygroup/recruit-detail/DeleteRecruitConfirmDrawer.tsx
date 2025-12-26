@@ -35,24 +35,14 @@ export const DeleteRecruitConfirmDrawer = ({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // Delete all related data
-      // 1. Delete recruit_activities
-      await supabase
-        .from("recruit_activities")
-        .delete()
-        .eq("rep_notion_page_id", recruitNotionPageId);
+      // Use edge function with service role to bypass RLS
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      // 2. Delete recruit_blitzes
-      await supabase
-        .from("recruit_blitzes")
-        .delete()
-        .eq("recruit_id", recruitId);
-
-      // 3. Delete the recruit
-      const { error } = await supabase
-        .from("recruits")
-        .delete()
-        .eq("id", recruitId);
+      const { error } = await supabase.functions.invoke("delete-recruit", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { recruitId, recruitNotionPageId },
+      });
 
       if (error) throw error;
     },
