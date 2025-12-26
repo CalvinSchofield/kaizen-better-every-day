@@ -102,17 +102,49 @@ serve(async (req) => {
     if (email !== undefined) repsUpdates.email = email;
     if (stage !== undefined) repsUpdates.stage = stage;
 
-    if (Object.keys(repsUpdates).length > 0 && recruitNotionPageId) {
+    if (Object.keys(repsUpdates).length > 0) {
       repsUpdates.updated_at = new Date().toISOString();
 
-      const { error: repsUpdateError } = await supabase
-        .from('reps')
-        .update(repsUpdates)
-        .eq('notion_page_id', recruitNotionPageId);
+      // Try to find and update the linked rep
+      // First by notion_page_id, then by email match for ghost reps
+      let repsUpdated = false;
 
-      if (repsUpdateError) {
-        // Don't fail if reps update fails - recruit might not have a linked rep
-        console.log('Reps update skipped or failed (may not exist):', repsUpdateError.message);
+      if (recruitNotionPageId) {
+        const { error: repsUpdateError, count } = await supabase
+          .from('reps')
+          .update(repsUpdates)
+          .eq('notion_page_id', recruitNotionPageId);
+
+        if (!repsUpdateError) {
+          repsUpdated = true;
+          console.log(`Updated reps by notion_page_id: ${recruitNotionPageId}`);
+        }
+      }
+
+      // If no notion_page_id or update didn't match, try by recruit ID lookup
+      if (!repsUpdated && recruitId) {
+        // Get the recruit's notion_page_id and email
+        const { data: recruit } = await supabase
+          .from('recruits')
+          .select('notion_page_id, email')
+          .eq('id', recruitId)
+          .maybeSingle();
+
+        if (recruit?.notion_page_id) {
+          await supabase
+            .from('reps')
+            .update(repsUpdates)
+            .eq('notion_page_id', recruit.notion_page_id);
+          console.log(`Updated reps by recruit's notion_page_id: ${recruit.notion_page_id}`);
+        } else if (recruit?.email) {
+          // Try matching ghost rep by email
+          await supabase
+            .from('reps')
+            .update(repsUpdates)
+            .is('user_id', null)
+            .ilike('email', recruit.email);
+          console.log(`Updated ghost rep by email: ${recruit.email}`);
+        }
       }
     }
 

@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     const { 
       rookieNotionPageId,
-      rookieId, 
+      rookieId,  // This could be from reps table OR recruits table
       onboardingStatus, 
       ipadAssigned,
       rampPhase1Complete,
@@ -121,46 +121,104 @@ Deno.serve(async (req) => {
       updateData.ramp_to_blitz_phase = onboardingStatus;
     }
 
-    console.log(`Updating rookie status in Supabase:`, updateData);
+    console.log(`[update-rookie-status] Updating with:`, updateData);
 
-    // Update reps table
-    let updateQuery = supabase.from('reps').update(updateData);
+    // First, try to find the rep by notion_page_id or by looking up from recruits
+    let repNotionPageId = rookieNotionPageId;
+    let recruitId: string | null = null;
+
+    // If we have rookieId, we need to determine if it's a rep ID or recruit ID
+    if (rookieId && !rookieNotionPageId) {
+      // Try to find in reps table first
+      const { data: repById } = await supabase
+        .from('reps')
+        .select('id, notion_page_id')
+        .eq('id', rookieId)
+        .maybeSingle();
+
+      if (repById) {
+        repNotionPageId = repById.notion_page_id;
+        console.log(`[update-rookie-status] Found rep by ID: ${rookieId}`);
+      } else {
+        // Try recruits table
+        const { data: recruitById } = await supabase
+          .from('recruits')
+          .select('id, notion_page_id')
+          .eq('id', rookieId)
+          .maybeSingle();
+
+        if (recruitById) {
+          recruitId = recruitById.id;
+          repNotionPageId = recruitById.notion_page_id;
+          console.log(`[update-rookie-status] Found recruit by ID: ${rookieId}, notion_page_id: ${repNotionPageId}`);
+        }
+      }
+    }
+
+    // Update reps table - try by notion_page_id first, then by ID
+    let repsUpdated = false;
     
-    if (rookieId) {
-      updateQuery = updateQuery.eq('id', rookieId);
-    } else {
-      updateQuery = updateQuery.eq('notion_page_id', rookieNotionPageId);
+    if (repNotionPageId) {
+      const { error: updateError, count } = await supabase
+        .from('reps')
+        .update(updateData)
+        .eq('notion_page_id', repNotionPageId)
+        .select('id');
+      
+      if (!updateError) {
+        repsUpdated = true;
+        console.log(`[update-rookie-status] Updated reps by notion_page_id: ${repNotionPageId}`);
+      }
+    }
+    
+    if (!repsUpdated && rookieId) {
+      const { error: updateError } = await supabase
+        .from('reps')
+        .update(updateData)
+        .eq('id', rookieId);
+      
+      if (!updateError) {
+        repsUpdated = true;
+        console.log(`[update-rookie-status] Updated reps by id: ${rookieId}`);
+      }
     }
 
-    const { error: updateError } = await updateQuery;
-
-    if (updateError) {
-      console.error("Supabase update error:", updateError);
-      throw new Error(`Failed to update rookie status: ${updateError.message}`);
-    }
-
-    // Also update recruits table if exists
-    let recruitsUpdateQuery = supabase.from('recruits').update({
-      ipad_assigned: updateData.ipad_assigned,
-      onboarding_complete: updateData.onboarding_complete,
-      trainings_complete: updateData.trainings_complete,
-      slack_joined: updateData.slack_joined,
-      ramp_phase_1_complete: updateData.ramp_phase_1_complete,
-      ramp_phase_2_complete: updateData.ramp_phase_2_complete,
-      ramp_phase_3_complete: updateData.ramp_phase_3_complete,
-      ramp_phase_4_complete: updateData.ramp_phase_4_complete,
+    // Also update recruits table - only include defined values
+    const recruitsUpdateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
-    });
+    };
+    
+    if (updateData.ipad_assigned !== undefined) recruitsUpdateData.ipad_assigned = updateData.ipad_assigned;
+    if (updateData.onboarding_complete !== undefined) recruitsUpdateData.onboarding_complete = updateData.onboarding_complete;
+    if (updateData.trainings_complete !== undefined) recruitsUpdateData.trainings_complete = updateData.trainings_complete;
+    if (updateData.slack_joined !== undefined) recruitsUpdateData.slack_joined = updateData.slack_joined;
+    if (updateData.ramp_phase_1_complete !== undefined) recruitsUpdateData.ramp_phase_1_complete = updateData.ramp_phase_1_complete;
+    if (updateData.ramp_phase_2_complete !== undefined) recruitsUpdateData.ramp_phase_2_complete = updateData.ramp_phase_2_complete;
+    if (updateData.ramp_phase_3_complete !== undefined) recruitsUpdateData.ramp_phase_3_complete = updateData.ramp_phase_3_complete;
+    if (updateData.ramp_phase_4_complete !== undefined) recruitsUpdateData.ramp_phase_4_complete = updateData.ramp_phase_4_complete;
 
-    if (rookieId) {
-      recruitsUpdateQuery = recruitsUpdateQuery.eq('id', rookieId);
-    } else if (rookieNotionPageId) {
-      recruitsUpdateQuery = recruitsUpdateQuery.eq('notion_page_id', rookieNotionPageId);
+    if (repNotionPageId) {
+      await supabase
+        .from('recruits')
+        .update(recruitsUpdateData)
+        .eq('notion_page_id', repNotionPageId);
+      console.log(`[update-rookie-status] Updated recruits by notion_page_id: ${repNotionPageId}`);
+    } else if (recruitId) {
+      await supabase
+        .from('recruits')
+        .update(recruitsUpdateData)
+        .eq('id', recruitId);
+      console.log(`[update-rookie-status] Updated recruits by id: ${recruitId}`);
+    } else if (rookieId) {
+      // Last resort - try the rookieId directly on recruits
+      await supabase
+        .from('recruits')
+        .update(recruitsUpdateData)
+        .eq('id', rookieId);
+      console.log(`[update-rookie-status] Updated recruits by rookieId: ${rookieId}`);
     }
 
-    await recruitsUpdateQuery;
-
-    console.log("Successfully updated rookie status in Supabase");
+    console.log("[update-rookie-status] Successfully updated rookie status");
 
     return new Response(
       JSON.stringify({
@@ -174,7 +232,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Error in update-rookie-status:", error);
+    console.error("[update-rookie-status] Error:", error);
     return new Response(
       JSON.stringify({
         error: error.message,
