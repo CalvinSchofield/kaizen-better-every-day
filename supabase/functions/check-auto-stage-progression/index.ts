@@ -92,6 +92,20 @@ serve(async (req) => {
       });
     }
 
+    // SAFEGUARD: Skip auto-progression entirely for users already in exit stages
+    // Leaders manually set these stages - never override them
+    if (isExitStage(repData.stage)) {
+      console.log(`[check-auto-stage-progression] Skipping - user ${repData.id} is in exit stage: ${repData.stage}`);
+      return new Response(JSON.stringify({ 
+        updated: false, 
+        reason: 'User is in an exit stage - no auto-progression allowed',
+        currentStage: repData.stage
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Get total FP+ from all daily entries
     const { data: entries } = await supabase
       .from('daily_entries')
