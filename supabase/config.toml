@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.update-rep-assignment]
 verify_jwt = false
+
+[functions.delete-recruit]
+verify_jwt = false
