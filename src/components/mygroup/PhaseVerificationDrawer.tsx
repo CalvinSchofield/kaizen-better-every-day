@@ -68,6 +68,8 @@ interface PhaseVerificationDrawerProps {
   isSubmitting: boolean;
   hasError?: boolean;
   onConfirm: () => void;
+  mode?: 'verify' | 'undo';
+  onUndo?: () => void;
 }
 
 export const PhaseVerificationDrawer = ({
@@ -78,8 +80,11 @@ export const PhaseVerificationDrawer = ({
   isSubmitting,
   hasError = false,
   onConfirm,
+  mode = 'verify',
+  onUndo,
 }: PhaseVerificationDrawerProps) => {
   const phaseInfo = PHASE_ITEMS[phase];
+  const isUndoMode = mode === 'undo';
 
   if (!phaseInfo) return null;
 
@@ -88,7 +93,7 @@ export const PhaseVerificationDrawer = ({
       <DrawerContent className="max-h-[90dvh]">
         <DrawerHeader className="border-b border-border pb-4">
           <DrawerTitle className="text-center">
-            Verify Phase {phase}
+            {isUndoMode ? `Phase ${phase} Complete` : `Verify Phase ${phase}`}
           </DrawerTitle>
         </DrawerHeader>
         
@@ -103,21 +108,25 @@ export const PhaseVerificationDrawer = ({
 
           {/* Phase Overview */}
           <div className="space-y-4">
-            {/* Self-Service Items (Reference for Leader) */}
-            <div className="bg-muted/50 rounded-xl p-4 border border-border">
+            {/* Self-Service Items */}
+            <div className={`rounded-xl p-4 border ${isUndoMode ? 'bg-green-500/10 border-green-500/30' : 'bg-muted/50 border-border'}`}>
               <div className="flex items-center gap-2 mb-3">
-                <Check className="w-4 h-4 text-muted-foreground" />
-                <p className="text-sm font-semibold text-muted-foreground">
-                  Rep should have completed
+                <Check className={`w-4 h-4 ${isUndoMode ? 'text-green-600' : 'text-muted-foreground'}`} />
+                <p className={`text-sm font-semibold ${isUndoMode ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  {isUndoMode ? 'Rep completed' : 'Rep should have completed'}
                 </p>
               </div>
               <div className="space-y-2">
                 {phaseInfo.selfServiceItems.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2">
-                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                      <Circle className="h-3 w-3 text-muted-foreground" />
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isUndoMode ? 'bg-green-500/20' : 'bg-muted'}`}>
+                      {isUndoMode ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <Circle className="h-3 w-3 text-muted-foreground" />
+                      )}
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className={`text-sm ${isUndoMode ? 'text-foreground' : 'text-muted-foreground'}`}>
                       {item.label}
                     </span>
                   </div>
@@ -126,18 +135,18 @@ export const PhaseVerificationDrawer = ({
             </div>
 
             {/* Leader-Required Items */}
-            <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+            <div className={`rounded-xl p-4 border ${isUndoMode ? 'bg-green-500/10 border-green-500/30' : 'bg-primary/5 border-primary/20'}`}>
               <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-primary" />
-                <p className="text-sm font-semibold text-primary">
-                  You verify together
+                <Users className={`w-4 h-4 ${isUndoMode ? 'text-green-600' : 'text-primary'}`} />
+                <p className={`text-sm font-semibold ${isUndoMode ? 'text-green-700 dark:text-green-400' : 'text-primary'}`}>
+                  {isUndoMode ? 'Verified together' : 'You verify together'}
                 </p>
               </div>
               <div className="space-y-3">
                 {phaseInfo.leaderItems.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2">
-                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="h-3 w-3 text-primary" />
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isUndoMode ? 'bg-green-500/20' : 'bg-primary/20'}`}>
+                      <Check className={`h-3 w-3 ${isUndoMode ? 'text-green-600' : 'text-primary'}`} />
                     </div>
                     <div>
                       <span className="text-sm font-medium">{item.label}</span>
@@ -154,15 +163,21 @@ export const PhaseVerificationDrawer = ({
             <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
               <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
               <p className="text-sm text-destructive">
-                Failed to verify phase. Check your connection and try again.
+                {isUndoMode ? 'Failed to undo phase.' : 'Failed to verify phase.'} Check your connection and try again.
               </p>
             </div>
           )}
 
           {/* Confirmation Note */}
-          <p className="text-xs text-center text-muted-foreground px-4">
-            By verifying, you confirm you've completed the leader items with {recruitName} and they're ready to move on to {phase === 4 ? 'Blitz!' : `Phase ${phase + 1}`}.
-          </p>
+          {isUndoMode ? (
+            <p className="text-xs text-center text-muted-foreground px-4">
+              This phase was marked complete. If needed, you can undo this to reset {recruitName} back to Phase {phase}.
+            </p>
+          ) : (
+            <p className="text-xs text-center text-muted-foreground px-4">
+              By verifying, you confirm you've completed the leader items with {recruitName} and they're ready to move on to {phase === 4 ? 'Blitz!' : `Phase ${phase + 1}`}.
+            </p>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
@@ -173,25 +188,36 @@ export const PhaseVerificationDrawer = ({
               disabled={isSubmitting}
             >
               <X className="h-4 w-4 mr-2" />
-              Cancel
+              {isUndoMode ? 'Close' : 'Cancel'}
             </Button>
-            <Button
-              className={`flex-1 ${hasError ? 'bg-primary hover:bg-primary/90' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-              onClick={onConfirm}
-              disabled={isSubmitting}
-            >
-              {hasError ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Retrying...' : 'Retry'}
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Verifying...' : 'Verify Phase'}
-                </>
-              )}
-            </Button>
+            {isUndoMode ? (
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={onUndo}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Undoing...' : 'Undo Phase'}
+              </Button>
+            ) : (
+              <Button
+                className={`flex-1 ${hasError ? 'bg-primary hover:bg-primary/90' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                onClick={onConfirm}
+                disabled={isSubmitting}
+              >
+                {hasError ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {isSubmitting ? 'Retrying...' : 'Retry'}
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    {isSubmitting ? 'Verifying...' : 'Verify Phase'}
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </DrawerContent>
