@@ -50,7 +50,14 @@ export const DeleteRecruitConfirmDrawer = ({
       toast.success(`${recruitName} has been deleted`);
       // Clear cached placeholder data so deleted reps don't briefly re-appear.
       localStorage.removeItem('group-recruits-cache:v2');
+
+      // Refresh all dependent views
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
+      queryClient.invalidateQueries({ queryKey: ["team-access"] });
+      queryClient.invalidateQueries({ queryKey: ["org-structure"] });
+      queryClient.invalidateQueries({ queryKey: ["recruits-rep-data"] });
+      queryClient.invalidateQueries({ queryKey: ["recruit-detail-live"] });
+
       setConfirmText("");
       onOpenChange(false);
       onDeleted?.();
