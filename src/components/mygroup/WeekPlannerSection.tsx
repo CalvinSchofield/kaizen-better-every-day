@@ -474,7 +474,7 @@ export const WeekPlannerSection = ({
               )}>← schedule · contact →</span>
             </div>
 
-            {/* Today's Scheduled Tasks */}
+            {/* Today's Scheduled Tasks - swipe left reschedules since there's already an activity */}
             {todayTasks.length > 0 && (
               <div className="space-y-2">
                 {todayTasks.map(({ recruit, activity }, index) => (
@@ -485,8 +485,10 @@ export const WeekPlannerSection = ({
                     onRecruitClick={handleLocalRecruitClick}
                     onContact={handleSwipeContact}
                     onSchedule={handleSwipeSchedule}
+                    onReschedule={handleSwipeReschedule}
                     showSwipeDemo={index === 0 && recommendations.length === 0}
                     onDemoComplete={handleDemoComplete}
+                    hasTodayScheduledActivity
                   />
                 ))}
               </div>
