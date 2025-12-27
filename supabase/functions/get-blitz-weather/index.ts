@@ -33,29 +33,66 @@ serve(async (req) => {
       );
     }
 
-    // Open-Meteo free API only provides 16 days of forecast
-    // Check if the requested dates are too far in the future
+    // Open-Meteo free API only provides ~16 days of forecast.
+    // Clamp requested dates to the available forecast window so we don't return 500s.
+    const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const maxForecastDate = new Date(today);
     maxForecastDate.setDate(maxForecastDate.getDate() + 16);
-    
+
     const requestedStartDate = new Date(startDate);
-    
-    if (requestedStartDate > maxForecastDate) {
-      // Dates are too far in the future - return empty forecast with a message
-      console.log(`Requested dates (${startDate} to ${endDate}) are beyond 16-day forecast range`);
+    const requestedEndDate = new Date(endDate);
+
+    if (
+      Number.isNaN(requestedStartDate.getTime()) ||
+      Number.isNaN(requestedEndDate.getTime())
+    ) {
+      return new Response(
+        JSON.stringify({ error: "Invalid startDate/endDate format (expected YYYY-MM-DD)" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (requestedEndDate < requestedStartDate) {
+      return new Response(
+        JSON.stringify({ error: "endDate must be on/after startDate" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const startDateForRequestDate = requestedStartDate < today ? today : requestedStartDate;
+
+    // If even the (clamped) start is beyond the forecast horizon, return a friendly empty result.
+    if (startDateForRequestDate > maxForecastDate) {
       return new Response(
         JSON.stringify({
           location: location || "Unknown",
           forecasts: [],
-          message: "Forecast not yet available - check back closer to the event"
+          message: `Forecast not yet available (available through ${toISODate(maxForecastDate)})`,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+
+    const endDateForRequestDate = requestedEndDate > maxForecastDate ? maxForecastDate : requestedEndDate;
+
+    const startDateForRequest = toISODate(startDateForRequestDate);
+    const endDateForRequest = toISODate(endDateForRequestDate);
+
+    const forecastMessage = requestedEndDate > maxForecastDate
+      ? `Forecast only available through ${endDateForRequest}`
+      : undefined;
 
     let lat: number;
     let lng: number;
@@ -131,22 +168,26 @@ serve(async (req) => {
     }
 
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDateForRequest}&end_date=${endDateForRequest}&temperature_unit=fahrenheit&timezone=auto`;
 
     console.log(`Fetching weather from: ${weatherUrl}`);
-    
+
     const weatherResponse = await fetch(weatherUrl);
     const weatherData = await weatherResponse.json();
 
     console.log(`Weather API response status: ${weatherResponse.status}`);
     console.log(`Weather data keys: ${Object.keys(weatherData).join(', ')}`);
 
+    // Never return 500 to the app for forecast availability issues.
     if (weatherData.error) {
       console.error(`Weather API error: ${JSON.stringify(weatherData)}`);
       return new Response(
-        JSON.stringify({ error: `Weather API error: ${weatherData.reason || weatherData.error}` }),
+        JSON.stringify({
+          location: locationName,
+          forecasts: [],
+          message: `Weather forecast unavailable: ${weatherData.reason || weatherData.error}`,
+        }),
         {
-          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -155,9 +196,12 @@ serve(async (req) => {
     if (!weatherData.daily) {
       console.error(`No daily data in response: ${JSON.stringify(weatherData)}`);
       return new Response(
-        JSON.stringify({ error: "Weather data not available - no daily forecast returned" }),
+        JSON.stringify({
+          location: locationName,
+          forecasts: [],
+          message: "Weather forecast unavailable",
+        }),
         {
-          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -202,6 +246,7 @@ serve(async (req) => {
       JSON.stringify({
         location: locationName,
         forecasts,
+        ...(forecastMessage ? { message: forecastMessage } : {}),
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -62,17 +62,11 @@ export const PostContactDrawer = ({
   // Reset state when drawer opens/closes or method changes
   useEffect(() => {
     if (open) {
-      console.log('[PostContactDrawer] opened with', {
-        recruitName: recruit?.name,
-        hasScheduledActivity: !!scheduledActivity,
-        scheduledActivityId: scheduledActivity?.id,
-        nextAction: scheduledActivity?.next_action
-      });
       setOutcome(null);
       setNotes('');
       setMarkTaskComplete(true);
     }
-  }, [open, recruit?.name, scheduledActivity]);
+  }, [open]);
 
   const handleSubmit = async () => {
     if (!recruit) return;

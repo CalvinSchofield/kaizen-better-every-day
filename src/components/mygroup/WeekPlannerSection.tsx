@@ -142,14 +142,17 @@ export const WeekPlannerSection = ({
   // Get scheduled tasks (activities with next_action_due)
   const scheduledTasks = useMemo(() => {
     const tasksMap = new Map<string, { recruit: Recruit; activity: RecruitActivity }[]>();
-    
+
     const latestNextActions = new Map<string, RecruitActivity>();
     activities.forEach(activity => {
-      if (activity.next_action_due && activity.next_action) {
-        const existing = latestNextActions.get(activity.rep_notion_page_id);
-        if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
-          latestNextActions.set(activity.rep_notion_page_id, activity);
-        }
+      if (!activity.next_action_due || !activity.next_action) return;
+
+      const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
+      if (isCompleted) return;
+
+      const existing = latestNextActions.get(activity.rep_notion_page_id);
+      if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
+        latestNextActions.set(activity.rep_notion_page_id, activity);
       }
     });
 
@@ -239,12 +242,6 @@ export const WeekPlannerSection = ({
 
   // Handle swipe contact - can be from scheduled task (with activity) or recommendation (without)
   const handleSwipeContact = (recruit: Recruit, activity?: RecruitActivity | null) => {
-    console.log('[WeekPlanner] handleSwipeContact called', { 
-      recruitName: recruit.name, 
-      hasActivity: !!activity,
-      activityId: activity?.id,
-      nextAction: activity?.next_action 
-    });
     setContactingRecruit(recruit);
     setContactingActivity(activity || null);
     setContactMethodOpen(true);
@@ -592,9 +589,6 @@ export const WeekPlannerSection = ({
         open={contactMethodOpen}
         onOpenChange={(open) => {
           setContactMethodOpen(open);
-          if (!open) {
-            setContactingActivity(null);
-          }
         }}
         recruit={contactingRecruit}
         scheduledActivity={contactingActivity}
