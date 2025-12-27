@@ -238,7 +238,13 @@ export const WeekPlannerSection = ({
   };
 
   // Handle swipe contact - can be from scheduled task (with activity) or recommendation (without)
-  const handleSwipeContact = (recruit: Recruit, activity?: RecruitActivity) => {
+  const handleSwipeContact = (recruit: Recruit, activity?: RecruitActivity | null) => {
+    console.log('[WeekPlanner] handleSwipeContact called', { 
+      recruitName: recruit.name, 
+      hasActivity: !!activity,
+      activityId: activity?.id,
+      nextAction: activity?.next_action 
+    });
     setContactingRecruit(recruit);
     setContactingActivity(activity || null);
     setContactMethodOpen(true);
