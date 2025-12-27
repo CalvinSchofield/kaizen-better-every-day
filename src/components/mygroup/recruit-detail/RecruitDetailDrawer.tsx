@@ -23,6 +23,7 @@ import { ActivityTab } from "./tabs/ActivityTab";
 import { DetailsTab } from "./tabs/DetailsTab";
 import { PhaseVerificationDrawer } from "../PhaseVerificationDrawer";
 import { ScheduledActivityActionSheet } from "../ScheduledActivityActionSheet";
+import { ScheduleFollowUpDrawer } from "../ScheduleFollowUpDrawer";
 
 // Import all the dialog components from the original file
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ export const RecruitDetailDrawer = ({
   // Dialog states
   const [logActivityOpen, setLogActivityOpen] = useState(false);
   const [isDirectSchedule, setIsDirectSchedule] = useState(false);
+  const [scheduleFollowUpDrawerOpen, setScheduleFollowUpDrawerOpen] = useState(false);
   const [editActivityOpen, setEditActivityOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
@@ -607,10 +609,8 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleScheduleFollowUp = () => {
-    setIsDirectSchedule(true);
-    setActivityType('next_step');
-    setActivityNotes('');
-    setLogActivityOpen(true);
+    // Open the full ScheduleFollowUpDrawer with assign-to option
+    setScheduleFollowUpDrawerOpen(true);
   };
 
   const handleActivityClick = (activity: RecruitActivity) => {
@@ -1156,6 +1156,16 @@ export const RecruitDetailDrawer = ({
         onMarkComplete={handleMarkScheduledComplete}
         onReschedule={handleRescheduleActivity}
         onDelete={handleDeleteScheduledActivity}
+      />
+
+      {/* Schedule Follow-up Drawer - full version with assign-to option */}
+      <ScheduleFollowUpDrawer
+        open={scheduleFollowUpDrawerOpen}
+        onOpenChange={setScheduleFollowUpDrawerOpen}
+        recruit={recruit}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+        }}
       />
     </>
   );
