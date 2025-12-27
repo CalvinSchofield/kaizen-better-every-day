@@ -1,10 +1,11 @@
-import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow } from "date-fns";
+import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow, isPast } from "date-fns";
 import { 
   Phone, 
   MessageSquare, 
   Users, 
   Calendar,
   Clock,
+  AlertCircle,
   CheckCircle2,
   Plus,
   PhoneCall,
@@ -81,10 +82,15 @@ export const ActivityTab = ({
     return notesLower.includes('text') || notesLower.startsWith('texted');
   };
 
-  const getActivityIcon = (type: string, notes?: string | null, isCompleted?: boolean) => {
+  const getActivityIcon = (type: string, notes?: string | null, isCompleted?: boolean, isOverdue?: boolean) => {
     // For completed scheduled activities, show a green checkmark
     if (type === 'next_step' && isCompleted) {
       return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    }
+    
+    // For overdue scheduled activities, show alert icon
+    if (type === 'next_step' && isOverdue) {
+      return <AlertCircle className="h-4 w-4 text-destructive" />;
     }
     
     if (isTextActivity(type, notes)) {
@@ -244,10 +250,12 @@ export const ActivityTab = ({
                       ? (activity.next_action || activity.notes)
                       : activity.notes;
                     
-                    // Check if scheduled activity is completed
+                    // Check if scheduled activity is completed or overdue
                     const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
                     const isScheduledCompleted = isScheduledActivity && isCompleted;
                     const isScheduledPending = isScheduledActivity && !isCompleted;
+                    const isOverdue = isScheduledPending && activity.next_action_due && 
+                      isPast(parseISO(activity.next_action_due)) && !isToday(parseISO(activity.next_action_due));
                     
                     return (
                       <button
@@ -255,6 +263,8 @@ export const ActivityTab = ({
                         className={`w-full text-left p-3 rounded-lg transition-colors ${
                           isScheduledCompleted 
                             ? 'bg-green-500/5 hover:bg-green-500/10 border border-green-500/20'
+                            : isOverdue
+                            ? 'bg-destructive/5 hover:bg-destructive/10 border border-destructive/20'
                             : isScheduledPending
                             ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20'
                             : 'bg-muted/50 hover:bg-muted'
@@ -263,16 +273,16 @@ export const ActivityTab = ({
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 shrink-0">
-                            {getActivityIcon(activity.activity_type, activity.notes, isCompleted)}
+                            {getActivityIcon(activity.activity_type, activity.notes, isCompleted, isOverdue)}
                           </div>
                           <div className="flex-1 min-w-0">
                             {/* Header row: type, time */}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className={`text-sm font-medium capitalize shrink-0 ${
-                                  isScheduledCompleted ? 'text-green-600' : isScheduledPending ? 'text-amber-600' : ''
+                                  isScheduledCompleted ? 'text-green-600' : isOverdue ? 'text-destructive' : isScheduledPending ? 'text-amber-600' : ''
                                 }`}>
-                                  {isScheduledCompleted ? 'Completed' : getActivityLabel(activity.activity_type, activity.notes)}
+                                  {isScheduledCompleted ? 'Completed' : isOverdue ? 'Overdue' : getActivityLabel(activity.activity_type, activity.notes)}
                                 </span>
                                 {/* For non-scheduled activities, show the time */}
                                 {!isScheduledActivity && (
