@@ -1,4 +1,4 @@
-import { format, parseISO, isToday, isYesterday, isThisWeek } from "date-fns";
+import { format, parseISO, isToday, isYesterday, isThisWeek, isFuture, isTomorrow } from "date-fns";
 import { 
   Phone, 
   MessageSquare, 
@@ -107,21 +107,36 @@ export const ActivityTab = ({
 
   const getActivityLabel = (type: string, notes?: string | null): string => {
     if (isTextActivity(type, notes)) return 'Text';
-    if (type === 'next_step') return 'Scheduled';
+    if (type === 'next_step') return 'Follow-up';
     return type.replace('_', ' ');
   };
 
-  const formatActivityDate = (dateString: string) => {
+  // Format date with support for future dates
+  const formatActivityDate = (dateString: string, isFutureSection: boolean = false) => {
     const date = parseISO(dateString);
     if (isToday(date)) return 'Today';
     if (isYesterday(date)) return 'Yesterday';
+    if (isTomorrow(date)) return 'Tomorrow';
     if (isThisWeek(date)) return format(date, 'EEEE');
     return format(date, 'MMM d');
   };
 
-  // Group activities by date
+  // Get the relevant date for an activity (due date for scheduled, created for others)
+  const getActivityDateKey = (activity: RecruitActivity): string => {
+    const isScheduled = activity.activity_type === 'next_step';
+    const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
+    
+    // For pending scheduled activities with a due date, use the due date
+    if (isScheduled && activity.next_action_due && !isCompleted) {
+      return activity.next_action_due;
+    }
+    // For everything else (including completed scheduled), use created_at
+    return format(parseISO(activity.created_at), 'yyyy-MM-dd');
+  };
+
+  // Group activities by their relevant date
   const groupedActivities = activities.reduce((groups, activity) => {
-    const dateKey = format(parseISO(activity.created_at), 'yyyy-MM-dd');
+    const dateKey = getActivityDateKey(activity);
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }
@@ -129,9 +144,27 @@ export const ActivityTab = ({
     return groups;
   }, {} as Record<string, RecruitActivity[]>);
 
-  const sortedDates = Object.keys(groupedActivities).sort((a, b) => 
-    new Date(b).getTime() - new Date(a).getTime()
-  );
+  // Sort dates: future dates first (ascending), then past dates (descending)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
+    const dateA = parseISO(a);
+    const dateB = parseISO(b);
+    const aIsFuture = isFuture(dateA) || isToday(dateA);
+    const bIsFuture = isFuture(dateB) || isToday(dateB);
+    
+    // Both future: ascending (soonest first)
+    if (aIsFuture && bIsFuture) {
+      return dateA.getTime() - dateB.getTime();
+    }
+    // Both past: descending (most recent first)
+    if (!aIsFuture && !bIsFuture) {
+      return dateB.getTime() - dateA.getTime();
+    }
+    // Future comes before past
+    return aIsFuture ? -1 : 1;
+  });
 
   return (
     <div className="space-y-4">
@@ -173,74 +206,80 @@ export const ActivityTab = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedDates.map((dateKey) => (
-            <div key={dateKey}>
-              {/* Date Header */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {formatActivityDate(groupedActivities[dateKey][0].created_at)}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-              
-              {/* Activities for this date */}
-              <div className="space-y-2">
-                {groupedActivities[dateKey].map((activity) => {
-                  const isAssignedToOther = activity.assigned_to_user_id && 
-                    activity.assigned_to_user_id !== currentUserId;
-                  const assigneeName = isAssignedToOther 
-                    ? assigneeNames[activity.assigned_to_user_id!] 
-                    : null;
-                  
-                  // Determine if next_action is different from notes (avoid duplicate display)
-                  const hasUniqueNextAction = activity.next_action && 
-                    activity.next_action !== activity.notes &&
-                    !activity.notes?.includes(activity.next_action);
-                  
-                  // For scheduled activities, prefer showing next_action as the main text
-                  const isScheduledActivity = activity.activity_type === 'next_step';
-                  const mainText = isScheduledActivity 
-                    ? (activity.next_action || activity.notes)
-                    : activity.notes;
-                  
-                  // Check if scheduled activity is completed
-                  const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
-                  const isScheduledCompleted = isScheduledActivity && isCompleted;
-                  
-                  return (
-                    <button
-                      key={activity.id}
-                      className={`w-full text-left p-3 rounded-lg transition-colors ${
-                        isScheduledCompleted 
-                          ? 'bg-green-500/5 hover:bg-green-500/10 border border-green-500/20' 
-                          : 'bg-muted/50 hover:bg-muted'
-                      }`}
-                      onClick={() => onActivityClick(activity)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 shrink-0">
-                          {getActivityIcon(activity.activity_type, activity.notes, isCompleted)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {/* Header row: type, time, due date, assignee */}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`text-sm font-medium capitalize shrink-0 ${
-                                isScheduledCompleted ? 'text-green-600' : ''
-                              }`}>
-                                {isScheduledCompleted ? 'Completed' : getActivityLabel(activity.activity_type, activity.notes)}
-                              </span>
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {format(parseISO(activity.created_at), 'h:mm a')}
-                              </span>
-                            </div>
-                            {/* Due date positioned on the right for scheduled activities */}
-                            {activity.next_action_due && !isScheduledCompleted && (
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                                Due {format(parseISO(activity.next_action_due), 'MMM d')}
-                              </span>
-                            )}
+          {sortedDates.map((dateKey) => {
+            const dateForHeader = parseISO(dateKey);
+            const isFutureDate = isFuture(dateForHeader) && !isToday(dateForHeader);
+            
+            return (
+              <div key={dateKey}>
+                {/* Date Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs font-medium ${
+                    isFutureDate ? 'text-amber-600' : 'text-muted-foreground'
+                  }`}>
+                    {formatActivityDate(dateKey)}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                
+                {/* Activities for this date */}
+                <div className="space-y-2">
+                  {groupedActivities[dateKey].map((activity) => {
+                    const isAssignedToOther = activity.assigned_to_user_id && 
+                      activity.assigned_to_user_id !== currentUserId;
+                    const assigneeName = isAssignedToOther 
+                      ? assigneeNames[activity.assigned_to_user_id!] 
+                      : null;
+                    
+                    // Determine if next_action is different from notes (avoid duplicate display)
+                    const hasUniqueNextAction = activity.next_action && 
+                      activity.next_action !== activity.notes &&
+                      !activity.notes?.includes(activity.next_action);
+                    
+                    // For scheduled activities, prefer showing next_action as the main text
+                    const isScheduledActivity = activity.activity_type === 'next_step';
+                    const mainText = isScheduledActivity 
+                      ? (activity.next_action || activity.notes)
+                      : activity.notes;
+                    
+                    // Check if scheduled activity is completed
+                    const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
+                    const isScheduledCompleted = isScheduledActivity && isCompleted;
+                    const isScheduledPending = isScheduledActivity && !isCompleted;
+                    
+                    return (
+                      <button
+                        key={activity.id}
+                        className={`w-full text-left p-3 rounded-lg transition-colors ${
+                          isScheduledCompleted 
+                            ? 'bg-green-500/5 hover:bg-green-500/10 border border-green-500/20'
+                            : isScheduledPending
+                            ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20'
+                            : 'bg-muted/50 hover:bg-muted'
+                        }`}
+                        onClick={() => onActivityClick(activity)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            {getActivityIcon(activity.activity_type, activity.notes, isCompleted)}
                           </div>
+                          <div className="flex-1 min-w-0">
+                            {/* Header row: type, time */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`text-sm font-medium capitalize shrink-0 ${
+                                  isScheduledCompleted ? 'text-green-600' : isScheduledPending ? 'text-amber-600' : ''
+                                }`}>
+                                  {isScheduledCompleted ? 'Completed' : getActivityLabel(activity.activity_type, activity.notes)}
+                                </span>
+                                {/* For non-scheduled activities, show the time */}
+                                {!isScheduledActivity && (
+                                  <span className="text-xs text-muted-foreground shrink-0">
+                                    {format(parseISO(activity.created_at), 'h:mm a')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           
                           {/* Assignee badge on its own line if present */}
                           {isAssignedToOther && assigneeName && (
@@ -276,7 +315,8 @@ export const ActivityTab = ({
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
