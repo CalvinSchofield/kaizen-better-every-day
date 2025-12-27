@@ -37,6 +37,8 @@ interface SwipeableTaskItemProps {
   showSwipeDemo?: boolean;
   onDemoComplete?: () => void;
   isOverdue?: boolean;
+  /** When true, swipe left should reschedule instead of creating new schedule */
+  hasTodayScheduledActivity?: boolean;
 }
 
 export const SwipeableTaskItem = ({
@@ -56,6 +58,7 @@ export const SwipeableTaskItem = ({
   showSwipeDemo = false,
   onDemoComplete,
   isOverdue = false,
+  hasTodayScheduledActivity = false,
 }: SwipeableTaskItemProps) => {
   const [isCommitted, setIsCommitted] = useState<'left' | 'right' | null>(null);
   const [demoPlayed, setDemoPlayed] = useState(false);
@@ -139,9 +142,10 @@ export const SwipeableTaskItem = ({
       await controls.start({ x: 0 });
       onContact?.(recruit, activity);
     } else if (offset < -SWIPE_COMMIT_THRESHOLD) {
-      // Swipe left = Open schedule drawer (or reschedule if overdue with existing activity)
+      // Swipe left = Reschedule if has existing activity (overdue or today), otherwise schedule new
       await controls.start({ x: 0 });
-      if (isOverdue && activity && onReschedule) {
+      const shouldReschedule = (isOverdue || hasTodayScheduledActivity) && activity && onReschedule;
+      if (shouldReschedule) {
         onReschedule(recruit, activity);
       } else {
         onSchedule?.(recruit);
@@ -190,7 +194,7 @@ export const SwipeableTaskItem = ({
       <motion.div 
         className={cn(
           "absolute inset-y-0 right-0 w-28 flex items-center justify-center rounded-r-lg transition-colors",
-          isOverdue && activity 
+          (isOverdue || hasTodayScheduledActivity) && activity 
             ? (isCommitted === 'left' ? "bg-amber-600" : "bg-amber-500")
             : (isCommitted === 'left' ? "bg-blue-600" : "bg-blue-500")
         )}
@@ -199,7 +203,7 @@ export const SwipeableTaskItem = ({
         <motion.div style={{ scale: rightScale }} className="flex flex-col items-center gap-1">
           <Calendar className="h-6 w-6 text-white" />
           <span className="text-xs text-white font-medium">
-            {isOverdue && activity ? "Reschedule" : "Schedule"}
+            {(isOverdue || hasTodayScheduledActivity) && activity ? "Reschedule" : "Schedule"}
           </span>
         </motion.div>
       </motion.div>
