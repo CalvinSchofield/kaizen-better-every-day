@@ -101,6 +101,7 @@ export const WeekPlannerSection = ({
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
+  const [contactingActivity, setContactingActivity] = useState<RecruitActivity | null>(null);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
 
   // Filter recruits for recommendations - exclude hidden stages except due follow-ups
@@ -236,8 +237,10 @@ export const WeekPlannerSection = ({
     setDrawerOpen(true);
   };
 
-  const handleSwipeContact = (recruit: Recruit) => {
+  // Handle swipe contact - can be from scheduled task (with activity) or recommendation (without)
+  const handleSwipeContact = (recruit: Recruit, activity?: RecruitActivity) => {
     setContactingRecruit(recruit);
+    setContactingActivity(activity || null);
     setContactMethodOpen(true);
   };
 
@@ -581,10 +584,17 @@ export const WeekPlannerSection = ({
 
       <ContactMethodDrawer
         open={contactMethodOpen}
-        onOpenChange={setContactMethodOpen}
+        onOpenChange={(open) => {
+          setContactMethodOpen(open);
+          if (!open) {
+            setContactingActivity(null);
+          }
+        }}
         recruit={contactingRecruit}
+        scheduledActivity={contactingActivity}
         onComplete={() => {
           setContactMethodOpen(false);
+          setContactingActivity(null);
           if (contactingRecruit && onDismiss) {
             onDismiss(contactingRecruit, `Contact logged for ${contactingRecruit.name || 'recruit'}`);
           }
@@ -593,6 +603,7 @@ export const WeekPlannerSection = ({
           if (contactingRecruit) {
             const recruit = contactingRecruit;
             setContactMethodOpen(false);
+            setContactingActivity(null);
             setTimeout(() => {
               setContactingRecruit(recruit);
               setScheduleOpen(true);

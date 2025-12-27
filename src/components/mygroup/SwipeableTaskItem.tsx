@@ -29,7 +29,7 @@ interface SwipeableTaskItemProps {
   onRecruitClick: (recruit: Recruit) => void;
   onSchedule?: (recruit: Recruit) => void;
   onReschedule?: (recruit: Recruit, activity: RecruitActivity) => void;
-  onContact?: (recruit: Recruit) => void;
+  onContact?: (recruit: Recruit, activity?: RecruitActivity | null) => void;
   onDirectCall?: (recruit: Recruit) => void;
   onDirectText?: (recruit: Recruit) => void;
   onSkipForNow?: (recruit: Recruit) => void;
@@ -137,7 +137,7 @@ export const SwipeableTaskItem = ({
     if (offset > SWIPE_COMMIT_THRESHOLD) {
       // Swipe right = Open contact drawer
       await controls.start({ x: 0 });
-      onContact?.(recruit);
+      onContact?.(recruit, activity);
     } else if (offset < -SWIPE_COMMIT_THRESHOLD) {
       // Swipe left = Open schedule drawer (or reschedule if overdue with existing activity)
       await controls.start({ x: 0 });

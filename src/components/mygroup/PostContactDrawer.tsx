@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { UserCheck, PhoneMissed, Loader2, Clock } from "lucide-react";
+import { UserCheck, PhoneMissed, Loader2, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   Drawer, 
   DrawerContent, 
@@ -9,7 +11,9 @@ import {
   DrawerTitle,
   DrawerFooter
 } from "@/components/ui/drawer";
-import { Recruit, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +23,8 @@ interface PostContactDrawerProps {
   recruit: Recruit | null;
   contactMethod?: 'call' | 'text' | 'in_person';
   defaultMethod?: 'call' | 'text' | 'in_person';
+  /** The scheduled activity that triggered this contact (if any) */
+  scheduledActivity?: RecruitActivity | null;
   /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
   onComplete?: (wasConnected: boolean) => void;
   /** Called when user wants to schedule a follow-up for later today */
@@ -37,6 +43,7 @@ export const PostContactDrawer = ({
   recruit,
   contactMethod,
   defaultMethod,
+  scheduledActivity,
   onComplete,
   onScheduleLaterToday,
 }: PostContactDrawerProps) => {
@@ -47,14 +54,17 @@ export const PostContactDrawer = ({
   const [outcome, setOutcome] = useState<'connected' | 'no_answer' | null>(null);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [markTaskComplete, setMarkTaskComplete] = useState(true);
   
   const logActivityMutation = useLogRecruitActivity();
+  const queryClient = useQueryClient();
 
   // Reset state when drawer opens/closes or method changes
   useEffect(() => {
     if (open) {
       setOutcome(null);
       setNotes('');
+      setMarkTaskComplete(true);
     }
   }, [open]);
 
@@ -82,19 +92,39 @@ export const PostContactDrawer = ({
         updateLastContact: wasConnected, // Only update last contact if connected
       });
       
+      // Mark scheduled activity as complete if connected and user opted to
+      if (scheduledActivity && wasConnected && markTaskComplete) {
+        const { error: completeError } = await supabase
+          .from('recruit_activities')
+          .update({
+            assignment_status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', scheduledActivity.id);
+        
+        if (completeError) {
+          console.error('Failed to mark task complete:', completeError);
+        } else {
+          // Invalidate queries to refresh the task list
+          queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+        }
+      }
+      
       if (isCall) {
         toast.success(
           wasConnected 
-            ? `Great! Logged call with ${firstName}` 
+            ? `Great! Logged call with ${firstName}${scheduledActivity && markTaskComplete ? ' and marked task complete' : ''}` 
             : `Logged attempt - ${firstName} stays in your list`
         );
       } else {
-        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
+        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}${scheduledActivity && markTaskComplete ? ' and marked task complete' : ''}`);
       }
       
       // Reset and close
       setOutcome(null);
       setNotes('');
+      setMarkTaskComplete(true);
       onOpenChange(false);
       // Pass wasConnected to parent so it knows whether to dismiss the card
       onComplete?.(wasConnected);
@@ -109,6 +139,7 @@ export const PostContactDrawer = ({
   const handleClose = () => {
     setOutcome(null);
     setNotes('');
+    setMarkTaskComplete(true);
     onOpenChange(false);
   };
 
@@ -194,6 +225,23 @@ export const PostContactDrawer = ({
                 className="resize-none"
                 rows={3}
                 autoFocus={!isCall}
+              />
+            </div>
+          )}
+
+          {/* Mark task complete toggle - show when there's a scheduled activity and user connected */}
+          {scheduledActivity && (isCall ? outcome === 'connected' : true) && (
+            <div className="animate-fade-in flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <Label htmlFor="mark-complete" className="text-sm font-medium cursor-pointer">
+                  Mark "{scheduledActivity.next_action || 'Task'}" complete
+                </Label>
+              </div>
+              <Switch
+                id="mark-complete"
+                checked={markTaskComplete}
+                onCheckedChange={setMarkTaskComplete}
               />
             </div>
           )}

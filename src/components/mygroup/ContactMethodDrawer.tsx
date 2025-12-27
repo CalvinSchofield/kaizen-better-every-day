@@ -7,7 +7,7 @@ import {
   DrawerHeader, 
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Recruit } from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
 import { PostContactDrawer } from "./PostContactDrawer";
 
@@ -15,6 +15,8 @@ interface ContactMethodDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruit: Recruit | null;
+  /** The scheduled activity that triggered this contact (if any) */
+  scheduledActivity?: RecruitActivity | null;
   /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
   onComplete?: (wasConnected: boolean) => void;
   /** Called when user wants to schedule a follow-up for later today */
@@ -31,6 +33,7 @@ export const ContactMethodDrawer = ({
   open,
   onOpenChange,
   recruit,
+  scheduledActivity,
   onComplete,
   onScheduleLaterToday,
 }: ContactMethodDrawerProps) => {
@@ -130,6 +133,7 @@ export const ContactMethodDrawer = ({
         }}
         recruit={recruit}
         defaultMethod={selectedMethod || undefined}
+        scheduledActivity={scheduledActivity}
         onComplete={handlePostContactComplete}
         onScheduleLaterToday={onScheduleLaterToday}
       />
