@@ -79,11 +79,12 @@ serve(async (req) => {
       console.error('[delete-recruit] Error deleting blitzes:', blitzesError);
     }
 
-    // 3. Delete from recruits table
-    const { error: recruitError } = await supabase
+    // 3. Delete from recruits table (preferred)
+    const { data: deletedRecruits, error: recruitError } = await supabase
       .from('recruits')
       .delete()
-      .eq('id', recruitId);
+      .eq('id', recruitId)
+      .select('id');
 
     if (recruitError) {
       console.error('[delete-recruit] Error deleting recruit:', recruitError);
@@ -91,6 +92,23 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Fallback: if no recruits row was deleted, this is likely a rep-only record.
+    // Delete the rep record so the card doesn't come back on refresh.
+    if ((deletedRecruits?.length ?? 0) === 0) {
+      const { error: repDeleteError } = await supabase
+        .from('reps')
+        .delete()
+        .or(`id.eq.${recruitId},notion_page_id.eq.${recruitNotionPageId}`);
+
+      if (repDeleteError) {
+        console.error('[delete-recruit] Error deleting rep fallback:', repDeleteError);
+        return new Response(JSON.stringify({ error: 'Failed to delete recruit' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     console.log(`[delete-recruit] Successfully deleted recruit ${recruitId}`);
