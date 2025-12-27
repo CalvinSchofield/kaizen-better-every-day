@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     const { 
       rookieNotionPageId,
-      rookieId,  // This could be from reps table OR recruits table
+      rookieId,
       onboardingStatus, 
       ipadAssigned,
       rampPhase1Complete,
@@ -123,16 +123,16 @@ Deno.serve(async (req) => {
 
     console.log(`[update-rookie-status] Updating with:`, updateData);
 
-    // First, try to find the rep by notion_page_id or by looking up from recruits
+    // SIMPLIFIED: Only update reps table - the sync_rep_to_recruit trigger handles syncing to recruits
     let repNotionPageId = rookieNotionPageId;
-    let recruitId: string | null = null;
+    let updateSuccess = false;
 
-    // If we have rookieId, we need to determine if it's a rep ID or recruit ID
+    // If we have rookieId but no notion_page_id, look it up
     if (rookieId && !rookieNotionPageId) {
-      // Try to find in reps table first
+      // Try reps table first
       const { data: repById } = await supabase
         .from('reps')
-        .select('id, notion_page_id')
+        .select('id, notion_page_id, email')
         .eq('id', rookieId)
         .maybeSingle();
 
@@ -140,91 +140,61 @@ Deno.serve(async (req) => {
         repNotionPageId = repById.notion_page_id;
         console.log(`[update-rookie-status] Found rep by ID: ${rookieId}`);
       } else {
-        // Try recruits table
+        // Try recruits table to get notion_page_id for matching
         const { data: recruitById } = await supabase
           .from('recruits')
-          .select('id, notion_page_id')
+          .select('id, notion_page_id, email')
           .eq('id', rookieId)
           .maybeSingle();
 
         if (recruitById) {
-          recruitId = recruitById.id;
           repNotionPageId = recruitById.notion_page_id;
           console.log(`[update-rookie-status] Found recruit by ID: ${rookieId}, notion_page_id: ${repNotionPageId}`);
         }
       }
     }
 
-    // Update reps table - try by notion_page_id first, then by ID
-    let repsUpdated = false;
-    
+    // Try to update by notion_page_id first (most reliable)
     if (repNotionPageId) {
-      const { error: updateError, count } = await supabase
+      const { data, error } = await supabase
         .from('reps')
         .update(updateData)
         .eq('notion_page_id', repNotionPageId)
-        .select('id');
+        .select('id, name');
       
-      if (!updateError) {
-        repsUpdated = true;
-        console.log(`[update-rookie-status] Updated reps by notion_page_id: ${repNotionPageId}`);
+      if (!error && data && data.length > 0) {
+        updateSuccess = true;
+        console.log(`[update-rookie-status] Updated rep by notion_page_id: ${repNotionPageId}, name: ${data[0].name}`);
       }
     }
     
-    if (!repsUpdated && rookieId) {
-      const { error: updateError } = await supabase
+    // Fallback to update by ID if notion_page_id didn't work
+    if (!updateSuccess && rookieId) {
+      const { data, error } = await supabase
         .from('reps')
         .update(updateData)
-        .eq('id', rookieId);
+        .eq('id', rookieId)
+        .select('id, name');
       
-      if (!updateError) {
-        repsUpdated = true;
-        console.log(`[update-rookie-status] Updated reps by id: ${rookieId}`);
+      if (!error && data && data.length > 0) {
+        updateSuccess = true;
+        console.log(`[update-rookie-status] Updated rep by id: ${rookieId}, name: ${data[0].name}`);
       }
     }
 
-    // Also update recruits table - only include defined values
-    const recruitsUpdateData: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (updateData.ipad_assigned !== undefined) recruitsUpdateData.ipad_assigned = updateData.ipad_assigned;
-    if (updateData.onboarding_complete !== undefined) recruitsUpdateData.onboarding_complete = updateData.onboarding_complete;
-    if (updateData.trainings_complete !== undefined) recruitsUpdateData.trainings_complete = updateData.trainings_complete;
-    if (updateData.slack_joined !== undefined) recruitsUpdateData.slack_joined = updateData.slack_joined;
-    if (updateData.ramp_phase_1_complete !== undefined) recruitsUpdateData.ramp_phase_1_complete = updateData.ramp_phase_1_complete;
-    if (updateData.ramp_phase_2_complete !== undefined) recruitsUpdateData.ramp_phase_2_complete = updateData.ramp_phase_2_complete;
-    if (updateData.ramp_phase_3_complete !== undefined) recruitsUpdateData.ramp_phase_3_complete = updateData.ramp_phase_3_complete;
-    if (updateData.ramp_phase_4_complete !== undefined) recruitsUpdateData.ramp_phase_4_complete = updateData.ramp_phase_4_complete;
-
-    if (repNotionPageId) {
-      await supabase
-        .from('recruits')
-        .update(recruitsUpdateData)
-        .eq('notion_page_id', repNotionPageId);
-      console.log(`[update-rookie-status] Updated recruits by notion_page_id: ${repNotionPageId}`);
-    } else if (recruitId) {
-      await supabase
-        .from('recruits')
-        .update(recruitsUpdateData)
-        .eq('id', recruitId);
-      console.log(`[update-rookie-status] Updated recruits by id: ${recruitId}`);
-    } else if (rookieId) {
-      // Last resort - try the rookieId directly on recruits
-      await supabase
-        .from('recruits')
-        .update(recruitsUpdateData)
-        .eq('id', rookieId);
-      console.log(`[update-rookie-status] Updated recruits by rookieId: ${rookieId}`);
+    if (!updateSuccess) {
+      console.warn(`[update-rookie-status] No rep record found to update. rookieId: ${rookieId}, rookieNotionPageId: ${rookieNotionPageId}`);
     }
 
-    console.log("[update-rookie-status] Successfully updated rookie status");
+    // The sync_rep_to_recruit trigger will automatically sync changes to the recruits table
+    console.log("[update-rookie-status] Successfully updated rookie status (trigger will sync to recruits)");
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Rookie status updated",
         updates: updateData,
+        repsUpdated: updateSuccess,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
