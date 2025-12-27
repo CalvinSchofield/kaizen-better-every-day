@@ -94,22 +94,26 @@ serve(async (req) => {
       });
     }
 
-    // Fallback: if no recruits row was deleted, this is likely a rep-only record.
-    // Delete the rep record so the card doesn't come back on refresh.
-    if ((deletedRecruits?.length ?? 0) === 0) {
-      const { error: repDeleteError } = await supabase
-        .from('reps')
-        .delete()
-        .or(`id.eq.${recruitId},notion_page_id.eq.${recruitNotionPageId}`);
+    // Also delete from reps (source of truth for the group list) for "ghost" reps (no app account).
+    // This prevents deleted recruits from reappearing after refresh.
+    const { data: deletedReps, error: repDeleteError } = await supabase
+      .from('reps')
+      .delete()
+      .or(`id.eq.${recruitId},notion_page_id.eq.${recruitNotionPageId}`)
+      .is('user_id', null)
+      .select('id');
 
-      if (repDeleteError) {
-        console.error('[delete-recruit] Error deleting rep fallback:', repDeleteError);
-        return new Response(JSON.stringify({ error: 'Failed to delete recruit' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    if (repDeleteError) {
+      console.error('[delete-recruit] Error deleting rep record:', repDeleteError);
+      return new Response(JSON.stringify({ error: 'Failed to delete recruit' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    console.log(
+      `[delete-recruit] Deleted recruits rows: ${deletedRecruits?.length ?? 0}, deleted reps rows: ${deletedReps?.length ?? 0}`
+    );
 
     console.log(`[delete-recruit] Successfully deleted recruit ${recruitId}`);
 

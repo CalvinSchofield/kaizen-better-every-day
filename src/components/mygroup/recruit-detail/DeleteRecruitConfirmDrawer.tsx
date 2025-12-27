@@ -48,6 +48,8 @@ export const DeleteRecruitConfirmDrawer = ({
     },
     onSuccess: () => {
       toast.success(`${recruitName} has been deleted`);
+      // Clear cached placeholder data so deleted reps don't briefly re-appear.
+      localStorage.removeItem('group-recruits-cache:v2');
       queryClient.invalidateQueries({ queryKey: ["group-recruits"] });
       setConfirmText("");
       onOpenChange(false);
