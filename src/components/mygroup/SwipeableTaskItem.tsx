@@ -136,6 +136,12 @@ export const SwipeableTaskItem = ({
     
     if (offset > SWIPE_COMMIT_THRESHOLD) {
       // Swipe right = Open contact drawer
+      console.log('[SwipeableTaskItem] Swipe right detected', { 
+        recruitName: recruit.name, 
+        hasActivity: !!activity,
+        activityId: activity?.id,
+        nextAction: activity?.next_action 
+      });
       await controls.start({ x: 0 });
       onContact?.(recruit, activity);
     } else if (offset < -SWIPE_COMMIT_THRESHOLD) {
