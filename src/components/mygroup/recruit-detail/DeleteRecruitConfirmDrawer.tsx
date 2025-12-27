@@ -57,7 +57,8 @@ export const DeleteRecruitConfirmDrawer = ({
     },
     onError: (error) => {
       console.error("Failed to delete recruit:", error);
-      toast.error("Failed to delete recruit");
+      const message = error instanceof Error ? error.message : "Failed to delete recruit";
+      toast.error(message);
     },
   });
 
