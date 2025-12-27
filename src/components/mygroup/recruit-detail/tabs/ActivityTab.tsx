@@ -144,26 +144,28 @@ export const ActivityTab = ({
     return groups;
   }, {} as Record<string, RecruitActivity[]>);
 
-  // Sort dates: future dates first (ascending), then past dates (descending)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
+  // Sort dates: strict future dates first (ascending), then today, then past dates (descending)
   const sortedDates = Object.keys(groupedActivities).sort((a, b) => {
     const dateA = parseISO(a);
     const dateB = parseISO(b);
-    const aIsFuture = isFuture(dateA) || isToday(dateA);
-    const bIsFuture = isFuture(dateB) || isToday(dateB);
+    const aIsToday = isToday(dateA);
+    const bIsToday = isToday(dateB);
+    const aIsFuture = isFuture(dateA) && !aIsToday;
+    const bIsFuture = isFuture(dateB) && !bIsToday;
     
-    // Both future: ascending (soonest first)
+    // Strict future dates come first (ascending - soonest first)
     if (aIsFuture && bIsFuture) {
       return dateA.getTime() - dateB.getTime();
     }
+    if (aIsFuture && !bIsFuture) return -1;
+    if (!aIsFuture && bIsFuture) return 1;
+    
+    // Today comes after future but before past
+    if (aIsToday && !bIsToday) return -1;
+    if (!aIsToday && bIsToday) return 1;
+    
     // Both past: descending (most recent first)
-    if (!aIsFuture && !bIsFuture) {
-      return dateB.getTime() - dateA.getTime();
-    }
-    // Future comes before past
-    return aIsFuture ? -1 : 1;
+    return dateB.getTime() - dateA.getTime();
   });
 
   return (
