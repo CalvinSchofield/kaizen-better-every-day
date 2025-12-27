@@ -187,6 +187,17 @@ export const ActivityTab = ({
                     ? assigneeNames[activity.assigned_to_user_id!] 
                     : null;
                   
+                  // Determine if next_action is different from notes (avoid duplicate display)
+                  const hasUniqueNextAction = activity.next_action && 
+                    activity.next_action !== activity.notes &&
+                    !activity.notes?.includes(activity.next_action);
+                  
+                  // For scheduled activities, prefer showing next_action as the main text
+                  const isScheduledActivity = activity.activity_type === 'next_step';
+                  const mainText = isScheduledActivity 
+                    ? (activity.next_action || activity.notes)
+                    : activity.notes;
+                  
                   return (
                     <button
                       key={activity.id}
@@ -194,40 +205,51 @@ export const ActivityTab = ({
                       onClick={() => onActivityClick(activity)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5">
+                        <div className="mt-0.5 shrink-0">
                           {getActivityIcon(activity.activity_type, activity.notes)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium capitalize">
-                              {getActivityLabel(activity.activity_type, activity.notes)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(parseISO(activity.created_at), 'h:mm a')}
-                            </span>
-                            {/* Show assignee badge if assigned to someone else */}
-                            {isAssignedToOther && assigneeName && (
+                          {/* Header row: type, time, due date, assignee */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium capitalize shrink-0">
+                                {getActivityLabel(activity.activity_type, activity.notes)}
+                              </span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {format(parseISO(activity.created_at), 'h:mm a')}
+                              </span>
+                            </div>
+                            {/* Due date positioned on the right for scheduled activities */}
+                            {activity.next_action_due && (
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                                Due {format(parseISO(activity.next_action_due), 'MMM d')}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Assignee badge on its own line if present */}
+                          {isAssignedToOther && assigneeName && (
+                            <div className="mt-1">
                               <Badge variant="outline" className="text-[10px] gap-1 bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
                                 <UserCircle className="h-3 w-3" />
                                 {assigneeName}
                               </Badge>
-                            )}
-                          </div>
-                          {activity.notes && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                              {activity.notes}
+                            </div>
+                          )}
+                          
+                          {/* Main content text - one line only */}
+                          {mainText && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                              {mainText}
                             </p>
                           )}
-                          {activity.next_action && (
+                          
+                          {/* Show "Next:" badge only if it's a non-scheduled activity with unique next action */}
+                          {!isScheduledActivity && hasUniqueNextAction && (
                             <div className="mt-1.5 flex items-center gap-2">
-                              <Badge variant="outline" className="text-[10px]">
-                                Next: {activity.next_action}
+                              <Badge variant="outline" className="text-[10px] max-w-full">
+                                <span className="truncate">Next: {activity.next_action}</span>
                               </Badge>
-                              {activity.next_action_due && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  Due {format(parseISO(activity.next_action_due), 'MMM d')}
-                                </span>
-                              )}
                             </div>
                           )}
                         </div>
