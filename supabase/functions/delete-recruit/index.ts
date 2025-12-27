@@ -35,13 +35,11 @@ serve(async (req) => {
       });
     }
 
-    // Check if user is a leader (team lead, mgmt group lead, or area director)
-    const { data: isLeader } = await supabase.rpc('is_team_lead', { _user_id: user.id });
-    const { data: isMgmtLead } = await supabase.rpc('is_mgmt_group_lead', { _user_id: user.id });
+    // Check if user is an area director (only area directors can delete)
     const { data: isAreaDirector } = await supabase.rpc('is_area_director', { _user_id: user.id });
 
-    if (!isLeader && !isMgmtLead && !isAreaDirector) {
-      return new Response(JSON.stringify({ error: 'Unauthorized - must be a leader' }), {
+    if (!isAreaDirector) {
+      return new Response(JSON.stringify({ error: 'Unauthorized - only area directors can delete recruits' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
