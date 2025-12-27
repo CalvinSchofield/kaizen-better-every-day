@@ -109,12 +109,29 @@ serve(async (req) => {
     // Step 2: Fetch weather forecast using Open-Meteo Weather API (including weather conditions)
     const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=${startDate}&end_date=${endDate}&temperature_unit=fahrenheit&timezone=auto`;
 
+    console.log(`Fetching weather from: ${weatherUrl}`);
+    
     const weatherResponse = await fetch(weatherUrl);
     const weatherData = await weatherResponse.json();
 
-    if (!weatherData.daily) {
+    console.log(`Weather API response status: ${weatherResponse.status}`);
+    console.log(`Weather data keys: ${Object.keys(weatherData).join(', ')}`);
+
+    if (weatherData.error) {
+      console.error(`Weather API error: ${JSON.stringify(weatherData)}`);
       return new Response(
-        JSON.stringify({ error: "Weather data not available" }),
+        JSON.stringify({ error: `Weather API error: ${weatherData.reason || weatherData.error}` }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!weatherData.daily) {
+      console.error(`No daily data in response: ${JSON.stringify(weatherData)}`);
+      return new Response(
+        JSON.stringify({ error: "Weather data not available - no daily forecast returned" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
