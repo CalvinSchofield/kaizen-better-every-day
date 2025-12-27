@@ -33,6 +33,30 @@ serve(async (req) => {
       );
     }
 
+    // Open-Meteo free API only provides 16 days of forecast
+    // Check if the requested dates are too far in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxForecastDate = new Date(today);
+    maxForecastDate.setDate(maxForecastDate.getDate() + 16);
+    
+    const requestedStartDate = new Date(startDate);
+    
+    if (requestedStartDate > maxForecastDate) {
+      // Dates are too far in the future - return empty forecast with a message
+      console.log(`Requested dates (${startDate} to ${endDate}) are beyond 16-day forecast range`);
+      return new Response(
+        JSON.stringify({
+          location: location || "Unknown",
+          forecasts: [],
+          message: "Forecast not yet available - check back closer to the event"
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     let lat: number;
     let lng: number;
     let locationName: string;
