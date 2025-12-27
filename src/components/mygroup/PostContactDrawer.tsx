@@ -93,7 +93,8 @@ export const PostContactDrawer = ({
       });
       
       // Mark scheduled activity as complete if connected and user opted to
-      if (scheduledActivity && wasConnected && markTaskComplete) {
+      const taskWasCompleted = scheduledActivity && wasConnected && markTaskComplete;
+      if (taskWasCompleted) {
         const { error: completeError } = await supabase
           .from('recruit_activities')
           .update({
@@ -111,14 +112,41 @@ export const PostContactDrawer = ({
         }
       }
       
-      if (isCall) {
+      // Show toast with undo option if task was completed
+      if (taskWasCompleted) {
+        const taskName = scheduledActivity.next_action || 'Task';
+        toast.success(`Logged contact and marked "${taskName}" complete`, {
+          action: {
+            label: 'Undo',
+            onClick: async () => {
+              const { error: undoError } = await supabase
+                .from('recruit_activities')
+                .update({
+                  assignment_status: 'pending',
+                  completed_at: null,
+                })
+                .eq('id', scheduledActivity.id);
+              
+              if (undoError) {
+                toast.error('Failed to undo');
+              } else {
+                queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+                queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+                queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+                toast.success('Task restored');
+              }
+            },
+          },
+          duration: 5000,
+        });
+      } else if (isCall) {
         toast.success(
           wasConnected 
-            ? `Great! Logged call with ${firstName}${scheduledActivity && markTaskComplete ? ' and marked task complete' : ''}` 
+            ? `Great! Logged call with ${firstName}` 
             : `Logged attempt - ${firstName} stays in your list`
         );
       } else {
-        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}${scheduledActivity && markTaskComplete ? ' and marked task complete' : ''}`);
+        toast.success(`Logged ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`);
       }
       
       // Reset and close
