@@ -105,22 +105,42 @@ serve(async (req) => {
         .select('id, notion_page_id, stage, name')
         .eq('id', recruitId)
         .maybeSingle();
-      
+
       if (recruitError) {
         console.error('[update-recruit-stage] Error fetching recruit:', recruitError);
       }
+
       currentRecruit = recruit;
       notionPageId = recruit?.notion_page_id || recruitNotionId;
     }
 
-    // Now find the corresponding rep by notion_page_id
-    if (notionPageId) {
+    // Fallback: in leader views we sometimes only have a rep record (no linked recruits row).
+    // In that case, the "recruitId" coming from the UI is actually the rep id.
+    if (recruitId && !currentRecruit) {
+      const { data: repById, error: repByIdError } = await supabase
+        .from('reps')
+        .select('id, notion_page_id, stage, name')
+        .eq('id', recruitId)
+        .maybeSingle();
+
+      if (repByIdError) {
+        console.error('[update-recruit-stage] Error fetching rep by id:', repByIdError);
+      }
+
+      if (repById) {
+        currentRep = repById;
+        notionPageId = repById.notion_page_id || recruitNotionId;
+      }
+    }
+
+    // Now find the corresponding rep by notion_page_id (if we didn't already)
+    if (!currentRep && notionPageId) {
       const { data: rep, error: repError } = await supabase
         .from('reps')
         .select('id, notion_page_id, stage, name')
         .eq('notion_page_id', notionPageId)
         .maybeSingle();
-      
+
       if (repError) {
         console.error('[update-recruit-stage] Error fetching rep:', repError);
       }
@@ -155,13 +175,13 @@ serve(async (req) => {
       });
     }
 
-    // Update stage in recruits table first (source of truth for recruits)
+    // Update stage in recruits table first (when we have a recruits row)
     if (currentRecruit) {
       const { error: recruitUpdateError } = await supabase
         .from('recruits')
-        .update({ 
-          stage: newStage, 
-          updated_at: new Date().toISOString() 
+        .update({
+          stage: newStage,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', currentRecruit.id);
 
@@ -173,6 +193,19 @@ serve(async (req) => {
         });
       }
       console.log(`[update-recruit-stage] Updated recruits table for ${entityName}`);
+    } else if (currentRep?.notion_page_id) {
+      // Best-effort: keep recruits table in sync when rep has a notion_page_id link
+      const { error: recruitUpdateByNotionError } = await supabase
+        .from('recruits')
+        .update({
+          stage: newStage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('notion_page_id', currentRep.notion_page_id);
+
+      if (recruitUpdateByNotionError) {
+        console.error('[update-recruit-stage] Error syncing recruit stage by notion_page_id:', recruitUpdateByNotionError);
+      }
     }
 
     // Update stage in reps table if there's a matching rep
