@@ -76,7 +76,11 @@ export const ScheduledActivityActionSheet = ({
               </p>
               {activity.next_action_due && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Due: {new Date(activity.next_action_due).toLocaleDateString()}
+                  Due: {(() => {
+                    // Parse as local date to avoid timezone shift
+                    const [year, month, day] = activity.next_action_due.split('-').map(Number);
+                    return new Date(year, month - 1, day).toLocaleDateString();
+                  })()}
                 </p>
               )}
             </div>
