@@ -764,6 +764,7 @@ const BlitzPrepProgressItem = ({
   const [confirmDrawerOpen, setConfirmDrawerOpen] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState<number | null>(null);
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<'verify' | 'undo'>('verify');
 
   const rampProgress = item.rampPhaseProgress;
   if (!rampProgress) return null;
@@ -781,9 +782,9 @@ const BlitzPrepProgressItem = ({
   const hasBlitzCommitted = futureCommitmentCount > 0;
 
   const handlePhaseClick = (phaseNum: number, isComplete: boolean) => {
-    if (isComplete) return; // Already complete
     setSelectedPhase(phaseNum);
     setHasError(false);
+    setDrawerMode(isComplete ? 'undo' : 'verify');
     setConfirmDrawerOpen(true);
   };
 
@@ -824,6 +825,50 @@ const BlitzPrepProgressItem = ({
       setHasError(true);
       toast.error('Failed to save. Please try again.');
       // Don't close the drawer so user can retry
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePhaseUndo = async () => {
+    if (!selectedPhase) return;
+    
+    setIsSubmitting(true);
+    setHasError(false);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Undo this phase and all phases after it
+      const phaseParams: Record<string, boolean | string> = {};
+      for (let i = selectedPhase; i <= 4; i++) {
+        phaseParams[`rampPhase${i}Complete`] = false;
+      }
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          rookieNotionPageId: item.recruit.notionPageId,
+          ...phaseParams
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Phase ${selectedPhase} undone`);
+      setConfirmDrawerOpen(false);
+      setSelectedPhase(null);
+      setHasError(false);
+      
+      // Invalidate all relevant queries to ensure data consistency
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+    } catch (error: any) {
+      console.error('Error undoing phase:', error);
+      setHasError(true);
+      toast.error('Failed to undo. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -953,7 +998,7 @@ const BlitzPrepProgressItem = ({
         </div>
       </div>
 
-      {/* Use the thorough PhaseVerificationDrawer instead of the simple PhaseConfirmationDrawer */}
+      {/* Use the thorough PhaseVerificationDrawer - supports both verify and undo modes */}
       <PhaseVerificationDrawer
         open={confirmDrawerOpen}
         onOpenChange={(open) => {
@@ -968,6 +1013,8 @@ const BlitzPrepProgressItem = ({
         isSubmitting={isSubmitting}
         hasError={hasError}
         onConfirm={handlePhaseConfirm}
+        mode={drawerMode}
+        onUndo={handlePhaseUndo}
       />
 
       <BlitzCommitmentDrawer

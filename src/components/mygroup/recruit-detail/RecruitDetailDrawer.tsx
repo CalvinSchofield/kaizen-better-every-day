@@ -109,7 +109,7 @@ export const RecruitDetailDrawer = ({
   const [onboardingConfirmOpen, setOnboardingConfirmOpen] = useState(false);
   const [pendingOnboardingStep, setPendingOnboardingStep] = useState<{ field: string; label: string; value: boolean } | null>(null);
   const [phaseVerificationOpen, setPhaseVerificationOpen] = useState(false);
-  const [pendingPhaseVerification, setPendingPhaseVerification] = useState<{ phase: number; field: string } | null>(null);
+  const [pendingPhaseVerification, setPendingPhaseVerification] = useState<{ phase: number; field: string; isUndo: boolean } | null>(null);
   const [isPhaseVerifying, setIsPhaseVerifying] = useState(false);
   const [hasPhaseError, setHasPhaseError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -482,17 +482,17 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleOnboardingStepClick = (field: string, label: string, currentValue: boolean) => {
-    // For ramp phases being completed, show the phase verification drawer
+    // For ramp phases, show the phase verification drawer (both for completing and undoing)
     const rampPhaseFields = ['ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'];
     const isRampPhase = rampPhaseFields.includes(field);
-    const isCompleting = !currentValue; // If current is false, clicking will complete it
     
-    if (isRampPhase && isCompleting) {
+    if (isRampPhase) {
       const phaseNum = parseInt(field.replace('ramp_phase_', '').replace('_complete', ''));
-      setPendingPhaseVerification({ phase: phaseNum, field });
+      const isUndo = currentValue; // If current is true, clicking will undo it
+      setPendingPhaseVerification({ phase: phaseNum, field, isUndo });
       setPhaseVerificationOpen(true);
     } else {
-      // For basic onboarding steps or uncompleting, use simple confirmation
+      // For basic onboarding steps, use simple confirmation
       setPendingOnboardingStep({ field, label, value: !currentValue });
       setOnboardingConfirmOpen(true);
     }
@@ -527,6 +527,42 @@ export const RecruitDetailDrawer = ({
       console.error('Error confirming phase:', error);
       setHasPhaseError(true);
       // Don't close the drawer so user can retry
+    } finally {
+      setIsPhaseVerifying(false);
+    }
+  };
+
+  const handleUndoPhaseVerification = async () => {
+    if (!pendingPhaseVerification || !recruitRepData || !recruit) return;
+    setIsPhaseVerifying(true);
+    setHasPhaseError(false);
+    
+    try {
+      // Undo this phase and all phases after it
+      const phaseParams: Record<string, boolean> = {};
+      for (let i = pendingPhaseVerification.phase; i <= 4; i++) {
+        phaseParams[`rampPhase${i}Complete`] = false;
+      }
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        body: {
+          rookieNotionPageId: recruit.notionPageId,
+          ...phaseParams
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Phase ${pendingPhaseVerification.phase} undone`);
+
+      setPhaseVerificationOpen(false);
+      setPendingPhaseVerification(null);
+      setHasPhaseError(false);
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+    } catch (error: any) {
+      console.error('Error undoing phase:', error);
+      setHasPhaseError(true);
     } finally {
       setIsPhaseVerifying(false);
     }
@@ -1147,7 +1183,7 @@ export const RecruitDetailDrawer = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Phase Verification Drawer */}
+      {/* Phase Verification Drawer - supports both verify and undo modes */}
       {recruit && recruitRepData && pendingPhaseVerification && (
         <PhaseVerificationDrawer
           open={phaseVerificationOpen}
@@ -1160,6 +1196,8 @@ export const RecruitDetailDrawer = ({
           isSubmitting={isPhaseVerifying}
           hasError={hasPhaseError}
           onConfirm={handleConfirmPhaseVerification}
+          mode={pendingPhaseVerification.isUndo ? 'undo' : 'verify'}
+          onUndo={handleUndoPhaseVerification}
         />
       )}
 
