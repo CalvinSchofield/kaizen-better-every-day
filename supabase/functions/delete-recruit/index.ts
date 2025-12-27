@@ -96,23 +96,50 @@ serve(async (req) => {
 
     // Also delete from reps (source of truth for the group list) for "ghost" reps (no app account).
     // This prevents deleted recruits from reappearing after refresh.
-    const { data: deletedReps, error: repDeleteError } = await supabase
+    let deletedRepsCount = 0;
+
+    const { data: deletedRepsById, error: repDeleteByIdError } = await supabase
       .from('reps')
       .delete()
-      .or(`id.eq.${recruitId},notion_page_id.eq.${recruitNotionPageId}`)
+      .eq('id', recruitId)
       .is('user_id', null)
       .select('id');
 
-    if (repDeleteError) {
-      console.error('[delete-recruit] Error deleting rep record:', repDeleteError);
-      return new Response(JSON.stringify({ error: 'Failed to delete recruit' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (repDeleteByIdError) {
+      console.error('[delete-recruit] Error deleting rep by id:', repDeleteByIdError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete recruit', details: repDeleteByIdError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
+    deletedRepsCount += deletedRepsById?.length ?? 0;
+
+    const { data: deletedRepsByNotion, error: repDeleteByNotionError } = await supabase
+      .from('reps')
+      .delete()
+      .eq('notion_page_id', recruitNotionPageId)
+      .is('user_id', null)
+      .select('id');
+
+    if (repDeleteByNotionError) {
+      console.error('[delete-recruit] Error deleting rep by notion_page_id:', repDeleteByNotionError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete recruit', details: repDeleteByNotionError.message }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    deletedRepsCount += deletedRepsByNotion?.length ?? 0;
+
     console.log(
-      `[delete-recruit] Deleted recruits rows: ${deletedRecruits?.length ?? 0}, deleted reps rows: ${deletedReps?.length ?? 0}`
+      `[delete-recruit] Deleted recruits rows: ${deletedRecruits?.length ?? 0}, deleted reps rows: ${deletedRepsCount}`
     );
 
     console.log(`[delete-recruit] Successfully deleted recruit ${recruitId}`);
