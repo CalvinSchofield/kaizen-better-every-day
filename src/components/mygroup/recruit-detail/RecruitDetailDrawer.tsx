@@ -578,20 +578,38 @@ export const RecruitDetailDrawer = ({
     setOnboardingConfirmOpen(false);
     setPendingOnboardingStep(null);
     try {
-      const { error } = await supabase.from('reps').update(updates).eq('notion_page_id', recruit.notionPageId);
+      // Leaders/recruiters can't directly update the reps row due to RLS; use backend function so it persists.
+      const finalState: any = { ...recruitRepData, ...updates };
+
+      let computedOnboardingStatus = 'Not started';
+      if (finalState.ramp_phase_4_complete) computedOnboardingStatus = 'Phase 4 ✅';
+      else if (finalState.ramp_phase_3_complete) computedOnboardingStatus = 'Phase 3 ✅';
+      else if (finalState.ramp_phase_2_complete) computedOnboardingStatus = 'Phase 2 ✅';
+      else if (finalState.ramp_phase_1_complete) computedOnboardingStatus = 'Phase 1 ✅';
+      else if (finalState.slack_joined) computedOnboardingStatus = 'Slack ✅';
+      else if (finalState.trainings_complete) computedOnboardingStatus = 'Required Trainings ✅';
+      else if (finalState.onboarding_complete) computedOnboardingStatus = 'Onboarding ✅';
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          rookieNotionPageId: recruit.notionPageId,
+          rookieId: recruit.id,
+          onboardingStatus: computedOnboardingStatus,
+        },
+      });
       if (error) throw error;
-      if (value) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const edgeBody: Record<string, any> = { rookieNotionPageId: recruit.notionPageId };
-          if (fieldToEdgeFunctionParam[field]) edgeBody[fieldToEdgeFunctionParam[field]] = value;
-          else if (fieldToNotionStatus[field]) edgeBody.onboardingStatus = fieldToNotionStatus[field];
-          await supabase.functions.invoke('update-rookie-status', { headers: { Authorization: `Bearer ${session.access_token}` }, body: edgeBody });
-        }
-      }
+
       const uncompleteCount = Object.keys(updates).length;
       toast.success(value ? 'Marked complete' : uncompleteCount > 1 ? `Unmarked ${uncompleteCount} steps` : 'Marked incomplete');
+
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+
       if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
     } catch (error) {
       // Rollback optimistic update
