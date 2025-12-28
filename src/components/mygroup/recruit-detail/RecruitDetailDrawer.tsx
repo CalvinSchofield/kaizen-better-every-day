@@ -504,10 +504,14 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const phaseParams: Record<string, boolean> = {};
       phaseParams[`rampPhase${pendingPhaseVerification.phase}Complete`] = true;
 
       const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           rookieNotionPageId: recruit.notionPageId,
           ...phaseParams
@@ -538,6 +542,9 @@ export const RecruitDetailDrawer = ({
     setHasPhaseError(false);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       // Undo this phase and all phases after it
       const phaseParams: Record<string, boolean> = {};
       for (let i = pendingPhaseVerification.phase; i <= 4; i++) {
@@ -545,6 +552,7 @@ export const RecruitDetailDrawer = ({
       }
 
       const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           rookieNotionPageId: recruit.notionPageId,
           ...phaseParams

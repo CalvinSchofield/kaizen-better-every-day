@@ -777,7 +777,11 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     if (!selectedRookie || !selectedStatus) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           rookieNotionPageId: selectedRookie.notionPageId,
           onboardingStatus: selectedStatus,

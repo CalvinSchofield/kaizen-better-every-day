@@ -53,13 +53,17 @@ Deno.serve(async (req) => {
 
     if (hasRampPhaseUpdate) {
       // When completing a ramp phase, also mark all prerequisite steps as complete
+      // AND set the ramp_to_blitz_phase string accordingly (fixes display revert)
       if (rampPhase1Complete === true) {
         updateData.onboarding_complete = true;
         updateData.trainings_complete = true;
         updateData.slack_joined = true;
         updateData.ramp_phase_1_complete = true;
+        updateData.ramp_to_blitz_phase = 'Phase 1 ✅';
       } else if (rampPhase1Complete === false) {
         updateData.ramp_phase_1_complete = false;
+        // Revert to Slack ✅ unless earlier steps were also false
+        updateData.ramp_to_blitz_phase = 'Slack ✅';
       }
       
       if (rampPhase2Complete === true) {
@@ -68,8 +72,11 @@ Deno.serve(async (req) => {
         updateData.slack_joined = true;
         updateData.ramp_phase_1_complete = true;
         updateData.ramp_phase_2_complete = true;
+        updateData.ramp_to_blitz_phase = 'Phase 2 ✅';
       } else if (rampPhase2Complete === false) {
         updateData.ramp_phase_2_complete = false;
+        // Revert to Phase 1 ✅ if phase 1 is still done
+        updateData.ramp_to_blitz_phase = 'Phase 1 ✅';
       }
       
       if (rampPhase3Complete === true) {
@@ -79,8 +86,10 @@ Deno.serve(async (req) => {
         updateData.ramp_phase_1_complete = true;
         updateData.ramp_phase_2_complete = true;
         updateData.ramp_phase_3_complete = true;
+        updateData.ramp_to_blitz_phase = 'Phase 3 ✅';
       } else if (rampPhase3Complete === false) {
         updateData.ramp_phase_3_complete = false;
+        updateData.ramp_to_blitz_phase = 'Phase 2 ✅';
       }
       
       if (rampPhase4Complete === true) {
@@ -91,8 +100,10 @@ Deno.serve(async (req) => {
         updateData.ramp_phase_2_complete = true;
         updateData.ramp_phase_3_complete = true;
         updateData.ramp_phase_4_complete = true;
+        updateData.ramp_to_blitz_phase = 'Phase 4 ✅';
       } else if (rampPhase4Complete === false) {
         updateData.ramp_phase_4_complete = false;
+        updateData.ramp_to_blitz_phase = 'Phase 3 ✅';
       }
     }
 
