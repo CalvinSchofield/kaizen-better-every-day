@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Check, ChevronDown, ChevronUp, Calendar, MapPin, Plane, History, MessageSquare, Loader2 } from "lucide-react";
-import { format, parseISO, isBefore } from "date-fns";
+import { isBefore } from "date-fns";
+import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
@@ -144,8 +145,8 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
     const future: typeof blitzes = [];
 
     blitzes.forEach(blitz => {
-      const endDate = blitz.endDate ? parseISO(blitz.endDate) : parseISO(blitz.date);
-      if (isBefore(endDate, now)) {
+      const endDate = parseDateAsLocal(blitz.endDate || blitz.date);
+      if (endDate && isBefore(endDate, now)) {
         past.push(blitz);
       } else {
         future.push(blitz);
@@ -153,8 +154,16 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
     });
 
     // Sort past by most recent first, future by soonest first
-    past.sort((a, b) => parseISO(b.endDate || b.date).getTime() - parseISO(a.endDate || a.date).getTime());
-    future.sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    past.sort((a, b) => {
+      const dateA = parseDateAsLocal(b.endDate || b.date);
+      const dateB = parseDateAsLocal(a.endDate || a.date);
+      return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+    });
+    future.sort((a, b) => {
+      const dateA = parseDateAsLocal(a.date);
+      const dateB = parseDateAsLocal(b.date);
+      return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+    });
 
     return { pastBlitzes: past, futureBlitzes: future };
   }, [blitzes, now]);
@@ -249,7 +258,7 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
                       <Check className="h-3.5 w-3.5 text-green-500" />
                       <span>{blitz.name}</span>
                       <span className="text-xs">
-                        ({format(parseISO(blitz.date), 'MMM d')})
+                        ({formatBlitzDate(blitz.date, 'MMM d')})
                       </span>
                     </div>
                   ))}
@@ -293,8 +302,8 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
                             </div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                               <Calendar className="w-3 h-3" />
-                              {format(parseISO(blitz.date), 'MMM d')}
-                              {blitz.endDate && ` - ${format(parseISO(blitz.endDate), 'MMM d')}`}
+                              {formatBlitzDate(blitz.date, 'MMM d')}
+                              {blitz.endDate && ` - ${formatBlitzDate(blitz.endDate, 'MMM d')}`}
                             </div>
                             {blitz.location && (
                               <div className="flex items-center gap-1 text-xs text-muted-foreground">

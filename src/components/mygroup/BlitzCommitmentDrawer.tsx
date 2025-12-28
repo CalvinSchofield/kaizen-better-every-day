@@ -22,7 +22,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { format, parseISO, isBefore, startOfDay } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
+import { parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 
 interface BlitzEvent {
   id: string;
@@ -137,8 +138,8 @@ export const BlitzCommitmentDrawer = ({
     const removedPastBlitzes = removed.filter(id => {
       const blitz = availableBlitzes.find(b => b.id === id);
       if (!blitz) return false;
-      const endDate = blitz.endDate ? parseISO(blitz.endDate) : parseISO(blitz.date);
-      return isBefore(endDate, today);
+      const endDate = parseDateAsLocal(blitz.endDate || blitz.date);
+      return endDate && isBefore(endDate, today);
     }).map(id => availableBlitzes.find(b => b.id === id)?.name).filter(Boolean);
     
     return { addedBlitzes, removedBlitzes, removedPastBlitzes };
@@ -180,13 +181,13 @@ export const BlitzCommitmentDrawer = ({
 
   // Separate past and future blitzes
   const pastBlitzes = availableBlitzes.filter(b => {
-    const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
-    return isBefore(endDate, today);
+    const endDate = parseDateAsLocal(b.endDate || b.date);
+    return endDate && isBefore(endDate, today);
   });
 
   const futureBlitzes = availableBlitzes.filter(b => {
-    const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
-    return !isBefore(endDate, today);
+    const endDate = parseDateAsLocal(b.endDate || b.date);
+    return !endDate || !isBefore(endDate, today);
   });
 
   // Only show past blitzes that are in current commitments (attended)
@@ -198,8 +199,8 @@ export const BlitzCommitmentDrawer = ({
     const isCommitted = pendingCommitments.includes(blitz.id);
     const isDeclined = declinedBlitzIds.includes(blitz.id);
     const isClearing = clearingDeclineId === blitz.id;
-    const blitzDate = parseISO(blitz.date);
-    const endDate = blitz.endDate ? parseISO(blitz.endDate) : null;
+    const blitzDate = parseDateAsLocal(blitz.date);
+    const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : null;
     
     return (
       <div
@@ -244,7 +245,7 @@ export const BlitzCommitmentDrawer = ({
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <Calendar className="w-3 h-3" />
               <span>
-                {format(blitzDate, 'MMM d')}
+                {blitzDate ? format(blitzDate, 'MMM d') : ''}
                 {endDate && ` - ${format(endDate, 'MMM d, yyyy')}`}
               </span>
             </div>
