@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScopeChips } from "@/components/blitz/ScopeChips";
+import { formatBlitzDate, getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 
 interface VetBlitzCardProps {
   repData: any;
@@ -273,6 +274,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [selectedRookie, setSelectedRookie] = useState<TeamMember | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
@@ -767,6 +769,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     e.stopPropagation();
     setSelectedRookie(member);
     setSelectedStatus(member.onboardingStatus || "Started");
+    setStatusConfirmOpen(false);
     setStatusDialogOpen(true);
   };
 
@@ -812,6 +815,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       });
     } finally {
       setStatusDialogOpen(false);
+      setStatusConfirmOpen(false);
       setSelectedRookie(null);
     }
   };
@@ -853,11 +857,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   };
 
   const isWithinSevenDays = (blitzDate: string) => {
-    const today = new Date();
-    const blitz = new Date(blitzDate);
-    const diffTime = blitz.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays >= 0;
+    const daysUntil = getDaysUntilBlitz(blitzDate);
+    return daysUntil !== null && daysUntil <= 7 && daysUntil >= 0;
   };
 
   const getReadinessStatus = (member: TeamMember) => {
@@ -1004,12 +1005,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         <CardContent className="space-y-3">
           {allBlitzes.map((blitz) => {
             const isCommitted = committedBlitzIds.includes(blitz.id);
-            const startDate = new Date(blitz.date);
-            const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
-            const dateStr =
-              startDate.toDateString() === endDate.toDateString()
-                ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            const startLabel = formatBlitzDate(blitz.date, 'MMM d');
+            const endLabel = blitz.endDate ? formatBlitzDate(blitz.endDate, 'MMM d') : '';
+            const dateStr = blitz.endDate && endLabel && endLabel !== startLabel ? `${startLabel} - ${endLabel}` : startLabel;
 
             return (
               <div
@@ -1150,12 +1148,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           const teamCount = getTeamMemberCount(blitz.id);
           const hasRookiesButNotCommitted = rookieCount > 0 && !isCommitted;
 
-          const startDate = new Date(blitz.date);
-          const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
-          const dateStr =
-            startDate.toDateString() === endDate.toDateString()
-              ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-              : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+          const startLabel = formatBlitzDate(blitz.date, 'MMM d');
+          const endLabel = blitz.endDate ? formatBlitzDate(blitz.endDate, 'MMM d') : '';
+          const dateStr = blitz.endDate && endLabel && endLabel !== startLabel ? `${startLabel} - ${endLabel}` : startLabel;
 
           return (
             <Collapsible
@@ -1514,39 +1509,111 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         </SheetContent>
       </Sheet>
 
-      <Sheet open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+      <Sheet
+        open={statusDialogOpen}
+        onOpenChange={(open) => {
+          setStatusDialogOpen(open);
+          if (!open) setStatusConfirmOpen(false);
+        }}
+      >
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader>
-            <SheetTitle>Update {selectedRookie?.name}'s Status</SheetTitle>
+            <SheetTitle>
+              {statusConfirmOpen
+                ? `Confirm update for ${selectedRookie?.name}`
+                : `Update ${selectedRookie?.name}'s Status`}
+            </SheetTitle>
             <SheetDescription>
-              Select the last stage they've completed
+              {statusConfirmOpen
+                ? `You're about to set their status to: ${selectedStatus}`
+                : 'Select the last stage they\'ve completed'}
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-6">
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="text-base">
-                <SelectValue placeholder="Select completed stage" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Not started">Not started</SelectItem>
-                <SelectItem value="Onboarding ✅">✓ Onboarding</SelectItem>
-                <SelectItem value="Required Trainings ✅">✓ Required Trainings</SelectItem>
-                <SelectItem value="Slack ✅">✓ Slack</SelectItem>
-                <SelectItem value="Phase 1 ✅">✓ Phase 1</SelectItem>
-                <SelectItem value="Phase 2 ✅">✓ Phase 2</SelectItem>
-                <SelectItem value="Phase 3 ✅">✓ Phase 3</SelectItem>
-                <SelectItem value="Phase 4 ✅">✓ Phase 4 (Blitz Ready)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button onClick={updateRookieStatus} className="flex-1">
-              Update Status
-            </Button>
-          </div>
+
+          {!statusConfirmOpen ? (
+            <>
+              <div className="space-y-4 py-6">
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="text-base">
+                    <SelectValue placeholder="Select completed stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Not started">Not started</SelectItem>
+                    <SelectItem value="Onboarding ✅">✓ Onboarding</SelectItem>
+                    <SelectItem value="Required Trainings ✅">✓ Required Trainings</SelectItem>
+                    <SelectItem value="Slack ✅">✓ Slack</SelectItem>
+                    <SelectItem value="Phase 1 ✅">✓ Phase 1</SelectItem>
+                    <SelectItem value="Phase 2 ✅">✓ Phase 2</SelectItem>
+                    <SelectItem value="Phase 3 ✅">✓ Phase 3</SelectItem>
+                    <SelectItem value="Phase 4 ✅">✓ Phase 4 (Blitz Ready)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStatusDialogOpen(false);
+                    setStatusConfirmOpen(false);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => setStatusConfirmOpen(true)}
+                  className="flex-1"
+                  disabled={!selectedStatus}
+                >
+                  Continue
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="py-6 space-y-4">
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">New status</p>
+                  <p className="text-base font-semibold mt-1">{selectedStatus}</p>
+                </div>
+
+                <div className="rounded-xl border bg-card p-4">
+                  <p className="text-sm font-medium">Checklist</p>
+                  <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {[
+                      'Onboarding ✅',
+                      'Required Trainings ✅',
+                      'Slack ✅',
+                      'Phase 1 ✅',
+                      'Phase 2 ✅',
+                      'Phase 3 ✅',
+                      'Phase 4 ✅',
+                    ].map((step) => (
+                      <li key={step} className="flex items-center gap-2">
+                        <span className="text-primary">✓</span>
+                        <span>{step.replace(' ✅', '')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    By confirming, you verify this rep has completed everything up to the selected stage.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setStatusConfirmOpen(false)}
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+                <Button onClick={updateRookieStatus} className="flex-1">
+                  Update Status
+                </Button>
+              </div>
+            </>
+          )}
         </SheetContent>
       </Sheet>
 

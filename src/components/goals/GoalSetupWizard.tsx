@@ -11,8 +11,9 @@ import {
 } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { differenceInDays, parseISO, format } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
+import { formatBlitzDate, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -624,9 +625,11 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
             {allBlitzes.map((blitz) => {
               const isSelected = selectedBlitzIds.includes(blitz.id);
-              const startDate = new Date(blitz.date);
-              const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
-              
+              const startDate = parseDateAsLocal(blitz.date);
+              const endDate = blitz.endDate ? parseDateAsLocal(blitz.endDate) : null;
+              const startLabel = startDate ? format(startDate, "MMM d") : "";
+              const endLabel = endDate ? format(endDate, "MMM d") : "";
+
               return (
                 <button
                   key={blitz.id}
@@ -634,21 +637,21 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
                   onClick={() => toggleBlitzSelection(blitz.id)}
                   className={cn(
                     "w-full p-4 rounded-xl border text-left transition-all",
-                    isSelected 
-                      ? "border-primary bg-primary/10 ring-2 ring-primary" 
+                    isSelected
+                      ? "border-primary bg-primary/10 ring-2 ring-primary"
                       : "border-border hover:border-primary/50"
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <Checkbox 
-                      checked={isSelected} 
+                    <Checkbox
+                      checked={isSelected}
                       className="mt-0.5 pointer-events-none"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate">{blitz.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(startDate, "MMM d")}
-                        {blitz.endDate && ` - ${format(endDate, "MMM d")}`}
+                        {startLabel}
+                        {blitz.endDate && endLabel && ` - ${endLabel}`}
                       </p>
                       {blitz.location && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
@@ -765,7 +768,7 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
                 .filter(b => selectedBlitzIds.includes(b.id))
                 .map(blitz => (
                   <p key={blitz.id} className="text-sm text-muted-foreground">
-                    • {blitz.name} ({format(new Date(blitz.date), "MMM d")})
+                    • {blitz.name} ({formatBlitzDate(blitz.date, "MMM d")})
                   </p>
                 ))
               }
