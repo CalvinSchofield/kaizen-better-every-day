@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
-import { getDaysUntilBlitz, formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { format } from "date-fns";
+import { getDaysUntilBlitz, formatDaysUntilBlitz, parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
 import { 
   Tablet,
   Plane,
@@ -564,8 +564,8 @@ const BlitzManagementSection = ({
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">{blitz.name}</p>
                         <p className="text-xs text-muted-foreground/70">
-                          {format(new Date(blitz.date), 'MMM d')}
-                          {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                          {formatBlitzDate(blitz.date, 'MMM d')}
+                          {blitz.endDate && ` - ${formatBlitzDate(blitz.endDate, 'MMM d')}`}
                         </p>
                       </div>
                     </div>
@@ -593,7 +593,7 @@ const BlitzManagementSection = ({
               {futureBlitzes.map((blitz) => {
                 const isCommitted = committedBlitzIds.includes(blitz.id);
                 const isDeclined = declinedBlitzIds.includes(blitz.id) && !isCommitted;
-                const blitzDate = new Date(blitz.date);
+                const blitzDate = parseDateAsLocal(blitz.date);
                 const isLoading = isUpdating === blitz.id;
                 const daysUntil = getDaysUntilBlitz(blitz.date);
                 
@@ -627,8 +627,8 @@ const BlitzManagementSection = ({
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {format(blitzDate, 'MMM d')}
-                          {blitz.endDate && ` - ${format(new Date(blitz.endDate), 'MMM d')}`}
+                          {blitzDate ? format(blitzDate, 'MMM d') : ''}
+                          {blitz.endDate && ` - ${formatBlitzDate(blitz.endDate, 'MMM d')}`}
                           {daysUntil !== null && daysUntil <= 14 && daysUntil >= 0 && (
                             <span className="ml-1 text-amber-500">
                               · {daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `${daysUntil}d away`}

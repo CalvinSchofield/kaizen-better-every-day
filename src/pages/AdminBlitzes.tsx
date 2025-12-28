@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
 import { ArrowLeft, Plus, Calendar, MapPin, Edit2, Trash2, Home, Wifi, Key } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import BlitzFormDrawer from "@/components/admin/BlitzFormDrawer";
 import DeleteBlitzDialog from "@/components/admin/DeleteBlitzDialog";
+import { formatBlitzDateRange } from "@/utils/blitzDateUtils";
 
 interface Accommodation {
   id: string;
@@ -277,9 +277,7 @@ interface BlitzCardProps {
 }
 
 function BlitzCard({ blitz, onEdit, onDelete, isPast }: BlitzCardProps) {
-  const dateStr = blitz.end_date
-    ? `${format(new Date(blitz.date), "MMM d")} - ${format(new Date(blitz.end_date), "MMM d, yyyy")}`
-    : format(new Date(blitz.date), "MMM d, yyyy");
+  const dateStr = formatBlitzDateRange(blitz.date, blitz.end_date);
 
   return (
     <Card className="overflow-hidden">
