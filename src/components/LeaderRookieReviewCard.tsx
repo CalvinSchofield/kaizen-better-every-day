@@ -224,10 +224,14 @@ export const LeaderRookieReviewCard = () => {
     
     setIsSubmitting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const phaseParams: Record<string, boolean> = {};
       phaseParams[`rampPhase${selectedRookie.currentPhase}Complete`] = true;
 
       const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           rookieNotionPageId: selectedRookie.notionPageId,
           ...phaseParams

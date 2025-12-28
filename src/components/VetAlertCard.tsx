@@ -224,6 +224,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
     if (!selectedAlert) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
       const updates: any = {};
       
       // Build the update request body
@@ -241,8 +244,9 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
         updates.ipadAssigned = ipadAssigned;
       }
 
-      // Update Notion via edge function
+      // Update via edge function
       const { error: notionError } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: updateBody,
       });
       
