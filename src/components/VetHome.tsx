@@ -22,7 +22,7 @@ import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { useYTDPRMR } from "@/hooks/useYTDPRMR";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { getDaysUntilBlitz, getTodayDateString, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 
 import confetti from "canvas-confetti";
@@ -101,18 +101,22 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   // Get next upcoming blitz from committed blitzes
   const nextBlitz = repData.committed_blitzes && Array.isArray(repData.committed_blitzes) 
     ? (() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
+        const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
+
         const upcomingBlitzes = repData.committed_blitzes
           .filter((blitz: any) => {
             if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
-            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
-            blitzEndDate.setHours(0, 0, 0, 0);
-            return blitzEndDate >= today;
+            const blitzEndDate = parseDateAsLocal(blitz.endDate ?? blitz.date);
+            if (!blitzEndDate) return false;
+            return blitzEndDate.getTime() >= today.getTime();
           })
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
+          .sort((a: any, b: any) => {
+            const aDate = parseDateAsLocal(a.date);
+            const bDate = parseDateAsLocal(b.date);
+            if (!aDate || !bDate) return 0;
+            return aDate.getTime() - bDate.getTime();
+          });
+
         return upcomingBlitzes[0] || null;
       })()
     : null;
@@ -120,9 +124,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   // Check if vet had past blitzes but no upcoming ones
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
   const hasPastBlitzes = committedBlitzes.some((blitz: any) => {
-    if (!blitz?.endDate) return false;
-    const endDate = new Date(blitz.endDate);
-    return endDate < new Date();
+    const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
+    const endDate = parseDateAsLocal(blitz?.endDate);
+    if (!endDate) return false;
+    return endDate.getTime() < today.getTime();
   });
 
   const daysUntilBlitz = nextBlitz ? getDaysUntilBlitz(nextBlitz.date) : null;
@@ -136,12 +141,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         return;
       }
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tripDate = new Date(nextBlitz.date);
-      tripDate.setHours(0, 0, 0, 0);
-      const diffTime = tripDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = getDaysUntilBlitz(nextBlitz.date) ?? -1;
 
       console.log("Weather check:", { diffDays, location: nextBlitz.location, weatherSheetOpen });
 
@@ -351,11 +351,8 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   const secondWindowAckBlitzIds = (repData as any).rsvp_second_window_ack_blitz_ids || [];
   
   const upcomingBlitzForRsvp = hasRespondedToRsvpThisSession ? null : allBlitzes.find((blitz) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitzDate = new Date(blitz.date);
-    blitzDate.setHours(0, 0, 0, 0);
-    const daysUntil = Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntil = getDaysUntilBlitz(blitz.date);
+    if (daysUntil === null) return false;
     
     // Must be within the RSVP windows: 21-14 days (first ask) OR 10-0 days (confirmation ask)
     const inFirstWindow = daysUntil >= 14 && daysUntil <= 21;
@@ -377,13 +374,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   });
   
   // Determine which window we're in for the RSVP blitz
-  const rsvpBlitzDaysUntil = upcomingBlitzForRsvp ? (() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitzDate = new Date(upcomingBlitzForRsvp.date);
-    blitzDate.setHours(0, 0, 0, 0);
-    return Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  })() : null;
+  const rsvpBlitzDaysUntil = upcomingBlitzForRsvp ? getDaysUntilBlitz(upcomingBlitzForRsvp.date) : null;
   const isInSecondWindow = rsvpBlitzDaysUntil !== null && rsvpBlitzDaysUntil >= 0 && rsvpBlitzDaysUntil <= 10;
   
   // Check if the RSVP blitz is already committed (for different language)
