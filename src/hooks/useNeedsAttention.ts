@@ -491,10 +491,19 @@ export const useNeedsAttention = (
     );
 
     // Build sets for past, current, and future blitzes
+    // Helper to parse blitz dates correctly (YYYY-MM-DD as local date)
+    const parseBlitzDate = (dateStr: string | undefined | null): Date | null => {
+      if (!dateStr) return null;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+      return new Date(year, month - 1, day, 12, 0, 0);
+    };
+
     const pastBlitzIds = new Set(
       blitzes
         .filter(b => {
-          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
+          const endDate = parseBlitzDate(b.endDate) || parseBlitzDate(b.date);
+          if (!endDate) return false;
           // End date is before today (has already finished)
           return endDate < now;
         })
@@ -504,8 +513,9 @@ export const useNeedsAttention = (
     const currentBlitzIds = new Set(
       blitzes
         .filter(b => {
-          const startDate = parseISO(b.date);
-          const endDate = b.endDate ? parseISO(b.endDate) : parseISO(b.date);
+          const startDate = parseBlitzDate(b.date);
+          const endDate = parseBlitzDate(b.endDate) || startDate;
+          if (!startDate || !endDate) return false;
           // Started on or before today AND ends on or after today
           return startDate <= now && endDate >= now;
         })
@@ -515,7 +525,8 @@ export const useNeedsAttention = (
     const futureBlitzIds = new Set(
       blitzes
         .filter(b => {
-          const startDate = parseISO(b.date);
+          const startDate = parseBlitzDate(b.date);
+          if (!startDate) return false;
           return startDate > now;
         })
         .map(b => b.id)

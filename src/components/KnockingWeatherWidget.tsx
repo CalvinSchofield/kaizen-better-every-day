@@ -2,6 +2,7 @@ import { Cloud, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { parseDateAsLocal } from "@/utils/blitzDateUtils";
 
 interface KnockingWeatherWidgetProps {
   repData: any;
@@ -23,9 +24,10 @@ export const KnockingWeatherWidget = ({ repData }: KnockingWeatherWidgetProps) =
     return repData.committed_blitzes.find((blitz: any) => {
       if (!blitz?.date || !blitz?.endDate) return false;
       
-      const startDate = new Date(blitz.date);
+      const startDate = parseDateAsLocal(blitz.date);
+      const endDate = parseDateAsLocal(blitz.endDate);
+      if (!startDate || !endDate) return false;
       startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(blitz.endDate);
       endDate.setHours(0, 0, 0, 0);
       
       return today >= startDate && today <= endDate;
