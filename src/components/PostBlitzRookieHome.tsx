@@ -20,7 +20,7 @@ import { WeeklyProgressPromptCard } from "@/components/WeeklyProgressPromptCard"
 import { RecapCTACard } from "@/components/recap/RecapCTACard";
 import confetti from "canvas-confetti";
 import { useQueryClient } from "@tanstack/react-query";
-import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { getDaysUntilBlitz, parseDateAsLocal, formatBlitzDate, formatBlitzDateRange } from "@/utils/blitzDateUtils";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import {
   Sheet,
@@ -172,19 +172,24 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         const upcomingBlitzes = repData.committed_blitzes
           .filter((blitz: any) => {
             if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
-            const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+            const blitzEndDate = parseDateAsLocal(blitz.endDate) || parseDateAsLocal(blitz.date);
+            if (!blitzEndDate) return false;
             blitzEndDate.setHours(0, 0, 0, 0);
             return blitzEndDate >= today;
           })
-          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          .sort((a: any, b: any) => {
+            const dateA = parseDateAsLocal(a.date);
+            const dateB = parseDateAsLocal(b.date);
+            return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+          });
         
         return upcomingBlitzes[0] || null;
       })()
     : null;
 
-  const daysUntilBlitz = nextBlitz ? Math.ceil((new Date(nextBlitz.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+  const daysUntilBlitz = nextBlitz ? getDaysUntilBlitz(nextBlitz.date) : null;
 
-  // Fetch weather when blitz is within 8 days AND weather sheet opens
+  // Fetch weather when blitz is within 16 days AND weather sheet opens
   useEffect(() => {
     const fetchWeather = async () => {
       if (!nextBlitz || !nextBlitz.location || !nextBlitz.date || !nextBlitz.endDate) {
@@ -193,18 +198,14 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
         return;
       }
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tripDate = new Date(nextBlitz.date);
-      tripDate.setHours(0, 0, 0, 0);
-      const diffTime = tripDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // Use timezone-safe days until calculation
+      const diffDays = getDaysUntilBlitz(nextBlitz.date);
 
       console.log("Weather check:", { diffDays, location: nextBlitz.location, weatherSheetOpen });
 
-      // Skip if blitz is in the past or more than 8 days away (allow 0-8 days)
-      if (diffDays < 0 || diffDays > 8) {
-        console.log("Weather fetch skipped - blitz not in range");
+      // Skip if blitz is in the past or more than 16 days away (Open-Meteo limit)
+      if (diffDays === null || diffDays < 0 || diffDays > 16) {
+        console.log("Weather fetch skipped - blitz not in range (must be 0-16 days)");
         setWeather([]);
         return;
       }
@@ -262,8 +263,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const committedBlitzes = (repData.committed_blitzes as any[]) || [];
   const hasPastBlitzes = committedBlitzes.some((blitz: any) => {
     if (!blitz?.endDate) return false;
-    const endDate = new Date(blitz.endDate);
-    return endDate < new Date();
+    const endDate = parseDateAsLocal(blitz.endDate);
+    return endDate && endDate < new Date();
   });
 
   // Handle blitz commitment toggle
@@ -399,11 +400,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   const secondWindowAckBlitzIds = (repData as any).rsvp_second_window_ack_blitz_ids || [];
   
   const upcomingBlitzForRsvp = hasRespondedToRsvpThisSession ? null : allBlitzes.find((blitz) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitzDate = new Date(blitz.date);
-    blitzDate.setHours(0, 0, 0, 0);
-    const daysUntil = Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntil = getDaysUntilBlitz(blitz.date);
+    if (daysUntil === null) return false;
     
     // Must be within the RSVP windows: 21-14 days (first ask) OR 10-0 days (confirmation ask)
     const inFirstWindow = daysUntil >= 14 && daysUntil <= 21;
@@ -425,13 +423,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
   });
   
   // Determine which window we're in for the RSVP blitz
-  const rsvpBlitzDaysUntil = upcomingBlitzForRsvp ? (() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const blitzDate = new Date(upcomingBlitzForRsvp.date);
-    blitzDate.setHours(0, 0, 0, 0);
-    return Math.ceil((blitzDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  })() : null;
+  const rsvpBlitzDaysUntil = upcomingBlitzForRsvp ? getDaysUntilBlitz(upcomingBlitzForRsvp.date) : null;
   const isInSecondWindow = rsvpBlitzDaysUntil !== null && rsvpBlitzDaysUntil >= 0 && rsvpBlitzDaysUntil <= 10;
   
   // Check if the RSVP blitz is already committed (for different language)
@@ -591,8 +583,8 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             <div className="px-6 py-4 rounded-lg bg-primary-foreground/10 mb-3">
               <p className="text-primary-foreground/90 text-base font-medium mb-3">
                 {isRsvpBlitzCommitted 
-                  ? `📆 Still planning on ${upcomingBlitzForRsvp.location} in ${Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days?`
-                  : `📆 ${upcomingBlitzForRsvp.location} in ${Math.ceil((new Date(upcomingBlitzForRsvp.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days — you in?`
+                  ? `📆 Still planning on ${upcomingBlitzForRsvp.location} in ${rsvpBlitzDaysUntil} days?`
+                  : `📆 ${upcomingBlitzForRsvp.location} in ${rsvpBlitzDaysUntil} days — you in?`
                 }
               </p>
               <div className="flex gap-3">
@@ -638,9 +630,10 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
             const diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
             
             // Check if user is currently within the blitz date range
-            const blitzStart = new Date(nextBlitz.date);
+            const blitzStart = parseDateAsLocal(nextBlitz.date);
+            if (!blitzStart) return;
             blitzStart.setHours(0, 0, 0, 0);
-            const blitzEnd = nextBlitz.endDate ? new Date(nextBlitz.endDate) : blitzStart;
+            const blitzEnd = parseDateAsLocal(nextBlitz.endDate) || blitzStart;
             blitzEnd.setHours(23, 59, 59, 999);
             const isWithinBlitz = today >= blitzStart && today <= blitzEnd;
             
@@ -828,12 +821,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
               allBlitzes.map((blitz) => {
                 const committedBlitzes = (repData.committed_blitzes as any[]) || [];
                 const isCommitted = committedBlitzes.some((b: any) => b.id === blitz.id);
-                const startDate = new Date(blitz.date);
-                const endDate = blitz.endDate ? new Date(blitz.endDate) : startDate;
-                const dateStr =
-                  startDate.toDateString() === endDate.toDateString()
-                    ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                    : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                const dateStr = formatBlitzDateRange(blitz.date, blitz.endDate);
 
                 return (
                   <div
@@ -962,8 +950,13 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
           
           {!loadingWeather && weather.length === 0 && (
             <div className="text-center text-sm text-muted-foreground py-8">
-              <p>Weather forecast unavailable for this location.</p>
-              <p className="text-xs mt-2">Try refreshing or check back later.</p>
+              <p className="font-medium">Weather forecast unavailable for this location.</p>
+              <p className="text-xs mt-2">
+                {daysUntilBlitz !== null && daysUntilBlitz > 16 
+                  ? `Forecast will be available when your blitz is within 16 days (currently ${daysUntilBlitz} days away).`
+                  : "Try refreshing or check back later."
+                }
+              </p>
             </div>
           )}
           

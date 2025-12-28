@@ -30,6 +30,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isBefore, parseISO, format } from "date-fns";
+import { parseDateAsLocal } from "@/utils/blitzDateUtils";
 
 interface CommittedBlitz {
   id: string;
@@ -156,13 +157,15 @@ const Goals = () => {
     let attended = 0;
     
     committedBlitzes.forEach(blitz => {
-      const blitzEnd = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+      const blitzEnd = parseDateAsLocal(blitz.endDate) || parseDateAsLocal(blitz.date);
+      if (!blitzEnd) return;
       blitzEnd.setHours(23, 59, 59, 999);
       
       if (blitzEnd < today) {
         attended++;
       } else {
-        const blitzStart = new Date(blitz.date);
+        const blitzStart = parseDateAsLocal(blitz.date);
+        if (!blitzStart) return;
         blitzStart.setHours(0, 0, 0, 0);
         if (blitzStart <= today && today <= blitzEnd) {
           attended++; // Currently on blitz
@@ -181,7 +184,8 @@ const Goals = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return allBlitzes.filter(blitz => {
-      const blitzStart = new Date(blitz.date);
+      const blitzStart = parseDateAsLocal(blitz.date);
+      if (!blitzStart) return false;
       blitzStart.setHours(0, 0, 0, 0);
       return blitzStart >= today;
     });

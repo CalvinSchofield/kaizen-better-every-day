@@ -26,7 +26,7 @@ import { IntroWizard } from "@/components/IntroWizard";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useRepGoals } from "@/hooks/useRepGoals";
-import { getDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
@@ -100,11 +100,16 @@ const Home = () => {
         if (!blitz || typeof blitz !== 'object' || !blitz.date) return false;
         
         // Use end date if available, otherwise use start date
-        const blitzEndDate = blitz.endDate ? new Date(blitz.endDate) : new Date(blitz.date);
+        const blitzEndDate = parseDateAsLocal(blitz.endDate) || parseDateAsLocal(blitz.date);
+        if (!blitzEndDate) return false;
         blitzEndDate.setHours(0, 0, 0, 0);
         return blitzEndDate >= today;
       })
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a: any, b: any) => {
+        const dateA = parseDateAsLocal(a.date);
+        const dateB = parseDateAsLocal(b.date);
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
 
     if (upcomingBlitzes.length > 0) {
       const next = upcomingBlitzes[0];

@@ -33,6 +33,7 @@ import { BooksSelectionDrawer } from "./BooksSelectionDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { parseDateAsLocal } from "@/utils/blitzDateUtils";
 
 interface CommitmentsTrackerProps {
   goals: RepGoals;
@@ -171,9 +172,10 @@ export const CommitmentsTracker = ({
     let active: CommittedBlitz | null = null;
     
     committedBlitzes.forEach(blitz => {
-      const blitzStart = new Date(blitz.date);
+      const blitzStart = parseDateAsLocal(blitz.date);
+      if (!blitzStart) return;
       blitzStart.setHours(0, 0, 0, 0);
-      const blitzEnd = blitz.endDate ? new Date(blitz.endDate) : blitzStart;
+      const blitzEnd = parseDateAsLocal(blitz.endDate) || new Date(blitzStart);
       blitzEnd.setHours(23, 59, 59, 999);
       
       if (blitzEnd < today) {
@@ -194,7 +196,8 @@ export const CommitmentsTracker = ({
   // Filter allBlitzes to only show future ones
   const futureAvailableBlitzes = useMemo(() => {
     return allBlitzes.filter(blitz => {
-      const blitzStart = new Date(blitz.date);
+      const blitzStart = parseDateAsLocal(blitz.date);
+      if (!blitzStart) return false;
       blitzStart.setHours(0, 0, 0, 0);
       return blitzStart >= today;
     });
