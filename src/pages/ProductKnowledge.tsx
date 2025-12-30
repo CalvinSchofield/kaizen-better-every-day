@@ -13,12 +13,8 @@ const ProductKnowledge = () => {
 
   // Determine where to go back to based on where user came from
   const handleBack = () => {
-    // Check if we came from ramp-to-blitz via the pathname
-    if (location.pathname === "/product-knowledge") {
-      navigate("/ramp-to-blitz");
-    } else {
-      navigate("/training");
-    }
+    const fromRamp = (location.state as { from?: string })?.from === "ramp-to-blitz";
+    navigate(fromRamp ? "/ramp-to-blitz" : "/training");
   };
 
   if (selectedProduct) {

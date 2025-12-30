@@ -315,7 +315,7 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
           <Button
             variant="outline"
             className="w-full justify-between h-auto py-4 px-4 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20 hover:border-primary/40"
-            onClick={() => navigate("/product-knowledge")}
+            onClick={() => navigate("/product-knowledge", { state: { from: "ramp-to-blitz" } })}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
