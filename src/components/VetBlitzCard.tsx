@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import confetti from "canvas-confetti";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
+import { PhaseVerificationDrawer } from "@/components/mygroup/PhaseVerificationDrawer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -284,6 +285,13 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [phoneDrawerOpen, setPhoneDrawerOpen] = useState(false);
   const [memberNeedsPhone, setMemberNeedsPhone] = useState<TeamMember | null>(null);
   const [pendingAction, setPendingAction] = useState<'text' | 'call' | null>(null);
+  
+  // Phase verification drawer state  
+  const [phaseVerificationOpen, setPhaseVerificationOpen] = useState(false);
+  const [phaseToVerify, setPhaseToVerify] = useState<number | null>(null);
+  const [isPhaseVerifying, setIsPhaseVerifying] = useState(false);
+  const [hasPhaseError, setHasPhaseError] = useState(false);
+  const [rookieRepData, setRookieRepData] = useState<{ watched_videos?: string[]; committed_blitzes?: unknown[] } | null>(null);
   
   // Default to highest access level available
   const getDefaultScope = useCallback((): 'you' | 'team' | 'mgmt' | 'office' => {
@@ -821,6 +829,67 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       setStatusDialogOpen(false);
       setStatusConfirmOpen(false);
       setSelectedRookie(null);
+    }
+  };
+
+  // Handle phase verification from the drawer
+  const handlePhaseVerification = async () => {
+    if (!selectedRookie || !phaseToVerify) return;
+    
+    setIsPhaseVerifying(true);
+    setHasPhaseError(false);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      
+      const phaseParams: Record<string, boolean | string> = {
+        onboardingStatus: `Phase ${phaseToVerify} ✅`,
+      };
+      phaseParams[`rampPhase${phaseToVerify}Complete`] = true;
+      
+      const { error } = await supabase.functions.invoke('update-rookie-status', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: {
+          rookieId: selectedRookie.id,
+          ...phaseParams,
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Update local state
+      setTeamMembers(prev =>
+        prev.map(m =>
+          m.id === selectedRookie.id
+            ? { ...m, onboardingStatus: `Phase ${phaseToVerify} ✅` }
+            : m
+        )
+      );
+      
+      if (onTeamMemberUpdate) {
+        onTeamMemberUpdate(selectedRookie.id, { onboardingStatus: `Phase ${phaseToVerify} ✅` });
+      }
+      
+      toast({
+        title: "Phase verified",
+        description: `${selectedRookie.name} completed Phase ${phaseToVerify}!`,
+      });
+      
+      setPhaseVerificationOpen(false);
+      setPhaseToVerify(null);
+      setSelectedRookie(null);
+      setRookieRepData(null);
+    } catch (error) {
+      console.error('Error verifying phase:', error);
+      setHasPhaseError(true);
+      toast({
+        title: "Verification failed",
+        description: "Could not verify phase. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPhaseVerifying(false);
     }
   };
 
@@ -1565,7 +1634,37 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => setStatusConfirmOpen(true)}
+                  onClick={async () => {
+                    // Check if this is a Phase status - if so, open phase verification drawer
+                    const phaseMatch = selectedStatus.match(/Phase (\d)/);
+                    if (phaseMatch && selectedRookie) {
+                      const phaseNum = parseInt(phaseMatch[1]);
+                      setPhaseToVerify(phaseNum);
+                      
+                      // Fetch the rookie's rep data for watched_videos
+                      try {
+                        let repData = null;
+                        if (selectedRookie.email) {
+                          const { data } = await supabase.from('reps').select('watched_videos, committed_blitzes').ilike('email', selectedRookie.email).maybeSingle();
+                          repData = data;
+                        }
+                        if (!repData && selectedRookie.name) {
+                          const { data } = await supabase.from('reps').select('watched_videos, committed_blitzes').eq('name', selectedRookie.name).maybeSingle();
+                          repData = data;
+                        }
+                        setRookieRepData(repData);
+                      } catch (e) {
+                        console.error('Failed to fetch rookie rep data:', e);
+                        setRookieRepData(null);
+                      }
+                      
+                      setStatusDialogOpen(false);
+                      setPhaseVerificationOpen(true);
+                    } else {
+                      // Non-phase status - use the simple confirm flow
+                      setStatusConfirmOpen(true);
+                    }
+                  }}
                   className="flex-1"
                   disabled={!selectedStatus}
                 >
@@ -1641,6 +1740,32 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           }
         }}
       />
+
+      {/* Phase Verification Drawer */}
+      {selectedRookie && phaseToVerify && (
+        <PhaseVerificationDrawer
+          open={phaseVerificationOpen}
+          onOpenChange={(open) => {
+            setPhaseVerificationOpen(open);
+            if (!open) {
+              setHasPhaseError(false);
+              setPhaseToVerify(null);
+              setRookieRepData(null);
+            }
+          }}
+          recruitName={selectedRookie.name}
+          phase={phaseToVerify}
+          isSubmitting={isPhaseVerifying}
+          hasError={hasPhaseError}
+          onConfirm={handlePhaseVerification}
+          watchedVideos={(rookieRepData?.watched_videos as string[]) || []}
+          goalsSetupComplete={false}
+          hasCommittedBlitz={
+            Array.isArray(rookieRepData?.committed_blitzes) &&
+            (rookieRepData.committed_blitzes as unknown[]).length > 0
+          }
+        />
+      )}
     </Card>
   );
 };
