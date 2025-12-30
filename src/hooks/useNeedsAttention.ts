@@ -68,7 +68,7 @@ interface BlitzEvent {
 }
 
 export interface RepData {
-  notion_page_id: string;
+  id: string;
   onboarding_complete: boolean | null;
   trainings_complete: boolean | null;
   slack_joined: boolean | null;
@@ -125,10 +125,12 @@ export const useNeedsAttention = (
     const lastContactMap = new Map<string, Date>();
     activities.forEach(activity => {
       if (activity.activity_type === 'phone_call' || activity.activity_type === 'in_person') {
-        const existing = lastContactMap.get(activity.rep_notion_page_id);
+        const recruitId = activity.recruit_id;
+        if (!recruitId) return;
+        const existing = lastContactMap.get(recruitId);
         const activityDate = parseISO(activity.created_at);
         if (!existing || activityDate > existing) {
-          lastContactMap.set(activity.rep_notion_page_id, activityDate);
+          lastContactMap.set(recruitId, activityDate);
         }
       }
     });

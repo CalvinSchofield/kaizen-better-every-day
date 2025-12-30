@@ -14,7 +14,7 @@ interface SuggestionPrefill {
   suggestionId: string;
   name: string;
   phone: string;
-  suggestedByNotionId?: string;
+  suggestedByUserId?: string;
   suggestedByName: string;
   relationship?: string;
   notes?: string;
@@ -39,13 +39,13 @@ export const PendingSuggestionsCard = ({ suggestions }: PendingSuggestionsCardPr
 
       const { data } = await supabase
         .from('reps')
-        .select('user_id, notion_page_id')
+        .select('user_id, id')
         .in('user_id', userIds);
 
       const mapping: Record<string, string> = {};
       data?.forEach(rep => {
-        if (rep.notion_page_id) {
-          mapping[rep.user_id] = rep.notion_page_id;
+        if (rep.id) {
+          mapping[rep.user_id] = rep.id;
         }
       });
       return mapping;
@@ -59,7 +59,7 @@ export const PendingSuggestionsCard = ({ suggestions }: PendingSuggestionsCardPr
       suggestionId: suggestion.id,
       name: suggestion.name,
       phone: suggestion.phone,
-      suggestedByNotionId: suggesterNotionIds?.[suggestion.suggested_by_user_id],
+      suggestedByUserId: suggesterNotionIds?.[suggestion.suggested_by_user_id],
       suggestedByName: suggestion.suggested_by_name,
       relationship: suggestion.relationship || undefined,
       notes: suggestion.notes || undefined,

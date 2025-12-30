@@ -49,7 +49,7 @@ interface BlitzEvent {
 }
 
 interface RepData {
-  notion_page_id: string;
+  id: string;
   onboarding_complete: boolean | null;
   trainings_complete: boolean | null;
   slack_joined: boolean | null;
@@ -150,14 +150,16 @@ export const WeekPlannerSection = ({
       const isCompleted = activity.assignment_status === 'completed' || !!activity.completed_at;
       if (isCompleted) return;
 
-      const existing = latestNextActions.get(activity.rep_notion_page_id);
+      const recruitId = activity.recruit_id;
+      if (!recruitId) return;
+      const existing = latestNextActions.get(recruitId);
       if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
-        latestNextActions.set(activity.rep_notion_page_id, activity);
+        latestNextActions.set(recruitId, activity);
       }
     });
 
     latestNextActions.forEach((activity, recruitId) => {
-      const recruit = filteredRecruits.find(r => r.notionPageId === recruitId);
+      const recruit = filteredRecruits.find(r => r.id === recruitId);
       if (!recruit) return;
 
       const dateKey = activity.next_action_due!;
@@ -259,7 +261,7 @@ export const WeekPlannerSection = ({
   };
 
   const getActivitiesForRecruit = (recruit: Recruit) => 
-    activities.filter(a => a.rep_notion_page_id === recruit.notionPageId);
+    activities.filter(a => a.recruit_id === recruit.id);
 
   // Get rest of week tasks (exclude today)
   const restOfWeekTasks = useMemo(() => {

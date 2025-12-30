@@ -26,7 +26,7 @@ interface BlitzEvent {
 }
 
 export interface RepData {
-  notion_page_id: string;
+  id: string;
   onboarding_complete: boolean | null;
   trainings_complete: boolean | null;
   slack_joined: boolean | null;
@@ -61,11 +61,14 @@ export const useRecruitingRecommendations = (
     const today = startOfDay(now);
     
     activities.forEach(activity => {
+      const recruitId = activity.recruit_id;
+      if (!recruitId) return;
+      
       if (activity.activity_type === 'phone_call' || activity.activity_type === 'in_person') {
-        const existing = lastContactMap.get(activity.rep_notion_page_id);
+        const existing = lastContactMap.get(recruitId);
         const activityDate = parseISO(activity.created_at);
         if (!existing || activityDate > existing) {
-          lastContactMap.set(activity.rep_notion_page_id, activityDate);
+          lastContactMap.set(recruitId, activityDate);
         }
       }
       
@@ -73,10 +76,10 @@ export const useRecruitingRecommendations = (
       if (activity.activity_type === 'next_step' && activity.next_action_due) {
         const dueDate = parseISO(activity.next_action_due);
         const createdAt = parseISO(activity.created_at);
-        const existing = scheduledFollowUpMap.get(activity.rep_notion_page_id);
+        const existing = scheduledFollowUpMap.get(recruitId);
         // Keep the most recently created scheduling
         if (!existing || createdAt > existing.createdAt) {
-          scheduledFollowUpMap.set(activity.rep_notion_page_id, { dueDate, createdAt });
+          scheduledFollowUpMap.set(recruitId, { dueDate, createdAt });
         }
       }
     });
