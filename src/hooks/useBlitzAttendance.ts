@@ -23,7 +23,7 @@ interface AttendanceData {
 
 export const useBlitzAttendance = (
   scope: 'you' | 'team' | 'mgmt' | 'office',
-  leaderNotionPageId: string | null
+  leaderId?: string | null // Optional - no longer required, auth token provides identity
 ) => {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,11 +54,6 @@ export const useBlitzAttendance = (
   }, [scope]);
 
   const fetchAttendance = useCallback(async (isBackgroundRefresh = false) => {
-    if (!leaderNotionPageId) {
-      setLoading(false);
-      return;
-    }
-
     // Only show loading spinner if we don't have any data yet
     if (!isBackgroundRefresh && !data) {
       setLoading(true);
@@ -72,13 +67,13 @@ export const useBlitzAttendance = (
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        throw new Error('Not authenticated');
+        setLoading(false);
+        return;
       }
 
       const { data: responseData, error: invokeError } = await supabase.functions.invoke('fetch-blitz-attendance', {
         body: {
           scope,
-          leaderNotionPageId,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -107,13 +102,13 @@ export const useBlitzAttendance = (
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [scope, leaderNotionPageId, data]);
+  }, [scope, data]);
 
   // Initial fetch - background refresh if we have cached data
   useEffect(() => {
     const hasCachedData = data !== null;
     fetchAttendance(hasCachedData);
-  }, [scope, leaderNotionPageId]); // Don't include fetchAttendance to avoid loops
+  }, [scope]); // Don't include fetchAttendance to avoid loops
 
   // Apply optimistic updates on top of data
   const getOptimisticData = () => {
