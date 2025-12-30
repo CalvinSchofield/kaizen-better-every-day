@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TeamMember {
-  notionPageId: string;
+  id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -126,7 +126,7 @@ export const useBlitzAttendance = (
       if (key.startsWith('member-')) {
         const memberId = key.replace('member-', '');
         updatedData.teamMembers = updatedData.teamMembers.map(m =>
-          m.notionPageId === memberId ? { ...m, ...update } : m
+          m.id === memberId ? { ...m, ...update } : m
         );
       }
     });
