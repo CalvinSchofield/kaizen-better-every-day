@@ -502,7 +502,7 @@ const BlitzManagementSection = ({
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          repNotionPageId: recruit.notionPageId,
+          repId: recruit.notionPageId, // notionPageId is actually the rep UUID now
           blitzPageIds: newCommittedBlitzIds,
         },
       });
