@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Fetch teams from Supabase
     const { data: teamsData, error: teamsError } = await supabase
       .from('teams')
-      .select('id, name, notion_page_id')
+      .select('id, name')
       .order('name');
 
     if (teamsError) {
@@ -28,14 +28,14 @@ Deno.serve(async (req) => {
     }
 
     const teamsOptions = (teamsData || []).map(t => ({
-      id: t.notion_page_id || t.id,
+      id: t.id,
       name: t.name
     }));
 
     // Fetch mgmt groups from Supabase
     const { data: mgmtData, error: mgmtError } = await supabase
       .from('mgmt_groups')
-      .select('id, name, notion_page_id')
+      .select('id, name')
       .order('name');
 
     if (mgmtError) {
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     }
 
     const mgmtOptions = (mgmtData || []).map(m => ({
-      id: m.notion_page_id || m.id,
+      id: m.id,
       name: m.name
     }));
 

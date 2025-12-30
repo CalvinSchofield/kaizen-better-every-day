@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface UpdateRookieStatusParams {
-  rookieNotionPageId: string;
+  rookieId: string;
   onboardingStatus?: string;
   ipadAssigned?: boolean;
   rampPhase1Complete?: boolean;
@@ -77,7 +77,7 @@ export const useUpdateRookieStatus = () => {
 
   return useMutation({
     mutationFn: async ({ 
-      rookieNotionPageId, 
+      rookieId, 
       onboardingStatus, 
       ipadAssigned,
       rampPhase1Complete,
@@ -93,7 +93,7 @@ export const useUpdateRookieStatus = () => {
         const { data, error } = await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
           body: { 
-            rookieNotionPageId, 
+            rookieId, 
             onboardingStatus, 
             ipadAssigned,
             rampPhase1Complete,
@@ -140,7 +140,7 @@ export const useUpdateRookieStatus = () => {
         (old: any) => {
           if (!old || !Array.isArray(old)) return old;
           return old.map((rep: any) => 
-            rep.notion_page_id === variables.rookieNotionPageId
+            rep.id === variables.rookieId
               ? { ...rep, ...optimisticUpdate }
               : rep
           );

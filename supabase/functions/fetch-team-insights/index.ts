@@ -53,22 +53,36 @@ Deno.serve(async (req) => {
       const { data: accessibleTeamIds } = await supabase.rpc('get_accessible_team_ids', { _user_id: user.id });
       
       if (accessibleTeamIds && accessibleTeamIds.length > 0) {
-        // Get recruits in these teams to find their notion_page_ids
+        // Get recruits in these teams to find their recruiter user IDs
         const { data: teamRecruits } = await supabase
           .from('recruits')
-          .select('notion_page_id, recruiter_user_id')
+          .select('id, recruiter_user_id')
           .in('team_id', accessibleTeamIds);
         
-        const notionIds = (teamRecruits || []).map(r => r.notion_page_id).filter(Boolean);
+        const recruitIds = (teamRecruits || []).map(r => r.id);
         const recruiterUserIds = (teamRecruits || []).map(r => r.recruiter_user_id).filter(Boolean);
         
-        // Get reps matching these notion_page_ids OR who are recruiters
+        // Get reps matching these recruit IDs (by email) OR who are recruiters
+        const { data: recruitsWithEmails } = await supabase
+          .from('recruits')
+          .select('email')
+          .in('id', recruitIds)
+          .not('email', 'is', null);
+        
+        const emails = (recruitsWithEmails || []).map(r => r.email?.toLowerCase()).filter(Boolean);
+        
+        // Get reps by email match or recruiter user IDs
         const { data: accessibleReps } = await supabase
           .from('reps')
-          .select('user_id')
-          .or(`notion_page_id.in.(${notionIds.join(',')}),user_id.in.(${recruiterUserIds.join(',')})`);
+          .select('user_id, email')
+          .not('user_id', 'is', null);
         
-        allowedUserIds = [...new Set((accessibleReps || []).map(r => r.user_id).filter(Boolean) as string[])];
+        const matchingReps = (accessibleReps || []).filter(rep => 
+          recruiterUserIds.includes(rep.user_id) || 
+          (rep.email && emails.includes(rep.email.toLowerCase()))
+        );
+        
+        allowedUserIds = [...new Set(matchingReps.map(r => r.user_id).filter(Boolean) as string[])];
       }
     }
     
@@ -113,7 +127,7 @@ Deno.serve(async (req) => {
       })(),
       supabase
         .from('reps')
-        .select('user_id, name, year, notion_page_id')
+        .select('user_id, name, year, id')
         .in('user_id', filteredUserIds),
     ]);
 
@@ -124,9 +138,6 @@ Deno.serve(async (req) => {
       throw entriesResult.error;
     }
 
-    // Fetch team assignments from recruits table for these reps
-    const repNotionIds = reps.filter(r => r.notion_page_id).map(r => r.notion_page_id);
-    
     // Get recruiter assignments to determine team membership
     const { data: recruiterData } = await supabase
       .from('recruits')

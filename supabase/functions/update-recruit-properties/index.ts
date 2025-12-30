@@ -36,8 +36,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const { 
-      recruitNotionPageId,
-      recruitId, // Support both Notion ID and Supabase ID
+      recruitId,
       name,
       phone,
       email,
@@ -49,15 +48,14 @@ serve(async (req) => {
       mgmtGroupId,
     } = body;
 
-    // Need either notion page ID or Supabase ID
-    if (!recruitNotionPageId && !recruitId) {
-      return new Response(JSON.stringify({ error: 'Missing recruitNotionPageId or recruitId' }), {
+    if (!recruitId) {
+      return new Response(JSON.stringify({ error: 'Missing recruitId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`Updating recruit properties in Supabase...`, { recruitNotionPageId, recruitId });
+    console.log(`Updating recruit properties for recruitId: ${recruitId}`);
 
     // Build updates object for recruits table
     const recruitsUpdates: Record<string, any> = {};
@@ -78,16 +76,10 @@ serve(async (req) => {
     if (Object.keys(recruitsUpdates).length > 0) {
       recruitsUpdates.updated_at = new Date().toISOString();
 
-      // Update by notion_page_id or id
-      let updateQuery = supabase.from('recruits').update(recruitsUpdates);
-      
-      if (recruitId) {
-        updateQuery = updateQuery.eq('id', recruitId);
-      } else {
-        updateQuery = updateQuery.eq('notion_page_id', recruitNotionPageId);
-      }
-
-      const { error: updateError } = await updateQuery;
+      const { error: updateError } = await supabase
+        .from('recruits')
+        .update(recruitsUpdates)
+        .eq('id', recruitId);
 
       if (updateError) {
         console.error('Supabase recruits update error:', updateError);
@@ -105,50 +97,24 @@ serve(async (req) => {
     if (Object.keys(repsUpdates).length > 0) {
       repsUpdates.updated_at = new Date().toISOString();
 
-      // Try to find and update the linked rep
-      // First by notion_page_id, then by email match for ghost reps
-      let repsUpdated = false;
+      // Get the recruit's email to find linked rep
+      const { data: recruit } = await supabase
+        .from('recruits')
+        .select('email')
+        .eq('id', recruitId)
+        .maybeSingle();
 
-      if (recruitNotionPageId) {
-        const { error: repsUpdateError, count } = await supabase
+      if (recruit?.email) {
+        // Update ghost rep by email match
+        await supabase
           .from('reps')
           .update(repsUpdates)
-          .eq('notion_page_id', recruitNotionPageId);
-
-        if (!repsUpdateError) {
-          repsUpdated = true;
-          console.log(`Updated reps by notion_page_id: ${recruitNotionPageId}`);
-        }
-      }
-
-      // If no notion_page_id or update didn't match, try by recruit ID lookup
-      if (!repsUpdated && recruitId) {
-        // Get the recruit's notion_page_id and email
-        const { data: recruit } = await supabase
-          .from('recruits')
-          .select('notion_page_id, email')
-          .eq('id', recruitId)
-          .maybeSingle();
-
-        if (recruit?.notion_page_id) {
-          await supabase
-            .from('reps')
-            .update(repsUpdates)
-            .eq('notion_page_id', recruit.notion_page_id);
-          console.log(`Updated reps by recruit's notion_page_id: ${recruit.notion_page_id}`);
-        } else if (recruit?.email) {
-          // Try matching ghost rep by email
-          await supabase
-            .from('reps')
-            .update(repsUpdates)
-            .is('user_id', null)
-            .ilike('email', recruit.email);
-          console.log(`Updated ghost rep by email: ${recruit.email}`);
-        }
+          .ilike('email', recruit.email);
+        console.log(`Updated rep by email: ${recruit.email}`);
       }
     }
 
-    console.log('Successfully updated recruit properties in Supabase');
+    console.log('Successfully updated recruit properties');
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

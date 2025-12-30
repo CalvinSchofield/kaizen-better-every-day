@@ -16,17 +16,17 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { notionPageId, repId, startDate, endDate } = await req.json();
+    const { repId, startDate, endDate } = await req.json();
 
-    if (!notionPageId && !repId) {
-      throw new Error("notionPageId or repId is required");
+    if (!repId) {
+      throw new Error("repId is required");
     }
 
     if (!startDate && !endDate) {
       throw new Error("At least one of startDate or endDate must be provided");
     }
 
-    console.log(`Updating summer dates in Supabase`, { notionPageId, repId, startDate, endDate });
+    console.log(`Updating summer dates for repId: ${repId}`, { startDate, endDate });
 
     // Build update object
     const updateData: Record<string, any> = {
@@ -41,16 +41,13 @@ Deno.serve(async (req) => {
       updateData.blitz_trip_end_date = endDate;
     }
 
-    // Update reps table
-    let updateQuery = supabase.from('reps').update(updateData);
-    
-    if (repId) {
-      updateQuery = updateQuery.eq('id', repId);
-    } else {
-      updateQuery = updateQuery.eq('notion_page_id', notionPageId);
-    }
-
-    const { error: updateError } = await updateQuery;
+    // Update reps table by ID
+    const { data: repData, error: updateError } = await supabase
+      .from('reps')
+      .update(updateData)
+      .eq('id', repId)
+      .select('user_id')
+      .single();
 
     if (updateError) {
       console.error("Supabase update error:", updateError);
@@ -58,32 +55,20 @@ Deno.serve(async (req) => {
     }
 
     // Also update season_config if user has one
-    if (notionPageId || repId) {
-      // Get user_id from reps
-      let userQuery = supabase.from('reps').select('user_id');
-      if (repId) {
-        userQuery = userQuery.eq('id', repId);
-      } else {
-        userQuery = userQuery.eq('notion_page_id', notionPageId);
-      }
-      
-      const { data: repData } = await userQuery.single();
-      
-      if (repData?.user_id) {
-        const seasonConfigUpdate: Record<string, any> = { updated_at: new Date().toISOString() };
-        if (startDate) seasonConfigUpdate.personal_summer_start = startDate;
-        if (endDate) seasonConfigUpdate.personal_summer_end = endDate;
+    if (repData?.user_id) {
+      const seasonConfigUpdate: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (startDate) seasonConfigUpdate.personal_summer_start = startDate;
+      if (endDate) seasonConfigUpdate.personal_summer_end = endDate;
 
-        await supabase
-          .from('season_config')
-          .upsert({
-            user_id: repData.user_id,
-            ...seasonConfigUpdate,
-          }, { onConflict: 'user_id' });
-      }
+      await supabase
+        .from('season_config')
+        .upsert({
+          user_id: repData.user_id,
+          ...seasonConfigUpdate,
+        }, { onConflict: 'user_id' });
     }
 
-    console.log("Successfully updated summer dates in Supabase");
+    console.log("Successfully updated summer dates");
 
     return new Response(
       JSON.stringify({
