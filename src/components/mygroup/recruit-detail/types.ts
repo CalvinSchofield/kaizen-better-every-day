@@ -44,7 +44,7 @@ export interface RecruitSummerConfig {
 export interface ContactForHelp {
   name: string;
   phone: string | null;
-  notionPageId: string | null;
+  id: string | null;
   role: 'leader' | 'recruiter';
 }
 

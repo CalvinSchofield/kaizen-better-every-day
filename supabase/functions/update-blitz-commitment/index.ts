@@ -15,17 +15,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { repNotionPageId, blitzPageIds } = await req.json();
+    const { repId, blitzPageIds } = await req.json();
 
-    if (!repNotionPageId) {
-      throw new Error("Rep Notion page ID is required");
+    if (!repId) {
+      throw new Error("Rep ID is required");
     }
 
     if (!Array.isArray(blitzPageIds)) {
       throw new Error("blitzPageIds must be an array");
     }
 
-    console.log(`Updating blitz commitments for rep ${repNotionPageId}`);
+    console.log(`Updating blitz commitments for rep ${repId}`);
     console.log(`Blitz IDs received:`, blitzPageIds);
 
     // Normalize blitzPageIds - extract IDs if objects were passed
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         committed_blitzes: normalizedIds,
         updated_at: new Date().toISOString()
       })
-      .eq('notion_page_id', repNotionPageId);
+      .eq('id', repId);
 
     if (updateError) {
       console.error("Error updating reps table:", updateError);
@@ -63,11 +63,12 @@ Deno.serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: any) {
-    console.error("Error in update-blitz-commitment:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in update-blitz-commitment:", errorMessage);
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: errorMessage,
         details: "Check function logs for more information",
       }),
       {

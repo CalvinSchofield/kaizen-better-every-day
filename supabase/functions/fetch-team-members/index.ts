@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
     const { data: accessibleTeamIds } = await supabase.rpc('get_accessible_team_ids', { _user_id: leaderUserId });
 
     // Get all teams and mgmt groups for mapping
-    const { data: teams } = await supabase.from('teams').select('id, name, notion_page_id, lead_user_id');
-    const { data: mgmtGroups } = await supabase.from('mgmt_groups').select('id, name, notion_page_id, lead_user_id');
+    const { data: teams } = await supabase.from('teams').select('id, name, lead_user_id');
+    const { data: mgmtGroups } = await supabase.from('mgmt_groups').select('id, name, lead_user_id');
     const { data: teamMgmtGroups } = await supabase.from('team_mgmt_groups').select('team_id, mgmt_group_id');
 
     // Build team to mgmt group mapping
@@ -61,7 +61,6 @@ Deno.serve(async (req) => {
       .select(`
         id,
         user_id,
-        notion_page_id,
         name,
         email,
         phone,
@@ -85,47 +84,27 @@ Deno.serve(async (req) => {
         committed_blitzes
       `);
 
-    // Filter based on access level
+    // For non-area-directors, we need to filter by accessible teams
+    let repIds: string[] = [];
+    
     if (isAreaDir || fetchAllForAccessLevel === 'area_director') {
-      // Area directors see all reps
-    } else if (isMgmtLead || fetchAllForAccessLevel === 'mgmt_group_lead') {
-      // Mgmt group leads see reps in their teams
-      if (accessibleTeamIds && accessibleTeamIds.length > 0) {
-        // Query recruits table to find reps in accessible teams
-        const { data: teamRecruits } = await supabase
-          .from('recruits')
-          .select('notion_page_id')
-          .in('team_id', accessibleTeamIds);
-        
-        const notionIds = teamRecruits?.map(r => r.notion_page_id).filter(Boolean) || [];
-        if (notionIds.length > 0) {
-          repsQuery = repsQuery.in('notion_page_id', notionIds);
-        } else {
-          return new Response(
-            JSON.stringify({ teamMembers: [], isTeamLead: true }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-          );
-        }
+      // Area directors see all reps - no filter needed
+    } else if ((isMgmtLead || isTeamLead) && accessibleTeamIds && accessibleTeamIds.length > 0) {
+      // Get reps from recruits table that are in accessible teams
+      const { data: teamRecruits } = await supabase
+        .from('recruits')
+        .select('id')
+        .in('team_id', accessibleTeamIds);
+      
+      repIds = teamRecruits?.map(r => r.id).filter(Boolean) || [];
+      if (repIds.length === 0) {
+        return new Response(
+          JSON.stringify({ teamMembers: [], isTeamLead: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
       }
-    } else if (isTeamLead || fetchAllForAccessLevel === 'team_lead') {
-      // Team leads see reps in their teams
-      if (accessibleTeamIds && accessibleTeamIds.length > 0) {
-        const { data: teamRecruits } = await supabase
-          .from('recruits')
-          .select('notion_page_id')
-          .in('team_id', accessibleTeamIds);
-        
-        const notionIds = teamRecruits?.map(r => r.notion_page_id).filter(Boolean) || [];
-        if (notionIds.length > 0) {
-          repsQuery = repsQuery.in('notion_page_id', notionIds);
-        } else {
-          return new Response(
-            JSON.stringify({ teamMembers: [], isTeamLead: true }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-          );
-        }
-      }
-    } else {
+      repsQuery = repsQuery.in('id', repIds);
+    } else if (!isAreaDir && !isMgmtLead && !isTeamLead) {
       // Not a leader
       return new Response(
         JSON.stringify({ teamMembers: [], isTeamLead: false }),
@@ -141,23 +120,23 @@ Deno.serve(async (req) => {
     }
 
     // Get team assignments from recruits table
-    const repNotionIds = (repsData || []).map(r => r.notion_page_id).filter(Boolean);
+    const allRepIds = (repsData || []).map(r => r.id).filter(Boolean);
     const { data: recruitTeams } = await supabase
       .from('recruits')
-      .select('notion_page_id, team_id, mgmt_group_id')
-      .in('notion_page_id', repNotionIds.length > 0 ? repNotionIds : ['none']);
+      .select('id, team_id, mgmt_group_id')
+      .in('id', allRepIds.length > 0 ? allRepIds : ['none']);
 
-    const teamByNotionId = new Map(recruitTeams?.map(r => [r.notion_page_id, { teamId: r.team_id, mgmtGroupId: r.mgmt_group_id }]) || []);
+    const teamByRepId = new Map(recruitTeams?.map(r => [r.id, { teamId: r.team_id, mgmtGroupId: r.mgmt_group_id }]) || []);
 
     // Transform reps to expected format
     const teamMembers = (repsData || []).map(rep => {
-      const recruit = teamByNotionId.get(rep.notion_page_id);
+      const recruit = teamByRepId.get(rep.id);
       const teamId = recruit?.teamId;
       const teamName = teamId ? teamMap.get(teamId) : null;
       const mgmtInfo = teamId ? teamToMgmtGroup.get(teamId) : null;
 
       return {
-        notionPageId: rep.notion_page_id || rep.id,
+        id: rep.id,
         userId: rep.user_id,
         name: rep.name,
         email: rep.email,
@@ -192,11 +171,12 @@ Deno.serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: any) {
-    console.error("Error in fetch-team-members:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in fetch-team-members:", errorMessage);
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: errorMessage,
         details: "Check function logs for more information",
       }),
       {

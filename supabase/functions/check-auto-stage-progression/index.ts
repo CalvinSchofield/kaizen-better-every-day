@@ -81,7 +81,7 @@ serve(async (req) => {
     // Get the user's rep record - use user_id as primary lookup
     const { data: repData } = await supabase
       .from('reps')
-      .select('id, notion_page_id, stage, onboarding_complete, blitz_trip_date')
+      .select('id, stage, onboarding_complete, blitz_trip_date')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -164,21 +164,17 @@ serve(async (req) => {
       throw new Error('Failed to update stage');
     }
 
-    // Also update recruits table if there's a matching record
-    if (repData.notion_page_id) {
-      await supabase
-        .from('recruits')
-        .update({ stage: newStage, updated_at: new Date().toISOString() })
-        .eq('notion_page_id', repData.notion_page_id);
-    }
+    // Also update recruits table if there's a matching record by ID
+    await supabase
+      .from('recruits')
+      .update({ stage: newStage, updated_at: new Date().toISOString() })
+      .eq('id', repData.id);
 
-    // Log the automatic stage change - use rep_notion_page_id for compatibility
-    const activityRepId = repData.notion_page_id || repData.id;
+    // Log the automatic stage change
     await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: activityRepId,
-        recruit_id: repData.id, // New column for future lookups
+        recruit_id: repData.id,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
         notes: `Auto-progressed to ${newStage}: ${reason}`,

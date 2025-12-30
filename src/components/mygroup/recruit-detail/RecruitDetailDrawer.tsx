@@ -212,7 +212,7 @@ export const RecruitDetailDrawer = ({
       
       const { data: repData } = await supabase.from('reps').select('id, name, phone').ilike('name', `%${stripEmojis(searchName)}%`).maybeSingle();
       if (!repData) return null;
-      return { name: getFirstName(repData.name), phone: repData.phone, notionPageId: repData.id, role } as ContactForHelp;
+      return { name: getFirstName(repData.name), phone: repData.phone, id: repData.id, role } as ContactForHelp;
     },
     enabled: !!recruit && !!teamAccess && !!currentUserRep,
     staleTime: 5 * 60 * 1000,
@@ -1001,7 +1001,7 @@ export const RecruitDetailDrawer = ({
           <DrawerHeader><DrawerTitle>{phoneEntryTarget === 'recruit' ? `Add ${recruitFirstName}'s Phone` : `Add ${contactForHelp?.name}'s Phone`}</DrawerTitle></DrawerHeader>
           <div className="p-4 space-y-4">
             <Input value={newPhoneNumber} onChange={(e) => { const input = e.target.value.replace(/\D/g, '').slice(0, 10); let fmt = ''; if (input.length > 0) { fmt = '(' + input.slice(0, 3); if (input.length > 3) { fmt += ') ' + input.slice(3, 6); if (input.length > 6) fmt += '-' + input.slice(6, 10); } } setNewPhoneNumber(fmt || input); }} placeholder="(555) 123-4567" type="tel" autoFocus />
-            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.notionPageId : contactForHelp?.notionPageId; if (!targetId) return; savePhoneMutation.mutate({ notionPageId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.location.href = `tel:${saved}`; else if (pendingPhoneAction === 'text') window.location.href = `sms:${saved}`; else if (pendingPhoneAction === 'ask_help') window.location.href = `sms:${saved}?body=${encodeURIComponent(helpMessage)}`; setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
+            <Button className="w-full" onClick={() => { if (!newPhoneNumber.trim()) { toast.error('Enter phone number'); return; } const targetId = phoneEntryTarget === 'recruit' ? recruit.id : contactForHelp?.id; if (!targetId) return; savePhoneMutation.mutate({ repId: targetId, phone: newPhoneNumber.trim() }, { onSuccess: () => { setPhoneEntryOpen(false); const saved = newPhoneNumber.trim(); setNewPhoneNumber(''); if (pendingPhoneAction === 'call') window.location.href = `tel:${saved}`; else if (pendingPhoneAction === 'text') window.location.href = `sms:${saved}`; else if (pendingPhoneAction === 'ask_help') window.location.href = `sms:${saved}?body=${encodeURIComponent(helpMessage)}`; setPendingPhoneAction(null); } }); }} disabled={savePhoneMutation.isPending}>{savePhoneMutation.isPending ? 'Saving...' : 'Save & Continue'}</Button>
           </div>
         </DrawerContent>
       </Drawer>
