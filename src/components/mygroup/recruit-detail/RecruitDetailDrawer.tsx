@@ -62,21 +62,25 @@ export const RecruitDetailDrawer = ({
   onOpenChange,
   onExitStage 
 }: RecruitDetailDrawerProps) => {
-  // Determine if recruit is blitz-ready (for default tab selection)
+  // Determine default tab based on year and progress/stage
   const isRookie = recruitProp?.year === 'Rookie' || recruitProp?.year === '2025' || recruitProp?.year === '2026';
+  const isVet = !isRookie && recruitProp?.year !== 'Sophomore'; // Vets never see progress tab by default
+  const hasSold = recruitProp?.stage?.toLowerCase().includes('sold');
+  const hasAllPhasesComplete = recruitProp?.phase4Complete === true;
   const isBlitzReady = recruitProp?.blitzReady === true;
   
-  // Tab state - default to 'activity' for blitz-ready rookies, otherwise 'progress'
-  const defaultTab: TabType = (isRookie && isBlitzReady) ? 'activity' : 'progress';
+  // Default to 'activity' for: vets, sold recruits, or rookies with all phases complete/blitz ready
+  const shouldDefaultToActivity = isVet || hasSold || hasAllPhasesComplete || isBlitzReady;
+  const defaultTab: TabType = shouldDefaultToActivity ? 'activity' : 'progress';
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
   
   // Reset tab when drawer opens with a different recruit
   useEffect(() => {
     if (open && recruitProp) {
-      const newDefault: TabType = (isRookie && isBlitzReady) ? 'activity' : 'progress';
+      const newDefault: TabType = shouldDefaultToActivity ? 'activity' : 'progress';
       setActiveTab(newDefault);
     }
-  }, [open, recruitProp?.notionPageId, isRookie, isBlitzReady]);
+  }, [open, recruitProp?.notionPageId, shouldDefaultToActivity]);
   
   // Dialog states
   const [logActivityOpen, setLogActivityOpen] = useState(false);
@@ -220,14 +224,19 @@ export const RecruitDetailDrawer = ({
 
   const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
 
-  // Recruit rep data - match by email since recruit.id may be from recruits table while rep has different id
+  // Recruit rep data - match by email first, then by name for ghost reps
   const { data: recruitRepData } = useQuery({
-    queryKey: ['recruit-rep-data', recruit?.id, recruit?.email],
+    queryKey: ['recruit-rep-data', recruit?.id, recruit?.email, recruit?.name],
     queryFn: async () => {
       if (!recruit) return null;
       // Try matching by email first (most reliable linkage)
       if (recruit.email) {
         const { data } = await supabase.from('reps').select('*').ilike('email', recruit.email).maybeSingle();
+        if (data) return data as RecruitRepData | null;
+      }
+      // Try matching by name for ghost reps without email
+      if (recruit.name) {
+        const { data } = await supabase.from('reps').select('*').eq('name', recruit.name).maybeSingle();
         if (data) return data as RecruitRepData | null;
       }
       // Fallback to id match (works when recruit.id IS the rep id)
