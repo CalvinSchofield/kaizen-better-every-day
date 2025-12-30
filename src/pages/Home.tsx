@@ -447,11 +447,11 @@ const Home = () => {
       
       if (error) throw error;
       
-      // Sync to Notion if we have the page ID
-      if (repData.notion_page_id) {
+      // Sync via edge function
+      if (repData.id) {
         await supabase.functions.invoke('update-blitz-commitment', {
           body: {
-            repNotionPageId: repData.notion_page_id,
+            repId: repData.id,
             blitzPageIds: updatedCommitments.map((b: any) => b.id),
           },
         });
@@ -502,11 +502,11 @@ const Home = () => {
       
       if (error) throw error;
       
-      // Sync to Notion if we have the page ID
-      if (repData.notion_page_id) {
+      // Sync via edge function
+      if (repData.id) {
         await supabase.functions.invoke('update-blitz-commitment', {
           body: {
-            repNotionPageId: repData.notion_page_id,
+            repId: repData.id,
             blitzPageIds: updatedCommitments.map((b: any) => b.id),
           },
         });

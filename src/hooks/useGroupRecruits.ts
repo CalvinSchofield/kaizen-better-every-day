@@ -14,13 +14,13 @@ export interface BlitzCommitment {
 
 export interface Recruit {
   id: string; // Supabase UUID - primary identifier
-  notionPageId: string; // Alias for id - backwards compatibility
+  notionPageId: string; // @deprecated Alias for id - to be removed
   name: string;
   phone: string;
   email: string;
   stage: string;
   recruiterId: string | null;
-  recruiterNotionId: string | null; // Alias for recruiterId - backwards compatibility
+  recruiterNotionId: string | null; // @deprecated Alias for recruiterId - to be removed
   recruiterName: string | null;
   recruiterUserId: string | null;
   teamName: string | null;
@@ -248,13 +248,13 @@ export const useGroupRecruits = () => {
         
         return {
           id: r.id, // Supabase UUID - primary identifier
-          notionPageId: r.id, // Alias for backwards compatibility
+          notionPageId: r.id, // @deprecated Alias - to be removed
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
           recruiterId: leaderId,
-          recruiterNotionId: leaderId, // Alias for backwards compatibility
+          recruiterNotionId: leaderId, // @deprecated Alias - to be removed
           recruiterName: r.recruiter || null,
           recruiterUserId: null,
           // Enrich with team info from accessibleReps
