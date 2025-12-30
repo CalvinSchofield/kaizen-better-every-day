@@ -9,7 +9,6 @@ export interface LeaderInteraction {
   id: string;
   leader_user_id: string;
   rep_user_id: string;
-  rep_notion_page_id: string | null;
   interaction_type: InteractionType;
   notes: string | null;
   created_at: string;
@@ -90,13 +89,11 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
   const logInteractionMutation = useMutation({
     mutationFn: async ({
       repUserId,
-      repNotionPageId,
       type,
       notes,
       date,
     }: {
       repUserId: string;
-      repNotionPageId?: string;
       type: InteractionType;
       notes?: string;
       date?: string;
@@ -109,7 +106,6 @@ export const useLeaderInteractions = ({ enabled = true, repUserIds }: UseLeaderI
         .insert({
           leader_user_id: user.id,
           rep_user_id: repUserId,
-          rep_notion_page_id: repNotionPageId || null,
           interaction_type: type,
           notes: notes || null,
           interaction_date: date || format(new Date(), 'yyyy-MM-dd'),

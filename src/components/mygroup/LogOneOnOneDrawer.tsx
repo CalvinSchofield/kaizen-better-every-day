@@ -16,7 +16,6 @@ interface LogOneOnOneDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   repUserId: string;
-  repNotionPageId: string | null;
   repName: string;
   onSuccess?: () => void;
 }
@@ -25,7 +24,6 @@ export const LogOneOnOneDrawer = ({
   open,
   onOpenChange,
   repUserId,
-  repNotionPageId,
   repName,
   onSuccess,
 }: LogOneOnOneDrawerProps) => {
@@ -40,7 +38,6 @@ export const LogOneOnOneDrawer = ({
     try {
       await logInteractionAsync({
         repUserId,
-        repNotionPageId: repNotionPageId || undefined,
         type: interactionType,
         notes: notes.trim() || undefined,
         date: interactionDate,
