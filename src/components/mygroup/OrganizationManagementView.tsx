@@ -84,7 +84,7 @@ export const OrganizationManagementView = () => {
         supabase.from("teams").select("*"),
         supabase.from("mgmt_groups").select("*"),
         supabase.from("team_mgmt_groups").select("*"),
-        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, notion_page_id, phone, email, created_at, updated_at"),
+        supabase.from("recruits").select("id, name, team_id, recruiter_user_id, stage, phone, email, created_at, updated_at"),
         supabase.from("reps").select("user_id, name"),
       ]);
 
@@ -124,7 +124,7 @@ export const OrganizationManagementView = () => {
       recruiterUserId: r.recruiter_user_id,
       recruiterName: r.recruiter_user_id ? repMap.get(r.recruiter_user_id) || "Unknown" : undefined,
       stage: r.stage,
-      notionPageId: r.notion_page_id,
+      notionPageId: r.id, // Use id as the identifier
       phone: r.phone,
       email: r.email,
       createdAt: r.created_at,

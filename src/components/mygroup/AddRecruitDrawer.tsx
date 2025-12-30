@@ -290,7 +290,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
       const { data: byUserId } = await supabase
         .from('reps')
-        .select('name, team_leader, notion_page_id, user_id, email')
+        .select('id, name, team_leader, user_id, email')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -299,7 +299,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       if (user.email) {
         const { data: byEmail } = await supabase
           .from('reps')
-          .select('name, team_leader, notion_page_id, user_id, email')
+          .select('id, name, team_leader, user_id, email')
           .ilike('email', user.email)
           .maybeSingle();
 
@@ -310,9 +310,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     },
   });
 
-  // Get team leader's notion page ID (for rep suggestions)
+  // Get team leader's user_id (for rep suggestions)
   const { data: teamLeaderData } = useQuery({
-    queryKey: ['team-leader-notion-id', currentRep?.team_leader],
+    queryKey: ['team-leader-id', currentRep?.team_leader],
     queryFn: async () => {
       if (!currentRep?.team_leader) return null;
 
@@ -322,7 +322,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id, name')
+        .select('id, user_id, name')
         .ilike('name', `%${searchName}%`)
         .limit(1)
         .maybeSingle();
@@ -342,7 +342,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
     const base = accessible.filter((r) => {
       if (!r.name) return false;
-      if (!r.notionPageId) return false; // Need notionPageId to save
+      if (!r.id) return false; // Need id to save
 
       // Always include current user regardless of stage
       if (currentUserId && r.userId === currentUserId) {
@@ -744,7 +744,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return;
     }
     
-    if (!teamLeaderData?.notion_page_id) {
+    if (!teamLeaderData?.user_id) {
       toast.error('Could not find your team leader');
       return;
     }
@@ -755,7 +755,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
         phone: phone.trim(),
         relationship,
         notes,
-        teamLeaderNotionId: teamLeaderData.notion_page_id,
+        teamLeaderUserId: teamLeaderData.user_id,
         suggestedByName: currentRep?.name || 'Unknown',
       });
 

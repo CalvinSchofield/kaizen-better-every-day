@@ -112,7 +112,7 @@ export type Database = {
           declined_at: string | null
           declined_by: string | null
           id: string
-          rep_notion_page_id: string
+          rep_id: string | null
           rep_user_id: string | null
         }
         Insert: {
@@ -120,7 +120,7 @@ export type Database = {
           declined_at?: string | null
           declined_by?: string | null
           id?: string
-          rep_notion_page_id: string
+          rep_id?: string | null
           rep_user_id?: string | null
         }
         Update: {
@@ -128,10 +128,18 @@ export type Database = {
           declined_at?: string | null
           declined_by?: string | null
           id?: string
-          rep_notion_page_id?: string
+          rep_id?: string | null
           rep_user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blitz_declines_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blitz_invites: {
         Row: {
@@ -139,7 +147,7 @@ export type Database = {
           contacted_at: string | null
           contacted_by: string | null
           id: string
-          rep_notion_page_id: string
+          rep_id: string | null
           rep_user_id: string | null
         }
         Insert: {
@@ -147,7 +155,7 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           id?: string
-          rep_notion_page_id: string
+          rep_id?: string | null
           rep_user_id?: string | null
         }
         Update: {
@@ -155,10 +163,18 @@ export type Database = {
           contacted_at?: string | null
           contacted_by?: string | null
           id?: string
-          rep_notion_page_id?: string
+          rep_id?: string | null
           rep_user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blitz_invites_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blitzes: {
         Row: {
@@ -171,7 +187,6 @@ export type Database = {
           id: string
           location: string | null
           name: string
-          notion_page_id: string | null
           updated_at: string | null
           wifi: string | null
         }
@@ -185,7 +200,6 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
-          notion_page_id?: string | null
           updated_at?: string | null
           wifi?: string | null
         }
@@ -199,7 +213,6 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
-          notion_page_id?: string | null
           updated_at?: string | null
           wifi?: string | null
         }
@@ -214,7 +227,6 @@ export type Database = {
           main_image_url: string | null
           monitoring_companies: string[] | null
           name: string
-          notion_page_id: string
           objections: Json | null
           our_selling_points: string[] | null
           their_selling_points: string[] | null
@@ -228,7 +240,6 @@ export type Database = {
           main_image_url?: string | null
           monitoring_companies?: string[] | null
           name: string
-          notion_page_id: string
           objections?: Json | null
           our_selling_points?: string[] | null
           their_selling_points?: string[] | null
@@ -242,7 +253,6 @@ export type Database = {
           main_image_url?: string | null
           monitoring_companies?: string[] | null
           name?: string
-          notion_page_id?: string
           objections?: Json | null
           our_selling_points?: string[] | null
           their_selling_points?: string[] | null
@@ -399,7 +409,6 @@ export type Database = {
           interaction_type: string
           leader_user_id: string
           notes: string | null
-          rep_notion_page_id: string | null
           rep_user_id: string
         }
         Insert: {
@@ -409,7 +418,6 @@ export type Database = {
           interaction_type: string
           leader_user_id: string
           notes?: string | null
-          rep_notion_page_id?: string | null
           rep_user_id: string
         }
         Update: {
@@ -419,7 +427,6 @@ export type Database = {
           interaction_type?: string
           leader_user_id?: string
           notes?: string | null
-          rep_notion_page_id?: string | null
           rep_user_id?: string
         }
         Relationships: []
@@ -430,7 +437,6 @@ export type Database = {
           id: string
           lead_user_id: string | null
           name: string
-          notion_page_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -438,7 +444,6 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name: string
-          notion_page_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -446,7 +451,6 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name?: string
-          notion_page_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -637,7 +641,6 @@ export type Database = {
           next_action_due: string | null
           notes: string | null
           recruit_id: string | null
-          rep_notion_page_id: string
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["recruit_activity_type"]
@@ -651,7 +654,6 @@ export type Database = {
           next_action_due?: string | null
           notes?: string | null
           recruit_id?: string | null
-          rep_notion_page_id: string
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["recruit_activity_type"]
@@ -665,7 +667,6 @@ export type Database = {
           next_action_due?: string | null
           notes?: string | null
           recruit_id?: string | null
-          rep_notion_page_id?: string
         }
         Relationships: [
           {
@@ -719,15 +720,14 @@ export type Database = {
           id: string
           name: string
           notes: string | null
-          notion_page_id: string | null
           phone: string
+          recruit_id: string | null
           relationship: string | null
           reviewed_at: string | null
           reviewed_by_user_id: string | null
           status: Database["public"]["Enums"]["suggestion_status"]
           suggested_by_name: string
           suggested_by_user_id: string
-          team_leader_notion_id: string
           team_leader_user_id: string | null
           updated_at: string
         }
@@ -736,15 +736,14 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
-          notion_page_id?: string | null
           phone: string
+          recruit_id?: string | null
           relationship?: string | null
           reviewed_at?: string | null
           reviewed_by_user_id?: string | null
           status?: Database["public"]["Enums"]["suggestion_status"]
           suggested_by_name: string
           suggested_by_user_id: string
-          team_leader_notion_id: string
           team_leader_user_id?: string | null
           updated_at?: string
         }
@@ -753,19 +752,26 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
-          notion_page_id?: string | null
           phone?: string
+          recruit_id?: string | null
           relationship?: string | null
           reviewed_at?: string | null
           reviewed_by_user_id?: string | null
           status?: Database["public"]["Enums"]["suggestion_status"]
           suggested_by_name?: string
           suggested_by_user_id?: string
-          team_leader_notion_id?: string
           team_leader_user_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recruit_suggestions_recruit_id_fkey"
+            columns: ["recruit_id"]
+            isOneToOne: false
+            referencedRelation: "recruits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recruits: {
         Row: {
@@ -781,7 +787,6 @@ export type Database = {
           name: string
           next_action: string | null
           next_action_due: string | null
-          notion_page_id: string | null
           onboarding_complete: boolean | null
           phone: string | null
           ramp_phase_1_complete: boolean | null
@@ -810,7 +815,6 @@ export type Database = {
           name: string
           next_action?: string | null
           next_action_due?: string | null
-          notion_page_id?: string | null
           onboarding_complete?: boolean | null
           phone?: string | null
           ramp_phase_1_complete?: boolean | null
@@ -839,7 +843,6 @@ export type Database = {
           name?: string
           next_action?: string | null
           next_action_due?: string | null
-          notion_page_id?: string | null
           onboarding_complete?: boolean | null
           phone?: string | null
           ramp_phase_1_complete?: boolean | null
@@ -1036,7 +1039,6 @@ export type Database = {
           last_nudge_time: string | null
           me_vs_me_enabled: boolean | null
           name: string
-          notion_page_id: string | null
           nudge_leader: boolean | null
           onboarding_complete: boolean | null
           path_to_pro_progress: number | null
@@ -1092,7 +1094,6 @@ export type Database = {
           last_nudge_time?: string | null
           me_vs_me_enabled?: boolean | null
           name: string
-          notion_page_id?: string | null
           nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
@@ -1148,7 +1149,6 @@ export type Database = {
           last_nudge_time?: string | null
           me_vs_me_enabled?: boolean | null
           name?: string
-          notion_page_id?: string | null
           nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
           path_to_pro_progress?: number | null
@@ -1275,7 +1275,6 @@ export type Database = {
           id: string
           lead_user_id: string | null
           name: string
-          notion_page_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1283,7 +1282,6 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name: string
-          notion_page_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1291,7 +1289,6 @@ export type Database = {
           id?: string
           lead_user_id?: string | null
           name?: string
-          notion_page_id?: string | null
           updated_at?: string | null
         }
         Relationships: [

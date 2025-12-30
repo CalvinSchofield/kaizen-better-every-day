@@ -110,9 +110,9 @@ const SetupFlow = () => {
 
         // Blitz attendance
         (async () => {
-          if (repData?.notion_page_id && session) {
+          if (repData?.id && session) {
             const { data: attendanceData } = await supabase.functions.invoke('fetch-blitz-attendance', {
-              body: { scope: 'team', leaderNotionPageId: repData.notion_page_id },
+              body: { scope: 'team', leaderId: repData.id },
               headers: { Authorization: `Bearer ${session.access_token}` },
             });
             if (attendanceData) {
@@ -218,14 +218,14 @@ const SetupFlow = () => {
 
         // Group recruits (if leader)
         (async () => {
-          if (repData?.notion_page_id && session) {
+          if (repData?.id && session) {
             try {
               const { data: recruitsData } = await supabase.functions.invoke('fetch-group-recruits', {
-                body: { leaderNotionPageId: repData.notion_page_id },
+                body: { leaderId: repData.id },
                 headers: { Authorization: `Bearer ${session.access_token}` },
               });
               if (recruitsData) {
-                localStorage.setItem(`group-recruits-cache-${repData.notion_page_id}`, JSON.stringify({
+                localStorage.setItem(`group-recruits-cache-${repData.id}`, JSON.stringify({
                   data: recruitsData,
                   timestamp: Date.now()
                 }));
