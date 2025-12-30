@@ -39,10 +39,10 @@ serve(async (req) => {
 
     // Get request body for recruit context
     const body = await req.json().catch(() => ({}));
-    const { recruitNotionPageId, recruitTeamLeader } = body;
+    const { recruitId, recruitTeamLeader } = body;
 
-    if (!recruitNotionPageId && !recruitTeamLeader) {
-      console.log('No recruitNotionPageId or recruitTeamLeader provided, returning empty list');
+    if (!recruitId && !recruitTeamLeader) {
+      console.log('No recruitId or recruitTeamLeader provided, returning empty list');
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -58,14 +58,14 @@ serve(async (req) => {
     // Get current user's rep data
     const { data: currentRep } = await supabase
       .from('reps')
-      .select('user_id, name, notion_page_id')
+      .select('user_id, name, id')
       .eq('user_id', user.id)
       .single();
 
     // Get all reps to build the upline chain
     const { data: allReps } = await supabase
       .from('reps')
-      .select('user_id, name, notion_page_id, team_leader');
+      .select('user_id, name, id, team_leader');
 
     if (!allReps || allReps.length === 0) {
       return new Response(JSON.stringify({ assignableUsers: [] }), {
@@ -74,16 +74,16 @@ serve(async (req) => {
       });
     }
 
-    // Find the recruit by notion page ID, or use the provided team leader as fallback
-    const recruit = recruitNotionPageId 
-      ? allReps.find(r => r.notion_page_id === recruitNotionPageId)
+    // Find the recruit by ID, or use the provided team leader as fallback
+    const recruit = recruitId 
+      ? allReps.find(r => r.id === recruitId)
       : null;
     
     // Determine the starting team leader - either from the recruit record or the fallback
     const startingTeamLeader = recruit?.team_leader || recruitTeamLeader;
     
     if (!startingTeamLeader) {
-      console.log('No team leader found for recruit:', recruitNotionPageId);
+      console.log('No team leader found for recruit:', recruitId);
       return new Response(JSON.stringify({ assignableUsers: [] }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -97,7 +97,7 @@ serve(async (req) => {
       userId: string;
       name: string;
       role: string;
-      notionPageId: string;
+      repId: string;
     }> = [];
 
     // Function to find a rep by name (handles emoji matching)
@@ -153,7 +153,7 @@ serve(async (req) => {
           userId: leader.user_id,
           name: cleanName,
           role,
-          notionPageId: leader.notion_page_id || '',
+          repId: leader.id || '',
         });
         addedUserIds.add(leader.user_id);
         console.log(`Added ${leader.name} as ${role} (level ${level})`);
@@ -175,7 +175,7 @@ serve(async (req) => {
       level++;
     }
 
-    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit?.name || recruitNotionPageId || 'unknown'}`);
+    console.log(`Total assignable users: ${assignableUsers.length} for recruit ${recruit?.name || recruitId || 'unknown'}`);
 
     return new Response(JSON.stringify({ assignableUsers }), {
       status: 200,

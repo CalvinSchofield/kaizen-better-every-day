@@ -58,10 +58,10 @@ Deno.serve(async (req) => {
       });
     });
 
-    // Map to expected format - include both IDs for commit operations
+    // Map to expected format - use Supabase ID as primary
     const blitzes = (blitzesData || []).map(blitz => ({
-      id: blitz.notion_page_id || blitz.id, // UI uses this as primary ID
-      supabaseId: blitz.id, // Actual DB ID for recruit_blitzes FK
+      id: blitz.id,
+      supabaseId: blitz.id,
       name: blitz.name,
       date: blitz.date,
       endDate: blitz.end_date,

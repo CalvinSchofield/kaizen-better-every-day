@@ -5,22 +5,22 @@ export interface AssignableUser {
   userId: string;
   name: string;
   role: string;
-  notionPageId: string;
+  repId: string;
 }
 
 interface UseAssignableUsersOptions {
-  recruitNotionPageId?: string;
+  recruitId?: string;
   recruitTeamLeader?: string | null; // Fallback for recruits not in reps table
 }
 
 export const useAssignableUsers = (options?: UseAssignableUsersOptions) => {
-  const { recruitNotionPageId, recruitTeamLeader } = options || {};
+  const { recruitId, recruitTeamLeader } = options || {};
   
   return useQuery({
-    queryKey: ['assignable-users', recruitNotionPageId, recruitTeamLeader],
+    queryKey: ['assignable-users', recruitId, recruitTeamLeader],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('fetch-assignable-users', {
-        body: { recruitNotionPageId, recruitTeamLeader }
+        body: { recruitId, recruitTeamLeader }
       });
       
       if (error) {
@@ -31,6 +31,6 @@ export const useAssignableUsers = (options?: UseAssignableUsersOptions) => {
       return (data?.assignableUsers || []) as AssignableUser[];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !!recruitNotionPageId, // Only fetch when we have a recruit
+    enabled: !!recruitId, // Only fetch when we have a recruit
   });
 };

@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { 
-      rookieNotionPageId,
       rookieId,
       onboardingStatus, 
       ipadAssigned,
@@ -27,8 +26,8 @@ Deno.serve(async (req) => {
       rampPhase4Complete
     } = await req.json();
 
-    if (!rookieNotionPageId && !rookieId) {
-      throw new Error("rookieNotionPageId or rookieId is required");
+    if (!rookieId) {
+      throw new Error("rookieId is required");
     }
 
     const hasOnboardingUpdate = onboardingStatus !== undefined;
@@ -132,69 +131,25 @@ Deno.serve(async (req) => {
       updateData.ramp_to_blitz_phase = onboardingStatus;
     }
 
-    console.log(`[update-rookie-status] Updating with:`, updateData);
+    console.log(`[update-rookie-status] Updating rookieId: ${rookieId} with:`, updateData);
 
-    // SIMPLIFIED: Only update reps table - the sync_rep_to_recruit trigger handles syncing to recruits
-    let repNotionPageId = rookieNotionPageId;
-    let updateSuccess = false;
-
-    // If we have rookieId but no notion_page_id, look it up
-    if (rookieId && !rookieNotionPageId) {
-      // Try reps table first
-      const { data: repById } = await supabase
-        .from('reps')
-        .select('id, notion_page_id, email')
-        .eq('id', rookieId)
-        .maybeSingle();
-
-      if (repById) {
-        repNotionPageId = repById.notion_page_id;
-        console.log(`[update-rookie-status] Found rep by ID: ${rookieId}`);
-      } else {
-        // Try recruits table to get notion_page_id for matching
-        const { data: recruitById } = await supabase
-          .from('recruits')
-          .select('id, notion_page_id, email')
-          .eq('id', rookieId)
-          .maybeSingle();
-
-        if (recruitById) {
-          repNotionPageId = recruitById.notion_page_id;
-          console.log(`[update-rookie-status] Found recruit by ID: ${rookieId}, notion_page_id: ${repNotionPageId}`);
-        }
-      }
-    }
-
-    // Try to update by notion_page_id first (most reliable)
-    if (repNotionPageId) {
-      const { data, error } = await supabase
-        .from('reps')
-        .update(updateData)
-        .eq('notion_page_id', repNotionPageId)
-        .select('id, name');
-      
-      if (!error && data && data.length > 0) {
-        updateSuccess = true;
-        console.log(`[update-rookie-status] Updated rep by notion_page_id: ${repNotionPageId}, name: ${data[0].name}`);
-      }
-    }
+    // Update by ID
+    const { data, error } = await supabase
+      .from('reps')
+      .update(updateData)
+      .eq('id', rookieId)
+      .select('id, name');
     
-    // Fallback to update by ID if notion_page_id didn't work
-    if (!updateSuccess && rookieId) {
-      const { data, error } = await supabase
-        .from('reps')
-        .update(updateData)
-        .eq('id', rookieId)
-        .select('id, name');
-      
-      if (!error && data && data.length > 0) {
-        updateSuccess = true;
-        console.log(`[update-rookie-status] Updated rep by id: ${rookieId}, name: ${data[0].name}`);
-      }
+    if (error) {
+      console.error(`[update-rookie-status] Error updating rep:`, error);
+      throw error;
     }
 
-    if (!updateSuccess) {
-      console.warn(`[update-rookie-status] No rep record found to update. rookieId: ${rookieId}, rookieNotionPageId: ${rookieNotionPageId}`);
+    const updateSuccess = data && data.length > 0;
+    if (updateSuccess) {
+      console.log(`[update-rookie-status] Updated rep: ${data[0].name}`);
+    } else {
+      console.warn(`[update-rookie-status] No rep found with id: ${rookieId}`);
     }
 
     // The sync_rep_to_recruit trigger will automatically sync changes to the recruits table

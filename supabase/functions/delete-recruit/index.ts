@@ -45,35 +45,33 @@ serve(async (req) => {
       });
     }
 
-    const { recruitId, recruitNotionPageId } = await req.json();
+    const { recruitId } = await req.json();
     
-    if (!recruitId || !recruitNotionPageId) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    if (!recruitId) {
+      return new Response(JSON.stringify({ error: 'Missing recruitId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[delete-recruit] Deleting recruit ${recruitId} (${recruitNotionPageId}) by user ${user.id}`);
+    console.log(`[delete-recruit] Deleting recruit ${recruitId} by user ${user.id}`);
+
+    // Get recruit email to find linked rep
+    const { data: recruit } = await supabase
+      .from('recruits')
+      .select('email')
+      .eq('id', recruitId)
+      .maybeSingle();
 
     // Delete in order to respect foreign key constraints
-    // 1. Delete recruit_activities (legacy + new column)
-    const { error: activitiesLegacyError } = await supabase
-      .from('recruit_activities')
-      .delete()
-      .eq('rep_notion_page_id', recruitNotionPageId);
-
-    if (activitiesLegacyError) {
-      console.error('[delete-recruit] Error deleting activities (legacy):', activitiesLegacyError);
-    }
-
-    const { error: activitiesByRecruitIdError } = await supabase
+    // 1. Delete recruit_activities
+    const { error: activitiesError } = await supabase
       .from('recruit_activities')
       .delete()
       .eq('recruit_id', recruitId);
 
-    if (activitiesByRecruitIdError) {
-      console.error('[delete-recruit] Error deleting activities (recruit_id):', activitiesByRecruitIdError);
+    if (activitiesError) {
+      console.error('[delete-recruit] Error deleting activities:', activitiesError);
     }
 
     // 2. Delete recruit_blitzes
@@ -86,19 +84,17 @@ serve(async (req) => {
       console.error('[delete-recruit] Error deleting blitzes:', blitzesError);
     }
 
-    // 3. Delete from recruits table (preferred)
-    let deletedRecruitsCount = 0;
-
-    const { data: deletedRecruitsById, error: recruitDeleteByIdError } = await supabase
+    // 3. Delete from recruits table
+    const { data: deletedRecruits, error: recruitDeleteError } = await supabase
       .from('recruits')
       .delete()
       .eq('id', recruitId)
       .select('id');
 
-    if (recruitDeleteByIdError) {
-      console.error('[delete-recruit] Error deleting recruit by id:', recruitDeleteByIdError);
+    if (recruitDeleteError) {
+      console.error('[delete-recruit] Error deleting recruit:', recruitDeleteError);
       return new Response(
-        JSON.stringify({ error: 'Failed to delete recruit', details: recruitDeleteByIdError.message }),
+        JSON.stringify({ error: 'Failed to delete recruit', details: recruitDeleteError.message }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -106,68 +102,23 @@ serve(async (req) => {
       );
     }
 
-    deletedRecruitsCount += deletedRecruitsById?.length ?? 0;
+    const deletedRecruitsCount = deletedRecruits?.length ?? 0;
 
-    // Fallback: sometimes the UI is working off a rep record (or the recruits row already got removed)
-    const { data: deletedRecruitsByNotion, error: recruitDeleteByNotionError } = await supabase
-      .from('recruits')
-      .delete()
-      .eq('notion_page_id', recruitNotionPageId)
-      .select('id');
-
-    if (recruitDeleteByNotionError) {
-      console.error('[delete-recruit] Error deleting recruit by notion_page_id:', recruitDeleteByNotionError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete recruit', details: recruitDeleteByNotionError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    deletedRecruitsCount += deletedRecruitsByNotion?.length ?? 0;
-
-    // Also delete from reps (source of truth for some views)
+    // Also delete from reps table by email match
     let deletedRepsCount = 0;
+    if (recruit?.email) {
+      const { data: deletedReps, error: repDeleteError } = await supabase
+        .from('reps')
+        .delete()
+        .ilike('email', recruit.email)
+        .select('id');
 
-    const { data: deletedRepsById, error: repDeleteByIdError } = await supabase
-      .from('reps')
-      .delete()
-      .eq('id', recruitId)
-      .select('id');
-
-    if (repDeleteByIdError) {
-      console.error('[delete-recruit] Error deleting rep by id:', repDeleteByIdError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete recruit', details: repDeleteByIdError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      if (repDeleteError) {
+        console.error('[delete-recruit] Error deleting rep by email:', repDeleteError);
+      } else {
+        deletedRepsCount = deletedReps?.length ?? 0;
+      }
     }
-
-    deletedRepsCount += deletedRepsById?.length ?? 0;
-
-    const { data: deletedRepsByNotion, error: repDeleteByNotionError } = await supabase
-      .from('reps')
-      .delete()
-      .eq('notion_page_id', recruitNotionPageId)
-      .select('id');
-
-    if (repDeleteByNotionError) {
-      console.error('[delete-recruit] Error deleting rep by notion_page_id:', repDeleteByNotionError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete recruit', details: repDeleteByNotionError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    deletedRepsCount += deletedRepsByNotion?.length ?? 0;
 
     console.log(
       `[delete-recruit] Deleted recruits rows: ${deletedRecruitsCount}, deleted reps rows: ${deletedRepsCount}`

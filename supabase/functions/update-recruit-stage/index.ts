@@ -80,13 +80,12 @@ serve(async (req) => {
       });
     }
 
-    // Support both recruitId (new) and recruitNotionId (legacy)
     const body = await req.json();
-    const { recruitId, recruitNotionId, newStage, notes, forceUpdate = false, isAutomatic = false } = body;
+    const { recruitId, newStage, notes, forceUpdate = false, isAutomatic = false } = body;
     
-    console.log(`[update-recruit-stage] Request: recruitId=${recruitId}, recruitNotionId=${recruitNotionId}, newStage=${newStage}, isAutomatic=${isAutomatic}, user=${user.id}`);
+    console.log(`[update-recruit-stage] Request: recruitId=${recruitId}, newStage=${newStage}, isAutomatic=${isAutomatic}, user=${user.id}`);
 
-    if ((!recruitId && !recruitNotionId) || !newStage) {
+    if (!recruitId || !newStage) {
       console.error('[update-recruit-stage] Missing required fields');
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
@@ -94,57 +93,44 @@ serve(async (req) => {
       });
     }
 
-    // Get current recruit info first - recruitId is the ID from the recruits table
-    let currentRecruit: { id: string; notion_page_id: string | null; stage: string | null; name: string } | null = null;
-    let currentRep: { id: string; notion_page_id: string | null; stage: string | null; name: string } | null = null;
-    let notionPageId = recruitNotionId;
+    // Get current recruit info
+    let currentRecruit: { id: string; stage: string | null; name: string; email: string | null } | null = null;
+    let currentRep: { id: string; stage: string | null; name: string } | null = null;
 
-    if (recruitId) {
-      const { data: recruit, error: recruitError } = await supabase
-        .from('recruits')
-        .select('id, notion_page_id, stage, name')
-        .eq('id', recruitId)
-        .maybeSingle();
+    // Try recruits table first
+    const { data: recruit, error: recruitError } = await supabase
+      .from('recruits')
+      .select('id, stage, name, email')
+      .eq('id', recruitId)
+      .maybeSingle();
 
-      if (recruitError) {
-        console.error('[update-recruit-stage] Error fetching recruit:', recruitError);
-      }
-
-      currentRecruit = recruit;
-      notionPageId = recruit?.notion_page_id || recruitNotionId;
+    if (recruitError) {
+      console.error('[update-recruit-stage] Error fetching recruit:', recruitError);
     }
+    currentRecruit = recruit;
 
-    // Fallback: in leader views we sometimes only have a rep record (no linked recruits row).
-    // In that case, the "recruitId" coming from the UI is actually the rep id.
-    if (recruitId && !currentRecruit) {
+    // Fallback: in leader views we sometimes only have a rep record
+    if (!currentRecruit) {
       const { data: repById, error: repByIdError } = await supabase
         .from('reps')
-        .select('id, notion_page_id, stage, name')
+        .select('id, stage, name')
         .eq('id', recruitId)
         .maybeSingle();
 
       if (repByIdError) {
         console.error('[update-recruit-stage] Error fetching rep by id:', repByIdError);
       }
-
-      if (repById) {
-        currentRep = repById;
-        notionPageId = repById.notion_page_id || recruitNotionId;
-      }
+      currentRep = repById;
     }
 
-    // Now find the corresponding rep by notion_page_id (if we didn't already)
-    if (!currentRep && notionPageId) {
-      const { data: rep, error: repError } = await supabase
+    // Try to find linked rep by email
+    if (currentRecruit?.email && !currentRep) {
+      const { data: repByEmail } = await supabase
         .from('reps')
-        .select('id, notion_page_id, stage, name')
-        .eq('notion_page_id', notionPageId)
+        .select('id, stage, name')
+        .ilike('email', currentRecruit.email)
         .maybeSingle();
-
-      if (repError) {
-        console.error('[update-recruit-stage] Error fetching rep:', repError);
-      }
-      currentRep = rep;
+      currentRep = repByEmail;
     }
 
     // We need at least the recruit or rep to proceed
@@ -193,19 +179,6 @@ serve(async (req) => {
         });
       }
       console.log(`[update-recruit-stage] Updated recruits table for ${entityName}`);
-    } else if (currentRep?.notion_page_id) {
-      // Best-effort: keep recruits table in sync when rep has a notion_page_id link
-      const { error: recruitUpdateByNotionError } = await supabase
-        .from('recruits')
-        .update({
-          stage: newStage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('notion_page_id', currentRep.notion_page_id);
-
-      if (recruitUpdateByNotionError) {
-        console.error('[update-recruit-stage] Error syncing recruit stage by notion_page_id:', recruitUpdateByNotionError);
-      }
     }
 
     // Update stage in reps table if there's a matching rep
@@ -229,13 +202,11 @@ serve(async (req) => {
     console.log(`[update-recruit-stage] Successfully updated ${entityName} from ${currentStage} to ${newStage}`);
 
     // Log the stage change as an activity
-    const activityRepId = notionPageId || currentRecruit?.id || currentRep?.id || '';
-    const recruitDbId = currentRecruit?.id || null;
+    const recruitDbId = currentRecruit?.id || currentRep?.id || null;
     
     const { error: activityError } = await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: activityRepId,
         recruit_id: recruitDbId,
         activity_type: 'stage_change',
         logged_by_user_id: user.id,
