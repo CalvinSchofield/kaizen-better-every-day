@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, Circle, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ChevronDown, ChevronUp, Shield, AlertTriangle, Brain, Battery, RefreshCw, Heart } from "lucide-react";
+import { CheckCircle2, Circle, PackageCheck, Tablet, Shirt, IdCard, MessageSquare, ChevronDown, ChevronUp, Shield, AlertTriangle, Brain, Battery, RefreshCw, Heart, PenLine, Lightbulb, Quote, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
@@ -382,84 +383,138 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         isExpanded={expandedSection === "playbook"}
         onToggle={() => setExpandedSection(expandedSection === "playbook" ? null : "playbook")}
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
             The blitz will have ups and downs. Plan now for how you'll respond when things get tough, so you bounce back quickly.
           </p>
 
-          {/* Handling Rejection */}
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+          {/* What You'll Face */}
+          <div className="space-y-3">
             <h5 className="font-medium text-sm flex items-center gap-2">
-              <Shield className="w-4 h-4 text-primary" />
-              Handling Rejection
+              <AlertTriangle className="w-4 h-4 text-primary" />
+              What you'll face
             </h5>
-            <ul className="text-sm text-muted-foreground space-y-1.5">
-              <li>• <strong>It's not personal</strong> - They're rejecting the timing, not you</li>
-              <li>• <strong>Numbers game</strong> - Every "no" gets you closer to a "yes"</li>
-              <li>• <strong>3-second rule</strong> - Feel it, then move on within 3 seconds</li>
-              <li>• <strong>Learn something</strong> - What could you try differently next time?</li>
-            </ul>
+            <p className="text-sm text-muted-foreground">
+              Write down 3 things that you know will be hard for you when you start knocking and how you can overcome them:
+            </p>
+            
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <span className="text-sm font-medium text-primary mt-2">1.</span>
+                <Textarea 
+                  placeholder="What will be hard? → How will I overcome it?"
+                  className="min-h-[60px] text-sm"
+                />
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-sm font-medium text-primary mt-2">2.</span>
+                <Textarea 
+                  placeholder="What will be hard? → How will I overcome it?"
+                  className="min-h-[60px] text-sm"
+                />
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-sm font-medium text-primary mt-2">3.</span>
+                <Textarea 
+                  placeholder="What will be hard? → How will I overcome it?"
+                  className="min-h-[60px] text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Examples */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-primary text-sm hover:underline">
+                <Lightbulb className="w-3 h-3" />
+                <span>See examples</span>
+                <ChevronDown className="w-3 h-3 transition-transform [[data-state=open]>&]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground space-y-2">
+                  <p>• <strong>Getting rejected 20+ times in a row</strong> → tell myself "this is part of the process, this is what I was expecting"</p>
+                  <p>• <strong>Seeing others succeed faster than you</strong> → get with my leaders to talk through that worry/concern and make a gameplan to focus on my race</p>
+                  <p>• <strong>Someone yells at you for knocking their door</strong> → box breathing (4 secs in, 4 sec hold, 4 secs out, 4 hold) and revisit my why before hitting the next door</p>
+                  <p>• <strong>Doubting if this job will pan out/if you can do it</strong> → get with my leaders to talk through that concern and ask sincere questions</p>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
-          {/* Slow Days */}
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <Battery className="w-4 h-4 text-primary" />
-              Staying Motivated on Slow Days
-            </h5>
-            <ul className="text-sm text-muted-foreground space-y-1.5">
-              <li>• <strong>Focus on activity</strong> - Control the controllables (doors, pitches)</li>
-              <li>• <strong>Remember your why</strong> - Why are you doing this?</li>
-              <li>• <strong>Find a win</strong> - Celebrate small victories (great pitch, good convo)</li>
-              <li>• <strong>Change something</strong> - New area, different approach, fresh energy</li>
-            </ul>
-          </div>
-
-          {/* Mental Reset */}
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-primary" />
-              Quick Mental Reset
-            </h5>
-            <ul className="text-sm text-muted-foreground space-y-1.5">
-              <li>• <strong>5 deep breaths</strong> - Reset your nervous system</li>
-              <li>• <strong>Power pose</strong> - Stand tall, shoulders back for 30 seconds</li>
-              <li>• <strong>Gratitude check</strong> - Name 3 things you're grateful for</li>
-              <li>• <strong>Call a teammate</strong> - Quick pep talk goes a long way</li>
-            </ul>
-          </div>
-
-          {/* Push Through vs Break */}
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <h5 className="font-medium text-sm flex items-center gap-2">
-              <Brain className="w-4 h-4 text-primary" />
-              Push Through vs. Take a Break
-            </h5>
-            <div className="text-sm text-muted-foreground space-y-2">
-              <p><strong>Push through when:</strong></p>
-              <ul className="ml-4 space-y-1">
-                <li>• You're just having a slow streak (numbers will turn)</li>
-                <li>• You haven't hit your daily activity goal yet</li>
-                <li>• You're feeling lazy, not exhausted</li>
-              </ul>
-              <p className="mt-2"><strong>Take a break when:</strong></p>
-              <ul className="ml-4 space-y-1">
-                <li>• You're physically exhausted or dehydrated</li>
-                <li>• Your pitch quality is suffering</li>
-                <li>• You need food/water to perform</li>
-              </ul>
+          {/* Key Quote */}
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Quote className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm italic">
+                You can't control what happens, but you can control your response to the event and <strong>that</strong> will decide the outcome.
+              </p>
             </div>
           </div>
 
-          {/* Encouragement */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <Heart className="w-4 h-4 text-primary mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-primary">Remember</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Every successful rep has bad days. What separates them is how quickly they bounce back. You've got this!
-                </p>
+          {/* The Playbook Framework */}
+          <div className="space-y-3">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              The Playbook Framework
+            </h5>
+            
+            <div className="space-y-3">
+              {/* Step 1 */}
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-sm font-medium mb-1">Step 1: Recognize what's happening</p>
+                <p className="text-sm text-muted-foreground italic">"This is one of those moments I planned for"</p>
+              </div>
+
+              {/* Step 2 */}
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium">Step 2: Reset your state</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
+                  <li>• Take 3 deep breaths</li>
+                  <li>• Reframe your self talk: <em>"This is the rep I get better on. Failure and success are not opposites — failure is part of success. I can do this"</em></li>
+                  <li>• Move your body: shake it off, smile, reset your posture, etc</li>
+                </ul>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium">Step 3: Comeback</p>
+                <p className="text-sm text-muted-foreground">Ask yourself:</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
+                  <li>• Who's my go-to person to call or text?</li>
+                  <li>• What playlist, talk or quote helps me reset?</li>
+                  <li>• What's one small win I can chase immediately? (1 positive conversation, 1 upgrade, 1 callback, etc)</li>
+                </ul>
+              </div>
+
+              {/* Step 4 */}
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium">Step 4: Remember your why</p>
+                <ul className="text-sm text-muted-foreground space-y-1.5 ml-4">
+                  <li>• Revisit your goals & gameplan</li>
+                  <li>• Remind yourself why you chose to do this hard job</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Letter to Future Self */}
+          <div className="space-y-3">
+            <h5 className="font-medium text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              A letter to your future self
+            </h5>
+            <p className="text-sm text-muted-foreground">
+              <strong>Write a letter to your future self and share it with your leaders.</strong> Put it in a notes file on your phone or a word doc and share it.
+            </p>
+            
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <PenLine className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Prompt</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    What will you do when the going gets tough? How will you respond when you want to quit? What will you never do? Why are you working so hard? What would you tell your future self that wants to give up if you could have a conversation with him/her?
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -470,7 +525,7 @@ export const Phase4Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
               onClick={handlePlaybookReady}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
-              I'm Ready for Anything
+              I've Written My Playbook & Letter
             </Button>
           )}
         </div>
