@@ -684,6 +684,45 @@ const BlitzReadinessWarnings = ({
   recruit: Recruit;
   recruitRepData: RecruitRepData | null;
 }) => {
+  const { allBlitzes } = useBlitzes();
+  
+  // Calculate closest upcoming blitz from committed blitzes
+  const closestBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
+    
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : (b as { id: string })?.id);
+    
+    if (committedIds.length === 0) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const committedUpcoming = allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .filter(blitz => {
+        if (!blitz.date) return false;
+        const blitzDate = parseDateAsLocal(blitz.date);
+        return blitzDate && blitzDate >= today;
+      })
+      .sort((a, b) => {
+        const dateA = parseDateAsLocal(a.date);
+        const dateB = parseDateAsLocal(b.date);
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+      });
+    
+    if (committedUpcoming.length === 0) return null;
+    
+    const closest = committedUpcoming[0];
+    const blitzDate = parseDateAsLocal(closest.date);
+    if (!blitzDate) return null;
+    
+    const diffTime = blitzDate.getTime() - today.getTime();
+    const daysUntil = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return { name: closest.name, daysUntil };
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
+  
   if (!recruitRepData) return null;
   
   // Vets and Sophomores don't need ramp-to-blitz, so skip ramp warnings for them
@@ -699,7 +738,7 @@ const BlitzReadinessWarnings = ({
   
   const committedBlitzes = recruitRepData.committed_blitzes as string[] | null;
   const hasBlitzCommitment = committedBlitzes && committedBlitzes.length > 0;
-  const daysToBlitz = getDaysUntilBlitz(recruitRepData.blitz_trip_date);
+  const daysToBlitz = closestBlitz?.daysUntil ?? null;
   const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
   
   const isRampComplete = recruitRepData.ramp_phase_4_complete === true;

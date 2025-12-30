@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { differenceInDays, parseISO } from "date-fns";
-import { getDaysUntilBlitz, formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
+import { differenceInDays, parseISO, isAfter, isSameDay, startOfToday } from "date-fns";
+import { formatDaysUntilBlitz } from "@/utils/blitzDateUtils";
 import { 
   AlertTriangle, 
   Tablet, 
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals, FocusIssue, TabType } from "./types";
 import { getFirstName } from "./utils";
+import { useBlitzes } from "@/hooks/useBlitzes";
 
 interface FocusCardProps {
   recruit: Recruit;
@@ -31,7 +32,36 @@ export const FocusCard = ({
   recruitGoals,
   onNavigateToTab 
 }: FocusCardProps) => {
+  const { allBlitzes } = useBlitzes();
   const recruitFirstName = getFirstName(recruit.name);
+  
+  // Calculate closest upcoming blitz from committed blitzes
+  const closestBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
+    
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : b.id);
+    
+    if (committedIds.length === 0) return null;
+    
+    const today = startOfToday();
+    
+    const committedUpcoming = allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .filter(blitz => {
+        if (!blitz.date) return false;
+        const blitzDate = parseISO(blitz.date);
+        return isAfter(blitzDate, today) || isSameDay(blitzDate, today);
+      })
+      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    
+    if (committedUpcoming.length === 0) return null;
+    
+    const closest = committedUpcoming[0];
+    const daysUntil = differenceInDays(parseISO(closest.date), today);
+    
+    return { name: closest.name, daysUntil };
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
   
   const focusIssue = useMemo((): FocusIssue | null => {
     if (!recruitRepData) return null;
@@ -57,7 +87,7 @@ export const FocusCard = ({
     })();
     
     const hasBlitzCommitment = committedBlitzIds.length > 0;
-    const daysToBlitz = getDaysUntilBlitz(recruitRepData.blitz_trip_date);
+    const daysToBlitz = closestBlitz?.daysUntil ?? null;
     const isBlitzApproaching = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 21;
     const isBlitzImminent = daysToBlitz !== null && daysToBlitz >= 0 && daysToBlitz <= 7;
     
@@ -188,7 +218,7 @@ export const FocusCard = ({
         type: 'critical',
         icon: 'tablet',
         title: `No iPad with blitz ${blitzTimeLabel}!`,
-        description: `${recruitFirstName} needs an iPad assigned before ${recruitRepData.blitz_trip_name || 'the blitz'}`,
+        description: `${recruitFirstName} needs an iPad assigned before ${closestBlitz?.name || 'the blitz'}`,
         actionLabel: 'Assign iPad',
         actionTab: 'details'
       });
@@ -316,7 +346,7 @@ export const FocusCard = ({
     // Sort by priority and return highest
     issues.sort((a, b) => b.priority - a.priority);
     return issues[0] || null;
-  }, [recruit, recruitRepData, recruitFirstName]);
+  }, [recruit, recruitRepData, recruitFirstName, closestBlitz]);
   
   if (!focusIssue) return null;
   
