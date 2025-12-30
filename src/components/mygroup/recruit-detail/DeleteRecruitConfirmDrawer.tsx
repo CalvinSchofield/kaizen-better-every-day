@@ -41,7 +41,7 @@ export const DeleteRecruitConfirmDrawer = ({
 
       const { error } = await supabase.functions.invoke("delete-recruit", {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { recruitId, recruitNotionPageId },
+        body: { recruitId, repId: recruitNotionPageId },
       });
 
       if (error) throw error;

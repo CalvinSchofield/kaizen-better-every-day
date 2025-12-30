@@ -45,8 +45,10 @@ serve(async (req) => {
       });
     }
 
-    const { recruitId } = await req.json();
-    
+    const body = await req.json().catch(() => ({}));
+    const recruitId: string | undefined = body?.recruitId;
+    const repId: string | undefined = body?.repId;
+
     if (!recruitId) {
       return new Response(JSON.stringify({ error: 'Missing recruitId' }), {
         status: 400,
@@ -79,12 +81,12 @@ serve(async (req) => {
       .from('recruit_blitzes')
       .delete()
       .eq('recruit_id', recruitId);
-    
+
     if (blitzesError) {
       console.error('[delete-recruit] Error deleting blitzes:', blitzesError);
     }
 
-    // 3. Delete from recruits table
+    // 3. Delete from recruits table (if recruitId is a recruit row)
     const { data: deletedRecruits, error: recruitDeleteError } = await supabase
       .from('recruits')
       .delete()
@@ -104,21 +106,44 @@ serve(async (req) => {
 
     const deletedRecruitsCount = deletedRecruits?.length ?? 0;
 
-    // Also delete from reps table by email match
-    let deletedRepsCount = 0;
+    // 4. Delete from reps table by id (covers "rep-only" records where there's no recruits row)
+    const deletedRepIds = new Set<string>();
+
+    const repIdsToDelete = [repId, recruitId].filter(Boolean) as string[];
+    if (repIdsToDelete.length > 0) {
+      const { data: deletedRepsById, error: repDeleteByIdError } = await supabase
+        .from('reps')
+        .delete()
+        .in('id', repIdsToDelete)
+        .select('id');
+
+      if (repDeleteByIdError) {
+        console.error('[delete-recruit] Error deleting rep by id:', repDeleteByIdError);
+      } else {
+        for (const r of deletedRepsById ?? []) {
+          deletedRepIds.add(r.id);
+        }
+      }
+    }
+
+    // 5. Also delete from reps table by email match (when available)
     if (recruit?.email) {
-      const { data: deletedReps, error: repDeleteError } = await supabase
+      const { data: deletedRepsByEmail, error: repDeleteByEmailError } = await supabase
         .from('reps')
         .delete()
         .ilike('email', recruit.email)
         .select('id');
 
-      if (repDeleteError) {
-        console.error('[delete-recruit] Error deleting rep by email:', repDeleteError);
+      if (repDeleteByEmailError) {
+        console.error('[delete-recruit] Error deleting rep by email:', repDeleteByEmailError);
       } else {
-        deletedRepsCount = deletedReps?.length ?? 0;
+        for (const r of deletedRepsByEmail ?? []) {
+          deletedRepIds.add(r.id);
+        }
       }
     }
+
+    const deletedRepsCount = deletedRepIds.size;
 
     console.log(
       `[delete-recruit] Deleted recruits rows: ${deletedRecruitsCount}, deleted reps rows: ${deletedRepsCount}`
