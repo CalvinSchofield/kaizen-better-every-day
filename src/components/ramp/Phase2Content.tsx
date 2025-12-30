@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, Circle, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Lock, Camera, Send, X, AlertTriangle, Clock } from "lucide-react";
+import { CheckCircle2, BookOpen, GraduationCap, MessageSquare, Play, ExternalLink, ChevronDown, ChevronUp, Video, ArrowRight, Lightbulb, Target, DollarSign, MapPin, Camera, Send, X, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
@@ -10,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
 import { useNavigate } from "react-router-dom";
 import type { RepData } from "@/hooks/useRepData";
+import { TrainingSection } from "./TrainingSection";
+import { PhaseCompleteCard } from "./PhaseCompleteCard";
 
 interface Phase2ContentProps {
   repData: RepData | null;
@@ -244,10 +245,22 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
     pitchSubmitted,
   ].filter(Boolean).length;
 
+  // All steps done except final leader verification
+  const allStepsDoneWaitingLeader = productStudied && quizPassed && upgradesStudied && takeoverStudied && hasTextedLeaderPitches && !pitchSubmitted && !isComplete;
+
   return (
     <div className="space-y-5 pb-20">
+      {/* Phase Complete - Waiting on Leader */}
+      {allStepsDoneWaitingLeader && (
+        <PhaseCompleteCard
+          phaseNumber={2}
+          teamLeaderPhone={repData?.team_leader_phone}
+          teamLeaderName={repData?.team_leader}
+        />
+      )}
+
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 5 && (
+      {completedSteps > 0 && completedSteps < 5 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {productStudied && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -273,19 +286,19 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
               Takeover
             </div>
           )}
-          {pitchSubmitted && (
+          {(pitchSubmitted || hasTextedLeaderPitches) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Pitch
+              {hasTextedLeaderPitches && !pitchSubmitted ? "Pitch (waiting)" : "Pitch"}
             </div>
           )}
         </div>
       )}
 
+
       {/* Step 1: Product Knowledge */}
       <div ref={productRef} />
       <TrainingSection
-        id="product"
         title="Study the Product"
         icon={<BookOpen className="w-4 h-4" />}
         description="Learn about Vivint's smart home products"
@@ -331,7 +344,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       {/* Step 2: Product Quiz */}
       <div ref={quizRef} />
       <TrainingSection
-        id="quiz"
         title="Product Knowledge Quiz"
         icon={<GraduationCap className="w-4 h-4" />}
         description="Test your knowledge of the products"
@@ -372,7 +384,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       {/* Step 3: Upgrades 101 */}
       <div ref={upgradesRef} />
       <TrainingSection
-        id="upgrades"
         title="Upgrades 101"
         icon={<Target className="w-4 h-4" />}
         description="Learn upgrades and what to say"
@@ -497,7 +508,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       {/* Step 4: Takeover Door Approach */}
       <div ref={takeoverRef} />
       <TrainingSection
-        id="takeover"
         title="Takeover Door Approach"
         icon={<Play className="w-4 h-4" />}
         description="Handle existing system homes"
@@ -538,7 +548,6 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
       {/* Step 5: Submit Your Pitches */}
       <div ref={pitchRef} />
       <TrainingSection
-        id="submitpitches"
         title="Submit Your Pitches"
         icon={<Send className="w-4 h-4" />}
         description="Record and send both pitches for feedback"
@@ -675,126 +684,5 @@ export const Phase2Content = ({ repData, isComplete, onOpenPitchGuide, scrollToS
         </DrawerContent>
       </Drawer>
     </div>
-  );
-};
-
-interface TrainingSectionProps {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  description: string;
-  isComplete: boolean;
-  isLocked?: boolean;
-  requiresLeader?: boolean;
-  isWaitingVerification?: boolean;
-  onTextLeader?: () => void;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-const TrainingSection = ({
-  id,
-  title,
-  icon,
-  description,
-  isComplete,
-  isLocked,
-  requiresLeader,
-  isWaitingVerification,
-  onTextLeader,
-  isExpanded,
-  onToggle,
-  children,
-}: TrainingSectionProps) => {
-  // Show waiting state styling
-  const showWaiting = isWaitingVerification && !isComplete;
-  
-  return (
-    <Card className={cn(
-      "transition-all duration-200 overflow-hidden rounded-2xl",
-      isComplete && "bg-primary/5 border-primary/20",
-      showWaiting && "bg-amber-500/5 border-amber-500/20",
-      isLocked && "opacity-50"
-    )}>
-      <Collapsible open={isExpanded && !isLocked} onOpenChange={isLocked ? undefined : onToggle}>
-        <CollapsibleTrigger asChild disabled={isLocked}>
-          <CardContent className={cn("p-4", !isLocked && "cursor-pointer active:bg-muted/50")}>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5">
-                {isComplete ? (
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                  </div>
-                ) : showWaiting ? (
-                  <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-amber-600" />
-                  </div>
-                ) : (
-                  <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center">
-                    <Circle className="w-3 h-3 text-muted-foreground/50" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className={cn("text-primary", showWaiting && "text-amber-600")}>{icon}</span>
-                  <h4 className={cn(
-                    "font-semibold text-sm",
-                    isComplete && "text-muted-foreground",
-                    showWaiting && "text-amber-700 dark:text-amber-500"
-                  )}>
-                    {title}
-                  </h4>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {isLocked ? "Complete previous step to unlock" : showWaiting ? "Waiting on leader verification" : description}
-                </p>
-                {requiresLeader && !isLocked && !isComplete && !showWaiting && (
-                  <Badge variant="outline" className="mt-2 text-xs rounded-lg">
-                    Requires leader
-                  </Badge>
-                )}
-                {requiresLeader && isComplete && (
-                  <Badge variant="outline" className="mt-2 text-xs rounded-lg bg-green-500/10 border-green-500/30 text-green-700">
-                    ✓ Leader verified
-                  </Badge>
-                )}
-                {showWaiting && onTextLeader && (
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 h-7 text-xs border-amber-500/30 text-amber-700 hover:bg-amber-500/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTextLeader();
-                    }}
-                  >
-                    <MessageSquare className="w-3 h-3 mr-1.5" />
-                    Text Leader
-                  </Button>
-                )}
-              </div>
-              {!isLocked && (
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-4 pb-4 pt-0 border-t border-border/50">
-            <div className="pt-4">
-              {children}
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
   );
 };
