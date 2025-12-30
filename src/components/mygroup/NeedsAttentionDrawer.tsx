@@ -1015,6 +1015,12 @@ const BlitzPrepProgressItem = ({
         onConfirm={handlePhaseConfirm}
         mode={drawerMode}
         onUndo={handlePhaseUndo}
+        watchedVideos={(repData?.watched_videos as string[]) || []}
+        goalsSetupComplete={false}
+        hasCommittedBlitz={
+          Array.isArray(repData?.committed_blitzes) &&
+          (repData.committed_blitzes as unknown[]).length > 0
+        }
       />
 
       <BlitzCommitmentDrawer

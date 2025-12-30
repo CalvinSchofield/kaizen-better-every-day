@@ -34,6 +34,7 @@ export interface RecruitGoals {
   must_do_fp_goal?: number;
   will_do_fp_goal?: number;
   could_do_fp_goal?: number;
+  setup_complete?: boolean;
 }
 
 export interface RecruitSummerConfig {
