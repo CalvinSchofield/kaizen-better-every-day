@@ -346,7 +346,7 @@ const TrainingProgressItem = ({
       
       try {
         await updateStatusMutation.mutateAsync({
-          rookieNotionPageId: item.recruit.notionPageId,
+          rookieId: item.recruit.id,
           ipadAssigned: newValue,
         });
         toast.success(`iPad ${newValue ? 'assigned' : 'unassigned'}`);
@@ -430,7 +430,7 @@ const TrainingProgressItem = ({
     
     try {
       await updateStatusMutation.mutateAsync({
-        rookieNotionPageId: item.recruit.notionPageId,
+        rookieId: item.recruit.id,
         onboardingStatus: pendingStep.notionStatus,
       });
       toast.success(pendingStep.isUndo ? `Reverted to ${pendingStep.notionStatus}` : `Marked as ${pendingStep.notionStatus}`);
