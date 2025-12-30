@@ -269,9 +269,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   type CurrentRepIdentity = {
     authUserId: string;
     authEmail: string | null;
+    id?: string | null;
     name?: string | null;
     team_leader?: string | null;
-    notion_page_id?: string | null;
     user_id?: string | null;
     email?: string | null;
   };
@@ -371,39 +371,39 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       return stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold');
     });
 
-    const byNotion = new Map<string, any>();
-    base.forEach((r) => byNotion.set(r.notionPageId, r));
+    const byId = new Map<string, any>();
+    base.forEach((r) => byId.set(r.id, r));
 
-    const requiredNotionIds = [
-      currentRep?.notion_page_id,
+    const requiredIds = [
+      currentRep?.id,
       suggestionPrefill?.suggestedByNotionId,
       selectedRecruiter,
     ].filter(Boolean) as string[];
 
-    for (const notionId of requiredNotionIds) {
-      if (byNotion.has(notionId)) continue;
+    for (const repId of requiredIds) {
+      if (byId.has(repId)) continue;
 
-      const match = accessible.find((r) => r.notionPageId === notionId);
-      if (match?.name && match?.notionPageId) {
-        byNotion.set(match.notionPageId, match);
+      const match = accessible.find((r) => r.id === repId);
+      if (match?.name && match?.id) {
+        byId.set(match.id, match);
         continue;
       }
 
-      // Last resort: if we only know the current user's notion id + name, still make the Select show something.
-      if (currentRep?.notion_page_id === notionId && currentRep?.name) {
-        byNotion.set(notionId, {
+      // Last resort: if we only know the current user's id + name, still make the Select show something.
+      if (currentRep?.id === repId && currentRep?.name) {
+        byId.set(repId, {
           userId: currentRep.authUserId,
           name: currentRep.name,
-          notionPageId: notionId,
+          id: repId,
         });
       }
     }
 
-    return Array.from(byNotion.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return Array.from(byId.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [
     teamAccess?.accessibleReps,
     currentRep?.authUserId,
-    currentRep?.notion_page_id,
+    currentRep?.id,
     currentRep?.name,
     suggestionPrefill?.suggestedByNotionId,
     selectedRecruiter,
@@ -415,10 +415,10 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
     if (!selectedRecruiter) return base;
 
-    const selected = allRecruiters.find((r) => r.notionPageId === selectedRecruiter);
+    const selected = allRecruiters.find((r) => r.id === selectedRecruiter);
     if (!selected) return base;
 
-    if (base.some((r) => r.notionPageId === selectedRecruiter)) return base;
+    if (base.some((r) => r.id === selectedRecruiter)) return base;
 
     return [...base, selected];
   }, [allRecruiters, selectedTeam, selectedRecruiter]);
@@ -428,7 +428,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     if (!teamAccess?.teams) return [];
     if (!selectedRecruiter) return teamAccess.teams;
     
-    const recruiterData = allRecruiters.find(r => r.notionPageId === selectedRecruiter);
+    const recruiterData = allRecruiters.find(r => r.id === selectedRecruiter);
     if (recruiterData?.teamId) {
       return teamAccess.teams.filter(t => t.id === recruiterData.teamId);
     }
@@ -460,10 +460,10 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     hasInitializedRef.current = true;
 
     // Async helper to resolve and apply team from recruiter
-    const applyTeamFromRecruiter = async (recruiterNotionId: string) => {
-      if (!recruiterNotionId) return;
+    const applyTeamFromRecruiter = async (recruiterId: string) => {
+      if (!recruiterId) return;
 
-      const recruiterData = allRecruiters.find((r) => r.notionPageId === recruiterNotionId);
+      const recruiterData = allRecruiters.find((r) => r.id === recruiterId);
       if (recruiterData?.teamId) {
         setSelectedTeam(recruiterData.teamId);
         return;
@@ -471,7 +471,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
 
       const leadUserId =
         recruiterData?.userId ||
-        (recruiterNotionId === currentRep?.notion_page_id ? currentRep?.authUserId : null);
+        (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
 
       if (!leadUserId) return;
 
@@ -502,21 +502,21 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       const currentUserId = currentRep?.authUserId;
       const currentUserData = currentUserId ? allRecruiters.find((r) => r.userId === currentUserId) : null;
 
-      const defaultRecruiterNotionId = currentUserData?.notionPageId || currentRep?.notion_page_id || '';
+      const defaultRecruiterId = currentUserData?.id || currentRep?.id || '';
 
-      if (defaultRecruiterNotionId) {
-        setSelectedRecruiter(defaultRecruiterNotionId);
-        void applyTeamFromRecruiter(defaultRecruiterNotionId);
+      if (defaultRecruiterId) {
+        setSelectedRecruiter(defaultRecruiterId);
+        void applyTeamFromRecruiter(defaultRecruiterId);
       }
     }
-  }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.notion_page_id, allRecruiters]);
+  }, [open, suggestionPrefill, isLeader, currentRep?.authUserId, currentRep?.id, allRecruiters]);
 
   // When recruiter changes, auto-set their team
   const handleRecruiterChange = (recruiterId: string) => {
     setSelectedRecruiter(recruiterId);
 
     void (async () => {
-      const recruiterData = allRecruiters.find((r) => r.notionPageId === recruiterId);
+      const recruiterData = allRecruiters.find((r) => r.id === recruiterId);
       if (recruiterData?.teamId) {
         setSelectedTeam(recruiterData.teamId);
         return;
@@ -525,7 +525,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       // Fallback: derive team from the team lead relationship in the teams table
       const leadUserId =
         recruiterData?.userId ||
-        (recruiterId === currentRep?.notion_page_id ? currentRep?.authUserId : null);
+        (recruiterId === currentRep?.id ? currentRep?.authUserId : null);
 
       if (!leadUserId) return;
 
@@ -676,9 +676,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       phone.trim() !== '' &&
       finalLocation !== '' &&
       recruitmentSource !== '' &&
-      (selectedRecruiter || currentRep?.notion_page_id)
+      (selectedRecruiter || currentRep?.id)
     );
-  }, [name, phone, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.notion_page_id]);
+  }, [name, phone, location, customLocation, showCustomLocation, recruitmentSource, selectedRecruiter, currentRep?.id]);
 
   // Validation helpers
   const getFieldError = (field: 'name' | 'phone' | 'location' | 'recruitmentSource' | 'recruiter') => {
@@ -689,7 +689,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       case 'phone': return !phone.trim();
       case 'location': return !finalLocation;
       case 'recruitmentSource': return !recruitmentSource;
-      case 'recruiter': return !(selectedRecruiter || currentRep?.notion_page_id);
+      case 'recruiter': return !(selectedRecruiter || currentRep?.id);
       default: return false;
     }
   };
@@ -697,7 +697,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
   const handleLeaderSubmit = async () => {
     setAttemptedSubmit(true);
     const finalLocation = showCustomLocation ? customLocation.trim() : location;
-    const recruiterNotionId = selectedRecruiter || currentRep?.notion_page_id;
+    const recruiterId = selectedRecruiter || currentRep?.id;
 
     // Validate all required fields
     const missingFields: string[] = [];
@@ -705,7 +705,7 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     if (!phone.trim()) missingFields.push('Phone');
     if (!finalLocation) missingFields.push('Location');
     if (!recruitmentSource) missingFields.push('Recruitment source');
-    if (!recruiterNotionId) missingFields.push('Recruiter');
+    if (!recruiterId) missingFields.push('Recruiter');
 
     if (missingFields.length > 0) {
       toast.error('Missing required fields', {
@@ -939,9 +939,9 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
                     </SelectTrigger>
                     <SelectContent modal={false}>
                       {filteredRecruiters?.map((recruiter) => (
-                        <SelectItem key={recruiter.notionPageId} value={recruiter.notionPageId}>
+                        <SelectItem key={recruiter.id} value={recruiter.id}>
                           <div className="flex flex-col items-start">
-                            <span>{recruiter.name} {recruiter.notionPageId === currentRep?.notion_page_id ? '(You)' : ''}</span>
+                            <span>{recruiter.name} {recruiter.id === currentRep?.id ? '(You)' : ''}</span>
                             {recruiter.teamName && (
                               <span className="text-xs text-muted-foreground">{recruiter.teamName}</span>
                             )}

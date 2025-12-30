@@ -80,7 +80,7 @@ export const RecruitDetailDrawer = ({
       const newDefault: TabType = shouldDefaultToActivity ? 'activity' : 'progress';
       setActiveTab(newDefault);
     }
-  }, [open, recruitProp?.notionPageId, shouldDefaultToActivity]);
+  }, [open, recruitProp?.id, shouldDefaultToActivity]);
   
   // Dialog states
   const [logActivityOpen, setLogActivityOpen] = useState(false);
@@ -136,16 +136,16 @@ export const RecruitDetailDrawer = ({
 
   // Live recruit data
   const { data: liveRecruit } = useQuery({
-    queryKey: ['recruit-detail-live', recruitProp?.notionPageId],
+    queryKey: ['recruit-detail-live', recruitProp?.id],
     queryFn: () => {
       const cachedQueries = queryClient.getQueriesData<{ recruits: Recruit[] }>({ queryKey: ['group-recruits'] });
       for (const [, data] of cachedQueries) {
-        const fromCache = data?.recruits?.find(r => r.notionPageId === recruitProp?.notionPageId);
+        const fromCache = data?.recruits?.find(r => r.id === recruitProp?.id);
         if (fromCache) return fromCache;
       }
       return recruitProp;
     },
-    enabled: !!recruitProp?.notionPageId && open,
+    enabled: !!recruitProp?.id && open,
     staleTime: 0,
     refetchInterval: open ? 1000 : false,
   });
@@ -384,7 +384,7 @@ export const RecruitDetailDrawer = ({
     if (leaderPhone && leaderPhone !== recruitPhone) {
       logActivityMutation.mutate({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
+        recruitNotionId: recruit.id,
         activityType: 'phone_call',
         notes: 'Text sent (group with leader)',
         updateLastContact: true,
@@ -398,7 +398,7 @@ export const RecruitDetailDrawer = ({
 
     logActivityMutation.mutate({
       recruitId: recruit.id,
-      recruitNotionId: recruit.notionPageId,
+      recruitNotionId: recruit.id,
       activityType: 'phone_call',
       notes: 'Text sent',
       updateLastContact: true,
@@ -431,14 +431,14 @@ export const RecruitDetailDrawer = ({
   const handleConfirmStageChange = () => {
     if (!pendingStage) return;
     const isExitStage = EXIT_STAGES.includes(pendingStage);
-    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, newStage: pendingStage }, {
+    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.id, newStage: pendingStage }, {
       onSuccess: () => { 
         toast.success(`Moved to ${pendingStage}`); 
         setStageConfirmOpen(false); 
         setPendingStage(null);
         // For exit stages, notify parent to dismiss the card
         if (isExitStage && onExitStage) {
-          onExitStage(recruit.notionPageId);
+          onExitStage(recruit.id);
         }
       },
       onError: () => { toast.error("Couldn't update stage"); setStageShake(true); setTimeout(() => setStageShake(false), 500); setStageConfirmOpen(false); setPendingStage(null); }
@@ -452,12 +452,12 @@ export const RecruitDetailDrawer = ({
       return;
     }
     
-    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, newStage: 'Potential Follow Up' }, {
+    updateStageMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.id, newStage: 'Potential Follow Up' }, {
       onSuccess: () => {
         // Log the scheduled follow-up activity
         logActivityMutation.mutate({
           recruitId: recruit.id,
-          recruitNotionId: recruit.notionPageId,
+          recruitNotionId: recruit.id,
           activityType: 'next_step',
           notes: followUpNextStep || 'Scheduled follow-up',
           nextAction: followUpNextStep || 'Follow up',
@@ -472,7 +472,7 @@ export const RecruitDetailDrawer = ({
             setFollowUpNextStep('');
             // Notify parent to dismiss the card
             if (onExitStage) {
-              onExitStage(recruit.notionPageId);
+              onExitStage(recruit.id);
             }
           },
           onError: (err) => {
@@ -654,8 +654,6 @@ export const RecruitDetailDrawer = ({
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: recruit.notionPageId,
-          // IMPORTANT: Use reps.id here (recruitRepData.id). Using recruit.id can point at recruits table id.
           rookieId: recruitRepData.id,
           onboardingStatus: computedOnboardingStatus,
         },
@@ -669,7 +667,7 @@ export const RecruitDetailDrawer = ({
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
 
-      if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+      if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.id, recruit.stage);
     } catch (error) {
       // Rollback optimistic update
       const rollback = Object.fromEntries(Object.keys(updates).map(k => [k, !updates[k]]));
@@ -711,7 +709,7 @@ export const RecruitDetailDrawer = ({
     // Log the completed activity with the scheduled notes
     logActivityMutation.mutate({
       recruitId: recruit.id,
-      recruitNotionId: recruit.notionPageId,
+      recruitNotionId: recruit.id,
       activityType: completedType,
       notes: activity.notes || activity.next_action || 'Completed scheduled follow-up',
       updateLastContact: true,
@@ -721,12 +719,12 @@ export const RecruitDetailDrawer = ({
         deleteActivityMutation.mutate(activity.id, {
           onSuccess: () => {
             toast.success('Marked complete!');
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
           },
           onError: () => {
             // Still show success for the logged activity even if delete fails
             toast.success('Activity logged');
-            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+            queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
           }
         });
       },
@@ -764,7 +762,7 @@ export const RecruitDetailDrawer = ({
   const handleSaveActivity = () => {
     if (!activityNotes && activityType !== 'next_step') { toast.error('Please add notes'); return; }
     logActivityMutation.mutate({
-      recruitNotionId: recruit.notionPageId, activityType, notes: activityNotes,
+      recruitNotionId: recruit.id, activityType, notes: activityNotes,
       nextAction: activityType === 'next_step' ? nextAction : undefined,
       nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
       updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
@@ -773,7 +771,7 @@ export const RecruitDetailDrawer = ({
         toast.success('Activity logged');
         setLogActivityOpen(false);
         setActivityNotes(''); setNextAction(''); setNextActionDue('');
-        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
       },
       onError: () => { toast.error("Couldn't save activity"); setActivityShake(true); setTimeout(() => setActivityShake(false), 500); }
     });
@@ -1038,7 +1036,7 @@ export const RecruitDetailDrawer = ({
               <Button variant={postCallStatus === 'attempted' ? 'secondary' : 'outline'} className="flex-1" onClick={() => setPostCallStatus('attempted')}><PhoneMissed className="h-4 w-4 mr-2" />No Answer</Button>
             </div>
             <Textarea value={postCallNotes} onChange={(e) => setPostCallNotes(e.target.value)} placeholder="Notes (optional)" rows={2} />
-            <Button className="w-full" disabled={!postCallStatus || logActivityMutation.isPending} onClick={() => { const notes = postCallStatus === 'connected' ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected') : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer'); logActivityMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.notionPageId, activityType: 'phone_call', notes, updateLastContact: postCallStatus === 'connected' }, { onSuccess: () => { toast.success('Call logged'); setPostCallOpen(false); setPostCallStatus(null); setPostCallNotes(''); queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] }); } }); }}>{logActivityMutation.isPending ? 'Saving...' : 'Save'}</Button>
+            <Button className="w-full" disabled={!postCallStatus || logActivityMutation.isPending} onClick={() => { const notes = postCallStatus === 'connected' ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected') : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer'); logActivityMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.id, activityType: 'phone_call', notes, updateLastContact: postCallStatus === 'connected' }, { onSuccess: () => { toast.success('Call logged'); setPostCallOpen(false); setPostCallStatus(null); setPostCallNotes(''); queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] }); } }); }}>{logActivityMutation.isPending ? 'Saving...' : 'Save'}</Button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -1151,7 +1149,7 @@ export const RecruitDetailDrawer = ({
                           toast.success('Activity updated');
                           setEditActivityOpen(false);
                           setSelectedActivity(null);
-                          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+                          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
                           queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
                         },
                         onError: () => toast.error("Couldn't update activity"),
@@ -1191,7 +1189,7 @@ export const RecruitDetailDrawer = ({
                     setEditActivityOpen(false);
                     setSelectedActivity(null);
                     setIsDeleting(false);
-                    queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+                    queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
                   },
                   onError: () => {
                     toast.error("Couldn't delete activity");
@@ -1249,7 +1247,7 @@ export const RecruitDetailDrawer = ({
         onOpenChange={setScheduleFollowUpDrawerOpen}
         recruit={recruit}
         onComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.notionPageId] });
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
         }}
       />
     </>
