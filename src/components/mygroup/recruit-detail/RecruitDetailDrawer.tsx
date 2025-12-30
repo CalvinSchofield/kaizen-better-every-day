@@ -150,18 +150,18 @@ export const RecruitDetailDrawer = ({
 
   // Live activities
   const { data: liveActivities } = useQuery({
-    queryKey: ['recruit-activities', recruit?.notionPageId],
+    queryKey: ['recruit-activities', recruit?.id],
     queryFn: async () => {
-      if (!recruit?.notionPageId) return [];
+      if (!recruit?.id) return [];
       const { data } = await supabase
         .from('recruit_activities')
         .select('*')
-        .eq('rep_notion_page_id', recruit.notionPageId)
+        .eq('recruit_id', recruit.id)
         .order('created_at', { ascending: false })
         .limit(50);
       return (data || []) as RecruitActivity[];
     },
-    enabled: !!recruit?.notionPageId && open,
+    enabled: !!recruit?.id && open,
     staleTime: 0,
   });
 
@@ -169,9 +169,9 @@ export const RecruitDetailDrawer = ({
 
   useEffect(() => {
     if (open && recruit) {
-      checkAndUpdateStage(recruit.notionPageId, recruit.stage);
+      checkAndUpdateStage(recruit.id, recruit.stage, true);
     }
-  }, [open, recruit?.notionPageId, recruit?.stage, checkAndUpdateStage]);
+  }, [open, recruit?.id, recruit?.stage, checkAndUpdateStage]);
 
   // Current user rep
   const { data: currentUserRep } = useQuery({
@@ -179,7 +179,7 @@ export const RecruitDetailDrawer = ({
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const { data } = await supabase.from('reps').select('notion_page_id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
+      const { data } = await supabase.from('reps').select('id, name, team_leader, recruiter').eq('user_id', user.id).maybeSingle();
       return data;
     },
   });
@@ -210,9 +210,9 @@ export const RecruitDetailDrawer = ({
         return null;
       }
       
-      const { data: repData } = await supabase.from('reps').select('name, phone, notion_page_id').ilike('name', `%${stripEmojis(searchName)}%`).maybeSingle();
+      const { data: repData } = await supabase.from('reps').select('id, name, phone').ilike('name', `%${stripEmojis(searchName)}%`).maybeSingle();
       if (!repData) return null;
-      return { name: getFirstName(repData.name), phone: repData.phone, notionPageId: repData.notion_page_id, role } as ContactForHelp;
+      return { name: getFirstName(repData.name), phone: repData.phone, notionPageId: repData.id, role } as ContactForHelp;
     },
     enabled: !!recruit && !!teamAccess && !!currentUserRep,
     staleTime: 5 * 60 * 1000,
@@ -222,13 +222,13 @@ export const RecruitDetailDrawer = ({
 
   // Recruit rep data
   const { data: recruitRepData } = useQuery({
-    queryKey: ['recruit-rep-data', recruit?.notionPageId],
+    queryKey: ['recruit-rep-data', recruit?.id],
     queryFn: async () => {
-      if (!recruit?.notionPageId) return null;
-      const { data } = await supabase.from('reps').select('*').eq('notion_page_id', recruit.notionPageId).maybeSingle();
+      if (!recruit?.id) return null;
+      const { data } = await supabase.from('reps').select('*').eq('id', recruit.notionPageId).maybeSingle();
       return data as RecruitRepData | null;
     },
-    enabled: !!recruit?.notionPageId && open,
+    enabled: !!recruit?.id && open,
   });
 
   // Recruit goals
@@ -298,16 +298,9 @@ export const RecruitDetailDrawer = ({
 
   // Save phone mutation
   const savePhoneMutation = useMutation({
-    mutationFn: async ({ notionPageId, phone }: { notionPageId: string; phone: string }) => {
-      const { error } = await supabase.from('reps').update({ phone }).eq('notion_page_id', notionPageId);
+    mutationFn: async ({ repId, phone }: { repId: string; phone: string }) => {
+      const { error } = await supabase.from('reps').update({ phone }).eq('id', repId);
       if (error) throw error;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.functions.invoke('update-recruit-phone', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body: { recruitNotionId: notionPageId, phone },
-        });
-      }
       return { phone };
     },
     onSuccess: () => {

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 export interface RepData {
   id: string;
   user_id: string;
-  notion_page_id: string | null;
+  notion_page_id?: string | null; // Deprecated - kept for backwards compatibility during migration
   name: string;
   phone: string | null;
   email: string | null;

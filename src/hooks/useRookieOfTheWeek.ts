@@ -76,7 +76,7 @@ export const useRookieOfTheWeek = () => {
       // Fetch rep info for names and timezones
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, timezone, notion_page_id, year');
+        .select('id, user_id, name, timezone, year');
 
       if (repsError) throw repsError;
 
@@ -124,7 +124,7 @@ export const useRookieOfTheWeek = () => {
         rookies.push({
           userId: goal.user_id,
           name: rep.name,
-          notionPageId: rep.notion_page_id,
+          notionPageId: rep.id,
           timezone,
           currentScore,
           previousScore,

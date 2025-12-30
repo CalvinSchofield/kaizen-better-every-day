@@ -626,8 +626,8 @@ export const useLogRecruitActivity = () => {
         let { data: recruitData } = await supabase
           .from('recruits')
           .select('id')
-          .eq('notion_page_id', repIdentifier)
-          .maybeSingle();
+          .eq('id', repIdentifier)
+          .maybeSingle() as { data: { id: string } | null };
         
         // If not found by notion_page_id, try by direct id (for recruits created in Supabase)
         if (!recruitData && recruitId) {

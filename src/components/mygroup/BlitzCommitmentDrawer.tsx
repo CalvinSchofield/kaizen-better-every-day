@@ -65,7 +65,7 @@ export const BlitzCommitmentDrawer = ({
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_notion_page_id', recruitNotionPageId);
+        .eq('rep_id', recruitNotionPageId);
       
       if (!error && data) {
         setDeclinedBlitzIds(data.map(d => d.blitz_id));
