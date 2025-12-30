@@ -37,7 +37,7 @@ interface BlitzCommitmentDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruitName: string;
-  recruitNotionPageId: string;
+  recruitId: string;
   currentCommitments: string[];
   availableBlitzes: BlitzEvent[];
 }
@@ -46,7 +46,7 @@ export const BlitzCommitmentDrawer = ({
   open,
   onOpenChange,
   recruitName,
-  recruitNotionPageId,
+  recruitId,
   currentCommitments,
   availableBlitzes,
 }: BlitzCommitmentDrawerProps) => {
@@ -60,12 +60,12 @@ export const BlitzCommitmentDrawer = ({
   // Fetch declined blitzes for this recruit
   useEffect(() => {
     const fetchDeclinedBlitzes = async () => {
-      if (!recruitNotionPageId || !open) return;
+      if (!recruitId || !open) return;
       
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_id', recruitNotionPageId);
+        .eq('rep_id', recruitId);
       
       if (!error && data) {
         setDeclinedBlitzIds(data.map(d => d.blitz_id));
@@ -73,7 +73,7 @@ export const BlitzCommitmentDrawer = ({
     };
     
     fetchDeclinedBlitzes();
-  }, [recruitNotionPageId, open]);
+  }, [recruitId, open]);
 
   const today = startOfDay(new Date());
 
@@ -101,7 +101,7 @@ export const BlitzCommitmentDrawer = ({
       const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId,
-          repNotionPageId: recruitNotionPageId,
+          repId: recruitId,
           isDeclined: false,
         },
       });
@@ -157,7 +157,7 @@ export const BlitzCommitmentDrawer = ({
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repNotionPageId: recruitNotionPageId,
+          repId: recruitId,
           blitzPageIds: pendingCommitments,
         },
       });

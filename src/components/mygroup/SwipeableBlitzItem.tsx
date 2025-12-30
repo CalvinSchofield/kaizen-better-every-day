@@ -62,7 +62,7 @@ export const SwipeableBlitzItem = ({
   const x = useMotionValue(0);
   const controls = useAnimation();
 
-  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const repData = repDataMap?.get(item.recruit.id);
   const rawCommitments = repData?.committed_blitzes || [];
   const currentCommitments: string[] = Array.isArray(rawCommitments)
     ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
@@ -250,7 +250,7 @@ export const SwipeableBlitzItem = ({
         open={blitzDrawerOpen}
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        recruitNotionPageId={item.recruit.notionPageId}
+        recruitId={item.recruit.id}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
