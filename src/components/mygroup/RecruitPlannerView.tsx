@@ -83,17 +83,17 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
     // Find latest next_action_due per recruit
     const latestNextActions = new Map<string, RecruitActivity>();
     activities.forEach(activity => {
-      if (activity.next_action_due && activity.next_action) {
-        const existing = latestNextActions.get(activity.rep_notion_page_id);
+      if (activity.next_action_due && activity.next_action && activity.recruit_id) {
+        const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
-          latestNextActions.set(activity.rep_notion_page_id, activity);
+          latestNextActions.set(activity.recruit_id, activity);
         }
       }
     });
 
     // Group by date - use filteredRecruits to exclude hidden stages
     latestNextActions.forEach((activity, recruitId) => {
-      const recruit = filteredRecruits.find(r => r.notionPageId === recruitId);
+      const recruit = filteredRecruits.find(r => r.id === recruitId);
       if (!recruit) return;
 
       const dateKey = activity.next_action_due!;
@@ -184,7 +184,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
   };
 
   const getActivitiesForRecruit = (recruit: Recruit) => 
-    activities.filter(a => a.rep_notion_page_id === recruit.notionPageId);
+    activities.filter(a => a.recruit_id === recruit.id);
 
   return (
     <div className="space-y-4">

@@ -70,12 +70,12 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       // Fetch current user's info (for team filtering and name)
       const { data: currentUserRep } = await supabase
         .from('reps')
-        .select('name, team_leader, notion_page_id')
+        .select('name, team_leader, id')
         .eq('user_id', currentUserId || '')
         .single();
 
       const currentUserName = currentUserRep?.name || '';
-      const currentUserNotionPageId = currentUserRep?.notion_page_id || '';
+      const currentUserRepId = currentUserRep?.id || '';
 
       // Get ALL qualifying rookies from team access (includes Notion-only reps)
       // This gives us rookies who may not have a Supabase account yet
@@ -111,12 +111,12 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       // Fetch all reps data from Supabase (for those who have accounts)
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('user_id, name, timezone, notion_page_id, year, profile_photo_url, team_leader, stage, ramp_phase_1_complete');
+        .select('user_id, name, timezone, id, year, profile_photo_url, team_leader, stage, ramp_phase_1_complete');
 
       if (repsError) throw repsError;
 
-      // Create a map of notion_page_id to rep data
-      const repsByNotionId = new Map(repsData?.map(r => [r.notion_page_id, r]) || []);
+      // Create a map of id to rep data
+      const repsById = new Map(repsData?.map(r => [r.id, r]) || []);
 
       // Also get fresh stage data from group recruits if available
       const { data: { session } } = await supabase.auth.getSession();
@@ -154,9 +154,9 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
 
       for (const accessRep of accessibleRookies) {
         // Check if we have Supabase data
-        const supabaseRep = repsByNotionId.get(accessRep.notionPageId);
+        const supabaseRep = repsById.get(accessRep.id);
         // Check if we have Notion recruit data
-        const notionRecruit = recruitsByNotionId.get(accessRep.notionPageId);
+        const notionRecruit = recruitsByNotionId.get(accessRep.id);
 
         // Determine stage - prefer Supabase rep stage (source of truth), fallback to Notion recruit
         const stage = supabaseRep?.stage || notionRecruit?.stage || '';
@@ -171,7 +171,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         if (!phase1Complete) continue;
         
         qualifyingRookies.push({
-          notionPageId: accessRep.notionPageId,
+          notionPageId: accessRep.id,
           name: accessRep.name,
           teamName: accessRep.teamName || null,
           mgmtGroupName: accessRep.mgmtGroupName || null,
@@ -201,11 +201,11 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           const recruiterFromNotion = notionRecruit?.recruiter || '';
           
           // Check Supabase rep data for team_leader
-          const supabaseRep = repsByNotionId.get(r.notionPageId);
+          const supabaseRep = repsById.get(r.notionPageId);
           const teamLeader = supabaseRep?.team_leader || '';
           
           // Check the accessRep's teamName from the teamAccess data
-          const accessRep = accessibleRookies.find(ar => ar.notionPageId === r.notionPageId);
+          const accessRep = accessibleRookies.find(ar => ar.id === r.notionPageId);
           const repTeamName = (accessRep?.teamName || r.teamName || '').toLowerCase();
           
           // Match if:
@@ -234,7 +234,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           filteredNames: filteredRookies.map(r => r.name),
           sampleRookieData: qualifyingRookies.slice(0, 3).map(r => {
             const notionRecruit = recruitsByNotionId.get(r.notionPageId);
-            const supabaseRep = repsByNotionId.get(r.notionPageId);
+            const supabaseRep = repsById.get(r.notionPageId);
             return {
               name: r.name,
               teamName: r.teamName,
@@ -254,7 +254,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       let rookiesWithStandardsCount = 0;
 
       for (const rookie of filteredRookies) {
-        const supabaseRep = repsByNotionId.get(rookie.notionPageId);
+        const supabaseRep = repsById.get(rookie.notionPageId);
         const goal = rookie.userId ? goalsMap.get(rookie.userId) : null;
         const hasStandards = goal?.setup_complete === true;
 

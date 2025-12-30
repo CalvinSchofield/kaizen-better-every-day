@@ -412,7 +412,7 @@ export const useSubmitSuggestion = () => {
       phone: string;
       relationship?: string;
       notes?: string;
-      teamLeaderNotionId: string;
+      teamLeaderUserId: string;
       suggestedByName: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -427,7 +427,7 @@ export const useSubmitSuggestion = () => {
           phone: suggestion.phone,
           relationship: suggestion.relationship,
           notes: suggestion.notes,
-          team_leader_notion_id: suggestion.teamLeaderNotionId,
+          team_leader_user_id: suggestion.teamLeaderUserId,
         })
         .select()
         .single();
@@ -450,7 +450,7 @@ export const useSubmitSuggestion = () => {
           relationship: newSuggestion.relationship || null,
           notes: newSuggestion.notes || null,
           status: 'pending',
-          team_leader_notion_id: newSuggestion.teamLeaderNotionId,
+          team_leader_user_id: newSuggestion.teamLeaderUserId,
           created_at: new Date().toISOString(),
         };
         return [optimisticSuggestion, ...(old || [])];

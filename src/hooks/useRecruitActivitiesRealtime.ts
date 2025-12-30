@@ -32,8 +32,8 @@ export const useRecruitActivitiesRealtime = (recruitNotionIds: string[]) => {
           const oldActivity = payload.old as RecruitActivity | undefined;
           
           // Only process if activity is for a recruit we're tracking
-          const relevantNotionId = newActivity?.rep_notion_page_id || oldActivity?.rep_notion_page_id;
-          if (!relevantNotionId || !recruitNotionIds.includes(relevantNotionId)) {
+          const relevantRecruitId = newActivity?.recruit_id || oldActivity?.recruit_id;
+          if (!relevantRecruitId || !recruitNotionIds.includes(relevantRecruitId)) {
             return;
           }
 

@@ -94,7 +94,7 @@ export const AssignedTasksDrawer = ({
                       className="flex-1 cursor-pointer"
                       onClick={() => {
                         if (task.recruit && onRecruitClick) {
-                          onRecruitClick(task.rep_notion_page_id);
+                          onRecruitClick(task.recruit_id);
                           onOpenChange(false);
                         }
                       }}

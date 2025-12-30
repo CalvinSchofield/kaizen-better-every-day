@@ -108,18 +108,18 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
       // Fetch rep info for profile photos and timezones
       const { data: repsData, error: repsError } = await supabase
         .from('reps')
-        .select('id, user_id, name, timezone, notion_page_id, profile_photo_url, stage, ramp_phase_1_complete');
+        .select('id, user_id, name, timezone, profile_photo_url, stage, ramp_phase_1_complete');
 
       if (repsError) throw repsError;
 
       // Create lookup maps
       const goalsMap = new Map(goalsData?.map(g => [g.user_id, g]) || []);
-      const repsByNotionId = new Map(repsData?.map(r => [r.notion_page_id, r]) || []);
+      const repsById = new Map(repsData?.map(r => [r.id, r]) || []);
       const repsByUserId = new Map(repsData?.filter(r => r.user_id).map(r => [r.user_id, r]) || []);
 
-      // Find current user's notion page ID
+      // Find current user's rep ID
       const currentUserRep = currentUserId ? repsByUserId.get(currentUserId) : null;
-      const currentUserNotionId = currentUserRep?.notion_page_id;
+      const currentUserRepId = currentUserRep?.id;
 
       const entries: LeaderboardEntry[] = [];
       const processedNotionIds = new Set<string>();
@@ -128,10 +128,10 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
 
       // Process all reps from team access (includes ghost reps)
       for (const accessibleRep of notionRookies) {
-        if (!accessibleRep.notionPageId) continue;
+        if (!accessibleRep.id) continue;
         
         // Get Supabase rep data if exists
-        const rep = repsByNotionId.get(accessibleRep.notionPageId);
+        const rep = repsById.get(accessibleRep.id);
         
         // Use stage from accessibleRep (comes from edge function which reads from Supabase)
         // or fall back to rep data
@@ -142,7 +142,7 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         const rampPhase1Complete = accessibleRep.rampPhase1Complete ?? rep?.ramp_phase_1_complete;
         if (!rampPhase1Complete) continue;
 
-        processedNotionIds.add(accessibleRep.notionPageId);
+        processedNotionIds.add(accessibleRep.id);
 
         const isGhostRep = !accessibleRep.userId;
         const goal = accessibleRep.userId ? goalsMap.get(accessibleRep.userId) : null;
@@ -192,10 +192,10 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         );
 
         entries.push({
-          id: accessibleRep.notionPageId, // Use notionPageId as unique identifier
+          id: accessibleRep.id, // Use id as unique identifier
           userId: accessibleRep.userId || null,
           name: accessibleRep.name || rep?.name || 'Unknown',
-          notionPageId: accessibleRep.notionPageId,
+          notionPageId: accessibleRep.id, // Keep for backwards compat
           timezone,
           profilePhotoUrl: rep?.profile_photo_url || null,
           teamName: accessibleRep.teamName || null,
@@ -217,8 +217,8 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
       }
 
       // Include current user if they're a rookie but not in accessibleReps
-      if (currentUserId && currentUserNotionId && !processedNotionIds.has(currentUserNotionId)) {
-        const rep = repsByNotionId.get(currentUserNotionId);
+      if (currentUserId && currentUserRepId && !processedNotionIds.has(currentUserRepId)) {
+        const rep = repsById.get(currentUserRepId);
         const isRookie = rep && 
           VALID_STAGES.includes(rep.stage || '') &&
           rep.ramp_phase_1_complete === true;
@@ -266,10 +266,10 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
           );
 
           entries.push({
-            id: currentUserNotionId,
+            id: currentUserRepId,
             userId: currentUserId,
             name: rep.name,
-            notionPageId: currentUserNotionId,
+            notionPageId: currentUserRepId,
             timezone,
             profilePhotoUrl: rep.profile_photo_url,
             teamName: null,
@@ -309,12 +309,12 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         }
       });
 
-      // Find current user's rank (by notionPageId)
-      const currentUserRank = currentUserNotionId 
-        ? sortedEntries.findIndex(e => e.notionPageId === currentUserNotionId) + 1
+      // Find current user's rank (by id)
+      const currentUserRank = currentUserRepId 
+        ? sortedEntries.findIndex(e => e.id === currentUserRepId) + 1
         : 0;
-      const currentUserEntry = currentUserNotionId 
-        ? sortedEntries.find(e => e.notionPageId === currentUserNotionId)
+      const currentUserEntry = currentUserRepId 
+        ? sortedEntries.find(e => e.id === currentUserRepId)
         : undefined;
 
       return {

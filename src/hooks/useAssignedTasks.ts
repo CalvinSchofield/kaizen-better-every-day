@@ -4,7 +4,7 @@ import { Recruit } from "./useGroupRecruits";
 
 export interface AssignedTask {
   id: string;
-  rep_notion_page_id: string;
+  recruit_id: string;
   activity_type: string;
   notes: string | null;
   next_action: string | null;
@@ -49,11 +49,11 @@ export const useAssignedTasks = (recruits: Recruit[]) => {
       const assignerMap = new Map(assigners?.map(a => [a.user_id, a.name]) || []);
 
       // Map tasks to include recruit data
-      const recruitMap = new Map(recruits.map(r => [r.notionPageId, r]));
+      const recruitMap = new Map(recruits.map(r => [r.id, r]));
       
       return (tasks || []).map(task => ({
         ...task,
-        recruit: recruitMap.get(task.rep_notion_page_id),
+        recruit: recruitMap.get(task.recruit_id),
         assignedByName: assignerMap.get(task.logged_by_user_id) || 'Unknown',
       })) as AssignedTask[];
     },
@@ -85,7 +85,7 @@ export const useCompleteTask = () => {
       // Get the original task to know the recruit
       const { data: originalTask } = await supabase
         .from('recruit_activities')
-        .select('rep_notion_page_id, next_action')
+        .select('recruit_id, next_action')
         .eq('id', taskId)
         .single();
 
@@ -94,7 +94,7 @@ export const useCompleteTask = () => {
         await supabase
           .from('recruit_activities')
           .insert({
-            rep_notion_page_id: originalTask.rep_notion_page_id,
+            recruit_id: originalTask.recruit_id,
             activity_type: 'note',
             logged_by_user_id: session.user.id,
             notes: notes || `✓ Completed: ${originalTask.next_action || 'Assigned task'}`,
