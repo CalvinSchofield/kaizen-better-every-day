@@ -1600,7 +1600,7 @@ export const NeedsAttentionDrawer = ({
           }
         }}
         personName={phoneDrawerRecruit?.name || ''}
-        notionPageId={phoneDrawerRecruit?.notionPageId || ''}
+        recruitId={phoneDrawerRecruit?.id || ''}
         pendingAction={pendingPhoneAction}
         onPhoneSaved={() => {
           queryClient.invalidateQueries({ queryKey: ['group-recruits'] });

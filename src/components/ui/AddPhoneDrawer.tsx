@@ -15,7 +15,8 @@ interface AddPhoneDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   personName: string;
-  notionPageId: string;
+  repId?: string;
+  recruitId?: string;
   pendingAction?: 'text' | 'call' | null;
   onPhoneSaved?: (cleanPhone: string) => void;
 }
@@ -68,7 +69,8 @@ export const AddPhoneDrawer = ({
   open,
   onOpenChange,
   personName,
-  notionPageId,
+  repId,
+  recruitId,
   pendingAction,
   onPhoneSaved,
 }: AddPhoneDrawerProps) => {
@@ -109,7 +111,8 @@ export const AddPhoneDrawer = ({
 
       const { error } = await supabase.functions.invoke('update-recruit-phone', {
         body: {
-          recruitNotionId: notionPageId,
+          recruitId: recruitId,
+          repId: repId,
           phone: cleanPhone,
         },
         headers: {
