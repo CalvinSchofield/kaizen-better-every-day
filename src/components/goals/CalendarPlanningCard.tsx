@@ -1625,12 +1625,12 @@ export const CalendarPlanningCard = ({
                         toast.error('Failed to update summer dates');
                         console.error(error);
                       } else {
-                        // Sync to Notion
-                        if (repData?.notion_page_id) {
+                        // Sync to reps table via edge function
+                        if (repData?.id) {
                           const isStart = updateField === 'personal_summer_start';
                           await supabase.functions.invoke('update-summer-dates', {
                             body: {
-                              notionPageId: repData.notion_page_id,
+                              repId: repData.id,
                               startDate: isStart ? dateStr : undefined,
                               endDate: isStart ? undefined : dateStr,
                             },

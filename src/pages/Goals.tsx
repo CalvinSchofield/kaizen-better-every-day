@@ -444,7 +444,7 @@ const Goals = () => {
 
   const handleConfirmCommitToBlitz = async () => {
     const blitz = confirmCommitBlitz;
-    if (!blitz || !repData?.id || !repData?.notion_page_id) return;
+    if (!blitz || !repData?.id) return;
     
     setIsCommitting(blitz.id);
     setConfirmCommitBlitz(null);
@@ -469,10 +469,10 @@ const Goals = () => {
       
       if (error) throw error;
       
-      // Also sync to Notion via edge function
+      // Sync committed blitzes via edge function
       await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           blitzPageIds: newBlitzIds,
         },
       });
@@ -489,7 +489,7 @@ const Goals = () => {
 
   const handleConfirmUncommitFromBlitz = async () => {
     const blitz = confirmUncommitBlitz;
-    if (!blitz || !repData?.id || !repData?.notion_page_id) return;
+    if (!blitz || !repData?.id) return;
     
     setIsCommitting(blitz.id);
     setConfirmUncommitBlitz(null);
@@ -506,10 +506,10 @@ const Goals = () => {
       
       if (error) throw error;
       
-      // Also sync to Notion via edge function
+      // Sync committed blitzes via edge function
       await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           blitzPageIds: newBlitzIds,
         },
       });
@@ -619,11 +619,11 @@ const Goals = () => {
                       onConflict: 'user_id'
                     });
                   
-                  // Sync summer dates to Notion
-                  if (repData?.notion_page_id) {
+                  // Sync summer dates to reps table
+                  if (repData?.id) {
                     await supabase.functions.invoke('update-summer-dates', {
                       body: {
-                        notionPageId: repData.notion_page_id,
+                        repId: repData.id,
                         startDate: data.summerStart,
                         endDate: data.summerEnd,
                       },
@@ -655,11 +655,11 @@ const Goals = () => {
                     console.log('Saved blitz commitments:', selectedBlitzDetails);
                   }
                   
-                  // Sync to Notion if we have the page ID
-                  if (repData.notion_page_id) {
+                  // Sync to edge function
+                  if (repData.id) {
                     await supabase.functions.invoke('update-blitz-commitment', {
                       body: {
-                        repNotionPageId: repData.notion_page_id,
+                        repId: repData.id,
                         blitzPageIds: data.selectedBlitzIds,
                       },
                     });

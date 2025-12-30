@@ -450,11 +450,11 @@ export default function Settings() {
       
       if (error) throw error;
       
-      // Sync to Notion if rep has a notion page
-      if (repData?.notion_page_id) {
+      // Sync via edge function
+      if (repData?.id) {
         await supabase.functions.invoke('update-summer-dates', {
           body: {
-            notionPageId: repData.notion_page_id,
+            repId: repData.id,
             startDate: startDateStr,
             endDate: endDateStr,
           },

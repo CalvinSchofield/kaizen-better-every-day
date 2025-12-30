@@ -203,12 +203,12 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
 
   // Fetch team members for team leads
   const fetchTeamMembers = useCallback(async () => {
-      if (!repData?.notion_page_id) return;
+      if (!repData?.id) return;
 
       setTeamLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke('fetch-team-members', {
-          body: { leaderNotionPageId: repData.notion_page_id },
+          body: { leaderId: repData.id },
         });
 
         if (error) throw error;
@@ -234,7 +234,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       } finally {
         setTeamLoading(false);
       }
-  }, [repData?.notion_page_id, toast]);
+  }, [repData?.id, toast]);
 
   useEffect(() => {
     fetchTeamMembers();
@@ -395,7 +395,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
   };
 
   const handleRsvpYes = async () => {
-    if (!upcomingBlitzForRsvp || !repData.notion_page_id) return;
+    if (!upcomingBlitzForRsvp || !repData.id) return;
     
     // Set session flag to prevent any more RSVPs from showing this session
     setHasRespondedToRsvpThisSession(true);
@@ -416,7 +416,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
         
         const { error } = await supabase.functions.invoke('update-blitz-commitment', {
           body: { 
-            repNotionPageId: repData.notion_page_id,
+            repId: repData.id,
             blitzPageIds 
           },
         });
@@ -435,7 +435,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId: upcomingBlitzForRsvp.id,
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           isDeclined: false,
         },
       });
@@ -490,7 +490,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
       await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId: upcomingBlitzForRsvp.id,
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           isDeclined: true,
         },
       });
