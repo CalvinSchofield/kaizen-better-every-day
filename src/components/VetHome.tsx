@@ -589,17 +589,21 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
             </button>
           )}
           {!upcomingBlitzForRsvp && nextBlitz && (() => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Use parseDateAsLocal for consistent timezone handling
+            const today = parseDateAsLocal(getTodayDateString()) ?? new Date();
             
             // Use calendar-day-based calculation for accurate "tomorrow" display
             const diffDays = getDaysUntilBlitz(nextBlitz.date) ?? 0;
             
             // Check if user is currently within the blitz date range
-            const blitzStart = new Date(nextBlitz.date);
-            blitzStart.setHours(0, 0, 0, 0);
-            const blitzEnd = nextBlitz.endDate ? new Date(nextBlitz.endDate) : blitzStart;
-            blitzEnd.setHours(23, 59, 59, 999);
+            const blitzStart = parseDateAsLocal(nextBlitz.date);
+            const blitzEnd = parseDateAsLocal(nextBlitz.endDate ?? nextBlitz.date);
+            
+            // Guard against invalid dates
+            if (!blitzStart || !blitzEnd) {
+              return null;
+            }
+            
             const isWithinBlitz = today >= blitzStart && today <= blitzEnd;
             
             let ctaText = "";
