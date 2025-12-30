@@ -53,22 +53,22 @@ Deno.serve(async (req) => {
     // Fetch all mgmt_groups
     const { data: mgmtGroupsRaw } = await supabase
       .from('mgmt_groups')
-      .select('id, name, lead_user_id, notion_page_id');
+      .select('id, name, lead_user_id');
 
     // Fetch all teams
     const { data: teamsRaw } = await supabase
       .from('teams')
-      .select('id, name, lead_user_id, notion_page_id');
+      .select('id, name, lead_user_id');
 
     // Fetch team-mgmt_group relationships
     const { data: teamMgmtGroupsRaw } = await supabase
       .from('team_mgmt_groups')
       .select('team_id, mgmt_group_id');
 
-    // Fetch all reps to build mappings
+    // Fetch all reps to build mappings (using id as primary identifier)
     const { data: allReps } = await supabase
       .from('reps')
-      .select('id, user_id, name, notion_page_id, team_leader, recruiter, phone, year, stage, ramp_phase_1_complete');
+      .select('id, user_id, name, team_leader, recruiter, phone, year, stage, ramp_phase_1_complete');
 
     const mgmtGroupsData = mgmtGroupsRaw || [];
     const teamsData = teamsRaw || [];
@@ -131,23 +131,23 @@ Deno.serve(async (req) => {
     // Special handling: Levi's group needs to include Levi's "downline" (recruits of recruits)
     // even when team_leader data is inconsistent.
     const leviTeam = teamKeyToTeam.get('levi');
-    const leviDownlineNotionIds = new Set<string>();
+    const leviDownlineIds = new Set<string>();
 
     if (leviTeam) {
       const rootKey = 'levi tingey';
-      const nameToNotionId = new Map<string, string>();
+      const nameToId = new Map<string, string>();
 
       for (const rep of repsData) {
         const key = normalizeFullName(rep.name);
-        if (key && rep.notion_page_id) {
+        if (key && rep.id) {
           // Keep first match; names should be unique enough for our usage.
-          if (!nameToNotionId.has(key)) nameToNotionId.set(key, rep.notion_page_id);
+          if (!nameToId.has(key)) nameToId.set(key, rep.id);
         }
       }
 
-      const rootNotionId = nameToNotionId.get(rootKey);
-      if (rootNotionId) {
-        leviDownlineNotionIds.add(rootNotionId);
+      const rootId = nameToId.get(rootKey);
+      if (rootId) {
+        leviDownlineIds.add(rootId);
 
         // Build downline set: any rep whose recruiter matches someone already in the set.
         const knownNames = new Set<string>([rootKey]);
@@ -164,13 +164,13 @@ Deno.serve(async (req) => {
 
             knownNames.add(repKey);
             nextFrontier.add(repKey);
-            if (rep.notion_page_id) leviDownlineNotionIds.add(rep.notion_page_id);
+            if (rep.id) leviDownlineIds.add(rep.id);
           }
           if (nextFrontier.size === 0) break;
           frontier = nextFrontier;
         }
 
-        console.log(`Levi downline computed: ${leviDownlineNotionIds.size} reps`);
+        console.log(`Levi downline computed: ${leviDownlineIds.size} reps`);
       } else {
         console.warn('Levi team detected but could not find root rep "Levi Tingey" in reps table');
       }
@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
       }
 
       // Force Levi team based on recruiter lineage (only for non-team-leads)
-      if (leviTeam && rep.notion_page_id && leviDownlineNotionIds.has(rep.notion_page_id)) {
+      if (leviTeam && rep.id && leviDownlineIds.has(rep.id)) {
         const mgmtGroup = mgmtGroups.find(g => g.teamIds.includes(leviTeam.id));
         return {
           isTeamLead: false,
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
         id: rep.id,
         userId: rep.user_id || null,
         name: rep.name,
-        notionPageId: rep.notion_page_id,
+        notionPageId: rep.id, // Use Supabase id for backwards compatibility
         phone: rep.phone || null,
         year: rep.year || null,
         stage: rep.stage || null,
@@ -302,14 +302,14 @@ Deno.serve(async (req) => {
     let accessibleUserIds: string[] = [];
     let accessibleReps: any[] = [];
 
-    // Get current user's notion_page_id to exclude self from accessible reps
-    const currentUserNotionId = repData.notion_page_id;
+    // Get current user's rep id to exclude self from accessible reps
+    const currentUserRepId = repData.id;
 
     if (accessLevel === 'area_director') {
       // Area directors see ALL reps except themselves
       for (const rep of repsData) {
         // Skip the current user
-        if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+        if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
         
         if (rep.user_id) accessibleUserIds.push(rep.user_id);
         accessibleReps.push(buildRepData(rep));
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
       
       for (const rep of repsData) {
         // Skip the current user
-        if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+        if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
         
         const teamInfo = getRepTeamInfo(rep);
         if (teamInfo.teamId && accessibleTeamIds.includes(teamInfo.teamId)) {
@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
       if (userTeamIds.length > 0) {
         for (const rep of repsData) {
           // Skip the current user
-          if (rep.user_id === user.id || rep.notion_page_id === currentUserNotionId) continue;
+          if (rep.user_id === user.id || rep.id === currentUserRepId) continue;
           
           const teamInfo = getRepTeamInfo(rep);
           if (teamInfo.teamId && userTeamIds.includes(teamInfo.teamId)) {
