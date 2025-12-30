@@ -1221,6 +1221,12 @@ export const RecruitDetailDrawer = ({
           onConfirm={handleConfirmPhaseVerification}
           mode={pendingPhaseVerification.isUndo ? 'undo' : 'verify'}
           onUndo={handleUndoPhaseVerification}
+          watchedVideos={(recruitRepData?.watched_videos as string[]) || []}
+          goalsSetupComplete={recruitGoals?.setup_complete ?? false}
+          hasCommittedBlitz={
+            Array.isArray(recruitRepData?.committed_blitzes) &&
+            (recruitRepData.committed_blitzes as unknown[]).length > 0
+          }
         />
       )}
 

@@ -70,6 +70,9 @@ interface PhaseVerificationDrawerProps {
   onConfirm: () => void;
   mode?: 'verify' | 'undo';
   onUndo?: () => void;
+  watchedVideos?: string[];
+  goalsSetupComplete?: boolean;
+  hasCommittedBlitz?: boolean;
 }
 
 export const PhaseVerificationDrawer = ({
@@ -82,9 +85,26 @@ export const PhaseVerificationDrawer = ({
   onConfirm,
   mode = 'verify',
   onUndo,
+  watchedVideos = [],
+  goalsSetupComplete = false,
+  hasCommittedBlitz = false,
 }: PhaseVerificationDrawerProps) => {
   const phaseInfo = PHASE_ITEMS[phase];
   const isUndoMode = mode === 'undo';
+
+  // Check if an item is completed based on its ID
+  const isItemComplete = (itemId: string): boolean => {
+    // Special cases for Phase 1 leader items
+    if (itemId === 'goals-call-completed') return goalsSetupComplete;
+    if (itemId === 'blitz-committed') return hasCommittedBlitz;
+    
+    // For regular video/watched items
+    return watchedVideos.includes(itemId);
+  };
+
+  // Calculate completion counts for display
+  const completedSelfServiceCount = phaseInfo?.selfServiceItems.filter(item => isItemComplete(item.id)).length || 0;
+  const totalSelfServiceCount = phaseInfo?.selfServiceItems.length || 0;
 
   if (!phaseInfo) return null;
 
@@ -110,27 +130,43 @@ export const PhaseVerificationDrawer = ({
           <div className="space-y-4">
             {/* Self-Service Items */}
             <div className={`rounded-xl p-4 border ${isUndoMode ? 'bg-green-500/10 border-green-500/30' : 'bg-muted/50 border-border'}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <Check className={`w-4 h-4 ${isUndoMode ? 'text-green-600' : 'text-muted-foreground'}`} />
-                <p className={`text-sm font-semibold ${isUndoMode ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
-                  {isUndoMode ? 'Rep completed' : 'Rep should have completed'}
-                </p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Check className={`w-4 h-4 ${isUndoMode ? 'text-green-600' : 'text-muted-foreground'}`} />
+                  <p className={`text-sm font-semibold ${isUndoMode ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    {isUndoMode ? 'Rep completed' : 'Rep should have completed'}
+                  </p>
+                </div>
+                {!isUndoMode && (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    completedSelfServiceCount === totalSelfServiceCount 
+                      ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
+                      : 'bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                  }`}>
+                    {completedSelfServiceCount}/{totalSelfServiceCount}
+                  </span>
+                )}
               </div>
               <div className="space-y-2">
-                {phaseInfo.selfServiceItems.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isUndoMode ? 'bg-green-500/20' : 'bg-muted'}`}>
-                      {isUndoMode ? (
-                        <Check className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <Circle className="h-3 w-3 text-muted-foreground" />
-                      )}
+                {phaseInfo.selfServiceItems.map((item, idx) => {
+                  const completed = isUndoMode ? true : isItemComplete(item.id);
+                  return (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                        completed ? 'bg-green-500/20' : 'bg-muted'
+                      }`}>
+                        {completed ? (
+                          <Check className="h-3 w-3 text-green-600" />
+                        ) : (
+                          <Circle className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className={`text-sm ${completed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {item.label}
+                      </span>
                     </div>
-                    <span className={`text-sm ${isUndoMode ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
