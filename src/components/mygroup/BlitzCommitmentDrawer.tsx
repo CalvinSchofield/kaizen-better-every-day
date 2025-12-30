@@ -37,8 +37,7 @@ interface BlitzCommitmentDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruitName: string;
-  recruitId: string; // Recruit table ID - for declined blitzes lookup
-  repId: string | null; // Rep table ID - for blitz commitment updates
+  recruitId: string; // Unified UUID - same in both recruits and reps tables
   currentCommitments: string[];
   availableBlitzes: BlitzEvent[];
 }
@@ -47,8 +46,7 @@ export const BlitzCommitmentDrawer = ({
   open,
   onOpenChange,
   recruitName,
-  recruitId,
-  repId,
+  recruitId, // Unified UUID - same in both recruits and reps tables
   currentCommitments,
   availableBlitzes,
 }: BlitzCommitmentDrawerProps) => {
@@ -59,15 +57,15 @@ export const BlitzCommitmentDrawer = ({
   const [clearingDeclineId, setClearingDeclineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch declined blitzes for this recruit using repId (reps table ID)
+  // Fetch declined blitzes for this recruit using unified ID
   useEffect(() => {
     const fetchDeclinedBlitzes = async () => {
-      if (!repId || !open) return;
+      if (!recruitId || !open) return;
       
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_id', repId);
+        .eq('rep_id', recruitId);
       
       if (!error && data) {
         setDeclinedBlitzIds(data.map(d => d.blitz_id));
@@ -75,7 +73,7 @@ export const BlitzCommitmentDrawer = ({
     };
     
     fetchDeclinedBlitzes();
-  }, [repId, open]);
+  }, [recruitId, open]);
 
   const today = startOfDay(new Date());
 
@@ -97,8 +95,8 @@ export const BlitzCommitmentDrawer = ({
 
   const handleClearDecline = async (blitzId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!repId) {
-      toast.error('Cannot clear decline - missing rep ID');
+    if (!recruitId) {
+      toast.error('Cannot clear decline - missing ID');
       return;
     }
     setClearingDeclineId(blitzId);
@@ -107,7 +105,7 @@ export const BlitzCommitmentDrawer = ({
       const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId,
-          repId: repId, // Use repId for the reps table
+          repId: recruitId, // Unified ID works for both tables
           isDeclined: false,
         },
       });
@@ -158,8 +156,8 @@ export const BlitzCommitmentDrawer = ({
   };
 
   const handleConfirmSave = async () => {
-    if (!repId) {
-      toast.error('Cannot update blitz commitments - missing rep ID');
+    if (!recruitId) {
+      toast.error('Cannot update blitz commitments - missing ID');
       setConfirmDialogOpen(false);
       return;
     }
@@ -168,7 +166,7 @@ export const BlitzCommitmentDrawer = ({
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repId: repId, // Use repId for the reps table
+          repId: recruitId, // Unified ID works for both tables
           blitzPageIds: pendingCommitments,
         },
       });

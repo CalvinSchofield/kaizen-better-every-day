@@ -13,8 +13,7 @@ export interface BlitzCommitment {
 }
 
 export interface Recruit {
-  id: string; // Supabase UUID from recruits table - use for activities and CRM operations
-  repId: string | null; // Supabase UUID from reps table - use for app progress (blitz commitments, phases, etc.)
+  id: string; // Unified UUID - same in both recruits and reps tables
   name: string;
   phone: string;
   email: string;
@@ -384,9 +383,8 @@ export const useGroupRecruits = () => {
           ? recruitsByKey.get(`email:${r.email.toLowerCase()}`) 
           : recruitsByKey.get(`name:${r.name?.toLowerCase()}`);
         
-        // id = recruit table ID (for activities/CRM), repId = reps table ID (for app progress)
-        const recruitId = matchingRecruit?.id || r.id;
-        const repId = r.id; // Always use the rep's own ID
+        // With unified UUIDs, recruits.id === reps.id for matched pairs
+        const unifiedId = matchingRecruit?.id || r.id;
         
         // Extract team/recruiter info from joined relations
         const teamData = matchingRecruit?.teams as { id: string; name: string } | null;
@@ -394,8 +392,7 @@ export const useGroupRecruits = () => {
         const recruiterData = matchingRecruit?.recruiter as { id: string; name: string; user_id: string } | null;
         
         return {
-          id: recruitId,
-          repId: repId,
+          id: unifiedId,
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
@@ -438,14 +435,9 @@ export const useGroupRecruits = () => {
         const mgmtGroupData = ghostRecruit.mgmt_groups as { id: string; name: string } | null;
         const recruiterData = ghostRecruit.recruiter as { id: string; name: string; user_id: string } | null;
         
-        // For ghost recruits, try to find matching rep by email or name
-        const matchingRepId = ghostRecruit.email 
-          ? repIdsByKey.get(`email:${ghostRecruit.email.toLowerCase()}`)
-          : repIdsByKey.get(`name:${ghostRecruit.name?.toLowerCase()}`);
-        
+        // With unified UUIDs, ghost recruits use the same ID for both tables
         recruits.push({
-          id: ghostRecruit.id, // Recruit table ID for activities
-          repId: matchingRepId || null, // Rep table ID for app progress (may be null for true ghost recruits)
+          id: ghostRecruit.id, // Unified ID
           name: ghostRecruit.name,
           phone: ghostRecruit.phone || '',
           email: ghostRecruit.email || '',
