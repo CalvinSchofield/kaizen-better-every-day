@@ -46,26 +46,26 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     queryFn: async () => {
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
+        .select('id, ipad_assigned, onboarding_complete, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete');
       return data || [];
     },
   });
 
-  // Create a map for quick lookup
+  // Create a map for quick lookup by id
   const repsBlockerMap = new Map(
-    repsData?.map(r => [r.notion_page_id, r]) || []
+    repsData?.map(r => [r.id, r]) || []
   );
 
   const getRecruitsByStage = (stage: string) => recruits.filter(r => r.stage === stage);
 
-  const getActivitiesForRecruit = (recruitNotionId: string) => {
-    return activities.filter(a => a.rep_notion_page_id === recruitNotionId);
+  const getActivitiesForRecruit = (recruitId: string) => {
+    return activities.filter(a => a.recruit_id === recruitId);
   };
 
   // Get the most recent contact date from Supabase activities
-  const getLastContactFromActivities = (recruitNotionId: string): string | null => {
+  const getLastContactFromActivities = (recruitId: string): string | null => {
     const recruitActivities = activities.filter(a => 
-      a.rep_notion_page_id === recruitNotionId &&
+      a.recruit_id === recruitId &&
       (a.activity_type === 'phone_call' || a.activity_type === 'in_person')
     );
     
@@ -80,7 +80,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
   // Get days since last contact
   const getDaysSinceContact = (recruit: Recruit): number | null => {
-    const activityLastContact = getLastContactFromActivities(recruit.notionPageId);
+    const activityLastContact = getLastContactFromActivities(recruit.id);
     const lastContact = activityLastContact || recruit.lastContact;
     if (!lastContact) return null;
     return differenceInDays(new Date(), parseISO(lastContact));
@@ -112,8 +112,8 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     const isRookie = recruit.year === 'Rookie' || recruit.year === '2025' || recruit.year === '2026';
     if (!isRookie) return blockers;
     
-    // Check reps table data first, fall back to Notion data
-    const repData = repsBlockerMap.get(recruit.notionPageId);
+    // Check reps table data first, fall back to recruit data
+    const repData = repsBlockerMap.get(recruit.id);
     
     const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
     const onboardingComplete = repData?.onboarding_complete ?? 

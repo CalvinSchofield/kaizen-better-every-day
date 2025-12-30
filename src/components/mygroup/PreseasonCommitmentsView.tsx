@@ -36,7 +36,7 @@ export const PreseasonCommitmentsView = () => {
       
       const { data } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id, year, phone, committed_blitzes')
+        .select('id, user_id, name, year, phone, committed_blitzes')
         .eq('user_id', user.id)
         .single();
       
@@ -52,7 +52,7 @@ export const PreseasonCommitmentsView = () => {
       
       const { data } = await supabase
         .from('reps')
-        .select('user_id, name, notion_page_id, year, phone, committed_blitzes')
+        .select('id, user_id, name, year, phone, committed_blitzes')
         .in('user_id', teamAccess.accessibleUserIds)
         .eq('year', 'Rookie');
       
@@ -70,7 +70,7 @@ export const PreseasonCommitmentsView = () => {
       list.push({
         userId: currentUserRep.user_id,
         name: currentUserRep.name,
-        notionPageId: currentUserRep.notion_page_id || '',
+        notionPageId: currentUserRep.id || '', // Use id now
         phone: currentUserRep.phone || undefined,
         committedBlitzes: (currentUserRep.committed_blitzes as string[]) || [],
         isSelf: true,
@@ -83,7 +83,7 @@ export const PreseasonCommitmentsView = () => {
       list.push({
         userId: rep.user_id,
         name: rep.name,
-        notionPageId: rep.notion_page_id || '',
+        notionPageId: rep.id || '', // Use id now
         phone: rep.phone || undefined,
         committedBlitzes: (rep.committed_blitzes as string[]) || [],
         isSelf: false,

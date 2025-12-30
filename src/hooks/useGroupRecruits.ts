@@ -55,7 +55,7 @@ export interface Recruit {
 
 export interface RecruitActivity {
   id: string;
-  rep_notion_page_id: string;
+  recruit_id: string;
   activity_type: string;
   logged_by_user_id: string;
   notes: string | null;
@@ -76,7 +76,7 @@ export interface RecruitSuggestion {
   relationship: string | null;
   notes: string | null;
   status: string;
-  team_leader_notion_id: string;
+  team_leader_user_id: string | null;
   created_at: string;
 }
 
@@ -161,22 +161,22 @@ export const useGroupRecruits = () => {
       
       console.log('[useGroupRecruits] Running query with accessLevel:', accessLevel, 'accessibleReps count:', accessibleReps.length);
 
-      // Get the current user's rep notion page ID
+      // Get the current user's rep ID
       const { data: currentRep } = await supabase
         .from('reps')
-        .select('notion_page_id')
+        .select('id')
         .eq('user_id', session.user.id)
         .maybeSingle();
       
-      const leaderNotionId = currentRep?.notion_page_id;
+      const leaderId = currentRep?.id;
       
-      if (!leaderNotionId) {
+      if (!leaderId) {
         return { recruits: [], activities: [], pendingSuggestions: [] };
       }
 
-      // Get accessible notion page IDs from team access
-      const accessibleNotionIds = accessibleReps
-        .map(r => r.notionPageId)
+      // Get accessible rep IDs from team access
+      const accessibleIds = accessibleReps
+        .map(r => r.id)
         .filter(Boolean);
 
       // Query recruits directly from reps table (source of truth)
@@ -185,7 +185,6 @@ export const useGroupRecruits = () => {
         .select(`
           id,
           user_id,
-          notion_page_id,
           name,
           phone,
           email,
@@ -209,10 +208,10 @@ export const useGroupRecruits = () => {
         `)
         .in('stage', RECRUITING_STAGES);
 
-      // Filter by accessible notion page IDs (from team access)
+      // Filter by accessible rep IDs (from team access)
       // All leaders use the same filter - team access already handles permissions and excludes self
-      if (accessibleNotionIds.length > 0) {
-        repsQuery = repsQuery.in('notion_page_id', accessibleNotionIds);
+      if (accessibleIds.length > 0) {
+        repsQuery = repsQuery.in('id', accessibleIds);
       } else {
         // No accessible reps means no results
         return { recruits: [], activities: [], pendingSuggestions: [] };
@@ -239,21 +238,21 @@ export const useGroupRecruits = () => {
 
       // Build lookup from accessibleReps to get team info
       const accessibleRepsMap = new Map(
-        accessibleReps.map(ar => [ar.notionPageId, ar])
+        accessibleReps.map(ar => [ar.id, ar])
       );
 
       // Transform reps to match expected Recruit interface, enriching with team info
       let recruits: Recruit[] = (repsData || []).map((r: any) => {
-        const accessibleRepInfo = accessibleRepsMap.get(r.notion_page_id);
+        const accessibleRepInfo = accessibleRepsMap.get(r.id);
         
         return {
-          id: r.id, // Supabase UUID
-          notionPageId: r.notion_page_id || r.id, // Fallback to id if no notion_page_id
+          id: r.id, // Supabase UUID - primary identifier
+          notionPageId: r.id, // Now using Supabase ID (backwards compat field)
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
-          recruiterNotionId: leaderNotionId,
+          recruiterNotionId: leaderId,
           recruiterName: r.recruiter || null,
           recruiterUserId: null,
           // Enrich with team info from accessibleReps
@@ -283,18 +282,18 @@ export const useGroupRecruits = () => {
       });
 
       // Exclude the current user from the recruits list
-      recruits = recruits.filter(r => r.notionPageId !== leaderNotionId);
+      recruits = recruits.filter(r => r.id !== leaderId);
 
       console.log('[useGroupRecruits] Fetched', recruits.length, 'recruits from Supabase');
 
-      // Fetch activities for these recruits
+      // Fetch activities for these recruits using recruit_id
       let activities: RecruitActivity[] = [];
       if (recruits.length > 0) {
-        const recruitNotionIds = recruits.map(r => r.notionPageId);
+        const recruitIds = recruits.map(r => r.id);
         const { data: activityData } = await supabase
           .from('recruit_activities')
           .select('*')
-          .in('rep_notion_page_id', recruitNotionIds)
+          .in('recruit_id', recruitIds)
           .order('created_at', { ascending: false })
           .limit(500);
         
@@ -310,8 +309,9 @@ export const useGroupRecruits = () => {
         for (const a of activities) {
           if (a.activity_type !== 'next_step') continue;
           if (!a.next_action && !a.next_action_due) continue;
-          if (!nextStepByRecruit.has(a.rep_notion_page_id)) {
-            nextStepByRecruit.set(a.rep_notion_page_id, {
+          const recruitId = a.recruit_id;
+          if (recruitId && !nextStepByRecruit.has(recruitId)) {
+            nextStepByRecruit.set(recruitId, {
               nextAction: a.next_action ?? null,
               nextActionDue: a.next_action_due ?? null,
             });
@@ -320,7 +320,7 @@ export const useGroupRecruits = () => {
 
         if (nextStepByRecruit.size > 0) {
           recruits = recruits.map(r => {
-            const ns = nextStepByRecruit.get(r.notionPageId);
+            const ns = nextStepByRecruit.get(r.id);
             if (!ns) return r;
             return {
               ...r,
@@ -331,18 +331,17 @@ export const useGroupRecruits = () => {
         }
       }
 
-      // Fetch pending suggestions for this leader
+      // Fetch pending suggestions for this leader (using team_leader_user_id)
       let pendingSuggestions: RecruitSuggestion[] = [];
-      if (leaderNotionId) {
-        const { data: suggestions } = await supabase
-          .from('recruit_suggestions')
-          .select('*')
-          .eq('team_leader_notion_id', leaderNotionId)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: false });
-        
-        pendingSuggestions = (suggestions || []) as RecruitSuggestion[];
-      }
+      const { data: suggestions } = await supabase
+        .from('recruit_suggestions')
+        .select('*')
+        .eq('team_leader_user_id', session.user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      pendingSuggestions = (suggestions || []) as RecruitSuggestion[];
+
 
       // Cache successful result
       localStorage.setItem(CACHE_KEY, JSON.stringify({
