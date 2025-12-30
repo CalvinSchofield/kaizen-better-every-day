@@ -135,7 +135,6 @@ export const DetailsTab = ({
         name: recruit.name,
         email: recruit.email,
         phone: recruit.phone || null,
-        notion_page_id: recruit.notionPageId || null,
         stage: recruit.stage || 'Signed',
         year: 'Rookie',
         team_leader: teamLeaderName,
@@ -154,7 +153,7 @@ export const DetailsTab = ({
       if (error) throw error;
       
       toast.success(`App account created for ${recruitFirstName}! They can now sign up.`);
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error: any) {
       console.error('Failed to create app account:', error);
@@ -333,7 +332,7 @@ export const DetailsTab = ({
           onOpenChange={setDeleteDrawerOpen}
           recruitId={recruit.id}
           recruitName={recruit.name}
-          recruitNotionPageId={recruit.notionPageId}
+          recruitNotionPageId={recruit.id}
           onDeleted={onDeleted}
         />
       )}
@@ -355,7 +354,7 @@ const IpadAssignmentCard = ({
   
   const handleToggle = async (checked: boolean) => {
     // Optimistic update
-    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+    queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
       old ? { ...old, ipad_assigned: checked } : old
     );
     
@@ -363,7 +362,7 @@ const IpadAssignmentCard = ({
       const { error: supabaseError } = await supabase
         .from('reps')
         .update({ ipad_assigned: checked })
-        .eq('id', recruit.notionPageId);
+        .eq('id', recruit.id);
       
       if (supabaseError) throw supabaseError;
       
@@ -371,14 +370,14 @@ const IpadAssignmentCard = ({
       if (session) {
         await supabase.functions.invoke('update-rookie-status', {
           headers: { Authorization: `Bearer ${session.access_token}` },
-          body: { rookieNotionPageId: recruit.notionPageId, ipadAssigned: checked },
+          body: { rookieId: recruit.id, ipadAssigned: checked },
         });
       }
       
       toast.success(checked ? 'iPad assigned' : 'iPad unassigned');
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
     } catch (error) {
-      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+      queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
         old ? { ...old, ipad_assigned: !checked } : old
       );
       toast.error("Couldn't update iPad status");
@@ -434,7 +433,7 @@ const BlitzManagementSection = ({
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_id', recruit.notionPageId);
+        .eq('rep_id', recruit.id);
       
       if (error) return [];
       return data.map(d => d.blitz_id);
@@ -484,14 +483,14 @@ const BlitzManagementSection = ({
   const declinedFutureCount = futureBlitzes.filter(b => declinedBlitzIds.includes(b.id) && !isBlitzCommitted(b)).length;
   
   const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
-    if (!recruit?.notionPageId) return;
+    if (!recruit?.id) return;
     
     setIsUpdating(blitzId);
     const newCommittedBlitzIds = isCurrentlyCommitted
       ? committedBlitzIds.filter(id => id !== blitzId)
       : [...committedBlitzIds, blitzId];
     
-    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+    queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
       old ? { ...old, committed_blitzes: newCommittedBlitzIds } : old
     );
     
@@ -502,7 +501,7 @@ const BlitzManagementSection = ({
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          repId: recruit.notionPageId, // notionPageId is actually the rep UUID now
+          repId: recruit.id,
           blitzPageIds: newCommittedBlitzIds,
         },
       });
@@ -512,10 +511,10 @@ const BlitzManagementSection = ({
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       // Clear declined status if committing
       if (!isCurrentlyCommitted) {
-        queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.notionPageId] });
+        queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.id] });
       }
     } catch (error) {
-      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => 
+      queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
         old ? { ...old, committed_blitzes: committedBlitzIds } : old
       );
       toast.error("Couldn't update blitz commitment");

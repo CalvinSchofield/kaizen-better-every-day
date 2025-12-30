@@ -97,7 +97,7 @@ const MyGroup = () => {
   const [assignedTasksDrawerOpen, setAssignedTasksDrawerOpen] = useState(false);
   const [contactingRecruit, setContactingRecruit] = useState<Recruit | null>(null);
   const [heroAnimatingOut, setHeroAnimatingOut] = useState(false);
-  const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ notionPageId: string; name: string } | null>(null);
+  const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ id: string; name: string } | null>(null);
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
   const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
   
@@ -155,7 +155,7 @@ const MyGroup = () => {
   const activities = groupData?.activities || [];
 
   // Subscribe to realtime updates for recruit activities, suggestions, and rep data
-  const recruitIds = useMemo(() => allRecruits.map(r => r.notionPageId), [allRecruits]);
+  const recruitIds = useMemo(() => allRecruits.map(r => r.id), [allRecruits]);
   useRecruitActivitiesRealtime(recruitIds);
   useRecruitSuggestionsRealtime(currentUserRep?.id || null);
   useRepsRealtime(recruitIds);
@@ -165,11 +165,11 @@ const MyGroup = () => {
 
   // Fetch rep data for training progress tracking
   const { data: recruitsRepData } = useQuery({
-    queryKey: ['recruits-rep-data', allRecruits.map(r => r.notionPageId).join(',')],
+    queryKey: ['recruits-rep-data', allRecruits.map(r => r.id).join(',')],
     queryFn: async () => {
       if (allRecruits.length === 0) return [];
       
-      const recruitIds = allRecruits.map(r => r.notionPageId);
+      const recruitIds = allRecruits.map(r => r.id);
       const { data } = await supabase
         .from('reps')
         .select('id, user_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
@@ -291,7 +291,7 @@ const MyGroup = () => {
         const goals = recruitsGoalsData.find(g => g.user_id === rep.user_id);
         const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
         const entries = summerEntriesData?.filter(e => e.user_id === rep.user_id) || [];
-        const recruit = allRecruits.find(r => r.notionPageId === rep.id);
+        const recruit = allRecruits.find(r => r.id === rep.id);
         
         const totalFp = entries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
         const knockingDays = entries.filter(e => 
@@ -406,7 +406,7 @@ const MyGroup = () => {
     const byName = new Map<string, string>();
     base.forEach(r => {
       const k = normalize(r.name);
-      if (k && !byName.has(k)) byName.set(k, r.notionPageId);
+      if (k && !byName.has(k)) byName.set(k, r.id);
     });
 
     const depthById = new Map<string, number>();
@@ -424,8 +424,8 @@ const MyGroup = () => {
         const recruiterKey = normalize(r.recruiterName);
         if (!recruiterKey || !frontier.has(recruiterKey)) continue;
 
-        if (!depthById.has(r.notionPageId)) {
-          depthById.set(r.notionPageId, depth + 1);
+        if (!depthById.has(r.id)) {
+          depthById.set(r.id, depth + 1);
           const childKey = normalize(r.name);
           if (childKey) next.add(childKey);
         }
@@ -435,7 +435,7 @@ const MyGroup = () => {
     }
 
     return base.map((r): Recruit => {
-      const d = depthById.get(r.notionPageId);
+      const d = depthById.get(r.id);
       const lineage: Recruit['recruiterLineage'] =
         d === 1 ? 'direct' : d != null && d >= 2 ? 'downline' : null;
       return { ...r, recruiterDepth: d ?? null, recruiterLineage: lineage };
@@ -523,7 +523,7 @@ const MyGroup = () => {
     // recruitsLoading being false means activities are loaded from the initial query
     if (!dismissedLoaded || recruitsLoading) return [];
     return rawRecommendations.filter(r => 
-      !isRecuitDismissed(r.recruit.notionPageId) && !isSkipped(r.recruit.notionPageId)
+      !isRecuitDismissed(r.recruit.id) && !isSkipped(r.recruit.id)
     );
   }, [rawRecommendations, isRecuitDismissed, isSkipped, dismissedLoaded, recruitsLoading]);
 
@@ -555,8 +555,8 @@ const MyGroup = () => {
       if (isPast(dueDate) && !isDateToday(dueDate)) {
         const recruit = filteredRecruits.find(r => r.id === rId);
         if (recruit && 
-            !isSkipped(recruit.notionPageId) && 
-            !isRecuitDismissed(recruit.notionPageId)) {
+            !isSkipped(recruit.id) && 
+            !isRecuitDismissed(recruit.id)) {
           overdueItems.push({
             recruit,
             activity,
@@ -580,8 +580,8 @@ const MyGroup = () => {
     // Flatten all recruits from all categories and filter out skipped ones
     for (const category of categories) {
       for (const attentionRecruit of category.recruits) {
-        if (!isSkipped(attentionRecruit.recruit.notionPageId) && 
-            !isRecuitDismissed(attentionRecruit.recruit.notionPageId)) {
+        if (!isSkipped(attentionRecruit.recruit.id) && 
+            !isRecuitDismissed(attentionRecruit.recruit.id)) {
           return attentionRecruit;
         }
       }
@@ -623,8 +623,8 @@ const MyGroup = () => {
       setHeroAnimatingOut(true);
       const recruit = contactingRecruit;
       setTimeout(() => {
-        dismissRecruit(recruit.notionPageId);
-        setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
+        dismissRecruit(recruit.id);
+        setLastDismissedRecruit({ id: recruit.id, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
         setUndoBannerMessage(`Contact logged for ${recruit.name || 'recruit'}`);
@@ -642,8 +642,8 @@ const MyGroup = () => {
       setHeroAnimatingOut(true);
       const recruit = contactingRecruit;
       setTimeout(() => {
-        dismissRecruit(recruit.notionPageId);
-        setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
+        dismissRecruit(recruit.id);
+        setLastDismissedRecruit({ id: recruit.id, name: recruit.name || 'Recruit' });
         setHeroAnimatingOut(false);
         setContactingRecruit(null);
         setUndoBannerMessage(`Follow-up scheduled for ${recruit.name || 'recruit'}`);
@@ -654,7 +654,7 @@ const MyGroup = () => {
   // Handle undo from banner
   const handleUndoDismiss = useCallback(() => {
     if (lastDismissedRecruit) {
-      undismissRecruit(lastDismissedRecruit.notionPageId);
+      undismissRecruit(lastDismissedRecruit.id);
       setLastDismissedRecruit(null);
     }
     setUndoBannerMessage(null);
@@ -667,8 +667,8 @@ const MyGroup = () => {
 
   // Handle dismissal from WeekPlannerSection recommendations
   const handleWeekPlannerDismiss = useCallback((recruit: Recruit, message: string) => {
-    dismissRecruit(recruit.notionPageId);
-    setLastDismissedRecruit({ notionPageId: recruit.notionPageId, name: recruit.name || 'Recruit' });
+    dismissRecruit(recruit.id);
+    setLastDismissedRecruit({ id: recruit.id, name: recruit.name || 'Recruit' });
     setUndoBannerMessage(message);
   }, [dismissRecruit]);
 
@@ -689,7 +689,7 @@ const MyGroup = () => {
     
     // Check both id and notionPageId since new recruits use Supabase id
     const newRecruit = allRecruits.find(r => 
-      r.notionPageId === pendingNewRecruitId || r.id === pendingNewRecruitId
+      r.id === pendingNewRecruitId
     );
     if (newRecruit) {
       // Found the newly created recruit, open detail drawer
@@ -780,14 +780,14 @@ const MyGroup = () => {
               totalNeedsAttention={totalCount}
               onRecruitClick={handleRecruitClick}
               onSummerRepClick={(notionPageId) => {
-                const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+                const recruit = allRecruits.find(r => r.id === notionPageId);
                 if (recruit) setSelectedRecruit(recruit);
               }}
               onViewAll={() => setQuickViewOpen(true)}
               onContactClick={handleHeroContact}
               onScheduleClick={handleHeroSchedule}
-              onSkipForNow={(recruit) => skipForNow(recruit.notionPageId)}
-              onSkipToday={(recruit) => skipToday(recruit.notionPageId)}
+              onSkipForNow={(recruit) => skipForNow(recruit.id)}
+              onSkipToday={(recruit) => skipToday(recruit.id)}
               animatingOut={heroAnimatingOut}
             />
 
@@ -827,8 +827,8 @@ const MyGroup = () => {
               dismissedIds={dismissedIds}
               onDismiss={handleWeekPlannerDismiss}
               recommendations={recommendations.slice(1)}
-              onSkipForNow={(recruit) => skipForNow(recruit.notionPageId)}
-              onSkipToday={(recruit) => skipToday(recruit.notionPageId)}
+              onSkipForNow={(recruit) => skipForNow(recruit.id)}
+              onSkipToday={(recruit) => skipToday(recruit.id)}
             />
 
             {/* Pending Suggestions */}
@@ -973,7 +973,7 @@ const MyGroup = () => {
         onExitStage={(notionPageId) => {
           // Dismiss the recruit from hero/recommendations when moved to exit stage
           dismissRecruit(notionPageId);
-          setLastDismissedRecruit({ notionPageId, name: selectedRecruit?.name || 'Recruit' });
+          setLastDismissedRecruit({ id: notionPageId, name: selectedRecruit?.name || 'Recruit' });
           setSelectedRecruit(null);
         }}
       />
@@ -1042,7 +1042,7 @@ const MyGroup = () => {
         onOpenChange={setAssignedTasksDrawerOpen}
         tasks={assignedTasks}
         onRecruitClick={(notionPageId) => {
-          const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+          const recruit = allRecruits.find(r => r.id === notionPageId);
           if (recruit) handleRecruitClick(recruit);
         }}
       />
@@ -1053,7 +1053,7 @@ const MyGroup = () => {
         onOpenChange={setGoalsPaceDrawerOpen}
         reps={goalsPaceData}
         onRepClick={(notionPageId) => {
-          const recruit = allRecruits.find(r => r.notionPageId === notionPageId);
+          const recruit = allRecruits.find(r => r.id === notionPageId);
           if (recruit) {
             setGoalsPaceDrawerOpen(false);
             setSelectedRecruit(recruit);
