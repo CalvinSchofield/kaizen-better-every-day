@@ -283,6 +283,71 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
                   </p>
                 </label>
               </div>
+
+              {/* Street Genie Videos - Collapsible */}
+              <Collapsible className="mt-3 ml-6">
+                <CollapsibleTrigger className="flex items-center gap-2 text-primary text-sm hover:underline">
+                  <Video className="w-3 h-3" />
+                  <span>Street Genie Training Videos</span>
+                  <ChevronDown className="w-3 h-3 transition-transform [[data-state=open]>&]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 space-y-4" onClick={(e) => e.stopPropagation()}>
+                  {/* Essential Video */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-primary text-primary-foreground text-xs">MUST WATCH</Badge>
+                      <span className="text-sm font-medium">How to use Street Genie to prospect</span>
+                    </div>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src="https://www.youtube.com/embed/ig_9Pvg1SqE"
+                        title="How to use Street Genie to prospect"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="border-0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Deep Dive Videos - Nested Collapsible */}
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-sm">
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="font-medium">➕ BONUS — Deep Dive Videos</span>
+                        <span className="text-xs text-muted-foreground">
+                          Highly recommend watching these before getting on the doors yourself ({streetGenieWatchedCount}/{STREET_GENIE_VIDEOS.length} watched)
+                        </span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 space-y-2">
+                      {STREET_GENIE_VIDEOS.map((video) => (
+                        <div
+                          key={video.id}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 text-sm"
+                        >
+                          <Checkbox
+                            id={video.id}
+                            checked={streetGenieVideosWatched[video.id] || false}
+                            onCheckedChange={() => handleToggleStreetGenieVideo(video.id)}
+                            className="flex-shrink-0"
+                          />
+                          <a
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 hover:text-primary transition-colors"
+                          >
+                            {video.title}
+                          </a>
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* 2. Tiled */}
@@ -452,84 +517,28 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
             </div>
           )}
 
-          {/* Optional Videos Section */}
-          <div className="border-t pt-3 mt-3">
-            <p className="text-xs text-muted-foreground mb-3 font-medium">Optional Deep Dive Videos</p>
-            <div className="space-y-4">
-              {/* Street Genie Video */}
+          {/* iOS Work Mode Video - Only show on iPhone PWA */}
+          {isIPhonePWA && (
+            <div className="border-t pt-3 mt-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium">How to use Street Genie to prospect</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">iOS Work Mode Setup</p>
+                  <Badge variant="outline" className="text-xs">iOS</Badge>
+                </div>
                 <div className="aspect-video rounded-lg overflow-hidden bg-muted">
                   <iframe
                     width="100%"
                     height="100%"
-                    src="https://www.youtube.com/embed/ig_9Pvg1SqE"
-                    title="How to use Street Genie to prospect"
+                    src="https://www.youtube.com/embed/KLu5xYUkMwo"
+                    title="iOS Work Mode Setup"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                     className="border-0"
                   />
                 </div>
               </div>
-
-              {/* iOS Work Mode Video - Only show on iPhone PWA */}
-              {isIPhonePWA && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">iOS Work Mode Setup</p>
-                    <Badge variant="outline" className="text-xs">iOS</Badge>
-                  </div>
-                  <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      src="https://www.youtube.com/embed/KLu5xYUkMwo"
-                      title="iOS Work Mode Setup"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="border-0"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Street Genie Walkthrough Videos - Collapsible with Checkboxes */}
-              <Collapsible>
-                <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors text-sm">
-                  <div className="flex flex-col items-start gap-0.5">
-                    <span className="font-medium">Street Genie Deep Dive</span>
-                    <span className="text-xs text-muted-foreground">
-                      {streetGenieWatchedCount}/{STREET_GENIE_VIDEOS.length} optional videos watched
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2 space-y-2">
-                  {STREET_GENIE_VIDEOS.map((video) => (
-                    <div
-                      key={video.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 text-sm"
-                    >
-                      <Checkbox
-                        id={video.id}
-                        checked={streetGenieVideosWatched[video.id] || false}
-                        onCheckedChange={() => handleToggleStreetGenieVideo(video.id)}
-                        className="flex-shrink-0"
-                      />
-                      <a
-                        href={video.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 hover:text-primary transition-colors"
-                      >
-                        {video.title}
-                      </a>
-                    </div>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
             </div>
-          </div>
+          )}
 
           {!ipadReady && (
             <Button 
