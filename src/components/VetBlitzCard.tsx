@@ -703,7 +703,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       const { error } = await supabase.functions.invoke('toggle-blitz-invite', {
         body: {
           blitzId,
-          repNotionPageId: memberId,
+          repId: memberId,
           isContacted: !isContacted,
         },
       });
@@ -738,7 +738,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId,
-          repNotionPageId: memberId,
+          repId: memberId,
           isDeclined: !isDeclined,
         },
       });
