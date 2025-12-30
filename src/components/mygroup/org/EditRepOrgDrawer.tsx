@@ -96,9 +96,7 @@ export const EditRepOrgDrawer = ({
         .select("user_id, name")
         .not("user_id", "is", null);
       
-      if (rep.notionPageId) {
-        query = query.eq("notion_page_id", rep.notionPageId);
-      } else if (rep.email) {
+      if (rep.email) {
         query = query.ilike("email", rep.email);
       } else {
         return null;

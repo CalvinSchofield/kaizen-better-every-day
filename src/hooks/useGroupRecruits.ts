@@ -282,15 +282,17 @@ export const useGroupRecruits = () => {
       console.log('[useGroupRecruits] Found', filteredGhostRecruits.length, 'additional ghost recruits from recruits table');
 
       // Get matching recruit records to get additional CRM data (team_id, mgmt_group_id, etc.)
-      // Match by email since that's the linkage
+      // Match by email OR name since some reps don't have emails
       const repEmails = filteredReps.map((r: any) => r.email?.toLowerCase()).filter(Boolean);
-      let recruitsByEmail = new Map<string, any>();
+      const repNames = filteredReps.map((r: any) => r.name).filter(Boolean);
+      let recruitsByKey = new Map<string, any>();
       
+      // Fetch by email first
       if (repEmails.length > 0) {
         const { data: matchingRecruits } = await supabase
           .from('recruits')
           .select(`
-            id, email, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            id, email, name, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
             teams:team_id(id, name),
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
@@ -299,7 +301,32 @@ export const useGroupRecruits = () => {
         
         for (const recruit of matchingRecruits || []) {
           if (recruit.email) {
-            recruitsByEmail.set(recruit.email.toLowerCase(), recruit);
+            recruitsByKey.set(`email:${recruit.email.toLowerCase()}`, recruit);
+          }
+          // Also index by name for fallback matching
+          if (recruit.name) {
+            recruitsByKey.set(`name:${recruit.name.toLowerCase()}`, recruit);
+          }
+        }
+      }
+      
+      // Fetch by name for reps without emails (ghost reps)
+      const repsWithoutEmail = filteredReps.filter((r: any) => !r.email && r.name);
+      if (repsWithoutEmail.length > 0) {
+        const namesWithoutEmail = repsWithoutEmail.map((r: any) => r.name);
+        const { data: nameMatchedRecruits } = await supabase
+          .from('recruits')
+          .select(`
+            id, email, name, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            teams:team_id(id, name),
+            mgmt_groups:mgmt_group_id(id, name),
+            recruiter:recruiter_user_id(id, name, user_id)
+          `)
+          .in('name', namesWithoutEmail);
+        
+        for (const recruit of nameMatchedRecruits || []) {
+          if (recruit.name) {
+            recruitsByKey.set(`name:${recruit.name.toLowerCase()}`, recruit);
           }
         }
       }
@@ -307,15 +334,15 @@ export const useGroupRecruits = () => {
       // Also add ghost recruits to the map (they ARE the recruit record)
       for (const ghostRecruit of filteredGhostRecruits) {
         if (ghostRecruit.email) {
-          recruitsByEmail.set(ghostRecruit.email.toLowerCase(), ghostRecruit);
-        } else {
-          // For ghost recruits without email, use id as key
-          recruitsByEmail.set(`id:${ghostRecruit.id}`, ghostRecruit);
+          recruitsByKey.set(`email:${ghostRecruit.email.toLowerCase()}`, ghostRecruit);
+        }
+        if (ghostRecruit.name) {
+          recruitsByKey.set(`name:${ghostRecruit.name.toLowerCase()}`, ghostRecruit);
         }
       }
 
       // Get blitz commitments for recruits that have matching records
-      const recruitIds = Array.from(recruitsByEmail.values()).map(r => r.id);
+      const recruitIds = Array.from(recruitsByKey.values()).map((r: any) => r.id);
       let blitzesByRecruit = new Map<string, BlitzCommitment[]>();
       
       if (recruitIds.length > 0) {
@@ -344,7 +371,10 @@ export const useGroupRecruits = () => {
       // Transform reps to match expected Recruit interface
       let recruits: Recruit[] = filteredReps.map((r: any) => {
         const accessibleRepInfo = accessibleRepsMap.get(r.user_id);
-        const matchingRecruit = r.email ? recruitsByEmail.get(r.email.toLowerCase()) : null;
+        // Try email match first, then fall back to name match
+        const matchingRecruit = r.email 
+          ? recruitsByKey.get(`email:${r.email.toLowerCase()}`) 
+          : recruitsByKey.get(`name:${r.name?.toLowerCase()}`);
         
         // Use recruit record ID if available (for activity linking), otherwise use rep ID
         const primaryId = matchingRecruit?.id || r.id;
