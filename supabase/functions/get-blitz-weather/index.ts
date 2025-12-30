@@ -35,16 +35,25 @@ serve(async (req) => {
 
     // Open-Meteo free API only provides ~16 days of forecast.
     // Clamp requested dates to the available forecast window so we don't return 500s.
+    // Use string manipulation to avoid timezone issues with Date objects
     const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+    
+    // Parse YYYY-MM-DD strings as UTC dates to avoid timezone shifting
+    const parseAsUTC = (dateStr: string): Date => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day));
+    };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get today in UTC
+    const nowUTC = new Date();
+    const todayUTC = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), nowUTC.getUTCDate()));
 
-    const maxForecastDate = new Date(today);
-    maxForecastDate.setDate(maxForecastDate.getDate() + 16);
+    // Open-Meteo allows up to 16 days forecast, but use 15 to be safe
+    const maxForecastDate = new Date(todayUTC);
+    maxForecastDate.setUTCDate(maxForecastDate.getUTCDate() + 15);
 
-    const requestedStartDate = new Date(startDate);
-    const requestedEndDate = new Date(endDate);
+    const requestedStartDate = parseAsUTC(startDate);
+    const requestedEndDate = parseAsUTC(endDate);
 
     if (
       Number.isNaN(requestedStartDate.getTime()) ||
@@ -69,7 +78,7 @@ serve(async (req) => {
       );
     }
 
-    const startDateForRequestDate = requestedStartDate < today ? today : requestedStartDate;
+    const startDateForRequestDate = requestedStartDate < todayUTC ? todayUTC : requestedStartDate;
 
     // If even the (clamped) start is beyond the forecast horizon, return a friendly empty result.
     if (startDateForRequestDate > maxForecastDate) {
@@ -85,10 +94,13 @@ serve(async (req) => {
       );
     }
 
+    // Clamp end date to max forecast date
     const endDateForRequestDate = requestedEndDate > maxForecastDate ? maxForecastDate : requestedEndDate;
 
     const startDateForRequest = toISODate(startDateForRequestDate);
     const endDateForRequest = toISODate(endDateForRequestDate);
+    
+    console.log(`Date clamping: requested ${startDate} to ${endDate}, using ${startDateForRequest} to ${endDateForRequest}, max=${toISODate(maxForecastDate)}`);
 
     const forecastMessage = requestedEndDate > maxForecastDate
       ? `Forecast only available through ${endDateForRequest}`
