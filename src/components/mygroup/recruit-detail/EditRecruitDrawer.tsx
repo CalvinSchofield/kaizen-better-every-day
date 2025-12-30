@@ -275,8 +275,7 @@ export const EditRecruitDrawer = ({
       const { data, error } = await supabase.functions.invoke('update-recruit-properties', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          recruitNotionPageId: recruit.notionPageId,
-          recruiterOptions: notionOptions?.recruiterOptions || [],
+          recruitId: recruit.id,
           ...updates,
         },
       });
@@ -287,7 +286,7 @@ export const EditRecruitDrawer = ({
     onSuccess: () => {
       toast.success('Recruit updated');
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-detail-live', recruit.id] });
       onSuccess?.();
       onOpenChange(false);
     },
@@ -310,10 +309,9 @@ export const EditRecruitDrawer = ({
       stage,
       location,
       recruitmentSource,
-      recruiter: selectedRecruiter?.name || '',
       recruiterUserId,
-      teamsIds: selectedTeamId ? [selectedTeamId] : [],
-      mgmtIds: selectedMgmtId ? [selectedMgmtId] : [],
+      teamId: selectedTeamId || null,
+      mgmtGroupId: selectedMgmtId || null,
     });
   };
 
