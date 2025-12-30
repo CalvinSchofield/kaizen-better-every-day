@@ -501,7 +501,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           blitzPageIds: newCommittedIds,
         },
       });
@@ -561,7 +561,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           blitzPageIds: newCommittedIds,
         },
       });

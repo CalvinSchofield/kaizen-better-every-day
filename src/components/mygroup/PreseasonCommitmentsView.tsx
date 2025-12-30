@@ -186,7 +186,7 @@ const RookieBlitzCard = ({ rookie, blitzes }: RookieBlitzCardProps) => {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          repNotionPageId: rookie.notionPageId,
+          repId: rookie.notionPageId, // notionPageId is actually the rep UUID now
           blitzPageIds: newCommittedBlitzes,
         },
       });
