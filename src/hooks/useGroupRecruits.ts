@@ -164,115 +164,133 @@ export const useGroupRecruits = () => {
       
       console.log('[useGroupRecruits] Running query with accessLevel:', accessLevel, 'accessibleReps count:', accessibleReps.length);
 
-      // Get the current user's rep ID
+      // Get the current user's rep record
       const { data: currentRep } = await supabase
         .from('reps')
-        .select('id')
+        .select('id, user_id')
         .eq('user_id', session.user.id)
         .maybeSingle();
       
-      const leaderId = currentRep?.id;
-      
-      if (!leaderId) {
+      if (!currentRep?.id) {
         return { recruits: [], activities: [], pendingSuggestions: [] };
       }
 
-      // Get accessible rep IDs from team access
-      const accessibleIds = accessibleReps
-        .map(r => r.id)
-        .filter(Boolean);
+      // Build lookup from accessibleReps to get team info (by user_id)
+      const accessibleRepsMap = new Map(
+        accessibleReps.filter(ar => ar.userId).map(ar => [ar.userId, ar])
+      );
 
-      // Query recruits directly from reps table (source of truth)
-      let repsQuery = supabase
-        .from('reps')
+      // Query recruits from the recruits table (activities reference this table)
+      // RLS on recruits table handles access control automatically
+      const { data: recruitsData, error: recruitsError } = await supabase
+        .from('recruits')
         .select(`
           id,
-          user_id,
           name,
           phone,
           email,
           stage,
           year,
-          recruiter,
-          team_leader,
-          ramp_to_blitz_phase,
+          location,
+          recruitment_source,
+          last_contact,
+          next_action,
+          next_action_due,
+          recruiter_user_id,
+          team_id,
+          mgmt_group_id,
+          onboarding_complete,
+          trainings_complete,
+          slack_joined,
           ramp_phase_1_complete,
           ramp_phase_2_complete,
           ramp_phase_3_complete,
           ramp_phase_4_complete,
-          onboarding_complete,
-          trainings_complete,
-          slack_joined,
           ipad_assigned,
           blitz_ready,
-          committed_blitzes,
-          created_at,
-          updated_at
+          created_at
         `)
-        .in('stage', RECRUITING_STAGES);
+        .in('stage', RECRUITING_STAGES)
+        .order('created_at', { ascending: false });
 
-      // Filter by accessible rep IDs (from team access)
-      // All leaders use the same filter - team access already handles permissions and excludes self
-      if (accessibleIds.length > 0) {
-        repsQuery = repsQuery.in('id', accessibleIds);
-      } else {
-        // No accessible reps means no results
-        return { recruits: [], activities: [], pendingSuggestions: [] };
+      if (recruitsError) {
+        console.error('Error fetching recruits:', recruitsError);
+        throw recruitsError;
       }
 
-      const { data: repsData, error: repsError } = await repsQuery;
-
-      if (repsError) {
-        console.error('Error fetching reps:', repsError);
-        throw repsError;
+      // Also get blitz commitments for these recruits
+      const recruitIds = (recruitsData || []).map(r => r.id);
+      let blitzesByRecruit = new Map<string, BlitzCommitment[]>();
+      
+      if (recruitIds.length > 0) {
+        const { data: recruitBlitzes } = await supabase
+          .from('recruit_blitzes')
+          .select('recruit_id, blitzes(id, name, date, end_date, location)')
+          .in('recruit_id', recruitIds);
+        
+        for (const rb of recruitBlitzes || []) {
+          if (!blitzesByRecruit.has(rb.recruit_id)) {
+            blitzesByRecruit.set(rb.recruit_id, []);
+          }
+          const blitz = rb.blitzes as any;
+          if (blitz) {
+            blitzesByRecruit.get(rb.recruit_id)!.push({
+              id: blitz.id,
+              name: blitz.name,
+              date: blitz.date,
+              endDate: blitz.end_date || null,
+              location: blitz.location || null,
+            });
+          }
+        }
       }
 
-      // Parse committed blitzes from JSON field in reps table
-      const parseCommittedBlitzes = (blitzesJson: any): BlitzCommitment[] => {
-        if (!blitzesJson || !Array.isArray(blitzesJson)) return [];
-        return blitzesJson.map((b: any) => ({
-          id: b.id || b.blitzId || '',
-          name: b.name || b.blitzName || '',
-          date: b.date || b.startDate || '',
-          endDate: b.endDate || b.end_date || null,
-          location: b.location || null,
-        }));
-      };
+      // Get all unique recruiter user IDs to fetch their names
+      const recruiterUserIds = [...new Set((recruitsData || []).map(r => r.recruiter_user_id).filter(Boolean))];
+      
+      let recruiterMap = new Map<string, { id: string; name: string }>();
+      if (recruiterUserIds.length > 0) {
+        const { data: recruiters } = await supabase
+          .from('reps')
+          .select('id, user_id, name')
+          .in('user_id', recruiterUserIds);
+        
+        for (const r of recruiters || []) {
+          if (r.user_id) {
+            recruiterMap.set(r.user_id, { id: r.id, name: r.name });
+          }
+        }
+      }
 
-      // Build lookup from accessibleReps to get team info
-      const accessibleRepsMap = new Map(
-        accessibleReps.map(ar => [ar.id, ar])
-      );
-
-      // Transform reps to match expected Recruit interface, enriching with team info
-      let recruits: Recruit[] = (repsData || []).map((r: any) => {
-        const accessibleRepInfo = accessibleRepsMap.get(r.id);
+      // Transform recruits to match expected Recruit interface
+      let recruits: Recruit[] = (recruitsData || []).map((r: any) => {
+        const accessibleRepInfo = accessibleRepsMap.get(r.recruiter_user_id);
+        const recruiter = recruiterMap.get(r.recruiter_user_id);
         
         return {
-          id: r.id, // Supabase UUID - primary identifier
+          id: r.id, // Supabase UUID from recruits table - this matches activity.recruit_id
           notionPageId: r.id, // @deprecated alias
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
-          recruiterId: leaderId,
-          recruiterNotionId: leaderId, // @deprecated alias
-          recruiterName: r.recruiter || null,
-          recruiterUserId: null,
-          // Enrich with team info from accessibleReps
+          recruiterId: recruiter?.id || null,
+          recruiterNotionId: recruiter?.id || null, // @deprecated alias
+          recruiterName: recruiter?.name || null,
+          recruiterUserId: r.recruiter_user_id,
           teamName: accessibleRepInfo?.teamName || null,
-          teamId: accessibleRepInfo?.teamId || null,
-          mgmtGroupId: accessibleRepInfo?.mgmtGroupId || null,
+          teamId: r.team_id || accessibleRepInfo?.teamId || null,
+          mgmtGroupId: r.mgmt_group_id || accessibleRepInfo?.mgmtGroupId || null,
           mgmtGroupName: accessibleRepInfo?.mgmtGroupName || null,
           year: r.year || '',
-          location: null,
-          recruitmentSource: null,
-          lastContact: null,
-          nextAction: null,
-          nextActionDue: null,
+          location: r.location || null,
+          recruitmentSource: r.recruitment_source || null,
+          lastContact: r.last_contact || null,
+          nextAction: r.next_action || null,
+          nextActionDue: r.next_action_due || null,
           createdAt: r.created_at || new Date().toISOString(),
-          committedBlitzes: parseCommittedBlitzes(r.committed_blitzes),
-          rampToBlitzPhase: r.ramp_to_blitz_phase,
+          committedBlitzes: blitzesByRecruit.get(r.id) || [],
+          rampToBlitzPhase: null, // Will enrich from activities
           phase1Complete: r.ramp_phase_1_complete ?? false,
           phase2Complete: r.ramp_phase_2_complete ?? false,
           phase3Complete: r.ramp_phase_3_complete ?? false,
@@ -285,15 +303,11 @@ export const useGroupRecruits = () => {
         };
       });
 
-      // Exclude the current user from the recruits list
-      recruits = recruits.filter(r => r.id !== leaderId);
+      console.log('[useGroupRecruits] Fetched', recruits.length, 'recruits from Supabase (recruits table)');
 
-      console.log('[useGroupRecruits] Fetched', recruits.length, 'recruits from Supabase');
-
-      // Fetch activities for these recruits using recruit_id
+      // Fetch activities for these recruits using recruit_id (now matching correctly)
       let activities: RecruitActivity[] = [];
       if (recruits.length > 0) {
-        const recruitIds = recruits.map(r => r.id);
         const { data: activityData } = await supabase
           .from('recruit_activities')
           .select('*')
