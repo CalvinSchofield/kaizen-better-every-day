@@ -546,18 +546,16 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     mutationFn: async (recruitData: {
       name: string;
       phone: string;
+      email?: string;
       location: string;
       recruitmentSource: string;
-      recruiterNotionId: string;
-      recruiterName?: string;
-      teamNotionId?: string;
-      mgmtNotionId?: string;
-      downlineNotionId?: string;
+      teamId?: string;
+      mgmtGroupId?: string;
     }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('create-notion-recruit', {
+      const { data, error } = await supabase.functions.invoke('create-recruit', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: recruitData,
       });
@@ -577,8 +575,8 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
       }
       
       // Notify parent about the newly created recruit (for auto-opening detail drawer)
-      if (onRecruitCreated && data.notionPageId) {
-        onRecruitCreated(data.notionPageId, data.name);
+      if (onRecruitCreated && data.recruitId) {
+        onRecruitCreated(data.recruitId, data.name);
       }
       
       resetForm();
@@ -723,19 +721,12 @@ export const AddRecruitDrawer = ({ open, onOpenChange, suggestionPrefill, onSugg
     // Clean phone number for storage
     const cleanPhone = phone.replace(/\D/g, '');
 
-    // Find recruiter name from allRecruiters
-    const selectedRecruiterData = allRecruiters?.find(r => r.notionPageId === recruiterNotionId);
-    const recruiterNameToSend = selectedRecruiterData?.name || suggestionPrefill?.suggestedByName;
-
     await createRecruitMutation.mutateAsync({
       name: name.trim(),
       phone: cleanPhone ? `+1${cleanPhone}` : '',
       location: finalLocation,
       recruitmentSource,
-      recruiterNotionId: recruiterNotionId!,
-      recruiterName: recruiterNameToSend,
-      teamNotionId: selectedTeam || undefined,
-      downlineNotionId: currentRep?.notion_page_id,
+      teamId: selectedTeam || undefined,
     });
   };
 
