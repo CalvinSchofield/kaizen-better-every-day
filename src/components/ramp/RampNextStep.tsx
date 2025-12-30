@@ -75,11 +75,13 @@ const isSelfServiceComplete = (
     return requiredWatched && goalsPartDone && blitzPartDone;
   }
   if (phaseId === 2) {
+    // Also consider "waiting on leader" as self-service complete
+    const pitchesDone = phase2Progress.pitchSubmitted || watchedVideos.includes('phase2-pitches-sent-waiting');
     return phase2Progress.productStudied && 
            phase2Progress.quizPassed && 
            phase2Progress.upgradesStudied && 
            phase2Progress.takeoverStudied && 
-           phase2Progress.pitchSubmitted;
+           pitchesDone;
   }
   if (phaseId === 3) {
     return phase3Progress.ipadReady && 
