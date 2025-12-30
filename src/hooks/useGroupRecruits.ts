@@ -244,13 +244,23 @@ export const useGroupRecruits = () => {
         // Area directors see all recruits
         const { data: allRecruits } = await supabase
           .from('recruits')
-          .select('id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at')
+          .select(`
+            id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
+            teams:team_id(id, name),
+            mgmt_groups:mgmt_group_id(id, name),
+            recruiter:recruiter_user_id(id, name, user_id)
+          `)
           .order('created_at', { ascending: false });
         ghostRecruits = allRecruits || [];
       } else if (accessibleTeamIds.length > 0) {
         const { data: teamRecruits } = await supabase
           .from('recruits')
-          .select('id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at')
+          .select(`
+            id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at,
+            teams:team_id(id, name),
+            mgmt_groups:mgmt_group_id(id, name),
+            recruiter:recruiter_user_id(id, name, user_id)
+          `)
           .in('team_id', accessibleTeamIds)
           .order('created_at', { ascending: false });
         ghostRecruits = teamRecruits || [];
@@ -279,7 +289,12 @@ export const useGroupRecruits = () => {
       if (repEmails.length > 0) {
         const { data: matchingRecruits } = await supabase
           .from('recruits')
-          .select('id, email, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due')
+          .select(`
+            id, email, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            teams:team_id(id, name),
+            mgmt_groups:mgmt_group_id(id, name),
+            recruiter:recruiter_user_id(id, name, user_id)
+          `)
           .in('email', repEmails);
         
         for (const recruit of matchingRecruits || []) {
@@ -334,6 +349,11 @@ export const useGroupRecruits = () => {
         // Use recruit record ID if available (for activity linking), otherwise use rep ID
         const primaryId = matchingRecruit?.id || r.id;
         
+        // Extract team/recruiter info from joined relations
+        const teamData = matchingRecruit?.teams as { id: string; name: string } | null;
+        const mgmtGroupData = matchingRecruit?.mgmt_groups as { id: string; name: string } | null;
+        const recruiterData = matchingRecruit?.recruiter as { id: string; name: string; user_id: string } | null;
+        
         return {
           id: primaryId, // Use recruit ID if available for activity linking
           notionPageId: primaryId, // @deprecated alias
@@ -341,14 +361,14 @@ export const useGroupRecruits = () => {
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
-          recruiterId: null, // Will be enriched from recruit record if available
-          recruiterNotionId: null, // @deprecated alias
-          recruiterName: r.recruiter || r.team_leader || null,
-          recruiterUserId: matchingRecruit?.recruiter_user_id || null,
-          teamName: accessibleRepInfo?.teamName || null,
+          recruiterId: recruiterData?.id || null,
+          recruiterNotionId: recruiterData?.id || null, // @deprecated alias
+          recruiterName: recruiterData?.name || r.recruiter || r.team_leader || null,
+          recruiterUserId: recruiterData?.user_id || matchingRecruit?.recruiter_user_id || null,
+          teamName: teamData?.name || accessibleRepInfo?.teamName || null,
           teamId: matchingRecruit?.team_id || accessibleRepInfo?.teamId || null,
           mgmtGroupId: matchingRecruit?.mgmt_group_id || accessibleRepInfo?.mgmtGroupId || null,
-          mgmtGroupName: accessibleRepInfo?.mgmtGroupName || null,
+          mgmtGroupName: mgmtGroupData?.name || accessibleRepInfo?.mgmtGroupName || null,
           year: r.year || '',
           location: matchingRecruit?.location || null,
           recruitmentSource: matchingRecruit?.recruitment_source || null,
@@ -375,6 +395,11 @@ export const useGroupRecruits = () => {
         // Find team info from accessibleReps if possible
         const teamInfo = accessibleReps.find(ar => ar.teamId === ghostRecruit.team_id);
         
+        // Extract team/recruiter info from joined relations
+        const teamData = ghostRecruit.teams as { id: string; name: string } | null;
+        const mgmtGroupData = ghostRecruit.mgmt_groups as { id: string; name: string } | null;
+        const recruiterData = ghostRecruit.recruiter as { id: string; name: string; user_id: string } | null;
+        
         recruits.push({
           id: ghostRecruit.id,
           notionPageId: ghostRecruit.id, // @deprecated alias
@@ -382,14 +407,14 @@ export const useGroupRecruits = () => {
           phone: ghostRecruit.phone || '',
           email: ghostRecruit.email || '',
           stage: canonicalizeStage(ghostRecruit.stage),
-          recruiterId: null,
-          recruiterNotionId: null,
-          recruiterName: null,
-          recruiterUserId: ghostRecruit.recruiter_user_id || null,
-          teamName: teamInfo?.teamName || null,
+          recruiterId: recruiterData?.id || null,
+          recruiterNotionId: recruiterData?.id || null, // @deprecated alias
+          recruiterName: recruiterData?.name || null,
+          recruiterUserId: recruiterData?.user_id || ghostRecruit.recruiter_user_id || null,
+          teamName: teamData?.name || teamInfo?.teamName || null,
           teamId: ghostRecruit.team_id || null,
           mgmtGroupId: ghostRecruit.mgmt_group_id || null,
-          mgmtGroupName: teamInfo?.mgmtGroupName || null,
+          mgmtGroupName: mgmtGroupData?.name || teamInfo?.mgmtGroupName || null,
           year: ghostRecruit.year || '',
           location: ghostRecruit.location || null,
           recruitmentSource: ghostRecruit.recruitment_source || null,
