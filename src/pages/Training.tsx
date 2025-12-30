@@ -8,6 +8,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { MotivationalVideoCarousel } from "@/components/MotivationalVideoCarousel";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAppMode } from "@/hooks/useAppMode";
 import { FreshDoorPitchGuide } from "@/components/training/FreshDoorPitchGuide";
 import { TakeoverPitchGuide } from "@/components/training/TakeoverPitchGuide";
 import { UpgradePitchGuide } from "@/components/training/UpgradePitchGuide";
@@ -40,6 +41,7 @@ const Training = () => {
   const { repData } = useRepData();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isInSummerPeriod } = useAppMode(repData);
   const [searchParams, setSearchParams] = useSearchParams();
   const [animateRecommended, setAnimateRecommended] = useState(false);
   const [previousStage, setPreviousStage] = useState<string | null>(null);
@@ -540,6 +542,29 @@ const Training = () => {
             </Card>
           );
         })}
+
+        {/* Ramp to Blitz for Vets/Sophomores - Only show until summer starts */}
+        {isVetOrSophomore && !isInSummerPeriod && (
+          <Card 
+            className="cursor-pointer border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 hover:border-primary/50 transition-all"
+            onClick={() => navigate("/ramp-to-blitz")}
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Rocket className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Ramp to Blitz</h3>
+                    <p className="text-sm text-muted-foreground">Review the preseason prep guide</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Sales Books Section with Checkboxes - Only for vets or phase 1+ rookies */}
         {showBooks && <BooksSection />}
