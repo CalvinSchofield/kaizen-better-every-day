@@ -490,7 +490,7 @@ const BlitzManagementSection = ({
       ? committedBlitzIds.filter(id => id !== blitzId)
       : [...committedBlitzIds, blitzId];
     
-    queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
+    queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
       old ? { ...old, committed_blitzes: newCommittedBlitzIds } : old
     );
     
@@ -509,12 +509,13 @@ const BlitzManagementSection = ({
       if (error) throw error;
       toast.success(isCurrentlyCommitted ? `Removed from ${blitzName}` : `Committed to ${blitzName}`);
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id, recruit.email, recruit.name] });
       // Clear declined status if committing
       if (!isCurrentlyCommitted) {
         queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.id] });
       }
     } catch (error) {
-      queryClient.setQueryData(['recruit-rep-data', recruit.id], (old: any) => 
+      queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
         old ? { ...old, committed_blitzes: committedBlitzIds } : old
       );
       toast.error("Couldn't update blitz commitment");
