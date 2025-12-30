@@ -982,16 +982,6 @@ const MyGroup = () => {
         onOpenChange={setContactMethodDrawerOpen}
         recruit={contactingRecruit}
         onComplete={handleContactMethodComplete}
-        onScheduleLaterToday={() => {
-          if (contactingRecruit) {
-            const recruit = contactingRecruit;
-            setContactMethodDrawerOpen(false);
-            setTimeout(() => {
-              setContactingRecruit(recruit);
-              setScheduleDrawerOpen(true);
-            }, 300);
-          }
-        }}
       />
       <ScheduleFollowUpDrawer
         open={scheduleDrawerOpen}

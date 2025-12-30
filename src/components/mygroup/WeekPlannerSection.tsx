@@ -603,17 +603,6 @@ export const WeekPlannerSection = ({
             onDismiss(contactingRecruit, `Contact logged for ${contactingRecruit.name || 'recruit'}`);
           }
         }}
-        onScheduleLaterToday={() => {
-          if (contactingRecruit) {
-            const recruit = contactingRecruit;
-            setContactMethodOpen(false);
-            setContactingActivity(null);
-            setTimeout(() => {
-              setContactingRecruit(recruit);
-              setScheduleOpen(true);
-            }, 300);
-          }
-        }}
       />
 
       <ScheduleFollowUpDrawer

@@ -198,16 +198,6 @@ export const RecommendationsSection = ({
         onOpenChange={(open) => !open && setContactRecruit(null)}
         recruit={contactRecruit}
         onComplete={handleContactMethodComplete}
-        onScheduleLaterToday={() => {
-          if (contactRecruit) {
-            const recruit = contactRecruit;
-            setContactRecruit(null);
-            setTimeout(() => {
-              setSchedulingRecruit(recruit);
-              setScheduleOpen(true);
-            }, 300);
-          }
-        }}
       />
 
       {/* Schedule Follow-up Drawer */}
@@ -231,7 +221,6 @@ export const RecommendationsSection = ({
         recruit={postContactRecruit}
         contactMethod={postContactMethod}
         onComplete={handlePostContactComplete}
-        onScheduleLaterToday={handleScheduleLaterToday}
       />
     </>
   );
