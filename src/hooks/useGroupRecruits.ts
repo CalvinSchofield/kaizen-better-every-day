@@ -14,13 +14,15 @@ export interface BlitzCommitment {
 
 export interface Recruit {
   id: string; // Supabase UUID - primary identifier
-  notionPageId: string; // @deprecated Alias for id - to be removed
+  /** @deprecated Use `id` instead. Will be removed in future cleanup. */
+  notionPageId: string;
   name: string;
   phone: string;
   email: string;
   stage: string;
   recruiterId: string | null;
-  recruiterNotionId: string | null; // @deprecated Alias for recruiterId - to be removed
+  /** @deprecated Use `recruiterId` instead. Will be removed in future cleanup. */
+  recruiterNotionId: string | null;
   recruiterName: string | null;
   recruiterUserId: string | null;
   teamName: string | null;
@@ -648,7 +650,6 @@ export const useLogRecruitActivity = () => {
       const { data, error } = await supabase
         .from('recruit_activities')
         .insert({
-          rep_notion_page_id: repIdentifier,
           recruit_id: actualRecruitId, // Use the correct recruit table id
           activity_type: activityType,
           logged_by_user_id: session.user.id,
@@ -675,7 +676,6 @@ export const useLogRecruitActivity = () => {
         if (!old) return old;
         const newActivity = {
           id: tempId,
-          rep_notion_page_id: repIdentifier,
           recruit_id: recruitId,
           activity_type: activityType,
           logged_by_user_id: 'optimistic',

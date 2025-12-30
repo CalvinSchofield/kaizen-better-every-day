@@ -77,37 +77,37 @@ export const useSkippedRecruits = () => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
   }, [todaySkipped]);
 
-  const skipForNow = useCallback((recruitNotionId: string) => {
+  const skipForNow = useCallback((recruitId: string) => {
     setSessionSkipped(prev => {
       const newSet = new Set(prev);
-      newSet.add(recruitNotionId);
+      newSet.add(recruitId);
       return newSet;
     });
   }, []);
 
-  const skipToday = useCallback((recruitNotionId: string) => {
+  const skipToday = useCallback((recruitId: string) => {
     setTodaySkipped(prev => {
       const newSet = new Set(prev);
-      newSet.add(recruitNotionId);
+      newSet.add(recruitId);
       return newSet;
     });
   }, []);
 
-  const unskip = useCallback((recruitNotionId: string) => {
+  const unskip = useCallback((recruitId: string) => {
     setSessionSkipped(prev => {
       const newSet = new Set(prev);
-      newSet.delete(recruitNotionId);
+      newSet.delete(recruitId);
       return newSet;
     });
     setTodaySkipped(prev => {
       const newSet = new Set(prev);
-      newSet.delete(recruitNotionId);
+      newSet.delete(recruitId);
       return newSet;
     });
   }, []);
 
-  const isSkipped = useCallback((recruitNotionId: string) => {
-    return sessionSkipped.has(recruitNotionId) || todaySkipped.has(recruitNotionId);
+  const isSkipped = useCallback((recruitId: string) => {
+    return sessionSkipped.has(recruitId) || todaySkipped.has(recruitId);
   }, [sessionSkipped, todaySkipped]);
 
   // Clear session skips (called when leaving page)
