@@ -510,15 +510,15 @@ export const RecruitDetailDrawer = ({
     if (!pendingPhaseVerification || !recruitRepData || !recruit) return;
     setIsPhaseVerifying(true);
     setHasPhaseError(false);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-      
+
       const phaseParams: Record<string, boolean> = {};
       phaseParams[`rampPhase${pendingPhaseVerification.phase}Complete`] = true;
 
-      // Use recruitRepData.id (the reps table id) since edge function updates reps table
+      // Use recruitRepData.id (the reps table id) since backend function updates reps table
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
@@ -534,8 +534,9 @@ export const RecruitDetailDrawer = ({
       setPhaseVerificationOpen(false);
       setPendingPhaseVerification(null);
       setHasPhaseError(false);
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
     } catch (error: any) {
       console.error('Error confirming phase:', error);
       setHasPhaseError(true);
@@ -549,18 +550,18 @@ export const RecruitDetailDrawer = ({
     if (!pendingPhaseVerification || !recruitRepData || !recruit) return;
     setIsPhaseVerifying(true);
     setHasPhaseError(false);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
-      
+
       // Undo this phase and all phases after it
       const phaseParams: Record<string, boolean> = {};
       for (let i = pendingPhaseVerification.phase; i <= 4; i++) {
         phaseParams[`rampPhase${i}Complete`] = false;
       }
 
-      // Use recruitRepData.id (the reps table id) since edge function updates reps table
+      // Use recruitRepData.id (the reps table id) since backend function updates reps table
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
@@ -576,8 +577,9 @@ export const RecruitDetailDrawer = ({
       setPhaseVerificationOpen(false);
       setPendingPhaseVerification(null);
       setHasPhaseError(false);
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
     } catch (error: any) {
       console.error('Error undoing phase:', error);
       setHasPhaseError(true);
@@ -587,15 +589,17 @@ export const RecruitDetailDrawer = ({
   };
 
   const handleConfirmOnboardingChange = async () => {
-    if (!pendingOnboardingStep || !recruitRepData) return;
+    if (!pendingOnboardingStep || !recruitRepData || !recruit) return;
     const { field, value } = pendingOnboardingStep;
-    
+
+    const recruitRepQueryKey = ['recruit-rep-data', recruit?.id, recruit?.email, recruit?.name] as const;
+
     // Define step order for cascading complete/uncomplete
     const allStepsOrder = [
       'onboarding_complete', 'trainings_complete', 'slack_joined',
       'ramp_phase_1_complete', 'ramp_phase_2_complete', 'ramp_phase_3_complete', 'ramp_phase_4_complete'
     ];
-    
+
     const fieldToNotionStatus: Record<string, string> = {
       'onboarding_complete': 'Onboarding ✅', 'trainings_complete': 'Required Trainings ✅', 'slack_joined': 'Slack ✅',
       'ramp_phase_1_complete': 'Phase 1 ✅', 'ramp_phase_2_complete': 'Phase 2 ✅', 'ramp_phase_3_complete': 'Phase 3 ✅', 'ramp_phase_4_complete': 'Phase 4 ✅',
@@ -604,13 +608,13 @@ export const RecruitDetailDrawer = ({
       'ramp_phase_1_complete': 'rampPhase1Complete', 'ramp_phase_2_complete': 'rampPhase2Complete',
       'ramp_phase_3_complete': 'rampPhase3Complete', 'ramp_phase_4_complete': 'rampPhase4Complete',
     };
-    
+
     // Build updates object
     // If completing a step, also complete all PREVIOUS steps (sequential requirement)
     // If uncompleting a step, also uncomplete all SUBSEQUENT steps
     const updates: Record<string, boolean> = { [field]: value };
     const fieldIndex = allStepsOrder.indexOf(field);
-    
+
     if (value) {
       // Completing: mark all previous steps as complete too
       allStepsOrder.slice(0, fieldIndex).forEach(prevField => {
@@ -626,9 +630,9 @@ export const RecruitDetailDrawer = ({
         }
       });
     }
-    
+
     // Optimistic update
-    queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, ...updates } : old);
+    queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...updates } : old);
     setOnboardingConfirmOpen(false);
     setPendingOnboardingStep(null);
     try {
@@ -651,7 +655,8 @@ export const RecruitDetailDrawer = ({
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           rookieNotionPageId: recruit.notionPageId,
-          rookieId: recruit.id,
+          // IMPORTANT: Use reps.id here (recruitRepData.id). Using recruit.id can point at recruits table id.
+          rookieId: recruitRepData.id,
           onboardingStatus: computedOnboardingStatus,
         },
       });
@@ -660,15 +665,15 @@ export const RecruitDetailDrawer = ({
       const uncompleteCount = Object.keys(updates).length;
       toast.success(value ? 'Marked complete' : uncompleteCount > 1 ? `Unmarked ${uncompleteCount} steps` : 'Marked incomplete');
 
-      queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.notionPageId] });
-      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['group-recruits'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'], exact: false });
 
       if (value && field === 'onboarding_complete') await checkAndUpdateStage(recruit.notionPageId, recruit.stage);
     } catch (error) {
       // Rollback optimistic update
       const rollback = Object.fromEntries(Object.keys(updates).map(k => [k, !updates[k]]));
-      queryClient.setQueryData(['recruit-rep-data', recruit.notionPageId], (old: any) => old ? { ...old, ...rollback } : old);
+      queryClient.setQueryData(recruitRepQueryKey, (old: any) => old ? { ...old, ...rollback } : old);
       toast.error("Couldn't update");
     }
   };
