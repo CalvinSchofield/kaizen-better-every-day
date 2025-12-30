@@ -220,12 +220,18 @@ export const RecruitDetailDrawer = ({
 
   const isLeaderOfLeaders = teamAccess?.accessLevel === 'mgmt_group_lead' || teamAccess?.accessLevel === 'area_director';
 
-  // Recruit rep data
+  // Recruit rep data - match by email since recruit.id may be from recruits table while rep has different id
   const { data: recruitRepData } = useQuery({
-    queryKey: ['recruit-rep-data', recruit?.id],
+    queryKey: ['recruit-rep-data', recruit?.id, recruit?.email],
     queryFn: async () => {
-      if (!recruit?.id) return null;
-      const { data } = await supabase.from('reps').select('*').eq('id', recruit.notionPageId).maybeSingle();
+      if (!recruit) return null;
+      // Try matching by email first (most reliable linkage)
+      if (recruit.email) {
+        const { data } = await supabase.from('reps').select('*').ilike('email', recruit.email).maybeSingle();
+        if (data) return data as RecruitRepData | null;
+      }
+      // Fallback to id match (works when recruit.id IS the rep id)
+      const { data } = await supabase.from('reps').select('*').eq('id', recruit.id).maybeSingle();
       return data as RecruitRepData | null;
     },
     enabled: !!recruit?.id && open,

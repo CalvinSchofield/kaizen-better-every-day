@@ -183,6 +183,9 @@ export const useGroupRecruits = () => {
       // Get accessible user IDs from teamAccess for filtering
       const accessibleUserIds = accessibleReps.map(ar => ar.userId).filter(Boolean) as string[];
       
+      // Get accessible team IDs for filtering ghost reps (user_id = NULL) by their team_id in recruits table
+      const accessibleTeamIds = [...new Set(accessibleReps.map(ar => ar.teamId).filter(Boolean))] as string[];
+      
       // Query from reps table (has 106 records) - My Group shows org members, not just recruiting CRM
       // Filter by user_id being in accessible list, or for area directors query all
       let repsQuery = supabase
@@ -223,7 +226,7 @@ export const useGroupRecruits = () => {
       }
 
       // Filter to only recruiting stages and exclude current user
-      const filteredReps = (repsData || []).filter((r: any) => {
+      let filteredReps = (repsData || []).filter((r: any) => {
         // Exclude current user
         if (r.user_id === session.user.id) return false;
         
@@ -233,6 +236,40 @@ export const useGroupRecruits = () => {
       });
 
       console.log('[useGroupRecruits] Fetched', filteredReps.length, 'reps from reps table (filtered from', repsData?.length, 'total)');
+
+      // Also fetch ghost reps (user_id = NULL) from recruits table for accessible teams
+      // These are recruits without app accounts who won't appear in the reps query above
+      let ghostRecruits: any[] = [];
+      if (accessLevel === 'area_director') {
+        // Area directors see all recruits
+        const { data: allRecruits } = await supabase
+          .from('recruits')
+          .select('id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at')
+          .order('created_at', { ascending: false });
+        ghostRecruits = allRecruits || [];
+      } else if (accessibleTeamIds.length > 0) {
+        const { data: teamRecruits } = await supabase
+          .from('recruits')
+          .select('id, name, phone, email, stage, year, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due, onboarding_complete, trainings_complete, slack_joined, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, ipad_assigned, blitz_ready, created_at')
+          .in('team_id', accessibleTeamIds)
+          .order('created_at', { ascending: false });
+        ghostRecruits = teamRecruits || [];
+      }
+
+      // Build a set of emails we already have from reps to avoid duplicates
+      const existingEmails = new Set(filteredReps.map((r: any) => r.email?.toLowerCase()).filter(Boolean));
+      
+      // Filter ghost recruits to only those without a matching rep and in recruiting stages
+      const filteredGhostRecruits = ghostRecruits.filter((r: any) => {
+        // Skip if we already have this person from reps table
+        if (r.email && existingEmails.has(r.email.toLowerCase())) return false;
+        
+        // Check recruiting stage
+        const stage = canonicalizeStage(r.stage);
+        return RECRUITING_STAGES.includes(stage);
+      });
+
+      console.log('[useGroupRecruits] Found', filteredGhostRecruits.length, 'additional ghost recruits from recruits table');
 
       // Get matching recruit records to get additional CRM data (team_id, mgmt_group_id, etc.)
       // Match by email since that's the linkage
@@ -249,6 +286,16 @@ export const useGroupRecruits = () => {
           if (recruit.email) {
             recruitsByEmail.set(recruit.email.toLowerCase(), recruit);
           }
+        }
+      }
+      
+      // Also add ghost recruits to the map (they ARE the recruit record)
+      for (const ghostRecruit of filteredGhostRecruits) {
+        if (ghostRecruit.email) {
+          recruitsByEmail.set(ghostRecruit.email.toLowerCase(), ghostRecruit);
+        } else {
+          // For ghost recruits without email, use id as key
+          recruitsByEmail.set(`id:${ghostRecruit.id}`, ghostRecruit);
         }
       }
 
@@ -323,7 +370,48 @@ export const useGroupRecruits = () => {
         };
       });
 
-      console.log('[useGroupRecruits] Transformed', recruits.length, 'recruits for display');
+      // Add ghost recruits (from recruits table, no matching rep) to the list
+      for (const ghostRecruit of filteredGhostRecruits) {
+        // Find team info from accessibleReps if possible
+        const teamInfo = accessibleReps.find(ar => ar.teamId === ghostRecruit.team_id);
+        
+        recruits.push({
+          id: ghostRecruit.id,
+          notionPageId: ghostRecruit.id, // @deprecated alias
+          name: ghostRecruit.name,
+          phone: ghostRecruit.phone || '',
+          email: ghostRecruit.email || '',
+          stage: canonicalizeStage(ghostRecruit.stage),
+          recruiterId: null,
+          recruiterNotionId: null,
+          recruiterName: null,
+          recruiterUserId: ghostRecruit.recruiter_user_id || null,
+          teamName: teamInfo?.teamName || null,
+          teamId: ghostRecruit.team_id || null,
+          mgmtGroupId: ghostRecruit.mgmt_group_id || null,
+          mgmtGroupName: teamInfo?.mgmtGroupName || null,
+          year: ghostRecruit.year || '',
+          location: ghostRecruit.location || null,
+          recruitmentSource: ghostRecruit.recruitment_source || null,
+          lastContact: ghostRecruit.last_contact || null,
+          nextAction: ghostRecruit.next_action || null,
+          nextActionDue: ghostRecruit.next_action_due || null,
+          createdAt: ghostRecruit.created_at || new Date().toISOString(),
+          committedBlitzes: blitzesByRecruit.get(ghostRecruit.id) || [],
+          rampToBlitzPhase: null,
+          phase1Complete: ghostRecruit.ramp_phase_1_complete ?? false,
+          phase2Complete: ghostRecruit.ramp_phase_2_complete ?? false,
+          phase3Complete: ghostRecruit.ramp_phase_3_complete ?? false,
+          phase4Complete: ghostRecruit.ramp_phase_4_complete ?? false,
+          onboardingComplete: ghostRecruit.onboarding_complete ?? false,
+          trainingsComplete: ghostRecruit.trainings_complete ?? false,
+          slackJoined: ghostRecruit.slack_joined ?? false,
+          ipadAssigned: ghostRecruit.ipad_assigned ?? false,
+          blitzReady: ghostRecruit.blitz_ready ?? false,
+        });
+      }
+
+      console.log('[useGroupRecruits] Transformed', recruits.length, 'total recruits for display (including', filteredGhostRecruits.length, 'ghost recruits)');
 
       // Fetch activities for these recruits using recruit_id (from recruits table)
       let activities: RecruitActivity[] = [];
