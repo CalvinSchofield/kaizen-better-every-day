@@ -737,6 +737,7 @@ const BlitzRecruitItem = ({
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
         recruitId={item.recruit.id}
+        repId={item.recruit.repId}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
@@ -1028,6 +1029,7 @@ const BlitzPrepProgressItem = ({
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
         recruitId={item.recruit.id}
+        repId={item.recruit.repId}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
@@ -1334,6 +1336,7 @@ const ReadinessItem = ({
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
         recruitId={item.recruit.id}
+        repId={item.recruit.repId}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />

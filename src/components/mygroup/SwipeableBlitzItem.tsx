@@ -251,6 +251,7 @@ export const SwipeableBlitzItem = ({
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
         recruitId={item.recruit.id}
+        repId={item.recruit.repId}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
