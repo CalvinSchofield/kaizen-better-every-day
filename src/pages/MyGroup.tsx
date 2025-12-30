@@ -16,7 +16,7 @@ import { useSummerRecommendations, SummerRepData } from "@/hooks/useSummerRecomm
 import { useRecordsTracking } from "@/hooks/useRecordsTracking";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid } from "lucide-react";
+import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
 import { TodaysFocusHero, OverdueScheduledItem } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
@@ -33,6 +33,7 @@ import { PendingSuggestionsCard } from "@/components/mygroup/PendingSuggestionsC
 import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
+import { RecruitSearchDrawer } from "@/components/mygroup/RecruitSearchDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import Layout from "@/components/Layout";
@@ -100,6 +101,7 @@ const MyGroup = () => {
   const [lastDismissedRecruit, setLastDismissedRecruit] = useState<{ id: string; name: string } | null>(null);
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
   const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
+  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
@@ -723,6 +725,15 @@ const MyGroup = () => {
           <X className="h-3 w-3" />
         </Badge>
       )}
+      {isLeader && (
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={() => setSearchDrawerOpen(true)}
+        >
+          <Search className="h-4 w-4" />
+        </Button>
+      )}
       {(teamAccess?.accessLevel === 'area_director' || teamAccess?.accessLevel === 'mgmt_group_lead') && (
         <Button 
           variant={selectedTeamFilter ? 'default' : 'ghost'} 
@@ -1048,6 +1059,17 @@ const MyGroup = () => {
             setGoalsPaceDrawerOpen(false);
             setSelectedRecruit(recruit);
           }
+        }}
+      />
+
+      {/* Recruit Search Drawer */}
+      <RecruitSearchDrawer
+        open={searchDrawerOpen}
+        onOpenChange={setSearchDrawerOpen}
+        recruits={allRecruits}
+        onRecruitSelect={(recruit) => {
+          setSearchDrawerOpen(false);
+          handleRecruitClick(recruit);
         }}
       />
     </Layout>
