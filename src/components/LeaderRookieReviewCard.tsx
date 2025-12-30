@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface RookieNeedingReview {
-  notionPageId: string;
+  id: string;
   name: string;
   currentPhase: number;
   selfServiceComplete: boolean;
@@ -94,19 +94,19 @@ export const LeaderRookieReviewCard = () => {
 
     const fetchRookiesNeedingReview = async () => {
       try {
-        const accessibleNotionIds = accessibleReps
-          .map((r: any) => r.notion_page_id)
+        const accessibleIds = accessibleReps
+          .map((r: any) => r.id)
           .filter(Boolean);
 
-        if (accessibleNotionIds.length === 0) {
+        if (accessibleIds.length === 0) {
           setLoading(false);
           return;
         }
 
         const { data: repsData } = await supabase
           .from('reps')
-          .select('notion_page_id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id')
-          .in('notion_page_id', accessibleNotionIds);
+          .select('id, name, year, watched_videos, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes, user_id')
+          .in('id', accessibleIds);
 
         const rookiesNeedingReview: RookieNeedingReview[] = [];
 
@@ -132,7 +132,7 @@ export const LeaderRookieReviewCard = () => {
               .map(item => item.label);
             
             rookiesNeedingReview.push({
-              notionPageId: rep.notion_page_id,
+              id: rep.id,
               name: rep.name,
               currentPhase: 1,
               selfServiceComplete: true,
@@ -156,7 +156,7 @@ export const LeaderRookieReviewCard = () => {
                 .map(item => item.label);
               
               rookiesNeedingReview.push({
-                notionPageId: rep.notion_page_id,
+                id: rep.id,
                 name: rep.name,
                 currentPhase: 2,
                 selfServiceComplete: true,
@@ -177,7 +177,7 @@ export const LeaderRookieReviewCard = () => {
                 .map(item => item.label);
               
               rookiesNeedingReview.push({
-                notionPageId: rep.notion_page_id,
+                id: rep.id,
                 name: rep.name,
                 currentPhase: 3,
                 selfServiceComplete: true,
@@ -198,7 +198,7 @@ export const LeaderRookieReviewCard = () => {
                 .map(item => item.label);
               
               rookiesNeedingReview.push({
-                notionPageId: rep.notion_page_id,
+                id: rep.id,
                 name: rep.name,
                 currentPhase: 4,
                 selfServiceComplete: true,
@@ -233,7 +233,7 @@ export const LeaderRookieReviewCard = () => {
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: selectedRookie.notionPageId,
+          rookieId: selectedRookie.id,
           ...phaseParams
         }
       });
@@ -242,7 +242,7 @@ export const LeaderRookieReviewCard = () => {
 
       toast.success(`Phase ${selectedRookie.currentPhase} verified for ${selectedRookie.name}!`);
 
-      setRookiesReady(prev => prev.filter(r => r.notionPageId !== selectedRookie.notionPageId));
+      setRookiesReady(prev => prev.filter(r => r.id !== selectedRookie.id));
       setSelectedRookie(null);
 
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
@@ -296,7 +296,7 @@ export const LeaderRookieReviewCard = () => {
             <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-2">
               {rookiesReady.map((rookie) => (
                 <button
-                  key={rookie.notionPageId}
+                  key={rookie.id}
                   className="flex items-center justify-between w-full text-left px-3 py-2 rounded-lg hover:bg-amber-500/10 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();

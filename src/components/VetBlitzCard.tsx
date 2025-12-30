@@ -70,7 +70,7 @@ interface BlitzEvent {
 }
 
 interface TeamMember {
-  notionPageId: string;
+  id: string;
   /** Present when the member is a recruit (DB id). Used for recruit_blitzes commits. */
   recruitId?: string | null;
   name: string;
@@ -326,7 +326,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const lastFetchedScopeRef = useRef<string>("");
   // Fetch team members and contacted status based on attendance scope
   const fetchAttendanceData = useCallback(async () => {
-    if (!repData?.notion_page_id) return;
+    if (!repData?.id) return;
 
     setLoadingAttendance(true);
     try {
@@ -339,7 +339,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       const { data, error } = await supabase.functions.invoke('fetch-blitz-attendance', {
         body: {
           scope: attendanceScope,
-          leaderNotionPageId: repData.notion_page_id,
+          leaderId: repData.id,
           mgmtGroupId: attendanceScope === 'mgmt' ? selectedMgmtGroupId : undefined,
           teamId: attendanceScope === 'team' ? selectedTeamId : undefined,
         },
@@ -365,7 +365,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         } else {
           // Filter out the leader themselves from team list
           const filteredMembers = (data.teamMembers || []).filter(
-            (member: TeamMember) => member.notionPageId !== repData.notion_page_id
+            (member: TeamMember) => member.id !== repData.id
           );
           console.log(`Filtered ${filteredMembers.length} team members for scope: ${attendanceScope}`);
           setTeamMembers(filteredMembers);
@@ -387,7 +387,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } finally {
       setLoadingAttendance(false);
     }
-  }, [repData?.notion_page_id, attendanceScope, selectedMgmtGroupId, selectedTeamId, toast]);
+  }, [repData?.id, attendanceScope, selectedMgmtGroupId, selectedTeamId, toast]);
 
   // Only refetch when scope changes or on mount, not on every repData change
   // Fetch attendance when scope changes - use ref to prevent redundant fetches
@@ -622,10 +622,10 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           if (error) throw error;
         }
       } else {
-        // Fallback for legacy rep rows (Notion-backed commitments)
+        // Fallback for legacy rep rows - update committed_blitzes in reps table
         const { error } = await supabase.functions.invoke('update-blitz-commitment', {
           body: {
-            repNotionPageId: member.notionPageId,
+            repId: member.id,
             blitzPageIds: newCommittedBlitzes,
           },
         });
@@ -638,7 +638,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         await supabase.functions.invoke('toggle-blitz-decline', {
           body: {
             blitzId,
-            repNotionPageId: member.notionPageId,
+            repId: member.id,
             isDeclined: false,
           },
         });
@@ -646,14 +646,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         // Update local declinedMembers state
         setDeclinedMembers((prev) => ({
           ...prev,
-          [blitzId]: (prev[blitzId] || []).filter((id) => id !== member.notionPageId),
+          [blitzId]: (prev[blitzId] || []).filter((id) => id !== member.id),
         }));
       }
 
       // Update local state
       setTeamMembers((prev) =>
         prev.map((m) =>
-          m.notionPageId === member.notionPageId
+          m.id === member.id
             ? { ...m, committedBlitzes: newCommittedBlitzes }
             : m
         )
@@ -783,7 +783,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: selectedRookie.notionPageId,
+          rookieId: selectedRookie.id,
           onboardingStatus: selectedStatus,
         },
       });
@@ -795,7 +795,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       // Update local state
       setTeamMembers(prev =>
         prev.map(m =>
-          m.notionPageId === selectedRookie.notionPageId
+          m.id === selectedRookie.id
             ? { ...m, ...updates }
             : m
         )
@@ -803,7 +803,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
       // Notify parent of changes
       if (onTeamMemberUpdate) {
-        onTeamMemberUpdate(selectedRookie.notionPageId, updates);
+        onTeamMemberUpdate(selectedRookie.id, updates);
       }
 
       toast({
@@ -1241,7 +1241,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                         
                         return (
                           <div
-                            key={member.notionPageId}
+                            key={member.id}
                             className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
                               isUrgentIpad 
                                 ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' 
@@ -1315,8 +1315,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                               {expandedInviteLists.has(blitz.id) ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
                               {(() => {
                                 const uninvitedCount = uncommittedMembers.filter(
-                                  member => !(contactedMembers[blitz.id] || []).includes(member.notionPageId) &&
-                                           !(declinedMembers[blitz.id] || []).includes(member.notionPageId)
+                                  member => !(contactedMembers[blitz.id] || []).includes(member.id) &&
+                                           !(declinedMembers[blitz.id] || []).includes(member.id)
                                 ).length;
                                 
                                 if (uninvitedCount === 0) {
@@ -1333,7 +1333,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                             </span>
                             {(() => {
                               const declinedCount = uncommittedMembers.filter(
-                                member => (declinedMembers[blitz.id] || []).includes(member.notionPageId)
+                                member => (declinedMembers[blitz.id] || []).includes(member.id)
                               ).length;
                               if (declinedCount > 0) {
                                 return (
@@ -1375,8 +1375,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                   {sortedTeamNames.map(teamName => {
                                     const teamMembers = teamGroups[teamName].sort((a, b) => a.name.localeCompare(b.name));
                                     const teamUninvitedCount = teamMembers.filter(
-                                      m => !(contactedMembers[blitz.id] || []).includes(m.notionPageId) &&
-                                           !(declinedMembers[blitz.id] || []).includes(m.notionPageId)
+                                      m => !(contactedMembers[blitz.id] || []).includes(m.id) &&
+                                           !(declinedMembers[blitz.id] || []).includes(m.id)
                                     ).length;
                                     
                                     return (
@@ -1402,14 +1402,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                         <CollapsibleContent className="space-y-2 pt-2 pl-2">
                                           {teamMembers.map(member => (
                                             <InviteMemberRow 
-                                              key={member.notionPageId}
+                                              key={member.id}
                                               member={member}
                                               blitzId={blitz.id}
-                                              isContacted={(contactedMembers[blitz.id] || []).includes(member.notionPageId)}
-                                              isDeclined={(declinedMembers[blitz.id] || []).includes(member.notionPageId)}
-                                              onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
+                                              isContacted={(contactedMembers[blitz.id] || []).includes(member.id)}
+                                              isDeclined={(declinedMembers[blitz.id] || []).includes(member.id)}
+                                              onToggleContacted={() => toggleContactedStatus(member.id, blitz.id)}
                                               onCommit={() => promptMemberCommitment(member, blitz.id, false)}
-                                              onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                              onToggleDeclined={() => toggleDeclinedStatus(member.id, blitz.id)}
                                               onNeedsPhone={openPhoneDrawer}
                                             />
                                           ))}
@@ -1426,14 +1426,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                 <div className="space-y-2">
                                   {sortedMembers.map(member => (
                                     <InviteMemberRow 
-                                      key={member.notionPageId}
+                                      key={member.id}
                                       member={member}
                                       blitzId={blitz.id}
-                                      isContacted={(contactedMembers[blitz.id] || []).includes(member.notionPageId)}
-                                      isDeclined={(declinedMembers[blitz.id] || []).includes(member.notionPageId)}
-                                      onToggleContacted={() => toggleContactedStatus(member.notionPageId, blitz.id)}
+                                      isContacted={(contactedMembers[blitz.id] || []).includes(member.id)}
+                                      isDeclined={(declinedMembers[blitz.id] || []).includes(member.id)}
+                                      onToggleContacted={() => toggleContactedStatus(member.id, blitz.id)}
                                       onCommit={() => promptMemberCommitment(member, blitz.id, false)}
-                                      onToggleDeclined={() => toggleDeclinedStatus(member.notionPageId, blitz.id)}
+                                      onToggleDeclined={() => toggleDeclinedStatus(member.id, blitz.id)}
                                       onNeedsPhone={openPhoneDrawer}
                                     />
                                   ))}
@@ -1626,14 +1626,14 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         open={phoneDrawerOpen}
         onOpenChange={setPhoneDrawerOpen}
         personName={memberNeedsPhone?.name || ''}
-        notionPageId={memberNeedsPhone?.notionPageId || ''}
+        repId={memberNeedsPhone?.id || ''}
         pendingAction={pendingAction}
         onPhoneSaved={(cleanPhone) => {
           // Update local state
           if (memberNeedsPhone) {
             setTeamMembers(prev =>
               prev.map(m =>
-                m.notionPageId === memberNeedsPhone.notionPageId
+                m.id === memberNeedsPhone.id
                   ? { ...m, phone: cleanPhone }
                   : m
               )

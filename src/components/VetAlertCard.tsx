@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
 
 interface TeamMember {
-  notionPageId: string;
+  id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -166,7 +166,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
           // Only add alert if rookie needs iPad OR onboarding
           if (needsIpad || needsOnboarding) {
             // Use only rookie ID as key to ensure one alert per rookie
-            alertsMap.set(rookie.notionPageId, {
+            alertsMap.set(rookie.id, {
               rookie,
               blitz: earliestBlitz.blitz,
               daysUntil: earliestBlitz.daysUntil,
@@ -231,7 +231,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       
       // Build the update request body
       const updateBody: any = {
-        rookieNotionPageId: selectedAlert.rookie.notionPageId,
+        rookieId: selectedAlert.rookie.id,
       };
 
       if (selectedAlert.needsOnboarding) {
@@ -257,7 +257,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
         const { data: repData, error: fetchError } = await supabase
           .from('reps')
           .select('id')
-          .eq('id', selectedAlert.rookie.notionPageId)
+          .eq('id', selectedAlert.rookie.id)
           .maybeSingle() as { data: { id: string } | null; error: any };
 
         if (fetchError) throw fetchError;
@@ -274,7 +274,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
 
       // Notify parent of changes
       if (onTeamMemberUpdate) {
-        onTeamMemberUpdate(selectedAlert.rookie.notionPageId, updates);
+        onTeamMemberUpdate(selectedAlert.rookie.id, updates);
       }
 
       // Remove alert from list if both issues resolved
@@ -284,7 +284,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
       if (statusResolved && ipadResolved) {
         setRookiesNeedingAttention(prev => 
           prev.filter(a => 
-            !(a.rookie.notionPageId === selectedAlert.rookie.notionPageId && 
+            !(a.rookie.id === selectedAlert.rookie.id && 
               a.blitz.id === selectedAlert.blitz.id)
           )
         );
@@ -292,7 +292,7 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
         // Update alert in place
         setRookiesNeedingAttention(prev => 
           prev.map(a => 
-            a.rookie.notionPageId === selectedAlert.rookie.notionPageId && a.blitz.id === selectedAlert.blitz.id
+            a.rookie.id === selectedAlert.rookie.id && a.blitz.id === selectedAlert.blitz.id
               ? { 
                   ...a, 
                   rookie: { ...a.rookie, ...updates },

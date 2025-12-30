@@ -52,7 +52,7 @@ const PAY_SCALES = [
 ];
 
 interface TeamMember {
-  notionPageId: string;
+  id: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -219,7 +219,7 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           if (data.teamMembers) {
             // Filter out the vet themselves from their team list
             const filteredMembers = data.teamMembers.filter(
-              (member: TeamMember) => member.notionPageId !== repData.notion_page_id
+              (member: TeamMember) => member.id !== repData.id
             );
             setTeamMembers(filteredMembers);
           }
@@ -705,10 +705,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
           <VetAlertCard 
             teamMembers={teamMembers}
             allBlitzes={allBlitzes}
-            onTeamMemberUpdate={(notionPageId, updates) => {
+            onTeamMemberUpdate={(id, updates) => {
               setTeamMembers(prev => 
                 prev.map(m => 
-                  m.notionPageId === notionPageId 
+                  m.id === id 
                     ? { ...m, ...updates }
                     : m
                 )
@@ -796,10 +796,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               accessLevel={teamAccessData?.accessLevel || 'none'}
               mgmtGroups={teamAccessData?.mgmtGroups || []}
               teams={teamAccessData?.teams || []}
-              onTeamMemberUpdate={(notionPageId, updates) => {
+              onTeamMemberUpdate={(id, updates) => {
                 setTeamMembers(prev => 
                   prev.map(m => 
-                    m.notionPageId === notionPageId 
+                    m.id === id 
                       ? { ...m, ...updates }
                       : m
                   )
@@ -839,10 +839,10 @@ export const VetHome = ({ repData, onSync, isSyncing, syncSuccess }: VetHomeProp
               accessLevel={teamAccessData?.accessLevel || 'none'}
               mgmtGroups={teamAccessData?.mgmtGroups || []}
               teams={teamAccessData?.teams || []}
-              onTeamMemberUpdate={(notionPageId, updates) => {
+              onTeamMemberUpdate={(id, updates) => {
                 setTeamMembers(prev => 
                   prev.map(m => 
-                    m.notionPageId === notionPageId 
+                    m.id === id 
                       ? { ...m, ...updates }
                       : m
                   )
