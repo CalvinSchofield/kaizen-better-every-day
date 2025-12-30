@@ -42,7 +42,7 @@ serve(async (req) => {
     // Get current user's rep record to determine access level
     const { data: currentRep } = await supabase
       .from('reps')
-      .select('notion_page_id, user_id')
+      .select('id, user_id')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -71,7 +71,6 @@ serve(async (req) => {
       .from('recruits')
       .select(`
         id,
-        notion_page_id,
         name,
         phone,
         email,
@@ -120,7 +119,7 @@ serve(async (req) => {
     const recruiterUserIds = [...new Set((recruitsData || []).map(r => r.recruiter_user_id).filter(Boolean))];
     const { data: recruiters } = await supabase
       .from('reps')
-      .select('user_id, notion_page_id, name')
+      .select('user_id, id, name')
       .in('user_id', recruiterUserIds.length > 0 ? recruiterUserIds : ['00000000-0000-0000-0000-000000000000']);
 
     const recruiterMap = new Map(recruiters?.map(r => [r.user_id, r]) || []);
@@ -155,7 +154,6 @@ serve(async (req) => {
     const recruits = (recruitsData || []).map(r => {
       const recruiter = recruiterMap.get(r.recruiter_user_id);
       return {
-        notionPageId: r.notion_page_id || r.id, // Use Supabase ID if no Notion ID
         id: r.id,
         name: r.name,
         phone: r.phone,
@@ -168,7 +166,7 @@ serve(async (req) => {
         nextAction: r.next_action,
         nextActionDue: r.next_action_due,
         createdAt: r.created_at,
-        recruiterNotionId: recruiter?.notion_page_id,
+        recruiterId: recruiter?.id,
         recruiterUserId: r.recruiter_user_id,
         recruiterName: recruiter?.name,
         teamId: r.team_id,
@@ -191,38 +189,28 @@ serve(async (req) => {
     // Fetch activities from Supabase if requested
     let activities: any[] = [];
     if (includeActivities && recruits.length > 0) {
-      // Use both recruit_id (new) and rep_notion_page_id (legacy) for activity lookup
       const recruitIds = recruits.map(r => r.id).filter(Boolean);
-      const recruitNotionIds = recruits.map(r => r.notionPageId).filter(Boolean);
       
-      // Query by new recruit_id column first, fallback to legacy column
       const { data: activityData } = await supabase
         .from('recruit_activities')
         .select('*')
-        .or(`recruit_id.in.(${recruitIds.join(',')}),rep_notion_page_id.in.(${recruitNotionIds.join(',')})`)
+        .in('recruit_id', recruitIds)
         .order('created_at', { ascending: false })
         .limit(500);
       
       activities = activityData || [];
     }
 
-    // Fetch pending suggestions for this user's team (use new column or fallback to legacy)
+    // Fetch pending suggestions for this user's team
     let pendingSuggestions: any[] = [];
-    if (currentRep?.user_id || currentRep?.notion_page_id) {
-      let suggestionsQuery = supabase
+    if (currentRep?.user_id) {
+      const { data: suggestions } = await supabase
         .from('recruit_suggestions')
         .select('*')
         .eq('status', 'pending')
+        .eq('team_leader_user_id', currentRep.user_id)
         .order('created_at', { ascending: false });
       
-      // Prefer new team_leader_user_id column, fallback to legacy notion ID
-      if (currentRep?.user_id) {
-        suggestionsQuery = suggestionsQuery.or(`team_leader_user_id.eq.${currentRep.user_id},team_leader_notion_id.eq.${currentRep.notion_page_id || ''}`);
-      } else {
-        suggestionsQuery = suggestionsQuery.eq('team_leader_notion_id', currentRep.notion_page_id);
-      }
-      
-      const { data: suggestions } = await suggestionsQuery;
       pendingSuggestions = suggestions || [];
     }
 

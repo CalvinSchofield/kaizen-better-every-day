@@ -14,12 +14,13 @@ export interface BlitzCommitment {
 
 export interface Recruit {
   id: string; // Supabase UUID - primary identifier
-  notionPageId: string; // Legacy Notion ID - for backwards compatibility
+  notionPageId: string; // Alias for id - backwards compatibility
   name: string;
   phone: string;
   email: string;
   stage: string;
-  recruiterNotionId: string;
+  recruiterId: string | null;
+  recruiterNotionId: string | null; // Alias for recruiterId - backwards compatibility
   recruiterName: string | null;
   recruiterUserId: string | null;
   teamName: string | null;
@@ -247,12 +248,13 @@ export const useGroupRecruits = () => {
         
         return {
           id: r.id, // Supabase UUID - primary identifier
-          notionPageId: r.id, // Now using Supabase ID (backwards compat field)
+          notionPageId: r.id, // Alias for backwards compatibility
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
-          recruiterNotionId: leaderId,
+          recruiterId: leaderId,
+          recruiterNotionId: leaderId, // Alias for backwards compatibility
           recruiterName: r.recruiter || null,
           recruiterUserId: null,
           // Enrich with team info from accessibleReps
