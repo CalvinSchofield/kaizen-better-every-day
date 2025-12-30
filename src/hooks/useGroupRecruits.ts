@@ -14,15 +14,11 @@ export interface BlitzCommitment {
 
 export interface Recruit {
   id: string; // Supabase UUID - primary identifier
-  /** @deprecated Alias for id - use id instead. Will be removed after full migration. */
-  notionPageId: string;
   name: string;
   phone: string;
   email: string;
   stage: string;
   recruiterId: string | null;
-  /** @deprecated Alias for recruiterId - use recruiterId instead. Will be removed after full migration. */
-  recruiterNotionId: string | null;
   recruiterName: string | null;
   recruiterUserId: string | null;
   teamName: string | null;
@@ -387,14 +383,12 @@ export const useGroupRecruits = () => {
         const recruiterData = matchingRecruit?.recruiter as { id: string; name: string; user_id: string } | null;
         
         return {
-          id: primaryId, // Use recruit ID if available for activity linking
-          notionPageId: primaryId, // @deprecated alias
+          id: primaryId,
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
           stage: canonicalizeStage(r.stage),
           recruiterId: recruiterData?.id || null,
-          recruiterNotionId: recruiterData?.id || null, // @deprecated alias
           recruiterName: recruiterData?.name || r.recruiter || r.team_leader || null,
           recruiterUserId: recruiterData?.user_id || matchingRecruit?.recruiter_user_id || null,
           teamName: teamData?.name || accessibleRepInfo?.teamName || null,
@@ -434,13 +428,11 @@ export const useGroupRecruits = () => {
         
         recruits.push({
           id: ghostRecruit.id,
-          notionPageId: ghostRecruit.id, // @deprecated alias
           name: ghostRecruit.name,
           phone: ghostRecruit.phone || '',
           email: ghostRecruit.email || '',
           stage: canonicalizeStage(ghostRecruit.stage),
           recruiterId: recruiterData?.id || null,
-          recruiterNotionId: recruiterData?.id || null, // @deprecated alias
           recruiterName: recruiterData?.name || null,
           recruiterUserId: recruiterData?.user_id || ghostRecruit.recruiter_user_id || null,
           teamName: teamData?.name || teamInfo?.teamName || null,

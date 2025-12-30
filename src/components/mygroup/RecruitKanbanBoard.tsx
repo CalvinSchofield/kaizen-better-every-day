@@ -178,7 +178,6 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
   const handleDragStart = (e: React.DragEvent, recruit: Recruit) => {
     e.dataTransfer.setData('recruitId', recruit.id);
-    e.dataTransfer.setData('recruitNotionId', recruit.notionPageId);
     e.dataTransfer.setData('currentStage', recruit.stage);
   };
 
@@ -189,14 +188,12 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const handleDrop = async (e: React.DragEvent, newStage: string) => {
     e.preventDefault();
     const recruitId = e.dataTransfer.getData('recruitId');
-    const recruitNotionId = e.dataTransfer.getData('recruitNotionId');
     const currentStage = e.dataTransfer.getData('currentStage');
 
     if (currentStage !== newStage) {
       try {
         await updateStageMutation.mutateAsync({
           recruitId,
-          recruitNotionId,
           newStage,
         });
         toast.success(`Moved to ${newStage}`);
@@ -222,7 +219,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     if (!open) {
       // Update selected recruit with latest data if it exists
       if (selectedRecruit) {
-        const updatedRecruit = recruits.find(r => r.notionPageId === selectedRecruit.notionPageId);
+        const updatedRecruit = recruits.find(r => r.id === selectedRecruit.id);
         if (updatedRecruit) {
           setSelectedRecruit(updatedRecruit);
         }
@@ -250,7 +247,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
         <div className="space-y-2 min-h-[200px]">
           {stageRecruits.map((recruit) => (
             <Card
-              key={recruit.notionPageId}
+              key={recruit.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
               draggable
               onDragStart={(e) => handleDragStart(e, recruit)}
@@ -412,7 +409,7 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
       <RecruitDetailDrawer
         recruit={selectedRecruit}
-        activities={selectedRecruit ? getActivitiesForRecruit(selectedRecruit.notionPageId) : []}
+        activities={selectedRecruit ? getActivitiesForRecruit(selectedRecruit.id) : []}
         open={drawerOpen}
         onOpenChange={handleDrawerOpenChange}
       />
