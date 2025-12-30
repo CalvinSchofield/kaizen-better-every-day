@@ -1,6 +1,7 @@
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 
 export interface RecruitRepData {
+  id: string;
   user_id?: string;
   year?: string;
   onboarding_complete?: boolean;

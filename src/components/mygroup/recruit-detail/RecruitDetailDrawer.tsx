@@ -518,10 +518,11 @@ export const RecruitDetailDrawer = ({
       const phaseParams: Record<string, boolean> = {};
       phaseParams[`rampPhase${pendingPhaseVerification.phase}Complete`] = true;
 
+      // Use recruitRepData.id (the reps table id) since edge function updates reps table
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: recruit.notionPageId,
+          rookieId: recruitRepData.id,
           ...phaseParams
         }
       });
@@ -559,10 +560,11 @@ export const RecruitDetailDrawer = ({
         phaseParams[`rampPhase${i}Complete`] = false;
       }
 
+      // Use recruitRepData.id (the reps table id) since edge function updates reps table
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: recruit.notionPageId,
+          rookieId: recruitRepData.id,
           ...phaseParams
         }
       });
