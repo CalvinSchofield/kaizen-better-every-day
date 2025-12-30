@@ -440,7 +440,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId: upcomingBlitzForRsvp.id,
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           isDeclined: false,
         },
       });
@@ -487,7 +487,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId: upcomingBlitzForRsvp.id,
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           isDeclined: true,
         },
       });

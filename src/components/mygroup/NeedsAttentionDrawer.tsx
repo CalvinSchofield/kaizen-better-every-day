@@ -633,7 +633,7 @@ const BlitzRecruitItem = ({
 }) => {
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
   
-  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const repData = repDataMap?.get(item.recruit.id);
   // Extract just IDs from committed_blitzes (may be strings or objects with id property)
   const rawCommitments = repData?.committed_blitzes || [];
   const currentCommitments: string[] = Array.isArray(rawCommitments)
@@ -736,7 +736,7 @@ const BlitzRecruitItem = ({
         open={blitzDrawerOpen}
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        recruitNotionPageId={item.recruit.notionPageId}
+        recruitId={item.recruit.id}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
@@ -770,7 +770,7 @@ const BlitzPrepProgressItem = ({
   if (!rampProgress) return null;
 
   // Get blitz commitment data
-  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const repData = repDataMap?.get(item.recruit.id);
   const rawCommitments = repData?.committed_blitzes || [];
   const currentCommitments: string[] = Array.isArray(rawCommitments)
     ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
@@ -804,7 +804,7 @@ const BlitzPrepProgressItem = ({
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: item.recruit.notionPageId,
+          rookieId: item.recruit.id,
           ...phaseParams
         }
       });
@@ -818,7 +818,7 @@ const BlitzPrepProgressItem = ({
       
       // Invalidate all relevant queries to ensure data consistency
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
     } catch (error: any) {
       console.error('Error confirming phase:', error);
@@ -849,7 +849,7 @@ const BlitzPrepProgressItem = ({
       const { error } = await supabase.functions.invoke('update-rookie-status', {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
-          rookieNotionPageId: item.recruit.notionPageId,
+          rookieId: item.recruit.id,
           ...phaseParams
         }
       });
@@ -863,7 +863,7 @@ const BlitzPrepProgressItem = ({
       
       // Invalidate all relevant queries to ensure data consistency
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
-      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.notionPageId] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', item.recruit.id] });
       queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
     } catch (error: any) {
       console.error('Error undoing phase:', error);
@@ -1021,7 +1021,7 @@ const BlitzPrepProgressItem = ({
         open={blitzDrawerOpen}
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        recruitNotionPageId={item.recruit.notionPageId}
+        recruitId={item.recruit.id}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
@@ -1120,7 +1120,7 @@ const ReadinessItem = ({
 }) => {
   const [blitzDrawerOpen, setBlitzDrawerOpen] = useState(false);
   
-  const repData = repDataMap?.get(item.recruit.notionPageId);
+  const repData = repDataMap?.get(item.recruit.id);
   const rawCommitments = repData?.committed_blitzes || [];
   const currentCommitments: string[] = Array.isArray(rawCommitments)
     ? rawCommitments.map((b: string | { id: string }) => typeof b === 'string' ? b : b.id)
@@ -1327,7 +1327,7 @@ const ReadinessItem = ({
         open={blitzDrawerOpen}
         onOpenChange={setBlitzDrawerOpen}
         recruitName={stripEmojis(item.recruit.name) || item.recruit.name}
-        recruitNotionPageId={item.recruit.notionPageId}
+        recruitId={item.recruit.id}
         currentCommitments={currentCommitments}
         availableBlitzes={blitzes}
       />
@@ -1462,7 +1462,7 @@ export const NeedsAttentionDrawer = ({
               if (isOnboardingCategory) {
                 return (
                   <TrainingProgressItem
-                    key={item.recruit.notionPageId}
+                    key={item.recruit.id}
                     item={item}
                     onRecruitClick={onRecruitClick}
                     onOpenChange={onOpenChange}
@@ -1473,7 +1473,7 @@ export const NeedsAttentionDrawer = ({
               if (isBlitzPrepCategory) {
                 return (
                   <BlitzPrepProgressItem
-                    key={item.recruit.notionPageId}
+                    key={item.recruit.id}
                     item={item}
                     onRecruitClick={onRecruitClick}
                     onOpenChange={onOpenChange}
@@ -1485,7 +1485,7 @@ export const NeedsAttentionDrawer = ({
 
               if (isNoBlitzCategory) {
                 return (
-                  <div key={item.recruit.notionPageId}>
+                  <div key={item.recruit.id}>
                     {item.showDivider && (
                       <div className="flex items-center gap-2 py-2 mt-2 mb-3">
                         <div className="flex-1 h-px bg-border" />
@@ -1525,7 +1525,7 @@ export const NeedsAttentionDrawer = ({
               if (isReadinessCategory) {
                 return (
                   <ReadinessItem
-                    key={item.recruit.notionPageId}
+                    key={item.recruit.id}
                     item={item}
                     onRecruitClick={onRecruitClick}
                     onOpenChange={onOpenChange}
@@ -1537,10 +1537,10 @@ export const NeedsAttentionDrawer = ({
                 );
               }
               
-              const repDataForItem = repDataMap?.get(item.recruit.notionPageId);
+              const repDataForItem = repDataMap?.get(item.recruit.id);
               return (
                 <SwipeableRecruitItem
-                  key={item.recruit.notionPageId}
+                  key={item.recruit.id}
                   item={item}
                   onRecruitClick={onRecruitClick}
                   onDrawerClose={() => onOpenChange(false)}
