@@ -124,7 +124,7 @@ export const RecruitDetailDrawer = ({
   const deleteActivityMutation = useDeleteRecruitActivity();
   const { data: teamAccess } = useTeamAccess();
   const { data: assignableUsers = [] } = useAssignableUsers({ 
-    recruitNotionPageId: recruitProp?.notionPageId,
+    recruitId: recruitProp?.id,
     recruitTeamLeader: recruitProp?.teamName 
   });
   const queryClient = useQueryClient();

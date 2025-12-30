@@ -58,7 +58,7 @@ export const RescheduleActivityDrawer = ({
   
   const updateActivityMutation = useUpdateRecruitActivity();
   const { data: assignableUsers = [], isLoading: assignableUsersLoading } = useAssignableUsers({
-    recruitNotionPageId: recruit?.notionPageId,
+    recruitId: recruit?.id,
     recruitTeamLeader: recruit?.teamName,
   });
 
