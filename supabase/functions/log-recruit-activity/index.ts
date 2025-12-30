@@ -35,8 +35,7 @@ Deno.serve(async (req) => {
     }
 
     const { 
-      recruitNotionId,  // Can be Notion ID or Supabase UUID
-      recruitId,        // New: direct Supabase UUID
+      recruitId,        // Primary: Supabase UUID
       activityType, 
       notes, 
       nextAction, 
@@ -47,30 +46,16 @@ Deno.serve(async (req) => {
     // Auto-set updateLastContact for phone_call and in_person activities
     const updateLastContact = activityType === 'phone_call' || activityType === 'in_person';
 
-    // Accept either recruitId (new) or recruitNotionId (legacy)
-    const lookupId = recruitId || recruitNotionId;
-    
-    if (!lookupId || !activityType) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    if (!recruitId || !activityType) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: recruitId and activityType' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Resolve the recruit to get both Supabase ID and notion_page_id
-    const { data: recruit } = await supabase
-      .from('recruits')
-      .select('id, notion_page_id')
-      .or(`id.eq.${lookupId},notion_page_id.eq.${lookupId}`)
-      .maybeSingle();
-
-    const resolvedRecruitId = recruit?.id || null;
-    const resolvedNotionId = recruit?.notion_page_id || lookupId;
-
-    // Insert activity with both new recruit_id and legacy rep_notion_page_id
-    const insertData: any = {
-      rep_notion_page_id: resolvedNotionId, // Legacy column for backward compatibility
-      recruit_id: resolvedRecruitId,         // New FK column
+    // Insert activity with recruit_id
+    const insertData: Record<string, unknown> = {
+      recruit_id: recruitId,
       activity_type: activityType,
       logged_by_user_id: user.id,
       notes,
@@ -95,7 +80,7 @@ Deno.serve(async (req) => {
 
     // Update the recruits table with last contact and next action
     const today = new Date().toISOString().split('T')[0];
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     
     if (updateLastContact) {
       updateData.last_contact = today;
@@ -109,21 +94,20 @@ Deno.serve(async (req) => {
       updateData.next_action_due = nextActionDue;
     }
 
-    if (Object.keys(updateData).length > 0 && resolvedRecruitId) {
-      // Prefer updating by Supabase ID
+    if (Object.keys(updateData).length > 0) {
       const { error: updateError } = await supabase
         .from('recruits')
         .update(updateData)
-        .eq('id', resolvedRecruitId);
+        .eq('id', recruitId);
 
       if (updateError) {
         console.error('Error updating recruit:', updateError);
       } else {
-        console.log(`Updated recruit ${resolvedRecruitId} with:`, Object.keys(updateData).join(', '));
+        console.log(`Updated recruit ${recruitId} with:`, Object.keys(updateData).join(', '));
       }
     }
 
-    console.log(`Logged ${activityType} activity for recruit ${resolvedRecruitId || lookupId}`);
+    console.log(`Logged ${activityType} activity for recruit ${recruitId}`);
 
     return new Response(JSON.stringify({ success: true, activity }), {
       status: 200,

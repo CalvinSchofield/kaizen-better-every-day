@@ -32,38 +32,38 @@ Deno.serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { blitzId, repNotionPageId, repUserId, isDeclined } = await req.json();
+    const { blitzId, repId, repUserId, isDeclined } = await req.json();
 
-    if (!blitzId || (!repNotionPageId && !repUserId) || typeof isDeclined !== "boolean") {
-      throw new Error("Missing required parameters: blitzId, repNotionPageId or repUserId, isDeclined");
+    if (!blitzId || !repId || typeof isDeclined !== "boolean") {
+      throw new Error("Missing required parameters: blitzId, repId, isDeclined");
     }
 
-    // Resolve rep_user_id if only notion page ID provided
+    // Resolve rep_user_id if not provided
     let resolvedRepUserId = repUserId;
-    if (!resolvedRepUserId && repNotionPageId) {
+    if (!resolvedRepUserId) {
       const { data: rep } = await supabase
         .from("reps")
         .select("user_id")
-        .eq("notion_page_id", repNotionPageId)
+        .eq("id", repId)
         .maybeSingle();
       resolvedRepUserId = rep?.user_id || null;
     }
 
-    console.log(`Toggling decline status - blitz: ${blitzId}, rep: ${repNotionPageId || repUserId}, declined: ${isDeclined}`);
+    console.log(`Toggling decline status - blitz: ${blitzId}, rep: ${repId}, declined: ${isDeclined}`);
 
     if (isDeclined) {
-      // Add decline record with both legacy and new columns
+      // Add decline record
       const { error: upsertError } = await supabase
         .from("blitz_declines")
         .upsert(
           {
             blitz_id: blitzId,
-            rep_notion_page_id: repNotionPageId || repUserId, // Legacy
-            rep_user_id: resolvedRepUserId,                    // New column
+            rep_id: repId,
+            rep_user_id: resolvedRepUserId,
             declined_by: user.id,
             declined_at: new Date().toISOString(),
           },
-          { onConflict: "blitz_id,rep_notion_page_id" }
+          { onConflict: "blitz_id,rep_id" }
         );
 
       if (upsertError) throw upsertError;
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         .from("blitz_declines")
         .delete()
         .eq("blitz_id", blitzId)
-        .eq("rep_notion_page_id", repNotionPageId || repUserId);
+        .eq("rep_id", repId);
 
       if (deleteError) throw deleteError;
 
@@ -89,11 +89,12 @@ Deno.serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: any) {
-    console.error("Error in toggle-blitz-decline:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in toggle-blitz-decline:", errorMessage);
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: errorMessage,
         details: "Check function logs for more information",
       }),
       {

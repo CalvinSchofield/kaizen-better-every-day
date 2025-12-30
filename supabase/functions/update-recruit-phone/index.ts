@@ -36,10 +36,17 @@ serve(async (req) => {
       });
     }
 
-    const { recruitNotionId, recruitId, phone } = await req.json();
+    const { recruitId, repId, phone } = await req.json();
 
-    if ((!recruitNotionId && !recruitId) || !phone) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    if (!recruitId && !repId) {
+      return new Response(JSON.stringify({ error: 'recruitId or repId is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!phone) {
+      return new Response(JSON.stringify({ error: 'phone is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -56,32 +63,34 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Updating phone for recruit to ${cleanPhone}`);
+    console.log(`Updating phone to ${cleanPhone}`);
 
-    // Update in recruits table
-    let updateQuery = supabase
-      .from('recruits')
-      .update({ phone: cleanPhone, updated_at: new Date().toISOString() });
-
+    // Update in recruits table if recruitId provided
     if (recruitId) {
-      updateQuery = updateQuery.eq('id', recruitId);
-    } else {
-      updateQuery = updateQuery.eq('notion_page_id', recruitNotionId);
+      const { error: updateError } = await supabase
+        .from('recruits')
+        .update({ phone: cleanPhone, updated_at: new Date().toISOString() })
+        .eq('id', recruitId);
+
+      if (updateError) {
+        console.error('Error updating recruit phone:', updateError);
+        throw new Error(`Failed to update recruit phone: ${updateError.message}`);
+      }
+      console.log(`Updated recruit ${recruitId} phone`);
     }
 
-    const { error: updateError } = await updateQuery;
-
-    if (updateError) {
-      console.error('Error updating phone:', updateError);
-      throw new Error(`Failed to update phone: ${updateError.message}`);
-    }
-
-    // Also update reps table if this recruit has a linked rep
-    if (recruitNotionId) {
-      await supabase
+    // Update in reps table if repId provided
+    if (repId) {
+      const { error: updateError } = await supabase
         .from('reps')
         .update({ phone: cleanPhone, updated_at: new Date().toISOString() })
-        .eq('notion_page_id', recruitNotionId);
+        .eq('id', repId);
+
+      if (updateError) {
+        console.error('Error updating rep phone:', updateError);
+        throw new Error(`Failed to update rep phone: ${updateError.message}`);
+      }
+      console.log(`Updated rep ${repId} phone`);
     }
 
     console.log('Phone updated successfully');
@@ -91,7 +100,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error updating recruit phone:', error);
+    console.error('Error updating phone:', error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

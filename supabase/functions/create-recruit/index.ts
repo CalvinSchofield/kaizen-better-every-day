@@ -84,7 +84,7 @@ serve(async (req) => {
         team_id: finalTeamId || null,
         mgmt_group_id: finalMgmtGroupId || null,
       })
-      .select('id, notion_page_id')
+      .select('id')
       .single();
 
     if (insertError) {
@@ -98,7 +98,7 @@ serve(async (req) => {
     await supabase
       .from('recruit_activities')
       .insert({
-        rep_notion_page_id: newRecruit.id, // Use Supabase ID as the identifier
+        recruit_id: newRecruit.id,
         activity_type: 'note',
         logged_by_user_id: user.id,
         notes: `Added to 100 List`,
@@ -107,7 +107,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       recruitId: newRecruit.id,
-      notionPageId: newRecruit.notion_page_id || newRecruit.id,
       name 
     }), {
       status: 200,
