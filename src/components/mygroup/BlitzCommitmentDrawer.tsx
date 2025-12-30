@@ -37,7 +37,8 @@ interface BlitzCommitmentDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   recruitName: string;
-  recruitId: string;
+  recruitId: string; // Recruit table ID - for declined blitzes lookup
+  repId: string | null; // Rep table ID - for blitz commitment updates
   currentCommitments: string[];
   availableBlitzes: BlitzEvent[];
 }
@@ -47,6 +48,7 @@ export const BlitzCommitmentDrawer = ({
   onOpenChange,
   recruitName,
   recruitId,
+  repId,
   currentCommitments,
   availableBlitzes,
 }: BlitzCommitmentDrawerProps) => {
@@ -57,15 +59,15 @@ export const BlitzCommitmentDrawer = ({
   const [clearingDeclineId, setClearingDeclineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch declined blitzes for this recruit
+  // Fetch declined blitzes for this recruit using repId (reps table ID)
   useEffect(() => {
     const fetchDeclinedBlitzes = async () => {
-      if (!recruitId || !open) return;
+      if (!repId || !open) return;
       
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_id', recruitId);
+        .eq('rep_id', repId);
       
       if (!error && data) {
         setDeclinedBlitzIds(data.map(d => d.blitz_id));
@@ -73,7 +75,7 @@ export const BlitzCommitmentDrawer = ({
     };
     
     fetchDeclinedBlitzes();
-  }, [recruitId, open]);
+  }, [repId, open]);
 
   const today = startOfDay(new Date());
 
@@ -95,13 +97,17 @@ export const BlitzCommitmentDrawer = ({
 
   const handleClearDecline = async (blitzId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!repId) {
+      toast.error('Cannot clear decline - missing rep ID');
+      return;
+    }
     setClearingDeclineId(blitzId);
     
     try {
       const { error } = await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId,
-          repId: recruitId,
+          repId: repId, // Use repId for the reps table
           isDeclined: false,
         },
       });
@@ -152,12 +158,17 @@ export const BlitzCommitmentDrawer = ({
   };
 
   const handleConfirmSave = async () => {
+    if (!repId) {
+      toast.error('Cannot update blitz commitments - missing rep ID');
+      setConfirmDialogOpen(false);
+      return;
+    }
     setConfirmDialogOpen(false);
     setIsUpdating(true);
     try {
       const { error } = await supabase.functions.invoke('update-blitz-commitment', {
         body: {
-          repId: recruitId,
+          repId: repId, // Use repId for the reps table
           blitzPageIds: pendingCommitments,
         },
       });

@@ -13,7 +13,8 @@ export interface BlitzCommitment {
 }
 
 export interface Recruit {
-  id: string; // Supabase UUID - primary identifier
+  id: string; // Supabase UUID from recruits table - use for activities and CRM operations
+  repId: string | null; // Supabase UUID from reps table - use for app progress (blitz commitments, phases, etc.)
   name: string;
   phone: string;
   email: string;
@@ -281,12 +282,14 @@ export const useGroupRecruits = () => {
 
       // Get matching recruit records to get additional CRM data (team_id, mgmt_group_id, etc.)
       // Match by email OR name since some reps don't have emails
-      const repEmails = filteredReps.map((r: any) => r.email?.toLowerCase()).filter(Boolean);
+      const repEmails = filteredReps.map((r: any) => r.email).filter(Boolean) as string[];
       const repNames = filteredReps.map((r: any) => r.name).filter(Boolean);
       let recruitsByKey = new Map<string, any>();
       
-      // Fetch by email first
+      // Fetch by email first - use OR filters for case-insensitive matching
       if (repEmails.length > 0) {
+        // Build case-insensitive OR filter for emails
+        const emailFilters = repEmails.map(email => `email.ilike.${email}`).join(',');
         const { data: matchingRecruits } = await supabase
           .from('recruits')
           .select(`
@@ -295,7 +298,7 @@ export const useGroupRecruits = () => {
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
           `)
-          .in('email', repEmails);
+          .or(emailFilters);
         
         for (const recruit of matchingRecruits || []) {
           if (recruit.email) {
@@ -366,6 +369,13 @@ export const useGroupRecruits = () => {
         }
       }
 
+      // Build a map of email/name -> rep ID for ghost recruit lookup
+      const repIdsByKey = new Map<string, string>();
+      for (const r of filteredReps) {
+        if (r.email) repIdsByKey.set(`email:${r.email.toLowerCase()}`, r.id);
+        if (r.name) repIdsByKey.set(`name:${r.name.toLowerCase()}`, r.id);
+      }
+
       // Transform reps to match expected Recruit interface
       let recruits: Recruit[] = filteredReps.map((r: any) => {
         const accessibleRepInfo = accessibleRepsMap.get(r.user_id);
@@ -374,8 +384,9 @@ export const useGroupRecruits = () => {
           ? recruitsByKey.get(`email:${r.email.toLowerCase()}`) 
           : recruitsByKey.get(`name:${r.name?.toLowerCase()}`);
         
-        // Use recruit record ID if available (for activity linking), otherwise use rep ID
-        const primaryId = matchingRecruit?.id || r.id;
+        // id = recruit table ID (for activities/CRM), repId = reps table ID (for app progress)
+        const recruitId = matchingRecruit?.id || r.id;
+        const repId = r.id; // Always use the rep's own ID
         
         // Extract team/recruiter info from joined relations
         const teamData = matchingRecruit?.teams as { id: string; name: string } | null;
@@ -383,7 +394,8 @@ export const useGroupRecruits = () => {
         const recruiterData = matchingRecruit?.recruiter as { id: string; name: string; user_id: string } | null;
         
         return {
-          id: primaryId,
+          id: recruitId,
+          repId: repId,
           name: r.name,
           phone: r.phone || '',
           email: r.email || '',
@@ -426,8 +438,14 @@ export const useGroupRecruits = () => {
         const mgmtGroupData = ghostRecruit.mgmt_groups as { id: string; name: string } | null;
         const recruiterData = ghostRecruit.recruiter as { id: string; name: string; user_id: string } | null;
         
+        // For ghost recruits, try to find matching rep by email or name
+        const matchingRepId = ghostRecruit.email 
+          ? repIdsByKey.get(`email:${ghostRecruit.email.toLowerCase()}`)
+          : repIdsByKey.get(`name:${ghostRecruit.name?.toLowerCase()}`);
+        
         recruits.push({
-          id: ghostRecruit.id,
+          id: ghostRecruit.id, // Recruit table ID for activities
+          repId: matchingRepId || null, // Rep table ID for app progress (may be null for true ghost recruits)
           name: ghostRecruit.name,
           phone: ghostRecruit.phone || '',
           email: ghostRecruit.email || '',
