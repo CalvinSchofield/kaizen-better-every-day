@@ -68,7 +68,6 @@ export const ScheduleFollowUpDrawer = ({
       
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: 'next_step',
         notes: notes || `Follow up scheduled for ${format(selectedDate, 'MMM d')}`,
         nextAction: `Follow up on ${format(selectedDate, 'MMM d, yyyy')}`,

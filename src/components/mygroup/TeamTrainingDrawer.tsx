@@ -91,10 +91,8 @@ export const TeamTrainingDrawer = ({
     try {
       // Log interaction for each selected rep
       const promises = Array.from(selectedReps).map(userId => {
-        const rep = reps.find(r => r.userId === userId);
         return logInteractionAsync({
           repUserId: userId,
-          repNotionPageId: rep?.notionPageId,
           type: 'team_training',
           notes: title,
           date: trainingDate,
