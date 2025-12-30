@@ -131,15 +131,7 @@ export type Database = {
           rep_id?: string | null
           rep_user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "blitz_declines_rep_id_fkey"
-            columns: ["rep_id"]
-            isOneToOne: false
-            referencedRelation: "reps"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       blitz_invites: {
         Row: {
@@ -166,15 +158,7 @@ export type Database = {
           rep_id?: string | null
           rep_user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "blitz_invites_rep_id_fkey"
-            columns: ["rep_id"]
-            isOneToOne: false
-            referencedRelation: "reps"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       blitzes: {
         Row: {
