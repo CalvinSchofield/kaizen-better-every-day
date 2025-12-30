@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { getDaysUntilBlitz, formatDaysUntilBlitz, parseDateAsLocal, formatBlitzDate } from "@/utils/blitzDateUtils";
@@ -443,26 +443,45 @@ const BlitzManagementSection = ({
     staleTime: 30000,
   });
   
-  const committedBlitzIds = useMemo(() => {
+  // Extract committed blitz data - may contain Notion IDs or objects with name/id
+  const committedBlitzData = useMemo(() => {
     const rawFromSupabase = recruitRepData?.committed_blitzes;
     const rawFromNotion = recruit?.committedBlitzes;
     const raw = (rawFromSupabase && Array.isArray(rawFromSupabase) && rawFromSupabase.length > 0) 
       ? rawFromSupabase 
       : rawFromNotion;
-    if (!raw || !Array.isArray(raw)) return [];
-    return raw.map((item: string | { id: string }) => 
-      typeof item === 'string' ? item : item?.id
-    ).filter(Boolean) as string[];
+    if (!raw || !Array.isArray(raw)) return { ids: [] as string[], names: [] as string[] };
+    
+    const ids: string[] = [];
+    const names: string[] = [];
+    raw.forEach((item: string | { id?: string; name?: string }) => {
+      if (typeof item === 'string') {
+        ids.push(item);
+      } else if (item) {
+        if (item.id) ids.push(item.id);
+        if (item.name) names.push(item.name.toLowerCase().trim());
+      }
+    });
+    return { ids, names };
   }, [recruitRepData?.committed_blitzes, recruit?.committedBlitzes]);
+  
+  // Helper to check if a blitz is committed (by ID or name match)
+  const isBlitzCommitted = useCallback((blitz: { id: string; name: string }) => {
+    return committedBlitzData.ids.includes(blitz.id) || 
+           committedBlitzData.names.includes(blitz.name.toLowerCase().trim());
+  }, [committedBlitzData]);
+  
+  // For backward compatibility, keep committedBlitzIds for the update function
+  const committedBlitzIds = committedBlitzData.ids;
   
   const now = new Date();
   const pastBlitzes = useMemo(() => {
-    return allPastBlitzes.filter(blitz => committedBlitzIds.includes(blitz.id));
-  }, [allPastBlitzes, committedBlitzIds]);
+    return allPastBlitzes.filter(blitz => isBlitzCommitted(blitz));
+  }, [allPastBlitzes, isBlitzCommitted]);
   
   const futureBlitzes = allBlitzes;
-  const committedFutureCount = futureBlitzes.filter(b => committedBlitzIds.includes(b.id)).length;
-  const declinedFutureCount = futureBlitzes.filter(b => declinedBlitzIds.includes(b.id) && !committedBlitzIds.includes(b.id)).length;
+  const committedFutureCount = futureBlitzes.filter(b => isBlitzCommitted(b)).length;
+  const declinedFutureCount = futureBlitzes.filter(b => declinedBlitzIds.includes(b.id) && !isBlitzCommitted(b)).length;
   
   const handleToggleBlitz = async (blitzId: string, blitzName: string, isCurrentlyCommitted: boolean) => {
     if (!recruit?.notionPageId) return;
@@ -515,7 +534,7 @@ const BlitzManagementSection = ({
     if (declinedFutureCount > 0) {
       // Show the actual blitz name(s) that were declined
       const declinedBlitzNames = futureBlitzes
-        .filter(b => declinedBlitzIds.includes(b.id) && !committedBlitzIds.includes(b.id))
+        .filter(b => declinedBlitzIds.includes(b.id) && !isBlitzCommitted(b))
         .map(b => b.name);
       if (declinedBlitzNames.length === 1) {
         parts.push(`declined ${declinedBlitzNames[0]}`);
@@ -591,7 +610,7 @@ const BlitzManagementSection = ({
                 <span>Upcoming Blitzes</span>
               </div>
               {futureBlitzes.map((blitz) => {
-                const isCommitted = committedBlitzIds.includes(blitz.id);
+                const isCommitted = isBlitzCommitted(blitz);
                 const isDeclined = declinedBlitzIds.includes(blitz.id) && !isCommitted;
                 const blitzDate = parseDateAsLocal(blitz.date);
                 const isLoading = isUpdating === blitz.id;
