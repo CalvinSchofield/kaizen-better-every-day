@@ -3,10 +3,11 @@ import { Progress } from "@/components/ui/progress";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { RecruitRepData, RecruitGoals, RecruitSummerConfig } from "../types";
 import { getFirstName } from "../utils";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, parseISO, differenceInDays, isAfter, isSameDay, startOfToday } from "date-fns";
 import { toast } from "sonner";
 import { SummerProgressTab } from "./SummerProgressTab";
-
+import { useBlitzes } from "@/hooks/useBlitzes";
+import { useMemo } from "react";
 interface DailyEntry {
   entry_date: string;
   fp_plus: number;
@@ -35,6 +36,7 @@ export const ProgressTab = ({
   summerEntries = [],
   onOnboardingStepClick
 }: ProgressTabProps) => {
+  const { allBlitzes } = useBlitzes();
   const recruitFirstName = getFirstName(recruit.name);
   const isRookie = recruitRepData && (recruitRepData.year === 'Rookie' || !recruitRepData.year);
   
@@ -124,26 +126,40 @@ export const ProgressTab = ({
   
   const currentStep = getCurrentStep();
 
-  // Get upcoming blitz info
-  const getUpcomingBlitz = () => {
-    if (!recruitRepData.blitz_trip_date || !recruitRepData.blitz_trip_name) return null;
-    try {
-      const blitzDate = parseISO(recruitRepData.blitz_trip_date);
-      const today = new Date();
-      const daysUntil = differenceInDays(blitzDate, today);
-      if (daysUntil < 0) return null; // Past blitz
-      return {
-        name: recruitRepData.blitz_trip_name,
-        date: blitzDate,
-        daysUntil,
-        location: recruitRepData.blitz_trip_location
-      };
-    } catch {
-      return null;
-    }
-  };
-  
-  const upcomingBlitz = getUpcomingBlitz();
+  // Get closest upcoming blitz from committed blitzes
+  const upcomingBlitz = useMemo(() => {
+    if (!recruitRepData?.committed_blitzes || !allBlitzes.length) return null;
+    
+    // Normalize committed blitz IDs
+    const committedIds = (recruitRepData.committed_blitzes as (string | { id: string })[])
+      .map(b => typeof b === 'string' ? b : b.id);
+    
+    if (committedIds.length === 0) return null;
+    
+    const today = startOfToday();
+    
+    // Find all committed blitzes that are upcoming
+    const committedUpcoming = allBlitzes
+      .filter(blitz => committedIds.includes(blitz.id))
+      .filter(blitz => {
+        if (!blitz.date) return false;
+        const blitzDate = parseISO(blitz.date);
+        return isAfter(blitzDate, today) || isSameDay(blitzDate, today);
+      })
+      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    
+    if (committedUpcoming.length === 0) return null;
+    
+    const closest = committedUpcoming[0];
+    const daysUntil = differenceInDays(parseISO(closest.date), today);
+    
+    return {
+      name: closest.name,
+      date: parseISO(closest.date),
+      daysUntil,
+      location: closest.location
+    };
+  }, [recruitRepData?.committed_blitzes, allBlitzes]);
 
   // Step configuration with field mappings and progressive locking
   const onboardingStepConfigs = [
