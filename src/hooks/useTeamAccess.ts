@@ -16,10 +16,9 @@ interface TeamAccessResponse {
   }>;
   accessibleUserIds: string[];
   accessibleReps: Array<{
-    id?: string; // Supabase UUID for the rep record
+    id: string; // Supabase UUID for the rep record
     userId: string | null; // null for ghost reps (no app account)
     name: string;
-    notionPageId: string;
     phone?: string | null;
     year?: string | null;
     stage?: string | null;

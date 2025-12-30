@@ -297,7 +297,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
                 <div className="space-y-2">
                   {dayTasks.map(({ recruit, activity }) => (
                     <PlannerTaskCard
-                      key={`${recruit.notionPageId}-${activity.id}`}
+                      key={`${recruit.id}-${activity.id}`}
                       recruit={recruit}
                       activity={activity}
                       onClick={() => handleRecruitClick(recruit)}
@@ -327,7 +327,7 @@ export const RecruitPlannerView = ({ recruits, activities }: RecruitPlannerViewP
         onOpenChange={(open) => {
           setDrawerOpen(open);
           if (!open && selectedRecruit) {
-            const updated = recruits.find(r => r.notionPageId === selectedRecruit.notionPageId);
+            const updated = recruits.find(r => r.id === selectedRecruit.id);
             if (updated) setSelectedRecruit(updated);
           }
         }}

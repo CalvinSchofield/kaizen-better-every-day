@@ -285,7 +285,6 @@ Deno.serve(async (req) => {
         id: rep.id,
         userId: rep.user_id || null,
         name: rep.name,
-        notionPageId: rep.id, // Use Supabase id for backwards compatibility
         phone: rep.phone || null,
         year: rep.year || null,
         stage: rep.stage || null,

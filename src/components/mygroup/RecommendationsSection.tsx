@@ -48,7 +48,7 @@ export const RecommendationsSection = ({
 
   // Filter out dismissed recruits
   const filteredRecommendations = dismissedIds 
-    ? recommendations.filter(r => !dismissedIds.has(r.recruit.notionPageId))
+    ? recommendations.filter(r => !dismissedIds.has(r.recruit.id))
     : recommendations;
 
   const topRecommendations = filteredRecommendations.slice(0, maxItems);
@@ -81,7 +81,7 @@ export const RecommendationsSection = ({
   // Handle contact method complete - only dismiss if connected
   const handleContactMethodComplete = (wasConnected: boolean) => {
     if (wasConnected && contactRecruit && onDismiss) {
-      setAnimatingOutId(contactRecruit.notionPageId);
+      setAnimatingOutId(contactRecruit.id);
       const recruit = contactRecruit;
       setTimeout(() => {
         onDismiss(recruit, `Contact logged for ${recruit.name || 'recruit'}`);
@@ -97,7 +97,7 @@ export const RecommendationsSection = ({
   const handlePostContactComplete = (wasConnected: boolean) => {
     if (wasConnected && postContactRecruit && onDismiss) {
       // Connected - dismiss the card
-      setAnimatingOutId(postContactRecruit.notionPageId);
+      setAnimatingOutId(postContactRecruit.id);
       const recruit = postContactRecruit;
       setTimeout(() => {
         onDismiss(recruit, `Contact logged for ${recruit.name || 'recruit'}`);
@@ -127,7 +127,7 @@ export const RecommendationsSection = ({
   // Handle schedule complete - dismiss with animation
   const handleScheduleComplete = () => {
     if (schedulingRecruit && onDismiss) {
-      setAnimatingOutId(schedulingRecruit.notionPageId);
+      setAnimatingOutId(schedulingRecruit.id);
       const recruit = schedulingRecruit;
       setTimeout(() => {
         onDismiss(recruit, `Follow-up scheduled for ${recruit.name || 'recruit'}`);
@@ -166,13 +166,13 @@ export const RecommendationsSection = ({
           <AnimatePresence mode="popLayout">
             {topRecommendations.map((rec) => (
               <motion.div
-                key={rec.recruit.notionPageId}
+                key={rec.recruit.id}
                 layout
                 initial={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                 animate={{ 
-                  opacity: animatingOutId === rec.recruit.notionPageId ? 0 : 1,
-                  height: animatingOutId === rec.recruit.notionPageId ? 0 : 'auto'
+                  opacity: animatingOutId === rec.recruit.id ? 0 : 1,
+                  height: animatingOutId === rec.recruit.id ? 0 : 'auto'
                 }}
                 transition={{ duration: 0.3 }}
               >

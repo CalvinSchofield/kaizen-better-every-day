@@ -74,7 +74,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: 'phone_call',
         notes: 'Call attempt',
         updateLastContact: true,
@@ -91,7 +90,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: 'phone_call',
         notes: 'Text sent',
         updateLastContact: true,
@@ -111,7 +109,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: 'next_step',
         nextAction: activity.next_action || 'Follow up',
         nextActionDue: dateStr,
@@ -128,7 +125,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: type,
         notes: `Completed: ${activity.next_action || 'Follow up'}`,
         updateLastContact: true,
@@ -149,7 +145,6 @@ export const PlannerTaskCard = ({ recruit, activity, onClick }: PlannerTaskCardP
     try {
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
-        recruitNotionId: recruit.notionPageId,
         activityType: 'next_step',
         nextAction: activity.next_action || 'Follow up',
         nextActionDue: dateStr,

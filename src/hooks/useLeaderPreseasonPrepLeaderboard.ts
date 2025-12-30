@@ -26,10 +26,9 @@ interface PrepScoreHistory {
 }
 
 export interface LeaderboardEntry {
-  id: string; // notionPageId as unique identifier
+  id: string; // Supabase UUID - primary identifier
   userId: string | null; // null for ghost reps
   name: string;
-  notionPageId: string | null;
   timezone: string;
   profilePhotoUrl: string | null;
   teamLeader: string | null;
