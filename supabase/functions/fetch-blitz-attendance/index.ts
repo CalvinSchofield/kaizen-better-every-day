@@ -223,9 +223,19 @@ Deno.serve(async (req) => {
         commitmentMap[rb.recruit_id].push(rb.blitz_id);
       });
 
+      // Get current user's email for self-exclusion
+      const currentUserEmail = repData.email ? String(repData.email).toLowerCase().trim() : null;
+
       // Map recruits to team members format
       for (const recruit of recruitsData || []) {
         const emailKey = recruit.email ? String(recruit.email).toLowerCase().trim() : null;
+        
+        // Exclude current user from appearing in their own list
+        if (emailKey && currentUserEmail && emailKey === currentUserEmail) {
+          console.log(`Excluding current user (${recruit.name}) from blitz attendance list`);
+          continue;
+        }
+        
         const repProgress = emailKey ? repByEmail[emailKey] : null;
         const progress = repProgress || recruit;
 
