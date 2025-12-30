@@ -191,10 +191,9 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
         );
 
         entries.push({
-          id: accessibleRep.id, // Use id as unique identifier
+          id: accessibleRep.id,
           userId: accessibleRep.userId || null,
           name: accessibleRep.name || rep?.name || 'Unknown',
-          notionPageId: accessibleRep.id, // Keep for backwards compat
           timezone,
           profilePhotoUrl: rep?.profile_photo_url || null,
           teamName: accessibleRep.teamName || null,
@@ -268,7 +267,6 @@ export const usePreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'overall
             id: currentUserRepId,
             userId: currentUserId,
             name: rep.name,
-            notionPageId: currentUserRepId,
             timezone,
             profilePhotoUrl: rep.profile_photo_url,
             teamName: null,

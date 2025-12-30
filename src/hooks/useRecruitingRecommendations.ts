@@ -100,13 +100,13 @@ export const useRecruitingRecommendations = (
         }
       }
       
-      const lastContact = lastContactMap.get(recruit.notionPageId);
+      const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
       
       // Check if recruit has a follow-up scheduled for AFTER today
       // If so, skip them - there's nothing to do until that date
-      const scheduledFollowUpData = scheduledFollowUpMap.get(recruit.notionPageId);
+      const scheduledFollowUpData = scheduledFollowUpMap.get(recruit.id);
       if (scheduledFollowUpData && isAfter(scheduledFollowUpData.dueDate, today)) {
         return; // Skip this recruit - there's nothing to do until that date
       }

@@ -153,7 +153,7 @@ export const useNeedsAttention = (
       // EARLY EXIT: Don't show anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up)
       if (EXIT_STAGES.includes(recruit.stage as any)) return;
       
-      const repData = repDataMap?.get(recruit.notionPageId);
+      const repData = repDataMap?.get(recruit.id);
 
       // Use Supabase data if available, otherwise fall back to Notion data
       const ipadAssigned = repData?.ipad_assigned ?? recruit.ipadAssigned ?? false;
@@ -236,7 +236,7 @@ export const useNeedsAttention = (
       }
       
       // Get days since last contact using timezone-aware calculation
-      const lastContact = lastContactMap.get(recruit.notionPageId);
+      const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSinceContact = lastContactStr ? getDaysSinceDate(lastContactStr) ?? undefined : undefined;
       
@@ -307,7 +307,7 @@ export const useNeedsAttention = (
       // EARLY EXIT: Don't show anyone in exit stages (Not Interested, Signed but Not Interested, Potential Follow Up)
       if (EXIT_STAGES.includes(recruit.stage as any)) return;
       
-      const repData = repDataMap?.get(recruit.notionPageId);
+      const repData = repDataMap?.get(recruit.id);
 
       // Use Supabase data if available, otherwise fall back to Notion data
       const slackJoined = repData?.slack_joined ?? recruit.slackJoined ?? false;
@@ -440,7 +440,7 @@ export const useNeedsAttention = (
         return;
       }
 
-      const lastContact = lastContactMap.get(recruit.notionPageId);
+      const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
 
@@ -535,7 +535,7 @@ export const useNeedsAttention = (
     );
 
     blitzEligibleRecruits.forEach(recruit => {
-      const repData = repDataMap?.get(recruit.notionPageId);
+      const repData = repDataMap?.get(recruit.id);
       
       // Get committed blitz IDs from BOTH sources:
       // 1. repData.committed_blitzes (Supabase reps table - has full blitz objects for registered users)
@@ -632,7 +632,7 @@ export const useNeedsAttention = (
     const hotLeadRecruits: AttentionRecruit[] = [];
     
     recruits.filter(r => r.stage === 'Evaluating').forEach(recruit => {
-      const lastContact = lastContactMap.get(recruit.notionPageId);
+      const lastContact = lastContactMap.get(recruit.id);
       const lastContactStr = lastContact ? lastContact.toISOString().split('T')[0] : null;
       const daysSince = lastContactStr ? getDaysSinceDate(lastContactStr) : null;
 
@@ -682,7 +682,7 @@ export const useNeedsAttention = (
     );
     
     rookiesForReadiness.forEach(recruit => {
-      const repData = repDataMap?.get(recruit.notionPageId);
+      const repData = repDataMap?.get(recruit.id);
       
       // Must have completed phase 1 - check Supabase first, then fall back to Notion data
       const phase1Complete = repData?.ramp_phase_1_complete ?? recruit.phase1Complete ?? false;

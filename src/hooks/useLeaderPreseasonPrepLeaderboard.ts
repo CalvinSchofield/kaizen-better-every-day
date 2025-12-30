@@ -83,7 +83,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       );
 
       // Get all rookie notion page IDs we have access to
-      const accessibleNotionIds = new Set(accessibleRookies.map(r => r.notionPageId));
+      const accessibleNotionIds = new Set(accessibleRookies.map(r => r.id));
 
       // Fetch rep_goals for standards data
       const { data: goalsData, error: goalsError } = await supabase
@@ -141,7 +141,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       // Build the list of qualifying rookies
       // A rookie qualifies if: they're a rookie AND in a valid stage AND have completed phase 1
       const qualifyingRookies: Array<{
-        notionPageId: string;
+        id: string;
         name: string;
         teamName: string | null;
         mgmtGroupName: string | null;
@@ -170,7 +170,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         if (!phase1Complete) continue;
         
         qualifyingRookies.push({
-          notionPageId: accessRep.id,
+          id: accessRep.id,
           name: accessRep.name,
           teamName: accessRep.teamName || null,
           mgmtGroupName: accessRep.mgmtGroupName || null,
@@ -196,15 +196,15 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         
         filteredRookies = qualifyingRookies.filter(r => {
           // Check Notion recruit data for recruiter info
-          const notionRecruit = recruitsByNotionId.get(r.notionPageId);
+          const notionRecruit = recruitsByNotionId.get(r.id);
           const recruiterFromNotion = notionRecruit?.recruiter || '';
           
           // Check Supabase rep data for team_leader
-          const supabaseRep = repsById.get(r.notionPageId);
+          const supabaseRep = repsById.get(r.id);
           const teamLeader = supabaseRep?.team_leader || '';
           
           // Check the accessRep's teamName from the teamAccess data
-          const accessRep = accessibleRookies.find(ar => ar.id === r.notionPageId);
+          const accessRep = accessibleRookies.find(ar => ar.id === r.id);
           const repTeamName = (accessRep?.teamName || r.teamName || '').toLowerCase();
           
           // Match if:
@@ -232,8 +232,8 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
           filteredCount: filteredRookies.length,
           filteredNames: filteredRookies.map(r => r.name),
           sampleRookieData: qualifyingRookies.slice(0, 3).map(r => {
-            const notionRecruit = recruitsByNotionId.get(r.notionPageId);
-            const supabaseRep = repsById.get(r.notionPageId);
+            const notionRecruit = recruitsByNotionId.get(r.id);
+            const supabaseRep = repsById.get(r.id);
             return {
               name: r.name,
               teamName: r.teamName,
@@ -253,7 +253,7 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
       let rookiesWithStandardsCount = 0;
 
       for (const rookie of filteredRookies) {
-        const supabaseRep = repsById.get(rookie.notionPageId);
+        const supabaseRep = repsById.get(rookie.id);
         const goal = rookie.userId ? goalsMap.get(rookie.userId) : null;
         const hasStandards = goal?.setup_complete === true;
 
@@ -306,10 +306,9 @@ export const useLeaderPreseasonPrepLeaderboard = (metric: LeaderboardMetric = 'o
         );
 
         entries.push({
-          id: rookie.notionPageId,
+          id: rookie.id,
           userId: rookie.userId,
           name: rookie.name,
-          notionPageId: rookie.notionPageId,
           timezone,
           profilePhotoUrl: supabaseRep?.profile_photo_url || null,
           teamLeader: supabaseRep?.team_leader || null,
