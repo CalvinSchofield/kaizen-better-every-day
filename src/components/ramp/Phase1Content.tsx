@@ -10,6 +10,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { useRampProgress } from "@/hooks/useRampProgress";
 import { useNavigate } from "react-router-dom";
 import type { RepData } from "@/hooks/useRepData";
+import { PhaseCompleteCard } from "./PhaseCompleteCard";
 
 interface Phase1ContentProps {
   repData: RepData | null;
@@ -203,10 +204,26 @@ export const Phase1Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
     }
   };
 
+  // All steps done, waiting on leader to verify/mark complete
+  const allStepsDoneWaitingLeader = requiredVideosWatched && 
+    (hasCommittedBlitz || hasOptedOutOfBlitz) && 
+    hasTextedLeaderGoals && 
+    !goalsSetupComplete && 
+    !isComplete;
+
   return (
     <div className="space-y-5 pb-20">
+      {/* Phase Complete - Waiting on Leader */}
+      {allStepsDoneWaitingLeader && (
+        <PhaseCompleteCard
+          phaseNumber={1}
+          teamLeaderPhone={repData?.team_leader_phone}
+          teamLeaderName={repData?.team_leader}
+        />
+      )}
+
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 3 && (
+      {completedSteps > 0 && completedSteps < 3 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {requiredVideosWatched && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">

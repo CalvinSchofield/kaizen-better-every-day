@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { CheckCircle2, Circle, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, Download, LogIn, MapPin, ExternalLink, Smartphone, Image, StickyNote, Lightbulb, Play, Video } from "lucide-react";
+import { CheckCircle2, Tablet, MessageSquare, ChevronDown, ChevronUp, Heart, Users, MapPin, ExternalLink, Smartphone, Image, StickyNote, Lightbulb, Play, Video, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useRampProgress } from "@/hooks/useRampProgress";
 import type { RepData } from "@/hooks/useRepData";
+import { TrainingSection } from "./TrainingSection";
+import { PhaseCompleteCard } from "./PhaseCompleteCard";
 
 // Detect if running as PWA on iPhone
 const useIsIPhonePWA = () => {
@@ -221,10 +223,22 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
 
   const completedSteps = [ipadReady, whyWritten, practiceScheduled].filter(Boolean).length;
 
+  // All steps done, waiting on leader to verify
+  const allStepsDoneWaitingLeader = ipadReady && whyWritten && practiceScheduled && !isComplete;
+
   return (
     <div className="space-y-5 pb-20">
+      {/* Phase Complete - Waiting on Leader */}
+      {allStepsDoneWaitingLeader && (
+        <PhaseCompleteCard
+          phaseNumber={3}
+          teamLeaderPhone={repData?.team_leader_phone}
+          teamLeaderName={repData?.team_leader}
+        />
+      )}
+
       {/* Completed Steps as Chips */}
-      {completedSteps > 0 && completedSteps < 3 && (
+      {completedSteps > 0 && completedSteps < 3 && !allStepsDoneWaitingLeader && (
         <div className="flex flex-wrap gap-2">
           {ipadReady && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -650,93 +664,5 @@ export const Phase3Content = ({ repData, isComplete, scrollToStepKey, onScrollCo
         </div>
       </TrainingSection>
     </div>
-  );
-};
-
-interface TrainingSectionProps {
-  title: string;
-  icon: React.ReactNode;
-  description: string;
-  isComplete: boolean;
-  isLocked?: boolean;
-  requiresLeader?: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-const TrainingSection = ({
-  title,
-  icon,
-  description,
-  isComplete,
-  isLocked,
-  requiresLeader,
-  isExpanded,
-  onToggle,
-  children,
-}: TrainingSectionProps) => {
-  return (
-    <Card className={cn(
-      "transition-all duration-200 overflow-hidden",
-      isComplete && "bg-primary/5 border-primary/20",
-      isLocked && "opacity-50"
-    )}>
-      <Collapsible open={isExpanded && !isLocked} onOpenChange={isLocked ? undefined : onToggle}>
-        <CollapsibleTrigger asChild disabled={isLocked}>
-          <CardContent className={cn("p-4", !isLocked && "cursor-pointer")}>
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5">
-                {isComplete ? (
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
-                ) : (
-                  <Circle className="w-5 h-5 text-muted-foreground/50" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-primary">{icon}</span>
-                  <h4 className={cn(
-                    "font-medium text-sm",
-                    isComplete && "text-muted-foreground"
-                  )}>
-                    {title}
-                  </h4>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {isLocked ? "Complete previous step to unlock" : description}
-                </p>
-                {requiresLeader && !isLocked && !isComplete && (
-                  <Badge variant="outline" className="mt-2 text-xs">
-                    Requires leader
-                  </Badge>
-                )}
-                {requiresLeader && isComplete && (
-                  <Badge variant="outline" className="mt-2 text-xs bg-green-500/10 border-green-500/30 text-green-700">
-                    ✓ Leader verified
-                  </Badge>
-                )}
-              </div>
-              {!isLocked && (
-                <div className="shrink-0">
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-4 pb-4 pt-0 border-t">
-            <div className="pt-4">
-              {children}
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
   );
 };
