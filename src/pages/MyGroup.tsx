@@ -687,7 +687,10 @@ const MyGroup = () => {
   useEffect(() => {
     if (!pendingNewRecruitId || !allRecruits.length) return;
     
-    const newRecruit = allRecruits.find(r => r.notionPageId === pendingNewRecruitId);
+    // Check both id and notionPageId since new recruits use Supabase id
+    const newRecruit = allRecruits.find(r => 
+      r.notionPageId === pendingNewRecruitId || r.id === pendingNewRecruitId
+    );
     if (newRecruit) {
       // Found the newly created recruit, open detail drawer
       setSelectedRecruit(newRecruit);
