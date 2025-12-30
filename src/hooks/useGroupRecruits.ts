@@ -266,13 +266,15 @@ export const useGroupRecruits = () => {
         ghostRecruits = teamRecruits || [];
       }
 
-      // Build a set of emails we already have from reps to avoid duplicates
+      // Build sets of emails AND names we already have from reps to avoid duplicates
       const existingEmails = new Set(filteredReps.map((r: any) => r.email?.toLowerCase()).filter(Boolean));
+      const existingNames = new Set(filteredReps.map((r: any) => r.name?.toLowerCase()).filter(Boolean));
       
       // Filter ghost recruits to only those without a matching rep and in recruiting stages
       const filteredGhostRecruits = ghostRecruits.filter((r: any) => {
-        // Skip if we already have this person from reps table
+        // Skip if we already have this person from reps table (by email OR name)
         if (r.email && existingEmails.has(r.email.toLowerCase())) return false;
+        if (r.name && existingNames.has(r.name.toLowerCase())) return false;
         
         // Check recruiting stage
         const stage = canonicalizeStage(r.stage);
