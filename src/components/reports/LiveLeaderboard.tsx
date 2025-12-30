@@ -242,22 +242,14 @@ export const LiveLeaderboard = ({
 
   // Save phone mutation
   const savePhoneMutation = useMutation({
-    mutationFn: async ({ notionPageId, phone }: { notionPageId: string; phone: string }) => {
+    mutationFn: async ({ repId, phone }: { repId: string; phone: string }) => {
       // Update in Supabase
       const { error } = await supabase
         .from('reps')
         .update({ phone })
-        .eq('notion_page_id', notionPageId);
+        .eq('id', repId);
       
       if (error) throw error;
-      
-      // Also update in Notion via edge function
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase.functions.invoke('update-recruit-phone', {
-          body: { recruitNotionId: notionPageId, phone }
-        });
-      }
     },
     onSuccess: () => {
       toast.success('Phone number saved');
@@ -352,20 +344,20 @@ export const LiveLeaderboard = ({
   const handleSavePhoneAndText = async () => {
     if (!newPhoneNumber.trim() || !pendingTextRep) return;
     
-    // Get notion page ID from reps table
+    // Get rep id from reps table
     const { data: repData } = await supabase
       .from('reps')
-      .select('notion_page_id')
+      .select('id')
       .eq('user_id', pendingTextRep.userId)
       .maybeSingle();
     
-    if (!repData?.notion_page_id) {
+    if (!repData?.id) {
       toast.error('Could not find rep record');
       return;
     }
     
     savePhoneMutation.mutate({
-      notionPageId: repData.notion_page_id,
+      repId: repData.id,
       phone: newPhoneNumber.trim(),
     }, {
       onSuccess: () => {

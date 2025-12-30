@@ -257,8 +257,8 @@ export const VetAlertCard = ({ teamMembers, allBlitzes, onTeamMemberUpdate }: Ve
         const { data: repData, error: fetchError } = await supabase
           .from('reps')
           .select('id')
-          .eq('notion_page_id', selectedAlert.rookie.notionPageId)
-          .maybeSingle();
+          .eq('id', selectedAlert.rookie.notionPageId)
+          .maybeSingle() as { data: { id: string } | null; error: any };
 
         if (fetchError) throw fetchError;
 

@@ -99,19 +99,19 @@ export const useAutoStageProgression = () => {
       if (isSupabaseId) {
         const { data } = await supabase
           .from('reps')
-          .select('id, notion_page_id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
+          .select('id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
           .eq('id', identifier)
           .maybeSingle();
-        repData = data;
+        repData = data as typeof repData;
       }
       
       if (!repData) {
         const { data } = await supabase
           .from('reps')
-          .select('id, notion_page_id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
-          .eq('notion_page_id', identifier)
+          .select('id, user_id, onboarding_complete, committed_blitzes, blitz_trip_date')
+          .eq('id', identifier)
           .maybeSingle();
-        repData = data;
+        repData = data as typeof repData;
       }
 
       if (!repData?.user_id) return null;

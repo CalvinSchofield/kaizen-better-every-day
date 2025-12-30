@@ -269,7 +269,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
 
   // Handle blitz commitment toggle
   const handleBlitzToggle = async (blitzId: string, blitzName: string) => {
-    if (!repData.notion_page_id) {
+    if (!repData.id) {
       toast({
         title: "Error",
         description: "Unable to update commitment. Please refresh and try again.",
@@ -295,18 +295,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const newCommitments = [...currentCommitments, blitz];
 
     try {
-      const blitzPageIds = newCommitments.map((b: any) => b.id);
-      
-      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
-        body: { 
-          repNotionPageId: repData.notion_page_id,
-          blitzPageIds 
-        },
-      });
-
-      if (error) throw error;
-
-      // Update local state optimistically
+      // Update local state
       const { error: updateError } = await supabase
         .from('reps')
         .update({ committed_blitzes: newCommitments })
@@ -318,7 +307,7 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
       await supabase.functions.invoke('toggle-blitz-decline', {
         body: {
           blitzId,
-          repNotionPageId: repData.notion_page_id,
+          repId: repData.id,
           isDeclined: false,
         },
       });
@@ -353,17 +342,6 @@ export const PostBlitzRookieHome = ({ repData, onSync, isSyncing, syncSuccess }:
     const newCommitments = currentCommitments.filter((b: any) => b.id !== blitzToUncommit.id);
 
     try {
-      const blitzPageIds = newCommitments.map((b: any) => b.id);
-      
-      const { error } = await supabase.functions.invoke('update-blitz-commitment', {
-        body: { 
-          repNotionPageId: repData.notion_page_id,
-          blitzPageIds 
-        },
-      });
-
-      if (error) throw error;
-
       // Update local state
       const { error: updateError } = await supabase
         .from('reps')

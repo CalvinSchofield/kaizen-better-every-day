@@ -112,10 +112,10 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
         return { liveReps: [], workingCount: 0, forgottenCount: 0 };
       }
 
-      // Fetch reps with their info including team_leader, year, phone, and notion_page_id
+      // Fetch reps with their info including team_leader, year, phone, and id
       const { data: repsData, error: repsError } = await supabase
         .from("reps")
-        .select("user_id, name, timezone, team_leader, year, phone, notion_page_id")
+        .select("id, user_id, name, timezone, team_leader, year, phone")
         .in("user_id", filteredUserIds);
 
       if (repsError) throw repsError;
@@ -277,7 +277,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
               teamName,
               mgmtGroupName,
               phone: cachedPhone || undefined,
-              notionPageId: repInfo?.notion_page_id || teamInfo?.notionPageId || undefined,
+              notionPageId: repInfo?.id || teamInfo?.notionPageId || undefined,
               timezone: timezone || 'America/Los_Angeles',
               isWorking: !todayEntry.is_finalized,
               hasForgottenEntry: !!forgottenEntry,
@@ -318,7 +318,7 @@ export const useTeamLiveData = ({ userIds, excludeUserIds = [] }: UseTeamLiveDat
             teamName,
             mgmtGroupName,
             phone: cachedPhone || undefined,
-            notionPageId: repInfo?.notion_page_id || teamInfo?.notionPageId || undefined,
+            notionPageId: repInfo?.id || teamInfo?.notionPageId || undefined,
             timezone: timezone || 'America/Los_Angeles',
             isWorking: false,
             hasForgottenEntry: true,

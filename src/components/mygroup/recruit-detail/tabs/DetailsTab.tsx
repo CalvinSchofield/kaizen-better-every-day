@@ -363,7 +363,7 @@ const IpadAssignmentCard = ({
       const { error: supabaseError } = await supabase
         .from('reps')
         .update({ ipad_assigned: checked })
-        .eq('notion_page_id', recruit.notionPageId);
+        .eq('id', recruit.notionPageId);
       
       if (supabaseError) throw supabaseError;
       
@@ -428,18 +428,18 @@ const BlitzManagementSection = ({
   
   // Fetch declined blitzes for this recruit
   const { data: declinedBlitzIds = [] } = useQuery({
-    queryKey: ['recruit-declined-blitzes', recruit?.notionPageId],
+    queryKey: ['recruit-declined-blitzes', recruit?.id],
     queryFn: async () => {
-      if (!recruit?.notionPageId) return [];
+      if (!recruit?.id) return [];
       const { data, error } = await supabase
         .from('blitz_declines')
         .select('blitz_id')
-        .eq('rep_notion_page_id', recruit.notionPageId);
+        .eq('rep_id', recruit.notionPageId);
       
       if (error) return [];
       return data.map(d => d.blitz_id);
     },
-    enabled: !!recruit?.notionPageId,
+    enabled: !!recruit?.id,
     staleTime: 30000,
   });
   

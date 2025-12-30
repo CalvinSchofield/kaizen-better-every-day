@@ -118,7 +118,7 @@ const MyGroup = () => {
       
       const { data } = await supabase
         .from('reps')
-        .select('name, team_leader, notion_page_id')
+        .select('id, name, team_leader')
         .eq('user_id', user.id)
         .single();
       
@@ -155,10 +155,10 @@ const MyGroup = () => {
   const activities = groupData?.activities || [];
 
   // Subscribe to realtime updates for recruit activities, suggestions, and rep data
-  const recruitNotionIds = useMemo(() => allRecruits.map(r => r.notionPageId), [allRecruits]);
-  useRecruitActivitiesRealtime(recruitNotionIds);
-  useRecruitSuggestionsRealtime(currentUserRep?.notion_page_id || null);
-  useRepsRealtime(recruitNotionIds);
+  const recruitIds = useMemo(() => allRecruits.map(r => r.notionPageId), [allRecruits]);
+  useRecruitActivitiesRealtime(recruitIds);
+  useRecruitSuggestionsRealtime(currentUserRep?.id || null);
+  useRepsRealtime(recruitIds);
 
   // Fetch tasks assigned to current user
   const { data: assignedTasks = [] } = useAssignedTasks(allRecruits);
@@ -169,11 +169,11 @@ const MyGroup = () => {
     queryFn: async () => {
       if (allRecruits.length === 0) return [];
       
-      const notionIds = allRecruits.map(r => r.notionPageId);
+      const recruitIds = allRecruits.map(r => r.notionPageId);
       const { data } = await supabase
         .from('reps')
-        .select('notion_page_id, user_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
-        .in('notion_page_id', notionIds);
+        .select('id, user_id, onboarding_complete, trainings_complete, slack_joined, ipad_assigned, ramp_to_blitz_phase, ramp_phase_1_complete, ramp_phase_2_complete, ramp_phase_3_complete, ramp_phase_4_complete, committed_blitzes')
+        .in('id', recruitIds);
       
       return data || [];
     },
@@ -186,8 +186,8 @@ const MyGroup = () => {
     if (!recruitsRepData) return undefined;
     const map = new Map<string, RepData>();
     recruitsRepData.forEach(rep => {
-      if (rep.notion_page_id) {
-        map.set(rep.notion_page_id, rep as RepData);
+      if (rep.id) {
+        map.set(rep.id, rep as RepData);
       }
     });
     return map;
@@ -291,7 +291,7 @@ const MyGroup = () => {
         const goals = recruitsGoalsData.find(g => g.user_id === rep.user_id);
         const config = recruitsSummerConfigData.find(c => c.user_id === rep.user_id);
         const entries = summerEntriesData?.filter(e => e.user_id === rep.user_id) || [];
-        const recruit = allRecruits.find(r => r.notionPageId === rep.notion_page_id);
+        const recruit = allRecruits.find(r => r.notionPageId === rep.id);
         
         const totalFp = entries.reduce((sum, e) => sum + (Number(e.fp_plus) || 0), 0);
         const knockingDays = entries.filter(e => 
@@ -300,7 +300,7 @@ const MyGroup = () => {
 
         return {
           userId: rep.user_id || '',
-          notionPageId: rep.notion_page_id || '',
+          notionPageId: rep.id || '',
           name: recruit?.name || '',
           year: recruit?.year || 'Rookie',
           personalSummerStart: config?.personal_summer_start || null,
@@ -445,7 +445,7 @@ const MyGroup = () => {
   // Filter activities to match filtered recruits
   const filteredActivities = useMemo(() => {
     if (!selectedTeamFilter) return activities;
-    return activities.filter(a => filteredRecruits.some(r => r.notionPageId === a.rep_notion_page_id));
+    return activities.filter(a => filteredRecruits.some(r => r.id === a.recruit_id));
   }, [selectedTeamFilter, activities, filteredRecruits]);
 
   // Get active filter name for display
@@ -540,20 +540,20 @@ const MyGroup = () => {
     // Get latest next action for each recruit
     const latestNextActions = new Map<string, typeof filteredActivities[0]>();
     filteredActivities.forEach(activity => {
-      if (activity.next_action_due && activity.next_action) {
-        const existing = latestNextActions.get(activity.rep_notion_page_id);
+      if (activity.next_action_due && activity.next_action && activity.recruit_id) {
+        const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
-          latestNextActions.set(activity.rep_notion_page_id, activity);
+          latestNextActions.set(activity.recruit_id, activity);
         }
       }
     });
 
     // Find the first overdue item (respecting skip/dismiss)
     const overdueItems: OverdueScheduledItem[] = [];
-    latestNextActions.forEach((activity, recruitId) => {
+    latestNextActions.forEach((activity, rId) => {
       const dueDate = parseISO(activity.next_action_due!);
       if (isPast(dueDate) && !isDateToday(dueDate)) {
-        const recruit = filteredRecruits.find(r => r.notionPageId === recruitId);
+        const recruit = filteredRecruits.find(r => r.id === rId);
         if (recruit && 
             !isSkipped(recruit.notionPageId) && 
             !isRecuitDismissed(recruit.notionPageId)) {
@@ -956,7 +956,7 @@ const MyGroup = () => {
         onRecruitClick={handleRecruitClick}
         blitzes={allBlitzes}
         repDataMap={repDataMap}
-        currentUserNotionId={currentUserRep?.notion_page_id}
+        currentUserNotionId={currentUserRep?.id}
         currentUserName={currentUserRep?.name}
       />
       <QuickViewDrawer
@@ -969,7 +969,7 @@ const MyGroup = () => {
         open={!!selectedRecruit}
         onOpenChange={(open) => !open && setSelectedRecruit(null)}
         recruit={selectedRecruit}
-        activities={filteredActivities.filter(a => a.rep_notion_page_id === selectedRecruit?.notionPageId)}
+        activities={filteredActivities.filter(a => a.recruit_id === selectedRecruit?.id)}
         onExitStage={(notionPageId) => {
           // Dismiss the recruit from hero/recommendations when moved to exit stage
           dismissRecruit(notionPageId);
