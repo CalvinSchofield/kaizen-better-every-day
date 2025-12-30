@@ -90,12 +90,14 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error in toggle-blitz-invite:", errorMessage);
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : (error as { message?: string })?.message || JSON.stringify(error) || "Unknown error";
+    console.error("Error in toggle-blitz-invite:", errorMessage, error);
     return new Response(
       JSON.stringify({
         error: errorMessage,
-        details: "Check function logs for more information",
+        details: error,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
