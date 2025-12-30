@@ -1586,15 +1586,6 @@ export const NeedsAttentionDrawer = ({
         open={!!contactRecruit}
         onOpenChange={(open) => !open && setContactRecruit(null)}
         recruit={contactRecruit}
-        onScheduleLaterToday={() => {
-          if (contactRecruit) {
-            const recruit = contactRecruit;
-            setContactRecruit(null);
-            setTimeout(() => {
-              setScheduleRecruit(recruit);
-            }, 300);
-          }
-        }}
       />
 
       <AddPhoneDrawer
@@ -1626,16 +1617,6 @@ export const NeedsAttentionDrawer = ({
           // Just close - no auto-dismiss since we're inside a drawer
           setPostContactOpen(false);
           setPostContactRecruit(null);
-        }}
-        onScheduleLaterToday={() => {
-          if (postContactRecruit) {
-            const recruit = postContactRecruit;
-            setPostContactOpen(false);
-            setPostContactRecruit(null);
-            setTimeout(() => {
-              setScheduleRecruit(recruit);
-            }, 300);
-          }
         }}
       />
     </>

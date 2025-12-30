@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { UserCheck, PhoneMissed, Loader2, Clock, CheckCircle2 } from "lucide-react";
+import { UserCheck, PhoneMissed, Loader2, CheckCircle2, ChevronDown, ChevronUp, CalendarDays, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Drawer, 
   DrawerContent, 
@@ -12,10 +14,12 @@ import {
   DrawerFooter
 } from "@/components/ui/drawer";
 import { Recruit, RecruitActivity, useLogRecruitActivity } from "@/hooks/useGroupRecruits";
+import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { format, addDays } from "date-fns";
 
 interface PostContactDrawerProps {
   open: boolean;
@@ -27,8 +31,6 @@ interface PostContactDrawerProps {
   scheduledActivity?: RecruitActivity | null;
   /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
   onComplete?: (wasConnected: boolean) => void;
-  /** Called when user wants to schedule a follow-up for later today */
-  onScheduleLaterToday?: () => void;
 }
 
 // Strip emojis from name
@@ -36,6 +38,8 @@ const stripEmojis = (text: string | null): string | null => {
   if (!text) return null;
   return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '').trim();
 };
+
+type QuickDateOption = 'tomorrow' | '3days' | 'nextweek' | 'custom';
 
 export const PostContactDrawer = ({
   open,
@@ -45,7 +49,6 @@ export const PostContactDrawer = ({
   defaultMethod,
   scheduledActivity,
   onComplete,
-  onScheduleLaterToday,
 }: PostContactDrawerProps) => {
   // Use contactMethod if provided, otherwise use defaultMethod
   const method = contactMethod || defaultMethod || 'call';
@@ -56,17 +59,67 @@ export const PostContactDrawer = ({
   const [isLoading, setIsLoading] = useState(false);
   const [markTaskComplete, setMarkTaskComplete] = useState(true);
   
+  // Scheduling state
+  const [showScheduling, setShowScheduling] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [quickDateOption, setQuickDateOption] = useState<QuickDateOption | null>(null);
+  const [scheduleNotes, setScheduleNotes] = useState('');
+  const [scheduleAssignee, setScheduleAssignee] = useState<string | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showAssigneePopover, setShowAssigneePopover] = useState(false);
+  
   const logActivityMutation = useLogRecruitActivity();
   const queryClient = useQueryClient();
+  
+  // Fetch assignable users
+  const { data: assignableUsers = [] } = useAssignableUsers({ recruitId: recruit?.id });
 
-  // Reset state when drawer opens/closes or method changes
+  // Reset state when drawer opens/closes
   useEffect(() => {
     if (open) {
       setOutcome(null);
       setNotes('');
       setMarkTaskComplete(true);
+      setShowScheduling(false);
+      setScheduleDate(undefined);
+      setQuickDateOption(null);
+      setScheduleNotes('');
+      setScheduleAssignee(null);
+      setShowCalendar(false);
     }
   }, [open]);
+
+  // Auto-expand scheduling and pre-select tomorrow when "No Answer" is selected
+  useEffect(() => {
+    if (outcome === 'no_answer') {
+      setShowScheduling(true);
+      setQuickDateOption('tomorrow');
+      setScheduleDate(addDays(new Date(), 1));
+    }
+  }, [outcome]);
+
+  const handleQuickDateSelect = (option: QuickDateOption) => {
+    setQuickDateOption(option);
+    if (option === 'tomorrow') {
+      setScheduleDate(addDays(new Date(), 1));
+      setShowCalendar(false);
+    } else if (option === '3days') {
+      setScheduleDate(addDays(new Date(), 3));
+      setShowCalendar(false);
+    } else if (option === 'nextweek') {
+      setScheduleDate(addDays(new Date(), 7));
+      setShowCalendar(false);
+    } else if (option === 'custom') {
+      setShowCalendar(true);
+    }
+  };
+
+  const handleCustomDateSelect = (date: Date | undefined) => {
+    setScheduleDate(date);
+    if (date) {
+      setShowCalendar(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!recruit) return;
@@ -105,14 +158,44 @@ export const PostContactDrawer = ({
         if (completeError) {
           console.error('Failed to mark task complete:', completeError);
         } else {
-          // Invalidate queries to refresh the task list
           queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
           queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
         }
       }
+
+      // Create scheduled follow-up if user filled in scheduling
+      let scheduledFollowUp = false;
+      if (showScheduling && scheduleDate) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: scheduleError } = await supabase
+            .from('recruit_activities')
+            .insert({
+              recruit_id: recruit.id,
+              activity_type: 'next_step',
+              logged_by_user_id: user.id,
+              assigned_to_user_id: scheduleAssignee || user.id,
+              assignment_status: 'pending',
+              next_action: scheduleNotes || 'Follow up',
+              next_action_due: scheduleDate.toISOString(),
+              notes: scheduleNotes || null,
+            });
+          
+          if (scheduleError) {
+            console.error('Failed to schedule follow-up:', scheduleError);
+          } else {
+            scheduledFollowUp = true;
+            queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+            queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+            queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+          }
+        }
+      }
       
-      // Show toast with undo option if task was completed
-      if (taskWasCompleted) {
+      // Show appropriate toast
+      if (taskWasCompleted && scheduledFollowUp) {
+        toast.success(`Logged contact, completed task, and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
+      } else if (taskWasCompleted) {
         const taskName = scheduledActivity.next_action || 'Task';
         toast.success(`Logged contact and marked "${taskName}" complete`, {
           action: {
@@ -138,6 +221,8 @@ export const PostContactDrawer = ({
           },
           duration: 5000,
         });
+      } else if (scheduledFollowUp) {
+        toast.success(`Logged contact and scheduled follow-up for ${format(scheduleDate!, 'MMM d')}`);
       } else if (isCall) {
         toast.success(
           wasConnected 
@@ -152,8 +237,12 @@ export const PostContactDrawer = ({
       setOutcome(null);
       setNotes('');
       setMarkTaskComplete(true);
+      setShowScheduling(false);
+      setScheduleDate(undefined);
+      setQuickDateOption(null);
+      setScheduleNotes('');
+      setScheduleAssignee(null);
       onOpenChange(false);
-      // Pass wasConnected to parent so it knows whether to dismiss the card
       onComplete?.(wasConnected);
     } catch (error) {
       console.error('Failed to log contact:', error);
@@ -167,6 +256,11 @@ export const PostContactDrawer = ({
     setOutcome(null);
     setNotes('');
     setMarkTaskComplete(true);
+    setShowScheduling(false);
+    setScheduleDate(undefined);
+    setQuickDateOption(null);
+    setScheduleNotes('');
+    setScheduleAssignee(null);
     onOpenChange(false);
   };
 
@@ -176,17 +270,20 @@ export const PostContactDrawer = ({
   
   // Determine if we can submit (calls need outcome, text/in-person don't)
   const canSubmit = isCall ? !!outcome : true;
+  
+  // Check if we should show the scheduling section (after outcome for calls, always for text/in-person)
+  const showSchedulingSection = isCall ? !!outcome : true;
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
-      <DrawerContent>
+      <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
           <DrawerTitle>
             {isCall ? `How did it go with ${firstName}?` : `Log ${method === 'text' ? 'text' : 'meeting'} with ${firstName}`}
           </DrawerTitle>
         </DrawerHeader>
         
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto">
           {/* Outcome selection - only for calls */}
           {isCall && (
             <div>
@@ -272,6 +369,180 @@ export const PostContactDrawer = ({
               />
             </div>
           )}
+
+          {/* Schedule Next Steps Section */}
+          {showSchedulingSection && (
+            <div className="animate-fade-in">
+              <button
+                type="button"
+                onClick={() => setShowScheduling(!showScheduling)}
+                className="w-full flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">
+                    {showScheduling ? 'Schedule Next Steps' : '+ Schedule Next Steps'}
+                  </span>
+                </div>
+                {showScheduling ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+
+              {showScheduling && (
+                <div className="mt-3 space-y-4 animate-fade-in">
+                  {/* Quick date options */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      When?
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "transition-all",
+                          quickDateOption === 'tomorrow' && "border-primary bg-primary/10 text-primary"
+                        )}
+                        onClick={() => handleQuickDateSelect('tomorrow')}
+                      >
+                        Tomorrow
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "transition-all",
+                          quickDateOption === '3days' && "border-primary bg-primary/10 text-primary"
+                        )}
+                        onClick={() => handleQuickDateSelect('3days')}
+                      >
+                        In 3 days
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "transition-all",
+                          quickDateOption === 'nextweek' && "border-primary bg-primary/10 text-primary"
+                        )}
+                        onClick={() => handleQuickDateSelect('nextweek')}
+                      >
+                        Next week
+                      </Button>
+                      <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "transition-all",
+                              quickDateOption === 'custom' && "border-primary bg-primary/10 text-primary"
+                            )}
+                            onClick={() => handleQuickDateSelect('custom')}
+                          >
+                            {quickDateOption === 'custom' && scheduleDate 
+                              ? format(scheduleDate, 'MMM d') 
+                              : 'Pick date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={scheduleDate}
+                            onSelect={handleCustomDateSelect}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {scheduleDate && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Scheduled for {format(scheduleDate, 'EEEE, MMMM d')}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Task description */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                      What's the next step?
+                    </label>
+                    <Textarea
+                      value={scheduleNotes}
+                      onChange={(e) => setScheduleNotes(e.target.value)}
+                      placeholder={
+                        outcome === 'no_answer' 
+                          ? "Try calling again..." 
+                          : "Call to discuss blitz dates..."
+                      }
+                      className="resize-none"
+                      rows={2}
+                    />
+                  </div>
+
+                  {/* Assignee selector */}
+                  {assignableUsers.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block text-muted-foreground">
+                        Assign to (optional)
+                      </label>
+                      <Popover open={showAssigneePopover} onOpenChange={setShowAssigneePopover}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start"
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            {scheduleAssignee 
+                              ? assignableUsers.find(u => u.userId === scheduleAssignee)?.name || 'Me'
+                              : 'Me (default)'
+                            }
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-1" align="start">
+                          <div className="space-y-1">
+                            <button
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted transition-colors"
+                              onClick={() => {
+                                setScheduleAssignee(null);
+                                setShowAssigneePopover(false);
+                              }}
+                            >
+                              Me (default)
+                            </button>
+                            {assignableUsers.map((user) => (
+                              <button
+                                key={user.userId}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm rounded hover:bg-muted transition-colors"
+                                onClick={() => {
+                                  setScheduleAssignee(user.userId);
+                                  setShowAssigneePopover(false);
+                                }}
+                              >
+                                {user.name}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DrawerFooter className="border-t">
@@ -284,27 +555,14 @@ export const PostContactDrawer = ({
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Logging...
+                Saving...
               </>
+            ) : showScheduling && scheduleDate ? (
+              "Save & Schedule"
             ) : (
               "Save & Continue"
             )}
           </Button>
-          {/* Show "Schedule for later today" when No Answer selected */}
-          {isCall && outcome === 'no_answer' && onScheduleLaterToday && (
-            <Button 
-              variant="outline"
-              onClick={() => {
-                handleSubmit();
-                onScheduleLaterToday();
-              }}
-              disabled={isLoading}
-              className="w-full"
-            >
-              <Clock className="h-4 w-4 mr-2" />
-              Schedule for later today
-            </Button>
-          )}
           <Button 
             variant="ghost"
             onClick={handleClose}

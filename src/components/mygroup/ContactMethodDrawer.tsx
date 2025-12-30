@@ -19,8 +19,6 @@ interface ContactMethodDrawerProps {
   scheduledActivity?: RecruitActivity | null;
   /** Called when contact is logged. wasConnected = true means dismiss the card, false means keep it */
   onComplete?: (wasConnected: boolean) => void;
-  /** Called when user wants to schedule a follow-up for later today */
-  onScheduleLaterToday?: () => void;
 }
 
 // Strip emojis from name
@@ -35,7 +33,6 @@ export const ContactMethodDrawer = ({
   recruit,
   scheduledActivity,
   onComplete,
-  onScheduleLaterToday,
 }: ContactMethodDrawerProps) => {
   const [selectedMethod, setSelectedMethod] = useState<'call' | 'text' | 'in_person' | null>(null);
   const [showPostContactDrawer, setShowPostContactDrawer] = useState(false);
@@ -135,7 +132,6 @@ export const ContactMethodDrawer = ({
         defaultMethod={selectedMethod || undefined}
         scheduledActivity={scheduledActivity}
         onComplete={handlePostContactComplete}
-        onScheduleLaterToday={onScheduleLaterToday}
       />
     </>
   );
