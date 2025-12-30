@@ -165,7 +165,7 @@ export const EditRecruitDrawer = ({
     if (!teamAccess?.accessibleReps) return [];
     return teamAccess.accessibleReps.filter(rep => {
       if (!rep.name) return false;
-      if (!rep.notionPageId) return false; // Need notionPageId to save
+      if (!rep.id) return false; // Need id to save
       const stageLower = (rep.stage || '').toLowerCase();
       
       // Exclude exit/inactive stages first
@@ -548,9 +548,9 @@ export const EditRecruitDrawer = ({
                     <CommandList>
                       <CommandEmpty>No recruiters found.</CommandEmpty>
                       <CommandGroup>
-                        {filteredRecruiters.map((rep) => (
+                      {filteredRecruiters.map((rep) => (
                           <CommandItem
-                            key={rep.userId || rep.notionPageId}
+                            key={rep.userId || rep.id}
                             value={`${rep.name} ${rep.teamName || ''}`}
                             onSelect={() => {
                               setRecruiterUserId(rep.userId || '');

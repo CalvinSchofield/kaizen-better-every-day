@@ -1168,7 +1168,7 @@ const ReadinessItem = ({
   };
 
   // Determine relationship to recruit
-  const isRecruiter = currentUserNotionId && item.recruit.recruiterNotionId === currentUserNotionId;
+  const isRecruiter = currentUserNotionId && item.recruit.recruiterUserId === currentUserNotionId;
   const isTeamLeader = currentUserNotionId && repData?.team_leader === currentUserNotionId;
 
   const handleText = (e: React.MouseEvent) => {

@@ -126,7 +126,7 @@ export const WeekPlannerSection = ({
   const recommendations = useMemo(() => {
     const baseRecs = passedRecommendations ?? localRecommendations;
     return dismissedIds 
-      ? baseRecs.filter(r => !dismissedIds.has(r.recruit.notionPageId))
+      ? baseRecs.filter(r => !dismissedIds.has(r.recruit.id))
       : baseRecs;
   }, [passedRecommendations, localRecommendations, dismissedIds]);
 
@@ -408,7 +408,7 @@ export const WeekPlannerSection = ({
               
               return dayTasks.map(({ recruit, activity }) => (
                 <SwipeableTaskItem
-                  key={`filtered-${recruit.notionPageId}-${activity.id}`}
+                  key={`filtered-${recruit.id}-${activity.id}`}
                   recruit={recruit}
                   activity={activity}
                   onRecruitClick={handleLocalRecruitClick}
@@ -444,7 +444,7 @@ export const WeekPlannerSection = ({
                   .flatMap(([dateStr, tasks]) => 
                     tasks.map(({ recruit, activity }) => (
                       <SwipeableTaskItem
-                        key={`overdue-${recruit.notionPageId}-${activity.id}`}
+                        key={`overdue-${recruit.id}-${activity.id}`}
                         recruit={recruit}
                         activity={activity}
                         onRecruitClick={handleLocalRecruitClick}
@@ -481,7 +481,7 @@ export const WeekPlannerSection = ({
               <div className="space-y-2">
                 {todayTasks.map(({ recruit, activity }, index) => (
                   <SwipeableTaskItem
-                    key={`${recruit.notionPageId}-${activity.id}`}
+                    key={`${recruit.id}-${activity.id}`}
                     recruit={recruit}
                     activity={activity}
                     onRecruitClick={handleLocalRecruitClick}
@@ -504,10 +504,10 @@ export const WeekPlannerSection = ({
                   <span>Recommended Today</span>
                 </div>
                 <div className="space-y-2">
-                  <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="popLayout">
                     {recommendations.slice(0, 4).map((rec, index) => (
                       <motion.div
-                        key={rec.recruit.notionPageId}
+                        key={rec.recruit.id}
                         layout
                         initial={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
@@ -561,7 +561,7 @@ export const WeekPlannerSection = ({
               <div className="space-y-2">
                 {tasks.map(({ recruit, activity }) => (
                   <SwipeableTaskItem
-                    key={`${recruit.notionPageId}-${activity.id}`}
+                    key={`${recruit.id}-${activity.id}`}
                     recruit={recruit}
                     activity={activity}
                     onRecruitClick={handleLocalRecruitClick}
@@ -583,7 +583,7 @@ export const WeekPlannerSection = ({
         onOpenChange={(open) => {
           setDrawerOpen(open);
           if (!open && selectedRecruit) {
-            const updated = recruits.find(r => r.notionPageId === selectedRecruit.notionPageId);
+            const updated = recruits.find(r => r.id === selectedRecruit.id);
             if (updated) setSelectedRecruit(updated);
           }
         }}
