@@ -278,22 +278,6 @@ serve(async (req) => {
       const repData = repsByUserId.get(entry.user_id);
       const timezone = entry.timezone || repData?.timezone || 'America/Los_Angeles';
       
-      // Get coordinates and sunset time
-      const coords = getCoordinates(repData?.blitz_trip_location ?? null);
-      const sunsetTimeStr = await getSunsetTime(coords.lat, coords.lng, timezone);
-      
-      if (!sunsetTimeStr) {
-        console.log(`User ${entry.user_id}: Could not get sunset time, skipping`);
-        continue;
-      }
-      
-      // Parse sunset time and check if it's after sunset
-      const sunsetTime = new Date(sunsetTimeStr);
-      if (now < sunsetTime) {
-        console.log(`User ${entry.user_id}: Before sunset (${sunsetTimeStr}), skipping`);
-        continue;
-      }
-      
       // Check last activity time
       const lastActivity = getLatestActivityTimestamp(entry.counter_timestamps);
       if (!lastActivity) {
@@ -302,6 +286,7 @@ serve(async (req) => {
       }
       
       // Get local hour to determine notification type
+      // Inactivity notifications work from work_start_time until 9pm local
       const localHour = getLocalHour(timezone);
       const isAfter9pm = localHour >= 21;
       
