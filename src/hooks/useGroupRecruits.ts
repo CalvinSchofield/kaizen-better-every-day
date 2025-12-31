@@ -262,95 +262,158 @@ export const useGroupRecruits = () => {
         ghostRecruits = teamRecruits || [];
       }
 
-      // Build sets of emails AND names we already have from reps to avoid duplicates
-      const existingEmails = new Set(filteredReps.map((r: any) => r.email?.toLowerCase()).filter(Boolean));
-      const existingNames = new Set(filteredReps.map((r: any) => r.name?.toLowerCase()).filter(Boolean));
-      
+      // Normalization helpers (prevents duplicate "rep-only" rows from masking the real recruit UUID)
+      const stripEmojisForKey = (text: string | null | undefined): string => {
+        if (!text) return "";
+        return text
+          .replace(
+            /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu,
+            ""
+          )
+          .trim();
+      };
+
+      const normalizeNameForKey = (name: string | null | undefined): string | null => {
+        const cleaned = stripEmojisForKey(name).replace(/\s+/g, " ").trim();
+        return cleaned ? cleaned.toLowerCase() : null;
+      };
+
+      const normalizeEmailForKey = (email: string | null | undefined): string | null => {
+        const cleaned = (email ?? "").trim().toLowerCase();
+        return cleaned ? cleaned : null;
+      };
+
+      const normalizePhoneForKey = (phone: string | null | undefined): string | null => {
+        const digits = (phone ?? "").replace(/\D/g, "");
+        if (!digits) return null;
+        return digits.length > 10 ? digits.slice(-10) : digits;
+      };
+
+      const getIdentityKeys = (p: {
+        email?: string | null;
+        phone?: string | null;
+        name?: string | null;
+      }) => {
+        const email = normalizeEmailForKey(p.email);
+        const phone = normalizePhoneForKey(p.phone);
+        const name = normalizeNameForKey(p.name);
+        return {
+          emailKey: email ? `email:${email}` : null,
+          phoneKey: phone ? `phone:${phone}` : null,
+          nameKey: name ? `name:${name}` : null,
+        };
+      };
+
+      // Build a set of identity keys we already have from reps to avoid duplicates
+      const repIdentityKeys = new Set<string>();
+      for (const r of filteredReps) {
+        const { emailKey, phoneKey, nameKey } = getIdentityKeys(r);
+        if (emailKey) repIdentityKeys.add(emailKey);
+        if (phoneKey) repIdentityKeys.add(phoneKey);
+        if (nameKey) repIdentityKeys.add(nameKey);
+      }
+
       // Filter ghost recruits to only those without a matching rep and in recruiting stages
       const filteredGhostRecruits = ghostRecruits.filter((r: any) => {
-        // Skip if we already have this person from reps table (by email OR name)
-        if (r.email && existingEmails.has(r.email.toLowerCase())) return false;
-        if (r.name && existingNames.has(r.name.toLowerCase())) return false;
-        
-        // Check recruiting stage
         const stage = canonicalizeStage(r.stage);
-        return RECRUITING_STAGES.includes(stage);
+        if (!RECRUITING_STAGES.includes(stage)) return false;
+
+        const { emailKey, phoneKey, nameKey } = getIdentityKeys(r);
+        if (emailKey && repIdentityKeys.has(emailKey)) return false;
+        if (phoneKey && repIdentityKeys.has(phoneKey)) return false;
+        if (nameKey && repIdentityKeys.has(nameKey)) return false;
+
+        return true;
       });
 
       console.log('[useGroupRecruits] Found', filteredGhostRecruits.length, 'additional ghost recruits from recruits table');
 
       // Get matching recruit records to get additional CRM data (team_id, mgmt_group_id, etc.)
-      // Match by email OR name since some reps don't have emails
+      // Match by email OR (normalized) phone/name.
       const repEmails = filteredReps.map((r: any) => r.email).filter(Boolean) as string[];
-      const repNames = filteredReps.map((r: any) => r.name).filter(Boolean);
-      let recruitsByKey = new Map<string, any>();
-      
+
+      const repNameVariants = Array.from(
+        new Set(
+          filteredReps
+            .map((r: any) => r.name)
+            .filter(Boolean)
+            .flatMap((n: string) => {
+              const original = (n ?? '').replace(/\s+/g, ' ').trim();
+              const stripped = stripEmojisForKey(original).replace(/\s+/g, ' ').trim();
+              return [original, stripped].filter(Boolean);
+            })
+        )
+      );
+
+      const recruitsByKey = new Map<string, any | null>();
+      const nameKeyCounts = new Map<string, number>();
+
+      const indexRecruit = (recruit: any) => {
+        const { emailKey, phoneKey, nameKey } = getIdentityKeys(recruit);
+        if (emailKey) recruitsByKey.set(emailKey, recruit);
+        if (phoneKey) recruitsByKey.set(phoneKey, recruit);
+
+        if (nameKey) {
+          const next = (nameKeyCounts.get(nameKey) ?? 0) + 1;
+          nameKeyCounts.set(nameKey, next);
+          // Only allow name matches when unique to prevent cross-person linking
+          recruitsByKey.set(nameKey, next === 1 ? recruit : null);
+        }
+      };
+
       // Fetch by email first - use OR filters for case-insensitive matching
       if (repEmails.length > 0) {
-        // Build case-insensitive OR filter for emails
-        const emailFilters = repEmails.map(email => `email.ilike.${email}`).join(',');
+        const emailFilters = repEmails.map((email) => `email.ilike.${email}`).join(',');
         const { data: matchingRecruits } = await supabase
           .from('recruits')
           .select(`
-            id, email, name, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            id, email, name, phone, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
             teams:team_id(id, name),
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
           `)
           .or(emailFilters);
-        
+
         for (const recruit of matchingRecruits || []) {
-          if (recruit.email) {
-            recruitsByKey.set(`email:${recruit.email.toLowerCase()}`, recruit);
-          }
-          // Also index by name for fallback matching
-          if (recruit.name) {
-            recruitsByKey.set(`name:${recruit.name.toLowerCase()}`, recruit);
-          }
+          indexRecruit(recruit);
         }
       }
-      
-      // Fetch by name for reps without emails (ghost reps)
-      const repsWithoutEmail = filteredReps.filter((r: any) => !r.email && r.name);
-      if (repsWithoutEmail.length > 0) {
-        const namesWithoutEmail = repsWithoutEmail.map((r: any) => r.name);
+
+      // Fetch by name as a fallback (including cases where emails differ)
+      if (repNameVariants.length > 0) {
         const { data: nameMatchedRecruits } = await supabase
           .from('recruits')
           .select(`
-            id, email, name, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
+            id, email, name, phone, team_id, mgmt_group_id, recruiter_user_id, location, recruitment_source, last_contact, next_action, next_action_due,
             teams:team_id(id, name),
             mgmt_groups:mgmt_group_id(id, name),
             recruiter:recruiter_user_id(id, name, user_id)
           `)
-          .in('name', namesWithoutEmail);
-        
+          .in('name', repNameVariants);
+
         for (const recruit of nameMatchedRecruits || []) {
-          if (recruit.name) {
-            recruitsByKey.set(`name:${recruit.name.toLowerCase()}`, recruit);
-          }
-        }
-      }
-      
-      // Also add ghost recruits to the map (they ARE the recruit record)
-      for (const ghostRecruit of filteredGhostRecruits) {
-        if (ghostRecruit.email) {
-          recruitsByKey.set(`email:${ghostRecruit.email.toLowerCase()}`, ghostRecruit);
-        }
-        if (ghostRecruit.name) {
-          recruitsByKey.set(`name:${ghostRecruit.name.toLowerCase()}`, ghostRecruit);
+          indexRecruit(recruit);
         }
       }
 
-      // Get blitz commitments for recruits that have matching records
-      const recruitIds = Array.from(recruitsByKey.values()).map((r: any) => r.id);
+      // Index all team recruits we already fetched (covers phone-based matches + provides richer joined data)
+      for (const teamRecruit of ghostRecruits || []) {
+        indexRecruit(teamRecruit);
+      }
+
+      // Get blitz commitments for recruits that have matching records (deduped ids)
+      const recruitIdsForRelatedData = Array.from(
+        new Set(Array.from(recruitsByKey.values()).map((r: any) => r?.id).filter(Boolean))
+      );
+
       let blitzesByRecruit = new Map<string, BlitzCommitment[]>();
-      
-      if (recruitIds.length > 0) {
+
+      if (recruitIdsForRelatedData.length > 0) {
         const { data: recruitBlitzes } = await supabase
           .from('recruit_blitzes')
           .select('recruit_id, blitzes(id, name, date, end_date, location)')
-          .in('recruit_id', recruitIds);
-        
+          .in('recruit_id', recruitIdsForRelatedData);
+
         for (const rb of recruitBlitzes || []) {
           if (!blitzesByRecruit.has(rb.recruit_id)) {
             blitzesByRecruit.set(rb.recruit_id, []);
@@ -378,19 +441,21 @@ export const useGroupRecruits = () => {
       // Transform reps to match expected Recruit interface
       let recruits: Recruit[] = filteredReps.map((r: any) => {
         const accessibleRepInfo = accessibleRepsMap.get(r.user_id);
-        // Try email match first, then fall back to name match
-        const matchingRecruit = r.email 
-          ? recruitsByKey.get(`email:${r.email.toLowerCase()}`) 
-          : recruitsByKey.get(`name:${r.name?.toLowerCase()}`);
-        
-        // With unified UUIDs, recruits.id === reps.id for matched pairs
-        const unifiedId = matchingRecruit?.id || r.id;
-        
+
+        const { emailKey, phoneKey, nameKey } = getIdentityKeys(r);
+        const matchingRecruit =
+          (emailKey ? recruitsByKey.get(emailKey) : null) ||
+          (phoneKey ? recruitsByKey.get(phoneKey) : null) ||
+          (nameKey ? recruitsByKey.get(nameKey) : null);
+
+        // Prefer the recruit UUID when we can resolve it (prevents "rep-only" duplicates)
+        const unifiedId = (matchingRecruit as any)?.id || r.id;
+
         // Extract team/recruiter info from joined relations
-        const teamData = matchingRecruit?.teams as { id: string; name: string } | null;
-        const mgmtGroupData = matchingRecruit?.mgmt_groups as { id: string; name: string } | null;
-        const recruiterData = matchingRecruit?.recruiter as { id: string; name: string; user_id: string } | null;
-        
+        const teamData = (matchingRecruit as any)?.teams as { id: string; name: string } | null;
+        const mgmtGroupData = (matchingRecruit as any)?.mgmt_groups as { id: string; name: string } | null;
+        const recruiterData = (matchingRecruit as any)?.recruiter as { id: string; name: string; user_id: string } | null;
+
         return {
           id: unifiedId,
           name: r.name,
@@ -399,19 +464,19 @@ export const useGroupRecruits = () => {
           stage: canonicalizeStage(r.stage),
           recruiterId: recruiterData?.id || null,
           recruiterName: recruiterData?.name || r.recruiter || r.team_leader || null,
-          recruiterUserId: recruiterData?.user_id || matchingRecruit?.recruiter_user_id || null,
+          recruiterUserId: recruiterData?.user_id || (matchingRecruit as any)?.recruiter_user_id || null,
           teamName: teamData?.name || accessibleRepInfo?.teamName || null,
-          teamId: matchingRecruit?.team_id || accessibleRepInfo?.teamId || null,
-          mgmtGroupId: matchingRecruit?.mgmt_group_id || accessibleRepInfo?.mgmtGroupId || null,
+          teamId: (matchingRecruit as any)?.team_id || accessibleRepInfo?.teamId || null,
+          mgmtGroupId: (matchingRecruit as any)?.mgmt_group_id || accessibleRepInfo?.mgmtGroupId || null,
           mgmtGroupName: mgmtGroupData?.name || accessibleRepInfo?.mgmtGroupName || null,
           year: r.year || '',
-          location: matchingRecruit?.location || null,
-          recruitmentSource: matchingRecruit?.recruitment_source || null,
-          lastContact: matchingRecruit?.last_contact || null,
-          nextAction: matchingRecruit?.next_action || null,
-          nextActionDue: matchingRecruit?.next_action_due || null,
+          location: (matchingRecruit as any)?.location || null,
+          recruitmentSource: (matchingRecruit as any)?.recruitment_source || null,
+          lastContact: (matchingRecruit as any)?.last_contact || null,
+          nextAction: (matchingRecruit as any)?.next_action || null,
+          nextActionDue: (matchingRecruit as any)?.next_action_due || null,
           createdAt: r.created_at || new Date().toISOString(),
-          committedBlitzes: matchingRecruit ? (blitzesByRecruit.get(matchingRecruit.id) || []) : [],
+          committedBlitzes: (matchingRecruit as any)?.id ? (blitzesByRecruit.get((matchingRecruit as any).id) || []) : [],
           rampToBlitzPhase: null,
           phase1Complete: r.ramp_phase_1_complete ?? false,
           phase2Complete: r.ramp_phase_2_complete ?? false,
@@ -429,12 +494,12 @@ export const useGroupRecruits = () => {
       for (const ghostRecruit of filteredGhostRecruits) {
         // Find team info from accessibleReps if possible
         const teamInfo = accessibleReps.find(ar => ar.teamId === ghostRecruit.team_id);
-        
+
         // Extract team/recruiter info from joined relations
         const teamData = ghostRecruit.teams as { id: string; name: string } | null;
         const mgmtGroupData = ghostRecruit.mgmt_groups as { id: string; name: string } | null;
         const recruiterData = ghostRecruit.recruiter as { id: string; name: string; user_id: string } | null;
-        
+
         // With unified UUIDs, ghost recruits use the same ID for both tables
         recruits.push({
           id: ghostRecruit.id, // Unified ID
@@ -470,18 +535,31 @@ export const useGroupRecruits = () => {
         });
       }
 
+      // Final dedupe pass (protects UI from rep+recruit duplicates caused by emoji/spacing/phone formatting)
+      const seenKeys = new Set<string>();
+      recruits = recruits.filter((r) => {
+        const { emailKey, phoneKey, nameKey } = getIdentityKeys(r);
+        const key = emailKey || phoneKey || nameKey;
+        if (!key) return true;
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
+
       console.log('[useGroupRecruits] Transformed', recruits.length, 'total recruits for display (including', filteredGhostRecruits.length, 'ghost recruits)');
 
-      // Fetch activities for these recruits using recruit_id (from recruits table)
+      // Fetch activities for these recruits using recruit_id (deduped from final list)
+      const recruitIdsForActivities = Array.from(new Set(recruits.map(r => r.id).filter(Boolean)));
+
       let activities: RecruitActivity[] = [];
-      if (recruitIds.length > 0) {
+      if (recruitIdsForActivities.length > 0) {
         const { data: activityData } = await supabase
           .from('recruit_activities')
           .select('*')
-          .in('recruit_id', recruitIds)
+          .in('recruit_id', recruitIdsForActivities)
           .order('created_at', { ascending: false })
           .limit(500);
-        
+
         activities = (activityData || []) as RecruitActivity[];
       }
 
