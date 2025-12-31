@@ -1349,6 +1349,7 @@ export type Database = {
       is_area_director: { Args: { _user_id: string }; Returns: boolean }
       is_mgmt_group_lead: { Args: { _user_id: string }; Returns: boolean }
       is_team_lead: { Args: { _user_id: string }; Returns: boolean }
+      normalize_name: { Args: { raw_name: string }; Returns: string }
       normalize_stage: { Args: { raw_stage: string }; Returns: string }
     }
     Enums: {
