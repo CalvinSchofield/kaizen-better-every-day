@@ -1023,7 +1023,7 @@ export const useUpdateRecruitActivity = () => {
       if (error) throw error;
       return { activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId };
     },
-    onMutate: async ({ activityId, notes, createdAt, assignedToUserId }) => {
+    onMutate: async ({ activityId, notes, createdAt, nextAction, nextActionDue, assignedToUserId }) => {
       await queryClient.cancelQueries({ queryKey: ['group-recruits'] });
       
       const previousData = queryClient.getQueriesData({ queryKey: ['group-recruits'] });
@@ -1038,6 +1038,8 @@ export const useUpdateRecruitActivity = () => {
                   ...a, 
                   notes: notes ?? a.notes, 
                   created_at: createdAt ?? a.created_at,
+                  next_action: nextAction ?? a.next_action,
+                  next_action_due: nextActionDue ?? a.next_action_due,
                   assigned_to_user_id: assignedToUserId !== undefined ? assignedToUserId : a.assigned_to_user_id,
                 }
               : a
@@ -1054,9 +1056,13 @@ export const useUpdateRecruitActivity = () => {
         });
       }
     },
-    onSettled: () => {
+    onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      // Also invalidate the specific recruit's activities cache
+      if (data?.activityId) {
+        queryClient.invalidateQueries({ queryKey: ['recruit-activities'] });
+      }
     },
   });
 };
