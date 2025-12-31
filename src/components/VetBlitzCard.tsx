@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, MessageCircle, Phone, Settings, Home, Wifi, Key } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Check, Mail, Users, Flame, ChevronRight, MessageCircle, Phone, Settings, Home, Wifi, Key, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { PhaseVerificationDrawer } from "@/components/mygroup/PhaseVerificationDrawer";
 import { PostContactDrawer } from "@/components/mygroup/PostContactDrawer";
 import { Recruit } from "@/hooks/useGroupRecruits";
+import { useBlitzAttendance } from "@/hooks/useBlitzAttendance";
 import {
   Collapsible,
   CollapsibleContent,
@@ -272,9 +273,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const { toast } = useToast();
   const [committedBlitzIds, setCommittedBlitzIds] = useState<string[]>([]);
   const [expandedBlitz, setExpandedBlitz] = useState<string | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(propTeamMembers);
-  const [contactedMembers, setContactedMembers] = useState<{ [blitzId: string]: string[] }>({});
-  const [declinedMembers, setDeclinedMembers] = useState<{ [blitzId: string]: string[] }>({});
   const [expandedInviteLists, setExpandedInviteLists] = useState<Set<string>>(new Set());
   const [uncommitDialogOpen, setUncommitDialogOpen] = useState(false);
   const [blitzToUncommit, setBlitzToUncommit] = useState<{ id: string; name: string } | null>(null);
@@ -314,7 +312,6 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [attendanceScope, setAttendanceScope] = useState<'you' | 'team' | 'mgmt' | 'office'>('you');
   const [selectedMgmtGroupId, setSelectedMgmtGroupId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // Prevent rapid clicks
   const [hasScopeBeenSet, setHasScopeBeenSet] = useState(false);
   
@@ -340,128 +337,45 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   // Track pending updates to prevent stale data overwrites
   const pendingCommitmentsRef = useRef<Set<string>>(new Set());
   
-  // Track last fetched scope to prevent prop overwrites
-  const lastFetchedScopeRef = useRef<string>("");
-  // Fetch team members and contacted status based on attendance scope
-  const fetchAttendanceData = useCallback(async () => {
-    if (!repData?.id) return;
+  // Use the cached attendance hook - only fetch if scope is not 'you'
+  const {
+    teamMembers: hookTeamMembers,
+    contactedForBlitz: hookContactedForBlitz,
+    declinedForBlitz: hookDeclinedForBlitz,
+    loading: loadingAttendance,
+    isRefreshing,
+    hasData,
+    refetch: refetchAttendance,
+  } = useBlitzAttendance(attendanceScope, {
+    mgmtGroupId: selectedMgmtGroupId,
+    teamId: selectedTeamId,
+    enabled: hasScopeBeenSet && attendanceScope !== 'you',
+  });
 
-    setLoadingAttendance(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data, error } = await supabase.functions.invoke('fetch-blitz-attendance', {
-        body: {
-          scope: attendanceScope,
-          leaderId: repData.id,
-          mgmtGroupId: attendanceScope === 'mgmt' ? selectedMgmtGroupId : undefined,
-          teamId: attendanceScope === 'team' ? selectedTeamId : undefined,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        throw error;
-      }
-
-      console.log('Attendance data received:', data);
-
-      if (data) {
-        // Track that we've fetched for this scope
-        lastFetchedScopeRef.current = attendanceScope;
-        
-        if (attendanceScope === 'you') {
-          // Personal view - show no team members
-          setTeamMembers([]);
-        } else {
-          // Filter out the leader themselves from team list
-          const filteredMembers = (data.teamMembers || []).filter(
-            (member: TeamMember) => member.id !== repData.id
-          );
-          console.log(`Filtered ${filteredMembers.length} team members for scope: ${attendanceScope}`);
-          setTeamMembers(filteredMembers);
-        }
-        
-        // Set contacted members from shared blitz_invites table
-        setContactedMembers(data.contactedForBlitz || {});
-        
-        // Set declined members from shared blitz_declines table
-        setDeclinedMembers(data.declinedForBlitz || {});
-      }
-    } catch (error: any) {
-      console.error('Error fetching attendance data:', error);
-      toast({
-        title: "Error loading attendance",
-        description: error.message || "Could not load team attendance data. Please try switching scopes or refresh the page.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingAttendance(false);
-    }
-  }, [repData?.id, attendanceScope, selectedMgmtGroupId, selectedTeamId, toast]);
-
-  // Only refetch when scope changes or on mount, not on every repData change
-  // Fetch attendance when scope changes - use ref to prevent redundant fetches
-  const lastScopeRef = useRef<string>("");
+  // Derive team members - filter out self for team views
+  const teamMembers = useMemo(() => {
+    if (attendanceScope === 'you') return [];
+    return (hookTeamMembers || []).filter(
+      (member: TeamMember) => member.id !== repData?.id
+    );
+  }, [hookTeamMembers, attendanceScope, repData?.id]);
+  
+  // Local optimistic state for contacted/declined - layers on top of hook data
+  const [optimisticContacted, setOptimisticContacted] = useState<{ [blitzId: string]: string[] } | null>(null);
+  const [optimisticDeclined, setOptimisticDeclined] = useState<{ [blitzId: string]: string[] } | null>(null);
+  
+  // Use optimistic state if set, otherwise use hook data
+  const contactedMembers = optimisticContacted ?? hookContactedForBlitz ?? {};
+  const declinedMembers = optimisticDeclined ?? hookDeclinedForBlitz ?? {};
+  
+  // Clear optimistic state when hook data updates (after refetch)
   useEffect(() => {
-    // Only start fetching after scope has been properly set
-    if (!hasScopeBeenSet && accessLevel !== 'none') return;
-    
-    // Include mgmtGroupId/teamId in the key to refetch when they change
-    const scopeKey = `${attendanceScope}-${selectedMgmtGroupId || ''}-${selectedTeamId || ''}`;
-    if (scopeKey === lastScopeRef.current) return; // Skip if nothing changed
-    lastScopeRef.current = scopeKey;
-    
-    console.log(`Fetching attendance data for scope: ${attendanceScope}, mgmtGroupId: ${selectedMgmtGroupId}, teamId: ${selectedTeamId}`);
-    fetchAttendanceData();
-  }, [attendanceScope, selectedMgmtGroupId, selectedTeamId, hasScopeBeenSet, accessLevel]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load committed blitzes from repData - only update when actually different and no pending updates
-  const lastCommittedBlitzesRef = useRef<string>("");
+    if (hookContactedForBlitz) setOptimisticContacted(null);
+  }, [hookContactedForBlitz]);
+  
   useEffect(() => {
-    // Don't overwrite state while an update is in progress or while we have pending commitments
-    if (isUpdating || pendingCommitmentsRef.current.size > 0) return;
-    
-    const currentHash = JSON.stringify(repData?.committed_blitzes);
-    if (currentHash === lastCommittedBlitzesRef.current) return; // Skip if no change
-    lastCommittedBlitzesRef.current = currentHash;
-    
-    if (repData?.committed_blitzes && Array.isArray(repData.committed_blitzes)) {
-      const committedIds = repData.committed_blitzes
-        .map((b: any) => b.id)
-        .filter((id: string) => id != null && id !== "");
-      setCommittedBlitzIds(committedIds);
-    } else {
-      setCommittedBlitzIds([]);
-    }
-  }, [repData?.committed_blitzes, isUpdating]);
-
-  // Only use propTeamMembers for initial 'you' scope - fetched data takes precedence for other scopes
-  // This prevents the fetched attendance data from being overwritten by stale props
-  useEffect(() => {
-    // Don't overwrite if we've already fetched data for a non-'you' scope
-    if (lastFetchedScopeRef.current && lastFetchedScopeRef.current !== 'you') {
-      return;
-    }
-    // For 'you' scope, we don't show team members
-    if (attendanceScope === 'you') {
-      setTeamMembers([]);
-    }
-  }, [propTeamMembers, attendanceScope]);
-
-  // Load contacted members from repData
-  useEffect(() => {
-    if (repData?.contacted_for_blitz) {
-      setContactedMembers(repData.contacted_for_blitz);
-    }
-  }, [repData?.contacted_for_blitz]);
+    if (hookDeclinedForBlitz) setOptimisticDeclined(null);
+  }, [hookDeclinedForBlitz]);
 
   // Sort team members by year (rookies first) then alphabetically
   const sortTeamMembers = (members: TeamMember[]) => {
@@ -661,21 +575,15 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           },
         });
 
-        // Update local declinedMembers state
-        setDeclinedMembers((prev) => ({
-          ...prev,
-          [blitzId]: (prev[blitzId] || []).filter((id) => id !== member.id),
+        // Update optimistic declined state
+        setOptimisticDeclined((prev) => ({
+          ...(prev ?? declinedMembers),
+          [blitzId]: ((prev ?? declinedMembers)[blitzId] || []).filter((id) => id !== member.id),
         }));
       }
 
-      // Update local state
-      setTeamMembers((prev) =>
-        prev.map((m) =>
-          m.id === member.id
-            ? { ...m, committedBlitzes: newCommittedBlitzes }
-            : m
-        )
-      );
+      // Refetch to get updated team member data
+      refetchAttendance();
 
       toast({
         title: isCommitted ? 'Uncommitted' : 'Committed',
@@ -702,12 +610,12 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       : [...currentContacted, memberId];
 
     const newContactedMembers = {
-      ...contactedMembers,
+      ...(optimisticContacted ?? hookContactedForBlitz ?? {}),
       [blitzId]: newContacted,
     };
 
     // Optimistic update
-    setContactedMembers(newContactedMembers);
+    setOptimisticContacted(newContactedMembers);
 
     try {
       const { error } = await supabase.functions.invoke('toggle-blitz-invite', {
@@ -722,7 +630,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } catch (error) {
       console.error('Error updating contacted status:', error);
       // Revert on error
-      setContactedMembers(contactedMembers);
+      setOptimisticContacted(null);
       toast({
         title: "Update failed",
         description: "Could not update contacted status",
@@ -739,8 +647,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       : [...currentDeclined, memberId];
 
     // Optimistic update
-    setDeclinedMembers(prev => ({
-      ...prev,
+    setOptimisticDeclined(prev => ({
+      ...(prev ?? hookDeclinedForBlitz ?? {}),
       [blitzId]: newDeclined,
     }));
 
@@ -764,10 +672,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     } catch (error) {
       console.error('Error updating declined status:', error);
       // Revert on error
-      setDeclinedMembers(prev => ({
-        ...prev,
-        [blitzId]: currentDeclined,
-      }));
+      setOptimisticDeclined(null);
       toast({
         title: "Update failed",
         description: "Could not update declined status",
@@ -810,14 +715,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
 
       const updates = { onboardingStatus: selectedStatus };
 
-      // Update local state
-      setTeamMembers(prev =>
-        prev.map(m =>
-          m.id === selectedRookie.id
-            ? { ...m, ...updates }
-            : m
-        )
-      );
+      // Refetch to get updated team member data
+      refetchAttendance();
 
       // Notify parent of changes
       if (onTeamMemberUpdate) {
@@ -868,14 +767,8 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
       
       if (error) throw error;
       
-      // Update local state
-      setTeamMembers(prev =>
-        prev.map(m =>
-          m.id === selectedRookie.id
-            ? { ...m, onboardingStatus: `Phase ${phaseToVerify} ✅` }
-            : m
-        )
-      );
+      // Refetch to get updated team member data
+      refetchAttendance();
       
       if (onTeamMemberUpdate) {
         onTeamMemberUpdate(selectedRookie.id, { onboardingStatus: `Phase ${phaseToVerify} ✅` });
@@ -1195,24 +1088,32 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           }}
         />
       </CardHeader>
-      <CardContent className="space-y-3 relative">
-        {/* Professional loading overlay during sync */}
-        {loadingAttendance && (
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-            <div className="flex flex-col items-center gap-3 bg-card/95 px-6 py-4 rounded-xl shadow-lg border border-border/50">
-              <div className="relative">
-                <div className="h-8 w-8 rounded-full border-2 border-primary/20"></div>
-                <div className="absolute inset-0 h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+      <CardContent className="space-y-3">
+        {/* Initial loading skeleton - only on first load without cached data */}
+        {loadingAttendance && !hasData && (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-32" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-36" />
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm font-medium text-foreground">Loading attendance</span>
-                <span className="text-xs text-muted-foreground">Fetching team data...</span>
-              </div>
-            </div>
+            ))}
           </div>
         )}
         
-        {teamMembers.length === 0 && !loadingAttendance && (
+        {/* Subtle refresh indicator when refetching with cached data */}
+        {isRefreshing && (
+          <div className="flex items-center justify-center gap-2 py-1 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Refreshing...</span>
+          </div>
+        )}
+        
+        {teamMembers.length === 0 && !loadingAttendance && hasData && (
           <Alert className="bg-muted/50">
             <AlertDescription className="text-sm">
               {attendanceScope === 'team' && "No team members found. Make sure you have reps assigned to your team in Notion."}
@@ -1222,7 +1123,7 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           </Alert>
         )}
         
-        {!loadingAttendance && allBlitzes.map((blitz) => {
+        {(hasData || !loadingAttendance) && allBlitzes.map((blitz) => {
           const isCommitted = committedBlitzIds.includes(blitz.id);
           const isExpanded = expandedBlitz === blitz.id;
           const committedMembers = getCommittedMembers(blitz.id);
@@ -1750,17 +1651,9 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
         personName={memberNeedsPhone?.name || ''}
         repId={memberNeedsPhone?.id || ''}
         pendingAction={pendingAction}
-        onPhoneSaved={(cleanPhone) => {
-          // Update local state
-          if (memberNeedsPhone) {
-            setTeamMembers(prev =>
-              prev.map(m =>
-                m.id === memberNeedsPhone.id
-                  ? { ...m, phone: cleanPhone }
-                  : m
-              )
-            );
-          }
+        onPhoneSaved={() => {
+          // Refetch to get updated team member data with new phone
+          refetchAttendance();
         }}
       />
 
