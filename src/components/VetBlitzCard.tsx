@@ -377,11 +377,27 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
     if (hookDeclinedForBlitz) setOptimisticDeclined(null);
   }, [hookDeclinedForBlitz]);
 
-  // Sort team members by year (rookies first) then alphabetically
+  // Sort team members by year (Rookie → Sophomore → Vet), with not-blitz-ready rookies first
   const sortTeamMembers = (members: TeamMember[]) => {
+    const yearOrder: Record<string, number> = { 'Rookie': 0, 'Sophomore': 1, 'Vet': 2 };
     return [...members].sort((a, b) => {
-      if (a.year === "Rookie" && b.year !== "Rookie") return -1;
-      if (a.year !== "Rookie" && b.year === "Rookie") return 1;
+      const aYear = a.year || 'Vet';
+      const bYear = b.year || 'Vet';
+      const aOrder = yearOrder[aYear] ?? 2;
+      const bOrder = yearOrder[bYear] ?? 2;
+      
+      // First sort by year
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      
+      // For rookies, sort not-blitz-ready first
+      if (aYear === 'Rookie' && bYear === 'Rookie') {
+        const aReady = a.blitzReady;
+        const bReady = b.blitzReady;
+        if (!aReady && bReady) return -1;
+        if (aReady && !bReady) return 1;
+      }
+      
+      // Then alphabetically
       return a.name.localeCompare(b.name);
     });
   };
@@ -1213,72 +1229,119 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                   {committedMembers.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Team Members Attending</h4>
-                      {committedMembers.map((member) => {
-                        const showIpadWarning = isWithinSevenDays(blitz.date) && !member.ipadAssigned;
-                        const readinessStatus = member.year === "Rookie" ? getReadinessStatus(member) : null;
-                        const isUrgentIpad = member.year === "Rookie" && showIpadWarning;
-                        const isRookieNotReady = member.year === "Rookie" && readinessStatus !== "Blitz Ready ✓";
+                      {(() => {
+                        // Determine if we should group by team:
+                        // - Only for MGMT/AD with multiple teams
+                        // - AND when no specific team is selected (selectedTeamId is null)
+                        const hasMultipleTeams = (teams?.length || 0) > 1;
+                        const isMultiTeamLeader = (accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead') && hasMultipleTeams;
+                        const shouldGroupByTeam = isMultiTeamLeader && !selectedTeamId;
                         
-                        return (
-                          <div
-                            key={member.id}
-                            className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
-                              isUrgentIpad 
-                                ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' 
-                                : isRookieNotReady 
-                                  ? 'border-accent bg-accent/10 hover:bg-accent/20 cursor-pointer' 
-                                  : 'bg-card'
-                            }`}
-                          >
-                            <button
-                              onClick={isRookieNotReady ? (e) => openStatusDialog(member, e) : undefined}
-                              className={`flex items-center gap-2 flex-1 min-w-0 text-left ${isRookieNotReady ? 'cursor-pointer' : ''}`}
-                              disabled={!isRookieNotReady}
+                        // Render a single member row
+                        const renderMemberRow = (member: TeamMember) => {
+                          const showIpadWarning = isWithinSevenDays(blitz.date) && !member.ipadAssigned;
+                          const readinessStatus = member.year === "Rookie" ? getReadinessStatus(member) : null;
+                          const isUrgentIpad = member.year === "Rookie" && showIpadWarning;
+                          const isRookieNotReady = member.year === "Rookie" && readinessStatus !== "Blitz Ready ✓";
+                          
+                          return (
+                            <div
+                              key={member.id}
+                              className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
+                                isUrgentIpad 
+                                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' 
+                                  : isRookieNotReady 
+                                    ? 'border-accent bg-accent/10 hover:bg-accent/20 cursor-pointer' 
+                                    : 'bg-card'
+                              }`}
                             >
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`font-medium truncate text-sm ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
-                                    {member.name}
-                                  </span>
-                                  {isRookieNotReady && (
-                                    <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground flex-shrink-0">
-                                      Update
-                                    </Badge>
-                                  )}
-                                  {showIpadWarning && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        sendIpadRequestEmail(member);
-                                      }}
-                                      className="flex-shrink-0 group"
-                                      title="Click to email sales assets"
-                                    >
-                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 animate-pulse cursor-pointer hover:bg-destructive/80 transition-all group-hover:scale-105 flex items-center gap-1">
-                                        <Mail className="h-2.5 w-2.5" />
-                                        No iPad
+                              <button
+                                onClick={isRookieNotReady ? (e) => openStatusDialog(member, e) : undefined}
+                                className={`flex items-center gap-2 flex-1 min-w-0 text-left ${isRookieNotReady ? 'cursor-pointer' : ''}`}
+                                disabled={!isRookieNotReady}
+                              >
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`font-medium truncate text-sm ${member.year === "Rookie" ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                                      {member.name}
+                                    </span>
+                                    {isRookieNotReady && (
+                                      <Badge variant="outline" className="text-xs bg-accent/20 border-accent text-accent-foreground flex-shrink-0">
+                                        Update
                                       </Badge>
-                                    </button>
+                                    )}
+                                    {showIpadWarning && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          sendIpadRequestEmail(member);
+                                        }}
+                                        className="flex-shrink-0 group"
+                                        title="Click to email sales assets"
+                                      >
+                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 animate-pulse cursor-pointer hover:bg-destructive/80 transition-all group-hover:scale-105 flex items-center gap-1">
+                                          <Mail className="h-2.5 w-2.5" />
+                                          No iPad
+                                        </Badge>
+                                      </button>
+                                    )}
+                                  </div>
+                                  {member.year === "Rookie" && readinessStatus && (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {readinessStatus}
+                                    </span>
                                   )}
                                 </div>
-                                {member.year === "Rookie" && readinessStatus && (
-                                  <span className="text-[11px] text-muted-foreground">
-                                    {readinessStatus}
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => promptMemberCommitment(member, blitz.id, true)}
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                        );
-                      })}
+                              </button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => promptMemberCommitment(member, blitz.id, true)}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          );
+                        };
+                        
+                        if (shouldGroupByTeam) {
+                          // Group by team
+                          const teamGroups: { [teamName: string]: typeof committedMembers } = {};
+                          committedMembers.forEach(member => {
+                            const teamName = member.teamName || 'Other';
+                            if (!teamGroups[teamName]) {
+                              teamGroups[teamName] = [];
+                            }
+                            teamGroups[teamName].push(member);
+                          });
+                          
+                          // Sort teams alphabetically
+                          const sortedTeamNames = Object.keys(teamGroups).sort((a, b) => a.localeCompare(b));
+                          
+                          return (
+                            <div className="space-y-3">
+                              {sortedTeamNames.map(teamName => {
+                                const members = teamGroups[teamName];
+                                return (
+                                  <div key={teamName} className="space-y-2">
+                                    <div className="flex items-center gap-2 py-1">
+                                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span className="text-xs font-medium text-muted-foreground">{teamName}</span>
+                                    </div>
+                                    <div className="space-y-2 pl-1">
+                                      {members.map(renderMemberRow)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                        
+                        // Flat list (for team leads, or when a specific team is selected)
+                        return committedMembers.map(renderMemberRow);
+                      })()}
                     </div>
                   )}
 
