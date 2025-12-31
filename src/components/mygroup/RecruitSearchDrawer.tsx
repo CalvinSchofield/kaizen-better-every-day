@@ -88,44 +88,47 @@ export const RecruitSearchDrawer = ({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="pb-0">
+        <DrawerHeader className="pb-2">
           <DrawerTitle>Search Recruits</DrawerTitle>
         </DrawerHeader>
-        <div className="p-4 pt-2">
-          <Command shouldFilter={false} className="rounded-lg border">
-            <CommandInput
-              placeholder="Search by name or phone..."
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              autoFocus
-            />
-            <CommandList>
+        <div className="px-5 pb-6">
+          <Command shouldFilter={false} className="rounded-xl border-0 bg-transparent">
+            <div className="rounded-xl border bg-muted/30">
+              <CommandInput
+                placeholder="Search by name or phone..."
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                autoFocus
+                className="h-12"
+              />
+            </div>
+            <CommandList className="mt-3 max-h-[50vh]">
               {searchQuery.trim() === "" ? (
-                <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
+                <CommandEmpty className="py-8 text-center text-sm text-muted-foreground">
                   Start typing to search...
                 </CommandEmpty>
               ) : filteredRecruits.length === 0 ? (
-                <CommandEmpty>No recruits found.</CommandEmpty>
+                <CommandEmpty className="py-8">No recruits found.</CommandEmpty>
               ) : (
-                <CommandGroup heading={`${filteredRecruits.length} result${filteredRecruits.length !== 1 ? 's' : ''}`}>
+                <CommandGroup heading={`${filteredRecruits.length} result${filteredRecruits.length !== 1 ? 's' : ''}`} className="px-0">
                   {filteredRecruits.map((recruit) => (
                     <CommandItem
                       key={recruit.id}
                       value={recruit.id}
                       onSelect={() => handleSelect(recruit)}
-                      className="flex items-center gap-3 py-3 cursor-pointer"
+                      className="flex items-center gap-3 py-3.5 px-3 cursor-pointer rounded-xl mb-1"
                     >
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted shrink-0">
                         <User className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{recruit.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {recruit.teamName && <span>{recruit.teamName}</span>}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {recruit.teamName && <span className="truncate">{recruit.teamName}</span>}
                           {recruit.phone && (
                             <>
                               {recruit.teamName && <span>•</span>}
-                              <span>{recruit.phone}</span>
+                              <span className="shrink-0">{recruit.phone}</span>
                             </>
                           )}
                         </div>
