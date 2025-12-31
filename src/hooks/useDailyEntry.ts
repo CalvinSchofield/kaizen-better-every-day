@@ -356,6 +356,25 @@ export const useDailyEntry = (date?: string) => {
           // Don't throw - this is a non-critical enhancement
         }
       }
+      
+      // Check for personal records (best day FP+ or PRMR)
+      if (data.fp_plus > 0 || data.prmr > 0) {
+        try {
+          await supabase.functions.invoke('check-personal-records', {
+            body: {
+              userId: user.id,
+              entryId: entry?.id || '',
+              fpPlus: data.fp_plus,
+              prmr: data.prmr,
+              entryDate: data.saveDate
+            }
+          });
+          console.log('[useDailyEntry] Personal records check completed');
+        } catch (recordsError) {
+          console.error('Error checking personal records:', recordsError);
+          // Don't throw - this is a non-critical enhancement
+        }
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['daily-entry', variables.saveDate] });
@@ -377,6 +396,8 @@ export const useDailyEntry = (date?: string) => {
       queryClient.invalidateQueries({ queryKey: ['today-leaderboard'] });
       // Invalidate group-recruits in case stage was auto-progressed
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+      // Invalidate personal records for any UI that shows them
+      queryClient.invalidateQueries({ queryKey: ['personal-records'] });
       toast.success('Entry saved successfully!');
     },
   });
