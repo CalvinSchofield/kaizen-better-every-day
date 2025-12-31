@@ -762,7 +762,10 @@ export const RecruitDetailDrawer = ({
   const handleSaveActivity = () => {
     if (!activityNotes && activityType !== 'next_step') { toast.error('Please add notes'); return; }
     logActivityMutation.mutate({
-      recruitNotionId: recruit.id, activityType, notes: activityNotes,
+      recruitId: recruit.id,
+      recruitNotionId: recruit.id, 
+      activityType, 
+      notes: activityNotes,
       nextAction: activityType === 'next_step' ? nextAction : undefined,
       nextActionDue: activityType === 'next_step' ? nextActionDue : undefined,
       updateLastContact: activityType === 'phone_call' || activityType === 'in_person',
@@ -771,7 +774,9 @@ export const RecruitDetailDrawer = ({
         toast.success('Activity logged');
         setLogActivityOpen(false);
         setActivityNotes(''); setNextAction(''); setNextActionDue('');
+        // Invalidate both the activities query and the group-recruits query for full refresh
         queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+        queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       },
       onError: () => { toast.error("Couldn't save activity"); setActivityShake(true); setTimeout(() => setActivityShake(false), 500); }
     });
