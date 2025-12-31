@@ -139,6 +139,7 @@ export const PostContactDrawer = ({
       
       await logActivityMutation.mutateAsync({
         recruitId: recruit.id,
+        recruitNotionId: recruit.id,
         activityType: method === 'in_person' ? 'in_person' : 'phone_call',
         notes: notes || `${actionLabel} ${firstName}${isCall ? ` - ${outcomeLabel}` : ''}`,
         updateLastContact: wasConnected, // Only update last contact if connected

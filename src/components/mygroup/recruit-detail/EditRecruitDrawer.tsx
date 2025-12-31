@@ -148,40 +148,111 @@ export const EditRecruitDrawer = ({
     staleTime: 1000 * 60 * 60, // Cache for 1 hour
   });
 
-  // Get accessible teams from teamAccess
+  // Get current user's rep data to include themselves as a recruiter option
+  const { data: currentUserRep } = useQuery({
+    queryKey: ['current-user-rep-for-edit'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('reps')
+        .select('id, user_id, name, phone, year, stage')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Get accessible teams from teamAccess - filter based on access level
   const accessibleTeams = useMemo(() => {
     if (!teamAccess) return [];
-    return teamAccess.teams || [];
-  }, [teamAccess]);
-
-  // Get accessible MGMT groups from teamAccess
-  const accessibleMgmtGroups = useMemo(() => {
-    if (!teamAccess) return [];
-    return teamAccess.mgmtGroups || [];
-  }, [teamAccess]);
+    const allTeams = teamAccess.teams || [];
+    
+    // Area directors see all teams
+    if (teamAccess.accessLevel === 'area_director') {
+      return allTeams;
+    }
+    
+    // MGMT group leads see teams within their MGMT groups
+    if (teamAccess.accessLevel === 'mgmt_group_lead') {
+      const accessibleTeamIds = new Set(
+        teamAccess.mgmtGroups?.flatMap(g => g.teamIds) || []
+      );
+      return allTeams.filter(t => accessibleTeamIds.has(t.id));
+    }
+    
+    // Team leads see only their own team(s)
+    if (teamAccess.accessLevel === 'team_lead' && currentUserRep?.user_id) {
+      return allTeams.filter(t => t.groupLeadId === currentUserRep.user_id);
+    }
+    
+    return allTeams;
+  }, [teamAccess, currentUserRep?.user_id]);
 
   // Get all recruiters with team info - filtered to active Signed+ stages only
+  // Include current user as a valid recruiter option
   const allRecruiters = useMemo(() => {
-    if (!teamAccess?.accessibleReps) return [];
-    return teamAccess.accessibleReps.filter(rep => {
-      if (!rep.name) return false;
-      if (!rep.id) return false; // Need id to save
-      const stageLower = (rep.stage || '').toLowerCase();
-      
-      // Exclude exit/inactive stages first
-      const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out', 'evaluating'];
-      if (excludePatterns.some(p => stageLower.includes(p))) {
-        return false;
-      }
-      
-      // Include only: Signed, Shadow/Shadowed, Sold variants
-      return (
+    const recruiters: Array<{
+      id: string;
+      userId: string | null;
+      name: string;
+      stage?: string | null;
+      teamId?: string | null;
+      teamName?: string | null;
+    }> = [];
+    
+    // Add current user first if they're in an active stage
+    if (currentUserRep) {
+      const stageLower = (currentUserRep.stage || '').toLowerCase();
+      const isActiveStage = 
         stageLower.includes('signed') ||
         stageLower.includes('shadow') ||
-        stageLower.includes('sold')
-      );
-    });
-  }, [teamAccess?.accessibleReps]);
+        stageLower.includes('sold');
+      
+      if (isActiveStage) {
+        // Find their team info from accessible teams
+        const userTeam = accessibleTeams.find(t => t.groupLeadId === currentUserRep.user_id);
+        recruiters.push({
+          id: currentUserRep.id,
+          userId: currentUserRep.user_id,
+          name: currentUserRep.name,
+          stage: currentUserRep.stage,
+          teamId: userTeam?.id || null,
+          teamName: userTeam?.name || null,
+        });
+      }
+    }
+    
+    // Add accessible reps from teamAccess
+    if (teamAccess?.accessibleReps) {
+      for (const rep of teamAccess.accessibleReps) {
+        if (!rep.name || !rep.id) continue;
+        // Skip if already added (current user)
+        if (currentUserRep && rep.userId === currentUserRep.user_id) continue;
+        
+        const stageLower = (rep.stage || '').toLowerCase();
+        
+        // Exclude exit/inactive stages first
+        const excludePatterns = ['not interested', 'left', 'potential', 'follow up', '100 list', '100_list', 'reached out', 'reached_out', 'evaluating'];
+        if (excludePatterns.some(p => stageLower.includes(p))) continue;
+        
+        // Include only: Signed, Shadow/Shadowed, Sold variants
+        if (stageLower.includes('signed') || stageLower.includes('shadow') || stageLower.includes('sold')) {
+          recruiters.push({
+            id: rep.id,
+            userId: rep.userId,
+            name: rep.name,
+            stage: rep.stage,
+            teamId: rep.teamId,
+            teamName: rep.teamName,
+          });
+        }
+      }
+    }
+    
+    return recruiters;
+  }, [teamAccess?.accessibleReps, currentUserRep, accessibleTeams]);
 
   // Filter recruiters based on selected team - only show reps that belong to the selected team
   const filteredRecruiters = useMemo(() => {
@@ -237,7 +308,17 @@ export const EditRecruitDrawer = ({
       setStage(recruitDetails.stage || '');
       setLocation(recruitDetails.location || '');
       setRecruitmentSource(recruitDetails.recruitment_source || '');
-      setSelectedTeamId(recruitDetails.team_id || '');
+      
+      // For team, use existing or auto-select if user only has one accessible team
+      const existingTeamId = recruitDetails.team_id || '';
+      if (existingTeamId) {
+        setSelectedTeamId(existingTeamId);
+      } else if (accessibleTeams.length === 1) {
+        setSelectedTeamId(accessibleTeams[0].id);
+      } else {
+        setSelectedTeamId('');
+      }
+      
       setSelectedMgmtId(recruitDetails.mgmt_group_id || '');
       
       // Set recruiter - don't filter by stage for initial load, just show what's in DB
@@ -254,7 +335,17 @@ export const EditRecruitDrawer = ({
       setStage(recruit.stage || '');
       setLocation(recruit.location || '');
       setRecruitmentSource(recruit.recruitmentSource || '');
-      setSelectedTeamId(recruit.teamId || '');
+      
+      // For team, use existing or auto-select if user only has one accessible team
+      const existingTeamId = recruit.teamId || '';
+      if (existingTeamId) {
+        setSelectedTeamId(existingTeamId);
+      } else if (accessibleTeams.length === 1) {
+        setSelectedTeamId(accessibleTeams[0].id);
+      } else {
+        setSelectedTeamId('');
+      }
+      
       setSelectedMgmtId(recruit.mgmtGroupId || '');
       
       // Set recruiter from recruit object
@@ -264,7 +355,7 @@ export const EditRecruitDrawer = ({
       
       setFormInitialized(true);
     }
-  }, [open, recruit, recruitDetails, formInitialized]);
+  }, [open, recruit, recruitDetails, formInitialized, accessibleTeams]);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -461,7 +552,7 @@ export const EditRecruitDrawer = ({
             </Select>
           </div>
 
-          {/* Teams - Only show accessible teams */}
+          {/* Team - show first, scoped by access level */}
           <div>
             <Label>Team</Label>
             <div className="flex gap-2 mt-1">
@@ -474,18 +565,19 @@ export const EditRecruitDrawer = ({
                     setRecruiterUserId('');
                   }
                 }}
+                disabled={accessibleTeams.length === 1} // Auto-select if only one team
               >
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select team" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
+                  {accessibleTeams.length > 1 && <SelectItem value="__none__">None</SelectItem>}
                   {accessibleTeams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectedTeamId && (
+              {selectedTeamId && accessibleTeams.length > 1 && (
                 <Button 
                   type="button" 
                   variant="ghost" 
@@ -501,32 +593,12 @@ export const EditRecruitDrawer = ({
                 </Button>
               )}
             </div>
-          </div>
-
-          {/* MGMT Group - Auto-selected based on team, but allow override for higher access levels */}
-          <div>
-            <Label>MGMT Group</Label>
-            <Select 
-              value={selectedMgmtId || "__none__"} 
-              onValueChange={(v) => setSelectedMgmtId(v === "__none__" ? "" : v)}
-              disabled={teamAccess?.accessLevel === 'team_lead'}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select MGMT group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                {accessibleMgmtGroups.map((mgmt) => (
-                  <SelectItem key={mgmt.id} value={mgmt.id}>{mgmt.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {teamAccess?.accessLevel === 'team_lead' && (
-              <p className="text-xs text-muted-foreground mt-1">Auto-selected based on team</p>
+            {accessibleTeams.length === 1 && (
+              <p className="text-xs text-muted-foreground mt-1">Your team is auto-selected</p>
             )}
           </div>
 
-          {/* Recruiter - Only show reps from the selected team */}
+          {/* Recruiter - Filtered by selected team */}
           <div>
             <Label>Recruiter</Label>
             <div className="flex gap-2 mt-1">
