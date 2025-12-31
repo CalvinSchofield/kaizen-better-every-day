@@ -46,12 +46,23 @@ serve(async (req) => {
 
     console.log(`Found ${subscriptions.length} push subscriptions`);
 
+    // Get season_config to check which users have started their summer
+    const userIds = subscriptions.map(s => s.user_id);
+    
+    const { data: seasonConfigs } = await supabase
+      .from('season_config')
+      .select('user_id, personal_summer_start')
+      .in('user_id', userIds);
+
+    const summerStartByUser = new Map<string, string | null>();
+    for (const config of seasonConfigs || []) {
+      summerStartByUser.set(config.user_id, config.personal_summer_start);
+    }
+
     // Check which users have already been notified this week
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
     const weekStartStr = weekStart.toISOString().split('T')[0];
-
-    const userIds = subscriptions.map(s => s.user_id);
     
     const { data: existingLogs } = await supabase
       .from('notification_logs')
@@ -63,6 +74,7 @@ serve(async (req) => {
     const alreadyNotifiedIds = new Set((existingLogs || []).map(l => l.user_id));
 
     let notifiedCount = 0;
+    let skippedSummerCount = 0;
     const motivationalMessages = [
       "How's your preseason prep going? Log your training, roleplays, and MNL progress!",
       "Champions are made in the preseason! Update your progress to stay on track.",
@@ -72,6 +84,14 @@ serve(async (req) => {
     ];
 
     for (const subscription of subscriptions) {
+      // Skip if user's summer has started (no longer preseason)
+      const summerStart = summerStartByUser.get(subscription.user_id);
+      if (summerStart && summerStart <= today) {
+        console.log(`User ${subscription.user_id}: Summer has started (${summerStart}), skipping preseason notification`);
+        skippedSummerCount++;
+        continue;
+      }
+
       if (alreadyNotifiedIds.has(subscription.user_id)) {
         console.log(`User ${subscription.user_id}: Already notified this week, skipping`);
         continue;
@@ -112,12 +132,13 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Preseason accountability check complete. Notified ${notifiedCount} users.`);
+    console.log(`Preseason accountability check complete. Notified ${notifiedCount} users, skipped ${skippedSummerCount} (summer started).`);
 
     return new Response(JSON.stringify({
       message: 'Weekly preseason accountability check complete',
       subscriptions: subscriptions.length,
-      notified: notifiedCount
+      notified: notifiedCount,
+      skippedSummer: skippedSummerCount
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

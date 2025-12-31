@@ -62,22 +62,24 @@ serve(async (req) => {
       });
     }
 
-    // Find blitzes in the RSVP windows (21 days or 10 days out)
+    // Find blitzes in the RSVP windows (matching CTA logic)
+    // First window: 21-14 days before (initial ask)
+    // Second window: 10-0 days before (confirmation ask)
     const blitzesInWindow: { blitz: Blitz; window: 'first' | 'second' }[] = [];
     
     for (const blitz of blitzes as Blitz[]) {
       const blitzDate = new Date(blitz.date + 'T00:00:00');
       const daysUntil = Math.floor((blitzDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
-      // First window: exactly 21 days before
+      // First window: 21 days before (start of first window)
       if (daysUntil === 21) {
         blitzesInWindow.push({ blitz, window: 'first' });
-        console.log(`Blitz "${blitz.name}" is 21 days away - first window reminder`);
+        console.log(`Blitz "${blitz.name}" is 21 days away - first window reminder (21-14 day window starts)`);
       }
-      // Second window: exactly 10 days before
+      // Second window: 10 days before (start of second window)
       else if (daysUntil === 10) {
         blitzesInWindow.push({ blitz, window: 'second' });
-        console.log(`Blitz "${blitz.name}" is 10 days away - second window reminder`);
+        console.log(`Blitz "${blitz.name}" is 10 days away - second window reminder (10-0 day window starts)`);
       }
     }
 
