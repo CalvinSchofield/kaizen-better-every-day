@@ -34,6 +34,7 @@ import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
+import RecruitingContent from "./pages/RecruitingContent";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -258,6 +259,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <WeeklyRecapBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiting-content"
+              element={
+                <ProtectedRoute>
+                  <RecruitingContent />
                 </ProtectedRoute>
               }
             />
