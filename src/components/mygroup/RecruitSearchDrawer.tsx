@@ -54,7 +54,7 @@ export const RecruitSearchDrawer = ({
     const query = searchQuery.toLowerCase().trim();
     const normalizedQuery = normalizePhone(query);
     
-    return recruits.filter((recruit) => {
+    const matches = recruits.filter((recruit) => {
       // Name search (case-insensitive)
       const nameMatch = recruit.name?.toLowerCase().includes(query);
       
@@ -63,7 +63,20 @@ export const RecruitSearchDrawer = ({
         normalizePhone(recruit.phone).includes(normalizedQuery);
       
       return nameMatch || phoneMatch;
-    }).slice(0, 20); // Limit results for performance
+    });
+    
+    // Deduplicate by phone (primary) or name (fallback)
+    const seen = new Set<string>();
+    const deduped = matches.filter((recruit) => {
+      const phoneKey = normalizePhone(recruit.phone);
+      const nameKey = recruit.name?.toLowerCase().trim() || "";
+      const key = phoneKey || nameKey;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    
+    return deduped.slice(0, 20);
   }, [recruits, searchQuery]);
 
   const handleSelect = (recruit: Recruit) => {
