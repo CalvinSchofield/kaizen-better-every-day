@@ -535,14 +535,20 @@ export const useGroupRecruits = () => {
         });
       }
 
-      // Final dedupe pass (protects UI from rep+recruit duplicates caused by emoji/spacing/phone formatting)
-      const seenKeys = new Set<string>();
+      // Final dedupe pass - PRIMARY: by UUID (unified architecture), SECONDARY: by identity keys
+      const seenIds = new Set<string>();
+      const seenIdentityKeys = new Set<string>();
       recruits = recruits.filter((r) => {
+        // First check UUID - the unified architecture guarantees same person = same ID
+        if (r.id && seenIds.has(r.id)) return false;
+        if (r.id) seenIds.add(r.id);
+        
+        // Secondary check by identity keys (email/phone/name) for edge cases
         const { emailKey, phoneKey, nameKey } = getIdentityKeys(r);
-        const key = emailKey || phoneKey || nameKey;
-        if (!key) return true;
-        if (seenKeys.has(key)) return false;
-        seenKeys.add(key);
+        const identityKey = emailKey || phoneKey || nameKey;
+        if (identityKey && seenIdentityKeys.has(identityKey)) return false;
+        if (identityKey) seenIdentityKeys.add(identityKey);
+        
         return true;
       });
 
