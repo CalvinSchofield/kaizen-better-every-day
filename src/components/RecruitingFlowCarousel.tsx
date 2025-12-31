@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -9,7 +10,8 @@ import {
   Rocket, 
   Trophy, 
   Copy,
-  ExternalLink
+  ExternalLink,
+  ChevronRight
 } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +90,7 @@ const FLOW_STEPS: FlowStep[] = [
 
 export const RecruitingFlowCarousel = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [api, setApi] = React.useState<any>();
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
@@ -176,10 +179,12 @@ export const RecruitingFlowCarousel = () => {
                       <div className="space-y-2">
                         {step.links.map((link, idx) => {
                           const isRecruitingFlow = link.label === "Recruiting Content Flow";
-                          const isExternal = link.type === 'video' || isRecruitingFlow;
+                          const isExternal = link.type === 'video';
                           const handleClick = () => {
                             if (link.comingSoon) return;
-                            if (isExternal) {
+                            if (isRecruitingFlow) {
+                              navigate('/recruiting-content');
+                            } else if (isExternal) {
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             } else {
                               copyToClipboard(link.url, link.label);
@@ -195,7 +200,9 @@ export const RecruitingFlowCarousel = () => {
                                 onClick={handleClick}
                                 disabled={link.comingSoon}
                               >
-                                {isExternal ? (
+                                {isRecruitingFlow ? (
+                                  <ChevronRight className="h-4 w-4 mr-2 flex-shrink-0" />
+                                ) : isExternal ? (
                                   <ExternalLink className="h-4 w-4 mr-2 flex-shrink-0" />
                                 ) : (
                                   <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
