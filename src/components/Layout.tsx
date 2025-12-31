@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, BookOpen, Wrench, Target, Calendar, Menu, Lock, Save, RotateCcw, BarChart3, Trophy, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useHeader } from "@/contexts/HeaderContext";
+import { getCachedLayoutState, setCachedLayoutState } from "@/lib/queryPersister";
 
 interface LayoutProps {
   children: ReactNode;
@@ -26,11 +27,30 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const isNavVisible = useScrollDirection();
   const { data: teamAccess } = useTeamAccess();
   const { customTitle, customRightContent } = useHeader();
-  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
   
-  // Check if user is a pre-blitz rookie
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
+  // Get cached layout state for instant rendering (prevents flash)
+  const cachedState = useMemo(() => getCachedLayoutState(), []);
+  
+  // Use cached values initially, then update when real data arrives
+  const isLeader = teamAccess?.accessLevel && teamAccess.accessLevel !== 'none';
+  const effectiveIsLeader = isLeader ?? cachedState?.isLeader ?? false;
+  const effectiveIsKnockingMode = isKnockingMode ?? cachedState?.isKnockingMode ?? false;
+  const effectiveYear = repData?.year ?? cachedState?.year ?? "Rookie";
+  
+  // Update cache when real data is available
+  useEffect(() => {
+    if (repData?.year !== undefined && isLeader !== undefined) {
+      setCachedLayoutState({
+        year: repData.year,
+        isLeader: isLeader ?? false,
+        isKnockingMode: isKnockingMode ?? false,
+      });
+    }
+  }, [repData?.year, isLeader, isKnockingMode]);
+  
+  // Check if user is a pre-blitz rookie - use effective values
+  const isRookie = effectiveYear === "Rookie";
+  
   
   const blitzes = repData?.committed_blitzes 
     ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
@@ -65,11 +85,10 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
   const shouldShowTrack = () => {
     if (!repData) return false;
     
-    // Always show for Vets and Sophomores
-    if (repData.year === "Vet" || repData.year === "Sophomore") return true;
+    const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
     
     // For Rookies: check if post-blitz OR currently on a blitz
-    if (repData.year === "Rookie") {
+    if (effectiveYear === "Rookie") {
       const phase4Complete = repData.ramp_phase_4_complete === true;
       const committedBlitzes = (repData.committed_blitzes as any[]) || [];
       
@@ -79,7 +98,8 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         const endDate = new Date(blitz.endDate);
         return endDate < new Date();
       });
-      
+    // Always show for Vets and Sophomores
+    if (isVetOrSoph) return true;
       // Check if currently on a blitz (between start and end date)
       const isOnBlitzNow = committedBlitzes.some((blitz: any) => {
         if (!blitz?.startDate || !blitz?.endDate) return false;
@@ -95,15 +115,14 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     return false;
   };
   
-  // Dynamic navigation based on mode and user type
+  // Dynamic navigation based on mode and user type - use effective values
   const getNavItems = () => {
-    const year = repData?.year || "Rookie";
-    const isVetOrSoph = year === "Vet" || year === "Sophomore";
-    const isPostBlitzRookie = year === "Rookie" && hasAttendedBlitz;
-    const isPreBlitzRookie = year === "Rookie" && !hasAttendedBlitz;
+    const isVetOrSoph = effectiveYear === "Vet" || effectiveYear === "Sophomore";
+    const isPostBlitzRookie = effectiveYear === "Rookie" && hasAttendedBlitz;
+    const isPreBlitzRookie = effectiveYear === "Rookie" && !hasAttendedBlitz;
     const hasCompletedPhase1 = repData?.ramp_phase_1_complete === true;
 
-    if (isKnockingMode) {
+    if (effectiveIsKnockingMode) {
       // KNOCKING MODE ON
       if (isVetOrSoph) {
         // Vets/Sophomores: HOME, INSIGHTS, CALENDAR, TRACK
@@ -127,7 +146,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
     // KNOCKING MODE OFF (Preseason)
     if (isVetOrSoph || isPostBlitzRookie) {
       // Leaders: HOME, TOOLS, MY GROUP, GOALS
-      if (isLeader) {
+      if (effectiveIsLeader) {
         return [
           { path: "/", icon: Home, label: "Home" },
           { path: "/tools", icon: Wrench, label: "Tools" },

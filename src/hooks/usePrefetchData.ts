@@ -5,10 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Prefetches critical data on app load for a snappy experience.
  * Runs once when the user is authenticated.
- * 
- * IMPORTANT: Notion API calls are staggered to avoid rate limiting (429 errors).
- * Notion's limit is ~3 requests/second, so we batch local DB calls first,
- * then fire Notion calls with delays between them.
+ * Uses React Query's persistence layer - data survives app restarts.
  */
 export const usePrefetchData = (userId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -17,9 +14,13 @@ export const usePrefetchData = (userId: string | undefined) => {
     if (!userId) return;
 
     const prefetchAll = async () => {
-      // PHASE 1: Prefetch local Supabase data immediately (no rate limits)
+      // Get session for authenticated calls
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // PHASE 1: Prefetch local Supabase data (fast, no rate limits)
       await Promise.allSettled([
-        // Competitors for cheat sheet (local DB)
+        // Competitors for cheat sheet
         queryClient.prefetchQuery({
           queryKey: ['competitors'],
           queryFn: async () => {
@@ -29,10 +30,10 @@ export const usePrefetchData = (userId: string | undefined) => {
               .order('name');
             return data || [];
           },
-          staleTime: 10 * 60 * 1000, // 10 minutes
+          staleTime: 30 * 60 * 1000, // 30 minutes
         }),
 
-        // Current user's rep data (local DB)
+        // Current user's rep data
         queryClient.prefetchQuery({
           queryKey: ['rep-data', userId],
           queryFn: async () => {
@@ -43,10 +44,10 @@ export const usePrefetchData = (userId: string | undefined) => {
               .single();
             return data;
           },
-          staleTime: 2 * 60 * 1000,
+          staleTime: 15 * 60 * 1000,
         }),
 
-        // Rep goals (local DB)
+        // Rep goals
         queryClient.prefetchQuery({
           queryKey: ['rep-goals', userId],
           queryFn: async () => {
@@ -57,10 +58,10 @@ export const usePrefetchData = (userId: string | undefined) => {
               .single();
             return data;
           },
-          staleTime: 2 * 60 * 1000,
+          staleTime: 15 * 60 * 1000,
         }),
 
-        // Daily entries (last 90 days) for insights (local DB)
+        // Daily entries (last 90 days) for insights and calendar
         queryClient.prefetchQuery({
           queryKey: ['daily-entries-recent', userId],
           queryFn: async () => {
@@ -74,23 +75,51 @@ export const usePrefetchData = (userId: string | undefined) => {
               .order('entry_date', { ascending: false });
             return data || [];
           },
-          staleTime: 2 * 60 * 1000,
+          staleTime: 15 * 60 * 1000,
+        }),
+
+        // All daily entries for calendar
+        queryClient.prefetchQuery({
+          queryKey: ['all-daily-entries'],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('daily_entries')
+              .select('*')
+              .eq('user_id', userId)
+              .order('entry_date', { ascending: true });
+            return data || [];
+          },
+          staleTime: 15 * 60 * 1000,
+        }),
+
+        // Season config for knocking mode
+        queryClient.prefetchQuery({
+          queryKey: ['season-config'],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('season_config')
+              .select('*')
+              .eq('user_id', userId)
+              .single();
+            return data;
+          },
+          staleTime: 15 * 60 * 1000,
         }),
       ]);
 
       console.log('[Prefetch] Local DB data prefetched');
 
-      // PHASE 2: Stagger Notion API calls to avoid rate limiting
-      // These calls go through edge functions that hit Notion API
+      // PHASE 2: Prefetch edge function data (may have rate limits)
+      // These are fired without await so they run in parallel background
       
-      // First Notion call: team-access (needed for My Group, Reports)
+      // Team access (needed for My Group, Reports)
       queryClient.prefetchQuery({
         queryKey: ['team-access'],
         queryFn: async () => {
           const { data } = await supabase.functions.invoke('fetch-team-access');
           return data;
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes - longer cache to reduce calls
+        staleTime: 15 * 60 * 1000,
       });
 
       // Blitzes data
@@ -98,9 +127,22 @@ export const usePrefetchData = (userId: string | undefined) => {
         queryKey: ['blitzes'],
         queryFn: async () => {
           const { data } = await supabase.functions.invoke('fetch-blitzes');
+          return data?.blitzes || [];
+        },
+        staleTime: 15 * 60 * 1000,
+      });
+
+      // Blitz attendance for different scopes (prefetch team scope as most common)
+      queryClient.prefetchQuery({
+        queryKey: ['blitz-attendance', 'team'],
+        queryFn: async () => {
+          const { data } = await supabase.functions.invoke('fetch-blitz-attendance', {
+            body: { scope: 'team' },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
           return data;
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 15 * 60 * 1000,
       });
 
       console.log('[Prefetch] Data prefetch initiated');

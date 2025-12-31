@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./components/Layout";
@@ -33,14 +34,16 @@ import UpgradeCheatSheet from "./pages/UpgradeCheatSheet";
 import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
+import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 2 * 60 * 1000, // 2 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      staleTime: 15 * 60 * 1000, // 15 minutes - data stays fresh longer
+      gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache longer
       retry: 1,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: false, // Don't refetch just because tab was focused
+      refetchOnMount: false, // Don't refetch on component mount if data exists
       refetchOnReconnect: true,
       networkMode: 'offlineFirst', // Prefer cache when offline
     },
@@ -60,7 +63,14 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider 
+      client={queryClient} 
+      persistOptions={{ 
+        persister: queryPersister,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        buster: 'v1', // Bump this to invalidate all cached data
+      }}
+    >
       <HeaderProvider>
         <TooltipProvider>
           <Toaster />
@@ -257,7 +267,7 @@ const App = () => {
         </BrowserRouter>
         </TooltipProvider>
       </HeaderProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 };
 
