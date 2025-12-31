@@ -10,15 +10,12 @@ import {
   DrawerFooter
 } from "@/components/ui/drawer";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -173,10 +170,13 @@ export const BlitzCommitmentDrawer = ({
 
       if (error) throw error;
 
-      // Optimistic update - invalidate relevant queries
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['rep-data'] });
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['team-members'] });
+      queryClient.invalidateQueries({ queryKey: ['recruits-rep-data'] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruitId] });
+      queryClient.invalidateQueries({ queryKey: ['blitz-attendance'] });
 
       toast.success('Blitz commitments updated');
       onOpenChange(false);
@@ -369,18 +369,18 @@ export const BlitzCommitmentDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+      {/* Confirmation Drawer */}
+      <Sheet open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
               {removedPastBlitzes.length > 0 && (
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
               )}
               Confirm Blitz Changes
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
+            </SheetTitle>
+            <SheetDescription asChild>
+              <div className="space-y-3 text-left">
                 <p>You're about to update blitz commitments for <span className="font-medium text-foreground">{recruitName}</span>:</p>
                 
                 {addedBlitzes.length > 0 && (
@@ -420,16 +420,34 @@ export const BlitzCommitmentDrawer = ({
                   </div>
                 )}
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>
-              Confirm Changes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-3">
+            <Button 
+              className="w-full h-12 text-base"
+              onClick={handleConfirmSave}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Confirm Changes'
+              )}
+            </Button>
+            <Button 
+              className="w-full h-12 text-base"
+              variant="outline"
+              onClick={() => setConfirmDialogOpen(false)}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 };
