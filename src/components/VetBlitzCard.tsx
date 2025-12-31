@@ -12,6 +12,8 @@ import confetti from "canvas-confetti";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddPhoneDrawer } from "@/components/ui/AddPhoneDrawer";
 import { PhaseVerificationDrawer } from "@/components/mygroup/PhaseVerificationDrawer";
+import { PostContactDrawer } from "@/components/mygroup/PostContactDrawer";
+import { Recruit } from "@/hooks/useGroupRecruits";
 import {
   Collapsible,
   CollapsibleContent,
@@ -97,6 +99,7 @@ const InviteMemberRow = ({
   onCommit,
   onToggleDeclined,
   onNeedsPhone,
+  onContactInitiated,
 }: {
   member: TeamMember;
   blitzId: string;
@@ -106,6 +109,7 @@ const InviteMemberRow = ({
   onCommit: () => void;
   onToggleDeclined: () => void;
   onNeedsPhone: (member: TeamMember, action: 'text' | 'call') => void;
+  onContactInitiated: (member: TeamMember, method: 'call' | 'text') => void;
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const phone = member.phone?.replace(/\D/g, '') || '';
@@ -115,8 +119,8 @@ const InviteMemberRow = ({
     e.stopPropagation();
     if (hasPhone) {
       window.location.href = `sms:${phone}`;
-      // Also mark as contacted
-      onToggleContacted();
+      // Show post-contact drawer to log the activity
+      onContactInitiated(member, 'text');
     } else {
       onNeedsPhone(member, 'text');
     }
@@ -126,8 +130,8 @@ const InviteMemberRow = ({
     e.stopPropagation();
     if (hasPhone) {
       window.location.href = `tel:${phone}`;
-      // Also mark as contacted
-      onToggleContacted();
+      // Show post-contact drawer to log the activity
+      onContactInitiated(member, 'call');
     } else {
       onNeedsPhone(member, 'call');
     }
@@ -292,6 +296,12 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
   const [isPhaseVerifying, setIsPhaseVerifying] = useState(false);
   const [hasPhaseError, setHasPhaseError] = useState(false);
   const [rookieRepData, setRookieRepData] = useState<{ watched_videos?: string[]; committed_blitzes?: unknown[] } | null>(null);
+  
+  // Post-contact drawer state (for logging call/text activities)
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [postContactMember, setPostContactMember] = useState<TeamMember | null>(null);
+  const [postContactMethod, setPostContactMethod] = useState<'call' | 'text'>('call');
+  const [postContactBlitzId, setPostContactBlitzId] = useState<string | null>(null);
   
   // Default to highest access level available
   const getDefaultScope = useCallback((): 'you' | 'team' | 'mgmt' | 'office' => {
@@ -1480,6 +1490,13 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                               onCommit={() => promptMemberCommitment(member, blitz.id, false)}
                                               onToggleDeclined={() => toggleDeclinedStatus(member.id, blitz.id)}
                                               onNeedsPhone={openPhoneDrawer}
+                                              onContactInitiated={(m, method) => {
+                                                setPostContactMember(m);
+                                                setPostContactMethod(method);
+                                                setPostContactBlitzId(blitz.id);
+                                                // Short delay to let native app open first
+                                                setTimeout(() => setPostContactOpen(true), 500);
+                                              }}
                                             />
                                           ))}
                                         </CollapsibleContent>
@@ -1504,6 +1521,12 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
                                       onCommit={() => promptMemberCommitment(member, blitz.id, false)}
                                       onToggleDeclined={() => toggleDeclinedStatus(member.id, blitz.id)}
                                       onNeedsPhone={openPhoneDrawer}
+                                      onContactInitiated={(m, method) => {
+                                        setPostContactMember(m);
+                                        setPostContactMethod(method);
+                                        setPostContactBlitzId(blitz.id);
+                                        setTimeout(() => setPostContactOpen(true), 500);
+                                      }}
                                     />
                                   ))}
                                 </div>
@@ -1766,6 +1789,49 @@ export const VetBlitzCard = ({ repData, allBlitzes, teamMembers: propTeamMembers
           }
         />
       )}
+
+      {/* Post-Contact Drawer for logging call/text activities */}
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPostContactOpen(false);
+            setPostContactMember(null);
+            setPostContactBlitzId(null);
+          }
+        }}
+        recruit={postContactMember ? {
+          id: postContactMember.id,
+          name: postContactMember.name,
+          phone: postContactMember.phone || '',
+          email: postContactMember.email || '',
+          stage: postContactMember.stage || '',
+          recruiterId: null,
+          recruiterName: null,
+          recruiterUserId: null,
+          teamName: postContactMember.teamName || null,
+          teamId: postContactMember.teamId || null,
+          mgmtGroupId: null,
+          mgmtGroupName: null,
+          year: postContactMember.year || 'Rookie',
+          location: null,
+          recruitmentSource: null,
+          lastContact: null,
+          nextAction: null,
+          nextActionDue: null,
+          createdAt: '',
+        } as Recruit : null}
+        contactMethod={postContactMethod}
+        onComplete={(wasConnected) => {
+          setPostContactOpen(false);
+          // Mark as contacted in the blitz attendance system if connected
+          if (wasConnected && postContactMember && postContactBlitzId) {
+            toggleContactedStatus(postContactMember.id, postContactBlitzId);
+          }
+          setPostContactMember(null);
+          setPostContactBlitzId(null);
+        }}
+      />
     </Card>
   );
 };
