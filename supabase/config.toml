@@ -101,3 +101,9 @@ verify_jwt = false
 
 [functions.check-ramp-progress-notifications]
 verify_jwt = false
+
+[functions.check-preseason-accountability]
+verify_jwt = false
+
+[functions.check-blitz-rsvp-reminders]
+verify_jwt = false
