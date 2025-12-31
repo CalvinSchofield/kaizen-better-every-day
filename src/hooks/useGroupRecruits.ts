@@ -1005,7 +1005,11 @@ export const useUpdateRecruitActivity = () => {
       if (notes !== undefined) updateData.notes = notes;
       if (createdAt !== undefined) updateData.created_at = createdAt;
       if (nextAction !== undefined) updateData.next_action = nextAction;
-      if (nextActionDue !== undefined) updateData.next_action_due = nextActionDue;
+      if (nextActionDue !== undefined) {
+        updateData.next_action_due = nextActionDue;
+        // When rescheduling (changing due date), clear completed_at so it's treated as pending again
+        updateData.completed_at = null;
+      }
       if (assignedToUserId !== undefined) {
         updateData.assigned_to_user_id = assignedToUserId;
         if (assignedToUserId) {
@@ -1040,6 +1044,8 @@ export const useUpdateRecruitActivity = () => {
                   created_at: createdAt ?? a.created_at,
                   next_action: nextAction ?? a.next_action,
                   next_action_due: nextActionDue ?? a.next_action_due,
+                  // When rescheduling, clear completed_at so it's treated as pending again
+                  completed_at: nextActionDue !== undefined ? null : a.completed_at,
                   assigned_to_user_id: assignedToUserId !== undefined ? assignedToUserId : a.assigned_to_user_id,
                 }
               : a
