@@ -24,6 +24,7 @@ import { DetailsTab } from "./tabs/DetailsTab";
 import { PhaseVerificationDrawer } from "../PhaseVerificationDrawer";
 import { ScheduledActivityActionSheet } from "../ScheduledActivityActionSheet";
 import { ScheduleFollowUpDrawer } from "../ScheduleFollowUpDrawer";
+import { PostContactDrawer } from "../PostContactDrawer";
 
 // Import all the dialog components from the original file
 import { Button } from "@/components/ui/button";
@@ -91,9 +92,8 @@ export const RecruitDetailDrawer = ({
   const [phoneEntryOpen, setPhoneEntryOpen] = useState(false);
   const [potentialFollowUpOpen, setPotentialFollowUpOpen] = useState(false);
   const [list100ConnectedOpen, setList100ConnectedOpen] = useState(false);
-  const [postCallOpen, setPostCallOpen] = useState(false);
-  const [postCallStatus, setPostCallStatus] = useState<'connected' | 'attempted' | null>(null);
-  const [postCallNotes, setPostCallNotes] = useState('');
+  const [postContactOpen, setPostContactOpen] = useState(false);
+  const [postContactMethod, setPostContactMethod] = useState<'call' | 'text' | 'in_person'>('call');
   const [followUpNextStep, setFollowUpNextStep] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<RecruitActivity | null>(null);
@@ -339,7 +339,10 @@ export const RecruitDetailDrawer = ({
       return;
     }
     window.location.href = `tel:${recruit.phone}`;
-    setTimeout(() => { setPostCallStatus(null); setPostCallNotes(''); setPostCallOpen(true); }, 500);
+    setTimeout(() => { 
+      setPostContactMethod('call');
+      setPostContactOpen(true); 
+    }, 500);
   };
 
   const handleText = async () => {
@@ -1031,20 +1034,18 @@ export const RecruitDetailDrawer = ({
         </DrawerContent>
       </Drawer>
 
-      {/* Post Call Drawer */}
-      <Drawer open={postCallOpen} onOpenChange={setPostCallOpen}>
-        <DrawerContent>
-          <DrawerHeader><DrawerTitle>How did it go?</DrawerTitle></DrawerHeader>
-          <div className="p-4 space-y-4">
-            <div className="flex gap-2">
-              <Button variant={postCallStatus === 'connected' ? 'default' : 'outline'} className="flex-1" onClick={() => setPostCallStatus('connected')}><PhoneCall className="h-4 w-4 mr-2" />Connected</Button>
-              <Button variant={postCallStatus === 'attempted' ? 'secondary' : 'outline'} className="flex-1" onClick={() => setPostCallStatus('attempted')}><PhoneMissed className="h-4 w-4 mr-2" />No Answer</Button>
-            </div>
-            <Textarea value={postCallNotes} onChange={(e) => setPostCallNotes(e.target.value)} placeholder="Notes (optional)" rows={2} />
-            <Button className="w-full" disabled={!postCallStatus || logActivityMutation.isPending} onClick={() => { const notes = postCallStatus === 'connected' ? (postCallNotes.trim() ? `Connected: ${postCallNotes}` : 'Connected') : (postCallNotes.trim() ? `No Answer: ${postCallNotes}` : 'No Answer'); logActivityMutation.mutate({ recruitId: recruit.id, recruitNotionId: recruit.id, activityType: 'phone_call', notes, updateLastContact: postCallStatus === 'connected' }, { onSuccess: () => { toast.success('Call logged'); setPostCallOpen(false); setPostCallStatus(null); setPostCallNotes(''); queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] }); } }); }}>{logActivityMutation.isPending ? 'Saving...' : 'Save'}</Button>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Post Contact Drawer - with full scheduling flow */}
+      <PostContactDrawer
+        open={postContactOpen}
+        onOpenChange={setPostContactOpen}
+        recruit={recruit}
+        contactMethod={postContactMethod}
+        onComplete={() => {
+          setPostContactOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+          queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
+        }}
+      />
 
       {/* Edit Activity Drawer */}
       <Drawer open={editActivityOpen} onOpenChange={(o) => { setEditActivityOpen(o); if (!o) { setSelectedActivity(null); setEditDatePopoverOpen(false); } }}>
