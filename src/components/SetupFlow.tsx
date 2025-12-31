@@ -282,12 +282,13 @@ const SetupFlow = () => {
     }
   };
 
-  // Handle request access - sends email automatically
+  // Handle request access - sends email AND push notification to upline
   const handleRequestAccess = async () => {
     setIsRequestingAccess(true);
     
     try {
-      const { error } = await supabase.functions.invoke('send-setup-nudge-email', {
+      // Send email notification
+      const { error: emailError } = await supabase.functions.invoke('send-setup-nudge-email', {
         body: {
           userEmail: userEmail,
           notionEmail: null,
@@ -295,7 +296,21 @@ const SetupFlow = () => {
         }
       });
       
-      if (error) throw error;
+      if (emailError) throw emailError;
+      
+      // Also send push notification to entire upline chain
+      try {
+        await supabase.functions.invoke('send-access-request-notification', {
+          body: {
+            userEmail: userEmail,
+            userName: userName || 'New User'
+          }
+        });
+        console.log('[SetupFlow] Push notifications sent to upline');
+      } catch (pushError) {
+        // Don't fail the whole request if push fails
+        console.error('[SetupFlow] Push notification error (non-fatal):', pushError);
+      }
       
       toast({
         title: "Request Sent!",

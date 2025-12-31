@@ -520,25 +520,75 @@ export type Database = {
         Row: {
           entry_date: string
           id: string
+          metadata: Json | null
           notification_type: string
+          recipient_user_id: string | null
           sent_at: string | null
           user_id: string
         }
         Insert: {
           entry_date: string
           id?: string
+          metadata?: Json | null
           notification_type: string
+          recipient_user_id?: string | null
           sent_at?: string | null
           user_id: string
         }
         Update: {
           entry_date?: string
           id?: string
+          metadata?: Json | null
           notification_type?: string
+          recipient_user_id?: string | null
           sent_at?: string | null
           user_id?: string
         }
         Relationships: []
+      }
+      personal_records: {
+        Row: {
+          achieved_at: string | null
+          created_at: string | null
+          entry_date: string
+          entry_id: string | null
+          id: string
+          record_type: string
+          updated_at: string | null
+          user_id: string
+          value: number
+        }
+        Insert: {
+          achieved_at?: string | null
+          created_at?: string | null
+          entry_date: string
+          entry_id?: string | null
+          id?: string
+          record_type: string
+          updated_at?: string | null
+          user_id: string
+          value: number
+        }
+        Update: {
+          achieved_at?: string | null
+          created_at?: string | null
+          entry_date?: string
+          entry_id?: string | null
+          id?: string
+          record_type?: string
+          updated_at?: string | null
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_records_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       planned_work_days: {
         Row: {

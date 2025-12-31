@@ -92,3 +92,12 @@ verify_jwt = false
 
 [functions.delete-recruit]
 verify_jwt = false
+
+[functions.send-access-request-notification]
+verify_jwt = false
+
+[functions.check-personal-records]
+verify_jwt = false
+
+[functions.check-ramp-progress-notifications]
+verify_jwt = false
