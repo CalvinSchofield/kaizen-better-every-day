@@ -7,6 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Motivational quotes for 1-hour idle during working hours
+const MOTIVATIONAL_QUOTES = [
+  "Success is the sum of small efforts repeated day in and day out. Every door matters! 🚪",
+  "Champions are made in the moments no one is watching. Get back out there! 💪",
+  "The difference between good and great is one more door. You've got this! 🔥",
+  "Small actions lead to big results. Each knock builds your future! 🏆",
+  "Consistency beats intensity. One more hour can change everything! ⚡",
+  "The grind you put in today becomes the success you celebrate tomorrow! 🌟",
+  "Your future self will thank you for pushing through right now! 💫",
+  "Every door is an opportunity. Don't let this hour slip away! 🎯",
+];
+
 // Location coordinates cache for common blitz locations
 const LOCATION_COORDS: Record<string, { lat: number; lng: number }> = {
   'bakersfield, ca': { lat: 35.3733, lng: -119.0187 },
@@ -48,12 +60,32 @@ interface ActiveEntry {
   counter_timestamps: Record<string, string[]>;
   break_periods: Array<{ start: string; end?: string }>;
   timezone: string | null;
+  doors_knocked: number;
+  decision_makers: number;
+  pitches: number;
+  transitions: number;
+  presentations: number;
+  closes: number;
 }
 
 interface RepData {
   user_id: string;
   blitz_trip_location: string | null;
   timezone: string | null;
+}
+
+// Get local time hour for a timezone
+function getLocalHour(timezone: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false
+    });
+    return parseInt(formatter.format(new Date()), 10);
+  } catch {
+    return new Date().getHours();
+  }
 }
 
 // Get coordinates for a location
@@ -127,7 +159,8 @@ async function sendPushNotification(
   subscription: PushSubscription,
   title: string,
   body: string,
-  url: string
+  url: string,
+  notificationType: string = 'inactivity'
 ): Promise<boolean> {
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
@@ -139,7 +172,7 @@ async function sendPushNotification(
 
   const result = await sendWebPush(
     { endpoint: subscription.endpoint, p256dh: subscription.p256dh, auth: subscription.auth },
-    { title, body, url, type: 'inactivity' },
+    { title, body, url, type: notificationType },
     vapidPublicKey,
     vapidPrivateKey
   );
@@ -268,26 +301,38 @@ serve(async (req) => {
         continue;
       }
       
-      // Check if idle for more than 15 minutes
+      // Get local hour to determine notification type
+      const localHour = getLocalHour(timezone);
+      const isAfter9pm = localHour >= 21;
+      
+      // Calculate idle time
       const idleMinutes = (now.getTime() - lastActivity.getTime()) / (1000 * 60);
-      if (idleMinutes < 15) {
-        console.log(`User ${entry.user_id}: Only idle ${Math.round(idleMinutes)} minutes, skipping`);
+      
+      // Determine notification type based on time and idle duration
+      // After 9pm local: 15 min idle = save day reminder
+      // During day (after sunset but before 9pm): 60 min idle = motivational
+      const requiredIdleMinutes = isAfter9pm ? 15 : 60;
+      
+      if (idleMinutes < requiredIdleMinutes) {
+        console.log(`User ${entry.user_id}: Only idle ${Math.round(idleMinutes)} min (need ${requiredIdleMinutes}), skipping`);
         continue;
       }
       
-      console.log(`User ${entry.user_id}: Idle ${Math.round(idleMinutes)} min after sunset - sending notification`);
+      const notificationType = isAfter9pm ? 'inactivity_save' : 'inactivity_motivate';
       
-      // Check if we already sent a notification today
+      console.log(`User ${entry.user_id}: Idle ${Math.round(idleMinutes)} min, local hour ${localHour}, type: ${notificationType}`);
+      
+      // Check if we already sent this type of notification today
       const { data: existingLog } = await supabase
         .from('notification_logs')
         .select('id')
         .eq('user_id', entry.user_id)
         .eq('entry_date', today)
-        .eq('notification_type', 'inactivity')
+        .eq('notification_type', notificationType)
         .maybeSingle();
       
       if (existingLog) {
-        console.log(`User ${entry.user_id}: Already notified today, skipping`);
+        console.log(`User ${entry.user_id}: Already sent ${notificationType} today, skipping`);
         continue;
       }
       
@@ -302,14 +347,32 @@ serve(async (req) => {
         continue;
       }
       
+      // Compose notification based on type
+      let title: string;
+      let body: string;
+      let url: string;
+      
+      if (isAfter9pm) {
+        // Save day reminder - rich notification with actions
+        title = '🌙 Time to Save Your Day!';
+        body = `Great work today! Save your progress to lock in your numbers and celebrate your wins.`;
+        url = '/track?prompt=save';
+      } else {
+        // Motivational reminder during working hours
+        title = '💪 Keep the Momentum Going!';
+        body = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+        url = '/track';
+      }
+      
       // Send notification to all subscriptions
       let sent = false;
       for (const subscription of subscriptions) {
         const success = await sendPushNotification(
           subscription,
-          '🌅 Done for the day?',
-          `You haven't logged activity in ${Math.round(idleMinutes)} minutes. Save your work to lock in your progress!`,
-          '/track?prompt=save'
+          title,
+          body,
+          url,
+          notificationType
         );
         if (success) sent = true;
       }
@@ -321,7 +384,7 @@ serve(async (req) => {
           .insert({
             user_id: entry.user_id,
             entry_date: today,
-            notification_type: 'inactivity'
+            notification_type: notificationType
           });
         
         notifiedCount++;
