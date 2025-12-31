@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { clearPersistedCache, clearCachedLayoutState } from "@/lib/queryPersister";
 
 interface AppDrawerProps {
   trigger: React.ReactNode;
@@ -102,6 +103,9 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   const confirmLogout = async () => {
     try {
       // Clear ALL caches before signing out
+      clearPersistedCache();
+      clearCachedLayoutState();
+      
       // Clear all rep-data caches (user-specific)
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -110,19 +114,13 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
             key?.startsWith('competitors-cache') ||
             key?.startsWith('blitzes-cache') ||
             key?.startsWith('team-access-cache') ||
-            key?.startsWith('kaizen-')) {
+            key?.startsWith('kaizen-') ||
+            key?.startsWith('season-config-cache') ||
+            key?.startsWith('group-recruits-cache')) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      
-      // Also clear the non-prefixed caches
-      localStorage.removeItem('competitors-cache');
-      localStorage.removeItem('blitzes-cache');
-      localStorage.removeItem('team-access-cache');
-      localStorage.removeItem('kaizen-setup-complete');
-      localStorage.removeItem('kaizen-setup-timestamp');
-      localStorage.removeItem('has-signed-up-before');
       
       // Clear React Query cache
       queryClient.clear();
@@ -144,13 +142,27 @@ export const AppDrawer = ({ trigger, firstName }: AppDrawerProps) => {
   };
 
   const handleForceRefresh = () => {
-    // Clear all localStorage caches
-    localStorage.removeItem('rep-data-cache');
-    localStorage.removeItem('competitors-cache');
-    localStorage.removeItem('blitzes-cache');
-    localStorage.removeItem('team-access-cache');
-    localStorage.removeItem('kaizen-setup-complete');
-    localStorage.removeItem('kaizen-setup-timestamp');
+    // Clear all caches including persisted React Query cache
+    clearPersistedCache();
+    clearCachedLayoutState();
+    
+    // Clear legacy localStorage caches
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('rep-data-cache') || 
+          key?.startsWith('competitors-cache') ||
+          key?.startsWith('blitzes-cache') ||
+          key?.startsWith('team-access-cache') ||
+          key?.startsWith('season-config-cache') ||
+          key?.startsWith('group-recruits-cache') ||
+          key?.startsWith('blitz-attendance-cache') ||
+          key === 'kaizen-setup-complete' ||
+          key === 'kaizen-setup-timestamp') {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
     
     // Clear React Query cache
     queryClient.clear();

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TeamMember {
@@ -25,50 +26,16 @@ export const useBlitzAttendance = (
   scope: 'you' | 'team' | 'mgmt' | 'office',
   leaderId?: string | null // Optional - no longer required, auth token provides identity
 ) => {
-  const [data, setData] = useState<AttendanceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, any>>(new Map());
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Load from cache immediately - stale-while-revalidate pattern
-  useEffect(() => {
-    const cached = localStorage.getItem('blitz-attendance-cache');
-    if (cached) {
-      try {
-        const { data: cachedData, timestamp, scope: cachedScope } = JSON.parse(cached);
-        // Use cache even if slightly stale - we'll refresh in background
-        const isUsable = Date.now() - timestamp < 30 * 60 * 1000; // 30 minutes max
-
-        const hasTeamMembers = Array.isArray(cachedData?.teamMembers) && cachedData.teamMembers.length > 0;
-        const looksUnhealthy = hasTeamMembers && cachedData.teamMembers.every((m: any) => !m?.onboardingStatus);
-
-        if (isUsable && cachedScope === scope && !looksUnhealthy) {
-          setData(cachedData);
-          setLoading(false); // Show cached data immediately
-        }
-      } catch (e) {
-        console.error('Failed to parse cached attendance:', e);
-      }
-    }
-  }, [scope]);
-
-  const fetchAttendance = useCallback(async (isBackgroundRefresh = false) => {
-    // Only show loading spinner if we don't have any data yet
-    if (!isBackgroundRefresh && !data) {
-      setLoading(true);
-    }
-    if (isBackgroundRefresh) {
-      setIsRefreshing(true);
-    }
-    setError(null);
-
-    try {
+  const { data, isLoading, error, isFetching, refetch: queryRefetch } = useQuery({
+    queryKey: ['blitz-attendance', scope],
+    queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        setLoading(false);
-        return;
+        throw new Error('Not authenticated');
       }
 
       const { data: responseData, error: invokeError } = await supabase.functions.invoke('fetch-blitz-attendance', {
@@ -81,34 +48,11 @@ export const useBlitzAttendance = (
       });
 
       if (invokeError) throw invokeError;
-
-      if (responseData) {
-        setData(responseData);
-        
-        // Cache the data
-        localStorage.setItem('blitz-attendance-cache', JSON.stringify({
-          data: responseData,
-          scope,
-          timestamp: Date.now()
-        }));
-      }
-    } catch (err: any) {
-      console.error('Error fetching attendance:', err);
-      // Only show error if we don't have cached data to fall back on
-      if (!data) {
-        setError(err.message || 'Failed to load attendance data');
-      }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [scope, data]);
-
-  // Initial fetch - background refresh if we have cached data
-  useEffect(() => {
-    const hasCachedData = data !== null;
-    fetchAttendance(hasCachedData);
-  }, [scope]); // Don't include fetchAttendance to avoid loops
+      return responseData as AttendanceData;
+    },
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  });
 
   // Apply optimistic updates on top of data
   const getOptimisticData = () => {
@@ -131,13 +75,18 @@ export const useBlitzAttendance = (
 
   const optimisticData = getOptimisticData();
 
+  const refetch = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['blitz-attendance', scope] });
+  };
+
   return {
     teamMembers: optimisticData?.teamMembers || [],
     contactedForBlitz: optimisticData?.contactedForBlitz || {},
     accessibleUserIds: optimisticData?.accessibleUserIds || [],
-    loading,
-    error,
-    refetch: fetchAttendance,
+    loading: isLoading && !data, // Only show loading on first load
+    error: error?.message || null,
+    refetch,
+    isRefreshing: isFetching && !!data,
     setOptimisticUpdate: (key: string, update: any) => {
       setOptimisticUpdates(prev => new Map(prev).set(key, update));
     },
