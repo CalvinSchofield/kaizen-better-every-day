@@ -90,13 +90,22 @@ export const PostContactDrawer = ({
   }, [open]);
 
   // Auto-expand scheduling and pre-select tomorrow when "No Answer" is selected
+  // Also pre-fill the next step text from the scheduled activity if available
   useEffect(() => {
     if (outcome === 'no_answer') {
       setShowScheduling(true);
       setQuickDateOption('tomorrow');
       setScheduleDate(addDays(new Date(), 1));
+      // Pre-fill next step from the scheduled activity we attempted
+      if (scheduledActivity?.next_action) {
+        setScheduleNotes(scheduledActivity.next_action);
+      }
+      // Pre-fill assignee from the scheduled activity if available
+      if (scheduledActivity?.assigned_to_user_id) {
+        setScheduleAssignee(scheduledActivity.assigned_to_user_id);
+      }
     }
-  }, [outcome]);
+  }, [outcome, scheduledActivity]);
 
   const handleQuickDateSelect = (option: QuickDateOption) => {
     setQuickDateOption(option);
