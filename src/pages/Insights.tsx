@@ -29,26 +29,62 @@ import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
 type DatePreset = InsightsDatePreset;
 type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
 
+const InsightsPageSkeleton = () => (
+  <div className="min-h-screen bg-background pb-24">
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
+      <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="h-8 w-20 rounded-md bg-muted animate-pulse shrink-0"
+            />
+          ))}
+        </div>
+      </div>
+      <div className="px-4 pb-3">
+        <div className="h-10 rounded-md bg-muted animate-pulse" />
+      </div>
+    </div>
+
+    <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="h-8 w-28 bg-muted rounded animate-pulse mb-2" />
+        <div className="h-4 w-40 bg-muted rounded animate-pulse" />
+      </div>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="bg-card border border-border rounded-xl p-4">
+          <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+          <div className="h-4 w-56 bg-muted rounded animate-pulse" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 export default function Insights() {
   const [searchParams] = useSearchParams();
   const { repData, loading: loadingRepData } = useRepData();
   const { efpModeEnabled } = useEfpMode();
   const { data: cumulativeData } = useCumulativeFP();
   const { availablePresets, hasAnyData, isLoading: presetsLoading } = useAvailableInsightsPresets();
-  const [datePreset, setDatePreset] = useState<DatePreset>('preseason');
+  const [datePreset, setDatePreset] = useState<DatePreset | null>(null);
   const [hasUserSelectedPreset, setHasUserSelectedPreset] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
   
-  // Set initial preset to first available (smallest range)
+  // Set initial preset to first available (smallest range) once presets are known.
   useEffect(() => {
     if (hasUserSelectedPreset) return;
+    if (presetsLoading) return;
+    if (datePreset !== null) return;
+
     if (availablePresets.length > 0) {
       setDatePreset(availablePresets[0]);
     }
-  }, [availablePresets, hasUserSelectedPreset]);
+  }, [availablePresets, hasUserSelectedPreset, presetsLoading, datePreset]);
   
   // Check if CRM is enabled
   const crmEnabled = (repData as any)?.crm_enabled === true;
@@ -169,10 +205,15 @@ export default function Insights() {
     }
   };
 
-  const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset), efpModeEnabled);
+  const effectivePreset: DatePreset = datePreset ?? (availablePresets[0] ?? 'preseason');
+  const dateRange = getDateRange(effectivePreset);
 
-  // Wait for presets to load before showing anything (prevents flash)
-  if (loadingRepData || presetsLoading) return null;
+  const { data: insights, isLoading } = useInsightsData(dateRange, efpModeEnabled, {
+    enabled: !loadingRepData && !presetsLoading && datePreset !== null,
+  });
+
+  // Wait for presets to load AND for a preset to be chosen (prevents flash)
+  if (loadingRepData || presetsLoading || datePreset === null) return <InsightsPageSkeleton />;
 
   if (isPreBlitzRookie) {
     return (
@@ -213,7 +254,10 @@ export default function Insights() {
                 key={preset}
                 variant={datePreset === preset ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset(preset)}
+                onClick={() => {
+                  setHasUserSelectedPreset(true);
+                  setDatePreset(preset);
+                }}
                 className="shrink-0"
               >
                 {preset === 'yesterday' && 'Yesterday'}
@@ -288,33 +332,33 @@ export default function Insights() {
             </p>
           </div>
         ) : (
-          <>
-            {activeTab === 'overview' && (
-              <InsightsOverviewTab 
-                insights={insights} 
-                dateRange={getDateRange(datePreset)} 
-                efpModeEnabled={efpModeEnabled} 
-              />
-            )}
-            {activeTab === 'performance' && (
-              <InsightsPerformanceTab 
-                insights={insights} 
-                efpModeEnabled={efpModeEnabled}
-                repData={repData}
-              />
-            )}
+            <>
+              {activeTab === 'overview' && (
+                <InsightsOverviewTab 
+                  insights={insights} 
+                  dateRange={dateRange} 
+                  efpModeEnabled={efpModeEnabled} 
+                />
+              )}
+              {activeTab === 'performance' && (
+                <InsightsPerformanceTab 
+                  insights={insights} 
+                  efpModeEnabled={efpModeEnabled}
+                  repData={repData}
+                />
+              )}
             {activeTab === 'patterns' && (
               <InsightsPatternsTab 
                 insights={insights} 
-                dateRange={getDateRange(datePreset)}
-                datePreset={datePreset}
+                dateRange={dateRange}
+                datePreset={effectivePreset}
                 efpModeEnabled={efpModeEnabled}
               />
             )}
-            {activeTab === 'deals' && crmEnabled && (
-              <InsightsDealsTab dateRange={getDateRange(datePreset)} userCumulativeFpPlus={userCumulativeFpPlus} />
-            )}
-          </>
+              {activeTab === 'deals' && crmEnabled && (
+                <InsightsDealsTab dateRange={dateRange} userCumulativeFpPlus={userCumulativeFpPlus} />
+              )}
+            </>
         )}
       </div>
 
@@ -372,7 +416,11 @@ export default function Insights() {
             </div>
 
             <Button 
-              onClick={() => { setDatePreset('custom'); setShowCustomDialog(false); }} 
+              onClick={() => {
+                setHasUserSelectedPreset(true);
+                setDatePreset('custom');
+                setShowCustomDialog(false);
+              }} 
               className="w-full"
               disabled={!customStartDate || !customEndDate}
             >
