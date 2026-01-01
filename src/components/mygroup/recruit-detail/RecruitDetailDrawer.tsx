@@ -1,10 +1,18 @@
 import { useState, useMemo, useEffect } from "react";
-import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
+import {
+  Recruit,
+  RecruitActivity,
+  useUpdateRecruitStage,
+  useLogRecruitActivity,
+  useUpdateRecruitActivity,
+  useDeleteRecruitActivity,
+} from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
+import { openRecruitSmsWithLeaderIfApplicable } from "@/lib/sms";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -353,61 +361,21 @@ export const RecruitDetailDrawer = ({
       return;
     }
 
-    const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, '');
-
-    const recruitPhone = normalizePhoneForSms(recruit.phone);
-
-    // Look up the team leader's phone using the recruit's team_id for reliable lookup
-    let leaderPhone: string | null = null;
-
-    // First try using contactForHelp if it's the leader
-    if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
-      leaderPhone = normalizePhoneForSms(contactForHelp.phone);
-    } else if (recruit.teamId) {
-      // Use team_id to find the team's lead_user_id, then get their phone
-      const { data: teamData } = await supabase
-        .from('teams')
-        .select('lead_user_id')
-        .eq('id', recruit.teamId)
-        .maybeSingle();
-
-      if (teamData?.lead_user_id) {
-        const { data: leaderRep } = await supabase
-          .from('reps')
-          .select('phone')
-          .eq('user_id', teamData.lead_user_id)
-          .maybeSingle();
-
-        if (leaderRep?.phone) {
-          leaderPhone = normalizePhoneForSms(leaderRep.phone);
-        }
-      }
-    }
-
-    if (leaderPhone && leaderPhone !== recruitPhone) {
-      logActivityMutation.mutate({
-        recruitId: recruit.id,
-        recruitNotionId: recruit.id,
-        activityType: 'phone_call',
-        notes: 'Text sent (group with leader)',
-        updateLastContact: true,
-      });
-      toast.success('Group text logged');
-
-      // Multi-recipient SMS separator is inconsistent across devices; "," works on iOS
-      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
-      return;
-    }
+    const { isGroup } = await openRecruitSmsWithLeaderIfApplicable({
+      recruitPhone: recruit.phone,
+      teamId: recruit.teamId,
+      teamName: recruit.teamName,
+    });
 
     logActivityMutation.mutate({
       recruitId: recruit.id,
       recruitNotionId: recruit.id,
       activityType: 'phone_call',
-      notes: 'Text sent',
+      notes: isGroup ? 'Text sent (group with leader)' : 'Text sent',
       updateLastContact: true,
     });
-    toast.success('Text logged');
-    window.location.href = `sms:${recruitPhone}`;
+
+    toast.success(isGroup ? 'Group text logged' : 'Text logged');
   };
 
   const handleAskForHelp = () => {
