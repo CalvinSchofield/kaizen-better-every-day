@@ -668,6 +668,9 @@ export const useGroupRecruits = () => {
     ...query,
     isLeader,
     isLoading: teamLoading || query.isLoading,
+    // Expose whether we're showing placeholder/cached data vs fresh data
+    isPlaceholderData: query.isPlaceholderData,
+    isFetching: query.isFetching,
     lastUpdated: getCachedTimestamp(),
   };
 };

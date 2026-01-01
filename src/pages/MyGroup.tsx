@@ -74,7 +74,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
 const MyGroup = () => {
   const location = useLocation();
   const { data: teamAccess, isLoading: accessLoading } = useTeamAccess();
-  const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated } = useGroupRecruits();
+  const { data: groupData, isLoading: recruitsLoading, isLeader, error: recruitsError, refetch: refetchRecruits, lastUpdated, isPlaceholderData, isFetching } = useGroupRecruits();
   const { data: mySuggestions, isLoading: suggestionsLoading } = useMySuggestions();
   const deleteMutation = useDeleteMySuggestion();
   const { allBlitzes, allBlitzesIncludingPast, error: blitzError, refetch: refetchBlitzes, isUsingCache: blitzUsingCache } = useBlitzes();
@@ -520,22 +520,31 @@ const MyGroup = () => {
     allBlitzesIncludingPast,
     repDataMap
   );
+  // Track if hero data is stable (not using placeholder/cached data during initial fetch)
+  // This prevents the hero from flashing different people when cached data loads before fresh data
+  const isHeroDataStable = useMemo(() => {
+    // Data is stable when:
+    // 1. We have dismissed state loaded
+    // 2. We're not in initial loading state
+    // 3. We're not showing placeholder data (stale cache) while fetching fresh data
+    return dismissedLoaded && !recruitsLoading && !(isPlaceholderData && isFetching);
+  }, [dismissedLoaded, recruitsLoading, isPlaceholderData, isFetching]);
+
   const recommendations = useMemo(() => {
-    // Wait for both dismissed state AND initial data to load to prevent flash
-    // recruitsLoading being false means activities are loaded from the initial query
-    if (!dismissedLoaded || recruitsLoading) return [];
+    // Wait for hero data to be stable to prevent flash
+    if (!isHeroDataStable) return [];
     return rawRecommendations.filter(r => 
       !isRecuitDismissed(r.recruit.id) && !isSkipped(r.recruit.id)
     );
-  }, [rawRecommendations, isRecuitDismissed, isSkipped, dismissedLoaded, recruitsLoading]);
+  }, [rawRecommendations, isRecuitDismissed, isSkipped, isHeroDataStable]);
 
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
 
   // Calculate overdue scheduled items as highest-priority fallback
   const overdueScheduledFallback = useMemo<OverdueScheduledItem | null>(() => {
-    // Only show if no top recommendation
-    if (topRecommendation) return null;
+    // Only show if no top recommendation AND data is stable
+    if (topRecommendation || !isHeroDataStable) return null;
 
     const today = startOfToday();
     
@@ -571,13 +580,13 @@ const MyGroup = () => {
     // Sort by most overdue first
     overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
     return overdueItems[0] || null;
-  }, [topRecommendation, filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed]);
+  }, [topRecommendation, filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
 
   // Fallback: if no top recommendation AND no overdue, find the top priority from Needs Attention
   // (respecting skip functionality)
   const needsAttentionFallback = useMemo(() => {
-    // Only show fallback if there's no top recommendation AND no overdue items
-    if (topRecommendation || overdueScheduledFallback) return null;
+    // Only show fallback if there's no top recommendation AND no overdue items AND data is stable
+    if (topRecommendation || overdueScheduledFallback || !isHeroDataStable) return null;
     
     // Flatten all recruits from all categories and filter out skipped ones
     for (const category of categories) {
@@ -589,7 +598,7 @@ const MyGroup = () => {
       }
     }
     return null;
-  }, [topRecommendation, overdueScheduledFallback, categories, isSkipped, isRecuitDismissed]);
+  }, [topRecommendation, overdueScheduledFallback, categories, isSkipped, isRecuitDismissed, isHeroDataStable]);
 
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
@@ -784,23 +793,24 @@ const MyGroup = () => {
             <>
               {/* Today's Focus Hero */}
               <TodaysFocusHero
-              topRecommendation={topRecommendation}
-              summerRecommendation={topSummerRecommendation}
-              overdueScheduledFallback={overdueScheduledFallback}
-              needsAttentionFallback={needsAttentionFallback}
-              totalNeedsAttention={totalCount}
-              onRecruitClick={handleRecruitClick}
-              onSummerRepClick={(notionPageId) => {
-                const recruit = allRecruits.find(r => r.id === notionPageId);
-                if (recruit) setSelectedRecruit(recruit);
-              }}
-              onViewAll={() => setQuickViewOpen(true)}
-              onContactClick={handleHeroContact}
-              onScheduleClick={handleHeroSchedule}
-              onSkipForNow={(recruit) => skipForNow(recruit.id)}
-              onSkipToday={(recruit) => skipToday(recruit.id)}
-              animatingOut={heroAnimatingOut}
-            />
+                topRecommendation={topRecommendation}
+                summerRecommendation={topSummerRecommendation}
+                overdueScheduledFallback={overdueScheduledFallback}
+                needsAttentionFallback={needsAttentionFallback}
+                totalNeedsAttention={totalCount}
+                onRecruitClick={handleRecruitClick}
+                onSummerRepClick={(notionPageId) => {
+                  const recruit = allRecruits.find(r => r.id === notionPageId);
+                  if (recruit) setSelectedRecruit(recruit);
+                }}
+                onViewAll={() => setQuickViewOpen(true)}
+                onContactClick={handleHeroContact}
+                onScheduleClick={handleHeroSchedule}
+                onSkipForNow={(recruit) => skipForNow(recruit.id)}
+                onSkipToday={(recruit) => skipToday(recruit.id)}
+                animatingOut={heroAnimatingOut}
+                isLoading={!isHeroDataStable}
+              />
 
             {/* Undo Banner */}
             <AnimatePresence>
