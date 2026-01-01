@@ -1,4 +1,4 @@
-import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell, Clock } from "lucide-react";
+import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell, Clock, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,7 @@ interface TodaysFocusHeroProps {
   onScheduleClick?: (recruit: Recruit) => void;
   onSkipForNow?: (recruit: Recruit) => void;
   onSkipToday?: (recruit: Recruit) => void;
+  onLogOneOnOneClick?: (repUserId: string, repName: string) => void;
   animatingOut?: boolean;
   isLoading?: boolean;
 }
@@ -96,6 +97,7 @@ export const TodaysFocusHero = ({
   onScheduleClick,
   onSkipForNow,
   onSkipToday,
+  onLogOneOnOneClick,
   animatingOut = false,
   isLoading = false
 }: TodaysFocusHeroProps) => {
@@ -121,7 +123,98 @@ export const TodaysFocusHero = ({
     );
   }
 
-  // Priority 0: Overdue Scheduled Items (HIGHEST priority - check FIRST)
+  // Check if there's a blitz-critical recommendation that should take priority over overdue
+  const blitzCriticalRecommendation = topRecommendation?.reasonBadge === 'blitz-critical' ? topRecommendation : null;
+
+  // Priority 0: Blitz-Critical Rookies (highest urgency - they'll miss their blitz!)
+  if (blitzCriticalRecommendation) {
+    const recruit = blitzCriticalRecommendation.recruit;
+    const firstName = recruit.name?.split(' ')[0] || 'Rookie';
+
+    return (
+      <div 
+        className={cn(
+          "rounded-2xl p-5 border-2 transition-all duration-300",
+          CONTAINER_STYLES['blitz-critical'],
+          animatingOut && "animate-fade-out opacity-0 scale-95"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 rounded-full bg-red-500/10">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+          </div>
+          <span className="text-sm font-medium text-red-600">🚨 Blitz Critical</span>
+          <div className="ml-auto flex items-center gap-1">
+            {blitzCriticalRecommendation.daysUntilBlitz !== undefined && (
+              <Badge variant="outline" className="text-xs border-red-500/50 text-red-600 bg-red-500/10">
+                Blitz in {blitzCriticalRecommendation.daysUntilBlitz}d
+              </Badge>
+            )}
+            <SkipMenu 
+              onSkipForNow={() => onSkipForNow?.(recruit)}
+              onSkipToday={() => onSkipToday?.(recruit)}
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7"
+            />
+          </div>
+        </div>
+
+        <div 
+          className="cursor-pointer"
+          onClick={() => onRecruitClick(recruit)}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-xl font-semibold">
+              {stripEmojis(recruit.name)}
+            </h2>
+            <Badge 
+              variant="outline" 
+              className="text-xs border-muted-foreground/30 text-muted-foreground"
+            >
+              {recruit.stage}
+            </Badge>
+          </div>
+          
+          <p className="text-sm text-muted-foreground mb-3">
+            {blitzCriticalRecommendation.reason}
+          </p>
+          
+          {blitzCriticalRecommendation.missingItems && blitzCriticalRecommendation.missingItems.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {blitzCriticalRecommendation.missingItems.slice(0, 3).map((item) => (
+                <Badge key={item} variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/30">
+                  Missing: {item}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button 
+            className="flex-1 gap-2"
+            size="lg"
+            variant="destructive"
+            onClick={() => onContactClick?.(recruit)}
+          >
+            <UserRoundSearch className="h-4 w-4" />
+            Contact Now
+          </Button>
+          <Button 
+            variant="outline"
+            size="lg"
+            onClick={() => onRecruitClick(recruit)}
+            className="gap-2"
+          >
+            View Details
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Priority 1: Overdue Scheduled Items (scheduled tasks past due)
   if (overdueScheduledFallback) {
     const { recruit, activity, daysOverdue } = overdueScheduledFallback;
     const dueDate = activity.next_action_due ? parseISO(activity.next_action_due) : null;
@@ -214,9 +307,13 @@ export const TodaysFocusHero = ({
     );
   }
 
-  // Determine which recommendation to show (summer BAGEL/RECORD takes priority over other recommendations)
-  const showSummer = summerRecommendation && 
+  // Determine which recommendation to show (summer BAGEL/RECORD/NEEDS-REVIEW takes priority)
+  const showSummerPriority = summerRecommendation && 
     (summerRecommendation.reasonBadge === 'bagel' || summerRecommendation.reasonBadge === 'record');
+  
+  const showSummerNeedsReview = summerRecommendation && 
+    summerRecommendation.reasonBadge === 'needs-review' && 
+    !topRecommendation; // Only show if no preseason recommendation
 
   const handleSkipForNow = () => {
     if (!topRecommendation) return;
@@ -238,8 +335,8 @@ export const TodaysFocusHero = ({
     onScheduleClick?.(topRecommendation.recruit);
   };
 
-  // Render Summer Hero (BAGEL or RECORD)
-  if (showSummer && summerRecommendation) {
+  // Render Summer Hero (BAGEL or RECORD - highest priority summer alerts)
+  if (showSummerPriority && summerRecommendation) {
     const isBagel = summerRecommendation.reasonBadge === 'bagel';
     const isRecord = summerRecommendation.reasonBadge === 'record';
     const firstName = summerRecommendation.rep.name?.split(' ')[0] || 'Rep';
@@ -307,6 +404,63 @@ export const TodaysFocusHero = ({
             onClick={() => onSummerRepClick?.(summerRecommendation.rep.notionPageId)}
           >
             {isBagel ? "Help Now" : "Celebrate"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Summer Needs Monthly Review Hero (shows when no other recommendations)
+  if (showSummerNeedsReview && summerRecommendation) {
+    const firstName = summerRecommendation.rep.name?.split(' ')[0] || 'Rep';
+
+    return (
+      <div 
+        className={cn(
+          "rounded-2xl p-5 border-2 transition-all duration-300",
+          CONTAINER_STYLES['needs-review'],
+          animatingOut && "animate-fade-out opacity-0 scale-95"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 rounded-full bg-indigo-500/10">
+            <ClipboardList className="h-5 w-5 text-indigo-500" />
+          </div>
+          <span className="text-sm font-medium text-indigo-600">📅 Monthly 1-on-1 Due</span>
+          <Badge variant="outline" className={cn("ml-auto text-xs", BADGE_STYLES['needs-review'])}>
+            {summerRecommendation.rep.year}
+          </Badge>
+        </div>
+
+        <div 
+          className="cursor-pointer"
+          onClick={() => onSummerRepClick?.(summerRecommendation.rep.notionPageId)}
+        >
+          <h2 className="text-xl font-semibold mb-2">
+            {firstName}
+          </h2>
+          
+          <p className="text-sm text-muted-foreground mb-3">
+            {summerRecommendation.reason}
+          </p>
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          <Button 
+            className="flex-1 gap-2"
+            size="lg"
+            onClick={() => onLogOneOnOneClick?.(summerRecommendation.rep.userId, summerRecommendation.rep.name)}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Log 1-on-1
+          </Button>
+          <Button 
+            variant="outline"
+            size="lg"
+            onClick={() => onSummerRepClick?.(summerRecommendation.rep.notionPageId)}
+            className="gap-2"
+          >
+            View Details
           </Button>
         </div>
       </div>

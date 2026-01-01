@@ -35,6 +35,7 @@ import { TeamFilterSheet } from "@/components/mygroup/TeamFilterSheet";
 import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer";
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { RecruitSearchDrawer } from "@/components/mygroup/RecruitSearchDrawer";
+import { LogOneOnOneDrawer } from "@/components/mygroup/LogOneOnOneDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import Layout from "@/components/Layout";
@@ -103,6 +104,9 @@ const MyGroup = () => {
   const [undoBannerMessage, setUndoBannerMessage] = useState<string | null>(null);
   const [goalsPaceDrawerOpen, setGoalsPaceDrawerOpen] = useState(false);
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [logOneOnOneOpen, setLogOneOnOneOpen] = useState(false);
+  const [logOneOnOneRepUserId, setLogOneOnOneRepUserId] = useState<string | null>(null);
+  const [logOneOnOneRepName, setLogOneOnOneRepName] = useState<string>('');
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
@@ -508,24 +512,39 @@ const MyGroup = () => {
     repSummerConfigMap
   );
 
-  // Add Goals & Pace category to attention chips if there are summer reps
+  // Add Goals & Pace and Needs Monthly 1-on-1 categories to attention chips if there are summer reps
   const categoriesWithSummer = useMemo(() => {
-    if (goalsPaceData.length === 0) return categories;
+    const additionalCategories: typeof categories = [];
     
-    const behindCount = goalsPaceData.filter(r => r.status === 'behind' || r.status === 'critical').length;
-    
-    return [
-      ...categories,
-      {
+    // Goals & Pace chip
+    if (goalsPaceData.length > 0) {
+      const behindCount = goalsPaceData.filter(r => r.status === 'behind' || r.status === 'critical').length;
+      additionalCategories.push({
         id: 'goals-pace',
         label: 'Goals & Pace',
         emoji: '📊',
         count: behindCount > 0 ? behindCount : goalsPaceData.length,
         recruits: [],
         priority: 85,
-      },
-    ].sort((a, b) => b.priority - a.priority);
-  }, [categories, goalsPaceData]);
+      });
+    }
+    
+    // Needs Monthly 1-on-1 chip (only for summer reps)
+    if (repsNeedingMonthlyReview && repsNeedingMonthlyReview.length > 0) {
+      additionalCategories.push({
+        id: 'needs-1on1',
+        label: 'Needs 1-on-1',
+        emoji: '📅',
+        count: repsNeedingMonthlyReview.length,
+        recruits: [],
+        priority: 80,
+      });
+    }
+    
+    if (additionalCategories.length === 0) return categories;
+    
+    return [...categories, ...additionalCategories].sort((a, b) => b.priority - a.priority);
+  }, [categories, goalsPaceData, repsNeedingMonthlyReview]);
 
   // Get smart recommendations with blitz awareness, filtering out dismissed and skipped ones
   const rawRecommendations = useRecruitingRecommendations(
@@ -817,6 +836,11 @@ const MyGroup = () => {
                 onScheduleClick={handleHeroSchedule}
                 onSkipForNow={(recruit) => skipForNow(recruit.id)}
                 onSkipToday={(recruit) => skipToday(recruit.id)}
+                onLogOneOnOneClick={(repUserId, repName) => {
+                  setLogOneOnOneRepUserId(repUserId);
+                  setLogOneOnOneRepName(repName);
+                  setLogOneOnOneOpen(true);
+                }}
                 animatingOut={heroAnimatingOut}
                 isLoading={!isHeroDataStable}
               />
@@ -1091,6 +1115,22 @@ const MyGroup = () => {
           handleRecruitClick(recruit);
         }}
       />
+
+      {/* Log 1-on-1 Drawer (from summer needs-review) */}
+      {logOneOnOneRepUserId && (
+        <LogOneOnOneDrawer
+          open={logOneOnOneOpen}
+          onOpenChange={(open) => {
+            setLogOneOnOneOpen(open);
+            if (!open) {
+              setLogOneOnOneRepUserId(null);
+              setLogOneOnOneRepName('');
+            }
+          }}
+          repUserId={logOneOnOneRepUserId}
+          repName={logOneOnOneRepName}
+        />
+      )}
     </Layout>
   );
 };
