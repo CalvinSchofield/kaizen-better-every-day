@@ -296,10 +296,10 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         }`}
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
-        <div className="px-4 pb-2">
+        <div className="px-5 pb-3">
           <div 
-            className="flex items-center justify-around max-w-lg mx-auto bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg rounded-2xl"
-            style={{ height: 'var(--nav-height)' }}
+            className="flex items-center justify-around max-w-md mx-auto bg-card/90 backdrop-blur-2xl border border-border/40 shadow-2xl rounded-[28px] px-2"
+            style={{ height: 'calc(var(--nav-height) + 4px)' }}
           >
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
