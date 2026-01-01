@@ -21,8 +21,9 @@ import { ReportsPeopleTab } from "@/components/reports/ReportsPeopleTab";
 import { ReportsPerformanceTab } from "@/components/reports/ReportsPerformanceTab";
 import { ReportsPatternsTab } from "@/components/reports/ReportsPatternsTab";
 import { LeaderAICoachFab } from "@/components/reports/LeaderAICoachFab";
+import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAvailableDatePresets";
 
-type DatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
+type DatePreset = ReportsDatePreset;
 type ReportTab = 'people' | 'performance' | 'patterns';
 
 const TeamReports = () => {
@@ -37,6 +38,7 @@ const TeamReports = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<ReportTab>('people');
+
 
   // Role-aware default tab based on downline size
   useEffect(() => {
@@ -125,6 +127,9 @@ const TeamReports = () => {
     
     return userIds;
   }, [selectedUserIds, accessData?.accessibleUserIds, accessData?.accessibleReps, yearFilter]);
+
+  // Get available presets based on team data
+  const { availablePresets, hasAnyData: teamHasData } = useAvailableTeamReportsPresets(effectiveUserIds);
 
   // Data hooks
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
@@ -356,60 +361,72 @@ const TeamReports = () => {
         {/* Date Range Selector */}
         <div className="overflow-x-auto pb-1 scrollbar-hide">
           <div className="flex gap-2 whitespace-nowrap">
-            <Button
-              variant={datePreset === 'today' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('today')}
-              className="flex-shrink-0 gap-1.5"
-            >
-              <div className="relative">
-                <div className="w-2 h-2 rounded-full bg-current" />
-                {datePreset === 'today' && (liveData?.workingCount || 0) > 0 && (
-                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-current animate-ping opacity-75" />
-                )}
-              </div>
-              Today
-            </Button>
-            <Button
-              variant={datePreset === 'yesterday' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('yesterday')}
-              className="flex-shrink-0"
-            >
-              Yesterday
-            </Button>
-            <Button
-              variant={datePreset === 'week' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('week')}
-              className="flex-shrink-0"
-            >
-              Week
-            </Button>
-            <Button
-              variant={datePreset === 'month' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('month')}
-              className="flex-shrink-0"
-            >
-              Month
-            </Button>
-            <Button
-              variant={datePreset === 'preseason' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('preseason')}
-              className="flex-shrink-0"
-            >
-              Season
-            </Button>
-            <Button
-              variant={datePreset === 'ytd' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setDatePreset('ytd')}
-              className="flex-shrink-0"
-            >
-              YTD
-            </Button>
+            {availablePresets.includes('today') && (
+              <Button
+                variant={datePreset === 'today' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('today')}
+                className="flex-shrink-0 gap-1.5"
+              >
+                <div className="relative">
+                  <div className="w-2 h-2 rounded-full bg-current" />
+                  {datePreset === 'today' && (liveData?.workingCount || 0) > 0 && (
+                    <div className="absolute inset-0 w-2 h-2 rounded-full bg-current animate-ping opacity-75" />
+                  )}
+                </div>
+                Today
+              </Button>
+            )}
+            {availablePresets.includes('yesterday') && (
+              <Button
+                variant={datePreset === 'yesterday' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('yesterday')}
+                className="flex-shrink-0"
+              >
+                Yesterday
+              </Button>
+            )}
+            {availablePresets.includes('week') && (
+              <Button
+                variant={datePreset === 'week' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('week')}
+                className="flex-shrink-0"
+              >
+                Week
+              </Button>
+            )}
+            {availablePresets.includes('month') && (
+              <Button
+                variant={datePreset === 'month' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('month')}
+                className="flex-shrink-0"
+              >
+                Month
+              </Button>
+            )}
+            {availablePresets.includes('preseason') && (
+              <Button
+                variant={datePreset === 'preseason' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('preseason')}
+                className="flex-shrink-0"
+              >
+                Season
+              </Button>
+            )}
+            {availablePresets.includes('ytd') && (
+              <Button
+                variant={datePreset === 'ytd' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('ytd')}
+                className="flex-shrink-0"
+              >
+                YTD
+              </Button>
+            )}
             <Popover open={showCustomDialog} onOpenChange={setShowCustomDialog}>
               <PopoverTrigger asChild>
                 <Button

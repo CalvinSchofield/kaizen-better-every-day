@@ -7,6 +7,7 @@ import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
+import { useAvailableInsightsPresets, InsightsDatePreset } from '@/hooks/useAvailableDatePresets';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
@@ -25,7 +26,7 @@ import { InsightsPerformanceTab } from '@/components/insights/InsightsPerformanc
 import { InsightsPatternsTab } from '@/components/insights/InsightsPatternsTab';
 import { InsightsDealsTab } from '@/components/insights/InsightsDealsTab';
 
-type DatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
+type DatePreset = InsightsDatePreset;
 type InsightsTab = 'overview' | 'performance' | 'patterns' | 'deals';
 
 export default function Insights() {
@@ -33,11 +34,21 @@ export default function Insights() {
   const { repData, loading: loadingRepData } = useRepData();
   const { efpModeEnabled } = useEfpMode();
   const { data: cumulativeData } = useCumulativeFP();
-  const [datePreset, setDatePreset] = useState<DatePreset>('week');
+  const { availablePresets, hasAnyData, isLoading: presetsLoading } = useAvailableInsightsPresets();
+  const [datePreset, setDatePreset] = useState<DatePreset>('preseason');
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
+  
+  // Set initial preset to first available (or preseason as fallback)
+  useEffect(() => {
+    if (availablePresets.length > 0 && !availablePresets.includes(datePreset)) {
+      // Default to 'week' if available, otherwise first available
+      const defaultPreset = availablePresets.includes('week') ? 'week' : availablePresets[0];
+      setDatePreset(defaultPreset);
+    }
+  }, [availablePresets]);
   
   // Check if CRM is enabled
   const crmEnabled = (repData as any)?.crm_enabled === true;
@@ -189,7 +200,9 @@ export default function Insights() {
         {/* Date Range Buttons */}
         <div className="px-4 py-3 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2">
-            {(['yesterday', 'week', 'lastWeek', 'month', 'lastMonth', 'preseason'] as DatePreset[]).map((preset) => (
+            {(['yesterday', 'week', 'lastWeek', 'month', 'lastMonth', 'preseason'] as DatePreset[])
+              .filter(preset => availablePresets.includes(preset))
+              .map((preset) => (
               <Button
                 key={preset}
                 variant={datePreset === preset ? 'default' : 'outline'}
@@ -249,11 +262,23 @@ export default function Insights() {
               </div>
             ))}
           </div>
+        ) : !hasAnyData ? (
+          <Card className="border-dashed">
+            <CardContent className="pt-8 pb-8 text-center space-y-4">
+              <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground/40" />
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">No Data Yet</h3>
+                <p className="text-muted-foreground mt-2">
+                  Start tracking your daily entries to unlock powerful insights about your performance.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         ) : !insights || insights.daysWorked === 0 ? (
           <div className="text-center py-12">
             <div className="text-muted-foreground mb-4">No data available for this period</div>
             <p className="text-sm text-muted-foreground">
-              Start tracking your daily entries to see insights here
+              Try selecting a different date range
             </p>
           </div>
         ) : (
