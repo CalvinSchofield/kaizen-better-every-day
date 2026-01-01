@@ -11,6 +11,7 @@ interface DealBreakdown {
   totalMoneySpent: number;
   avgSpentPerDeal: number;
   hasCrmData: boolean;
+  hasDetailedData?: boolean;
 }
 
 interface InputComparison {
@@ -171,12 +172,29 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
     allDeals.push(...deals);
   }
   
-  if (allDeals.length === 0) {
+  // Calculate total fp_plus from entries as fallback
+  const totalFpFromEntries = entries.reduce((sum, e) => sum + (e.fp_plus || 0), 0);
+  const totalUpgradePrmr = entries.reduce((sum, e) => sum + (e.upgrade_prmr || 0), 0);
+  
+  // If no sales_log data but we have fp_plus, infer basic deal counts
+  const hasDetailedData = allDeals.length > 0;
+  
+  if (!hasDetailedData && totalFpFromEntries === 0) {
     return undefined;
   }
   
-  const fpDeals = allDeals.filter(d => d.type === 'FP' || d.type === 'Fresh' || d.type === 'Takeover');
-  const upgradeDeals = allDeals.filter(d => d.type === 'Upgrade' || d.type === 'UPG');
+  // Use sales_log data if available, otherwise infer from fp_plus
+  const fpDeals = hasDetailedData 
+    ? allDeals.filter(d => d.type === 'FP' || d.type === 'Fresh' || d.type === 'Takeover')
+    : [];
+  const upgradeDeals = hasDetailedData 
+    ? allDeals.filter(d => d.type === 'Upgrade' || d.type === 'UPG')
+    : [];
+  
+  // If no detailed data, estimate: fp_plus count = FP deals (upgrades tracked via upgrade_prmr)
+  const inferredFpDeals = hasDetailedData ? fpDeals.length : totalFpFromEntries;
+  const inferredUpgradeDeals = hasDetailedData ? upgradeDeals.length : (totalUpgradePrmr > 0 ? Math.ceil(totalUpgradePrmr / 50) : 0);
+  const inferredTotalDeals = hasDetailedData ? allDeals.length : (inferredFpDeals + inferredUpgradeDeals);
   
   const totalMoneySpent = allDeals.reduce((sum, d) => sum + d.money_spent, 0);
   
@@ -189,9 +207,9 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
   const upgradeDealsWithTime = upgradeDeals.filter(d => d.time_to_sell_minutes > 0);
   
   return {
-    totalDeals: allDeals.length,
-    fpDeals: fpDeals.length,
-    upgradeDeals: upgradeDeals.length,
+    totalDeals: inferredTotalDeals,
+    fpDeals: inferredFpDeals,
+    upgradeDeals: inferredUpgradeDeals,
     avgTimeToSell,
     avgTimeByType: {
       fp: fpDealsWithTime.length > 0 
@@ -202,8 +220,9 @@ function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
         : null,
     },
     totalMoneySpent,
-    avgSpentPerDeal: allDeals.length > 0 ? totalMoneySpent / allDeals.length : 0,
+    avgSpentPerDeal: inferredTotalDeals > 0 ? totalMoneySpent / inferredTotalDeals : 0,
     hasCrmData: true,
+    hasDetailedData,
   };
 }
 
