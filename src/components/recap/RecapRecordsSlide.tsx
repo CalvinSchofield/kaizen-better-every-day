@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Trophy, DoorOpen, Zap, Clock, Sunrise } from 'lucide-react';
+import { Trophy, DoorOpen, Zap, Clock, Sunrise, Sunset, MessageSquare, ArrowRightLeft, Presentation, CheckCircle, DollarSign } from 'lucide-react';
 import { RecapStats } from '@/hooks/useRecapData';
 
 interface RecapRecordsSlideProps {
@@ -20,17 +20,17 @@ function RecordItem({ icon: Icon, label, value, previousBest, delay }: RecordIte
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay, duration: 0.4 }}
-      className="flex items-center gap-4 p-4 rounded-xl bg-yellow-500/20 border border-yellow-500/30"
+      className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30"
     >
-      <div className="w-12 h-12 rounded-full bg-yellow-500/30 flex items-center justify-center">
-        <Icon className="w-6 h-6 text-yellow-400" />
+      <div className="w-10 h-10 rounded-full bg-yellow-500/30 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-5 h-5 text-yellow-400" />
       </div>
-      <div className="flex-1">
-        <p className="text-sm text-yellow-200/80">{label}</p>
-        <p className="text-2xl font-bold text-yellow-300">{value}</p>
-        <p className="text-xs text-muted-foreground">Previous best: {previousBest}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-yellow-200/80 truncate">{label}</p>
+        <p className="text-lg font-bold text-yellow-300">{value}</p>
+        <p className="text-xs text-muted-foreground">Prev: {previousBest}</p>
       </div>
-      <Trophy className="w-8 h-8 text-yellow-400" />
+      <Trophy className="w-6 h-6 text-yellow-400 flex-shrink-0" />
     </motion.div>
   );
 }
@@ -48,6 +48,46 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
     });
   }
   
+  if (records.mostPitchesInDay?.isRecord) {
+    recordsList.push({
+      key: 'pitches',
+      icon: MessageSquare,
+      label: 'Most Pitches in a Day',
+      value: records.mostPitchesInDay.value,
+      previousBest: records.mostPitchesInDay.previousBest || 'N/A'
+    });
+  }
+  
+  if (records.mostTransitionsInDay?.isRecord) {
+    recordsList.push({
+      key: 'transitions',
+      icon: ArrowRightLeft,
+      label: 'Most Transitions in a Day',
+      value: records.mostTransitionsInDay.value,
+      previousBest: records.mostTransitionsInDay.previousBest || 'N/A'
+    });
+  }
+  
+  if (records.mostPresentationsInDay?.isRecord) {
+    recordsList.push({
+      key: 'presentations',
+      icon: Presentation,
+      label: 'Most Presentations in a Day',
+      value: records.mostPresentationsInDay.value,
+      previousBest: records.mostPresentationsInDay.previousBest || 'N/A'
+    });
+  }
+  
+  if (records.mostClosesInDay?.isRecord) {
+    recordsList.push({
+      key: 'closes',
+      icon: CheckCircle,
+      label: 'Most Closes in a Day',
+      value: records.mostClosesInDay.value,
+      previousBest: records.mostClosesInDay.previousBest || 'N/A'
+    });
+  }
+  
   if (records.mostFpInDay.isRecord) {
     recordsList.push({
       key: 'fp',
@@ -55,6 +95,16 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
       label: 'Most FP+ in a Day',
       value: records.mostFpInDay.value,
       previousBest: records.mostFpInDay.previousBest || 'N/A'
+    });
+  }
+  
+  if (records.mostPrmrInDay?.isRecord) {
+    recordsList.push({
+      key: 'prmr',
+      icon: DollarSign,
+      label: 'Most PRMR in a Day',
+      value: `$${records.mostPrmrInDay.value.toLocaleString()}`,
+      previousBest: records.mostPrmrInDay.previousBest ? `$${records.mostPrmrInDay.previousBest.toLocaleString()}` : 'N/A'
     });
   }
   
@@ -77,6 +127,16 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
       previousBest: records.earliestStart.previousBest || 'N/A'
     });
   }
+  
+  if (records.latestEnd?.isRecord && records.latestEnd.value) {
+    recordsList.push({
+      key: 'end',
+      icon: Sunset,
+      label: 'Latest End Time',
+      value: records.latestEnd.value,
+      previousBest: records.latestEnd.previousBest || 'N/A'
+    });
+  }
 
   return (
     <div className="h-full flex flex-col items-center px-6 pt-8 pb-4 overflow-y-auto">
@@ -84,16 +144,16 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 15 }}
-        className="w-20 h-20 rounded-full bg-yellow-500/20 flex items-center justify-center mb-6"
+        className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center mb-4"
       >
-        <Trophy className="w-10 h-10 text-yellow-400" />
+        <Trophy className="w-8 h-8 text-yellow-400" />
       </motion.div>
       
       <motion.h2
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-sm uppercase tracking-widest text-yellow-400 mb-2"
+        className="text-sm uppercase tracking-widest text-yellow-400 mb-1"
       >
         Personal Records
       </motion.h2>
@@ -102,12 +162,12 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="text-xl font-semibold text-foreground mb-8 text-center"
+        className="text-lg font-semibold text-foreground mb-6 text-center"
       >
-        You crushed {recordsList.length} personal {recordsList.length === 1 ? 'record' : 'records'}!
+        You crushed {recordsList.length} {recordsList.length === 1 ? 'record' : 'records'}! 🎉
       </motion.p>
       
-      <div className="w-full max-w-sm space-y-3">
+      <div className="w-full max-w-sm space-y-2">
         {recordsList.map((record, index) => (
           <RecordItem
             key={record.key}
@@ -115,7 +175,7 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
             label={record.label}
             value={record.value}
             previousBest={record.previousBest}
-            delay={0.4 + index * 0.15}
+            delay={0.4 + index * 0.1}
           />
         ))}
       </div>

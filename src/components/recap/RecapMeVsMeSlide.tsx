@@ -19,7 +19,7 @@ interface RecapMeVsMeSlideProps {
   comparison: MeVsMeComparisonData | null;
   hasHistoricalData: boolean;
   efpModeEnabled?: boolean;
-  reviewedMonthName?: string; // The actual month being reviewed (e.g., "December")
+  reviewedMonthName?: string;
 }
 
 function DeltaRow({ 
@@ -82,17 +82,19 @@ export function RecapMeVsMeSlide({
 }: RecapMeVsMeSlideProps) {
   if (!hasHistoricalData || !comparison) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center px-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-muted/30 rounded-2xl p-6"
-        >
-          <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            No {comparisonYear} data available for comparison
-          </p>
-        </motion.div>
+      <div className="flex flex-col items-center h-full pt-8 pb-4 overflow-y-auto px-8">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-muted/30 rounded-2xl p-6"
+          >
+            <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              No {comparisonYear} data available for comparison
+            </p>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -102,7 +104,6 @@ export function RecapMeVsMeSlide({
     ? `Same Week in ${comparisonYear}`
     : `${reviewedMonthName || 'Same Month'} ${comparisonYear}`;
 
-  // Calculate primary metric and message
   const primaryMetric = efpModeEnabled 
     ? { label: 'EFP', current: comparison.fpPlus.current, historical: comparison.fpPlus.historical }
     : { label: 'FP+', current: comparison.fpPlus.current, historical: comparison.fpPlus.historical };
@@ -111,7 +112,7 @@ export function RecapMeVsMeSlide({
   const beatingLastYear = primaryDelta > 0;
 
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <div className="flex flex-col items-center h-full pt-8 pb-4 overflow-y-auto px-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}

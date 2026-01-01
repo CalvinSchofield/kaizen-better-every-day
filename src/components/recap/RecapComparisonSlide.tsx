@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, BarChart3 } from 'lucide-react';
 
 interface RecapComparisonSlideProps {
   period: 'week' | 'month';
@@ -48,12 +48,23 @@ export function RecapComparisonSlide({ period, comparison }: RecapComparisonSlid
   const prevPeriodLabel = period === 'week' ? 'last week' : 'last month';
 
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <div className="flex flex-col items-center h-full px-6 pt-8 pb-4 overflow-y-auto">
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', duration: 0.6 }}
+        className="mb-4"
+      >
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+          <BarChart3 className="w-8 h-8 text-primary" />
+        </div>
+      </motion.div>
+
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.4 }}
-        className="text-muted-foreground text-lg mb-2 uppercase tracking-wide"
+        className="text-muted-foreground text-sm mb-1 uppercase tracking-wide"
       >
         Compared to {prevPeriodLabel}
       </motion.p>
@@ -62,7 +73,7 @@ export function RecapComparisonSlide({ period, comparison }: RecapComparisonSlid
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.4 }}
-        className="space-y-4 w-full max-w-xs mt-8"
+        className="space-y-3 w-full max-w-xs mt-6"
       >
         <TrendIndicator value={comparison.doors} label="Doors" />
         <TrendIndicator value={comparison.fpPlus} label="FP+" />

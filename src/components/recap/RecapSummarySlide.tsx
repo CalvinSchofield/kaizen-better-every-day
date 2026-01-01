@@ -8,7 +8,6 @@ interface RecapSummarySlideProps {
   stats: RecapStats;
 }
 
-// Pay rates by FP+ level for total pay calculation
 const PAY_RATES: Record<number, number> = {
   60: 6.50,
   100: 7.00,
@@ -22,28 +21,25 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
   const { goals } = useRepGoals();
   const { repData } = useRepData();
   
-  // Get pay level from goals, default based on year
   const isRookie = repData?.year === 'Rookie';
   const defaultPayLevel = isRookie ? 60 : 100;
   const payLevel = goals?.custom_payscale_fp ?? defaultPayLevel;
   
-  // Calculate pay amounts
-  const upfrontPay = stats.totalPrmr * 4; // $4/PRMR upfront
+  const upfrontPay = stats.totalPrmr * 4;
   const payRate = PAY_RATES[payLevel] || 6.50;
   const totalPay = stats.totalPrmr * payRate;
   
-  // Calculate bar widths (total is always wider since it's higher)
   const maxPay = Math.max(upfrontPay, totalPay);
   const upfrontWidth = maxPay > 0 ? (upfrontPay / maxPay) * 100 : 0;
   const totalWidth = maxPay > 0 ? (totalPay / maxPay) * 100 : 0;
 
   return (
-    <div className="flex flex-col items-center h-full text-center px-8 pt-8 pb-4 overflow-y-auto">
+    <div className="flex flex-col items-center h-full px-6 pt-8 pb-4 overflow-y-auto">
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.4 }}
-        className="text-muted-foreground text-lg mb-4 uppercase tracking-wide"
+        className="text-muted-foreground text-sm mb-4 uppercase tracking-wide"
       >
         {stats.period === 'week' ? "Week's" : "Month's"} Results
       </motion.p>
@@ -57,7 +53,7 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
         <div className="text-6xl font-bold text-green-500 mb-1">
           {stats.totalFpPlus.toFixed(1)}
         </div>
-        <p className="text-muted-foreground">FP+</p>
+        <p className="text-muted-foreground text-center">FP+</p>
       </motion.div>
 
       <motion.div
@@ -74,7 +70,6 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
           <span className="text-xl font-semibold">${stats.totalPrmr.toLocaleString()}</span>
         </div>
 
-        {/* Upfront Pay Bar */}
         <div className="bg-muted/30 rounded-xl px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -93,7 +88,6 @@ export function RecapSummarySlide({ stats }: RecapSummarySlideProps) {
           </div>
         </div>
 
-        {/* Total Pay Bar */}
         <div className="bg-green-500/10 rounded-xl px-4 py-3 border border-green-500/20 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
