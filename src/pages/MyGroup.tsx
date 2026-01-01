@@ -14,6 +14,7 @@ import { useAssignedTasks } from "@/hooks/useAssignedTasks";
 import { useRecruitActivitiesRealtime, useRecruitSuggestionsRealtime, useRepsRealtime } from "@/hooks/useRecruitActivitiesRealtime";
 import { useSummerRecommendations, SummerRepData } from "@/hooks/useSummerRecommendations";
 import { useRecordsTracking } from "@/hooks/useRecordsTracking";
+import { useLeaderInteractions } from "@/hooks/useLeaderInteractions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
@@ -322,11 +323,24 @@ const MyGroup = () => {
     accessibleUserIds: recruitUserIds,
   });
 
-  // Get summer recommendations
+  // Get summer rep user IDs for leader interactions tracking
+  const summerRepUserIds = useMemo(() => 
+    summerReps.filter(r => r.userId).map(r => r.userId),
+    [summerReps]
+  );
+
+  // Track leader interactions for monthly 1-on-1 detection
+  const { repsNeedingMonthlyReview } = useLeaderInteractions({
+    enabled: isLeader && summerRepUserIds.length > 0,
+    repUserIds: summerRepUserIds,
+  });
+
+  // Get summer recommendations (now includes monthly 1-on-1 tracking)
   const summerRecommendations = useSummerRecommendations({
     reps: summerReps,
     entries: summerEntriesData || [],
     recordBreakers,
+    repsNeedingMonthlyReview,
   });
 
   // Top summer recommendation (BAGEL/RECORD takes priority)
@@ -536,17 +550,17 @@ const MyGroup = () => {
   // Hero card now uses the top recommendation (unified with recommendations list)
   const topRecommendation = recommendations[0] || null;
 
-  // Calculate overdue scheduled items as highest-priority fallback
+  // Calculate overdue scheduled items - HIGHEST priority (P0), calculated independently
   const overdueScheduledFallback = useMemo<OverdueScheduledItem | null>(() => {
-    // Only show if no top recommendation AND data is stable
-    if (topRecommendation || !isHeroDataStable) return null;
+    // Wait for hero data to be stable, but DON'T skip if there's a topRecommendation
+    if (!isHeroDataStable) return null;
 
     const today = startOfToday();
     
-    // Get latest next action for each recruit
+    // Get latest next action for each recruit (only incomplete tasks)
     const latestNextActions = new Map<string, typeof filteredActivities[0]>();
     filteredActivities.forEach(activity => {
-      if (activity.next_action_due && activity.next_action && activity.recruit_id) {
+      if (activity.next_action_due && activity.next_action && activity.recruit_id && !activity.completed_at) {
         const existing = latestNextActions.get(activity.recruit_id);
         if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
           latestNextActions.set(activity.recruit_id, activity);
@@ -575,7 +589,7 @@ const MyGroup = () => {
     // Sort by most overdue first
     overdueItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
     return overdueItems[0] || null;
-  }, [topRecommendation, filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
 
   // Fallback: if no top recommendation AND no overdue, find the top priority from Needs Attention
   // (respecting skip functionality)

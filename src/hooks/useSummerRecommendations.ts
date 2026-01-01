@@ -19,7 +19,7 @@ export interface SummerRecommendation {
   rep: SummerRepData;
   priority: number;
   reason: string;
-  reasonBadge: 'bagel' | 'record' | 'off-pace' | 'plateau' | 'work-ethic' | 'praise' | 'check-in';
+  reasonBadge: 'bagel' | 'record' | 'off-pace' | 'plateau' | 'work-ethic' | 'praise' | 'check-in' | 'needs-review';
   details?: {
     daysSinceSale?: number;
     knockingDays?: number;
@@ -56,6 +56,7 @@ interface UseSummerRecommendationsParams {
   reps: SummerRepData[];
   entries: DailyEntryData[];
   recordBreakers?: RecordBreaker[];
+  repsNeedingMonthlyReview?: string[]; // User IDs of reps needing monthly 1-on-1
 }
 
 // Minimum doors to count as a "knocking day"
@@ -65,6 +66,7 @@ export const useSummerRecommendations = ({
   reps,
   entries,
   recordBreakers = [],
+  repsNeedingMonthlyReview = [],
 }: UseSummerRecommendationsParams) => {
   return useMemo(() => {
     if (!reps.length) return [];
@@ -72,6 +74,9 @@ export const useSummerRecommendations = ({
     const recommendations: SummerRecommendation[] = [];
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // Set of user IDs needing monthly review for quick lookup
+    const needsReviewSet = new Set(repsNeedingMonthlyReview);
 
     // Group entries by user
     const entriesByUser = new Map<string, DailyEntryData[]>();
@@ -199,6 +204,16 @@ export const useSummerRecommendations = ({
         }
       }
 
+      // P4: NEEDS MONTHLY REVIEW - hasn't had monthly 1-on-1 this month
+      if (needsReviewSet.has(rep.userId)) {
+        recommendations.push({
+          rep,
+          priority: 100,
+          reason: `Monthly 1-on-1 due for ${firstName}`,
+          reasonBadge: 'needs-review',
+        });
+      }
+
       // P5: WORK ETHIC FLAGS - late starts, early finishes, few days worked
       if (knockingDaysCount >= 5) {
         const workTimes = knockingDays.filter(e => e.work_start_time && e.work_end_time);
@@ -260,5 +275,5 @@ export const useSummerRecommendations = ({
 
     // Sort by priority (highest first)
     return recommendations.sort((a, b) => b.priority - a.priority);
-  }, [reps, entries, recordBreakers]);
+  }, [reps, entries, recordBreakers, repsNeedingMonthlyReview]);
 };
