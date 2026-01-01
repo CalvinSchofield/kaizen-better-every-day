@@ -26,9 +26,35 @@ import { useAvailableTeamReportsPresets, ReportsDatePreset } from "@/hooks/useAv
 type DatePreset = ReportsDatePreset;
 type ReportTab = 'people' | 'performance' | 'patterns';
 
+// Skeleton shown while access and presets are loading
+const ReportsPageSkeleton = () => (
+  <div className="min-h-screen bg-background p-4 pb-24">
+    <div className="max-w-lg mx-auto space-y-4">
+      {/* Scope badge skeleton */}
+      <div className="flex items-center justify-end">
+        <Skeleton className="h-8 w-32 rounded-full" />
+      </div>
+      {/* Date picker skeleton */}
+      <div className="flex gap-2">
+        <Skeleton className="h-8 w-20 rounded-md" />
+        <Skeleton className="h-8 w-20 rounded-md" />
+        <Skeleton className="h-8 w-20 rounded-md" />
+      </div>
+      {/* Hero card skeleton */}
+      <Skeleton className="h-32 w-full rounded-xl" />
+      {/* Tabs skeleton */}
+      <Skeleton className="h-10 w-full rounded-md" />
+      {/* Content skeleton */}
+      <Skeleton className="h-64 w-full rounded-xl" />
+      <Skeleton className="h-48 w-full rounded-xl" />
+    </div>
+  </div>
+);
+
 const TeamReports = () => {
   const { data: accessData, isLoading: accessLoading } = useTeamAccess();
-  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [datePreset, setDatePreset] = useState<DatePreset | null>(null);
+  const [hasUserSelectedPreset, setHasUserSelectedPreset] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
@@ -139,9 +165,25 @@ const TeamReports = () => {
   }, [selectedUserIds, accessData?.accessibleUserIds, accessData?.accessibleReps, yearFilter]);
 
   // Get available presets based on team data
-  const { availablePresets, hasAnyData: teamHasData } = useAvailableTeamReportsPresets(effectiveUserIds);
+  const { availablePresets, hasAnyData: teamHasData, isLoading: presetsLoading } = useAvailableTeamReportsPresets(effectiveUserIds);
 
-  // Data hooks
+  // Auto-set datePreset to first available when presets load
+  useEffect(() => {
+    if (!presetsLoading && availablePresets.length > 0 && !hasUserSelectedPreset && datePreset === null) {
+      setDatePreset(availablePresets[0]);
+    }
+  }, [presetsLoading, availablePresets, hasUserSelectedPreset, datePreset]);
+
+  // Handler for user manually selecting a preset
+  const handlePresetSelect = (preset: DatePreset) => {
+    setDatePreset(preset);
+    setHasUserSelectedPreset(true);
+  };
+
+  // Compute date range only when we have a valid preset
+  const dateRange = datePreset ? getDateRange(datePreset) : null;
+
+  // Data hooks - only enabled when we have a valid date range
   const { data: liveData, isLoading: liveLoading } = useTeamLiveData({
     userIds: effectiveUserIds,
     excludeUserIds,
@@ -154,13 +196,13 @@ const TeamReports = () => {
 
   const { data: insightsData, isLoading: insightsLoading } = useTeamInsightsData({
     userIds: effectiveUserIds,
-    dateRange: getDateRange(datePreset),
+    dateRange: dateRange || { start: '', end: '' },
     excludeUserIds,
   });
 
   const { data: teamCumulativeData, isLoading: cumulativeLoading } = useTeamCumulativeFP({
     userIds: effectiveUserIds,
-    dateRange: getDateRange(datePreset),
+    dateRange: dateRange || { start: '', end: '' },
     excludeUserIds,
   });
 
@@ -178,13 +220,13 @@ const TeamReports = () => {
   });
 
   const isAggregatedView = datePreset === 'week' || datePreset === 'lastWeek' || datePreset === 'month' || datePreset === 'lastMonth' || datePreset === 'preseason' || datePreset === 'ytd';
-  const currentDateRange = getDateRange(datePreset);
+  const currentDateRange = dateRange;
   
   const { data: canceledStats, isLoading: canceledLoading } = useTeamCanceledStats({
     userIds: effectiveUserIds,
     excludeUserIds,
-    startDate: isAggregatedView ? currentDateRange.start : undefined,
-    endDate: isAggregatedView ? currentDateRange.end : undefined,
+    startDate: isAggregatedView && currentDateRange ? currentDateRange.start : undefined,
+    endDate: isAggregatedView && currentDateRange ? currentDateRange.end : undefined,
   });
 
   // Determine scope label
@@ -328,16 +370,9 @@ const TeamReports = () => {
     }
   };
 
-  if (accessLoading) {
-    return (
-      <div className="min-h-screen bg-background p-4 pb-24">
-        <div className="max-w-lg mx-auto space-y-6">
-          <Skeleton className="h-12 w-64" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    );
+  // Show skeleton while access or presets are loading, or before we've set a datePreset
+  if (accessLoading || presetsLoading || datePreset === null) {
+    return <ReportsPageSkeleton />;
   }
 
   if (accessData?.accessLevel === 'none') {
@@ -383,7 +418,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'today' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('today')}
+                onClick={() => handlePresetSelect('today')}
                 className="flex-shrink-0 gap-1.5"
               >
                 <div className="relative">
@@ -399,7 +434,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'yesterday' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('yesterday')}
+                onClick={() => handlePresetSelect('yesterday')}
                 className="flex-shrink-0"
               >
                 Yesterday
@@ -409,7 +444,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'week' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('week')}
+                onClick={() => handlePresetSelect('week')}
                 className="flex-shrink-0"
               >
                 Week
@@ -419,7 +454,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'lastWeek' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('lastWeek')}
+                onClick={() => handlePresetSelect('lastWeek')}
                 className="flex-shrink-0"
               >
                 Last Week
@@ -429,7 +464,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'month' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('month')}
+                onClick={() => handlePresetSelect('month')}
                 className="flex-shrink-0"
               >
                 Month
@@ -439,7 +474,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'lastMonth' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('lastMonth')}
+                onClick={() => handlePresetSelect('lastMonth')}
                 className="flex-shrink-0"
               >
                 Last Month
@@ -449,7 +484,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'preseason' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('preseason')}
+                onClick={() => handlePresetSelect('preseason')}
                 className="flex-shrink-0"
               >
                 Season
@@ -459,7 +494,7 @@ const TeamReports = () => {
               <Button
                 variant={datePreset === 'ytd' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setDatePreset('ytd')}
+                onClick={() => handlePresetSelect('ytd')}
                 className="flex-shrink-0"
               >
                 YTD
