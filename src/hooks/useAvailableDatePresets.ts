@@ -19,18 +19,22 @@ interface DataBoundary {
 
 export const useDataBoundary = () => {
   return useQuery({
-    queryKey: ['data-boundary'],
+    queryKey: ['data-boundary-v2'],
     queryFn: async (): Promise<DataBoundary> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
       }
 
-      // Get all entry dates
+      // Get only "worked" days (finalized + had a real knocking session)
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('entry_date')
         .eq('user_id', user.id)
+        .eq('is_finalized', true)
+        .gte('doors_knocked', 4)
+        .not('work_start_time', 'is', null)
+        .not('work_end_time', 'is', null)
         .order('entry_date', { ascending: true });
 
       if (error || !entries || entries.length === 0) {
@@ -186,17 +190,21 @@ export const useAvailableReportsPresets = () => {
 // Team version - checks data for team members
 export const useTeamDataBoundary = (userIds: string[]) => {
   return useQuery({
-    queryKey: ['team-data-boundary', userIds],
+    queryKey: ['team-data-boundary-v2', userIds],
     queryFn: async (): Promise<DataBoundary> => {
       if (!userIds.length) {
         return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
       }
 
-      // Get all entry dates for the team
+      // Get only "worked" days for the team (finalized + had a real knocking session)
       const { data: entries, error } = await supabase
         .from('daily_entries')
         .select('entry_date')
         .in('user_id', userIds)
+        .eq('is_finalized', true)
+        .gte('doors_knocked', 4)
+        .not('work_start_time', 'is', null)
+        .not('work_end_time', 'is', null)
         .order('entry_date', { ascending: true });
 
       if (error || !entries || entries.length === 0) {

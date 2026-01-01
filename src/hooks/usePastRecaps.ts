@@ -40,7 +40,7 @@ export function usePastRecaps() {
 
   // Fetch all stored recaps
   const { data: storedRecaps, isLoading: isLoadingStored } = useQuery({
-    queryKey: ['past-recaps'],
+    queryKey: ['past-recaps-v2'],
     queryFn: async (): Promise<PastRecap[]> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -58,7 +58,7 @@ export function usePastRecaps() {
 
   // Fetch available periods from daily_entries
   const { data: availablePeriods, isLoading: isLoadingPeriods } = useQuery({
-    queryKey: ['available-recap-periods'],
+    queryKey: ['available-recap-periods-v2', storedRecaps?.length ?? 0],
     queryFn: async (): Promise<AvailablePeriod[]> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -196,8 +196,8 @@ export function usePastRecaps() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['past-recaps'] });
-      queryClient.invalidateQueries({ queryKey: ['available-recap-periods'] });
+      queryClient.invalidateQueries({ queryKey: ['past-recaps-v2'] });
+      queryClient.invalidateQueries({ queryKey: ['available-recap-periods-v2'] });
     },
   });
 
