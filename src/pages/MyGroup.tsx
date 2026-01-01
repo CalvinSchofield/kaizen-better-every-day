@@ -520,15 +520,10 @@ const MyGroup = () => {
     allBlitzesIncludingPast,
     repDataMap
   );
-  // Track if hero data is stable (not using placeholder/cached data during initial fetch)
-  // This prevents the hero from flashing different people when cached data loads before fresh data
-  const isHeroDataStable = useMemo(() => {
-    // Data is stable when:
-    // 1. We have dismissed state loaded
-    // 2. We're not in initial loading state
-    // 3. We're not showing placeholder data (stale cache) while fetching fresh data
-    return dismissedLoaded && !recruitsLoading && !(isPlaceholderData && isFetching);
-  }, [dismissedLoaded, recruitsLoading, isPlaceholderData, isFetching]);
+  // Only show skeleton on TRUE initial load (no cached data at all)
+  // Cached data is shown instantly; React Query updates in background automatically
+  const hasRecruitData = allRecruits.length > 0 || activities.length > 0;
+  const isHeroDataStable = dismissedLoaded && (!recruitsLoading || hasRecruitData);
 
   const recommendations = useMemo(() => {
     // Wait for hero data to be stable to prevent flash
