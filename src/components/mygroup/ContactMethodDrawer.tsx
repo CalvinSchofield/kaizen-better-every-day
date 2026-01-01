@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { Phone, MessageSquare, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
-import { openRecruitSmsWithLeaderIfApplicable } from "@/lib/sms";
 import { PostContactDrawer } from "./PostContactDrawer";
 
 interface ContactMethodDrawerProps {
@@ -38,21 +37,16 @@ export const ContactMethodDrawer = ({
   const [selectedMethod, setSelectedMethod] = useState<'call' | 'text' | 'in_person' | null>(null);
   const [showPostContactDrawer, setShowPostContactDrawer] = useState(false);
 
-  const handleMethodSelect = async (method: 'call' | 'text' | 'in_person') => {
+  const handleMethodSelect = (method: 'call' | 'text' | 'in_person') => {
     setSelectedMethod(method);
-
+    
     // For call/text, open the phone/SMS first
     if (method === 'call' && recruit?.phone) {
       window.location.href = `tel:${recruit.phone}`;
     } else if (method === 'text' && recruit?.phone) {
-      await openRecruitSmsWithLeaderIfApplicable({
-        recruitPhone: recruit.phone,
-        teamId: recruit.teamId,
-        teamName: recruit.teamName,
-        leaderPhoneHint: recruit.teamLeaderPhone,
-      });
+      window.location.href = `sms:${recruit.phone}`;
     }
-
+    
     // Close this drawer and open post-contact drawer
     onOpenChange(false);
     setTimeout(() => {

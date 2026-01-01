@@ -1,18 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import {
-  Recruit,
-  RecruitActivity,
-  useUpdateRecruitStage,
-  useLogRecruitActivity,
-  useUpdateRecruitActivity,
-  useDeleteRecruitActivity,
-} from "@/hooks/useGroupRecruits";
+import { Recruit, RecruitActivity, useUpdateRecruitStage, useLogRecruitActivity, useUpdateRecruitActivity, useDeleteRecruitActivity } from "@/hooks/useGroupRecruits";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
 import { useAssignableUsers } from "@/hooks/useAssignableUsers";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAutoStageProgression } from "@/hooks/useAutoStageProgression";
 import { supabase } from "@/integrations/supabase/client";
-import { openRecruitSmsWithLeaderIfApplicable } from "@/lib/sms";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -361,22 +353,61 @@ export const RecruitDetailDrawer = ({
       return;
     }
 
-    const { isGroup } = await openRecruitSmsWithLeaderIfApplicable({
-      recruitPhone: recruit.phone,
-      teamId: recruit.teamId,
-      teamName: recruit.teamName,
-      leaderPhoneHint: recruit.teamLeaderPhone,
-    });
+    const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, '');
+
+    const recruitPhone = normalizePhoneForSms(recruit.phone);
+
+    // Look up the team leader's phone using the recruit's team_id for reliable lookup
+    let leaderPhone: string | null = null;
+
+    // First try using contactForHelp if it's the leader
+    if (contactForHelp?.role === 'leader' && contactForHelp.phone) {
+      leaderPhone = normalizePhoneForSms(contactForHelp.phone);
+    } else if (recruit.teamId) {
+      // Use team_id to find the team's lead_user_id, then get their phone
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('lead_user_id')
+        .eq('id', recruit.teamId)
+        .maybeSingle();
+
+      if (teamData?.lead_user_id) {
+        const { data: leaderRep } = await supabase
+          .from('reps')
+          .select('phone')
+          .eq('user_id', teamData.lead_user_id)
+          .maybeSingle();
+
+        if (leaderRep?.phone) {
+          leaderPhone = normalizePhoneForSms(leaderRep.phone);
+        }
+      }
+    }
+
+    if (leaderPhone && leaderPhone !== recruitPhone) {
+      logActivityMutation.mutate({
+        recruitId: recruit.id,
+        recruitNotionId: recruit.id,
+        activityType: 'phone_call',
+        notes: 'Text sent (group with leader)',
+        updateLastContact: true,
+      });
+      toast.success('Group text logged');
+
+      // Multi-recipient SMS separator is inconsistent across devices; "," works on iOS
+      window.location.href = `sms:${recruitPhone},${leaderPhone}`;
+      return;
+    }
 
     logActivityMutation.mutate({
       recruitId: recruit.id,
       recruitNotionId: recruit.id,
       activityType: 'phone_call',
-      notes: isGroup ? 'Text sent (group with leader)' : 'Text sent',
+      notes: 'Text sent',
       updateLastContact: true,
     });
-
-    toast.success(isGroup ? 'Group text logged' : 'Text logged');
+    toast.success('Text logged');
+    window.location.href = `sms:${recruitPhone}`;
   };
 
   const handleAskForHelp = () => {
@@ -1142,56 +1173,42 @@ export const RecruitDetailDrawer = ({
       </Drawer>
 
       {/* Delete Activity Confirm */}
-      <Drawer open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DrawerContent>
-          <DrawerHeader className="border-b">
-            <DrawerTitle>Delete Activity?</DrawerTitle>
-          </DrawerHeader>
-
-          <div className="p-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Activity?</AlertDialogTitle>
+            <AlertDialogDescription>
               This will permanently delete this activity log. This action cannot be undone.
-            </p>
-
-            <div className="grid gap-2">
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  if (!selectedActivity) return;
-                  setIsDeleting(true);
-                  deleteActivityMutation.mutate(selectedActivity.id, {
-                    onSuccess: () => {
-                      toast.success("Activity deleted");
-                      setDeleteConfirmOpen(false);
-                      setEditActivityOpen(false);
-                      setSelectedActivity(null);
-                      setIsDeleting(false);
-                      queryClient.invalidateQueries({
-                        queryKey: ["recruit-activities", recruit.id],
-                      });
-                    },
-                    onError: () => {
-                      toast.error("Couldn't delete activity");
-                      setIsDeleting(false);
-                    },
-                  });
-                }}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirmOpen(false)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (!selectedActivity) return;
+                setIsDeleting(true);
+                deleteActivityMutation.mutate(selectedActivity.id, {
+                  onSuccess: () => {
+                    toast.success('Activity deleted');
+                    setDeleteConfirmOpen(false);
+                    setEditActivityOpen(false);
+                    setSelectedActivity(null);
+                    setIsDeleting(false);
+                    queryClient.invalidateQueries({ queryKey: ['recruit-activities', recruit.id] });
+                  },
+                  onError: () => {
+                    toast.error("Couldn't delete activity");
+                    setIsDeleting(false);
+                  },
+                });
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Phase Verification Drawer - supports both verify and undo modes */}
       {recruit && recruitRepData && pendingPhaseVerification && (
