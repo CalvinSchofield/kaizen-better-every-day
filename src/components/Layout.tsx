@@ -312,15 +312,15 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                   to={item.path}
                   className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
                 >
-                  {/* Active pill background */}
-                  {isActive && (
-                    <div className="absolute inset-x-1.5 -inset-y-0.5 bg-muted/80 rounded-2xl" />
-                  )}
-                  <div className={`relative z-10 flex flex-col items-center gap-0.5 ${
+                  <div className={`flex flex-col items-center gap-0.5 ${
                     isActive ? "text-foreground" : "text-muted-foreground"
                   }`}>
                     <div className="relative">
-                      <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
+                      <Icon 
+                        className="w-6 h-6" 
+                        strokeWidth={isActive ? 2.5 : 1.5}
+                        fill={isActive ? "currentColor" : "none"}
+                      />
                       {isLocked && (
                         <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
                           <Lock className="w-2.5 h-2.5 text-primary" />
