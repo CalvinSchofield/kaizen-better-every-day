@@ -289,43 +289,52 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         {children}
       </main>
       
-      {/* Bottom Navigation - generous spacing for touch targets */}
+      {/* Bottom Navigation - iOS-style floating tab bar */}
       <nav 
-        className={`fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50 transition-transform duration-300 ${
+        className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
           isNavVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
-        <div className="flex items-center justify-around max-w-lg mx-auto px-2" style={{ height: 'var(--nav-height)' }}>
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            const isLocked = item.path === "/track" && isTrackLocked;
-            
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <div className="relative mb-1.5">
-                  <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
-                  {isLocked && (
-                    <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
-                      <Lock className="w-3 h-3 text-primary" />
-                    </div>
+        <div className="px-4 pb-2">
+          <div 
+            className="flex items-center justify-around max-w-lg mx-auto bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg rounded-2xl"
+            style={{ height: 'var(--nav-height)' }}
+          >
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+              const isLocked = item.path === "/track" && isTrackLocked;
+              
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="relative flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors"
+                >
+                  {/* Active pill background */}
+                  {isActive && (
+                    <div className="absolute inset-x-2 inset-y-1.5 bg-muted rounded-xl" />
                   )}
-                </div>
-                <span className={`text-xs ${isActive ? "font-semibold" : "font-medium"}`}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
+                  <div className={`relative z-10 flex flex-col items-center ${
+                    isActive ? "text-foreground" : "text-muted-foreground"
+                  }`}>
+                    <div className="relative mb-1">
+                      <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
+                      {isLocked && (
+                        <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
+                          <Lock className="w-2.5 h-2.5 text-primary" />
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>
