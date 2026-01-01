@@ -5,6 +5,30 @@ const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, "");
 const toSmsRecipient = (raw: string) => raw.replace(/\D/g, "");
 const digits10 = (raw: string) => toSmsRecipient(raw).slice(-10);
 
+const newMessageSmsUrl = () => "sms:";
+
+const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+};
+
 const isIOS = () => {
   const ua = navigator.userAgent || "";
   return (
