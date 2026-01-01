@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AttentionRecruit } from "@/hooks/useNeedsAttention";
 import { Recruit } from "@/hooks/useGroupRecruits";
 import { cn } from "@/lib/utils";
+import { openRecruitSmsWithLeaderIfApplicable } from "@/lib/sms";
 import { BlitzCommitmentDrawer } from "./BlitzCommitmentDrawer";
 
 // Sticky threshold - must drag past this to commit
@@ -112,9 +113,16 @@ export const SwipeableBlitzItem = ({
     onDirectCall?.(item.recruit);
   };
 
-  const handleText = (e: React.MouseEvent) => {
+  const handleText = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `sms:${item.recruit.phone}`;
+    if (!item.recruit.phone) return;
+
+    await openRecruitSmsWithLeaderIfApplicable({
+      recruitPhone: item.recruit.phone,
+      teamId: item.recruit.teamId,
+      teamName: item.recruit.teamName,
+    });
+
     // Open post-contact drawer for texts (simpler notes-only version)
     onDirectText?.(item.recruit);
   };
