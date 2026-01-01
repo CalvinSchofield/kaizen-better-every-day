@@ -32,8 +32,8 @@ export function useRecapMeVsMeComparison(period: 'week' | 'month') {
       if (period === 'week') {
         // Weekly: season-week aligned comparison
         // Get last week's data (current year)
-        const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
+        const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 0 });
+        const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
         
         const currentStartStr = format(lastWeekStart, 'yyyy-MM-dd');
         const currentEndStr = format(lastWeekEnd, 'yyyy-MM-dd');

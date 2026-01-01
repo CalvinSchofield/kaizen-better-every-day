@@ -57,7 +57,7 @@ export default function Insights() {
       const endDate = parseISO(endParam);
       const now = new Date();
       
-      const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const thisWeekStart = startOfWeek(now, { weekStartsOn: 0 });
       const thisWeekEnd = addDays(thisWeekStart, 6);
       if (isSameDay(startDate, thisWeekStart) && isSameDay(endDate, thisWeekEnd)) {
         setDatePreset('week');
@@ -132,10 +132,10 @@ export default function Insights() {
         const yesterday = subDays(now, 1);
         return { start: yesterday, end: yesterday };
       case 'week':
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekStart = startOfWeek(now, { weekStartsOn: 0 });
         return { start: weekStart, end: now };
       case 'lastWeek':
-        const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const thisWeekStart = startOfWeek(now, { weekStartsOn: 0 });
         const lastWeekStart = subDays(thisWeekStart, 7);
         const lastWeekEnd = subDays(thisWeekStart, 2);
         return { start: lastWeekStart, end: lastWeekEnd };

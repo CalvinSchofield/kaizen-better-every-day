@@ -506,9 +506,9 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEn
         // Skip Sundays (0)
         if (dayOfWeek === 0) return;
         
-        // Get Monday of this week
-        const monday = startOfWeek(entryDate, { weekStartsOn: 1 });
-        const weekKey = format(monday, 'yyyy-MM-dd');
+        // Get Sunday of this week
+        const sunday = startOfWeek(entryDate, { weekStartsOn: 0 });
+        const weekKey = format(sunday, 'yyyy-MM-dd');
         
         if (!weeklyData[weekKey]) {
           weeklyData[weekKey] = { entries: [], fpPlus: 0, prmr: 0, doors: 0, closes: 0 };
@@ -540,7 +540,7 @@ export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEn
       const bestWeekData = bestWeekEntry
         ? {
             weekStart: format(parseISO(bestWeekEntry.weekStart), 'MMM d'),
-            weekEnd: format(endOfWeek(parseISO(bestWeekEntry.weekStart), { weekStartsOn: 1 }), 'MMM d'),
+            weekEnd: format(endOfWeek(parseISO(bestWeekEntry.weekStart), { weekStartsOn: 0 }), 'MMM d'),
             fpPlus: bestWeekEntry.fpPlus,
             efp: bestWeekEntry.prmr / 85,
             stats: `${bestWeekEntry.doors} doors · ${bestWeekEntry.closes} closes`,

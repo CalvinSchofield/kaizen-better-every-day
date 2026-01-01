@@ -308,7 +308,7 @@ export const FPCumulativeChart = ({ teamData, isTeamLoading, highlightDateRange 
     cumulativeData.forEach((point, idx) => {
       const date = parseISO(point.date);
       const key = groupBy === 'week' 
-        ? format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        ? format(startOfWeek(date, { weekStartsOn: 0 }), 'yyyy-MM-dd')
         : format(startOfMonth(date), 'yyyy-MM-dd');
       
       const pacePoint = goalPaceData?.pacePoints[idx];

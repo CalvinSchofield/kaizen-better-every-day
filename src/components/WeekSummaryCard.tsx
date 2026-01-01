@@ -15,8 +15,8 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
     queryFn: async () => {
       if (!repData?.user_id) return null;
 
-      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
-      const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 }); // Sunday
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 }); // Sunday
+      const weekEnd = endOfWeek(new Date(), { weekStartsOn: 0 }); // Saturday
 
       const { data, error } = await supabase
         .from('daily_entries')
@@ -82,8 +82,8 @@ export const WeekSummaryCard = ({ repData }: WeekSummaryCardProps) => {
     queryFn: async () => {
       if (!repData?.user_id) return null;
 
-      const lastWeekStart = startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 });
-      const lastWeekEnd = endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 });
+      const lastWeekStart = startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 0 });
+      const lastWeekEnd = endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 0 });
 
       const { data, error } = await supabase
         .from('daily_entries')
