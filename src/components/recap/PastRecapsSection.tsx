@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Play, Calendar, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Play, Calendar, ChevronDown, ChevronUp, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRecapData } from '@/hooks/useRecapData';
 import { usePastRecaps } from '@/hooks/usePastRecaps';
 import { useRecapDataForPeriod } from '@/hooks/useRecapDataForPeriod';
 import { RecapStory } from './RecapStory';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface SelectedPastRecap {
   periodType: 'week' | 'month';
@@ -35,11 +36,7 @@ export function PastRecapsSection() {
     enabled: !!selectedPastRecap,
   });
 
-  // Filter to only show unwatched recaps
-  const unwatchedWeeklyRecaps = weeklyRecaps.filter(r => !r.hasStoredRecap);
-  const unwatchedMonthlyRecaps = monthlyRecaps.filter(r => !r.hasStoredRecap);
-
-  if (!weekStats && !monthStats && !isLoading && unwatchedWeeklyRecaps.length === 0 && unwatchedMonthlyRecaps.length === 0) {
+  if (!weekStats && !monthStats && !isLoading && weeklyRecaps.length === 0 && monthlyRecaps.length === 0) {
     return null;
   }
 
@@ -64,22 +61,14 @@ export function PastRecapsSection() {
     });
   };
 
-  // When past recap data is loaded, show the story
-  const handleShowPastRecapStory = () => {
-    if (pastRecapStats) {
-      setShowStory(true);
-    }
-  };
-
   // Effect to show story when past recap data loads
   if (selectedPastRecap && pastRecapStats && !showStory && !isLoadingPastRecap) {
-    // Use setTimeout to avoid state update during render
     setTimeout(() => setShowStory(true), 0);
   }
 
   // Show first 3 by default, all if expanded
-  const displayedWeeks = showAllWeeks ? unwatchedWeeklyRecaps : unwatchedWeeklyRecaps.slice(0, 3);
-  const displayedMonths = showAllMonths ? unwatchedMonthlyRecaps : unwatchedMonthlyRecaps.slice(0, 3);
+  const displayedWeeks = showAllWeeks ? weeklyRecaps : weeklyRecaps.slice(0, 3);
+  const displayedMonths = showAllMonths ? monthlyRecaps : monthlyRecaps.slice(0, 3);
 
   // Determine which stats to show in the story
   const storyStats = selectedPastRecap 
@@ -121,8 +110,8 @@ export function PastRecapsSection() {
           )}
         </div>
 
-        {/* Past Weekly Recaps (Unwatched Only) */}
-        {unwatchedWeeklyRecaps.length > 0 && (
+        {/* Past Weekly Recaps */}
+        {weeklyRecaps.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Past Weeks</p>
             <div className="flex gap-2 flex-wrap">
@@ -130,13 +119,17 @@ export function PastRecapsSection() {
                 const isSelected = selectedPastRecap?.periodStart.getTime() === recap.period_start.getTime() 
                   && selectedPastRecap?.periodType === 'week';
                 const isLoadingThis = isSelected && isLoadingPastRecap;
+                const isWatched = recap.hasStoredRecap;
                 
                 return (
                   <Button
                     key={`week-${String(recap.period_start)}`}
                     variant="ghost"
                     size="sm"
-                    className="gap-2 text-xs"
+                    className={cn(
+                      "gap-2 text-xs transition-opacity",
+                      isWatched && "opacity-50"
+                    )}
                     onClick={() => handleOpenPastRecap({
                       period_type: 'week',
                       period_start: recap.period_start,
@@ -147,6 +140,8 @@ export function PastRecapsSection() {
                   >
                     {isLoadingThis ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : isWatched ? (
+                      <Check className="w-3 h-3 text-green-500" />
                     ) : (
                       <Play className="w-3 h-3" />
                     )}
@@ -156,7 +151,7 @@ export function PastRecapsSection() {
                 );
               })}
             </div>
-            {unwatchedWeeklyRecaps.length > 3 && (
+            {weeklyRecaps.length > 3 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -164,14 +159,14 @@ export function PastRecapsSection() {
                 className="text-xs gap-1"
               >
                 {showAllWeeks ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {showAllWeeks ? 'Show less' : `Show ${unwatchedWeeklyRecaps.length - 3} more`}
+                {showAllWeeks ? 'Show less' : `Show ${weeklyRecaps.length - 3} more`}
               </Button>
             )}
           </div>
         )}
 
-        {/* Past Monthly Recaps (Unwatched Only) */}
-        {unwatchedMonthlyRecaps.length > 0 && (
+        {/* Past Monthly Recaps */}
+        {monthlyRecaps.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Past Months</p>
             <div className="flex gap-2 flex-wrap">
@@ -179,13 +174,17 @@ export function PastRecapsSection() {
                 const isSelected = selectedPastRecap?.periodStart.getTime() === recap.period_start.getTime() 
                   && selectedPastRecap?.periodType === 'month';
                 const isLoadingThis = isSelected && isLoadingPastRecap;
+                const isWatched = recap.hasStoredRecap;
                 
                 return (
                   <Button
                     key={`month-${String(recap.period_start)}`}
                     variant="ghost"
                     size="sm"
-                    className="gap-2 text-xs"
+                    className={cn(
+                      "gap-2 text-xs transition-opacity",
+                      isWatched && "opacity-50"
+                    )}
                     onClick={() => handleOpenPastRecap({
                       period_type: 'month',
                       period_start: recap.period_start,
@@ -196,6 +195,8 @@ export function PastRecapsSection() {
                   >
                     {isLoadingThis ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : isWatched ? (
+                      <Check className="w-3 h-3 text-green-500" />
                     ) : (
                       <Play className="w-3 h-3" />
                     )}
@@ -205,7 +206,7 @@ export function PastRecapsSection() {
                 );
               })}
             </div>
-            {unwatchedMonthlyRecaps.length > 3 && (
+            {monthlyRecaps.length > 3 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -213,7 +214,7 @@ export function PastRecapsSection() {
                 className="text-xs gap-1"
               >
                 {showAllMonths ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {showAllMonths ? 'Show less' : `Show ${unwatchedMonthlyRecaps.length - 3} more`}
+                {showAllMonths ? 'Show less' : `Show ${monthlyRecaps.length - 3} more`}
               </Button>
             )}
           </div>
