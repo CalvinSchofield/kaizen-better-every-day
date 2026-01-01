@@ -28,7 +28,7 @@ export function TeamRecapSummarySlide({ reportType, totals }: TeamRecapSummarySl
   ];
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-8 text-center">
+    <div className="h-full flex flex-col items-center px-8 text-center pt-8 pb-4 overflow-y-auto">
       {/* Celebration icon */}
       <motion.div
         initial={{ scale: 0, rotate: -180 }}

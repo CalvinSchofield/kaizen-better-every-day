@@ -25,7 +25,8 @@ import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { MeVsMeSettings } from "@/components/MeVsMeSettings";
 import { useWeeklyReports } from "@/hooks/useWeeklyReports";
 import { TeamRecapStory } from "@/components/team-recap";
-
+import { PastRecapsSection } from "@/components/recap/PastRecapsSection";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { Separator } from "@/components/ui/separator";
 
@@ -1247,14 +1248,14 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* Archived Team Recaps - above App Tour */}
+        {/* Recaps - Personal + Team */}
         <Card>
           <Collapsible open={isArchivedReportsOpen} onOpenChange={setIsArchivedReportsOpen}>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-base">Team Recaps</CardTitle>
+                    <CardTitle className="text-base">Recaps</CardTitle>
                     {!isArchivedReportsOpen && (
                       <p className="text-sm text-muted-foreground mt-1">
                         View past weekly & monthly recaps
@@ -1266,34 +1267,76 @@ export default function Settings() {
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="space-y-3">
-                {publishedReports && publishedReports.length > 0 ? (
-                  publishedReports.map((report) => (
-                    <button
-                      key={report.id}
-                      onClick={() => {
-                        setSelectedReport(report);
-                        setShowTeamRecapStory(true);
+              <CardContent className="space-y-4">
+                {/* Pay Level Setting */}
+                <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Pay Level for Recap</p>
+                      <p className="text-xs text-muted-foreground">Used to calculate total pay in recaps</p>
+                    </div>
+                    <Select
+                      value={String(goals?.custom_payscale_fp ?? (repData?.year === 'Rookie' ? 60 : 100))}
+                      onValueChange={(value) => {
+                        updateRepGoals({ custom_payscale_fp: parseInt(value) });
                       }}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
                     >
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      <div className="flex-1 text-left">
-                        <p className="font-medium text-sm">
-                          {report.report_type === 'weekly' ? 'Weekly' : report.report_type === 'monthly' ? 'Monthly' : 'Blitz'} Recap
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(report.period_start), 'MMM d')} - {format(new Date(report.period_end), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No recaps published yet
-                  </p>
-                )}
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="60">60 FP+</SelectItem>
+                        <SelectItem value="100">100 FP+</SelectItem>
+                        <SelectItem value="150">150 FP+</SelectItem>
+                        <SelectItem value="200">200 FP+</SelectItem>
+                        <SelectItem value="250">250 FP+</SelectItem>
+                        <SelectItem value="300">300 FP+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Personal Recaps */}
+                <PastRecapsSection />
+
+                <Separator />
+
+                {/* Team Recaps */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Team Recaps
+                  </h3>
+                  {publishedReports && publishedReports.length > 0 ? (
+                    publishedReports.map((report) => (
+                      <button
+                        key={report.id}
+                        onClick={() => {
+                          setSelectedReport(report);
+                          setShowTeamRecapStory(true);
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
+                      >
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        <div className="flex-1 text-left">
+                          <p className="font-medium text-sm">
+                            {report.report_type === 'weekly' ? 'Weekly' : report.report_type === 'monthly' ? 'Monthly' : 'Blitz'} Recap
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(report.period_start), 'MMM d')} - {format(new Date(report.period_end), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      No team recaps published yet
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
