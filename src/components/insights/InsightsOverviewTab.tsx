@@ -1,7 +1,6 @@
 import { InsightsSummaryHero } from './InsightsSummaryHero';
 import { FPCumulativeChart } from '@/components/FPCumulativeChart';
 import { CanceledStatsCard } from '@/components/goals/CanceledStatsCard';
-import { PastRecapsSection } from '@/components/recap/PastRecapsSection';
 import { InsightsData } from '@/hooks/useInsightsData';
 
 interface InsightsOverviewTabProps {
@@ -17,9 +16,6 @@ export const InsightsOverviewTab = ({
 }: InsightsOverviewTabProps) => {
   return (
     <div className="space-y-4">
-      {/* Past Recaps Section */}
-      <PastRecapsSection />
-
       {/* Hero Summary */}
       <InsightsSummaryHero
         totalFp={insights.totalFp}
