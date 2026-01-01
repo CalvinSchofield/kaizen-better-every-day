@@ -4,6 +4,11 @@
 // Get notification actions based on type
 function getNotificationActions(type) {
   switch (type) {
+    case 'test_rich':
+      return [
+        { action: 'test_button', title: '🧪 Test This Button' },
+        { action: 'dismiss', title: '✓ Dismiss' }
+      ];
     case 'inactivity_save':
       return [
         { action: 'save', title: '💾 Save My Day' },
@@ -103,7 +108,10 @@ self.addEventListener('notificationclick', (event) => {
   let urlToOpen = event.notification.data?.url || '/';
   
   // Override URL based on specific actions
-  if (action === 'save') {
+  if (action === 'test_button') {
+    console.log('[SW] 🧪 TEST BUTTON CLICKED! Notification action buttons are working!');
+    urlToOpen = '/track?test=button_clicked';
+  } else if (action === 'save') {
     urlToOpen = '/track?prompt=save';
   } else if (action === 'go') {
     urlToOpen = '/track';

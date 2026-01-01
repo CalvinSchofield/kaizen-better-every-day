@@ -22,7 +22,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Testing push for ${targetEmail}`);
+    console.log(`Testing rich push for ${targetEmail}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -69,7 +69,12 @@ serve(async (req) => {
     for (const sub of subscriptions) {
       const result = await sendWebPush(
         sub as PushSubscription,
-        { title: '🧪 Test', body: 'Push notifications working!', url: '/track', type: 'test' },
+        { 
+          title: '🧪 Test Notification', 
+          body: 'This is a rich test notification with action buttons!', 
+          url: '/track', 
+          type: 'test_rich'  // Custom type for test
+        },
         vapidPublicKey,
         vapidPrivateKey
       );
