@@ -203,13 +203,16 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-background"
+      className="fixed inset-0 z-[60] bg-background"
     >
       {/* Gradient background */}
       <div className={`absolute inset-0 bg-gradient-to-b ${gradients[gradientIndex]} transition-all duration-500`} />
 
       {/* Progress dots */}
-      <div className="absolute top-4 left-0 right-0 flex justify-center gap-1 px-4 z-10">
+      <div 
+        className="absolute left-0 right-0 flex justify-center gap-1 px-4 z-10"
+        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 16px)' }}
+      >
         {slides.map((_, idx) => (
           <div
             key={idx}
@@ -227,7 +230,8 @@ export function TeamRecapStory({ report, onClose, onEditValue }: TeamRecapStoryP
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+        className="absolute right-4 z-10 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+        style={{ top: 'calc(var(--effective-safe-area-top, 0px) + 16px)' }}
       >
         <X className="w-5 h-5" />
       </button>
