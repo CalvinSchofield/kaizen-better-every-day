@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfWeek, startOfMonth, subDays, subMonths, endOfMonth, isAfter, isBefore, format, endOfWeek } from 'date-fns';
+import { startOfWeek, startOfMonth, subDays, subMonths, endOfMonth, format, endOfWeek } from 'date-fns';
 
 // Preseason dates - fixed constants
 export const PRESEASON_START = new Date('2025-09-28');
@@ -9,21 +9,26 @@ export const SUMMER_START = new Date('2026-04-12');
 export type InsightsDatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
 export type ReportsDatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
 
+type EntryDateString = string; // yyyy-MM-dd
+
 interface DataBoundary {
-  earliestDate: Date | null;
-  latestDate: Date | null;
+  earliestDate: EntryDateString | null;
+  latestDate: EntryDateString | null;
   hasAnyData: boolean;
-  // Store entry dates for checking actual working days in periods
-  entryDates: Set<string>;
+  // Store entry dates for checking actual working days in periods (serializable for cache persistence)
+  entryDates: EntryDateString[];
 }
+
+const toEntryDateSet = (entryDates: EntryDateString[]) => new Set(entryDates);
 
 export const useDataBoundary = () => {
   return useQuery({
-    queryKey: ['data-boundary-v2'],
+    // v3 busts persisted cache from older non-serializable shapes (Set/Date)
+    queryKey: ['data-boundary-v3'],
     queryFn: async (): Promise<DataBoundary> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }
 
       // Get only "worked" days (finalized + had a real knocking session)
@@ -38,12 +43,12 @@ export const useDataBoundary = () => {
         .order('entry_date', { ascending: true });
 
       if (error || !entries || entries.length === 0) {
-        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }
 
-      const earliestDate = new Date(entries[0].entry_date + 'T00:00:00');
-      const latestDate = new Date(entries[entries.length - 1].entry_date + 'T00:00:00');
-      const entryDates = new Set(entries.map(e => e.entry_date));
+      const earliestDate = entries[0].entry_date;
+      const latestDate = entries[entries.length - 1].entry_date;
+      const entryDates = Array.from(new Set(entries.map(e => e.entry_date)));
 
       return {
         earliestDate,
@@ -57,7 +62,7 @@ export const useDataBoundary = () => {
 };
 
 // Helper to check if any entries exist within a date range
-const hasEntriesInRange = (entryDates: Set<string>, start: Date, end: Date): boolean => {
+const hasEntriesInRange = (entryDates: Set<EntryDateString>, start: Date, end: Date): boolean => {
   const current = new Date(start);
   while (current <= end) {
     if (entryDates.has(format(current, 'yyyy-MM-dd'))) {
@@ -72,17 +77,21 @@ export const useAvailableInsightsPresets = () => {
   const { data: boundary, isLoading } = useDataBoundary();
 
   const getAvailablePresets = (): InsightsDatePreset[] => {
-    if (!boundary?.hasAnyData || !boundary?.entryDates) {
-      return ['preseason']; // Only preseason as fallback
+    if (!boundary?.hasAnyData) {
+      return ['preseason'];
+    }
+
+    const entryDatesRaw = Array.isArray(boundary.entryDates) ? boundary.entryDates : [];
+    if (entryDatesRaw.length === 0) {
+      return ['preseason'];
     }
 
     const now = new Date();
-    const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate || !entryDates) return ['preseason'];
+    const entryDates = toEntryDateSet(entryDatesRaw);
 
     // Order from smallest to largest (auto-select first/smallest)
     const available: InsightsDatePreset[] = [];
-    
+
     // Yesterday - only if we actually have an entry for yesterday
     const yesterday = subDays(now, 1);
     if (entryDates.has(format(yesterday, 'yyyy-MM-dd'))) {
@@ -117,7 +126,7 @@ export const useAvailableInsightsPresets = () => {
       available.push('lastMonth');
     }
 
-    // Preseason - always available if any data exists (Sept 28, 2025 to April 12, 2026)
+    // Preseason - always available if any data exists
     available.push('preseason');
 
     return available;
@@ -135,17 +144,21 @@ export const useAvailableReportsPresets = () => {
   const { data: boundary, isLoading } = useDataBoundary();
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
-    if (!boundary?.hasAnyData || !boundary?.entryDates) {
-      return ['preseason']; // Only preseason as fallback
+    if (!boundary?.hasAnyData) {
+      return ['preseason'];
+    }
+
+    const entryDatesRaw = Array.isArray(boundary.entryDates) ? boundary.entryDates : [];
+    if (entryDatesRaw.length === 0) {
+      return ['preseason'];
     }
 
     const now = new Date();
-    const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate || !entryDates) return ['preseason'];
+    const entryDates = toEntryDateSet(entryDatesRaw);
 
     // Order from smallest to largest (auto-select first/smallest)
     const available: ReportsDatePreset[] = [];
-    
+
     // Today - only if we have an entry for today
     if (entryDates.has(format(now, 'yyyy-MM-dd'))) {
       available.push('today');
@@ -190,10 +203,11 @@ export const useAvailableReportsPresets = () => {
 // Team version - checks data for team members
 export const useTeamDataBoundary = (userIds: string[]) => {
   return useQuery({
-    queryKey: ['team-data-boundary-v2', userIds],
+    // v3 busts persisted cache from older non-serializable shapes (Set/Date)
+    queryKey: ['team-data-boundary-v3', userIds],
     queryFn: async (): Promise<DataBoundary> => {
       if (!userIds.length) {
-        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }
 
       // Get only "worked" days for the team (finalized + had a real knocking session)
@@ -208,12 +222,12 @@ export const useTeamDataBoundary = (userIds: string[]) => {
         .order('entry_date', { ascending: true });
 
       if (error || !entries || entries.length === 0) {
-        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: new Set() };
+        return { earliestDate: null, latestDate: null, hasAnyData: false, entryDates: [] };
       }
 
-      const earliestDate = new Date(entries[0].entry_date + 'T00:00:00');
-      const latestDate = new Date(entries[entries.length - 1].entry_date + 'T00:00:00');
-      const entryDates = new Set(entries.map(e => e.entry_date));
+      const earliestDate = entries[0].entry_date;
+      const latestDate = entries[entries.length - 1].entry_date;
+      const entryDates = Array.from(new Set(entries.map(e => e.entry_date)));
 
       return {
         earliestDate,
@@ -231,24 +245,26 @@ export const useAvailableTeamReportsPresets = (userIds: string[]) => {
   const { data: boundary, isLoading } = useTeamDataBoundary(userIds);
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
-    if (!boundary?.hasAnyData || !boundary?.entryDates) {
-      return ['preseason']; // preseason as fallback
-    }
-
-    const now = new Date();
-    const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate || !entryDates) {
+    if (!boundary?.hasAnyData) {
       return ['preseason'];
     }
 
+    const entryDatesRaw = Array.isArray(boundary.entryDates) ? boundary.entryDates : [];
+    if (entryDatesRaw.length === 0) {
+      return ['preseason'];
+    }
+
+    const now = new Date();
+    const entryDates = toEntryDateSet(entryDatesRaw);
+
     // Order from smallest to largest
     const available: ReportsDatePreset[] = [];
-    
+
     // Today - only if we have entries today
     if (entryDates.has(format(now, 'yyyy-MM-dd'))) {
       available.push('today');
     }
-    
+
     // Yesterday - only if we have entries yesterday
     const yesterday = subDays(now, 1);
     if (entryDates.has(format(yesterday, 'yyyy-MM-dd'))) {

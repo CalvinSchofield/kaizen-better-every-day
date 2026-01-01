@@ -152,9 +152,19 @@ const decimalToTime = (decimal: number): string => {
   return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
 };
 
-export const useInsightsData = (dateRange: { start: Date; end: Date }, efpModeEnabled: boolean = false) => {
+export const useInsightsData = (
+  dateRange: { start: Date; end: Date },
+  efpModeEnabled: boolean = false,
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
-    queryKey: ['insights-data', format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd'), efpModeEnabled],
+    queryKey: [
+      'insights-data',
+      format(dateRange.start, 'yyyy-MM-dd'),
+      format(dateRange.end, 'yyyy-MM-dd'),
+      efpModeEnabled,
+    ],
+    enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     retry: 1,
