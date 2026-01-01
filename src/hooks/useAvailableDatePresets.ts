@@ -68,13 +68,13 @@ export const useAvailableInsightsPresets = () => {
   const { data: boundary, isLoading } = useDataBoundary();
 
   const getAvailablePresets = (): InsightsDatePreset[] => {
-    if (!boundary?.hasAnyData) {
+    if (!boundary?.hasAnyData || !boundary?.entryDates) {
       return ['preseason']; // Only preseason as fallback
     }
 
     const now = new Date();
     const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate) return ['preseason'];
+    if (!earliestDate || !latestDate || !entryDates) return ['preseason'];
 
     // Order from smallest to largest (auto-select first/smallest)
     const available: InsightsDatePreset[] = [];
@@ -131,13 +131,13 @@ export const useAvailableReportsPresets = () => {
   const { data: boundary, isLoading } = useDataBoundary();
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
-    if (!boundary?.hasAnyData) {
+    if (!boundary?.hasAnyData || !boundary?.entryDates) {
       return ['preseason']; // Only preseason as fallback
     }
 
     const now = new Date();
     const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate) return ['preseason'];
+    if (!earliestDate || !latestDate || !entryDates) return ['preseason'];
 
     // Order from smallest to largest (auto-select first/smallest)
     const available: ReportsDatePreset[] = [];
@@ -223,13 +223,13 @@ export const useAvailableTeamReportsPresets = (userIds: string[]) => {
   const { data: boundary, isLoading } = useTeamDataBoundary(userIds);
 
   const getAvailablePresets = (): ReportsDatePreset[] => {
-    if (!boundary?.hasAnyData) {
+    if (!boundary?.hasAnyData || !boundary?.entryDates) {
       return ['preseason']; // preseason as fallback
     }
 
     const now = new Date();
     const { earliestDate, latestDate, entryDates } = boundary;
-    if (!earliestDate || !latestDate) {
+    if (!earliestDate || !latestDate || !entryDates) {
       return ['preseason'];
     }
 
