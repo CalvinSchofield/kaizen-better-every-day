@@ -40,8 +40,8 @@ export default function WeeklyRecapBuilder() {
     if (reportType === 'weekly') {
       // Last 6 weeks
       return Array.from({ length: 6 }, (_, i) => {
-        const weekStart = startOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
-        const weekEnd = endOfWeek(subWeeks(now, i + 1), { weekStartsOn: 1 });
+        const weekStart = startOfWeek(subWeeks(now, i + 1), { weekStartsOn: 0 });
+        const weekEnd = endOfWeek(subWeeks(now, i + 1), { weekStartsOn: 0 });
         return {
           label: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`,
           start: format(weekStart, 'yyyy-MM-dd'),

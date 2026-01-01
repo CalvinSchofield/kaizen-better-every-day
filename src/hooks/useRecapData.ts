@@ -137,12 +137,12 @@ export function useRecapData(period: 'week' | 'month') {
       let periodLabel: string;
 
       if (period === 'week') {
-        // Last week (Mon-Sat)
-        const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+        // Last week (Sun-Sat)
+        const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 0 });
         currentStart = lastWeekStart;
-        currentEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-        prevStart = startOfWeek(subWeeks(now, 2), { weekStartsOn: 1 });
-        prevEnd = endOfWeek(prevStart, { weekStartsOn: 1 });
+        currentEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
+        prevStart = startOfWeek(subWeeks(now, 2), { weekStartsOn: 0 });
+        prevEnd = endOfWeek(prevStart, { weekStartsOn: 0 });
         periodLabel = `Week of ${format(currentStart, 'MMM d')}`;
       } else {
         // Last month

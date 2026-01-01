@@ -33,7 +33,7 @@ export function useRecapState(): RecapState {
   const monthRecapAvailable = dayOfMonth >= 1 && dayOfMonth <= 5;
 
   // Period keys for storage
-  const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+  const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 0 });
   const weekPeriodKey = format(lastWeekStart, 'yyyy-MM-dd');
   
   const lastMonthStart = startOfMonth(subMonths(now, 1));
