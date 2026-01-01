@@ -442,18 +442,53 @@ const BlitzManagementSection = ({
     staleTime: 30000,
   });
   
-  // Extract committed blitz data - may contain Notion IDs or objects with name/id
+  // Fetch committed blitzes from recruit_blitzes table (fallback for recruits without rep record)
+  const { data: recruitBlitzesData = [] } = useQuery({
+    queryKey: ['recruit-blitzes-commitments', recruit?.id],
+    queryFn: async () => {
+      if (!recruit?.id) return [];
+      const { data, error } = await supabase
+        .from('recruit_blitzes')
+        .select('blitz_id')
+        .eq('recruit_id', recruit.id);
+      
+      if (error) return [];
+      return data.map(d => d.blitz_id);
+    },
+    enabled: !!recruit?.id,
+    staleTime: 5000, // Lower stale time for faster UI sync
+  });
+  
+  // Extract committed blitz data - prioritize reps table, then recruit_blitzes, then legacy Notion data
   const committedBlitzData = useMemo(() => {
+    // Priority 1: reps.committed_blitzes (for recruits with rep record)
     const rawFromSupabase = recruitRepData?.committed_blitzes;
+    if (rawFromSupabase && Array.isArray(rawFromSupabase) && rawFromSupabase.length > 0) {
+      const ids: string[] = [];
+      const names: string[] = [];
+      rawFromSupabase.forEach((item: string | { id?: string; name?: string }) => {
+        if (typeof item === 'string') {
+          ids.push(item);
+        } else if (item) {
+          if (item.id) ids.push(item.id);
+          if (item.name) names.push(item.name.toLowerCase().trim());
+        }
+      });
+      return { ids, names };
+    }
+    
+    // Priority 2: recruit_blitzes table (for recruits WITHOUT rep record - like Weston)
+    if (recruitBlitzesData.length > 0) {
+      return { ids: recruitBlitzesData, names: [] as string[] };
+    }
+    
+    // Priority 3: Legacy Notion data
     const rawFromNotion = recruit?.committedBlitzes;
-    const raw = (rawFromSupabase && Array.isArray(rawFromSupabase) && rawFromSupabase.length > 0) 
-      ? rawFromSupabase 
-      : rawFromNotion;
-    if (!raw || !Array.isArray(raw)) return { ids: [] as string[], names: [] as string[] };
+    if (!rawFromNotion || !Array.isArray(rawFromNotion)) return { ids: [] as string[], names: [] as string[] };
     
     const ids: string[] = [];
     const names: string[] = [];
-    raw.forEach((item: string | { id?: string; name?: string }) => {
+    rawFromNotion.forEach((item: string | { id?: string; name?: string }) => {
       if (typeof item === 'string') {
         ids.push(item);
       } else if (item) {
@@ -462,7 +497,7 @@ const BlitzManagementSection = ({
       }
     });
     return { ids, names };
-  }, [recruitRepData?.committed_blitzes, recruit?.committedBlitzes]);
+  }, [recruitRepData?.committed_blitzes, recruitBlitzesData, recruit?.committedBlitzes]);
   
   // Helper to check if a blitz is committed (by ID or name match)
   const isBlitzCommitted = useCallback((blitz: { id: string; name: string }) => {
@@ -490,9 +525,13 @@ const BlitzManagementSection = ({
       ? committedBlitzIds.filter(id => id !== blitzId)
       : [...committedBlitzIds, blitzId];
     
+    // Optimistic update for reps table data
     queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
       old ? { ...old, committed_blitzes: newCommittedBlitzIds } : old
     );
+    
+    // Optimistic update for recruit_blitzes table (for recruits without rep record)
+    queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], newCommittedBlitzIds);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -510,14 +549,17 @@ const BlitzManagementSection = ({
       toast.success(isCurrentlyCommitted ? `Removed from ${blitzName}` : `Committed to ${blitzName}`);
       queryClient.invalidateQueries({ queryKey: ['group-recruits'] });
       queryClient.invalidateQueries({ queryKey: ['recruit-rep-data', recruit.id, recruit.email, recruit.name] });
+      queryClient.invalidateQueries({ queryKey: ['recruit-blitzes-commitments', recruit.id] });
       // Clear declined status if committing
       if (!isCurrentlyCommitted) {
         queryClient.invalidateQueries({ queryKey: ['recruit-declined-blitzes', recruit.id] });
       }
     } catch (error) {
+      // Rollback both optimistic updates
       queryClient.setQueryData(['recruit-rep-data', recruit.id, recruit.email, recruit.name], (old: any) => 
         old ? { ...old, committed_blitzes: committedBlitzIds } : old
       );
+      queryClient.setQueryData(['recruit-blitzes-commitments', recruit.id], committedBlitzIds);
       toast.error("Couldn't update blitz commitment");
     } finally {
       setIsUpdating(null);
