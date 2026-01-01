@@ -101,6 +101,7 @@ export default function Settings() {
   const { isSupported: notificationsSupported, isSubscribed, permission, subscribe, unsubscribe, isLoading: notificationsLoading } = usePushNotifications();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [isSendingTestPush, setIsSendingTestPush] = useState(false);
   
   // Collapsible states
   const [isSummerDatesOpen, setIsSummerDatesOpen] = useState(false);
@@ -1122,6 +1123,45 @@ export default function Settings() {
                         onCheckedChange={handleToggleNotifications}
                         disabled={isSavingNotifications || notificationsLoading}
                       />
+                    </div>
+                  )}
+                  
+                  {/* Developer Test Button - only for Calvin */}
+                  {repData?.email?.toLowerCase() === 'calvinjschofield@gmail.com' && isSubscribed && (
+                    <div className="pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={isSendingTestPush}
+                        onClick={async () => {
+                          setIsSendingTestPush(true);
+                          try {
+                            const { error } = await supabase.functions.invoke('test-push-notification', {
+                              body: { targetEmail: 'calvinjschofield@gmail.com' }
+                            });
+                            if (error) throw error;
+                            toast({
+                              title: "Test notification sent",
+                              description: "Check your device for the rich notification!",
+                            });
+                          } catch (err: any) {
+                            console.error('Test push error:', err);
+                            toast({
+                              title: "Failed to send",
+                              description: err.message,
+                              variant: "destructive",
+                            });
+                          } finally {
+                            setIsSendingTestPush(false);
+                          }
+                        }}
+                      >
+                        {isSendingTestPush ? "Sending..." : "🧪 Test Rich Notification"}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Developer only - sends a test notification with action buttons
+                      </p>
                     </div>
                   )}
                 </CardContent>
