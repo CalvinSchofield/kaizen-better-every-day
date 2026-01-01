@@ -9,8 +9,8 @@ import { useState } from 'react';
 type ExpandedSection = 'funnel' | 'ratios' | 'productivity' | 'custom' | null;
 
 // Helper to safely format numbers
-const safeFormat = (value: number, decimals: number = 1, suffix: string = ''): string => {
-  if (!isFinite(value) || isNaN(value) || value < 0) return '-';
+const safeFormat = (value: number | null | undefined, decimals: number = 1, suffix: string = ''): string => {
+  if (value === null || value === undefined || !isFinite(value) || isNaN(value) || value < 0) return '-';
   return `${value.toFixed(decimals)}${suffix}`;
 };
 
