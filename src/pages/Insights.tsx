@@ -36,6 +36,7 @@ export default function Insights() {
   const { data: cumulativeData } = useCumulativeFP();
   const { availablePresets, hasAnyData, isLoading: presetsLoading } = useAvailableInsightsPresets();
   const [datePreset, setDatePreset] = useState<DatePreset>('preseason');
+  const [hasUserSelectedPreset, setHasUserSelectedPreset] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date>();
   const [customEndDate, setCustomEndDate] = useState<Date>();
   const [showCustomDialog, setShowCustomDialog] = useState(false);
@@ -43,11 +44,11 @@ export default function Insights() {
   
   // Set initial preset to first available (smallest range)
   useEffect(() => {
-    if (availablePresets.length > 0 && !availablePresets.includes(datePreset)) {
-      // Auto-select the first (smallest) available preset
+    if (hasUserSelectedPreset) return;
+    if (availablePresets.length > 0) {
       setDatePreset(availablePresets[0]);
     }
-  }, [availablePresets]);
+  }, [availablePresets, hasUserSelectedPreset]);
   
   // Check if CRM is enabled
   const crmEnabled = (repData as any)?.crm_enabled === true;
@@ -70,6 +71,7 @@ export default function Insights() {
       const thisWeekStart = startOfWeek(now, { weekStartsOn: 0 });
       const thisWeekEnd = addDays(thisWeekStart, 6);
       if (isSameDay(startDate, thisWeekStart) && isSameDay(endDate, thisWeekEnd)) {
+        setHasUserSelectedPreset(true);
         setDatePreset('week');
         return;
       }
@@ -77,6 +79,7 @@ export default function Insights() {
       const lastWeekStart = subDays(thisWeekStart, 7);
       const lastWeekEnd = addDays(lastWeekStart, 6);
       if (isSameDay(startDate, lastWeekStart) && isSameDay(endDate, lastWeekEnd)) {
+        setHasUserSelectedPreset(true);
         setDatePreset('lastWeek');
         return;
       }
@@ -84,6 +87,7 @@ export default function Insights() {
       const thisMonthStart = startOfMonth(now);
       const thisMonthEnd = endOfMonth(now);
       if (isSameDay(startDate, thisMonthStart) && isSameDay(endDate, thisMonthEnd)) {
+        setHasUserSelectedPreset(true);
         setDatePreset('month');
         return;
       }
@@ -92,21 +96,23 @@ export default function Insights() {
       const lastMonthStart = startOfMonth(lastMonthDate);
       const lastMonthEnd = endOfMonth(lastMonthDate);
       if (isSameDay(startDate, lastMonthStart) && isSameDay(endDate, lastMonthEnd)) {
+        setHasUserSelectedPreset(true);
         setDatePreset('lastMonth');
         return;
       }
       
       setCustomStartDate(startDate);
       setCustomEndDate(endDate);
+      setHasUserSelectedPreset(true);
       setDatePreset('custom');
       return;
     }
     
     const period = searchParams.get('period');
-    if (period === 'week') setDatePreset('week');
-    else if (period === 'month') setDatePreset('month');
-    else if (period === 'lastWeek') setDatePreset('lastWeek');
-    else if (period === 'lastMonth') setDatePreset('lastMonth');
+    if (period === 'week') { setHasUserSelectedPreset(true); setDatePreset('week'); }
+    else if (period === 'month') { setHasUserSelectedPreset(true); setDatePreset('month'); }
+    else if (period === 'lastWeek') { setHasUserSelectedPreset(true); setDatePreset('lastWeek'); }
+    else if (period === 'lastMonth') { setHasUserSelectedPreset(true); setDatePreset('lastMonth'); }
   }, [searchParams]);
 
   const year = repData?.year || "Rookie";
