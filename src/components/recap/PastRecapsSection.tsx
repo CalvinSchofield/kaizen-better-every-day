@@ -76,7 +76,7 @@ export function PastRecapsSection() {
             <div className="flex gap-2 flex-wrap">
               {displayedWeeks.map((recap) => (
                 <Button
-                  key={`week-${recap.period_start.toISOString()}`}
+                  key={`week-${String(recap.period_start)}`}
                   variant="ghost"
                   size="sm"
                   className="gap-2 text-xs"
@@ -84,7 +84,7 @@ export function PastRecapsSection() {
                 >
                   <Play className="w-3 h-3" />
                   {recap.period_label}
-                  <span className="text-muted-foreground">({recap.total_fp.toFixed(1)} FP)</span>
+                  <span className="text-muted-foreground">({Number(recap.total_fp ?? 0).toFixed(1)} FP)</span>
                 </Button>
               ))}
             </div>
@@ -109,7 +109,7 @@ export function PastRecapsSection() {
             <div className="flex gap-2 flex-wrap">
               {displayedMonths.map((recap) => (
                 <Button
-                  key={`month-${recap.period_start.toISOString()}`}
+                  key={`month-${String(recap.period_start)}`}
                   variant="ghost"
                   size="sm"
                   className="gap-2 text-xs"
@@ -117,7 +117,7 @@ export function PastRecapsSection() {
                 >
                   <Play className="w-3 h-3" />
                   {recap.period_label}
-                  <span className="text-muted-foreground">({recap.total_fp.toFixed(1)} FP)</span>
+                  <span className="text-muted-foreground">({Number(recap.total_fp ?? 0).toFixed(1)} FP)</span>
                 </Button>
               ))}
             </div>
