@@ -7,7 +7,7 @@ export const PRESEASON_START = new Date('2025-09-28');
 export const SUMMER_START = new Date('2026-04-12');
 
 export type InsightsDatePreset = 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'custom';
-export type ReportsDatePreset = 'today' | 'yesterday' | 'week' | 'month' | 'preseason' | 'ytd' | 'custom';
+export type ReportsDatePreset = 'today' | 'yesterday' | 'week' | 'lastWeek' | 'month' | 'lastMonth' | 'preseason' | 'ytd' | 'custom';
 
 type EntryDateString = string; // yyyy-MM-dd
 
@@ -177,10 +177,25 @@ export const useAvailableReportsPresets = () => {
       available.push('week');
     }
 
+    // Last week - only if we have entries last week
+    const lastWeekStart = subDays(weekStart, 7);
+    const lastWeekEnd = subDays(weekStart, 1);
+    if (hasEntriesInRange(entryDates, lastWeekStart, lastWeekEnd)) {
+      available.push('lastWeek');
+    }
+
     // This month - only if we have actual entries this month
     const monthStart = startOfMonth(now);
     if (hasEntriesInRange(entryDates, monthStart, now)) {
       available.push('month');
+    }
+
+    // Last month - only if we have entries last month
+    const lastMonthDate = subMonths(now, 1);
+    const lastMonthStart = startOfMonth(lastMonthDate);
+    const lastMonthEnd = endOfMonth(lastMonthDate);
+    if (hasEntriesInRange(entryDates, lastMonthStart, lastMonthEnd)) {
+      available.push('lastMonth');
     }
 
     // Preseason - always available if any data exists
@@ -278,10 +293,25 @@ export const useAvailableTeamReportsPresets = (userIds: string[]) => {
       available.push('week');
     }
 
+    // Last week - only if we have entries last week
+    const lastWeekStart = subDays(weekStart, 7);
+    const lastWeekEnd = subDays(weekStart, 1);
+    if (hasEntriesInRange(entryDates, lastWeekStart, lastWeekEnd)) {
+      available.push('lastWeek');
+    }
+
     // This month - only if we have entries this month
     const monthStart = startOfMonth(now);
     if (hasEntriesInRange(entryDates, monthStart, now)) {
       available.push('month');
+    }
+
+    // Last month - only if we have entries last month
+    const lastMonthDate = subMonths(now, 1);
+    const lastMonthStart = startOfMonth(lastMonthDate);
+    const lastMonthEnd = endOfMonth(lastMonthDate);
+    if (hasEntriesInRange(entryDates, lastMonthStart, lastMonthEnd)) {
+      available.push('lastMonth');
     }
 
     // Preseason - always available if any data exists

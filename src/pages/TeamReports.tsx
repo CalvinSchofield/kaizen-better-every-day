@@ -10,7 +10,7 @@ import { TeamFilterSheet } from "@/components/TeamFilterSheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, subDays, startOfMonth, endOfMonth, startOfYear, startOfWeek, subWeeks } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, startOfWeek, subWeeks, subMonths } from "date-fns";
 import { useTeamCumulativeFP } from "@/hooks/useTeamCumulativeFP";
 import { ScopeBadge } from "@/components/reports/ScopeBadge";
 import { useTeamYesterdayData } from "@/hooks/useTeamYesterdayData";
@@ -88,9 +88,19 @@ const TeamReports = () => {
       case 'week':
         // This week: Sunday to today
         return { start: format(startOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+      case 'lastWeek': {
+        const thisWeekStart = startOfWeek(now, { weekStartsOn: 0 });
+        const lastWeekStart = subDays(thisWeekStart, 7);
+        const lastWeekEnd = subDays(thisWeekStart, 1);
+        return { start: format(lastWeekStart, 'yyyy-MM-dd'), end: format(lastWeekEnd, 'yyyy-MM-dd') };
+      }
       case 'month':
         // This month: 1st to today
         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+      case 'lastMonth': {
+        const lastMonthDate = subMonths(now, 1);
+        return { start: format(startOfMonth(lastMonthDate), 'yyyy-MM-dd'), end: format(endOfMonth(lastMonthDate), 'yyyy-MM-dd') };
+      }
       case 'preseason':
         return { start: format(startOfYear(now), 'yyyy-MM-dd'), end: format(now < summerStartDate ? now : summerStartDate, 'yyyy-MM-dd') };
       case 'ytd':
@@ -155,7 +165,9 @@ const TeamReports = () => {
   });
 
   const aggregatedPeriod = datePreset === 'week' ? 'week' : 
-                          datePreset === 'month' ? 'month' : 
+                          datePreset === 'lastWeek' ? 'week' :
+                          datePreset === 'month' ? 'month' :
+                          datePreset === 'lastMonth' ? 'month' :
                           datePreset === 'preseason' ? 'season' : 
                           datePreset === 'ytd' ? 'ytd' : null;
 
@@ -165,7 +177,7 @@ const TeamReports = () => {
     period: aggregatedPeriod || 'week',
   });
 
-  const isAggregatedView = datePreset === 'week' || datePreset === 'month' || datePreset === 'preseason' || datePreset === 'ytd';
+  const isAggregatedView = datePreset === 'week' || datePreset === 'lastWeek' || datePreset === 'month' || datePreset === 'lastMonth' || datePreset === 'preseason' || datePreset === 'ytd';
   const currentDateRange = getDateRange(datePreset);
   
   const { data: canceledStats, isLoading: canceledLoading } = useTeamCanceledStats({
@@ -226,7 +238,9 @@ const TeamReports = () => {
       case 'today': return "Today";
       case 'yesterday': return "Yesterday";
       case 'week': return "This Week";
+      case 'lastWeek': return "Last Week";
       case 'month': return "This Month";
+      case 'lastMonth': return "Last Month";
       case 'preseason': return "Preseason";
       case 'ytd': return "Year to Date";
       case 'custom': 
@@ -292,7 +306,9 @@ const TeamReports = () => {
   const getRankingsTitle = () => {
     switch (datePreset) {
       case 'week': return "This Week's Rankings";
+      case 'lastWeek': return "Last Week's Rankings";
       case 'month': return "This Month's Rankings";
+      case 'lastMonth': return "Last Month's Rankings";
       case 'ytd': return "YTD Rankings";
       case 'preseason': return "Season Rankings";
       default: return "Rankings";
@@ -303,7 +319,9 @@ const TeamReports = () => {
   const getCanceledTitle = () => {
     switch (datePreset) {
       case 'week': return "This Week's Cancellations";
+      case 'lastWeek': return "Last Week's Cancellations";
       case 'month': return "This Month's Cancellations";
+      case 'lastMonth': return "Last Month's Cancellations";
       case 'ytd': return "YTD Cancellations";
       case 'preseason': return "Season Cancellations";
       default: return "Cancellations";
@@ -397,6 +415,16 @@ const TeamReports = () => {
                 Week
               </Button>
             )}
+            {availablePresets.includes('lastWeek') && (
+              <Button
+                variant={datePreset === 'lastWeek' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('lastWeek')}
+                className="flex-shrink-0"
+              >
+                Last Week
+              </Button>
+            )}
             {availablePresets.includes('month') && (
               <Button
                 variant={datePreset === 'month' ? 'default' : 'outline'}
@@ -405,6 +433,16 @@ const TeamReports = () => {
                 className="flex-shrink-0"
               >
                 Month
+              </Button>
+            )}
+            {availablePresets.includes('lastMonth') && (
+              <Button
+                variant={datePreset === 'lastMonth' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDatePreset('lastMonth')}
+                className="flex-shrink-0"
+              >
+                Last Month
               </Button>
             )}
             {availablePresets.includes('preseason') && (
