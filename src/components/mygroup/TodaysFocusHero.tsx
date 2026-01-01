@@ -40,6 +40,7 @@ interface TodaysFocusHeroProps {
   onViewAll: () => void;
   onContactClick?: (recruit: Recruit) => void;
   onScheduleClick?: (recruit: Recruit) => void;
+  onRescheduleActivityClick?: (recruit: Recruit, activity: RecruitActivity) => void;
   onSkipForNow?: (recruit: Recruit) => void;
   onSkipToday?: (recruit: Recruit) => void;
   onLogOneOnOneClick?: (repUserId: string, repName: string) => void;
@@ -103,6 +104,7 @@ export const TodaysFocusHero = ({
   onViewAll,
   onContactClick,
   onScheduleClick,
+  onRescheduleActivityClick,
   onSkipForNow,
   onSkipToday,
   onLogOneOnOneClick,
@@ -240,7 +242,7 @@ export const TodaysFocusHero = ({
     };
 
     const handleOverdueReschedule = () => {
-      onScheduleClick?.(recruit);
+      onRescheduleActivityClick?.(recruit, activity);
     };
 
     return (
@@ -332,7 +334,7 @@ export const TodaysFocusHero = ({
     };
 
     const handleTodayReschedule = () => {
-      onScheduleClick?.(recruit);
+      onRescheduleActivityClick?.(recruit, activity);
     };
 
     return (

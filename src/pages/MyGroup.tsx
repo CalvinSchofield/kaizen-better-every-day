@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamAccess } from "@/hooks/useTeamAccess";
-import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit } from "@/hooks/useGroupRecruits";
+import { useGroupRecruits, useMySuggestions, useDeleteMySuggestion, RecruitSuggestion, Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { useBlitzAttendanceLogger } from "@/hooks/useBlitzAttendanceLogger";
 import { useNeedsAttention, RepData, RepSummerConfigData, AttentionRecruit } from "@/hooks/useNeedsAttention";
@@ -36,6 +36,7 @@ import { EditSuggestionDrawer } from "@/components/mygroup/EditSuggestionDrawer"
 import { AssignedTasksDrawer } from "@/components/mygroup/AssignedTasksDrawer";
 import { RecruitSearchDrawer } from "@/components/mygroup/RecruitSearchDrawer";
 import { LogOneOnOneDrawer } from "@/components/mygroup/LogOneOnOneDrawer";
+import { RescheduleActivityDrawer } from "@/components/mygroup/RescheduleActivityDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoadError } from "@/components/mygroup/DataLoadError";
 import Layout from "@/components/Layout";
@@ -107,6 +108,8 @@ const MyGroup = () => {
   const [logOneOnOneOpen, setLogOneOnOneOpen] = useState(false);
   const [logOneOnOneRepUserId, setLogOneOnOneRepUserId] = useState<string | null>(null);
   const [logOneOnOneRepName, setLogOneOnOneRepName] = useState<string>('');
+  const [rescheduleActivityDrawerOpen, setRescheduleActivityDrawerOpen] = useState(false);
+  const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
@@ -689,10 +692,17 @@ const MyGroup = () => {
     setContactMethodDrawerOpen(true);
   }, []);
 
-  // Handle schedule from hero - opens schedule drawer
+  // Handle schedule from hero - opens schedule drawer (for new follow-ups)
   const handleHeroSchedule = useCallback((recruit: Recruit) => {
     setContactingRecruit(recruit);
     setScheduleDrawerOpen(true);
+  }, []);
+
+  // Handle reschedule from hero - opens reschedule drawer with activity data pre-filled
+  const handleHeroRescheduleActivity = useCallback((recruit: Recruit, activity: RecruitActivity) => {
+    setContactingRecruit(recruit);
+    setRescheduleActivity(activity);
+    setRescheduleActivityDrawerOpen(true);
   }, []);
 
   // Handle completion from contact method drawer - only dismiss if connected
@@ -875,6 +885,7 @@ const MyGroup = () => {
                 onViewAll={() => setQuickViewOpen(true)}
                 onContactClick={handleHeroContact}
                 onScheduleClick={handleHeroSchedule}
+                onRescheduleActivityClick={handleHeroRescheduleActivity}
                 onSkipForNow={(recruit) => skipForNow(recruit.id)}
                 onSkipToday={(recruit) => skipToday(recruit.id)}
                 onLogOneOnOneClick={(repUserId, repName) => {
@@ -1172,6 +1183,25 @@ const MyGroup = () => {
           repName={logOneOnOneRepName}
         />
       )}
+
+      {/* Reschedule Activity Drawer (for overdue/today scheduled items) */}
+      <RescheduleActivityDrawer
+        open={rescheduleActivityDrawerOpen}
+        onOpenChange={(open) => {
+          setRescheduleActivityDrawerOpen(open);
+          if (!open) {
+            setContactingRecruit(null);
+            setRescheduleActivity(null);
+          }
+        }}
+        recruit={contactingRecruit}
+        activity={rescheduleActivity}
+        onComplete={() => {
+          setRescheduleActivityDrawerOpen(false);
+          setContactingRecruit(null);
+          setRescheduleActivity(null);
+        }}
+      />
     </Layout>
   );
 };
