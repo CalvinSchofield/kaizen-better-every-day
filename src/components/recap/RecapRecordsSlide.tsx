@@ -79,7 +79,7 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
   }
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-6">
+    <div className="h-full flex flex-col items-center px-6 pt-8 pb-4 overflow-y-auto">
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
