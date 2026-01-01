@@ -113,10 +113,42 @@ export const openRecruitSmsWithLeaderIfApplicable = async (params: {
     : `sms:${recruitRecipient}`;
 
   if (debugEnabled()) {
-    console.log("[group-sms] recruit:", recruitRecipient, "teamId:", params.teamId, "teamName:", params.teamName);
-    console.log("[group-sms] leaderUserId:", leaderUserId, "leaderPhone:", leaderPhone, "isGroup:", isGroup);
+    console.log(
+      "[group-sms] recruit:",
+      recruitRecipient,
+      "teamId:",
+      params.teamId,
+      "teamName:",
+      params.teamName
+    );
+    console.log(
+      "[group-sms] leaderUserId:",
+      leaderUserId,
+      "leaderPhone:",
+      leaderPhone,
+      "isGroup:",
+      isGroup
+    );
     console.log("[group-sms] url:", smsUrl);
-    toast.message(isGroup ? "Group SMS (debug)" : "1:1 SMS (debug)", { description: smsUrl });
+    toast.message(isGroup ? "Group SMS (debug)" : "1:1 SMS (debug)", {
+      description: smsUrl,
+    });
+  }
+
+  // iOS will often jump into an existing 1:1 thread if the contact is saved.
+  // For group texts, open a fresh composer and copy recipients so the user can paste into "To:".
+  if (isGroup && leaderRecipient) {
+    const recipientsForPaste = [recruitRecipient, leaderRecipient].join(", ");
+    const copied = await copyTextToClipboard(recipientsForPaste);
+
+    toast.message("New message", {
+      description: copied
+        ? 'Recipients copied — paste into the “To:” field.'
+        : `Paste recipients: ${recipientsForPaste}`,
+    });
+
+    window.location.href = newMessageSmsUrl();
+    return { isGroup: true, leaderPhone };
   }
 
   window.location.href = smsUrl;
