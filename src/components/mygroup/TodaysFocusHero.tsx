@@ -38,7 +38,7 @@ interface TodaysFocusHeroProps {
   onRecruitClick: (recruit: Recruit) => void;
   onSummerRepClick?: (notionPageId: string) => void;
   onViewAll: () => void;
-  onContactClick?: (recruit: Recruit) => void;
+  onContactClick?: (recruit: Recruit, activity?: RecruitActivity) => void;
   onScheduleClick?: (recruit: Recruit) => void;
   onRescheduleActivityClick?: (recruit: Recruit, activity: RecruitActivity) => void;
   onSkipForNow?: (recruit: Recruit) => void;
@@ -238,7 +238,7 @@ export const TodaysFocusHero = ({
     };
 
     const handleOverdueContact = () => {
-      onContactClick?.(recruit);
+      onContactClick?.(recruit, activity);
     };
 
     const handleOverdueReschedule = () => {
@@ -330,7 +330,7 @@ export const TodaysFocusHero = ({
     };
 
     const handleTodayContact = () => {
-      onContactClick?.(recruit);
+      onContactClick?.(recruit, activity);
     };
 
     const handleTodayReschedule = () => {

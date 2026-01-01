@@ -110,6 +110,7 @@ const MyGroup = () => {
   const [logOneOnOneRepName, setLogOneOnOneRepName] = useState<string>('');
   const [rescheduleActivityDrawerOpen, setRescheduleActivityDrawerOpen] = useState(false);
   const [rescheduleActivity, setRescheduleActivity] = useState<RecruitActivity | null>(null);
+  const [contactActivity, setContactActivity] = useState<RecruitActivity | null>(null);
   
   // Track if we've processed the navigation state
   const [hasProcessedNavState, setHasProcessedNavState] = useState(false);
@@ -687,8 +688,10 @@ const MyGroup = () => {
   };
 
   // Handle contact from hero - opens contact method drawer
-  const handleHeroContact = useCallback((recruit: Recruit) => {
+  // Handle contact from hero - opens contact method drawer with optional activity context
+  const handleHeroContact = useCallback((recruit: Recruit, activity?: RecruitActivity) => {
     setContactingRecruit(recruit);
+    setContactActivity(activity || null);
     setContactMethodDrawerOpen(true);
   }, []);
 
@@ -1085,8 +1088,14 @@ const MyGroup = () => {
       />
       <ContactMethodDrawer
         open={contactMethodDrawerOpen}
-        onOpenChange={setContactMethodDrawerOpen}
+        onOpenChange={(open) => {
+          setContactMethodDrawerOpen(open);
+          if (!open) {
+            setContactActivity(null);
+          }
+        }}
         recruit={contactingRecruit}
+        scheduledActivity={contactActivity}
         onComplete={handleContactMethodComplete}
       />
       <ScheduleFollowUpDrawer
