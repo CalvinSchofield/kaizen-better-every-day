@@ -289,17 +289,17 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
         {children}
       </main>
       
-      {/* Bottom Navigation - iOS-style floating tab bar */}
+      {/* Bottom Navigation - iOS-style floating tab bar like GitHub app */}
       <nav 
         className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
           isNavVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ paddingBottom: 'var(--nav-padding-bottom)' }}
       >
-        <div className="px-5 pb-3">
+        <div className="px-4 pb-2">
           <div 
-            className="flex items-center justify-around max-w-md mx-auto bg-card/90 backdrop-blur-2xl border border-border/40 shadow-2xl rounded-[28px] px-2"
-            style={{ height: 'calc(var(--nav-height) + 4px)' }}
+            className="flex items-center justify-around mx-auto bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
+            style={{ maxWidth: '380px' }}
           >
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -310,24 +310,24 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
                 <Link
                   key={item.path}
                   to={item.path}
-                  className="relative flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors"
+                  className="relative flex flex-col items-center justify-center flex-1 py-1 active:scale-90 transition-transform duration-150"
                 >
                   {/* Active pill background */}
                   {isActive && (
-                    <div className="absolute inset-x-2 inset-y-1.5 bg-muted rounded-xl" />
+                    <div className="absolute inset-x-1.5 -inset-y-0.5 bg-muted/80 rounded-2xl" />
                   )}
-                  <div className={`relative z-10 flex flex-col items-center ${
+                  <div className={`relative z-10 flex flex-col items-center gap-0.5 ${
                     isActive ? "text-foreground" : "text-muted-foreground"
                   }`}>
-                    <div className="relative mb-1">
-                      <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
+                    <div className="relative">
+                      <Icon className={`w-6 h-6 ${isActive ? "stroke-[2.5]" : "stroke-[1.5]"}`} />
                       {isLocked && (
                         <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full">
                           <Lock className="w-2.5 h-2.5 text-primary" />
                         </div>
                       )}
                     </div>
-                    <span className={`text-[10px] ${isActive ? "font-semibold" : "font-medium"}`}>
+                    <span className={`text-[11px] ${isActive ? "font-semibold" : "font-normal"}`}>
                       {item.label}
                     </span>
                   </div>
