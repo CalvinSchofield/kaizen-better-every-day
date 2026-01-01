@@ -305,7 +305,10 @@ const Contacts = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-card border-b border-border">
+      <div 
+        className="sticky top-0 z-50 bg-card border-b border-border"
+        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
+      >
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">

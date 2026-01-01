@@ -110,7 +110,10 @@ export default function RecruitingContent() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div 
+        className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"
+        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
+      >
         <div className="flex items-center gap-3 p-4">
           <Button
             variant="ghost"

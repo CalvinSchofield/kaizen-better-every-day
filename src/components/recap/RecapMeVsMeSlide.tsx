@@ -19,6 +19,7 @@ interface RecapMeVsMeSlideProps {
   comparison: MeVsMeComparisonData | null;
   hasHistoricalData: boolean;
   efpModeEnabled?: boolean;
+  reviewedMonthName?: string; // The actual month being reviewed (e.g., "December")
 }
 
 function DeltaRow({ 
@@ -76,7 +77,8 @@ export function RecapMeVsMeSlide({
   comparisonYear, 
   comparison, 
   hasHistoricalData,
-  efpModeEnabled 
+  efpModeEnabled,
+  reviewedMonthName
 }: RecapMeVsMeSlideProps) {
   if (!hasHistoricalData || !comparison) {
     return (
@@ -95,10 +97,10 @@ export function RecapMeVsMeSlide({
     );
   }
 
-  const periodLabel = period === 'week' ? 'This Week' : 'This Month';
+  const periodLabel = period === 'week' ? 'Last Week' : (reviewedMonthName || 'Last Month');
   const vsLabel = period === 'week' 
     ? `Same Week in ${comparisonYear}`
-    : `${new Date().toLocaleString('en-US', { month: 'long' })} ${comparisonYear}`;
+    : `${reviewedMonthName || 'Same Month'} ${comparisonYear}`;
 
   // Calculate primary metric and message
   const primaryMetric = efpModeEnabled 

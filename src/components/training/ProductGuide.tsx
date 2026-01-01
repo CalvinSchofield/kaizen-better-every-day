@@ -48,7 +48,10 @@ export const ProductGuide = ({ product, onBack }: ProductGuideProps) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
+      <div 
+        className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b"
+        style={{ paddingTop: 'var(--effective-safe-area-top)' }}
+      >
         <div className="flex items-center gap-3 px-4 py-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
             <ArrowLeft className="h-5 w-5" />

@@ -181,7 +181,10 @@ export default function WeeklyRecapBuilder() {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3">
+      <div 
+        className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3"
+        style={{ paddingTop: 'calc(var(--effective-safe-area-top) + 0.75rem)' }}
+      >
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />

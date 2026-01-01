@@ -14,6 +14,7 @@ import { RecapMeVsMeSlide } from './RecapMeVsMeSlide';
 import { useRecapMeVsMeComparison } from '@/hooks/useRecapMeVsMeComparison';
 import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { useEfpMode } from '@/hooks/useEfpMode';
+import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
 interface RecapStoryProps {
@@ -114,6 +115,11 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
     />
   );
 
+  // Get the reviewed month name from the stats date range
+  const reviewedMonthName = stats.period === 'month' 
+    ? format(stats.dateRange.start, 'MMMM') 
+    : undefined;
+
   // Add Me vs Me slide if enabled and has historical data
   if (meVsMeEnabled && meVsMeData?.hasHistoricalData) {
     slides.push(
@@ -124,6 +130,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         comparison={meVsMeData.comparison}
         hasHistoricalData={meVsMeData.hasHistoricalData}
         efpModeEnabled={efpModeEnabled}
+        reviewedMonthName={reviewedMonthName}
       />
     );
   }
