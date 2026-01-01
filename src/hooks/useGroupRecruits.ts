@@ -23,6 +23,8 @@ export interface Recruit {
   recruiterUserId: string | null;
   teamName: string | null;
   teamId: string | null;
+  teamLeaderName?: string | null;
+  teamLeaderPhone?: string | null;
   mgmtGroupId: string | null;
   mgmtGroupName: string | null;
   year: string;
@@ -205,6 +207,7 @@ export const useGroupRecruits = () => {
           blitz_ready,
           recruiter,
           team_leader,
+          team_leader_phone,
           created_at
         `)
         .order('created_at', { ascending: false });
@@ -467,6 +470,8 @@ export const useGroupRecruits = () => {
           recruiterUserId: recruiterData?.user_id || (matchingRecruit as any)?.recruiter_user_id || null,
           teamName: teamData?.name || accessibleRepInfo?.teamName || null,
           teamId: (matchingRecruit as any)?.team_id || accessibleRepInfo?.teamId || null,
+          teamLeaderName: r.team_leader || null,
+          teamLeaderPhone: r.team_leader_phone || null,
           mgmtGroupId: (matchingRecruit as any)?.mgmt_group_id || accessibleRepInfo?.mgmtGroupId || null,
           mgmtGroupName: mgmtGroupData?.name || accessibleRepInfo?.mgmtGroupName || null,
           year: r.year || '',

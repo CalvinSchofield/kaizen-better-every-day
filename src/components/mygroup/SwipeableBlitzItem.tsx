@@ -121,6 +121,7 @@ export const SwipeableBlitzItem = ({
       recruitPhone: item.recruit.phone,
       teamId: item.recruit.teamId,
       teamName: item.recruit.teamName,
+      leaderPhoneHint: item.recruit.teamLeaderPhone,
     });
 
     // Open post-contact drawer for texts (simpler notes-only version)
