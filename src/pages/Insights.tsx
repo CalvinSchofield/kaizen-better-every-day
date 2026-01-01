@@ -171,7 +171,8 @@ export default function Insights() {
 
   const { data: insights, isLoading } = useInsightsData(getDateRange(datePreset), efpModeEnabled);
 
-  if (loadingRepData) return null;
+  // Wait for presets to load before showing anything (prevents flash)
+  if (loadingRepData || presetsLoading) return null;
 
   if (isPreBlitzRookie) {
     return (
