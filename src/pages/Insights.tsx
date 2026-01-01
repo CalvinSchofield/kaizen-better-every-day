@@ -7,10 +7,10 @@ import { useInsightsData } from '@/hooks/useInsightsData';
 import { useRepData } from '@/hooks/useRepData';
 import { useEfpMode } from '@/hooks/useEfpMode';
 import { useCumulativeFP } from '@/hooks/useCumulativeFP';
-import { useAvailableInsightsPresets, InsightsDatePreset } from '@/hooks/useAvailableDatePresets';
+import { useAvailableInsightsPresets, InsightsDatePreset, PRESEASON_START, SUMMER_START } from '@/hooks/useAvailableDatePresets';
 
 import { Calendar as CalendarIcon, Lock, BarChart3 } from 'lucide-react';
-import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
+import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO, isSameDay, addDays } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -41,12 +41,11 @@ export default function Insights() {
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<InsightsTab>('overview');
   
-  // Set initial preset to first available (or preseason as fallback)
+  // Set initial preset to first available (smallest range)
   useEffect(() => {
     if (availablePresets.length > 0 && !availablePresets.includes(datePreset)) {
-      // Default to 'week' if available, otherwise first available
-      const defaultPreset = availablePresets.includes('week') ? 'week' : availablePresets[0];
-      setDatePreset(defaultPreset);
+      // Auto-select the first (smallest) available preset
+      setDatePreset(availablePresets[0]);
     }
   }, [availablePresets]);
   
@@ -136,7 +135,6 @@ export default function Insights() {
   
   const getDateRange = (preset: DatePreset) => {
     const now = new Date();
-    const summerStartDate = new Date('2026-04-12');
     
     switch (preset) {
       case 'yesterday':
@@ -148,7 +146,7 @@ export default function Insights() {
       case 'lastWeek':
         const thisWeekStart = startOfWeek(now, { weekStartsOn: 0 });
         const lastWeekStart = subDays(thisWeekStart, 7);
-        const lastWeekEnd = subDays(thisWeekStart, 2);
+        const lastWeekEnd = subDays(thisWeekStart, 1);
         return { start: lastWeekStart, end: lastWeekEnd };
       case 'month':
         return { start: startOfMonth(now), end: now };
@@ -156,9 +154,10 @@ export default function Insights() {
         const lastMonthDate = subMonths(now, 1);
         return { start: startOfMonth(lastMonthDate), end: endOfMonth(lastMonthDate) };
       case 'preseason':
-        return { start: startOfYear(now), end: now < summerStartDate ? now : summerStartDate };
+        // Preseason: Sept 28, 2025 to April 12, 2026 (or now if before summer)
+        return { start: PRESEASON_START, end: now < SUMMER_START ? now : SUMMER_START };
       case 'custom':
-        return { start: customStartDate || new Date('2025-01-01'), end: customEndDate || now };
+        return { start: customStartDate || PRESEASON_START, end: customEndDate || now };
       default:
         return { start: startOfMonth(now), end: endOfMonth(now) };
     }
