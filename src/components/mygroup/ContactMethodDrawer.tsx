@@ -49,6 +49,7 @@ export const ContactMethodDrawer = ({
         recruitPhone: recruit.phone,
         teamId: recruit.teamId,
         teamName: recruit.teamName,
+        leaderPhoneHint: recruit.teamLeaderPhone,
       });
     }
 

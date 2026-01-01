@@ -365,6 +365,7 @@ export const RecruitDetailDrawer = ({
       recruitPhone: recruit.phone,
       teamId: recruit.teamId,
       teamName: recruit.teamName,
+      leaderPhoneHint: recruit.teamLeaderPhone,
     });
 
     logActivityMutation.mutate({
