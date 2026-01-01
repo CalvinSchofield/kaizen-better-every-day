@@ -91,7 +91,7 @@ export function RecapTimingSlide({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.4 }}
-        className="space-y-3 w-full max-w-xs"
+        className="space-y-3 w-full max-w-xs mx-auto"
       >
         {/* Total Hours - prominent */}
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-4 mb-4">
