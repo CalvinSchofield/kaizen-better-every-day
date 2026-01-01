@@ -20,17 +20,19 @@ function RecordItem({ icon: Icon, label, value, previousBest, delay }: RecordIte
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay, duration: 0.4 }}
-      className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30"
+      className="flex items-center gap-3 p-4 rounded-2xl bg-amber-900/40 border-l-4 border-amber-500"
     >
-      <div className="w-10 h-10 rounded-full bg-yellow-500/30 flex items-center justify-center flex-shrink-0">
-        <Icon className="w-5 h-5 text-yellow-400" />
+      <div className="w-11 h-11 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-5 h-5 text-amber-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-yellow-200/80 truncate">{label}</p>
-        <p className="text-lg font-bold text-yellow-300">{value}</p>
-        <p className="text-xs text-muted-foreground">Prev: {previousBest}</p>
+        <p className="text-xs text-foreground/70 truncate">{label}</p>
+        <p className="text-xl font-bold text-foreground">{value}</p>
+        <p className="text-xs text-muted-foreground">Previous: {previousBest}</p>
       </div>
-      <Trophy className="w-6 h-6 text-yellow-400 flex-shrink-0" />
+      <div className="w-10 h-10 rounded-full bg-amber-500/30 flex items-center justify-center flex-shrink-0">
+        <Trophy className="w-5 h-5 text-amber-400" />
+      </div>
     </motion.div>
   );
 }
@@ -144,16 +146,16 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 15 }}
-        className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center mb-4"
+        className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4"
       >
-        <Trophy className="w-8 h-8 text-yellow-400" />
+        <Trophy className="w-8 h-8 text-amber-400" />
       </motion.div>
       
       <motion.h2
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="text-sm uppercase tracking-widest text-yellow-400 mb-1"
+        className="text-sm uppercase tracking-widest text-amber-400 mb-1"
       >
         Personal Records
       </motion.h2>
@@ -167,7 +169,7 @@ export function RecapRecordsSlide({ records }: RecapRecordsSlideProps) {
         You crushed {recordsList.length} {recordsList.length === 1 ? 'record' : 'records'}! 🎉
       </motion.p>
       
-      <div className="w-full max-w-sm space-y-2">
+      <div className="w-full max-w-sm space-y-3">
         {recordsList.map((record, index) => (
           <RecordItem
             key={record.key}
