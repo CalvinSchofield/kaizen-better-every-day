@@ -2,6 +2,31 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, parseISO } from 'date-fns';
 
+interface DealBreakdown {
+  totalDeals: number;
+  fpDeals: number;
+  upgradeDeals: number;
+  avgTimeToSell: number | null;
+  avgTimeByType: { fp: number | null; upgrade: number | null };
+  totalMoneySpent: number;
+  avgSpentPerDeal: number;
+  hasCrmData: boolean;
+}
+
+interface InputComparison {
+  doors: number;
+  pitches: number;
+  transitions: number;
+  presentations: number;
+  closes: number;
+}
+
+interface TimeComparison {
+  hoursWorked: number;
+  avgStartTime: { earlier: boolean; diff: number } | null;
+  avgEndTime: { later: boolean; diff: number } | null;
+}
+
 export interface RecapStats {
   period: 'week' | 'month';
   periodLabel: string;
@@ -35,19 +60,34 @@ export interface RecapStats {
   
   // Comparisons to previous period
   comparison: {
-    doors: number; // percentage change
+    doors: number;
     fpPlus: number;
     hoursWorked: number;
     daysWorked: number;
   };
   
+  // Input comparisons
+  inputComparison: InputComparison;
+  
+  // Time comparisons
+  timeComparison: TimeComparison;
+  
   // Personal records (if any were set this period)
   records: {
     mostDoorsInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostPitchesInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostTransitionsInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostPresentationsInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostClosesInDay: { isRecord: boolean; value: number; previousBest: number };
     mostFpInDay: { isRecord: boolean; value: number; previousBest: number };
+    mostPrmrInDay: { isRecord: boolean; value: number; previousBest: number };
     mostHoursInDay: { isRecord: boolean; value: number; previousBest: number };
     earliestStart: { isRecord: boolean; value: string | null; previousBest: string | null };
+    latestEnd: { isRecord: boolean; value: string | null; previousBest: string | null };
   };
+  
+  // CRM/Deal data (only if user has CRM enabled)
+  dealBreakdown?: DealBreakdown;
 }
 
 function calculateHoursWorked(entry: any): number {
@@ -85,7 +125,6 @@ function getLocalHour(timestamp: string, timezone: string): number {
   }
 }
 
-// Get decimal time (hours + minutes as fraction) in user's timezone
 function getLocalDecimalTime(timestamp: string, timezone: string): number {
   try {
     const date = new Date(timestamp);
@@ -115,6 +154,59 @@ function formatTimeFromDecimal(decimal: number): string {
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
+function parseSalesLog(salesLog: any): { type: string; money_spent: number; time_to_sell_minutes: number }[] {
+  if (!salesLog || !Array.isArray(salesLog)) return [];
+  return salesLog.map((item: any) => ({
+    type: item.type || 'FP',
+    money_spent: parseFloat(item.money_spent) || 0,
+    time_to_sell_minutes: parseFloat(item.time_to_sell_minutes) || 0,
+  }));
+}
+
+function calculateDealBreakdown(entries: any[]): DealBreakdown | undefined {
+  const allDeals: { type: string; money_spent: number; time_to_sell_minutes: number }[] = [];
+  
+  for (const entry of entries) {
+    const deals = parseSalesLog(entry.sales_log);
+    allDeals.push(...deals);
+  }
+  
+  if (allDeals.length === 0) {
+    return undefined;
+  }
+  
+  const fpDeals = allDeals.filter(d => d.type === 'FP' || d.type === 'Fresh' || d.type === 'Takeover');
+  const upgradeDeals = allDeals.filter(d => d.type === 'Upgrade' || d.type === 'UPG');
+  
+  const totalMoneySpent = allDeals.reduce((sum, d) => sum + d.money_spent, 0);
+  
+  const dealsWithTime = allDeals.filter(d => d.time_to_sell_minutes > 0);
+  const avgTimeToSell = dealsWithTime.length > 0 
+    ? dealsWithTime.reduce((sum, d) => sum + d.time_to_sell_minutes, 0) / dealsWithTime.length 
+    : null;
+  
+  const fpDealsWithTime = fpDeals.filter(d => d.time_to_sell_minutes > 0);
+  const upgradeDealsWithTime = upgradeDeals.filter(d => d.time_to_sell_minutes > 0);
+  
+  return {
+    totalDeals: allDeals.length,
+    fpDeals: fpDeals.length,
+    upgradeDeals: upgradeDeals.length,
+    avgTimeToSell,
+    avgTimeByType: {
+      fp: fpDealsWithTime.length > 0 
+        ? fpDealsWithTime.reduce((sum, d) => sum + d.time_to_sell_minutes, 0) / fpDealsWithTime.length 
+        : null,
+      upgrade: upgradeDealsWithTime.length > 0 
+        ? upgradeDealsWithTime.reduce((sum, d) => sum + d.time_to_sell_minutes, 0) / upgradeDealsWithTime.length 
+        : null,
+    },
+    totalMoneySpent,
+    avgSpentPerDeal: allDeals.length > 0 ? totalMoneySpent / allDeals.length : 0,
+    hasCrmData: true,
+  };
+}
+
 export function useRecapData(period: 'week' | 'month') {
   return useQuery({
     queryKey: ['recap-data', period],
@@ -122,14 +214,15 @@ export function useRecapData(period: 'week' | 'month') {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      // Get user timezone
+      // Get user timezone and CRM settings
       const { data: repData } = await supabase
         .from('reps')
-        .select('timezone')
+        .select('timezone, crm_enabled')
         .eq('user_id', user.id)
         .single();
       
       const timezone = repData?.timezone || 'America/Los_Angeles';
+      const crmEnabled = repData?.crm_enabled || false;
 
       // Calculate date ranges
       const now = new Date();
@@ -137,7 +230,6 @@ export function useRecapData(period: 'week' | 'month') {
       let periodLabel: string;
 
       if (period === 'week') {
-        // Last week (Sun-Sat)
         const lastWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 0 });
         currentStart = lastWeekStart;
         currentEnd = endOfWeek(lastWeekStart, { weekStartsOn: 0 });
@@ -145,7 +237,6 @@ export function useRecapData(period: 'week' | 'month') {
         prevEnd = endOfWeek(prevStart, { weekStartsOn: 0 });
         periodLabel = `Week of ${format(currentStart, 'MMM d')}`;
       } else {
-        // Last month
         const lastMonthStart = startOfMonth(subMonths(now, 1));
         currentStart = lastMonthStart;
         currentEnd = endOfMonth(lastMonthStart);
@@ -180,7 +271,7 @@ export function useRecapData(period: 'week' | 'month') {
       // Fetch all-time entries for records
       const { data: allEntries } = await supabase
         .from('daily_entries')
-        .select('doors_knocked, fp_plus, work_start_time, work_end_time, break_periods')
+        .select('doors_knocked, pitches, transitions, presentations, closes, fp_plus, prmr, work_start_time, work_end_time, break_periods')
         .eq('user_id', user.id)
         .eq('is_finalized', true)
         .lt('entry_date', currentStartStr);
@@ -210,14 +301,11 @@ export function useRecapData(period: 'week' | 'month') {
 
       currentEntries.forEach(entry => {
         if (entry.work_start_time) {
-          // Use timezone-aware conversion to get local time
           startTimes.push(getLocalDecimalTime(entry.work_start_time, timezone));
         }
         if (entry.work_end_time) {
-          // Use timezone-aware conversion to get local time
           endTimes.push(getLocalDecimalTime(entry.work_end_time, timezone));
         }
-        // Count doors per hour for peak hour
         if (entry.counter_timestamps && typeof entry.counter_timestamps === 'object') {
           const timestamps = entry.counter_timestamps as Record<string, string[]>;
           const doorTimestamps = timestamps.doors_knocked || [];
@@ -228,12 +316,15 @@ export function useRecapData(period: 'week' | 'month') {
         }
       });
 
-      const avgStartTime = startTimes.length > 0 
-        ? formatTimeFromDecimal(startTimes.reduce((a, b) => a + b, 0) / startTimes.length)
+      const avgStartDecimal = startTimes.length > 0 
+        ? startTimes.reduce((a, b) => a + b, 0) / startTimes.length
         : null;
-      const avgEndTime = endTimes.length > 0
-        ? formatTimeFromDecimal(endTimes.reduce((a, b) => a + b, 0) / endTimes.length)
+      const avgEndDecimal = endTimes.length > 0
+        ? endTimes.reduce((a, b) => a + b, 0) / endTimes.length
         : null;
+
+      const avgStartTime = avgStartDecimal !== null ? formatTimeFromDecimal(avgStartDecimal) : null;
+      const avgEndTime = avgEndDecimal !== null ? formatTimeFromDecimal(avgEndDecimal) : null;
 
       // Find peak hour
       let peakHour: number | null = null;
@@ -260,11 +351,33 @@ export function useRecapData(period: 'week' | 'month') {
 
       // Calculate previous period stats for comparison
       const prevDoors = prevEntries?.reduce((sum, e) => sum + (e.doors_knocked || 0), 0) || 0;
+      const prevPitches = prevEntries?.reduce((sum, e) => sum + (e.pitches || 0), 0) || 0;
+      const prevTransitions = prevEntries?.reduce((sum, e) => sum + (e.transitions || 0), 0) || 0;
+      const prevPresentations = prevEntries?.reduce((sum, e) => sum + (e.presentations || 0), 0) || 0;
+      const prevCloses = prevEntries?.reduce((sum, e) => sum + (e.closes || 0), 0) || 0;
       const prevFpPlus = prevEntries?.reduce((sum, e) => sum + (e.fp_plus || 0), 0) || 0;
       const prevHours = prevEntries?.reduce((sum, e) => sum + calculateHoursWorked(e), 0) || 0;
       const prevDaysWorked = prevEntries?.filter(e => 
         (e.doors_knocked || 0) >= 4 && e.work_start_time && e.work_end_time
       ).length || 0;
+
+      // Calculate previous period avg times
+      const prevStartTimes: number[] = [];
+      const prevEndTimes: number[] = [];
+      prevEntries?.forEach(entry => {
+        if (entry.work_start_time) {
+          prevStartTimes.push(getLocalDecimalTime(entry.work_start_time, timezone));
+        }
+        if (entry.work_end_time) {
+          prevEndTimes.push(getLocalDecimalTime(entry.work_end_time, timezone));
+        }
+      });
+      const prevAvgStartDecimal = prevStartTimes.length > 0 
+        ? prevStartTimes.reduce((a, b) => a + b, 0) / prevStartTimes.length
+        : null;
+      const prevAvgEndDecimal = prevEndTimes.length > 0
+        ? prevEndTimes.reduce((a, b) => a + b, 0) / prevEndTimes.length
+        : null;
 
       const comparison = {
         doors: prevDoors > 0 ? ((totalDoors - prevDoors) / prevDoors) * 100 : 0,
@@ -273,13 +386,36 @@ export function useRecapData(period: 'week' | 'month') {
         daysWorked: prevDaysWorked > 0 ? ((daysWorked - prevDaysWorked) / prevDaysWorked) * 100 : 0
       };
 
-      // Check for personal records
+      const inputComparison: InputComparison = {
+        doors: prevDoors > 0 ? ((totalDoors - prevDoors) / prevDoors) * 100 : 0,
+        pitches: prevPitches > 0 ? ((totalPitches - prevPitches) / prevPitches) * 100 : 0,
+        transitions: prevTransitions > 0 ? ((totalTransitions - prevTransitions) / prevTransitions) * 100 : 0,
+        presentations: prevPresentations > 0 ? ((totalPresentations - prevPresentations) / prevPresentations) * 100 : 0,
+        closes: prevCloses > 0 ? ((totalCloses - prevCloses) / prevCloses) * 100 : 0,
+      };
+
+      const timeComparison: TimeComparison = {
+        hoursWorked: prevHours > 0 ? ((totalHoursWorked - prevHours) / prevHours) * 100 : 0,
+        avgStartTime: avgStartDecimal !== null && prevAvgStartDecimal !== null
+          ? { earlier: avgStartDecimal < prevAvgStartDecimal, diff: Math.abs(avgStartDecimal - prevAvgStartDecimal) * 60 }
+          : null,
+        avgEndTime: avgEndDecimal !== null && prevAvgEndDecimal !== null
+          ? { later: avgEndDecimal > prevAvgEndDecimal, diff: Math.abs(avgEndDecimal - prevAvgEndDecimal) * 60 }
+          : null,
+      };
+
+      // Check for personal records - all-time
       const allTimeBestDoors = allEntries?.reduce((max, e) => Math.max(max, e.doors_knocked || 0), 0) || 0;
+      const allTimeBestPitches = allEntries?.reduce((max, e) => Math.max(max, e.pitches || 0), 0) || 0;
+      const allTimeBestTransitions = allEntries?.reduce((max, e) => Math.max(max, e.transitions || 0), 0) || 0;
+      const allTimeBestPresentations = allEntries?.reduce((max, e) => Math.max(max, e.presentations || 0), 0) || 0;
+      const allTimeBestCloses = allEntries?.reduce((max, e) => Math.max(max, e.closes || 0), 0) || 0;
       const allTimeBestFp = allEntries?.reduce((max, e) => Math.max(max, e.fp_plus || 0), 0) || 0;
+      const allTimeBestPrmr = allEntries?.reduce((max, e) => Math.max(max, e.prmr || 0), 0) || 0;
       const allTimeBestHours = allEntries?.reduce((max, e) => Math.max(max, calculateHoursWorked(e)), 0) || 0;
       
-      // Get earliest start time from all-time entries
       let allTimeEarliestStart: number | null = null;
+      let allTimeLatestEnd: number | null = null;
       allEntries?.forEach(e => {
         if (e.work_start_time) {
           const decimal = getLocalDecimalTime(e.work_start_time, timezone);
@@ -287,19 +423,36 @@ export function useRecapData(period: 'week' | 'month') {
             allTimeEarliestStart = decimal;
           }
         }
+        if (e.work_end_time) {
+          const decimal = getLocalDecimalTime(e.work_end_time, timezone);
+          if (allTimeLatestEnd === null || decimal > allTimeLatestEnd) {
+            allTimeLatestEnd = decimal;
+          }
+        }
       });
       
       const currentBestDoors = Math.max(...currentEntries.map(e => e.doors_knocked || 0));
+      const currentBestPitches = Math.max(...currentEntries.map(e => e.pitches || 0));
+      const currentBestTransitions = Math.max(...currentEntries.map(e => e.transitions || 0));
+      const currentBestPresentations = Math.max(...currentEntries.map(e => e.presentations || 0));
+      const currentBestCloses = Math.max(...currentEntries.map(e => e.closes || 0));
       const currentBestFp = Math.max(...currentEntries.map(e => e.fp_plus || 0));
+      const currentBestPrmr = Math.max(...currentEntries.map(e => e.prmr || 0));
       const currentBestHours = Math.max(...currentEntries.map(e => calculateHoursWorked(e)));
       
-      // Get earliest start time from current period
       let currentEarliestStart: number | null = null;
+      let currentLatestEnd: number | null = null;
       currentEntries.forEach(e => {
         if (e.work_start_time) {
           const decimal = getLocalDecimalTime(e.work_start_time, timezone);
           if (currentEarliestStart === null || decimal < currentEarliestStart) {
             currentEarliestStart = decimal;
+          }
+        }
+        if (e.work_end_time) {
+          const decimal = getLocalDecimalTime(e.work_end_time, timezone);
+          if (currentLatestEnd === null || decimal > currentLatestEnd) {
+            currentLatestEnd = decimal;
           }
         }
       });
@@ -310,10 +463,35 @@ export function useRecapData(period: 'week' | 'month') {
           value: currentBestDoors,
           previousBest: allTimeBestDoors
         },
+        mostPitchesInDay: {
+          isRecord: currentBestPitches > allTimeBestPitches,
+          value: currentBestPitches,
+          previousBest: allTimeBestPitches
+        },
+        mostTransitionsInDay: {
+          isRecord: currentBestTransitions > allTimeBestTransitions,
+          value: currentBestTransitions,
+          previousBest: allTimeBestTransitions
+        },
+        mostPresentationsInDay: {
+          isRecord: currentBestPresentations > allTimeBestPresentations,
+          value: currentBestPresentations,
+          previousBest: allTimeBestPresentations
+        },
+        mostClosesInDay: {
+          isRecord: currentBestCloses > allTimeBestCloses,
+          value: currentBestCloses,
+          previousBest: allTimeBestCloses
+        },
         mostFpInDay: {
           isRecord: currentBestFp > allTimeBestFp,
           value: currentBestFp,
           previousBest: allTimeBestFp
+        },
+        mostPrmrInDay: {
+          isRecord: currentBestPrmr > allTimeBestPrmr,
+          value: currentBestPrmr,
+          previousBest: allTimeBestPrmr
         },
         mostHoursInDay: {
           isRecord: currentBestHours > allTimeBestHours,
@@ -324,8 +502,16 @@ export function useRecapData(period: 'week' | 'month') {
           isRecord: currentEarliestStart !== null && (allTimeEarliestStart === null || currentEarliestStart < allTimeEarliestStart),
           value: currentEarliestStart !== null ? formatTimeFromDecimal(currentEarliestStart) : null,
           previousBest: allTimeEarliestStart !== null ? formatTimeFromDecimal(allTimeEarliestStart) : null
-        }
+        },
+        latestEnd: {
+          isRecord: currentLatestEnd !== null && (allTimeLatestEnd === null || currentLatestEnd > allTimeLatestEnd),
+          value: currentLatestEnd !== null ? formatTimeFromDecimal(currentLatestEnd) : null,
+          previousBest: allTimeLatestEnd !== null ? formatTimeFromDecimal(allTimeLatestEnd) : null
+        },
       };
+
+      // Calculate deal breakdown if CRM is enabled
+      const dealBreakdown = crmEnabled ? calculateDealBreakdown(currentEntries) : undefined;
 
       return {
         period,
@@ -346,7 +532,10 @@ export function useRecapData(period: 'week' | 'month') {
         totalFpPlus,
         totalPrmr,
         comparison,
-        records
+        inputComparison,
+        timeComparison,
+        records,
+        dealBreakdown,
       };
     },
     staleTime: 5 * 60 * 1000,

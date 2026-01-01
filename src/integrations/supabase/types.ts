@@ -546,6 +546,51 @@ export type Database = {
         }
         Relationships: []
       }
+      personal_recaps: {
+        Row: {
+          created_at: string | null
+          days_worked: number
+          id: string
+          period_end: string
+          period_label: string | null
+          period_start: string
+          period_type: string
+          stats_json: Json | null
+          total_fp: number | null
+          total_prmr: number | null
+          user_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_worked?: number
+          id?: string
+          period_end: string
+          period_label?: string | null
+          period_start: string
+          period_type: string
+          stats_json?: Json | null
+          total_fp?: number | null
+          total_prmr?: number | null
+          user_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_worked?: number
+          id?: string
+          period_end?: string
+          period_label?: string | null
+          period_start?: string
+          period_type?: string
+          stats_json?: Json | null
+          total_fp?: number | null
+          total_prmr?: number | null
+          user_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: []
+      }
       personal_records: {
         Row: {
           achieved_at: string | null

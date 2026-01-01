@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { DoorOpen, Users, MessageSquare, ArrowRightLeft, Presentation, CheckCircle } from 'lucide-react';
 import { RecapStats } from '@/hooks/useRecapData';
 import { RecapCoverSlide } from './RecapCoverSlide';
-import { RecapStatSlide } from './RecapStatSlide';
+import { RecapInputsSlide } from './RecapInputsSlide';
 import { RecapBestDaySlide } from './RecapBestDaySlide';
 import { RecapTimingSlide } from './RecapTimingSlide';
 import { RecapComparisonSlide } from './RecapComparisonSlide';
 import { RecapSummarySlide } from './RecapSummarySlide';
 import { RecapRecordsSlide } from './RecapRecordsSlide';
 import { RecapMeVsMeSlide } from './RecapMeVsMeSlide';
+import { RecapDealBreakdownSlide } from './RecapDealBreakdownSlide';
 import { useRecapMeVsMeComparison } from '@/hooks/useRecapMeVsMeComparison';
 import { useMeVsMe } from '@/hooks/useMeVsMe';
 import { useEfpMode } from '@/hooks/useEfpMode';
@@ -42,40 +42,34 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [hasTriggeredConfetti, setHasTriggeredConfetti] = useState(false);
   
-  // Me vs Me hooks
   const { isEnabled: meVsMeEnabled } = useMeVsMe();
   const { efpModeEnabled } = useEfpMode();
   const { data: meVsMeData } = useRecapMeVsMeComparison(stats.period);
 
   // Check if any personal records were set
-  const hasRecords = 
-    stats.records.mostDoorsInDay.isRecord ||
-    stats.records.mostFpInDay.isRecord ||
-    stats.records.mostHoursInDay.isRecord ||
-    stats.records.earliestStart.isRecord;
+  const hasRecords = Object.values(stats.records).some(r => r.isRecord);
 
   // Build slides array based on available data
   const slides: React.ReactNode[] = [
     <RecapCoverSlide key="cover" stats={stats} />,
-    <RecapStatSlide 
-      key="doors" 
-      icon={DoorOpen} 
-      label="Doors Knocked" 
-      value={stats.totalDoors}
-      subtitle={`${stats.daysWorked} days worked`}
-      isRecord={stats.records.mostDoorsInDay.isRecord}
+    <RecapInputsSlide 
+      key="inputs"
+      doors={stats.totalDoors}
+      pitches={stats.totalPitches}
+      transitions={stats.totalTransitions}
+      presentations={stats.totalPresentations}
+      closes={stats.totalCloses}
+      daysWorked={stats.daysWorked}
+      comparison={stats.inputComparison}
     />,
-    <RecapStatSlide 
-      key="transitions" 
-      icon={ArrowRightLeft} 
-      label="Transitions" 
-      value={stats.totalTransitions}
-    />,
-    <RecapStatSlide 
-      key="presentations" 
-      icon={Presentation} 
-      label="Presentations" 
-      value={stats.totalPresentations}
+    <RecapTimingSlide 
+      key="timing"
+      avgStartTime={stats.avgStartTime}
+      avgEndTime={stats.avgEndTime}
+      totalHours={stats.totalHoursWorked}
+      peakHour={stats.peakHour}
+      daysWorked={stats.daysWorked}
+      timeComparison={stats.timeComparison}
     />,
   ];
 
@@ -90,20 +84,17 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
     );
   }
 
-  slides.push(
-    <RecapTimingSlide 
-      key="timing"
-      avgStartTime={stats.avgStartTime}
-      avgEndTime={stats.avgEndTime}
-      totalHours={stats.totalHoursWorked}
-      peakHour={stats.peakHour}
-    />
-  );
-
   // Add personal records slide if any records were set
   if (hasRecords) {
     slides.push(
       <RecapRecordsSlide key="records" records={stats.records} />
+    );
+  }
+
+  // Deal breakdown slide (if CRM enabled and has data)
+  if (stats.dealBreakdown && stats.dealBreakdown.totalDeals > 0) {
+    slides.push(
+      <RecapDealBreakdownSlide key="deals" dealBreakdown={stats.dealBreakdown} />
     );
   }
 
@@ -115,7 +106,6 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
     />
   );
 
-  // Get the reviewed month name from the stats date range
   const reviewedMonthName = stats.period === 'month' 
     ? format(stats.dateRange.start, 'MMMM') 
     : undefined;
@@ -141,7 +131,6 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
 
   const totalSlides = slides.length;
 
-  // Trigger confetti on summary slide if they have good results
   useEffect(() => {
     if (currentSlide === totalSlides - 1 && !hasTriggeredConfetti && stats.totalFpPlus > 0) {
       setHasTriggeredConfetti(true);
@@ -177,10 +166,8 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-background"
     >
-      {/* Gradient background */}
       <div className={`absolute inset-0 bg-gradient-to-b ${gradients[gradientIndex]} transition-all duration-500`} />
 
-      {/* Progress dots */}
       <div className="absolute top-4 left-0 right-0 flex justify-center gap-1.5 px-4 z-10">
         {slides.map((_, idx) => (
           <div
@@ -196,7 +183,6 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         ))}
       </div>
 
-      {/* Close button */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 z-10 p-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
@@ -204,8 +190,7 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
         <X className="w-5 h-5" />
       </button>
 
-      {/* Slide content */}
-      <div className="relative h-full pt-12 pb-8">
+      <div className="relative h-full pt-12 pb-8 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -214,14 +199,13 @@ export function RecapStory({ stats, onClose, onComplete }: RecapStoryProps) {
             animate="center"
             exit="exit"
             transition={{ duration: 0.3 }}
-            className="h-full"
+            className="h-full overflow-y-auto"
           >
             {slides[currentSlide]}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Touch areas */}
       <div 
         className="absolute left-0 top-0 w-1/3 h-full z-5"
         onClick={handlePrev}
