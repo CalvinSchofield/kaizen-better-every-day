@@ -18,7 +18,7 @@ import { useLeaderInteractions } from "@/hooks/useLeaderInteractions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Filter, X, Clock, CheckCircle2, XCircle, Pencil, Trash2, LayoutGrid, Search } from "lucide-react";
-import { TodaysFocusHero, OverdueScheduledItem } from "@/components/mygroup/TodaysFocusHero";
+import { TodaysFocusHero, OverdueScheduledItem, TodayScheduledItem } from "@/components/mygroup/TodaysFocusHero";
 import { NeedsAttentionChips } from "@/components/mygroup/NeedsAttentionChips";
 import { NeedsAttentionDrawer } from "@/components/mygroup/NeedsAttentionDrawer";
 import { QuickViewDrawer } from "@/components/mygroup/QuickViewDrawer";
@@ -610,11 +610,51 @@ const MyGroup = () => {
     return overdueItems[0] || null;
   }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable]);
 
-  // Fallback: if no top recommendation AND no overdue, find the top priority from Needs Attention
+  // Calculate today's scheduled items - Priority 2 (after overdue, before other recommendations)
+  const todayScheduledItem = useMemo<TodayScheduledItem | null>(() => {
+    if (!isHeroDataStable) return null;
+    // Skip if we have overdue items (those take priority)
+    if (overdueScheduledFallback) return null;
+
+    const today = startOfToday();
+    
+    // Get latest next action for each recruit (only incomplete tasks due today)
+    const todayItems: TodayScheduledItem[] = [];
+    const latestNextActions = new Map<string, typeof filteredActivities[0]>();
+    
+    filteredActivities.forEach(activity => {
+      if (activity.next_action_due && activity.next_action && activity.recruit_id && !activity.completed_at) {
+        const existing = latestNextActions.get(activity.recruit_id);
+        if (!existing || parseISO(activity.created_at) > parseISO(existing.created_at)) {
+          latestNextActions.set(activity.recruit_id, activity);
+        }
+      }
+    });
+
+    latestNextActions.forEach((activity, rId) => {
+      const dueDate = parseISO(activity.next_action_due!);
+      if (isDateToday(dueDate)) {
+        const recruit = filteredRecruits.find(r => r.id === rId);
+        if (recruit && 
+            !isSkipped(recruit.id) && 
+            !isRecuitDismissed(recruit.id)) {
+          todayItems.push({ recruit, activity });
+        }
+      }
+    });
+
+    // Sort by created_at (oldest first - do them in order scheduled)
+    todayItems.sort((a, b) => 
+      parseISO(a.activity.created_at).getTime() - parseISO(b.activity.created_at).getTime()
+    );
+    return todayItems[0] || null;
+  }, [filteredActivities, filteredRecruits, isSkipped, isRecuitDismissed, isHeroDataStable, overdueScheduledFallback]);
+
+  // Fallback: if no top recommendation AND no overdue AND no today items, find the top priority from Needs Attention
   // (respecting skip functionality)
   const needsAttentionFallback = useMemo(() => {
-    // Only show fallback if there's no top recommendation AND no overdue items AND data is stable
-    if (topRecommendation || overdueScheduledFallback || !isHeroDataStable) return null;
+    // Only show fallback if there's no top recommendation AND no overdue items AND no today items AND data is stable
+    if (topRecommendation || overdueScheduledFallback || todayScheduledItem || !isHeroDataStable) return null;
     
     // Flatten all recruits from all categories and filter out skipped ones
     for (const category of categories) {
@@ -626,7 +666,7 @@ const MyGroup = () => {
       }
     }
     return null;
-  }, [topRecommendation, overdueScheduledFallback, categories, isSkipped, isRecuitDismissed, isHeroDataStable]);
+  }, [topRecommendation, overdueScheduledFallback, todayScheduledItem, categories, isSkipped, isRecuitDismissed, isHeroDataStable]);
 
   // Get selected category for drawer
   const selectedCategory = useMemo(() => {
@@ -824,6 +864,7 @@ const MyGroup = () => {
                 topRecommendation={topRecommendation}
                 summerRecommendation={topSummerRecommendation}
                 overdueScheduledFallback={overdueScheduledFallback}
+                todayScheduledItem={todayScheduledItem}
                 needsAttentionFallback={needsAttentionFallback}
                 totalNeedsAttention={totalCount}
                 onRecruitClick={handleRecruitClick}

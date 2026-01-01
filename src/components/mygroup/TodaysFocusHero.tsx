@@ -22,10 +22,17 @@ export interface OverdueScheduledItem {
   daysOverdue: number;
 }
 
+// Today's scheduled item type
+export interface TodayScheduledItem {
+  recruit: Recruit;
+  activity: RecruitActivity;
+}
+
 interface TodaysFocusHeroProps {
   topRecommendation: RecruitRecommendation | null;
   summerRecommendation?: SummerRecommendation | null;
   overdueScheduledFallback?: OverdueScheduledItem | null;
+  todayScheduledItem?: TodayScheduledItem | null;
   needsAttentionFallback?: AttentionRecruit | null;
   totalNeedsAttention: number;
   onRecruitClick: (recruit: Recruit) => void;
@@ -88,6 +95,7 @@ export const TodaysFocusHero = ({
   topRecommendation, 
   summerRecommendation,
   overdueScheduledFallback,
+  todayScheduledItem,
   needsAttentionFallback,
   totalNeedsAttention,
   onRecruitClick,
@@ -297,6 +305,97 @@ export const TodaysFocusHero = ({
             variant="outline"
             size="lg"
             onClick={handleOverdueReschedule}
+            className="gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Reschedule
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Priority 2: Today's Scheduled Items (tasks due today)
+  if (todayScheduledItem) {
+    const { recruit, activity } = todayScheduledItem;
+
+    const handleTodaySkipForNow = () => {
+      onSkipForNow?.(recruit);
+    };
+
+    const handleTodaySkipToday = () => {
+      onSkipToday?.(recruit);
+    };
+
+    const handleTodayContact = () => {
+      onContactClick?.(recruit);
+    };
+
+    const handleTodayReschedule = () => {
+      onScheduleClick?.(recruit);
+    };
+
+    return (
+      <div 
+        className={cn(
+          "rounded-2xl p-5 border-2 transition-all duration-300",
+          "border-blue-500/30 bg-blue-500/5",
+          animatingOut && "animate-fade-out opacity-0 scale-95"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 rounded-full bg-blue-500/10">
+            <ClipboardList className="h-5 w-5 text-blue-500" />
+          </div>
+          <span className="text-sm font-medium text-blue-600">Scheduled for Today</span>
+          <div className="ml-auto flex items-center gap-1">
+            <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-600 bg-blue-500/10">
+              Due today
+            </Badge>
+            <SkipMenu 
+              onSkipForNow={handleTodaySkipForNow}
+              onSkipToday={handleTodaySkipToday}
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7"
+            />
+          </div>
+        </div>
+
+        <div 
+          className="cursor-pointer"
+          onClick={() => onRecruitClick(recruit)}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-xl font-semibold">
+              {stripEmojis(recruit.name)}
+            </h2>
+            <Badge 
+              variant="outline" 
+              className="text-xs border-muted-foreground/30 text-muted-foreground"
+            >
+              {recruit.stage}
+            </Badge>
+          </div>
+          
+          <p className="text-sm text-muted-foreground mb-3">
+            {activity.next_action || 'Follow-up'}
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button 
+            className="flex-1 gap-2"
+            size="lg"
+            onClick={handleTodayContact}
+          >
+            <UserRoundSearch className="h-4 w-4" />
+            Contact Now
+          </Button>
+          <Button 
+            variant="outline"
+            size="lg"
+            onClick={handleTodayReschedule}
             className="gap-2"
           >
             <Calendar className="h-4 w-4" />
