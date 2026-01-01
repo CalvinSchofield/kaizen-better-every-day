@@ -1,6 +1,7 @@
 import { UserRoundSearch, Calendar, Sparkles, AlertTriangle, Trophy, Flame, Bell, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RecruitRecommendation } from "@/hooks/useRecruitingRecommendations";
 import { SummerRecommendation } from "@/hooks/useSummerRecommendations";
 import { Recruit, RecruitActivity } from "@/hooks/useGroupRecruits";
@@ -35,6 +36,7 @@ interface TodaysFocusHeroProps {
   onSkipForNow?: (recruit: Recruit) => void;
   onSkipToday?: (recruit: Recruit) => void;
   animatingOut?: boolean;
+  isLoading?: boolean;
 }
 
 // Strip emojis from name
@@ -92,8 +94,30 @@ export const TodaysFocusHero = ({
   onScheduleClick,
   onSkipForNow,
   onSkipToday,
-  animatingOut = false
+  animatingOut = false,
+  isLoading = false
 }: TodaysFocusHeroProps) => {
+
+  // Show skeleton while loading to prevent hero flash
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border-2 border-border/50 bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-6 w-28" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-12 flex-1 rounded-xl" />
+          <Skeleton className="h-12 flex-1 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   // Determine which recommendation to show (summer takes priority for BAGEL/RECORD)
   const showSummer = summerRecommendation && 
