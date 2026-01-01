@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const normalizePhoneForSms = (raw: string) => raw.trim().replace(/[^\d+]/g, "");
-const digits10 = (raw: string) => raw.replace(/\D/g, "").slice(-10);
+const toSmsRecipient = (raw: string) => raw.replace(/\D/g, "");
+const digits10 = (raw: string) => toSmsRecipient(raw).slice(-10);
 
 export const openRecruitSmsWithLeaderIfApplicable = async (params: {
   recruitPhone: string;
@@ -9,6 +10,7 @@ export const openRecruitSmsWithLeaderIfApplicable = async (params: {
   teamName?: string | null;
 }) => {
   const recruitPhone = normalizePhoneForSms(params.recruitPhone);
+  const recruitRecipient = toSmsRecipient(recruitPhone);
   const recruitDigits = digits10(recruitPhone);
 
   // Determine leader user id from team, then phone from reps
@@ -27,7 +29,7 @@ export const openRecruitSmsWithLeaderIfApplicable = async (params: {
 
   // If I'm the leader, don't include myself in recipients.
   if (leaderUserId && currentUserId && leaderUserId === currentUserId) {
-    window.location.href = `sms:${recruitPhone}`;
+    window.location.href = `sms:${recruitRecipient}`;
     return { isGroup: false, leaderPhone: null };
   }
 
@@ -55,11 +57,15 @@ export const openRecruitSmsWithLeaderIfApplicable = async (params: {
   }
 
   const leaderDigits = leaderPhone ? digits10(leaderPhone) : null;
-  const canGroup = !!leaderPhone && !!leaderDigits && leaderDigits !== recruitDigits;
+  const leaderRecipient = leaderPhone ? toSmsRecipient(leaderPhone) : null;
 
-  window.location.href = canGroup
-    ? `sms:${recruitPhone},${leaderPhone}`
-    : `sms:${recruitPhone}`;
+  const isGroup = !!leaderRecipient && !!leaderDigits && leaderDigits !== recruitDigits;
 
-  return { isGroup: canGroup, leaderPhone: canGroup ? leaderPhone : null };
+  // NOTE: iOS and Android both reliably accept ';' as the multi-recipient delimiter.
+  window.location.href = isGroup
+    ? `sms:${recruitRecipient};${leaderRecipient}`
+    : `sms:${recruitRecipient}`;
+
+  return { isGroup, leaderPhone: isGroup ? leaderPhone : null };
 };
+
