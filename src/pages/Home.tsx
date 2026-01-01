@@ -29,6 +29,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { getDaysUntilBlitz, parseDateAsLocal } from "@/utils/blitzDateUtils";
 import { RookieRampHeroSection } from "@/components/RookieRampHeroSection";
 import { useMondayNightLightsEvent } from "@/hooks/useMondayNightLightsEvent";
+import { hapticSuccess } from "@/utils/haptics";
 import type { PhaseData, PhaseId } from "@/pages/RampToBlitz";
 
 import { PreseasonPrepLeaderboard } from "@/components/PreseasonPrepLeaderboard";
@@ -582,9 +583,7 @@ const Home = () => {
       setAnimateProgress(true);
       
       // Trigger haptic feedback
-      if ('vibrate' in navigator) {
-        navigator.vibrate([100, 50, 100]); // Double vibration pattern
-      }
+      hapticSuccess();
       
       // Trigger confetti
       confetti({

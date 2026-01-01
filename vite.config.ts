@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB
+        maximumFileSizeToCacheInBytes: 7 * 1024 * 1024, // 7 MiB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         importScripts: ['/sw-custom.js'],
         runtimeCaching: [

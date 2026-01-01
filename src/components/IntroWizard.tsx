@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
 import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList, Camera } from "lucide-react";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
+import { hapticLight, hapticSelection } from "@/utils/haptics";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -165,21 +166,14 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
     onComplete();
   }, [onComplete]);
 
-  // Haptic feedback
-  const vibrate = () => {
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
-    }
-  };
-
   // Swipe navigation
   const { onTouchStart, onTouchMove, onTouchEnd } = useSwipeNavigation({
     onSwipeLeft: () => {
-      vibrate();
+      hapticSelection();
       handleNext();
     },
     onSwipeRight: () => {
-      vibrate();
+      hapticSelection();
       handlePrev();
     },
     threshold: 50,
@@ -197,7 +191,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           onClick={(e) => {
             e.stopPropagation();
             console.log('Skip clicked');
-            vibrate();
+            hapticLight();
             handleSkip();
           }}
           className="text-muted-foreground pointer-events-auto"
@@ -232,7 +226,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
             onClick={(e) => {
               e.stopPropagation();
               console.log('Dot clicked:', index);
-              vibrate();
+              hapticLight();
               setCurrentSlide(index);
             }}
             className={`w-2 h-2 rounded-full transition-all duration-300 pointer-events-auto ${
@@ -254,7 +248,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           onClick={(e) => {
             e.stopPropagation();
             console.log('Prev button clicked');
-            vibrate();
+            hapticLight();
             handlePrev();
           }}
           disabled={currentSlide === 0}
@@ -267,7 +261,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           onClick={(e) => {
             e.stopPropagation();
             console.log('Next button clicked');
-            vibrate();
+            hapticLight();
             handleNext();
           }}
           className="px-8 h-12 rounded-full font-semibold pointer-events-auto"
