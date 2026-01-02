@@ -25,13 +25,13 @@ export const trackTourSteps: TourStep[] = [
   {
     target: 'track-time-bar',
     title: 'Start Your Day Here',
-    description: 'Tap "Start" when you begin knocking. This tracks your work hours automatically.',
+    description: "Tap 'Start' when you begin knocking or just start tracking! This will track your hours automatically. Pause when you take a quick lunch break, then continue tracking to resume.",
     position: 'bottom',
   },
   {
     target: 'track-counter-grid',
     title: 'Count Your Activity',
-    description: 'Tap any counter to add one. Hold to subtract. Your progress saves automatically.',
+    description: 'Tap any counter to add one. Swipe down to subtract. Your progress saves automatically.',
     position: 'bottom',
   },
   {
@@ -40,13 +40,20 @@ export const trackTourSteps: TourStep[] = [
     description: 'This is the big one! Tap here each time you close a deal. 🎉',
     position: 'top',
   },
+  {
+    target: 'track-log-sale-sheet',
+    title: 'Capture Deal Details',
+    description: 'After logging a sale, choose between FP or Upgrade. Add your PRMR details here too — this is where you capture everything about the deal!',
+    position: 'top',
+    action: 'openLogSaleSheet',
+  },
 ];
 
 export const calendarTourSteps: TourStep[] = [
   {
     target: 'calendar-grid',
-    title: 'Your Sales Calendar',
-    description: 'Each tile represents a day. Colors show your activity level - darker means you worked that day!',
+    title: 'Your Progress at a Glance',
+    description: "Here you can see how you're doing on any given week or month. Once you set up goals, you'll see the breakdown of your daily and weekly targets.",
     position: 'bottom',
   },
   {
@@ -54,12 +61,6 @@ export const calendarTourSteps: TourStep[] = [
     title: 'Tap to See Details',
     description: 'Tap any day to view or edit your numbers for that date.',
     position: 'bottom',
-  },
-  {
-    target: 'calendar-blitz-indicator',
-    title: 'Understanding the Legend',
-    description: 'Green tiles are days you worked, lighter tiles are planned days. Numbers show your daily sales goal.',
-    position: 'top',
   },
 ];
 
@@ -104,6 +105,13 @@ export const myGroupTourSteps: TourStep[] = [
     position: 'top',
   },
   {
+    target: 'group-recruit-drawer',
+    title: 'Move Them Forward',
+    description: "Tap a recruit to see their full profile. For rookies, this is where you move them along in the process — from first contact all the way to signed!",
+    position: 'top',
+    action: 'openRecruitDrawer',
+  },
+  {
     target: 'group-add-recruit',
     title: 'Add New Recruits',
     description: 'Tap here to add someone new to your pipeline. Build your team!',
@@ -115,7 +123,7 @@ export const customersTourSteps: TourStep[] = [
   {
     target: 'customers-list',
     title: 'Your Customers',
-    description: 'All your sales in one place. Scroll through to see everyone you\'ve helped.',
+    description: "All your sales in one place. Scroll through to see everyone you've helped.",
     position: 'bottom',
   },
   {
