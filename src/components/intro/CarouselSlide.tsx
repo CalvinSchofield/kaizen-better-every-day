@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 interface CarouselItem {
   photo: string;
   name: string;
+  title?: string;
 }
 
 interface CarouselSlideProps {
@@ -95,16 +96,25 @@ export const CarouselSlide = ({
               key={`${item.name}-${index}`}
               className="flex flex-col items-center flex-shrink-0"
             >
-              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary/20 mb-2">
+              <div className={`w-20 h-20 rounded-full overflow-hidden mb-2 ${
+                item.title ? 'border-2 border-primary ring-2 ring-primary/30' : 'border-2 border-primary/20'
+              }`}>
                 <img
                   src={item.photo}
                   alt={item.name}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+              <span className={`text-xs whitespace-nowrap ${
+                item.title ? 'font-semibold text-foreground' : 'text-muted-foreground'
+              }`}>
                 {item.name}
               </span>
+              {item.title && (
+                <span className="text-[10px] text-primary whitespace-nowrap">
+                  {item.title}
+                </span>
+              )}
             </div>
           ))}
         </div>

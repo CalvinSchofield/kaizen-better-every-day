@@ -33,8 +33,9 @@ export interface IntroSlideConfig {
   showConfetti?: boolean;
 }
 
-// Team leads for carousel
+// Team leads for carousel - Calvin first as Area Director, then team leads
 const teamLeads = [
+  { name: "Calvin Schofield", photo: "/images/about-team/calvin.jpg", title: "Area Director" },
   { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpeg" },
   { name: "John Ramer", photo: "/images/about-team/john-ramer.png" },
   { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
@@ -97,19 +98,10 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
       videoUrl: featuredTestimonial.youtubeUrl,
     },
     {
-      id: 'meet-calvin',
-      type: 'image',
-      title: "Meet Calvin",
-      description: "Your Area Director has your back. He built this team to develop elite performers—not just sell alarms.",
-      imageSrc: "/images/about-team/calvin.jpg",
-      imageAlt: "Calvin Schofield - Area Director",
-      overlayPosition: 'bottom',
-    },
-    {
-      id: 'team-leads',
+      id: 'meet-the-team',
       type: 'carousel',
-      title: "Surrounded by Winners",
-      description: "These are your Team Leads. They've been in your shoes and they're here to help you succeed.",
+      title: "Meet Your Leaders",
+      description: "Calvin and his Team Leads have your back. They've been in your shoes and are here to help you succeed.",
       carouselItems: teamLeads,
     },
 

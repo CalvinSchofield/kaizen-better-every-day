@@ -231,20 +231,21 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
       </div>
 
       {/* Navigation buttons */}
-      <div className="flex items-center justify-between p-4 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] pointer-events-auto relative z-10">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            hapticLight();
-            handlePrev();
-          }}
-          disabled={currentSlide === 0}
-          className="w-12 h-12 rounded-full pointer-events-auto"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </Button>
+      <div className="flex items-center justify-end gap-4 p-4 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] pointer-events-auto relative z-10">
+        {currentSlide > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              hapticLight();
+              handlePrev();
+            }}
+            className="w-12 h-12 rounded-full pointer-events-auto absolute left-4"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+        )}
 
         <Button
           onClick={(e) => {
@@ -257,8 +258,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           {isLastSlide ? "Get Started" : "Next"}
           {!isLastSlide && <ChevronRight className="w-5 h-5 ml-1" />}
         </Button>
-
-        <div className="w-12" /> {/* Spacer for alignment */}
       </div>
     </div>
   );
