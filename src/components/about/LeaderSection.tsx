@@ -54,7 +54,7 @@ export const LeaderSection = () => {
     if (!scrollContainer) return;
 
     let animationId: number;
-    const scrollSpeed = 1.5; // pixels per frame (faster)
+    const scrollSpeed = 1.0; // pixels per frame (2x speed)
 
     const animate = () => {
       if (scrollContainer) {
