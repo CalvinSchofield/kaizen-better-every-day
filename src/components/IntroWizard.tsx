@@ -1,4 +1,4 @@
-import { useState, useCallback, ReactNode } from "react";
+import { useState, useCallback, ReactNode, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
@@ -19,6 +19,27 @@ import {
   IntroSlideConfig,
   IconName 
 } from "@/data/introSlides";
+
+// Preload all leader and slide images on mount
+const preloadImages = (slides: IntroSlideConfig[]) => {
+  const imagesToPreload: string[] = [];
+  
+  slides.forEach(slide => {
+    if (slide.imageSrc) imagesToPreload.push(slide.imageSrc);
+    if (slide.videoThumbnail) imagesToPreload.push(slide.videoThumbnail);
+    if (slide.gridItems) {
+      slide.gridItems.forEach(item => imagesToPreload.push(item.photo));
+    }
+    if (slide.carouselItems) {
+      slide.carouselItems.forEach(item => imagesToPreload.push(item.photo));
+    }
+  });
+  
+  imagesToPreload.forEach(src => {
+    const img = new Image();
+    img.src = src;
+  });
+};
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -62,6 +83,11 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   const totalSlides = slides.length;
   const isLastSlide = currentSlide === totalSlides - 1;
   const currentSlideData = slides[currentSlide];
+
+  // Preload all images when wizard mounts
+  useEffect(() => {
+    preloadImages(slides);
+  }, []);
 
   const handleNext = useCallback(() => {
     if (isLastSlide) {
