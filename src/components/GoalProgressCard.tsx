@@ -59,17 +59,30 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const personalSummerStart = seasonConfig?.personal_summer_start;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // FIXED: Determine if we're in preseason based on user's personal_summer_start
-  // If user has a personal summer start date, use that; otherwise use global PRESEASON_END
-  const isInPreseason = useMemo(() => {
+  // Determine if TODAY is in preseason (for current status)
+  const isTodayInPreseason = useMemo(() => {
     if (personalSummerStart) {
       const summerStart = parseISO(personalSummerStart);
       return today < summerStart;
     }
-    // Fallback to global preseason end
     const preseasonEndDate = parseLocalDate(PRESEASON_END);
     return today <= preseasonEndDate;
   }, [today, personalSummerStart]);
+
+  // Determine if the VIEWED DATE (currentDate) is in preseason
+  // This is used for showing the correct goal type for the viewed period
+  const isViewedDateInPreseason = useMemo(() => {
+    const viewedDate = viewMode === "month" ? startOfMonth(currentDate) : startOfWeek(currentDate);
+    if (personalSummerStart) {
+      const summerStart = parseISO(personalSummerStart);
+      return viewedDate < summerStart;
+    }
+    const preseasonEndDate = parseLocalDate(PRESEASON_END);
+    return viewedDate <= preseasonEndDate;
+  }, [currentDate, viewMode, personalSummerStart]);
+
+  // Use viewed date for display logic, today for actual pace calculations
+  const isInPreseason = isViewedDateInPreseason;
 
   // Calculate period totals (week or month) from entries prop
   const periodTotals = useMemo(() => {

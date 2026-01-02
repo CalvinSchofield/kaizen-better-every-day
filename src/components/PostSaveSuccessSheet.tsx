@@ -6,7 +6,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useEfpMode } from "@/hooks/useEfpMode";
-import { useFocusTier } from "@/hooks/useFocusTier";
+import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -191,9 +191,17 @@ export const PostSaveSuccessSheet = ({
   const displayLabel = efpModeEnabled ? "EFP" : "FP+";
   
   // Get focus tier for goal calculation
-  const { fundedFocusTierGoal, focusTier, isUserSummerStarted } = useFocusTier(displayFpValue);
+  const { fundedFocusTierGoal, focusTier, setFocusTier, allTiers, isUserSummerStarted } = useFocusTier(displayFpValue);
   
-  // Calculate daily goal based on remaining planned days using focus tier
+  // Tier display config
+  const tierLabels: Record<FocusTier, string> = {
+    mustDo: 'Must Do',
+    willDo: 'Will Do',
+    couldDo: 'Could Do',
+  };
+  
+  // Calculate daily goal based on remaining planned days
+  // For preseason: use preseason goal; for summer: use focus tier goal
   const dailyGoal = useMemo(() => {
     if (!goals?.setup_complete || !plannedDays) return null;
     
@@ -205,14 +213,26 @@ export const PostSaveSuccessSheet = ({
     
     if (remainingPlannedDays.length === 0) return null;
     
-    // Use the focused tier goal (already has cancel rate buffer applied)
-    const targetGoal = fundedFocusTierGoal;
+    // Use the focused tier goal for summer, preseason goal for preseason
+    let targetGoal: number;
+    if (isUserSummerStarted) {
+      targetGoal = fundedFocusTierGoal;
+    } else {
+      // Preseason goal with cancel rate buffer
+      const cancelRate = goals.cancel_rate || 0;
+      const preseasonGoal = goals.preseason_fp_goal || 0;
+      const fundedPreseasonGoal = cancelRate > 0 && cancelRate < 1 
+        ? preseasonGoal / (1 - cancelRate) 
+        : preseasonGoal;
+      const conversionFactor = efpModeEnabled ? (goals.avg_prmr_per_fp || 85) / 85 : 1;
+      targetGoal = fundedPreseasonGoal * conversionFactor;
+    }
     
     // Simple daily target based on planned days
     const dailyTarget = targetGoal / remainingPlannedDays.length;
     
     return Math.max(Math.round(dailyTarget * 10) / 10, 0.5);
-  }, [goals, plannedDays, fundedFocusTierGoal]);
+  }, [goals, plannedDays, fundedFocusTierGoal, isUserSummerStarted, efpModeEnabled]);
 
   const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
   const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;
@@ -245,6 +265,11 @@ export const PostSaveSuccessSheet = ({
     onOpenChange(false);
     navigate('/insights');
   };
+  
+  const handleSetupGoals = () => {
+    onOpenChange(false);
+    navigate('/goals');
+  };
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -267,13 +292,57 @@ export const PostSaveSuccessSheet = ({
           </DrawerDescription>
         </DrawerHeader>
         
+        {/* Goals Not Set Up CTA */}
+        {(!goals || !goals.setup_complete) && (
+          <div className="px-4 mb-4">
+            <div 
+              className="rounded-xl p-4 bg-primary/10 border border-primary/20 cursor-pointer"
+              onClick={handleSetupGoals}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Set Up Your Goals</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Track your pace and see how you're doing against your targets
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Summer Tier Selector - Only show during summer */}
+        {goals?.setup_complete && isUserSummerStarted && allTiers && (
+          <div className="px-4 mb-4">
+            <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-muted/50">
+              {(['mustDo', 'willDo', 'couldDo'] as FocusTier[]).map((tier) => (
+                <button
+                  key={tier}
+                  onClick={() => setFocusTier(tier)}
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    focusTier === tier
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {tierLabels[tier]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        
         {/* Daily Goal Progress */}
         {dailyGoal !== null && displayFpValue > 0 && (
           <div className="px-4 mb-4">
             <div className={`rounded-xl p-4 ${goalMet ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Target className={`h-4 w-4 ${goalMet ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className="text-sm font-medium">Daily Goal Progress</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Target className={`h-4 w-4 ${goalMet ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className="text-sm font-medium">Daily Goal Progress</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {isUserSummerStarted ? tierLabels[focusTier] : 'Preseason'}
+                </span>
               </div>
               <div className="flex items-baseline gap-2 mb-2">
                 <span className={`text-2xl font-bold ${goalMet ? 'text-primary' : 'text-foreground'}`}>
