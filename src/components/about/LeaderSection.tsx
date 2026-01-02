@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 
 const trackRecord = [
   "5 years in the field (rookie → vet → leader)",
@@ -33,9 +33,9 @@ const teamLeads = [
   { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpeg" },
   { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
   { name: "Ammon Allan", photo: "/images/about-team/ammon-allan.png" },
-  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.png" },
+  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.jpeg" },
   { name: "Quinn Gleed", photo: "/images/about-team/quinn-gleed.png" },
-  { name: "Misael Sanchez", photo: "/images/about-team/misael-sanchez.jpeg" },
+  { name: "Misael Sanchez", photo: "/images/about-team/misael-sanchez.png" },
   { name: "Micah Ao", photo: "/images/about-team/micah-ao.png" },
   { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpeg" },
   { name: "Javier Estrada", photo: "/images/about-team/javier-estrada.jpeg" },
@@ -47,27 +47,26 @@ const teamLeads = [
 
 export const LeaderSection = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
+  const scrollPositionRef = useRef(0);
 
   useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
 
     let animationId: number;
-    let scrollPosition = 0;
-    const scrollSpeed = 0.5; // pixels per frame
+    const scrollSpeed = 1.5; // pixels per frame (faster)
 
     const animate = () => {
-      if (!isPaused && scrollContainer) {
-        scrollPosition += scrollSpeed;
+      if (scrollContainer) {
+        scrollPositionRef.current += scrollSpeed;
         
         // Reset to start when we've scrolled through the first set
         const singleSetWidth = scrollContainer.scrollWidth / 2;
-        if (scrollPosition >= singleSetWidth) {
-          scrollPosition = 0;
+        if (scrollPositionRef.current >= singleSetWidth) {
+          scrollPositionRef.current = 0;
         }
         
-        scrollContainer.scrollLeft = scrollPosition;
+        scrollContainer.scrollLeft = scrollPositionRef.current;
       }
       animationId = requestAnimationFrame(animate);
     };
@@ -77,7 +76,7 @@ export const LeaderSection = () => {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [isPaused]);
+  }, []);
 
   // Duplicate team leads for seamless loop
   const duplicatedTeamLeads = [...teamLeads, ...teamLeads];
@@ -236,10 +235,6 @@ export const LeaderSection = () => {
           <div
             ref={scrollRef}
             className="overflow-x-hidden"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
-            onTouchStart={() => setIsPaused(true)}
-            onTouchEnd={() => setIsPaused(false)}
           >
             <div className="flex gap-4">
               {duplicatedTeamLeads.map((lead, index) => (
