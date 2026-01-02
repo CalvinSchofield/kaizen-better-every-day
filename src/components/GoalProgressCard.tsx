@@ -3,7 +3,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
-import { useFocusTier } from "@/hooks/useFocusTier";
+import { useFocusTier, FocusTier } from "@/hooks/useFocusTier";
 import { Target, Flame, Zap, Trophy, TrendingDown } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -219,8 +219,20 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const currentProgress = efpModeEnabled ? (preseasonEFP || 0) : (preseasonFP || 0);
   
   // Get focus tier for summer goal selection
-  const { focusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
+  const { focusTier, setFocusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
   
+  // Tier selector handler - stops propagation to prevent navigating to goals page
+  const handleTierChange = async (tier: FocusTier, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await setFocusTier(tier);
+  };
+  
+  // Tier display labels
+  const tierLabels: Record<FocusTier, string> = {
+    mustDo: 'Must Do',
+    willDo: 'Will Do',
+    couldDo: 'Could Do',
+  };
   // Period progress from entries
   const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
 
@@ -344,6 +356,25 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
           )
         )}
       </div>
+
+      {/* Focus Tier Selector - Only show in summer mode */}
+      {!isInPreseason && (
+        <div className="relative flex items-center gap-1.5 mb-4 p-1 rounded-xl bg-muted/50">
+          {(['mustDo', 'willDo', 'couldDo'] as FocusTier[]).map((tier) => (
+            <button
+              key={tier}
+              onClick={(e) => handleTierChange(tier, e)}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                focusTier === tier
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              {tierLabels[tier]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Main Progress Display */}
       <div className="relative mb-4">
