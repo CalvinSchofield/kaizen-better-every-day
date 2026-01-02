@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Phone, Mail, Trophy, Target, Handshake, Quote } from "lucide-react";
+import { Phone, Mail, Trophy, Target, Handshake, Quote, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -7,6 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useRef, useEffect, useState } from "react";
 
 const trackRecord = [
   "5 years in the field (rookie → vet → leader)",
@@ -27,7 +28,60 @@ const expectations = [
   "High quality trainings and tech to leverage your attitude and effort",
 ];
 
+const teamLeads = [
+  { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
+  { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpeg" },
+  { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
+  { name: "Ammon Allan", photo: "/images/about-team/ammon-allan.png" },
+  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.png" },
+  { name: "Quinn Gleed", photo: "/images/about-team/quinn-gleed.png" },
+  { name: "Misael Sanchez", photo: "/images/about-team/misael-sanchez.jpeg" },
+  { name: "Micah Ao", photo: "/images/about-team/micah-ao.png" },
+  { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpeg" },
+  { name: "Javier Estrada", photo: "/images/about-team/javier-estrada.jpeg" },
+  { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
+  { name: "Ephraim Wilde", photo: "/images/about-team/ephraim-wilde.png" },
+  { name: "Deandre Abraham", photo: "/images/about-team/deandre-abraham.png" },
+  { name: "Calder Severson", photo: "/images/about-team/calder-severson.jpeg" },
+];
+
 export const LeaderSection = () => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    let animationId: number;
+    let scrollPosition = 0;
+    const scrollSpeed = 0.5; // pixels per frame
+
+    const animate = () => {
+      if (!isPaused && scrollContainer) {
+        scrollPosition += scrollSpeed;
+        
+        // Reset to start when we've scrolled through the first set
+        const singleSetWidth = scrollContainer.scrollWidth / 2;
+        if (scrollPosition >= singleSetWidth) {
+          scrollPosition = 0;
+        }
+        
+        scrollContainer.scrollLeft = scrollPosition;
+      }
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animationId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [isPaused]);
+
+  // Duplicate team leads for seamless loop
+  const duplicatedTeamLeads = [...teamLeads, ...teamLeads];
+
   return (
     <section className="py-16 px-4 bg-muted/30">
       <div className="max-w-lg mx-auto">
@@ -37,12 +91,13 @@ export const LeaderSection = () => {
           viewport={{ once: true }}
           className="text-center mb-6"
         >
-          <h2 className="text-2xl font-bold">Meet Your Leader</h2>
+          <h2 className="text-2xl font-bold">Meet the Team</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            The person who'll help you get there
+            The leaders who'll help you succeed
           </p>
         </motion.div>
 
+        {/* Featured Leader - Calvin */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -162,6 +217,47 @@ export const LeaderSection = () => {
               <p className="text-sm font-medium">
                 If you're willing to work, stay coachable, and commit to the process — I'll go to bat for you.
               </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Team Leads Carousel */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-8"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold">Team Leads</h3>
+          </div>
+
+          <div
+            ref={scrollRef}
+            className="overflow-x-hidden"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+            onTouchStart={() => setIsPaused(true)}
+            onTouchEnd={() => setIsPaused(false)}
+          >
+            <div className="flex gap-4">
+              {duplicatedTeamLeads.map((lead, index) => (
+                <div
+                  key={`${lead.name}-${index}`}
+                  className="flex-shrink-0 w-24 text-center"
+                >
+                  <div className="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-border bg-muted">
+                    <img
+                      src={lead.photo}
+                      alt={lead.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs font-medium mt-2 leading-tight">{lead.name}</p>
+                  <span className="text-[10px] text-muted-foreground">Team Lead</span>
+                </div>
+              ))}
             </div>
           </div>
         </motion.div>
