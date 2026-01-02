@@ -252,21 +252,21 @@ export const alumniStories: AlumniStory[] = [
   {
     id: "stephen",
     name: "Stephen Kastner",
-    photo: undefined, // Placeholder until photo provided
+    photo: "/images/about-team/stephen-kastner.jpeg",
     currentRole: "Founder, Zipsies",
     story: "Started his own company with his wife after learning the fundamentals of sales and business."
   },
   {
     id: "jay",
     name: "Jay Grijalva",
-    photo: undefined, // Placeholder until photo provided
+    photo: "/images/about-team/jay-grijalva.jpeg",
     currentRole: "Tire Shop Owner",
     story: "Raised money and purchased a cash-flowing tire shop while still in college."
   },
   {
     id: "josh",
     name: "Josh Guthrie",
-    photo: "/images/about-team/josh-text.jpeg",
+    photo: "/images/about-team/josh-guthrie.png",
     currentRole: "Medical Device Sales",
     story: "Wanted to transition to medical sales—the job increased his offer because of the experience he earned with Vivint."
   }
