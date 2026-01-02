@@ -150,7 +150,7 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: Pa
     <AnimatePresence>
       <motion.div
         ref={containerRef}
-        className="fixed inset-0 z-[100] touch-none"
+        className="fixed inset-0 z-[100]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
