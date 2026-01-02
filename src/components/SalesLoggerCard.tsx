@@ -7,7 +7,8 @@ import { useFocusTier } from "@/hooks/useFocusTier";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useRepGoals } from "@/hooks/useRepGoals";
-
+import { useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
 interface SalesLoggerCardProps {
   salesLog: Sale[];
   onEditSale: (sale: Sale) => void;
@@ -45,7 +46,7 @@ export const SalesLoggerCard = ({
   const currentProgress = efpModeEnabled ? (cumulativeEFP || 0) : (cumulativeFP || 0);
   
   // Get focus tier daily goal
-  const { focusTier, fundedFocusTierGoal, isUserSummerStarted } = useFocusTier(currentProgress);
+  const { focusTier, fundedFocusTierGoal, allTiers, isUserSummerStarted } = useFocusTier(currentProgress);
   
   // Check if goals are set up
   const goalsSetUp = goals?.setup_complete === true;
@@ -79,9 +80,59 @@ export const SalesLoggerCard = ({
     }
   })();
 
+  // Calculate must-do daily goal for minimum threshold confetti
+  const mustDoDailyGoal = (() => {
+    if (!goalsSetUp || !plannedDays || !isUserSummerStarted) return dailyGoal;
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const seasonEndStr = '2026-09-27';
+    
+    const futurePlanned = plannedDays.filter(d => 
+      d.planned_date >= todayStr && d.planned_date <= seasonEndStr
+    ).length;
+    
+    if (futurePlanned === 0) return 0;
+    
+    const mustDoFunded = allTiers?.mustDo?.funded || 0;
+    return mustDoFunded / futurePlanned;
+  })();
+
   // Today's progress in the relevant metric
   const todaysProgress = efpModeEnabled ? totalEFP : totalFPPlus;
   const metricLabel = efpModeEnabled ? "EFP" : "FP+";
+
+  // Confetti trigger - track if we've already fired for this session
+  const confettiFiredRef = useRef(false);
+  
+  useEffect(() => {
+    if (!goalsSetUp || confettiFiredRef.current) return;
+    
+    // Check if hitting at least the must-do goal (or focused goal during preseason)
+    const thresholdGoal = isUserSummerStarted ? mustDoDailyGoal : dailyGoal;
+    
+    if (thresholdGoal > 0 && todaysProgress >= thresholdGoal) {
+      confettiFiredRef.current = true;
+      
+      // Fire confetti from both sides
+      const fireConfetti = () => {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { x: 0.1, y: 0.6 },
+          colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0'],
+        });
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { x: 0.9, y: 0.6 },
+          colors: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0'],
+        });
+      };
+      
+      // Small delay for visual impact
+      setTimeout(fireConfetti, 100);
+    }
+  }, [todaysProgress, dailyGoal, mustDoDailyGoal, goalsSetUp, isUserSummerStarted]);
 
   if (salesLog.length === 0) {
     return null; // Don't show card if no sales
