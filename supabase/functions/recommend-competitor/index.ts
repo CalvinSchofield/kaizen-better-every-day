@@ -15,13 +15,12 @@ serve(async (req) => {
 
     // Build competitor database context for the AI with explicit IDs
     const competitorContext = competitors.map((c: any) => {
-      const versions = c.alternate_versions?.map((v: any) => v.name).join(", ") || "";
+      const versions = c.alternateVersions?.map((v: any) => v.name).join(", ") || "";
       return `
-[ID: ${c.notion_page_id}]
-${c.name} (Category: ${c.category || "N/A"})${versions ? ` - Versions: ${versions}` : ""}
-Our Selling Points: ${c.our_selling_points?.join("; ") || "None listed"}
-Their Selling Points: ${c.their_selling_points?.join("; ") || "None listed"}
-Monitoring: ${c.monitoring_companies?.join(", ") || "N/A"}
+[${c.name}] (Category: ${c.category || "N/A"})${versions ? ` - Versions: ${versions}` : ""}
+Our Selling Points: ${c.ourSellingPoints?.join("; ") || "None listed"}
+Their Selling Points: ${c.theirSellingPoints?.join("; ") || "None listed"}
+Monitoring: ${c.monitoringCompanies?.join(", ") || "N/A"}
 Objections & Handles: ${c.objections?.map((o: any) => `${o.objection} → ${o.handle}`).join("; ") || "None"}
 `;
     }).join("\n");
@@ -52,13 +51,10 @@ You MUST respond with a JSON object in this exact format:
   "recommendation": "Markdown-formatted response with **bold headers** and bullet points",
   "competitors": [
     {
-      "name": "Exact competitor name from database",
-      "notion_page_id": "The EXACT [ID: ...] shown at the start of each competitor entry - copy it EXACTLY"
+      "name": "Exact competitor name from database"
     }
   ]
 }
-
-CRITICAL: The notion_page_id MUST be copied EXACTLY from the [ID: ...] shown at the start of the competitor entry. Do not make up IDs.
 
 If they ask a specific question (e.g., "Does Ring have monthly fees?"), answer that FIRST in 1 sentence, then show advantages.`;
 
@@ -102,6 +98,7 @@ If they ask a specific question (e.g., "Does Ring have monthly fees?"), answer t
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
+    console.log("AI response content:", content);
     const parsed = JSON.parse(content);
 
     return new Response(JSON.stringify(parsed), {
