@@ -2,9 +2,20 @@ import { useState, useCallback, ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { IntroSlide } from "@/components/intro/IntroSlide";
-import { ChevronLeft, ChevronRight, Home, Menu, Map, BookOpen, Target, BarChart3, Calendar, TrendingUp, Users, Trophy, ClipboardList, Camera } from "lucide-react";
+import { StatSlide } from "@/components/intro/StatSlide";
+import { VideoSlide } from "@/components/intro/VideoSlide";
+import { ImageSlide } from "@/components/intro/ImageSlide";
+import { CarouselSlide } from "@/components/intro/CarouselSlide";
+import { CTASlide } from "@/components/intro/CTASlide";
+import { ChevronLeft, ChevronRight, Home, Map, BookOpen, Target, Calendar, Camera, Sparkles, Users } from "lucide-react";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { hapticLight, hapticSelection } from "@/utils/haptics";
+import { 
+  getPreBlitzRookieSlides, 
+  getKnockingUserSlides, 
+  IntroSlideConfig,
+  IconName 
+} from "@/data/introSlides";
 
 type UserType = 'pre-blitz-rookie' | 'post-blitz-rookie' | 'vet' | 'leader';
 
@@ -14,131 +25,32 @@ interface IntroWizardProps {
   onComplete: () => void;
 }
 
-interface SlideConfig {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  highlight?: string;
-}
-
-// Helper to strip emojis from text
-const stripEmojis = (text: string): string => {
-  if (!text) return '';
-  // Remove emojis using a simpler, more reliable pattern
-  return text.replace(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/gu, '').trim();
+// Icon mapping
+const getIcon = (iconName: IconName | undefined): ReactNode => {
+  if (!iconName) return null;
+  
+  const iconClass = "w-16 h-16 text-primary";
+  const icons: Record<IconName, ReactNode> = {
+    'home': <Home className={iconClass} />,
+    'map': <Map className={iconClass} />,
+    'book-open': <BookOpen className={iconClass} />,
+    'target': <Target className={iconClass} />,
+    'calendar': <Calendar className={iconClass} />,
+    'camera': <Camera className={iconClass} />,
+    'sparkles': <Sparkles className={iconClass} />,
+    'users': <Users className={iconClass} />,
+  };
+  
+  return icons[iconName];
 };
 
-const getSlides = (userType: UserType, firstName: string): SlideConfig[] => {
-  const cleanName = stripEmojis(firstName);
-  
-  // Welcome slide for everyone
-  const welcomeSlide: SlideConfig = {
-    icon: <Home className="w-16 h-16 text-primary" />,
-    title: `Welcome, ${cleanName}!`,
-    description: "Kaizen is your one-stop hub for everything you need to succeed at Vivint. Let's show you around.",
-    highlight: "Let's get started"
-  };
-
-  // Navigation overview
-  const navSlide: SlideConfig = {
-    icon: <Menu className="w-16 h-16 text-primary" />,
-    title: "Easy Navigation",
-    description: "Use the bottom tabs to switch between pages. The menu icon in the top-left has more options and resources.",
-  };
-
-  // Profile photo slide (for everyone)
-  const photoSlide: SlideConfig = {
-    icon: <Camera className="w-16 h-16 text-primary" />,
-    title: "Add Your Photo",
-    description: "Upload a profile photo so teammates can recognize you on leaderboards. Tap your name in the menu to add one anytime.",
-    highlight: "Stand out!"
-  };
-
-  // Pre-blitz rookie slides
+const getSlides = (userType: UserType, firstName: string): IntroSlideConfig[] => {
   if (userType === 'pre-blitz-rookie') {
-    return [
-      welcomeSlide,
-      navSlide,
-      photoSlide,
-      {
-        icon: <Map className="w-16 h-16 text-primary" />,
-        title: "Your Journey Home",
-        description: "Home is your roadmap. Follow the steps to get blitz-ready. Each step unlocks as you progress.",
-        highlight: "Step by step"
-      },
-      {
-        icon: <BookOpen className="w-16 h-16 text-primary" />,
-        title: "Training Hub",
-        description: "Study product knowledge, practice pitches, and complete required trainings. Everything you need to prepare.",
-      },
-      {
-        icon: <Calendar className="w-16 h-16 text-primary" />,
-        title: "Pick Your Blitz",
-        description: "View upcoming blitzes and commit to dates. Your calendar shows all team events and your commitments.",
-      },
-      {
-        icon: <Target className="w-16 h-16 text-primary" />,
-        title: "Set Your Goals",
-        description: "Plan your summer earnings. Set FP+ goals and track your preseason progress toward blitz-ready.",
-        highlight: "Dream big!"
-      },
-    ];
+    return getPreBlitzRookieSlides(firstName);
   }
-
-  // Post-blitz rookie, vet, or leader slides (all get knocking features)
-  const baseSlides: SlideConfig[] = [
-    welcomeSlide,
-    navSlide,
-    photoSlide,
-    {
-      icon: <ClipboardList className="w-16 h-16 text-primary" />,
-      title: "Track Your Day",
-      description: "Log doors, pitches, transitions, and sales. Watch your numbers add up in real-time as you knock.",
-      highlight: "Tap to count"
-    },
-    {
-      icon: <Calendar className="w-16 h-16 text-primary" />,
-      title: "Calendar View",
-      description: "See your daily progress over time. Review past entries and plan future work days.",
-    },
-    {
-      icon: <TrendingUp className="w-16 h-16 text-primary" />,
-      title: "Insights & Analytics",
-      description: "Dive into your performance data. See your best times, strongest ratios, and areas to improve.",
-    },
-    {
-      icon: <Trophy className="w-16 h-16 text-primary" />,
-      title: "Leaderboards",
-      description: "Compete with teammates. See where you rank today, this week, and for the season.",
-      highlight: "Rise to the top"
-    },
-    {
-      icon: <Target className="w-16 h-16 text-primary" />,
-      title: "Goals & Pace",
-      description: "Track your progress toward your FP+ goals. Stay on pace to hit your targets.",
-    },
-  ];
-
-  // Add leader-specific slides
-  if (userType === 'leader') {
-    return [
-      ...baseSlides,
-      {
-        icon: <BarChart3 className="w-16 h-16 text-primary" />,
-        title: "Team Reports",
-        description: "View your team's performance at a glance. Identify who needs coaching and celebrate top performers.",
-      },
-      {
-        icon: <Users className="w-16 h-16 text-primary" />,
-        title: "My Group",
-        description: "Manage your recruiting pipeline. Track recruits, log contacts, and help them prepare for their first blitz.",
-        highlight: "Build your team"
-      },
-    ];
-  }
-
-  // Post-blitz rookie or vet (no leader features)
-  return baseSlides;
+  
+  const isLeader = userType === 'leader';
+  return getKnockingUserSlides(firstName, isLeader);
 };
 
 export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProps) => {
@@ -146,15 +58,15 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
   const slides = getSlides(userType, firstName);
   const totalSlides = slides.length;
   const isLastSlide = currentSlide === totalSlides - 1;
+  const currentSlideData = slides[currentSlide];
 
   const handleNext = useCallback(() => {
-    console.log('handleNext called, isLastSlide:', isLastSlide, 'currentSlide:', currentSlide);
     if (isLastSlide) {
       onComplete();
     } else {
       setCurrentSlide(prev => prev + 1);
     }
-  }, [isLastSlide, onComplete, currentSlide]);
+  }, [isLastSlide, onComplete]);
 
   const handlePrev = useCallback(() => {
     if (currentSlide > 0) {
@@ -179,6 +91,82 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
     threshold: 50,
   });
 
+  // Render the appropriate slide type
+  const renderSlide = () => {
+    const slide = currentSlideData;
+    
+    switch (slide.type) {
+      case 'stat':
+        return (
+          <StatSlide
+            key={slide.id}
+            title={slide.title}
+            description={slide.description}
+            statValue={slide.statValue || 0}
+            statPrefix={slide.statPrefix}
+            statSuffix={slide.statSuffix}
+            statLabel={slide.statLabel}
+          />
+        );
+      
+      case 'video':
+        return (
+          <VideoSlide
+            key={slide.id}
+            title={slide.title}
+            description={slide.description}
+            videoThumbnail={slide.videoThumbnail}
+            videoUrl={slide.videoUrl}
+          />
+        );
+      
+      case 'image':
+        return (
+          <ImageSlide
+            key={slide.id}
+            title={slide.title}
+            description={slide.description}
+            imageSrc={slide.imageSrc || ''}
+            imageAlt={slide.imageAlt}
+            highlight={slide.highlight}
+            overlayPosition={slide.overlayPosition}
+          />
+        );
+      
+      case 'carousel':
+        return (
+          <CarouselSlide
+            key={slide.id}
+            title={slide.title}
+            description={slide.description}
+            carouselItems={slide.carouselItems || []}
+          />
+        );
+      
+      case 'cta':
+        return (
+          <CTASlide
+            key={slide.id}
+            icon={getIcon(slide.iconName)}
+            title={slide.title}
+            description={slide.description}
+            showConfetti={slide.showConfetti}
+          />
+        );
+      
+      default:
+        return (
+          <IntroSlide
+            key={slide.id}
+            icon={getIcon(slide.iconName)}
+            title={slide.title}
+            description={slide.description}
+            highlight={slide.highlight}
+          />
+        );
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
       {/* Header with skip button */}
@@ -190,7 +178,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            console.log('Skip clicked');
             hapticLight();
             handleSkip();
           }}
@@ -208,13 +195,7 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
         onTouchEnd={onTouchEnd}
       >
         <AnimatePresence mode="wait">
-          <IntroSlide
-            key={currentSlide}
-            icon={slides[currentSlide].icon}
-            title={slides[currentSlide].title}
-            description={slides[currentSlide].description}
-            highlight={slides[currentSlide].highlight}
-          />
+          {renderSlide()}
         </AnimatePresence>
       </div>
 
@@ -225,7 +206,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
             key={index}
             onClick={(e) => {
               e.stopPropagation();
-              console.log('Dot clicked:', index);
               hapticLight();
               setCurrentSlide(index);
             }}
@@ -247,7 +227,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
           size="icon"
           onClick={(e) => {
             e.stopPropagation();
-            console.log('Prev button clicked');
             hapticLight();
             handlePrev();
           }}
@@ -260,7 +239,6 @@ export const IntroWizard = ({ userType, firstName, onComplete }: IntroWizardProp
         <Button
           onClick={(e) => {
             e.stopPropagation();
-            console.log('Next button clicked');
             hapticLight();
             handleNext();
           }}
