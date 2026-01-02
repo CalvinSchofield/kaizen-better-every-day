@@ -71,7 +71,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "ring-doorbell",
     name: "Ring Doorbell",
     category: "cameras",
-    image: "/images/competitors/ring-doorbell-placeholder.png",
+    image: "/images/competitors/ring-doorbell.png",
     ourSellingPoints: [
       "Smart Deter — we detect lurkers and deter with light/whistle before they act",
       "24/7 Playback — record everything, not just motion-triggered clips",
@@ -103,7 +103,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "ring-outdoor",
     name: "Ring Outdoor Camera",
     category: "cameras",
-    image: "/images/competitors/ring-outdoor-placeholder.png",
+    image: "/images/competitors/ring-doorbell.png",
     ourSellingPoints: [
       "Smart Deter proactively warns intruders with light and sound",
       "24/7 continuous recording, not just motion clips",
@@ -129,7 +129,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "ring-spotlight",
     name: "Ring Spotlight Camera",
     category: "cameras",
-    image: "/images/competitors/ring-spotlight-placeholder.png",
+    image: "/images/competitors/ring-doorbell.png",
     ourSellingPoints: [
       "Smart Deter with light AND audio warnings, not just spotlight",
       "24/7 recording vs motion-triggered clips",
@@ -248,7 +248,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "google-nest-outdoor",
     name: "Google Nest Outdoor Camera",
     category: "cameras",
-    image: "/images/competitors/google-nest-outdoor-placeholder.png",
+    image: "/images/competitors/google-nest-doorbell.jpg",
     ourSellingPoints: [
       "24/7 Playback vs limited cloud history",
       "Smart Deter with light and audio warnings",
@@ -317,7 +317,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "adt",
     name: "ADT Monitoring Service",
     category: "alarm",
-    image: "/images/competitors/adt-placeholder.png",
+    image: "/images/competitors/adt-security.png",
     ourSellingPoints: [
       "Smart Deter — detect lurkers before they act, not just record",
       "24/7 Playback — record nonstop, not just clips",
@@ -406,7 +406,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "brinks",
     name: "Brinks Home Security",
     category: "alarm",
-    image: "/images/competitors/brinks-placeholder.png",
+    image: "/images/competitors/brinks-security.png",
     ourSellingPoints: [
       "Smarter cameras with Smart Deter",
       "24/7 continuous recording, not clips",
@@ -426,7 +426,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "bay-alarm",
     name: "Bay Alarm",
     category: "alarm",
-    image: "/images/competitors/bay-alarm-placeholder.png",
+    image: "/images/competitors/bay-alarm.png",
     ourSellingPoints: [
       "Smart cameras with AI detection",
       "24/7 Playback recording",
@@ -448,7 +448,7 @@ export const COMPETITORS: CompetitorData[] = [
     id: "adt-panel",
     name: "ADT Panel",
     category: "panels",
-    image: "/images/competitors/adt-panel-placeholder.png",
+    image: "/images/competitors/adt-security.png",
     ourSellingPoints: [
       "Bigger, modern touchscreen",
       "Shows camera feeds directly on panel",
