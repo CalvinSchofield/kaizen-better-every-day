@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { useRepGoals } from '@/hooks/useRepGoals';
 import { usePlannedDays } from '@/hooks/usePlannedDays';
 import { useEfpMode } from '@/hooks/useEfpMode';
+import { useFocusTier } from '@/hooks/useFocusTier';
 import { useMemo } from 'react';
 import { calculateSalesPace } from '@/utils/salesPaceCalculator';
 
@@ -29,9 +30,13 @@ export const InsightsSummaryHero = ({
   const { plannedDays } = usePlannedDays();
   const { calculateEfp } = useEfpMode();
   
+  // Get current progress and focus tier
+  const currentProgress = efpModeEnabled ? totalEfp : totalFp;
+  const { focusTier, isUserSummerStarted } = useFocusTier(currentProgress);
+  
   const fpPerDay = daysWorked > 0 ? (efpModeEnabled ? totalEfp : totalFp) / daysWorked : 0;
   
-  // Calculate pace status using centralized calculator
+  // Calculate pace status using centralized calculator with focus tier
   const paceStatus = useMemo(() => {
     const result = calculateSalesPace({
       goals,
@@ -41,7 +46,8 @@ export const InsightsSummaryHero = ({
       currentPrmr: totalPrmr,
       efpModeEnabled,
       calculateEfp,
-      // Let it auto-detect the tier based on current date
+      // Use focus tier when user's summer has started
+      activeTier: isUserSummerStarted ? focusTier : 'preseason',
     });
     
     if (!result) return null;
@@ -53,9 +59,10 @@ export const InsightsSummaryHero = ({
       expectedAtThisPoint: result.expectedAtThisPoint,
       originalDailyGoal: result.dailyGoal,
       remainingDailyNeeded: result.remainingDailyNeeded,
-      isInPreseason: result.isInPreseason
+      isInPreseason: result.isInPreseason,
+      focusTier: isUserSummerStarted ? focusTier : null,
     };
-  }, [goals, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp]);
+  }, [goals, plannedDays, totalFp, totalPrmr, totalEfp, efpModeEnabled, daysWorked, calculateEfp, focusTier, isUserSummerStarted]);
   
   return (
     <Card className="p-5 bg-gradient-to-br from-card to-accent/30 border-border/50">
@@ -91,7 +98,16 @@ export const InsightsSummaryHero = ({
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Target className="w-3 h-3" />
-            <span>{paceStatus.isInPreseason ? 'Preseason' : 'Season'}: {paceStatus.targetGoal.toFixed(0)}</span>
+            <span>
+              {paceStatus.isInPreseason 
+                ? 'Preseason' 
+                : paceStatus.focusTier === 'mustDo' 
+                  ? 'Must Do' 
+                  : paceStatus.focusTier === 'willDo' 
+                    ? 'Will Do' 
+                    : 'Could Do'
+              }: {paceStatus.targetGoal.toFixed(0)}
+            </span>
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
 import { useMeVsMe } from "@/hooks/useMeVsMe";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { useFocusTier } from "@/hooks/useFocusTier";
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -189,7 +190,10 @@ export const PostSaveSuccessSheet = ({
   
   const displayLabel = efpModeEnabled ? "EFP" : "FP+";
   
-  // Calculate daily goal based on remaining planned days - matching DailyFocusCard logic
+  // Get focus tier for goal calculation
+  const { fundedFocusTierGoal, focusTier, isUserSummerStarted } = useFocusTier(displayFpValue);
+  
+  // Calculate daily goal based on remaining planned days using focus tier
   const dailyGoal = useMemo(() => {
     if (!goals?.setup_complete || !plannedDays) return null;
     
@@ -201,15 +205,14 @@ export const PostSaveSuccessSheet = ({
     
     if (remainingPlannedDays.length === 0) return null;
     
-    // Use the "Will Do" goal as the target (middle tier)
-    const targetFP = goals.will_do_fp_goal || goals.must_do_fp_goal || 0;
+    // Use the focused tier goal (already has cancel rate buffer applied)
+    const targetGoal = fundedFocusTierGoal;
     
     // Simple daily target based on planned days
-    // Note: This should match what's shown on home/calendar
-    const dailyTarget = targetFP / remainingPlannedDays.length;
+    const dailyTarget = targetGoal / remainingPlannedDays.length;
     
     return Math.max(Math.round(dailyTarget * 10) / 10, 0.5);
-  }, [goals, plannedDays]);
+  }, [goals, plannedDays, fundedFocusTierGoal]);
 
   const goalMet = dailyGoal !== null && displayFpValue >= dailyGoal;
   const progressPercent = dailyGoal ? Math.min(100, (displayFpValue / dailyGoal) * 100) : 0;

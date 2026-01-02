@@ -3,8 +3,9 @@ import { useRepGoals } from "@/hooks/useRepGoals";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
 import { useEfpMode } from "@/hooks/useEfpMode";
 import { usePlannedDays } from "@/hooks/usePlannedDays";
+import { useFocusTier } from "@/hooks/useFocusTier";
 import { Target, Flame, Zap, Trophy, TrendingDown } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,13 +56,20 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
     enabled: !!repData?.user_id,
   });
 
+  const personalSummerStart = seasonConfig?.personal_summer_start;
   const personalSummerEnd = seasonConfig?.personal_summer_end || SUMMER_END;
 
-  // Determine if we're in preseason or summer
+  // FIXED: Determine if we're in preseason based on user's personal_summer_start
+  // If user has a personal summer start date, use that; otherwise use global PRESEASON_END
   const isInPreseason = useMemo(() => {
+    if (personalSummerStart) {
+      const summerStart = parseISO(personalSummerStart);
+      return today < summerStart;
+    }
+    // Fallback to global preseason end
     const preseasonEndDate = parseLocalDate(PRESEASON_END);
     return today <= preseasonEndDate;
-  }, [today]);
+  }, [today, personalSummerStart]);
 
   // Calculate period totals (week or month) from entries prop
   const periodTotals = useMemo(() => {
@@ -209,6 +217,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   // Current cumulative progress - use preseason hook values directly
   const currentProgress = efpModeEnabled ? (preseasonEFP || 0) : (preseasonFP || 0);
   
+  // Get focus tier for summer goal selection
+  const { focusTier, fundedFocusTierGoal, allTiers } = useFocusTier(currentProgress);
+  
   // Period progress from entries
   const periodProgress = efpModeEnabled ? calculateEfp(periodTotals.prmr) : periodTotals.fpPlus;
 
@@ -232,10 +243,12 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
 
   // ==========================================
   // FIXED DAILY PACE (never changes)
+  // Use PRESEASON goal when in preseason, FOCUS TIER goal when in summer
   // Formula: Funded Goal (with cancel buffer) / Total Knocking Days
   // ==========================================
+  const activeSeasonGoal = isInPreseason ? displayPreseasonGoal : fundedFocusTierGoal;
   const fixedDailyGoal = totalSeasonKnockingDays > 0 
-    ? displayPreseasonGoal / totalSeasonKnockingDays 
+    ? activeSeasonGoal / totalSeasonKnockingDays 
     : 0;
 
   // ==========================================
@@ -284,8 +297,8 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const progressPercent = periodGoal > 0 ? (periodProgress / periodGoal) * 100 : 0;
   const isGoalHit = periodProgress >= periodGoal && periodGoal > 0;
 
-  // Overall season progress
-  const overallTarget = isInPreseason ? displayPreseasonGoal : displayMustDo;
+  // Overall season progress - use focus tier goal for summer
+  const overallTarget = isInPreseason ? displayPreseasonGoal : fundedFocusTierGoal;
   const overallProgressPercent = overallTarget > 0 
     ? Math.min((currentProgress / overallTarget) * 100, 100) 
     : 0;

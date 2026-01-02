@@ -363,8 +363,18 @@ const Goals = () => {
   }), [goals, conversionFactor, currentProgress]);
 
   // Auto-select appropriate tier based on progress and season
+  // Only auto-select if user hasn't explicitly saved a focus_tier preference
   useEffect(() => {
     if (!goals) return;
+    
+    // If user has a saved focus_tier and summer has started, use it
+    if (isUserSummerStarted && goals.focus_tier) {
+      const savedTier = goals.focus_tier as GoalTier;
+      if (['mustDo', 'willDo', 'couldDo'].includes(savedTier)) {
+        setActiveTier(savedTier);
+        return;
+      }
+    }
     
     // Once user's personal summer has started, never select preseason tier
     if (isUserSummerStarted) {
@@ -396,6 +406,15 @@ const Goals = () => {
       setActiveTier('willDo');
     }
   }, [goals, tiers, isPreseason, isUserSummerStarted]);
+
+  // Handler for tier selection that persists to database (for summer tiers only)
+  const handleTierSelect = async (tier: GoalTier) => {
+    setActiveTier(tier);
+    // Only persist summer tiers to database
+    if (tier !== 'preseason') {
+      await updateGoals({ focus_tier: tier });
+    }
+  };
 
   const handleQuickIncrement = async (progressKey: string) => {
     // Check if this is a full reset action (wrap-around)
@@ -731,7 +750,7 @@ const Goals = () => {
             rentType={goals.rent_type || 'Single'}
             weeksWorking={goals.weeks_working || 18}
             efpMode={efpModeEnabled}
-            onTierChange={setActiveTier}
+            onTierChange={handleTierSelect}
             tiers={tiers}
             dailyGoal={paceData.dailyGoal}
             todayProgress={todayProgress}

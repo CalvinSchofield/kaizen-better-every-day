@@ -54,6 +54,8 @@ export interface RepGoals {
   weekly_roleplay_logs: Record<string, number> | null;
   // Custom payscale FP level for ROI calculations
   custom_payscale_fp: number | null;
+  // Focus tier for summer goals (mustDo, willDo, couldDo)
+  focus_tier: string | null;
 }
 
 // Get the start of the current week (Sunday) in user's local timezone
