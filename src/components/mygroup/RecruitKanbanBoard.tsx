@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Recruit, RecruitActivity, useUpdateRecruitStage } from "@/hooks/useGroupRecruits";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users } from "lucide-react";
+import { Tablet, BookOpen, Target, ChevronDown, ChevronUp, Clock, Users, Filter, X } from "lucide-react";
 import { RecruitDetailDrawer } from "./RecruitDetailDrawer";
 import { differenceInDays, parseISO, isAfter, isBefore, startOfToday, isSameDay, format } from "date-fns";
 import { toast } from "sonner";
@@ -10,6 +10,15 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGES, STAGE_LABELS, STAGE_COLORS, SIGNED_PLUS_STAGES } from "@/utils/stageConstants";
+import { useTeamAccess } from "@/hooks/useTeamAccess";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Primary stages always shown
 const PRIMARY_STAGES = [
@@ -29,6 +38,9 @@ const SECONDARY_STAGES = [
   { key: STAGES.SIGNED_BUT_NOT_INTERESTED, label: STAGE_LABELS[STAGES.SIGNED_BUT_NOT_INTERESTED], color: STAGE_COLORS[STAGES.SIGNED_BUT_NOT_INTERESTED] },
 ];
 
+type YearFilter = 'Rookie' | 'Sophomore' | 'Vet';
+type LineageFilter = 'direct' | 'downline';
+
 interface RecruitKanbanBoardProps {
   recruits: Recruit[];
   activities: RecruitActivity[];
@@ -38,7 +50,12 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showSecondary, setShowSecondary] = useState(false);
+  const [yearFilters, setYearFilters] = useState<YearFilter[]>([]);
+  const [lineageFilter, setLineageFilter] = useState<LineageFilter | null>(null);
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [hasBlitzFilter, setHasBlitzFilter] = useState<boolean | null>(null);
   const updateStageMutation = useUpdateRecruitStage();
+  const { data: teamAccess } = useTeamAccess();
 
   // Fetch reps data to get blocker info (iPad, onboarding, ramp phases)
   const { data: repsData } = useQuery({
@@ -56,7 +73,65 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
     repsData?.map(r => [r.id, r]) || []
   );
 
-  const getRecruitsByStage = (stage: string) => recruits.filter(r => r.stage === stage);
+  // Determine if filters should be shown (MGMT+ or 20+ recruits)
+  const accessLevel = teamAccess?.accessLevel || 'none';
+  const showFilters = accessLevel === 'area_director' || accessLevel === 'mgmt_group_lead' || recruits.length >= 20;
+
+  // Get unique teams from recruits
+  const uniqueTeams = useMemo(() => {
+    const teams = new Map<string, string>();
+    recruits.forEach(r => {
+      if (r.teamId && r.teamName) {
+        teams.set(r.teamId, r.teamName);
+      }
+    });
+    return Array.from(teams.entries()).map(([id, name]) => ({ id, name }));
+  }, [recruits]);
+
+  // Normalize year for filtering
+  const normalizeYear = (year: string | undefined): YearFilter | null => {
+    if (!year) return null;
+    const lower = year.toLowerCase();
+    if (lower === 'rookie' || year === '2025' || year === '2026') return 'Rookie';
+    if (lower === 'sophomore' || year === '2024') return 'Sophomore';
+    if (lower === 'vet' || lower === 'veteran') return 'Vet';
+    return null;
+  };
+
+  // Filter recruits based on active filters
+  const filteredRecruits = useMemo(() => {
+    return recruits.filter(r => {
+      // Year filter
+      if (yearFilters.length > 0) {
+        const recruitYear = normalizeYear(r.year);
+        if (!recruitYear || !yearFilters.includes(recruitYear)) return false;
+      }
+      // Lineage filter
+      if (lineageFilter && r.recruiterLineage !== lineageFilter) return false;
+      // Team filter
+      if (teamFilter && r.teamId !== teamFilter) return false;
+      // Has blitz filter
+      if (hasBlitzFilter !== null) {
+        const hasBlitz = (r.committedBlitzes?.length || 0) > 0;
+        if (hasBlitz !== hasBlitzFilter) return false;
+      }
+      return true;
+    });
+  }, [recruits, yearFilters, lineageFilter, teamFilter, hasBlitzFilter]);
+
+  const getRecruitsByStage = (stage: string) => filteredRecruits.filter(r => r.stage === stage);
+
+  const activeFilterCount = (yearFilters.length > 0 ? 1 : 0) + 
+    (lineageFilter ? 1 : 0) + 
+    (teamFilter ? 1 : 0) + 
+    (hasBlitzFilter !== null ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setYearFilters([]);
+    setLineageFilter(null);
+    setTeamFilter(null);
+    setHasBlitzFilter(null);
+  };
 
   const getActivitiesForRecruit = (recruitId: string) => {
     return activities.filter(a => a.recruit_id === recruitId);
@@ -357,21 +432,163 @@ export const RecruitKanbanBoard = ({ recruits, activities }: RecruitKanbanBoardP
 
   return (
     <>
-      {/* Icon legend */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3 px-1">
-        <div className="flex items-center gap-1">
-          <Tablet className="h-3 w-3 text-amber-500" />
-          <span>No iPad</span>
+      {/* Filter bar + Icon legend */}
+      <div className="flex items-center justify-between gap-4 mb-3 px-1">
+        {/* Icon legend */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Tablet className="h-3 w-3 text-amber-500" />
+            <span>No iPad</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <BookOpen className="h-3 w-3 text-amber-500" />
+            <span>Onboarding</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Target className="h-3 w-3 text-amber-500" />
+            <span>Ramp</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <BookOpen className="h-3 w-3 text-amber-500" />
-          <span>Onboarding</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Target className="h-3 w-3 text-amber-500" />
-          <span>Ramp</span>
-        </div>
+
+        {/* Filter dropdown */}
+        {showFilters && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1">
+                <Filter className="h-3.5 w-3.5" />
+                <span>Filter</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="h-5 w-5 p-0 text-[10px] ml-1">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Year</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={yearFilters.includes('Rookie')}
+                onCheckedChange={(checked) => 
+                  setYearFilters(prev => checked ? [...prev, 'Rookie'] : prev.filter(y => y !== 'Rookie'))
+                }
+              >
+                Rookie
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={yearFilters.includes('Sophomore')}
+                onCheckedChange={(checked) => 
+                  setYearFilters(prev => checked ? [...prev, 'Sophomore'] : prev.filter(y => y !== 'Sophomore'))
+                }
+              >
+                Sophomore
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={yearFilters.includes('Vet')}
+                onCheckedChange={(checked) => 
+                  setYearFilters(prev => checked ? [...prev, 'Vet'] : prev.filter(y => y !== 'Vet'))
+                }
+              >
+                Vet
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Lineage</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={lineageFilter === 'direct'}
+                onCheckedChange={(checked) => setLineageFilter(checked ? 'direct' : null)}
+              >
+                Direct Recruits
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={lineageFilter === 'downline'}
+                onCheckedChange={(checked) => setLineageFilter(checked ? 'downline' : null)}
+              >
+                Downline Recruits
+              </DropdownMenuCheckboxItem>
+
+              {uniqueTeams.length > 1 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Team</DropdownMenuLabel>
+                  {uniqueTeams.map(team => (
+                    <DropdownMenuCheckboxItem
+                      key={team.id}
+                      checked={teamFilter === team.id}
+                      onCheckedChange={(checked) => setTeamFilter(checked ? team.id : null)}
+                    >
+                      {team.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Blitz Status</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={hasBlitzFilter === true}
+                onCheckedChange={(checked) => setHasBlitzFilter(checked ? true : null)}
+              >
+                Has Upcoming Blitz
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={hasBlitzFilter === false}
+                onCheckedChange={(checked) => setHasBlitzFilter(checked ? false : null)}
+              >
+                No Blitz Scheduled
+              </DropdownMenuCheckboxItem>
+
+              {activeFilterCount > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-destructive hover:text-destructive"
+                    onClick={clearAllFilters}
+                  >
+                    <X className="h-3.5 w-3.5 mr-2" />
+                    Clear all filters
+                  </Button>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
+
+      {/* Active filters display */}
+      {activeFilterCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap mb-3 px-1">
+          <span className="text-xs text-muted-foreground">Showing {filteredRecruits.length} of {recruits.length}:</span>
+          {yearFilters.map(y => (
+            <Badge key={y} variant="secondary" className="text-xs gap-1">
+              {y}
+              <X 
+                className="h-3 w-3 cursor-pointer" 
+                onClick={() => setYearFilters(prev => prev.filter(f => f !== y))}
+              />
+            </Badge>
+          ))}
+          {lineageFilter && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {lineageFilter === 'direct' ? 'Direct' : 'Downline'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setLineageFilter(null)} />
+            </Badge>
+          )}
+          {teamFilter && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {uniqueTeams.find(t => t.id === teamFilter)?.name || 'Team'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setTeamFilter(null)} />
+            </Badge>
+          )}
+          {hasBlitzFilter !== null && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {hasBlitzFilter ? 'Has Blitz' : 'No Blitz'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setHasBlitzFilter(null)} />
+            </Badge>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4">
         {PRIMARY_STAGES.map(renderStageColumn)}
