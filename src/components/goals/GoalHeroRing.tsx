@@ -3,6 +3,7 @@ import { Check, Target, Zap, Trophy, TrendingUp } from "lucide-react";
 import { formatCurrency, calculateTakeHome } from "@/utils/payscaleCalculator";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 export type GoalTier = 'preseason' | 'mustDo' | 'willDo' | 'couldDo';
 
@@ -408,6 +409,9 @@ export const GoalHeroRing = ({
           </span>
         </div>
       )}
+
+      {/* Pay estimate disclaimer */}
+      <PayEstimateDisclaimer className="mt-4 text-center" />
     </div>
   );
 };

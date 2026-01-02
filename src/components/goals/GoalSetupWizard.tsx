@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useBlitzes } from "@/hooks/useBlitzes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEfpMode } from "@/hooks/useEfpMode";
+import { PayEstimateDisclaimer } from "@/components/PayEstimateDisclaimer";
 
 // Parse date string as local date (not UTC) to avoid timezone offset issues
 const parseLocalDate = (dateString: string): Date => {
@@ -779,6 +780,8 @@ export const GoalSetupWizard = ({ isRookie, committedBlitzIds = [], onComplete, 
         <div className="text-xs text-muted-foreground text-center">
           {housingOption.label} (${housingOption.value}/wk) • {weeksWorking} weeks • ${avgPrmrPerFp} avg PRMR
         </div>
+
+        <PayEstimateDisclaimer className="text-center mt-2" />
       </div>
     );
   };
