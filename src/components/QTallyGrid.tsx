@@ -156,7 +156,7 @@ export const QTallyGrid = ({ entry, onCounterChange, customCounterConfig = [], c
   const hasCustomCounters = customCounters.length > 0;
 
   return (
-    <div className={`w-full ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
+    <div data-tour="track-counter-grid" className={`w-full ${hasCustomCounters ? 'overflow-y-auto' : 'h-full'}`}>
       {/* Core 6 counters - Fixed grid */}
       <div className="grid grid-cols-2 gap-3 w-full" style={{ gridTemplateRows: 'repeat(3, 1fr)', minHeight: hasCustomCounters ? 'auto' : '100%' }}>
         {coreCounters.map((counter) => (

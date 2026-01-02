@@ -12,9 +12,12 @@ import { SyncIndicator } from "./SyncIndicator";
 import { LogSaleSheet, Sale } from "./LogSaleSheet";
 import { DeleteSalePickerSheet } from "./DeleteSalePickerSheet";
 import { NotificationPermissionPrompt } from "./NotificationPermissionPrompt";
+import { PageTour } from "./PageTour";
 import { useDailyEntry } from "@/hooks/useDailyEntry";
 import { useTrackBackup, getCurrentUserId } from "@/hooks/useTrackBackup";
 import { useCompetitorNudge } from "@/hooks/useCompetitorNudge";
+import { usePageTour } from "@/hooks/usePageTour";
+import { trackTourSteps } from "@/config/pageTours";
 import { supabase } from "@/integrations/supabase/client";
 import { useRepData } from "@/hooks/useRepData";
 import { usePreseasonFP } from "@/hooks/usePreseasonFP";
@@ -51,6 +54,12 @@ const TrackWithLayout = () => {
   const { repData } = useRepData();
   const { totalFP: preseasonFP } = usePreseasonFP();
   const { entry, updateCounter, finalizeEntry, resetEntry, clearLocalEntry, isFinalizing, isResetting, isLoading: isLoadingEntry } = useDailyEntry();
+  
+  // Page tour
+  const { showTour, completeTour, skipTour } = usePageTour({
+    page: 'track',
+    enabled: !!repData && !isLoadingEntry,
+  });
   const [isSaveSheetOpen, setIsSaveSheetOpen] = useState(false);
   const [isResetSheetOpen, setIsResetSheetOpen] = useState(false);
   const [unfinalizedEntries, setUnfinalizedEntries] = useState<any[]>([]);
@@ -886,6 +895,14 @@ const TrackWithLayout = () => {
           queueTotal={totalUnfinalizedCount}
         />
       )}
+
+      {/* Page Tour */}
+      <PageTour
+        steps={trackTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
     </>
   );
 };

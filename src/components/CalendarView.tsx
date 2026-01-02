@@ -400,7 +400,7 @@ export const CalendarView = ({
 
       {/* Calendar Grid */}
       {viewMode === "month" ? (
-        <div className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
+        <div data-tour="calendar-grid" className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
@@ -430,6 +430,7 @@ export const CalendarView = ({
             return (
               <div
                 key={idx}
+                data-tour={isTodayDate ? "calendar-day-tile" : undefined}
                 onClick={() => handleDayClick(day)}
                 className={`
                   aspect-square p-1.5 rounded-lg border transition-all relative
@@ -471,7 +472,7 @@ export const CalendarView = ({
         </div>
       ) : (
         /* Week View - Grid layout matching month view */
-        <div className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
+        <div data-tour="calendar-grid" className="grid grid-cols-7 gap-2" style={swipeStyle} {...swipeHandlers}>
           {/* Day headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
             <div key={day} className="text-center text-sm font-semibold text-muted-foreground pb-2">
@@ -500,6 +501,7 @@ export const CalendarView = ({
             return (
               <div
                 key={idx}
+                data-tour={isTodayDate ? "calendar-day-tile" : undefined}
                 onClick={() => handleDayClick(day)}
                 className={`
                   p-3 rounded-lg border transition-all min-h-[100px] flex flex-col relative
@@ -561,7 +563,7 @@ export const CalendarView = ({
       )}
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+      <div data-tour="calendar-blitz-indicator" className="mt-4 flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-primary/10 border border-primary/30" />
           <span className="text-muted-foreground">Worked</span>

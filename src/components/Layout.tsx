@@ -298,6 +298,7 @@ const Layout = ({ children, onSave, onReset, isSaving, isResetting, syncIndicato
       >
         <div className="px-4 pb-2">
           <div 
+            data-tour="bottom-nav"
             className="flex items-center justify-around mx-auto bg-background/95 backdrop-blur-2xl border border-border/30 shadow-xl rounded-[32px] py-2"
             style={{ maxWidth: '380px' }}
           >
