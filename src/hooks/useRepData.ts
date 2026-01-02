@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type JsonField = any;
+
 export interface RepData {
   id: string;
   user_id: string;
@@ -23,10 +26,10 @@ export interface RepData {
   blitz_ready: boolean;
   path_to_pro_started: boolean;
   path_to_pro_progress: number;
-  completed_tasks: unknown; // JSONB array of completed task IDs
+  completed_tasks: JsonField;
   nudge_leader: boolean | null;
   last_nudge_time: string | null;
-  year: string | null; // "Rookie", "Sophomore", or "Vet"
+  year: string | null;
   personal_fp: number | null;
   personal_fp_goal: number | null;
   reps_with_sale: number | null;
@@ -35,19 +38,28 @@ export interface RepData {
   blitz_trip_date: string | null;
   blitz_trip_end_date: string | null;
   blitz_trip_location: string | null;
-  committed_blitzes: unknown; // JSONB array of committed blitz names
-  declined_blitz_rsvps: unknown; // JSONB array of declined blitz IDs
-  custom_counter_config: unknown; // JSONB array of custom counter definitions
+  committed_blitzes: JsonField;
+  declined_blitz_rsvps: JsonField;
+  custom_counter_config: JsonField;
   efp_mode_enabled: boolean | null;
   timezone: string | null;
   crm_enabled: boolean | null;
   crm_detailed_enabled: boolean | null;
   profile_photo_url: string | null;
-  watched_videos: unknown; // JSONB array of watched video IDs
+  watched_videos: JsonField;
   ipad_assigned: boolean | null;
   intro_seen: boolean | null;
   sales_logger_enabled: boolean | null;
   me_vs_me_enabled: boolean | null;
+  pages_toured: JsonField;
+  contacted_for_blitz: JsonField;
+  counter_layout_config: JsonField;
+  created_at: string | null;
+  dismissed_recruit_ids: JsonField;
+  processed_blitz_ids: JsonField;
+  rsvp_first_window_ack_blitz_ids: string[];
+  rsvp_second_window_ack_blitz_ids: string[];
+  updated_at: string | null;
 }
 
 // Helper to get user-specific cache key

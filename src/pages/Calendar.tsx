@@ -7,6 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
+import { PageTour } from "@/components/PageTour";
+import { usePageTour } from "@/hooks/usePageTour";
+import { calendarTourSteps } from "@/config/pageTours";
 
 interface CalendarProps {
   viewMode?: "week" | "month";
@@ -61,7 +64,39 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
     ? new Date(seasonConfig.personal_summer_end) 
     : undefined;
 
-  // Show skeleton loader while initializing auth OR loading data - prevents flash of wrong content
+  // Check if user is a pre-blitz rookie
+  const year = repData?.year || "Rookie";
+  const isRookie = year === "Rookie";
+  
+  const blitzes = repData?.committed_blitzes 
+    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
+    : [];
+  
+  const now = new Date();
+  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
+    if (!blitz.date || !blitz.endDate) return false;
+    const yearNum = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yearNum}-${month}-${day}`;
+    const blitzStartStr = blitz.date;
+    const isStartingToday = todayStr === blitzStartStr;
+    const startDate = new Date(blitz.date + 'T00:00:00');
+    const endDate = new Date(blitz.endDate + 'T23:59:59');
+    const isCurrentlyActive = now >= startDate && now <= endDate;
+    const hasEnded = endDate < now;
+    return isStartingToday || isCurrentlyActive || hasEnded;
+  });
+
+  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
+
+  // Page tour - only show for users who can access the calendar
+  const { showTour, completeTour, skipTour } = usePageTour({
+    page: 'calendar',
+    enabled: !isPreBlitzRookie && !!repData,
+  });
+
+  // Show skeleton loader while initializing auth OR loading data
   if (isInitializing || (loadingRepData && !repData)) {
     return (
       <div className="min-h-screen bg-background p-4 space-y-4">
@@ -74,41 +109,6 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
       </div>
     );
   }
-
-  // Check if user is a pre-blitz rookie - only after data is loaded
-  const year = repData?.year || "Rookie";
-  const isRookie = year === "Rookie";
-  
-  // Check if rookie has attended a blitz OR is currently on an active blitz
-  const blitzes = repData?.committed_blitzes 
-    ? (Array.isArray(repData.committed_blitzes) ? repData.committed_blitzes : [])
-    : [];
-  
-  const now = new Date();
-  const hasAttendedOrOnBlitz = blitzes.some((blitz: any) => {
-    if (!blitz.date || !blitz.endDate) return false;
-    
-    // Check if today matches the blitz start date (unlock immediately on blitz day)
-    // Use local date, not UTC, to avoid timezone conversion issues
-    const yearNum = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yearNum}-${month}-${day}`;
-    const blitzStartStr = blitz.date;
-    const isStartingToday = todayStr === blitzStartStr;
-    
-    // Check if blitz is currently active (between start and end date)
-    const startDate = new Date(blitz.date + 'T00:00:00');
-    const endDate = new Date(blitz.endDate + 'T23:59:59');
-    const isCurrentlyActive = now >= startDate && now <= endDate;
-    
-    // Check if blitz has ended (past)
-    const hasEnded = endDate < now;
-    
-    return isStartingToday || isCurrentlyActive || hasEnded;
-  });
-
-  const isPreBlitzRookie = isRookie && !hasAttendedOrOnBlitz;
 
   // Show locked state for pre-blitz rookies
   if (isPreBlitzRookie) {
@@ -153,14 +153,23 @@ const Calendar = ({ viewMode = "week", onViewModeChange }: CalendarProps) => {
   }
 
   return (
-    <CalendarView
-      entries={entries}
-      blitzes={blitzes}
-      personalSummerStart={personalSummerStart}
-      personalSummerEnd={personalSummerEnd}
-      viewMode={viewMode}
-      onViewModeChange={onViewModeChange}
-    />
+    <>
+      <CalendarView
+        entries={entries}
+        blitzes={blitzes}
+        personalSummerStart={personalSummerStart}
+        personalSummerEnd={personalSummerEnd}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+      />
+      
+      <PageTour
+        steps={calendarTourSteps}
+        isOpen={showTour}
+        onComplete={completeTour}
+        onSkip={skipTour}
+      />
+    </>
   );
 };
 

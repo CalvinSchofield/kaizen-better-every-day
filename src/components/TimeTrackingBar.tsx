@@ -118,7 +118,7 @@ export const TimeTrackingBar = ({
 
   return (
     <>
-      <div className="flex items-center justify-center gap-4 py-3 px-4 bg-card/50 border-b border-border/40">
+      <div data-tour="track-time-bar" className="flex items-center justify-center gap-4 py-3 px-4 bg-card/50 border-b border-border/40">
         {/* Start Clock */}
         <div className="flex flex-col items-center gap-1">
           <Button

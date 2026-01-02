@@ -1150,6 +1150,7 @@ export type Database = {
           name: string
           nudge_leader: boolean | null
           onboarding_complete: boolean | null
+          pages_toured: Json | null
           path_to_pro_progress: number | null
           path_to_pro_started: boolean | null
           personal_fp: number | null
@@ -1205,6 +1206,7 @@ export type Database = {
           name: string
           nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
+          pages_toured?: Json | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null
           personal_fp?: number | null
@@ -1260,6 +1262,7 @@ export type Database = {
           name?: string
           nudge_leader?: boolean | null
           onboarding_complete?: boolean | null
+          pages_toured?: Json | null
           path_to_pro_progress?: number | null
           path_to_pro_started?: boolean | null
           personal_fp?: number | null
