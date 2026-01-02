@@ -44,6 +44,9 @@ import { format, parseISO, differenceInDays, isPast, isToday as isDateToday, sta
 import { toast } from "sonner";
 import { UndoBanner } from "@/components/ui/UndoBanner";
 import { AnimatePresence } from "framer-motion";
+import { usePageTour } from "@/hooks/usePageTour";
+import { PageTour } from "@/components/PageTour";
+import { myGroupTourSteps } from "@/config/pageTours";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +66,7 @@ const FloatingAddButton = ({ visible, onClick }: { visible: boolean; onClick: ()
   
   return (
     <Button
+      data-tour="group-add-recruit"
       className={`fixed right-4 h-14 w-14 rounded-full shadow-lg z-40 transition-all duration-300 ${
         isScrollVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}
@@ -873,32 +877,34 @@ const MyGroup = () => {
           ) : (
             <>
               {/* Today's Focus Hero */}
-              <TodaysFocusHero
-                topRecommendation={topRecommendation}
-                summerRecommendation={topSummerRecommendation}
-                overdueScheduledFallback={overdueScheduledFallback}
-                todayScheduledItem={todayScheduledItem}
-                needsAttentionFallback={needsAttentionFallback}
-                totalNeedsAttention={totalCount}
-                onRecruitClick={handleRecruitClick}
-                onSummerRepClick={(notionPageId) => {
-                  const recruit = allRecruits.find(r => r.id === notionPageId);
-                  if (recruit) setSelectedRecruit(recruit);
-                }}
-                onViewAll={() => setQuickViewOpen(true)}
-                onContactClick={handleHeroContact}
-                onScheduleClick={handleHeroSchedule}
-                onRescheduleActivityClick={handleHeroRescheduleActivity}
-                onSkipForNow={(recruit) => skipForNow(recruit.id)}
-                onSkipToday={(recruit) => skipToday(recruit.id)}
-                onLogOneOnOneClick={(repUserId, repName) => {
-                  setLogOneOnOneRepUserId(repUserId);
-                  setLogOneOnOneRepName(repName);
-                  setLogOneOnOneOpen(true);
-                }}
-                animatingOut={heroAnimatingOut}
-                isLoading={!isHeroDataStable}
-              />
+              <div data-tour="group-hero-card">
+                <TodaysFocusHero
+                  topRecommendation={topRecommendation}
+                  summerRecommendation={topSummerRecommendation}
+                  overdueScheduledFallback={overdueScheduledFallback}
+                  todayScheduledItem={todayScheduledItem}
+                  needsAttentionFallback={needsAttentionFallback}
+                  totalNeedsAttention={totalCount}
+                  onRecruitClick={handleRecruitClick}
+                  onSummerRepClick={(notionPageId) => {
+                    const recruit = allRecruits.find(r => r.id === notionPageId);
+                    if (recruit) setSelectedRecruit(recruit);
+                  }}
+                  onViewAll={() => setQuickViewOpen(true)}
+                  onContactClick={handleHeroContact}
+                  onScheduleClick={handleHeroSchedule}
+                  onRescheduleActivityClick={handleHeroRescheduleActivity}
+                  onSkipForNow={(recruit) => skipForNow(recruit.id)}
+                  onSkipToday={(recruit) => skipToday(recruit.id)}
+                  onLogOneOnOneClick={(repUserId, repName) => {
+                    setLogOneOnOneRepUserId(repUserId);
+                    setLogOneOnOneRepName(repName);
+                    setLogOneOnOneOpen(true);
+                  }}
+                  animatingOut={heroAnimatingOut}
+                  isLoading={!isHeroDataStable}
+                />
+              </div>
 
             {/* Undo Banner */}
             <AnimatePresence>
@@ -911,34 +917,38 @@ const MyGroup = () => {
               )}
             </AnimatePresence>
 
-            <NeedsAttentionChips
-              categories={categoriesWithSummer}
-              selectedCategory={selectedCategoryId}
-              onCategoryClick={(catId) => {
-                if (catId === 'goals-pace') {
-                  setGoalsPaceDrawerOpen(true);
-                } else {
-                  handleCategoryClick(catId);
-                }
-              }}
-              assignedTasksCount={assignedTasks.length}
-              onAssignedTasksClick={() => setAssignedTasksDrawerOpen(true)}
-            />
+            <div data-tour="group-attention-chips">
+              <NeedsAttentionChips
+                categories={categoriesWithSummer}
+                selectedCategory={selectedCategoryId}
+                onCategoryClick={(catId) => {
+                  if (catId === 'goals-pace') {
+                    setGoalsPaceDrawerOpen(true);
+                  } else {
+                    handleCategoryClick(catId);
+                  }
+                }}
+                assignedTasksCount={assignedTasks.length}
+                onAssignedTasksClick={() => setAssignedTasksDrawerOpen(true)}
+              />
+            </div>
 
             {/* Week Planner Section - includes week overview, today's tasks, and recommendations */}
             {/* Pass recommendations starting from index 1 to avoid duplicating hero */}
-            <WeekPlannerSection
-              recruits={filteredRecruits}
-              activities={filteredActivities}
-              onRecruitClick={handleRecruitClick}
-              blitzes={allBlitzesIncludingPast}
-              repDataMap={repDataMap}
-              dismissedIds={dismissedIds}
-              onDismiss={handleWeekPlannerDismiss}
-              recommendations={recommendations.slice(1)}
-              onSkipForNow={(recruit) => skipForNow(recruit.id)}
-              onSkipToday={(recruit) => skipToday(recruit.id)}
-            />
+            <div data-tour="group-week-planner">
+              <WeekPlannerSection
+                recruits={filteredRecruits}
+                activities={filteredActivities}
+                onRecruitClick={handleRecruitClick}
+                blitzes={allBlitzesIncludingPast}
+                repDataMap={repDataMap}
+                dismissedIds={dismissedIds}
+                onDismiss={handleWeekPlannerDismiss}
+                recommendations={recommendations.slice(1)}
+                onSkipForNow={(recruit) => skipForNow(recruit.id)}
+                onSkipToday={(recruit) => skipToday(recruit.id)}
+              />
+            </div>
 
             {/* Pending Suggestions */}
             {pendingSuggestions.length > 0 && (
@@ -1074,18 +1084,20 @@ const MyGroup = () => {
         recruits={filteredRecruits}
         activities={filteredActivities}
       />
-      <RecruitDetailDrawer
-        open={!!selectedRecruit}
-        onOpenChange={(open) => !open && setSelectedRecruit(null)}
-        recruit={selectedRecruit}
-        activities={filteredActivities.filter(a => a.recruit_id === selectedRecruit?.id)}
-        onExitStage={(notionPageId) => {
-          // Dismiss the recruit from hero/recommendations when moved to exit stage
-          dismissRecruit(notionPageId);
-          setLastDismissedRecruit({ id: notionPageId, name: selectedRecruit?.name || 'Recruit' });
-          setSelectedRecruit(null);
-        }}
-      />
+      <div data-tour="group-recruit-drawer">
+        <RecruitDetailDrawer
+          open={!!selectedRecruit}
+          onOpenChange={(open) => !open && setSelectedRecruit(null)}
+          recruit={selectedRecruit}
+          activities={filteredActivities.filter(a => a.recruit_id === selectedRecruit?.id)}
+          onExitStage={(notionPageId) => {
+            // Dismiss the recruit from hero/recommendations when moved to exit stage
+            dismissRecruit(notionPageId);
+            setLastDismissedRecruit({ id: notionPageId, name: selectedRecruit?.name || 'Recruit' });
+            setSelectedRecruit(null);
+          }}
+        />
+      </div>
       <ContactMethodDrawer
         open={contactMethodDrawerOpen}
         onOpenChange={(open) => {
@@ -1211,7 +1223,43 @@ const MyGroup = () => {
           setRescheduleActivity(null);
         }}
       />
+
+      {/* Page Tour - Leaders only */}
+      {isLeader && (
+        <MyGroupPageTour 
+          allRecruits={allRecruits}
+          onOpenRecruit={setSelectedRecruit}
+        />
+      )}
     </Layout>
+  );
+};
+
+// Separate component to use the hook conditionally
+const MyGroupPageTour = ({ 
+  allRecruits,
+  onOpenRecruit
+}: { 
+  allRecruits: Recruit[];
+  onOpenRecruit: (recruit: Recruit | null) => void;
+}) => {
+  const { showTour, completeTour, skipTour } = usePageTour({ page: 'my-group' });
+
+  const handleStepAction = (action: string) => {
+    if (action === 'openRecruitDrawer' && allRecruits.length > 0) {
+      // Open the first recruit to demonstrate the drawer
+      onOpenRecruit(allRecruits[0]);
+    }
+  };
+
+  return (
+    <PageTour
+      steps={myGroupTourSteps}
+      isOpen={showTour}
+      onComplete={completeTour}
+      onSkip={skipTour}
+      onStepAction={handleStepAction}
+    />
   );
 };
 

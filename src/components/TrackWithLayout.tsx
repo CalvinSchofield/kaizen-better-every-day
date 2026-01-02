@@ -765,24 +765,26 @@ const TrackWithLayout = () => {
       </Layout>
 
       {/* Log Sale Sheet */}
-      <LogSaleSheet
-        open={isLogSaleSheetOpen}
-        onOpenChange={(open) => {
-          setIsLogSaleSheetOpen(open);
-          if (!open) {
-            setPendingCloseIncrement(false);
-            setEditingSale(null);
-          }
-        }}
-        onLogSale={handleLogSale}
-        editingSale={editingSale}
-        onUpdateSale={handleUpdateSale}
-        onDeleteSale={handleDeleteSale}
-        showPrmrHelper={showPrmrHelper}
-        crmEnabled={(repData as any)?.crm_enabled || false}
-        crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
-        counterTimestamps={entry.counter_timestamps}
-      />
+      <div data-tour="track-log-sale-sheet">
+        <LogSaleSheet
+          open={isLogSaleSheetOpen}
+          onOpenChange={(open) => {
+            setIsLogSaleSheetOpen(open);
+            if (!open) {
+              setPendingCloseIncrement(false);
+              setEditingSale(null);
+            }
+          }}
+          onLogSale={handleLogSale}
+          editingSale={editingSale}
+          onUpdateSale={handleUpdateSale}
+          onDeleteSale={handleDeleteSale}
+          showPrmrHelper={showPrmrHelper}
+          crmEnabled={(repData as any)?.crm_enabled || false}
+          crmDetailedEnabled={(repData as any)?.crm_detailed_enabled || false}
+          counterTimestamps={entry.counter_timestamps}
+        />
+      </div>
 
       {/* Delete Sale Picker Sheet */}
       <DeleteSalePickerSheet
@@ -902,6 +904,11 @@ const TrackWithLayout = () => {
         isOpen={showTour}
         onComplete={completeTour}
         onSkip={skipTour}
+        onStepAction={(action) => {
+          if (action === 'openLogSaleSheet') {
+            setIsLogSaleSheetOpen(true);
+          }
+        }}
       />
     </>
   );

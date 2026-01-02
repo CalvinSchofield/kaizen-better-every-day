@@ -8,6 +8,7 @@ export interface TourStep {
   title: string;
   description: string;
   position?: 'top' | 'bottom' | 'auto';
+  action?: string; // Optional action to trigger when entering this step
 }
 
 interface PageTourProps {
@@ -15,6 +16,7 @@ interface PageTourProps {
   isOpen: boolean;
   onComplete: () => void;
   onSkip: () => void;
+  onStepAction?: (action: string) => void; // Callback when a step has an action
 }
 
 interface SpotlightRect {
@@ -24,7 +26,7 @@ interface SpotlightRect {
   height: number;
 }
 
-export const PageTour = ({ steps, isOpen, onComplete, onSkip }: PageTourProps) => {
+export const PageTour = ({ steps, isOpen, onComplete, onSkip, onStepAction }: PageTourProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
   const [cardPosition, setCardPosition] = useState<'top' | 'bottom'>('bottom');
@@ -86,8 +88,12 @@ export const PageTour = ({ steps, isOpen, onComplete, onSkip }: PageTourProps) =
   useLayoutEffect(() => {
     if (isOpen) {
       updateSpotlight();
+      // Trigger step action if present
+      if (step?.action && onStepAction) {
+        onStepAction(step.action);
+      }
     }
-  }, [isOpen, currentStep, updateSpotlight]);
+  }, [isOpen, currentStep, updateSpotlight, step?.action, onStepAction]);
 
   // Recalculate on resize
   useEffect(() => {
