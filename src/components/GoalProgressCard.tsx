@@ -144,8 +144,9 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
   const { totalSeasonKnockingDays, futureSeasonPlannedDays, seasonKnockingDaysComplete } = useMemo(() => {
     if (!plannedDays) return { totalSeasonKnockingDays: 0, futureSeasonPlannedDays: 0, seasonKnockingDaysComplete: 0 };
     
+    // Use user's personal summer dates when in summer mode
     const seasonEndStr = isInPreseason ? PRESEASON_END : personalSummerEnd;
-    const seasonStartStr = isInPreseason ? '2025-09-28' : '2026-04-12';
+    const seasonStartStr = isInPreseason ? '2025-09-28' : (personalSummerStart || '2026-04-12');
     const todayStr = format(today, 'yyyy-MM-dd');
     
     // Knocking days already completed in the season
@@ -168,7 +169,7 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
       futureSeasonPlannedDays: futurePlanned,
       seasonKnockingDaysComplete: knockingDaysComplete 
     };
-  }, [plannedDays, entries, isInPreseason, personalSummerEnd, today]);
+  }, [plannedDays, entries, isInPreseason, personalSummerEnd, personalSummerStart, today]);
 
   // Check if user has no goals set up - show engaging prompt
   if (!goals || !goals.setup_complete) {
