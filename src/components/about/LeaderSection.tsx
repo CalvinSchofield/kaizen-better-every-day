@@ -33,7 +33,7 @@ const teamLeads = [
   { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpg" },
   { name: "Ansel Severson", photo: "/images/about-team/ansel-severson.png" },
   { name: "Ammon Allan", photo: "/images/about-team/ammon-allan.png" },
-  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.jpeg" },
+  { name: "RJ Ashton", photo: "/images/about-team/rj-ashton.jpg" },
   { name: "Quinn Gleed", photo: "/images/about-team/quinn-gleed.png" },
   { name: "Misael Sanchez", photo: "/images/about-team/misael-sanchez.png" },
   { name: "Micah Ao", photo: "/images/about-team/micah-ao.png" },
