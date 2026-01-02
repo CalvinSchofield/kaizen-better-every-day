@@ -9,6 +9,7 @@ import { EarningsComparison } from "@/components/about/EarningsComparison";
 import { CultureGallery } from "@/components/about/CultureGallery";
 import { AlumniSection } from "@/components/about/AlumniSection";
 import { CompanyCredibility } from "@/components/about/CompanyCredibility";
+import { LeaderSection } from "@/components/about/LeaderSection";
 import { FinalCTA } from "@/components/about/FinalCTA";
 
 const AboutTeam = () => {
@@ -36,6 +37,7 @@ const AboutTeam = () => {
       <CultureGallery />
       <AlumniSection />
       <CompanyCredibility />
+      <LeaderSection />
       <FinalCTA />
     </div>
   );
