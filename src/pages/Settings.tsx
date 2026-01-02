@@ -1331,10 +1331,16 @@ export default function Settings() {
                         updateRepGoals({ custom_payscale_fp: parseInt(value) });
                       }}
                     >
-                      <SelectTrigger className="w-24">
+                      <SelectTrigger className="w-28">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        {/* Show current FP+ level at top */}
+                        {userCumulativeFpPlus > 0 && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b border-border mb-1">
+                            Current: {Math.round(userCumulativeFpPlus)} FP+
+                          </div>
+                        )}
                         {RECAP_TIER_OPTIONS.map((tier) => {
                           const isDisabled = tier < userCumulativeFpPlus;
                           return (
