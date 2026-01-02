@@ -35,6 +35,7 @@ import WeeklyRecapBuilder from "./pages/WeeklyRecapBuilder";
 import ProductKnowledge from "./pages/ProductKnowledge";
 import AdminBlitzes from "./pages/AdminBlitzes";
 import RecruitingContent from "./pages/RecruitingContent";
+import AboutTeam from "./pages/AboutTeam";
 import { queryPersister } from "./lib/queryPersister";
 
 const queryClient = new QueryClient({
@@ -266,9 +267,17 @@ const App = () => {
               path="/recruiting-content"
               element={
                 <ProtectedRoute>
-                  <RecruitingContent />
-                </ProtectedRoute>
-              }
+              <RecruitingContent />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/about-team"
+          element={
+            <ProtectedRoute>
+              <AboutTeam />
+            </ProtectedRoute>
+          }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
