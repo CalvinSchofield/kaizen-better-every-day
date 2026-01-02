@@ -33,14 +33,14 @@ export interface IntroSlideConfig {
   showConfetti?: boolean;
 }
 
-// Team leads for carousel - Calvin first as Area Director, then team leads
+// Team leads for carousel - showing key leaders
 const teamLeads = [
-  { name: "Calvin Schofield", photo: "/images/about-team/calvin.jpg", title: "Area Director" },
+  { name: "Calvin Schofield", photo: "/images/about-team/calvin-schofield.jpeg" },
+  { name: "Christian Fabian", photo: "/images/about-team/christian-fabian.png" },
+  { name: "Adam Schofield", photo: "/images/about-team/adam-schofield.jpg" },
   { name: "Jose Pineda", photo: "/images/about-team/jose-pineda.jpg" },
-  { name: "John Ramer", photo: "/images/about-team/john-ramer.png" },
   { name: "Jack Mair", photo: "/images/about-team/jack-mair.png" },
-  { name: "Henry Condie", photo: "/images/about-team/henry-condie.png" },
-  { name: "Hunter Milne", photo: "/images/about-team/hunter-milne.png" },
+  { name: "Ammon Allan", photo: "/images/about-team/ammon-allan.png" },
 ];
 
 // Get the first success story with a video for the testimonial
@@ -101,7 +101,7 @@ export const getPreBlitzRookieSlides = (firstName: string): IntroSlideConfig[] =
       id: 'meet-the-team',
       type: 'carousel',
       title: "Meet Your Leaders",
-      description: "Calvin and his Team Leads have your back. They've been in your shoes and are here to help you succeed.",
+      description: "This group of leaders has your back. They've been in your shoes and are here to help you succeed.",
       carouselItems: teamLeads,
     },
 
