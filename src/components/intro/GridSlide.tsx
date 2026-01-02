@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useState } from "react";
 
 interface GridItem {
   photo: string;
@@ -11,6 +12,31 @@ interface GridSlideProps {
   description: string;
   gridItems: GridItem[];
 }
+
+const BlurImage = ({ src, alt, isAreaDirector }: { src: string; alt: string; isAreaDirector?: boolean }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  return (
+    <div className={`w-16 h-16 mx-auto rounded-full overflow-hidden border-2 ${
+      isAreaDirector ? 'border-primary ring-2 ring-primary/30' : 'border-border'
+    } bg-muted relative`}>
+      {/* Blur placeholder */}
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted-foreground/20 animate-pulse" />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${
+          isLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        loading="eager"
+        decoding="async"
+        onLoad={() => setIsLoaded(true)}
+      />
+    </div>
+  );
+};
 
 export const GridSlide = ({
   title,
@@ -58,17 +84,11 @@ export const GridSlide = ({
             transition={{ delay: 0.3 + index * 0.03 }}
             className="text-center"
           >
-            <div className={`w-16 h-16 mx-auto rounded-full overflow-hidden border-2 ${
-              item.isAreaDirector ? 'border-primary ring-2 ring-primary/30' : 'border-border'
-            } bg-muted`}>
-              <img
-                src={item.photo}
-                alt={item.name}
-                className="w-full h-full object-cover"
-                loading="eager"
-                decoding="async"
-              />
-            </div>
+            <BlurImage 
+              src={item.photo} 
+              alt={item.name} 
+              isAreaDirector={item.isAreaDirector} 
+            />
             <p className="text-[10px] font-medium mt-1 leading-tight truncate px-1">
               {item.name.split(' ')[0]}
             </p>
