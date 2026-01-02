@@ -364,52 +364,37 @@ const Goals = () => {
   }), [goals, conversionFactor, currentProgress]);
 
   // Auto-select appropriate tier based on progress and season
-  // During preseason we default to preseason tier, but we should never override a user's manual selection.
+  // This only runs on initial load (no manual selection yet) to pick a sensible default.
+  // Once user manually selects a tier, we never override it.
   useEffect(() => {
     if (!goals) return;
+    
+    // If user has already manually selected a tier this session, respect it
+    if (hasManualTierSelection) return;
 
-    // If the user manually selected a tier during preseason, keep their choice.
-    if (hasManualTierSelection && !isUserSummerStarted) return;
-
-    // If user has a saved focus_tier and summer has started, use it
-    if (isUserSummerStarted && goals.focus_tier) {
+    // If user has a saved focus_tier in DB, use it
+    if (goals.focus_tier) {
       const savedTier = goals.focus_tier as GoalTier;
-      if (['mustDo', 'willDo', 'couldDo'].includes(savedTier)) {
+      if (['mustDo', 'willDo', 'couldDo', 'preseason'].includes(savedTier)) {
         setActiveTier(savedTier);
         return;
       }
     }
 
-    // Once user's personal summer has started, never select preseason tier
-    if (isUserSummerStarted) {
-      // Select the lowest incomplete summer tier
-      if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
-        setActiveTier('mustDo');
-      } else if (!tiers.willDo.complete && tiers.willDo.goal > 0) {
-        setActiveTier('willDo');
-      } else if (!tiers.couldDo.complete && tiers.couldDo.goal > 0) {
-        setActiveTier('couldDo');
-      } else if (tiers.willDo.goal > 0) {
-        setActiveTier('willDo');
-      }
-      return;
-    }
-
-    // During preseason (before user's summer starts), default to preseason tier if goal exists and not complete
+    // Default selection logic for first load only:
+    // During preseason, default to preseason tier if available and not complete
     if (isPreseason && !tiers.preseason.complete && tiers.preseason.goal > 0) {
       setActiveTier('preseason');
-    } else if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
-      setActiveTier('mustDo');
     } else if (!tiers.willDo.complete && tiers.willDo.goal > 0) {
       setActiveTier('willDo');
+    } else if (!tiers.mustDo.complete && tiers.mustDo.goal > 0) {
+      setActiveTier('mustDo');
     } else if (!tiers.couldDo.complete && tiers.couldDo.goal > 0) {
       setActiveTier('couldDo');
-    } else if (isPreseason && tiers.preseason.goal > 0) {
-      setActiveTier('preseason');
     } else if (tiers.willDo.goal > 0) {
       setActiveTier('willDo');
     }
-  }, [goals, tiers, isPreseason, isUserSummerStarted, hasManualTierSelection]);
+  }, [goals, tiers, isPreseason, hasManualTierSelection]);
 
   // Handler for tier selection that persists to database (for summer tiers only)
   const handleTierSelect = async (tier: GoalTier) => {

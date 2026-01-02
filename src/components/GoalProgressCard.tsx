@@ -154,14 +154,35 @@ export const GoalProgressCard = ({ entries, currentDate, viewMode }: GoalProgres
 
   // FIXED PACE CALCULATION
   // Total knocking days for the ENTIRE season: already worked + future planned
+  // When viewing summer dates (isInPreseason = false), calculate summer knocking days
+  // When viewing preseason dates, calculate preseason knocking days
   const { totalSeasonKnockingDays, futureSeasonPlannedDays, seasonKnockingDaysComplete } = useMemo(() => {
     if (!plannedDays) return { totalSeasonKnockingDays: 0, futureSeasonPlannedDays: 0, seasonKnockingDaysComplete: 0 };
     
-    // Use user's personal summer dates when in summer mode
+    // Determine season boundaries based on viewed date context
     const seasonEndStr = isInPreseason ? PRESEASON_END : personalSummerEnd;
     const seasonStartStr = isInPreseason ? '2025-09-28' : (personalSummerStart || '2026-04-12');
     const todayStr = format(today, 'yyyy-MM-dd');
     
+    // For summer view during preseason, we need to count planned summer days (not completed days)
+    // because summer hasn't started yet
+    const isTodayBeforeSeason = todayStr < seasonStartStr;
+    
+    if (isTodayBeforeSeason && !isInPreseason) {
+      // Viewing summer dates but today is before summer starts
+      // Count all planned summer days
+      const summerPlannedDays = plannedDays.filter(d => 
+        d.planned_date >= seasonStartStr && d.planned_date <= seasonEndStr
+      ).length;
+      
+      return { 
+        totalSeasonKnockingDays: summerPlannedDays, 
+        futureSeasonPlannedDays: summerPlannedDays,
+        seasonKnockingDaysComplete: 0 
+      };
+    }
+    
+    // Normal case: today is within the season being viewed
     // Knocking days already completed in the season
     const knockingDaysComplete = entries.filter(e => {
       if (!e.is_finalized) return false;
