@@ -14,6 +14,7 @@ import { useRepData } from "@/hooks/useRepData";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useRepGoals } from "@/hooks/useRepGoals";
 import { useIntroStatus } from "@/hooks/useIntroStatus";
+import { resetAllTours } from "@/hooks/usePageTour";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -1451,11 +1452,17 @@ export default function Settings() {
           </Collapsible>
         </Card>
 
-        {/* Show Intro Again - at bottom as least important */}
+        {/* App Tours - at bottom as least important */}
         <Card>
           <CardHeader className="pb-3">
+            <CardTitle className="text-base">App Tours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">App Tour</CardTitle>
+              <div>
+                <p className="text-sm font-medium">Welcome Intro</p>
+                <p className="text-xs text-muted-foreground">The onboarding slideshow</p>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -1463,10 +1470,34 @@ export default function Settings() {
                 className="gap-2"
               >
                 <RotateCcw className="h-4 w-4" />
-                Show Intro Again
+                Replay
               </Button>
             </div>
-          </CardHeader>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Page Tours</p>
+                <p className="text-xs text-muted-foreground">Guided tours for each page</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!repData?.user_id) return;
+                  await resetAllTours(repData.user_id);
+                  await queryClient.invalidateQueries({ queryKey: ['rep-data'] });
+                  toast({
+                    title: "Tours reset",
+                    description: "All page tours have been reset. Visit each page to see them again.",
+                  });
+                }}
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset All
+              </Button>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
